@@ -256,6 +256,7 @@ pub enum PortableReceiptError {
     InvalidHex(&'static str),
     InvalidQuantity(&'static str),
     ReceiptKeyMismatch,
+    NotReceipted,
     InclusionHeight,
     MissingBatchAuthorization,
 }
@@ -296,6 +297,7 @@ impl Display for PortableReceiptError {
             Self::ReceiptKeyMismatch => {
                 formatter.write_str("portable receipt key is not the pinned key that signed")
             }
+            Self::NotReceipted => formatter.write_str("transaction has not been receipted"),
             Self::InclusionHeight => {
                 formatter.write_str("inclusion height precedes the signed receipt height")
             }
@@ -371,6 +373,49 @@ struct PortableReceiptKey {
 }
 
 impl PortableReceiptV2 {
+    /// Exports the signed receipt of a receipted or committed RPC answer.
+    ///
+    /// # Errors
+    ///
+    /// Refuses submitted answers, malformed fields, unpinned keys and any
+    /// receipt, inclusion-height or raw-transaction verification failure.
+    pub fn from_sequencer_receipt(
+        answer: &serde_json::Value,
+        receipt_keys: &[ReceiptKeyEntry],
+        raw_transaction: Option<&[u8]>,
+    ) -> Result<Self, PortableReceiptError> {
+        let field = |name| {
+            answer
+                .get(name)
+                .and_then(serde_json::Value::as_str)
+                .ok_or(PortableReceiptError::JsonShape)
+        };
+        let rung = field("rung")?;
+        match rung {
+            "submitted" => return Err(PortableReceiptError::NotReceipted),
+            "receipted" | "committed" => {}
+            _ => return Err(PortableReceiptError::JsonShape),
+        }
+        let signed_receipt = decode_hex("receipt", field("receipt")?, 1, MAX_RECEIPT_BYTES)?;
+        let key_id: [u8; 32] = decode_hex_fixed("keyId", field("keyId")?)?;
+        let height = decode_quantity("height", field("height")?)?;
+        let inclusion_height = if rung == "committed" {
+            decode_quantity("blockNumber", field("blockNumber")?)?
+        } else {
+            height
+        };
+        let receipt_key = receipt_keys
+            .iter()
+            .find(|key| key.sequencer_id() == key_id)
+            .ok_or(PortableReceiptError::ReceiptKeyMismatch)?;
+        match raw_transaction {
+            Some(raw) => {
+                Self::export_with_transaction(&signed_receipt, receipt_key, inclusion_height, raw)
+            }
+            None => Self::export(&signed_receipt, receipt_key, inclusion_height),
+        }
+    }
+
     /// Exports one signed receipt only after it verifies against the given
     /// `ReceiptKeys` entry and the inclusion height is not below the signed
     /// receipt height.
