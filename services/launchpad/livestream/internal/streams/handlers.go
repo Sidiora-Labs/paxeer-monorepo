@@ -11,6 +11,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/url"
 	"strconv"
@@ -160,6 +161,7 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 	r.Post("/webhooks/livepeer", h.provisioned(h.webhook))
 	r.Post("/webhooks/livepeer/playback-access", h.provisioned(h.playbackAccess))
 	r.Route("/v2", func(v chi.Router) {
+		v.Get("/streams", h.listV2)
 		v.Post("/streams", h.provisioned(h.connectedCreate))
 		v.Patch("/streams/{id}", h.provisioned(h.connectedEdit))
 		v.Post("/streams/{id}/rotate-key", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "rotate") }))
@@ -181,10 +183,15 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 
 // ── POST /streams ───────────────────────────────────────────────────────────
 
+var ErrInvalidRequest = errors.New("invalid livestream request")
+
 // lifecycleError writes every lifecycle failure as the v2 Error envelope.
-// Provisioned (connected), platform and development runtimes share this one
-// writer: contractError owns the status/code table.
+// Provisioned (connected), platform and development runtimes share this writer.
 func (h *Handlers) lifecycleError(w http.ResponseWriter, err error) {
+	if errors.Is(err, ErrInvalidRequest) {
+		writeContractError(w, http.StatusBadRequest, "INVALID_REQUEST", "Invalid livestream request", false, nil, nil)
+		return
+	}
 	h.contractError(w, err)
 }
 func (h *Handlers) authorization(r *http.Request, action string, o Operation) (Authorization, error) {
@@ -397,6 +404,74 @@ func (h *Handlers) public(ctx context.Context, o Operation) (V2Stream, error) {
 	}
 	return withThumbnail(view, sources), nil
 }
+func (h *Handlers) listV2(w http.ResponseWriter, r *http.Request) {
+	query, err := url.ParseQuery(r.URL.RawQuery)
+	if err != nil {
+		h.lifecycleError(w, ErrInvalidRequest)
+		return
+	}
+	limit := "50"
+	for key, values := range query {
+		valid := len(values) == 1
+		if valid {
+			switch key {
+			case "status":
+				valid = values[0] == "live"
+			case "poolAddress":
+				valid = addressPattern.MatchString(values[0])
+			case "cursor":
+				valid = len(values[0]) >= 1 && len(values[0]) <= 256
+			case "limit":
+				n, parseErr := strconv.Atoi(values[0])
+				valid = parseErr == nil && n >= 1 && n <= 100 && strconv.Itoa(n) == values[0]
+				limit = values[0]
+			default:
+				valid = false
+			}
+		}
+		if !valid {
+			h.lifecycleError(w, ErrInvalidRequest)
+			return
+		}
+	}
+	if h.lifecycle == nil {
+		h.lifecycleError(w, ErrUnavailable)
+		return
+	}
+	live := query.Get("status") == "live"
+	operations, nextCursor, err := h.lifecycle.Page(r.Context(), query.Get("poolAddress"), live, query.Get("cursor"), limit)
+	if err != nil {
+		if errors.Is(err, ErrInvalid) {
+			err = ErrInvalidRequest
+		}
+		h.lifecycleError(w, err)
+		return
+	}
+	items := make([]V2Stream, 0, len(operations))
+	for _, operation := range operations {
+		item, err := h.public(r.Context(), operation)
+		if err != nil {
+			h.lifecycleError(w, err)
+			return
+		}
+		if live && item.Status != "live" {
+			continue
+		}
+		items = append(items, item)
+	}
+	requestID, err := randomID()
+	if err != nil {
+		h.lifecycleError(w, err)
+		return
+	}
+	raw, err := AdaptV2StreamList(requestID, items, nextCursor, h.clock())
+	if err != nil {
+		h.lifecycleError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, json.RawMessage(raw))
+}
+
 func (h *Handlers) list(w http.ResponseWriter, r *http.Request, pool string, live bool) {
 	if h.lifecycle == nil {
 		h.lifecycleError(w, ErrUnavailable)
