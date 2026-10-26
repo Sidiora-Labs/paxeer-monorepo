@@ -602,7 +602,7 @@ export interface HumanErrorBody {
   field?: string;
 }
 
-export type ExplorerRung = 'pending' | 'instant' | 'sealed' | 'final';
+export type ExplorerRung = SequencerRung;
 
 export type SequencerRung = 'submitted' | 'receipted' | 'committed';
 
@@ -636,9 +636,7 @@ export interface SequencerReceiptAnswer {
 export interface ExplorerTransactionStatus {
   rung: ExplorerRung;
   block_number: number | null;
-  sealed_batch_number: number | null;
-  finalized_batch_number: number | null;
-  checkpoint_id: string | null;
+  committed_height: number | null;
 }
 
 /* ============================================================================
