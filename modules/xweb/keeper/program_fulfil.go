@@ -15,7 +15,7 @@ import (
 const (
 	// ProgramAnswerHeaderBytes is part 0 of a committed answer: the content
 	// digest, the u32 full length and the u32 response length.
-	ProgramAnswerHeaderBytes = 40
+	ProgramAnswerHeaderBytes = types.ProgramAnswerHeaderBytes
 
 	// ProgramAnswerChunkBytes bounds each response chunk, parts 1 and above.
 	ProgramAnswerChunkBytes = 1024
