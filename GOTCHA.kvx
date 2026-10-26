@@ -8808,3 +8808,62 @@ symptom = "cg spec done refuses a task with ✗ symbol — not defined in the gr
 cause = "Hyperfide revisions before 3762f1c43 extracted functions, types, methods and enums only and matched a qualified name's last segment without its container"
 do = "Use Hyperfide at 3762f1c43 or later (CG_EXTRACTION_VERSION 4) and rebuild the index; do not remove the symbol from the task"
 
+[gotcha.1847]
+area = "spec"
+symptom = "a Go package stops compiling with `TransferLeg redeclared in this block` after two sibling tasks land"
+cause = "two tasks' do-lines named the same type, one declaring it and one only using it, with no requires between them, so both wrote the declaration"
+do = "a type belongs to the task whose do-line declares it; a task that only uses it requires that task and never declares it; delete the duplicate from the user's file and record the finding"
+
+[gotcha.1848]
+area = "build"
+symptom = "a kernel task's verify_cmd fails with make: No rule to make target 'build/tests/kernel/...'"
+cause = "the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982) and a kernel task that does not require it builds on a tree without the rule"
+do = "every task whose verify_cmd builds build/tests/kernel/... requires 16.2.1; add the missing requires and re-qualify the finished implementation instead of rewriting it"
+
+[gotcha.1849]
+area = "tooling"
+symptom = "verify_cmd fails with `No module named pytest` after the task's unittest or build passed"
+cause = "the base python of the build environment carries pip only; pytest-based verify_cmds assume pytest is installed"
+do = "install pytest once before the gates when build_cmd or verify_cmd mentions pytest, record the install in the run log, and re-qualify the result"
+
+[gotcha.1850]
+area = "tooling"
+symptom = "cg spec done refuses a task with `not defined in the graph` although the symbol is declared in a touched file and the verify_cmd passed"
+cause = "the gate resolves only the symbol kinds its extractors emit; an interface method, a struct field, a module-level binding, a Solidity interface or constant, an exported object key, a named function expression or a shell function outside the extraction version is invisible, and a Rust type can tie with its own impl block"
+do = "check the symbol's kind and language against the gate's extraction version before touching the work; keep the symbol list naming declared symbols and re-qualify the unchanged result once the gate indexes that kind"
+
+[gotcha.1851]
+area = "spec"
+symptom = "a Go symbol qualified by an import alias (alias.Name) is never found by the gate even when the bare name resolves"
+cause = "the code graph stores a whole-module import without its alias, so the qualifier matches no file path, receiver or parent"
+do = "list the bare symbol, or a receiver- or path-qualified form, in symbols; never an import alias"
+
+[gotcha.1852]
+area = "spec"
+symptom = "a task's own kvx reader rejects spec.kvx with `invalid value` at a line the gate reads without complaint"
+cause = "the gate's reader keeps every byte between the quotes of a value, so a backslash escape such as \0 is plain text to it while a JSON-based reader refuses it"
+do = "treat the gate's reader as the reference for kvx strings; make a new reader accept everything the gate accepts before pointing its verify_cmd at spec.kvx"
+
+[gotcha.1853]
+area = "build"
+symptom = "`pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json` aborts with `FATAL ERROR: Ineffective mark-compacts near heap limit` after about two minutes"
+cause = "Node's default old-space cap of about 2 GB is below what the type check of apps/launchpad/web allocates, so every unconfigured machine fails it regardless of the change under test"
+do = "run the gates with NODE_OPTIONS=--max-old-space-size sized to the machine (three quarters of its memory, at least 6 GB) and judge the work only after the check has memory to finish"
+
+[gotcha.1854]
+area = "build"
+symptom = "a type check in apps/web, apps/wallet or a services/platform/middleware package fails with `Cannot find module '@noble/hashes/sha3.js'`, an implicit-any error inside services/agent/sdk/typescript/src, or `tsc: not found` after `npm error 404 @sidiora/layerx-sdk`"
+cause = "the repository root is an npm workspace whose members include the agent SDK; apps import the SDK sources by relative path and the middleware packages import `@sidiora/layerx-sdk`, whose exports point at an untracked dist/, so a tree without the root install and the SDK build cannot resolve them"
+do = "run `npm ci` at the repository root, then `npm run build --workspace services/agent/sdk/typescript`, before any package-level type check; a per-package install inside a workspace member reaches the registry for the SDK and fails"
+
+[gotcha.1855]
+area = "build"
+symptom = "`pnpm install --frozen-lockfile` inside apps/launchpad/web, apps/launchpad/mobile, sdk/launchpad/packages/sdk or sdk/wallet fails with ERR_PNPM_NO_LOCKFILE, and a type check or vitest run there reports `Cannot find module '@kindle/sdk'`, `'@kindle/sdk-v2/types'`, `'stats-sdk'` or `'./validators-v1.gen.js'` even after an install"
+cause = "the lockfile lives at the pnpm workspace root named by pnpm-workspace.yaml (apps/launchpad for web, mobile and sdk/launchpad/packages/*; services/wallet for gateway, demo and sdk/wallet), and the members whose package exports point at an untracked dist/ (@kindle/sdk-v2, @kindle/sdk, stats-sdk, @kindle/production-contracts) ship no build output; @kindle/sdk depends on @kindle/sdk-v2 and generates src/validators-v1.gen.js in its build"
+do = "install at the workspace root, then build the dist-exporting members the package depends on in dependency order (sdk-v2 before sdk) before running the member's type check or tests"
+
+[gotcha.1856]
+area = "spec"
+symptom = "a test that opens a tracked repository file through a relative path fails with `no such file or directory`, and the failing path begins with exactly the `..` segments the task step prescribed"
+cause = "go test runs each test binary with the package directory as its working directory, so a relative path counts from the package, not from the module root or the repository root; a step written against the module root is one segment short"
+do = "count parent segments from the package directory the test runs in (sdk/launchpad/protocol/catalog needs four to reach the repository root) and resolve the path with ls from that directory before writing the step"
