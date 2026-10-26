@@ -15,19 +15,6 @@ The oracle module emits the following events:
 
 ## Handlers
 
-### MsgExchangeRateVote
-
-| Type    | Attribute Key | Attribute Value    |
-|---------|---------------|--------------------|
-| vote    | denom         | {denom}            |
-| vote    | voter         | {validatorAddress} |
-| vote    | exchange_rate | {exchangeRate}     |
-| vote    | feeder        | {feederAddress}    |
-| message | module        | oracle             |
-| message | action        | exchangeratevote   |
-| message | sender        | {senderAddress}    |
-
-
 ### MsgDelegateFeedConsent
 
 | Type          | Attribute Key | Attribute Value    |
