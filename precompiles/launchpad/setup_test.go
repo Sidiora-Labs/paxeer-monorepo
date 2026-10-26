@@ -60,6 +60,11 @@ func TestVersionedLaunchpad(t *testing.T) {
 	t.Run("versions", func(t *testing.T) {
 		data, err := os.ReadFile("versions")
 		require.NoError(t, err)
-		require.Equal(t, []string{"v6.5", "v6.12.0"}, strings.Fields(string(data)))
+		versions := strings.Fields(string(data))
+		require.Equal(t, []string{"v6.10", "v6.12.0"}, versions)
+		versioned := launchpad.GetVersioned("v6.12.0", keepers)
+		for _, version := range versions {
+			require.Contains(t, versioned, version)
+		}
 	})
 }
