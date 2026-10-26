@@ -1,10 +1,35 @@
 package types
 
 import (
+	"math"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestValidateTokenReleaseScheduleRefusesAmountAboveInt64(t *testing.T) {
+	t.Parallel()
+	t.Run("accepts MaxInt64", func(t *testing.T) {
+		schedule := []ScheduledTokenRelease{
+			{
+				StartDate:          "2023-01-01",
+				EndDate:            "2023-01-31",
+				TokenReleaseAmount: uint64(math.MaxInt64),
+			},
+		}
+		assert.NoError(t, validateTokenReleaseSchedule(schedule))
+	})
+	t.Run("refuses MaxInt64 plus one", func(t *testing.T) {
+		schedule := []ScheduledTokenRelease{
+			{
+				StartDate:          "2023-01-01",
+				EndDate:            "2023-01-31",
+				TokenReleaseAmount: uint64(math.MaxInt64) + 1,
+			},
+		}
+		assert.EqualError(t, validateTokenReleaseSchedule(schedule), "token release amount exceeds int64 bounds")
+	})
+}
 
 func TestValidateTokenReleaseSchedule(t *testing.T) {
 	t.Parallel()
