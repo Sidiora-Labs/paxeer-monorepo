@@ -27,13 +27,8 @@ import (
 //   - MaxPeerBlockHeight / TotalSyncedTime / RemainingTime: require an
 //     Autobahn equivalent of BlockSyncReactor.
 //
-// Separately, every RPC handler that uses env.getHeight(env.BlockStore.Height(), …)
-// still rejects queries under Autobahn because BlockStore.Height()==0. This
-// breaks /block, /block_results, /commit, and the evmrpc endpoints that walk
-// through them (eth_getBlockByNumber, eth_gasPrice, etc.). A separate PR
-// needs to either route block-data reads through an Autobahn-aware path or
-// have Autobahn expose enough block metadata to satisfy the CometBFT Block
-// RPC surface.
+// Autobahn height validation uses the app's head and GigaRouter's retained
+// lower bound; classic height validation uses the BlockStore's range.
 func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
 	var (
 		earliestBlockHeight   int64
