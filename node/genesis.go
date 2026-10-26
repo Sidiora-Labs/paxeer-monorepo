@@ -20,7 +20,7 @@ var DefaultGenesisConfig = genesistypes.GenesisImportConfig{
 
 const (
 	flagGenesisStreamImport = "genesis.stream-import"
-	flagGenesisImportFile   = "genesis.import-file"
+	flagGenesisImportFile   = "genesis.genesis-stream-file"
 )
 
 func ReadGenesisImportConfig(opts servertypes.AppOptions) (genesistypes.GenesisImportConfig, error) {
@@ -32,7 +32,9 @@ func ReadGenesisImportConfig(opts servertypes.AppOptions) (genesistypes.GenesisI
 		}
 	}
 	if v := opts.Get(flagGenesisImportFile); v != nil {
-		cfg.GenesisStreamFile = v.(string)
+		if cfg.GenesisStreamFile, err = cast.ToStringE(v); err != nil {
+			return cfg, err
+		}
 	}
 	return cfg, nil
 }

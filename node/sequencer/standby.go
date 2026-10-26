@@ -169,6 +169,7 @@ type ReplicatorConfig struct {
 	// ReplicationTimeout bounds dialling, sending a group and reading the standby's ack, gap
 	// refill included. It is set at activation rehearsal; there is no default.
 	ReplicationTimeout time.Duration
+	OnWALSync          func(time.Duration)
 }
 
 // Replicator makes groups of WAL records durable on the primary and the standby before their
@@ -176,12 +177,13 @@ type ReplicatorConfig struct {
 type Replicator struct {
 	// ponytail: one Release at a time keeps the wire in WAL order; pipeline groups if one fsync
 	// plus one round trip per group caps throughput.
-	mu       sync.Mutex
-	wal      *wal.WAL
-	dial     func(ctx context.Context) (net.Conn, error)
-	timeout  time.Duration
-	conn     net.Conn
-	retained []retainedFrame
+	mu        sync.Mutex
+	wal       *wal.WAL
+	dial      func(ctx context.Context) (net.Conn, error)
+	timeout   time.Duration
+	onWALSync func(time.Duration)
+	conn      net.Conn
+	retained  []retainedFrame
 }
 
 // retainedFrame is a record kept until the standby acknowledges a later COMMITTED; the retained
@@ -203,7 +205,7 @@ func NewReplicator(cfg ReplicatorConfig) (*Replicator, error) {
 	if cfg.ReplicationTimeout <= 0 {
 		return nil, fmt.Errorf("sequencer: replication timeout %s must be positive", cfg.ReplicationTimeout)
 	}
-	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, timeout: cfg.ReplicationTimeout}, nil
+	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, timeout: cfg.ReplicationTimeout, onWALSync: cfg.OnWALSync}, nil
 }
 
 // Release appends entries to the local WAL, waits for the group fsync that covers them, streams
@@ -246,8 +248,12 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 		r.retained = append(r.retained, rf)
 		pending = append(pending, p)
 	}
+	syncStart := time.Now()
 	if _, err := r.wal.GroupSync(); err != nil {
 		return Ack{}, err
+	}
+	if r.onWALSync != nil {
+		r.onWALSync(time.Since(syncStart))
 	}
 	for _, p := range pending {
 		if err := p.Wait(ctx); err != nil {

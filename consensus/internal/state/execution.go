@@ -34,7 +34,8 @@ var (
 	// MsgSequenceBatch for tx 0.
 	ErrSequenceBatchMissing = errors.New("sealed block has no sequence batch")
 	// ErrOpenTimeMissing is returned when a sealed block carries no open time.
-	ErrOpenTimeMissing = errors.New("sealed block has no open time")
+	ErrOpenTimeMissing           = errors.New("sealed block has no open time")
+	ErrOpenTimeNotAfterLastBlock = errors.New("sealed block open time is not after the last block time")
 	// ErrSealedBlockTooLarge is returned when the sequence batch and the sealed
 	// slice do not fit the block data bytes.
 	ErrSealedBlockTooLarge = errors.New("sealed block exceeds the block data bytes")
@@ -271,6 +272,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		txs, err := InjectSequenceBatch(sealed, maxDataBytes)
 		if err != nil {
 			return nil, fmt.Errorf("sealed block at height %d: %w", height, err)
+		}
+		if !sealed.OpenTime.After(state.LastBlockTime) {
+			return nil, fmt.Errorf("%w: open %v, last %v", ErrOpenTimeNotAfterLastBlock, sealed.OpenTime, state.LastBlockTime)
 		}
 		return state.MakeBlockAt(height, txs, lastCommit, evidence, proposerAddr, sealed.OpenTime), nil
 	}
