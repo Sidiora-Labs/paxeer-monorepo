@@ -109,6 +109,9 @@ func TestParallelTransactionsWasmInstantiate(t *testing.T) {
 	runTest(t, Test{
 		name: "Test wasm instantiations",
 		runs: 3,
+		before: func(tCtx *utils.TestContext) {
+			require.Equal(t, tCtx.CW20CodeID, tCtx.CodeID)
+		},
 		txs: func(tCtx *utils.TestContext) []*utils.TestMessage {
 			return utils.JoinMsgs(
 				messages.WasmInstantiate(tCtx, 10),
