@@ -537,8 +537,12 @@ func NewStandby(ctx context.Context, cfg StandbyConfig) (*Standby, error) {
 		receiptKey:   cfg.ReceiptKey,
 		cur:          cur,
 	}
-	if _, err := cfg.WAL.Replay(standbyReplay{s}); err != nil {
+	res, err := cfg.WAL.Replay(standbyReplay{s})
+	if err != nil {
 		return nil, fmt.Errorf("sequencer: standby wal replay: %w", err)
+	}
+	if res.Lease != nil {
+		s.cur.leaseEpoch = res.Lease.Epoch
 	}
 	return s, nil
 }
