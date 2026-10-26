@@ -7,12 +7,6 @@ PACKAGES=$(shell go list ./...)
 
 BINDIR ?= $(GOPATH)/bin
 
-### coverage, app, persistence, and libs tests
-test_cover:
-	# run the go unit tests with coverage
-	bash test/test_cover.sh
-.PHONY: test_cover
-
 test_release:
 	@go test -tags release $(PACKAGES)
 .PHONY: test_release

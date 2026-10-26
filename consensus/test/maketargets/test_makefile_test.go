@@ -67,3 +67,36 @@ func TestMakeRetiredDockerTestImageTarget(t *testing.T) {
 		})
 	}
 }
+
+func TestMakeRetiredCoverTarget(t *testing.T) {
+	output, err := makeDryRun(t, "test")
+	if err != nil {
+		t.Fatalf("make test dry run failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "go test ") {
+		t.Fatalf("make test dry run did not print a go test command:\n%s", output)
+	}
+
+	output, err = makeDryRun(t, "test_cover")
+	if err == nil {
+		t.Fatalf("retired target test_cover still resolves:\n%s", output)
+	}
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) || exitErr.ExitCode() != 2 {
+		t.Fatalf("expected make error exit code 2 for test_cover, got %v:\n%s", err, output)
+	}
+	if !strings.Contains(output, "No rule to make target 'test_cover'") {
+		t.Errorf("make test_cover did not report a missing target:\n%s", output)
+	}
+
+	makefile, err := os.ReadFile(filepath.Join("..", "Makefile"))
+	if err != nil {
+		t.Fatalf("read consensus test Makefile: %v", err)
+	}
+	if strings.Contains(string(makefile), "test_cover") {
+		t.Error("consensus test Makefile still references test_cover")
+	}
+	if _, err := os.Lstat(filepath.Join("..", "test_cover.sh")); !errors.Is(err, os.ErrNotExist) {
+		t.Errorf("expected retired test_cover.sh to be absent, got %v", err)
+	}
+}
