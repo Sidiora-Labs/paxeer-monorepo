@@ -312,12 +312,14 @@ pub(crate) fn validate_network(network: &str) -> Result<(), X402Error> {
 pub(crate) fn validate_transaction(transaction: &str) -> Result<(), X402Error> {
     let hash = transaction
         .strip_prefix("0x")
-        .ok_or(X402Error::InvalidPayload)?;
+        .ok_or(X402Error::TransactionForm)?;
     if hash.len() != 64
-        || !hash.bytes().all(|byte| byte.is_ascii_hexdigit())
+        || !hash
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
         || hash.bytes().all(|byte| byte == b'0')
     {
-        return Err(X402Error::InvalidPayload);
+        return Err(X402Error::TransactionForm);
     }
     Ok(())
 }
@@ -409,6 +411,33 @@ pub(crate) mod tests {
     use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
     use layerx_wire::encode::Encoder;
     use layerx_wire::limits::PROTOCOL_VERSION;
+
+    #[test]
+    fn lxp_and_short_transactions_are_refused_as_transaction_form() {
+        for transaction in [
+            format!("lxp:{}", "a".repeat(64)),
+            format!("0x{}", "a".repeat(63)),
+            format!("0x{}", "0".repeat(64)),
+            format!("0x{}", "A".repeat(64)),
+            format!("0x{}", "g".repeat(64)),
+            format!("0X{}", "a".repeat(64)),
+            format!("0x{}", "a".repeat(65)),
+        ] {
+            assert_eq!(
+                validate_transaction(&transaction),
+                Err(X402Error::TransactionForm),
+                "transaction: {transaction}"
+            );
+        }
+        assert_eq!(
+            validate_transaction(&format!("0x{}", "a".repeat(64))),
+            Ok(())
+        );
+        assert_eq!(
+            validate_transaction(&format!("0x{}1", "0".repeat(63))),
+            Ok(())
+        );
+    }
 
     pub(crate) fn required() -> PaymentRequired {
         let vectors: Value = serde_json::from_str(include_str!(

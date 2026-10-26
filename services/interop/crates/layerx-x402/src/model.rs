@@ -497,6 +497,7 @@ pub enum X402Error {
     ExtensionsMismatch,
     PaymentPending,
     PaymentRefused,
+    TransactionForm,
     EvidenceMissing,
     EvidenceMismatch,
     Gateway(GatewayError),
@@ -526,6 +527,9 @@ impl Display for X402Error {
             }
             Self::PaymentPending => formatter.write_str("payment remains pending"),
             Self::PaymentRefused => formatter.write_str("payment was refused"),
+            Self::TransactionForm => formatter.write_str(
+                "x402 settlement transaction is not a 0x-prefixed 32-byte transaction hash",
+            ),
             Self::EvidenceMissing => formatter.write_str("settlement has no backing evidence"),
             Self::EvidenceMismatch => formatter.write_str("settlement evidence does not match"),
             Self::Gateway(error) => write!(formatter, "gateway translation failed: {error}"),
