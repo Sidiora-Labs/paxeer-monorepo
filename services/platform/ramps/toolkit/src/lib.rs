@@ -2,11 +2,12 @@
 
 pub mod clients;
 pub mod engine;
+pub mod evm;
 pub mod journal;
 pub mod migration;
 
-use layerx_intents::{DisclosureCheck, Intent, IntentKind, LxpReceive, LxpSend, compile};
-use layerx_proof::receipt::{AuthorizedBatch, ReceiptCheck, verify};
+use layerx_intents::{compile, DisclosureCheck, Intent, IntentKind, LxpReceive, LxpSend};
+use layerx_proof::receipt::{verify, AuthorizedBatch, ReceiptCheck};
 use layerx_types::account::{AccountId, AccountNamespace};
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, IdempotencyKey};
