@@ -8867,3 +8867,9 @@ area = "spec"
 symptom = "a test that opens a tracked repository file through a relative path fails with `no such file or directory`, and the failing path begins with exactly the `..` segments the task step prescribed"
 cause = "go test runs each test binary with the package directory as its working directory, so a relative path counts from the package, not from the module root or the repository root; a step written against the module root is one segment short"
 do = "count parent segments from the package directory the test runs in (sdk/launchpad/protocol/catalog needs four to reach the repository root) and resolve the path with ls from that directory before writing the step"
+
+[gotcha.1857]
+area = "spec"
+symptom = "a parity test between a Go name table and the kernel's lxp_result_name fails for every value outside the registry, Go answering LXP_UNKNOWN_RESULT and the kernel LXP_ERR_UNKNOWN"
+cause = "the step quoted the kernel's fallback string from memory; the default branch of lxp_result_name returns \"LXP_ERR_UNKNOWN\" and the registry defines no LXP_UNKNOWN_RESULT row"
+do = "read the default branch of the C function a step quotes before writing the literal, and name the function rather than repeating its string"
