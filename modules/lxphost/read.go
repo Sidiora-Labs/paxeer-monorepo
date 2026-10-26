@@ -12,6 +12,7 @@ package lxphost
 #include "layerx/lxp_governance.h"
 #include "layerx/lxp_authority.h"
 #include "layerx/lxp_crypto.h"
+#include "layerx/lx_stream.h"
 
 typedef struct lxphost_read_state {
     lxp_kernel kernel;
@@ -283,6 +284,40 @@ static int32_t lxphost_read_identity_state(lxphost_read_state *state,
                                             &envelope, 0U, UINT64_MAX - 1U, grant);
     if (status != LXP_OK) return status;
     return lxphost_read_resolve(state, identity->did_id, grant, &envelope, out);
+}
+
+static int32_t lxphost_read_record(lxphost_read_state *state, uint16_t module,
+                                   const uint8_t *key, size_t key_length,
+                                   const uint8_t **encoded, size_t *length)
+{
+    for (size_t i = 0U; i < state->kernel.module_kv_count; ++i) {
+        const lxp_module_kv_entry *entry = &state->kernel.module_kv[i];
+        if (entry->module_id != module || entry->key_length != key_length ||
+            memcmp(entry->key, key, key_length) != 0) continue;
+        *encoded = entry->value;
+        *length = entry->value_length;
+        return LXP_OK;
+    }
+    return LXP_ERR_UNKNOWN_FIELD;
+}
+
+static int32_t lxphost_read_stream_accrued(lxphost_read_state *state,
+                                           const uint8_t id[32], uint64_t at,
+                                           lxp_u128 *amount)
+{
+    uint8_t key[LX_STREAM_KEY_BYTES];
+    const uint8_t *encoded;
+    size_t length;
+    lx_stream_record record;
+    int32_t status = lx_stream_state_key(id, key);
+    if (status == LXP_OK)
+        status = lxphost_read_record(state, LXP_MODULE_STREAM, key,
+                                      sizeof(key), &encoded, &length);
+    if (status == LXP_OK)
+        status = lx_stream_record_decode(encoded, length, &record);
+    if (status != LXP_OK) return status;
+    if (memcmp(record.stream_id, id, 32U) != 0) return LXP_FATAL_INVARIANT;
+    return lx_stream_accrue(&record, at, amount);
 }
 */
 import "C"
@@ -878,4 +913,85 @@ func (h *Host) ReadIdempotentReceipt(ctx sdk.Context, actorDID []byte, key [32]b
 		return Receipt{}, err
 	}
 	return out, nil
+}
+
+func (h *Host) ReadLastSequence(ctx sdk.Context, actorDID []byte) (uint64, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.node == nil || len(actorDID) == 0 || len(actorDID) > C.LXP_MAX_DID_LENGTH {
+		return 0, codeNonCanonical
+	}
+	if _, err := DIDID(actorDID); err != nil {
+		return 0, err
+	}
+	branch := &branchCtx{store: ctx.KVStore(h.cfg.StoreKey)}
+	return branch.lastSequence()
+}
+
+func (h *Host) ReadIdentitySequence(ctx sdk.Context, actorDID []byte) (uint64, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.node == nil || len(actorDID) == 0 || len(actorDID) > C.LXP_MAX_DID_LENGTH {
+		return 0, codeNonCanonical
+	}
+	id, err := DIDID(actorDID)
+	if err != nil {
+		return 0, err
+	}
+	branch := &branchCtx{store: ctx.KVStore(h.cfg.StoreKey)}
+	return branch.identitySequence(id)
+}
+
+func (h *Host) ReadStreamAccrued(ctx sdk.Context, streamID [32]byte, atBlock uint64) (sdk.Int, error) {
+	out := sdk.ZeroInt()
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		var amount C.struct_lxp_u128
+		if err := result(C.lxphost_read_stream_accrued(state, bytes32(&streamID), C.uint64_t(atBlock), &amount)); err != nil {
+			return err
+		}
+		out = readAmount(amount)
+		return nil
+	})
+	if err != nil {
+		return sdk.ZeroInt(), err
+	}
+	return out, nil
+}
+
+func (h *Host) readRecord(ctx sdk.Context, module uint16, key []byte) ([]byte, error) {
+	var out []byte
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		var encoded *C.uint8_t
+		var length C.size_t
+		if err := result(C.lxphost_read_record(state, C.uint16_t(module), bytesPtr(key), C.size_t(len(key)), &encoded, &length)); err != nil {
+			return err
+		}
+		if length > C.LXP_MODULE_MAX_VALUE_BYTES {
+			return codeFatalInvariant
+		}
+		out = C.GoBytes(unsafe.Pointer(encoded), C.int(length))
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (h *Host) ReadFeeSchedule(ctx sdk.Context) ([]byte, error) {
+	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), []byte("progfee/active/v1"))
+}
+
+func (h *Host) ReadPendingFeeSchedule(ctx sdk.Context) ([]byte, error) {
+	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), []byte("progfee/pending/v1"))
+}
+
+func (h *Host) ReadMeteringSchedule(ctx sdk.Context) ([]byte, error) {
+	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), []byte("progmet/active/v1"))
+}
+
+func (h *Host) ReadWebRequest(ctx sdk.Context, programID [32]byte, requestID uint64) ([]byte, error) {
+	key := append([]byte("web/pending"), programID[:]...)
+	key = binary.BigEndian.AppendUint64(key, requestID)
+	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), key)
 }
