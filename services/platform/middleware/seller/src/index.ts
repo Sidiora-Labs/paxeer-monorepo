@@ -8,6 +8,7 @@ import {
   type PaymentCommitmentResolver,
 } from "./commitment.js";
 export * from "./commitment.js";
+export * from "./ledger.js";
 import {
   PlatformSdkError,
   isSelectableProtocolVersion,
@@ -867,8 +868,8 @@ function asIdentifier(value: unknown, limit: number, code: MiddlewareErrorCode):
 
 function parseNetwork(value: unknown): string {
   const text = asString(value, "invalid-payment-required");
-  const parts = text.split(":");
-  if (parts.length !== 2 || parts[0] !== "layerx" || !identifier(parts[1] ?? "", 64)) {
+  const chainId = /^eip155:([1-9][0-9]{0,9})$/u.exec(text)?.[1];
+  if (chainId === undefined || Number(chainId) > 0xffff_ffff) {
     throw new MiddlewareError("unsupported-payment");
   }
   return text;
