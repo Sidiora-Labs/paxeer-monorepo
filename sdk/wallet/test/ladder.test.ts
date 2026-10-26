@@ -7,6 +7,7 @@ import {
   LADDER_RUNGS,
   decodeExplorerStatus,
   decodeJourney,
+  decodeSequencerReceipt,
   JsonRpcClient,
   observeTransfer,
   recoverTransferObservation,
@@ -18,6 +19,7 @@ import {
   type JourneyState,
   type LadderRung,
   type LadderSource,
+  type LadderStep,
   type SequencerRung,
   type TransferRpc,
 } from '../src/index.js';
@@ -166,6 +168,34 @@ function observationRpc(name: string): TransferRpc {
   const client = new JsonRpcClient({ url: `${base}/observe/${name}` });
   return (method, params) => client.call(method, params);
 }
+
+function status_ladder_from_sequencer_receipt_steps_up_to_the_node_rung() {
+  const submitted = decodeSequencerReceipt(sequencerAnswers.submitted);
+  const receipted = decodeSequencerReceipt(receiptedAnswer);
+  const committed = decodeSequencerReceipt(sequencerAnswers.committed);
+
+  expectTypeOf(statusLadder.fromSequencerReceipt(submitted)).toEqualTypeOf<readonly LadderStep[]>();
+  expect(statusLadder.fromSequencerReceipt(submitted)).toEqual([
+    { rung: 'submitted', source: 'receipt', state: 'submitted' },
+  ]);
+  expect(statusLadder.fromSequencerReceipt(receipted)).toEqual([
+    { rung: 'submitted', source: 'receipt', state: 'receipted' },
+    { rung: 'receipted', source: 'receipt', state: 'receipted' },
+  ]);
+  expect(statusLadder.fromSequencerReceipt(committed)).toEqual([
+    { rung: 'submitted', source: 'receipt', state: 'committed' },
+    { rung: 'receipted', source: 'receipt', state: 'committed' },
+    { rung: 'committed', source: 'receipt', state: 'committed' },
+  ]);
+
+  for (const answer of [submitted, receipted, committed]) {
+    expect(statusLadder.fromSequencerReceipt({ ...answer, status: '0x0' })).toEqual([
+      { rung: 'submitted', source: 'receipt', state: answer.rung },
+    ]);
+  }
+}
+
+test(status_ladder_from_sequencer_receipt_steps_up_to_the_node_rung);
 
 async function observe_transfer_reaches_receipted_from_the_sequencer_receipt() {
   const submitted = submittedTransfer({ hash: transferHash, chainId: 125 });
