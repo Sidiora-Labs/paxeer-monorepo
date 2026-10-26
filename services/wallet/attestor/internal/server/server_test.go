@@ -217,6 +217,59 @@ func TestSchemaListsEveryErrorCodeAndOperation(t *testing.T) {
 	}
 }
 
+func TestSchemaDescribesEveryServedRoute(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(schemaDir, "v1.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sections := parseKVX(string(raw))
+	for _, route := range []struct {
+		path, method, auth, kind string
+	}{
+		{PathGenerate, http.MethodPost, "gateway certificate", ""},
+		{PathImport, http.MethodPost, "operator certificate and the node's ceremony flag", ""},
+		{PathRefresh, http.MethodPost, "operator certificate", ""},
+		{PathAddShare, http.MethodPost, "operator certificate", ""},
+		{PathDescribe, http.MethodPost, "operator certificate", ""},
+		{PathPublicWallet, http.MethodPost, "gateway certificate", ""},
+		{PathAuthority, http.MethodPost, "gateway certificate", ""},
+		{PathSign, http.MethodPost, "gateway certificate plus Authorization: Bearer <identity token> or the agent headers X-Agent-Key, X-Agent-Nonce, X-Agent-Expiry, X-Agent-Signature", ""},
+		{PathSign, http.MethodPost, "client certificate issued by the operator CA; no Authorization header and no agent headers; a gateway certificate is refused with operator_required", KindOperatorVerification},
+		{PathNativeSign, http.MethodPost, "gateway certificate", ""},
+		{PathLXReview, http.MethodPost, "gateway certificate", ""},
+		{PathHealth, http.MethodGet, "client certificate", ""},
+	} {
+		t.Run(route.path+"/"+route.kind, func(t *testing.T) {
+			count := 0
+			for name, op := range sections {
+				if !strings.HasPrefix(name, "op.") || op["path"] != route.path || op["kind"] != route.kind {
+					continue
+				}
+				count++
+				if op["method"] != route.method {
+					t.Errorf("%s method = %q, want %q", name, op["method"], route.method)
+				}
+				if op["auth"] != route.auth {
+					t.Errorf("%s auth = %q, want %q", name, op["auth"], route.auth)
+				}
+			}
+			if count != 1 {
+				t.Errorf("v1.kvx describes %s (kind %q) with %d operations, want exactly one", route.path, route.kind, count)
+			}
+		})
+	}
+}
+
+func TestSchemaGenerateNamesGatewayCertificate(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(schemaDir, "v1.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if auth := parseKVX(string(raw))["op.keys.generate"]["auth"]; auth != "gateway certificate" {
+		t.Fatalf("op.keys.generate auth = %q, want gateway certificate", auth)
+	}
+}
+
 func verifiedRequest(root *x509.Certificate, method, path string, body []byte) *http.Request {
 	r := httptest.NewRequest(method, path, bytes.NewReader(body))
 	r.TLS = &tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{root}}}
