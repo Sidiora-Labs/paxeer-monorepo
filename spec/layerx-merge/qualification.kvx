@@ -29,3 +29,11 @@
 #   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
 #   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
 #   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+[finding.1.21.1]
+task = "1.21.1"
+file = "spec/layerx-merge/contracts/address-inventory.md:2431"
+symbol = "registry_retryable"
+observed = "At revision 4a9dbd740 the build `make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/` exited 2 (log /out/logs/build-1.log): services/agent/crates/layerx-types/build.rs rejected the regenerated address-table.md row `| LXP_ARBITER_REQUIRED | precompiles/common/lxp_errors.go:151 |` as lacking the five registry columns, so cargo build --locked --release -p layerx-programs-sandbox exited 101 and every cgo-linked Go build failed to find -llayerx_programs_sandbox."
+assumption = "The specification rebuild overwrote the machine-readable address table and error registry with a generated inventory; the table returns verbatim at contracts/address-table.md, the inventory lives at contracts/address-inventory.md, and builds proceed on the restored table."
+severity = "blocker"
