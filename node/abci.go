@@ -281,6 +281,18 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 		if n, ok := app.blockHeaderNotifier.Get(); ok {
 			n.PublishStashed()
 		}
+		if app.commitListener != nil {
+			commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)
+		}
 	}
 	return res, err
+}
+
+func commitListener(app *App, height int64, appHash []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("panic recovered in commit listener", "height", height, "panic", r)
+		}
+	}()
+	app.commitListener(height, appHash)
 }
