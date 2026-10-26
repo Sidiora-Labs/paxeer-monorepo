@@ -148,9 +148,11 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_PARAMETER_BOUNDS", message: "parameter bounds", kernel: true, value: -734},
 	{code: "LXP_PAUSED_SCOPE", message: "paused scope", kernel: true, value: -735},
 	{code: "LXP_PROGRAM_REFUSED", message: "program refused", kernel: true, value: -736},
-	{code: "LXP_ARBITER_REQUIRED", message: "arbiter required"},
-	{code: "LXP_UNAUTHORIZED_ARBITER", message: "unauthorized arbiter"},
-	{code: "LXP_ESCROW_LINK_MISMATCH", message: "escrow link mismatch"},
+	{code: "LXP_ARBITER_REQUIRED", message: "arbiter required", kernel: true, value: -737},
+	{code: "LXP_UNAUTHORIZED_ARBITER", message: "unauthorized arbiter", kernel: true, value: -738},
+	{code: "LXP_ESCROW_LINK_MISMATCH", message: "escrow link mismatch", kernel: true, value: -739},
+	{code: "LXP_PAY_UNBOUND_CALLER", message: "unbound caller"},
+	{code: "LXP_PAY_KERNEL_GATE_MISMATCH", message: "kernel gate mismatch"},
 	{code: "LXP_BATCH_GAP", message: "batch gap", kernel: true, value: -800},
 	{code: "LXP_ROOT_MISMATCH", message: "root mismatch", kernel: true, value: -801},
 	{code: "LXP_TIMESTAMP_REGRESSION", message: "timestamp regression", kernel: true, value: -802},
@@ -311,6 +313,8 @@ var lxpRevertTable = []lxpRevertEntry{
 	{code: "LXP_AGENT_TEE_DEBUG_REFUSED", message: "debug enclave refused"},
 	{code: "LXP_AGENT_TEE_REPORT_DATA_MISMATCH", message: "report data mismatch"},
 	{code: "LXP_AGENT_TEE_UNAUTHORIZED_UPDATE", message: "unauthorized root update"},
+	{code: "LXP_AGENT_NOT_ACTIVE", message: "merge-plan not active"},
+	{code: "LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE", message: "scheduler calldata too large"},
 }
 
 // LXPCodeName returns the registry code of a kernel result value: the enum

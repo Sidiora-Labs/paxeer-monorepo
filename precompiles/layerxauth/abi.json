@@ -1,0 +1,162 @@
+[
+  {
+    "type": "function",
+    "name": "grantSession",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {"name": "grant", "type": "bytes", "internalType": "bytes"},
+      {"name": "expirySequence", "type": "uint64", "internalType": "uint64"},
+      {"name": "actionKey", "type": "bytes32", "internalType": "bytes32"}
+    ],
+    "outputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}]
+  },
+  {
+    "type": "function",
+    "name": "grantSessionSuccessor",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {"name": "grant", "type": "bytes", "internalType": "bytes"},
+      {"name": "expirySequence", "type": "uint64", "internalType": "uint64"},
+      {"name": "actionKey", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "predecessorId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "expectedCommitment", "type": "bytes32", "internalType": "bytes32"}
+    ],
+    "outputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}]
+  },
+  {
+    "type": "function",
+    "name": "grantCapability",
+    "stateMutability": "nonpayable",
+    "inputs": [{"name": "grant", "type": "bytes", "internalType": "bytes"}],
+    "outputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}]
+  },
+  {
+    "type": "function",
+    "name": "revokeGrant",
+    "stateMutability": "nonpayable",
+    "inputs": [
+      {"name": "grantId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "reason", "type": "uint8", "internalType": "uint8"},
+      {"name": "sequence", "type": "uint64", "internalType": "uint64"}
+    ],
+    "outputs": []
+  },
+  {
+    "type": "function",
+    "name": "resultByIdempotency",
+    "stateMutability": "view",
+    "inputs": [
+      {"name": "didId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "idempotencyKey", "type": "bytes32", "internalType": "bytes32"}
+    ],
+    "outputs": [{"name": "receipt", "type": "bytes", "internalType": "bytes"}]
+  },
+  {
+    "type": "function",
+    "name": "getGrant",
+    "stateMutability": "view",
+    "inputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}],
+    "outputs": [
+      {"name": "grant", "type": "bytes", "internalType": "bytes"},
+      {"name": "revoked", "type": "bool", "internalType": "bool"},
+      {"name": "revokedAt", "type": "uint64", "internalType": "uint64"}
+    ]
+  },
+  {
+    "type": "function",
+    "name": "isLive",
+    "stateMutability": "view",
+    "inputs": [
+      {"name": "grantId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "sequence", "type": "uint64", "internalType": "uint64"},
+      {"name": "timestampMs", "type": "uint64", "internalType": "uint64"}
+    ],
+    "outputs": [
+      {"name": "live", "type": "bool", "internalType": "bool"},
+      {"name": "code", "type": "string", "internalType": "string"}
+    ]
+  },
+  {
+    "type": "function",
+    "name": "sessionKey",
+    "stateMutability": "view",
+    "inputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}],
+    "outputs": [{"name": "summary", "type": "bytes", "internalType": "bytes"}]
+  },
+  {
+    "type": "function",
+    "name": "capabilityScope",
+    "stateMutability": "view",
+    "inputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32"}],
+    "outputs": [
+      {"name": "moduleMask", "type": "uint64", "internalType": "uint64"},
+      {"name": "ordinalMin", "type": "uint16", "internalType": "uint16"},
+      {"name": "ordinalMax", "type": "uint16", "internalType": "uint16"},
+      {"name": "assetId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "maxPerActivity", "type": "uint128", "internalType": "uint128"},
+      {"name": "maxTotal", "type": "uint128", "internalType": "uint128"},
+      {"name": "spentTotal", "type": "uint128", "internalType": "uint128"},
+      {"name": "periodLength", "type": "uint64", "internalType": "uint64"},
+      {"name": "maxPerPeriod", "type": "uint128", "internalType": "uint128"},
+      {"name": "spentThisPeriod", "type": "uint128", "internalType": "uint128"},
+      {"name": "periodStart", "type": "uint64", "internalType": "uint64"},
+      {"name": "purposeHash", "type": "bytes32", "internalType": "bytes32"}
+    ]
+  },
+  {
+    "type": "function",
+    "name": "checkActivity",
+    "stateMutability": "view",
+    "inputs": [
+      {"name": "grantId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "activityType", "type": "uint32", "internalType": "uint32"},
+      {"name": "assetId", "type": "bytes32", "internalType": "bytes32"},
+      {"name": "amount", "type": "uint128", "internalType": "uint128"}
+    ],
+    "outputs": [{"name": "code", "type": "string", "internalType": "string"}]
+  },
+  {
+    "type": "event",
+    "name": "SessionGranted",
+    "anonymous": false,
+    "inputs": [
+      {"name": "grantId", "type": "bytes32", "internalType": "bytes32", "indexed": true},
+      {"name": "summary", "type": "bytes", "internalType": "bytes", "indexed": false}
+    ]
+  },
+  {
+    "type": "event",
+    "name": "GrantBody",
+    "anonymous": false,
+    "inputs": [
+      {"name": "grantId", "type": "bytes32", "internalType": "bytes32", "indexed": true},
+      {"name": "sub", "type": "uint8", "internalType": "uint8", "indexed": false},
+      {"name": "chunk", "type": "uint8", "internalType": "uint8", "indexed": false},
+      {"name": "body", "type": "bytes", "internalType": "bytes", "indexed": false}
+    ]
+  },
+  {
+    "type": "event",
+    "name": "CapabilityGranted",
+    "anonymous": false,
+    "inputs": [{"name": "grantId", "type": "bytes32", "internalType": "bytes32", "indexed": true}]
+  },
+  {
+    "type": "event",
+    "name": "GrantRevoked",
+    "anonymous": false,
+    "inputs": [
+      {"name": "grantId", "type": "bytes32", "internalType": "bytes32", "indexed": true},
+      {"name": "record", "type": "bytes", "internalType": "bytes", "indexed": false}
+    ]
+  },
+  {
+    "type": "event",
+    "name": "IdentityStateUpdated",
+    "anonymous": false,
+    "inputs": [
+      {"name": "didId", "type": "bytes32", "internalType": "bytes32", "indexed": true},
+      {"name": "state", "type": "bytes", "internalType": "bytes", "indexed": false}
+    ]
+  }
+]
