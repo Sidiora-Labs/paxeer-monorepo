@@ -486,29 +486,36 @@ response = "Journey"
 resumption = "Resuming after a crash, a timeout or a repeated request converges on the one journey account creation started, without restarting completed stages and without orphaned protocol state."
 
 [type.BindingStatementRequest]
+retired = "true"
 required = ["address:EvmAddress"]
 
 [type.BindingStatement]
+retired = "true"
 required = ["statement:string","address:EvmAddress","expires_at:Timestamp"]
 exactness = "statement is the exact text the wallet must sign, character for character. The wallet opens once to sign it and at no other moment."
 authority = "The linked wallet is a payout and provenance association only. It cannot move LayerX funds."
 
 [type.BindingSubmission]
+retired = "true"
 required = ["address:EvmAddress","statement:string","signature:EvmSignature"]
 
 [type.BindingState]
+retired = "true"
 variants = ["none","binding","bound","rebinding"]
 
 [type.WalletBinding]
+retired = "true"
 required = ["state:BindingState"]
 optional = ["address:EvmAddress","bound_at:Timestamp","evidence:EvidenceRef"]
 checksum = "address always carries the full checksummed mixed-case rendering."
 evidence = "evidence references the receipt-backed record that established the current binding, and the binding reads as bound only once it verifies."
 
 [type.RebindingSubmission]
+retired = "true"
 required = ["address:EvmAddress","statement:string","signature:EvmSignature","step_up:StepUpEvidence"]
 
 [operation.binding.statement]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/wallet-binding/statement"
@@ -516,6 +523,7 @@ request = "BindingStatementRequest"
 response = "BindingStatement"
 
 [operation.binding.submit]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/wallet-binding"
@@ -525,6 +533,7 @@ idempotency = true
 journey = "Returns the journey of kind wallet-binding. The binding reads as established only when its receipt-backed evidence verifies, and a signature from any address other than the named one is refused, never silently accepted."
 
 [operation.binding.status]
+retired = "true"
 authorization_class = "read"
 method = "GET"
 path = "/v1/wallet-binding"
@@ -532,10 +541,12 @@ request = "Empty"
 response = "WalletBinding"
 
 [type.BindingRebindAction]
+retired = "true"
 required = ["binding:BindingStatement","confirms:OperationDigest"]
 binding = "The service issues the exact replacement statement and derives confirms from the current receipt-backed binding and that statement. The browser signs the returned statement and never constructs the operation digest."
 
 [operation.binding.rebind.action]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/wallet-binding/rebind/action"
@@ -544,6 +555,7 @@ response = "BindingRebindAction"
 step_up = "This is the only source of the operation digest used to request fresh passkey evidence for a wallet replacement."
 
 [operation.binding.rebind]
+retired = "true"
 authorization_class = "wallet-rebind"
 method = "POST"
 path = "/v1/wallet-binding/rebind"
