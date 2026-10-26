@@ -18,6 +18,36 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
 
+func TestDumpConsensusStateUnderAutobahnRefused(t *testing.T) {
+	rng := utils.TestRng()
+	kv := kvstore.NewApplication()
+	t.Cleanup(func() { require.NoError(t, kv.Close()) })
+	app := proxy.New(kv, proxy.NopMetrics())
+	stateStore := sm.NewStore(dbm.NewMemDB())
+	t.Cleanup(func() { require.NoError(t, stateStore.Close()) })
+	router, _ := newAutobahnTestRouter(t, rng, "autobahn-dump-consensus-state-test", app, stateStore, 1, 1_000)
+	env := &Environment{Router: router}
+
+	result, err := env.DumpConsensusState(t.Context())
+	require.ErrorIs(t, err, coretypes.ErrConsensusStateNotAvailable)
+	require.Nil(t, result)
+}
+
+func TestGetConsensusStateUnderAutobahnRefused(t *testing.T) {
+	rng := utils.TestRng()
+	kv := kvstore.NewApplication()
+	t.Cleanup(func() { require.NoError(t, kv.Close()) })
+	app := proxy.New(kv, proxy.NopMetrics())
+	stateStore := sm.NewStore(dbm.NewMemDB())
+	t.Cleanup(func() { require.NoError(t, stateStore.Close()) })
+	router, _ := newAutobahnTestRouter(t, rng, "autobahn-get-consensus-state-test", app, stateStore, 1, 1_000)
+	env := &Environment{Router: router}
+
+	result, err := env.GetConsensusState(t.Context())
+	require.ErrorIs(t, err, coretypes.ErrConsensusStateNotAvailable)
+	require.Nil(t, result)
+}
+
 func TestConsensusParamsUnderAutobahnReturnsGenesisParams(t *testing.T) {
 	ctx := t.Context()
 	rng := utils.TestRng()
