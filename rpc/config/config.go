@@ -12,6 +12,18 @@ import (
 )
 
 const (
+	// BatchRequestLimit is the default maximum number of requests in an RPC batch.
+	BatchRequestLimit int = 1000
+
+	// BatchResponseMaxSize is the default maximum RPC batch response size in bytes.
+	BatchResponseMaxSize int = 25000000
+
+	// SendRawTxSyncTimeout is the default timeout for synchronous raw transaction submission.
+	SendRawTxSyncTimeout time.Duration = 2 * time.Second
+
+	// MaxSubscriptionsLogs is the default maximum number of concurrent logs subscriptions.
+	MaxSubscriptionsLogs uint64 = 10000
+
 	// WorkerBatchSize is the number of blocks processed in each batch.
 	// Used in filter.go for batch processing of block queries.
 	WorkerBatchSize = 100
@@ -36,6 +48,15 @@ const (
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
+	// Maximum number of requests in an RPC batch.
+	BatchRequestLimit int `mapstructure:"batch_request_limit"`
+
+	// Maximum response size in bytes for an RPC batch.
+	BatchResponseMaxSize int `mapstructure:"batch_response_max_size"`
+
+	// Timeout for synchronous raw transaction submission.
+	SendRawTxSyncTimeout time.Duration `mapstructure:"send_raw_tx_sync_timeout"`
+
 	// controls whether an HTTP EVM server is enabled
 	HTTPAddress string `mapstructure:"http_address"`
 	HTTPEnabled bool   `mapstructure:"http_enabled"`
@@ -110,6 +131,9 @@ type Config struct {
 	// max number of concurrent NewHead subscriptions
 	MaxSubscriptionsNewHead uint64 `mapstructure:"max_subscriptions_new_head"`
 
+	// max number of concurrent logs subscriptions
+	MaxSubscriptionsLogs uint64 `mapstructure:"max_subscriptions_logs"`
+
 	// test api enables certain override apis for integration test situations
 	EnableTestAPI bool `mapstructure:"enable_test_api"`
 
@@ -174,6 +198,9 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
+	BatchRequestLimit:            BatchRequestLimit,
+	BatchResponseMaxSize:         BatchResponseMaxSize,
+	SendRawTxSyncTimeout:         SendRawTxSyncTimeout,
 	HTTPAddress:                  "0.0.0.0",
 	HTTPEnabled:                  true,
 	HTTPPort:                     8545,
@@ -195,6 +222,7 @@ var DefaultConfig = Config{
 	MaxLogNoBlock:                10000,
 	MaxBlocksForLog:              2000,
 	MaxSubscriptionsNewHead:      10000,
+	MaxSubscriptionsLogs:         MaxSubscriptionsLogs,
 	EnableTestAPI:                false,
 	EnableUnsafeKeyringRPC:       false,
 	MaxConcurrentTraceCalls:      10,
@@ -222,6 +250,10 @@ var DefaultConfig = Config{
 }
 
 const (
+	flagBatchRequestLimit            = "evm.batch_request_limit"
+	flagBatchResponseMaxSize         = "evm.batch_response_max_size"
+	flagSendRawTxSyncTimeout         = "evm.send_raw_tx_sync_timeout"
+	flagMaxSubscriptionsLogs         = "evm.max_subscriptions_logs"
 	flagHTTPAddress                  = "evm.http_address"
 	flagHTTPEnabled                  = "evm.http_enabled"
 	flagHTTPPort                     = "evm.http_port"
@@ -268,6 +300,21 @@ const (
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
 	var err error
+	if v := opts.Get(flagBatchRequestLimit); v != nil {
+		if cfg.BatchRequestLimit, err = cast.ToIntE(v); err != nil {
+			return cfg, err
+		}
+	}
+	if v := opts.Get(flagBatchResponseMaxSize); v != nil {
+		if cfg.BatchResponseMaxSize, err = cast.ToIntE(v); err != nil {
+			return cfg, err
+		}
+	}
+	if v := opts.Get(flagSendRawTxSyncTimeout); v != nil {
+		if cfg.SendRawTxSyncTimeout, err = cast.ToDurationE(v); err != nil {
+			return cfg, err
+		}
+	}
 	if v := opts.Get(flagHTTPAddress); v != nil {
 		cfg.HTTPAddress, err = cast.ToStringE(v)
 		if err != nil {
@@ -374,6 +421,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagMaxSubscriptionsNewHead); v != nil {
 		if cfg.MaxSubscriptionsNewHead, err = cast.ToUint64E(v); err != nil {
+			return cfg, err
+		}
+	}
+	if v := opts.Get(flagMaxSubscriptionsLogs); v != nil {
+		if cfg.MaxSubscriptionsLogs, err = cast.ToUint64E(v); err != nil {
 			return cfg, err
 		}
 	}
@@ -487,6 +539,15 @@ const ConfigTemplate = `
 ###############################################################################
 
 [evm]
+# Maximum number of requests in an RPC batch.
+batch_request_limit = {{ .EVM.BatchRequestLimit }}
+
+# Maximum response size in bytes for an RPC batch.
+batch_response_max_size = {{ .EVM.BatchResponseMaxSize }}
+
+# Timeout for synchronous raw transaction submission.
+send_raw_tx_sync_timeout = "{{ .EVM.SendRawTxSyncTimeout }}"
+
 # controls whether an HTTP EVM server is enabled
 http_enabled = {{ .EVM.HTTPEnabled }}
 http_port = {{ .EVM.HTTPPort }}
@@ -612,6 +673,9 @@ max_blocks_for_log = {{ .EVM.MaxBlocksForLog }}
 
 # max number of concurrent NewHead subscriptions
 max_subscriptions_new_head = {{ .EVM.MaxSubscriptionsNewHead }}
+
+# max number of concurrent logs subscriptions
+max_subscriptions_logs = {{ .EVM.MaxSubscriptionsLogs }}
 
 # MaxConcurrentTraceCalls defines the maximum number of concurrent debug_trace calls.
 # Set to 0 for unlimited.
