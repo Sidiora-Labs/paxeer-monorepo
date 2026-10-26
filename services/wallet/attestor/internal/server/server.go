@@ -30,14 +30,15 @@ import (
 )
 
 const (
-	PathGenerate = "/v1/keys/generate"
-	PathImport   = "/v1/keys/import"
-	PathRefresh  = "/v1/keys/refresh"
-	PathAddShare = "/v1/keys/addshare"
-	PathDescribe = "/v1/keys/describe"
-	PathSign     = "/v1/sign"
-	PathLXReview = "/v1/lx/review"
-	PathHealth   = "/health"
+	PathGenerate  = "/v1/keys/generate"
+	PathImport    = "/v1/keys/import"
+	PathRefresh   = "/v1/keys/refresh"
+	PathAddShare  = "/v1/keys/addshare"
+	PathDescribe  = "/v1/keys/describe"
+	PathSign      = "/v1/sign"
+	PathLXReview  = "/v1/lx/review"
+	PathEVMReview = "/v1/evm/review"
+	PathHealth    = "/health"
 
 	DefaultProtocolTimeout = 5 * time.Minute
 	maxRequestBytes        = 2 << 20
@@ -148,6 +149,7 @@ func New(opts Options) (*Server, error) {
 	s.mux.HandleFunc(PathSign, s.post(s.signRoute()))
 	s.mux.HandleFunc(PathNativeSign, s.post(s.gatewayOnly("sign.native-v2", s.HandleNativeSign)))
 	s.mux.HandleFunc(PathLXReview, s.post(s.gatewayOnly("lx.review", s.HandleLXReview)))
+	s.mux.HandleFunc(PathEVMReview, s.post(s.gatewayOnly("evm.review", s.HandleEVMReview)))
 	s.mux.HandleFunc(PathHealth, s.HandleHealth)
 	return s, nil
 }
