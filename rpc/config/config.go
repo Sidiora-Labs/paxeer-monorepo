@@ -603,8 +603,12 @@ filter_timeout = "{{ .EVM.FilterTimeout }}"
 # checkTx timeout for sig verify
 checktx_timeout = "{{ .EVM.CheckTxTimeout }}"
 
+max_tx_pool_txs = {{ .EVM.MaxTxPoolTxs }}
+
 # controls whether to have txns go through one by one
 slow = {{ .EVM.Slow }}
+
+enable_test_api = {{ .EVM.EnableTestAPI }}
 
 # Exposes local test-keyring signing methods. Keep false on every public RPC node.
 enable_unsafe_keyring_rpc = {{ .EVM.EnableUnsafeKeyringRPC }}
@@ -681,6 +685,8 @@ max_subscriptions_logs = {{ .EVM.MaxSubscriptionsLogs }}
 # Set to 0 for unlimited.
 max_concurrent_trace_calls = {{ .EVM.MaxConcurrentTraceCalls }}
 
+max_concurrent_simulation_calls = {{ .EVM.MaxConcurrentSimulationCalls }}
+
 # Max number of blocks allowed to look back for tracing
 # Set to -1 for unlimited lookback, which is useful for archive nodes.
 max_trace_lookback_blocks = {{ .EVM.MaxTraceLookbackBlocks }}
@@ -690,6 +696,8 @@ trace_timeout = "{{ .EVM.TraceTimeout }}"
 
 # Enable the parallelized default debug_traceBlock* path.
 enable_parallelized_block_trace = {{ .EVM.EnableParallelizedBlockTrace }}
+
+rpc_stats_interval = "{{ .EVM.RPCStatsInterval }}"
 
 # WorkerPoolSize defines the number of workers in the worker pool.
 # Default: min(64, CPU cores × 2). Capped at 64 to prevent excessive goroutines on high-core machines.
