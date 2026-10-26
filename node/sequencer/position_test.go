@@ -3,6 +3,7 @@ package sequencer_test
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"math/big"
@@ -143,6 +144,29 @@ func cw20Balance(t *testing.T, a *app.App, ctx sdk.Context, contract, holder sdk
 	out, err := a.WasmKeeper.QuerySmart(ctx, contract, []byte(fmt.Sprintf(`{"balance":{"address":"%s"}}`, holder)))
 	require.NoError(t, err)
 	return string(out)
+}
+
+func TestAcceptPlacesTxWithSetTxPosition(t *testing.T) {
+	sender, recipient := utils.NewSigner(), utils.NewSigner()
+	rh := newReceiptHarness(t, 0, nil, sender)
+
+	for i := 1; i <= 3; i++ {
+		etx, bz := transfer(t, sender, uint64(i-1), recipient.EvmAddress, big.NewInt(onePaxInWei))
+		acc, rec, _ := rh.accept(t, bz)
+		require.Equal(t, uint32(0), acc.Result.Code, acc.Result.Log)
+		require.Equal(t, int32(0), rec.ResultCode)
+		require.Equal(t, i, acc.TxIndex)
+		require.NotEmpty(t, rec.Effects)
+		require.GreaterOrEqual(t, len(rec.Effects[0].Body), 28)
+		receiptTxIndex := binary.BigEndian.Uint32(rec.Effects[0].Body[24:28])
+		require.Equal(t, uint32(i), receiptTxIndex)
+
+		evmReceipt := rh.transient(t, etx, acc)
+		require.Equal(t, uint32(1), evmReceipt.Status)
+		require.Equal(t, uint32(acc.TxIndex), evmReceipt.TransactionIndex)
+		require.Equal(t, receiptTxIndex, evmReceipt.TransactionIndex)
+		requireWei(t, big.NewInt(int64(i)*onePaxInWei), rh.weiBalance(rh.openCtx(), recipient.EvmAddress))
+	}
 }
 
 func TestPositionWasmCounterMatchesBlock(t *testing.T) {
