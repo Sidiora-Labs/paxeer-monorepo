@@ -237,7 +237,7 @@ func (server msgServer) SetDenomPaused(goCtx context.Context, msg *types.MsgSetD
 		sdk.NewEvent(
 			types.TypeMsgSetDenomPaused,
 			sdk.NewAttribute(types.AttributeDenom, msg.Denom),
-			sdk.NewAttribute("paused", strconv.FormatBool(msg.Paused)),
+			sdk.NewAttribute(types.AttributePaused, strconv.FormatBool(msg.Paused)),
 		),
 	})
 
