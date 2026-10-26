@@ -146,6 +146,12 @@ type MockClient struct {
 	latestOverride int64
 }
 
+type ResultNetInfo = coretypes.ResultNetInfo
+
+func (c *MockClient) NetInfo(context.Context) (*coretypes.ResultNetInfo, error) {
+	return &ResultNetInfo{Listening: true, NPeers: 3}, nil
+}
+
 func (*MockClient) EvmNextPendingNonce(common.Address) uint64 {
 	return 0
 }
