@@ -30,6 +30,25 @@ type Ledger interface {
 	RecordRequest(account string, at time.Time) error
 }
 
+// ReadOnlyLedger delegates reads to l and discards spend and request writes.
+// Evaluate over ReadOnlyLedger gives the decision a sign would get at the same
+// instant without moving any rolling cap.
+func ReadOnlyLedger(l Ledger) Ledger {
+	return readOnlyLedger{Ledger: l}
+}
+
+type readOnlyLedger struct {
+	Ledger
+}
+
+func (readOnlyLedger) RecordSpend(account, asset string, amount *big.Int, at time.Time) error {
+	return nil
+}
+
+func (readOnlyLedger) RecordRequest(account string, at time.Time) error {
+	return nil
+}
+
 type spendKey struct {
 	account string
 	asset   string
