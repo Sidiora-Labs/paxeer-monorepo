@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 )
 
 type IStoreTracer interface {
@@ -95,7 +94,6 @@ func (gs *Store) Set(key []byte, value []byte) {
 
 // Implements KVStore.
 func (gs *Store) Has(key []byte) bool {
-	defer telemetry.MeasureSince(time.Now(), "store", "gaskv", "has")
 	gs.gasMeter.ConsumeGas(gs.gasConfig.HasCost, types.GasHasDesc)
 	start := traceStart(gs.tracer)
 	res := gs.parent.Has(key)
@@ -107,7 +105,6 @@ func (gs *Store) Has(key []byte) bool {
 
 // Implements KVStore.
 func (gs *Store) Delete(key []byte) {
-	defer telemetry.MeasureSince(time.Now(), "store", "gaskv", "delete")
 	// charge gas to prevent certain attack vectors even though space is being freed
 	gs.gasMeter.ConsumeGas(gs.gasConfig.DeleteCost, types.GasDeleteDesc)
 	start := traceStart(gs.tracer)
