@@ -149,6 +149,9 @@ func (cfg *Config) ValidateBasic() error {
 	if err := cfg.Consensus.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [consensus] section: %w", err)
 	}
+	if cfg.Consensus.Sequencer.Enable && cfg.AutobahnConfigFile != "" {
+		return errors.New("error in [consensus] section: sequencer mode does not run with autobahn-config-file")
+	}
 	if err := cfg.Instrumentation.ValidateBasic(); err != nil {
 		return fmt.Errorf("error in [instrumentation] section: %w", err)
 	}
