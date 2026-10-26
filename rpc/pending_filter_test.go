@@ -67,7 +67,7 @@ func pendingFilterAPI(t *testing.T, s *pendingSequencer, tm *MockClient, feed *e
 		wm,
 	)
 	if feed != nil {
-		api.SetReceiptLogFeed(feed)
+		evmrpc.SetReceiptLogFeedForTest(api, feed)
 	}
 	t.Cleanup(api.Cleanup)
 	return api
@@ -440,7 +440,7 @@ func TestPendingFilterExplicitLatestSurvivesCommit(t *testing.T) {
 		evmrpc.NewLogSlicePool(),
 		evmrpc.NewWatermarkManager(tm, committedCtx, nil, nil),
 	)
-	api.SetReceiptLogFeed(feed)
+	evmrpc.SetReceiptLogFeedForTest(api, feed)
 	t.Cleanup(api.Cleanup)
 
 	crit := pendingFilterCrit()
