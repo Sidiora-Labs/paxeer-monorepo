@@ -8873,3 +8873,33 @@ area = "spec"
 symptom = "a parity test between a Go name table and the kernel's lxp_result_name fails for every value outside the registry, Go answering LXP_UNKNOWN_RESULT and the kernel LXP_ERR_UNKNOWN"
 cause = "the step quoted the kernel's fallback string from memory; the default branch of lxp_result_name returns \"LXP_ERR_UNKNOWN\" and the registry defines no LXP_UNKNOWN_RESULT row"
 do = "read the default branch of the C function a step quotes before writing the literal, and name the function rather than repeating its string"
+
+[gotcha.1858]
+area = "spec"
+symptom = "cg spec done refuses a result whose verify_cmd passed with `symbol X — not defined in the graph`"
+cause = "the symbols list names something the graph never holds: a name the task deletes, an imported package's function or type, a Makefile variable, an X-macro enumerator or a C struct field"
+do = "list only declarations the finished tree contains in its own source (functions, methods, types, Go consts and vars, Rust items and fields) plus the task's tests, and check each against the tree before writing the task"
+
+[gotcha.1859]
+area = "tooling"
+symptom = "a symbol the tree declares is refused as not defined in the graph"
+cause = "the graph index covered only spec/ and the touched directories; a symbol the task uses or extends is declared elsewhere"
+do = "index the directories declaring every listed symbol before cg spec done, found by grepping the final name segment outside docs and data files; a gate over a partial graph judges the index, not the work"
+
+[gotcha.1860]
+area = "tooling"
+symptom = "a deleted touched path is refused as `no matching change` although the tree no longer has the file"
+cause = "the graph snapshot was first taken after the prepared result was already applied, so no snapshot ever held the file"
+do = "take the first snapshot on the base tree before applying a prepared result, so the deletion appears in the worktree diff"
+
+[gotcha.1861]
+area = "spec"
+symptom = "a Go test package fails with `requires PERPS_DATA_TEST_DATABASE_URL` wherever no PostgreSQL runs"
+cause = "the verify_cmd depends on a database the test code demands through an environment variable the task never declares"
+do = "read the test package's setup for required services before writing verify_cmd, and declare them so the environment can supply them or the task is held"
+
+[gotcha.1862]
+area = "spec"
+symptom = "a task that regenerates a gRPC QueryServer interface fails its own build_cmd on every attempt with a keeper not implementing the interface"
+cause = "the package asserts `var _ types.QueryServer = Keeper{}` at compile time, and the new method was assigned to a later task"
+do = "when a task widens an interface, give the same task every compile-time implementer of it, and leave the dependent task its tests only"
