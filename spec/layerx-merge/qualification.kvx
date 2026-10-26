@@ -237,3 +237,43 @@ symbol = "test_catalogue_reads_layerx_merge_services"
 observed = "At revision 3df382457 the 16.9.2 verify_cmd (log /out/logs/verify-1.log) fails because the test expects 36 [service.*] blocks while spec/layerx-merge/interfaces.kvx holds 40."
 assumption = "Either the expected count or the catalogue is wrong; the result stays parked until the authority decides which."
 severity = "blocker"
+
+[finding.6.23.1]
+task = "6.23.1"
+file = "modules/tokenfactory/keeper/grpc_query.go:13"
+symbol = "QueryServer"
+observed = "Every attempt of 6.23.1 failed its build_cmd `go build ./modules/tokenfactory/...` (log /out/logs/build-1.log) with Keeper not implementing types.QueryServer: regenerating query.pb.go adds DenomPaused to the interface while the keeper method belonged to 6.23.2, so the task could never build as split."
+assumption = "The compile-time assertion makes the method part of the regeneration; 6.23.1 now adds it (do_5, touches, symbols) and 6.23.2 keeps only the two tests."
+severity = "note"
+
+[finding.1.17.1]
+task = "1.17.1"
+file = "include/layerx/lxp_kernel.h:256"
+symbol = "governance_authority"
+observed = "Three attempts of 1.17.1 passed their verify_cmd and `cg spec done 1.17.1` refused each (log /out/logs/verify-1.log) with `governance_authority — not defined in the graph` and `LXP_GOVERNANCE_HANDOVER — not defined in the graph`: the first is the struct field at include/layerx/lxp_kernel.h:256, the second the enumerator at include/layerx/lxp_handover.h:9, and the graph holds C functions, variables, macros, structs, enums and typedefs only."
+assumption = "The field and the enumerator leave the symbol list; lxp_governance_authority (struct, include/layerx/lxp_kernel.h:237) and the two test functions stay, and the result at 4b5c1588a is re-qualified unchanged."
+severity = "note"
+
+[finding.3.18.1]
+task = "3.18.1"
+file = "modules/oracle/types/events.go:6"
+symbol = "EventTypeVote"
+observed = "The verify_cmd of 3.18.1 passed and `cg spec done 3.18.1` refused the result (log /out/logs/verify-1.log) with `EventTypeVote — not defined in the graph`: do_1 deletes that constant, so the finished tree cannot declare it."
+assumption = "The deleted name leaves the symbol list; EndBlocker and TestOracleVotePeriodEmitsNoVoteEvent stay, and the result is re-qualified unchanged."
+severity = "note"
+
+[finding.9.33.5]
+task = "9.33.5"
+file = "services/agent/sdk/typescript/src/px.ts:516"
+symbol = "decodePxAnchorHead"
+observed = "The verify_cmd of 9.33.5 passed and `cg spec done 9.33.5` refused the result (log /out/logs/verify-1.log) with `decodePxAnchorHead — not defined in the graph`: do_2 deletes it together with PxAnchorHead. The checks for PxAnchorHead and PX_METHODS passed against services/agent/sdk/python/layerx_sdk/px.py:133 and :48, the Python SDK's declarations of the same names, not the touched TypeScript file."
+assumption = "Both deleted names leave the symbol list and PX_METHODS stays; the result is re-qualified unchanged. A passing symbol check names its file, and a file outside the touched paths proves nothing about them."
+severity = "note"
+
+[finding.4.21.2]
+task = "4.21.2"
+file = "services/launchpad/Makefile"
+symbol = "fmt"
+observed = "The verify_cmd of 4.21.2 passed at 25dde4bf7 and `cg spec done 4.21.2` refused the result (log /out/logs/verify-1.log) with `fmt — not defined in the graph`: fmt is a Makefile target, which the graph does not index."
+assumption = "The target leaves the symbol list and the test function stays; the result at 25dde4bf7 is re-qualified unchanged."
+severity = "note"
