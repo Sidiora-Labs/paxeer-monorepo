@@ -1256,13 +1256,11 @@ type spotLeaderboardBody struct {
 	Items           []spotRankJSON `json:"items"`
 }
 
-// leaderboard ranks every spot trader by realized profit (pnl), stable volume
-// (volume) or the percentage of profitable closed legs among the decided ones
-// (win-rate), highest first, ties by address.
+// leaderboard serves the ranks published by the spot store projection.
 func (s *SpotUsers) leaderboard(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	if !slices.Contains(spotLeaderboards, kind) {
-		writeError(w, http.StatusNotFound, "unknown leaderboard "+kind)
+		writeError(w, http.StatusBadRequest, "unknown leaderboard "+kind)
 		return
 	}
 	limit, err := parseLimit(r.URL.Query())
@@ -1270,8 +1268,37 @@ func (s *SpotUsers) leaderboard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid limit")
 		return
 	}
-	body, err := s.rank(r.Context(), kind, limit)
+	body, err := s.projectedRank(r.Context(), kind, limit)
 	spotWrite(w, body, err)
+}
+
+const spotLeaderboardSQL = `SELECT rank, account,
+	CASE WHEN kind = 'win-rate' THEN round(value, 4)::text ELSE value::text END
+FROM perps.spot_leaderboard WHERE kind = $1 ORDER BY rank LIMIT $2`
+
+func (s *SpotUsers) projectedRank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {
+	// The projection has no fold timestamp or omission count; as_of is the
+	// read time and omitted_accounts retains its zero value.
+	body := spotLeaderboardBody{Kind: kind, Items: []spotRankJSON{}}
+	rows, err := s.db.QueryContext(ctx, spotLeaderboardSQL, kind, limit)
+	if err != nil {
+		return body, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var item spotRankJSON
+		var account []byte
+		if err := rows.Scan(&item.Rank, &account, &item.Value); err != nil {
+			return body, err
+		}
+		item.Address = spotHex(common.BytesToAddress(account))
+		body.Items = append(body.Items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return body, err
+	}
+	body.AsOf = spotISO(time.Now())
+	return body, nil
 }
 
 func (s *SpotUsers) rank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {
