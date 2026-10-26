@@ -11,7 +11,6 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
-	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -205,25 +204,13 @@ func invalidAddrRefusal() error {
 // mergePlanActive reports whether the merge plan is active at the height of
 // the call's block. It reads the plan without charging the call.
 func (p PrecompileExecutor) mergePlanActive(ctx sdk.Context) bool {
-	getter, ok := p.evmKeeper.(interface {
-		UpgradeKeeper() *upgradekeeper.Keeper
-	})
-	if !ok {
-		return false
-	}
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), pcommon.MergeUpgrade, ctx.BlockHeight())
+	return pcommon.MergePlanActive(ctx, p.evmKeeper)
 }
 
 // v6120Active reports whether the v6.12.0 plan is active at the height of the
 // call's block. It reads the plan without charging the call.
 func (p PrecompileExecutor) v6120Active(ctx sdk.Context) bool {
-	getter, ok := p.evmKeeper.(interface {
-		UpgradeKeeper() *upgradekeeper.Keeper
-	})
-	if !ok {
-		return false
-	}
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), V6120Upgrade, ctx.BlockHeight())
+	return pcommon.PlanActive(ctx, p.evmKeeper, V6120Upgrade)
 }
 
 func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method *abi.Method, args []interface{}, value *big.Int, readOnly bool) ([]byte, uint64, error) {
