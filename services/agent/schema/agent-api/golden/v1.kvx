@@ -388,7 +388,7 @@ idempotency_key = "absent"
 disposition = "served_adapter_arm"
 
 [transport.agent_http.operation.program.interface]
-request = "ProgramDiscoverWire: program_id and requested_verification_level=sequencer-signed; unknown fields refused."
+request = "ProgramDiscoverWire: program_id and requested_rung=receipted; unknown fields refused."
 access = "read"
 operation_class = "Read"
 surface = "Contract"
@@ -490,9 +490,9 @@ idempotency_key = "absent"
 disposition = "served_adapter_arm"
 
 [transport.agent_http.operation.read.proof_bundle]
-request = "Exactly target and requested_verification_level. target is lowercase hex canonical native PB1: version u16be 1, kind 1 Activity or 3 Receipt plus nonzero activity_id32 (35 bytes); kind 2 AccountState adds nonzero account_id32 (67 bytes). No authority overrides or unknown fields."
-response = "VerifiedRead<ProofBundle>: exact target, exactly one lowercase-hex LXPB1 record, achieved_verification_level and Freshness. Record <=262144 bytes, complete JSON body <=1048576 bytes. LXPB1 variant 1 Activity, 2 Account, 3 Receipt, 4 MaintainedAccount; nonempty u32be-counted canonical_value and native_proof, variant 4 additionally original activity_receipt and activity_receipt_sp1."
-verification = "Activity/Receipt cap BatchIncluded; Account/MaintainedAccount cap StateProven. Requested level cannot exceed achieved level. Envelope Achieved status equals response level. Native proof authority remains mandatory; framing alone is not verification."
+request = "Exactly target and requested_verification_level, a Rung. Activity and Receipt targets name the retained raw signed transaction hash; AccountState additionally binds the subject account at the requested block height, as read.kvx type.ProofBundleTarget. Zero or malformed identifiers, unknown kinds, noncanonical encodings, trailing bytes, authority overrides and unknown fields are refused."
+response = "VerifiedRead<ProofBundle>: the layerx-receipt-proof-v2 bundle of read.kvx type.ProofBundle, achieved_verification_level and Freshness. Required fields are format, verificationLevel, rawTransaction, signedReceipt, receiptDigest and receiptKey. Committed additionally requires blockHeader, receiptInclusion, commit and validatorSet; accountProof is optional and binds the subject account at the same committed height. Bundle <=262144 bytes before hex encoding, complete JSON body <=1048576 bytes. Returned evidence binds the exact requested transaction hash."
+verification = "Activity and Receipt targets require at least Receipted; AccountState targets require Committed. Requested rung cannot exceed achieved rung; no silent downgrade. Envelope Achieved status and response verificationLevel agree. Receipt signatures and key intervals verify against independently pinned ReceiptKeys. Committed additionally verifies matching EVM receipt inclusion and the CometBFT commit against the validator set at the landing height. Parsing fields or reading a rung alone is not verification."
 ownership = "Bound authenticated subject, retained tenant/principal-owned signed outbox activity, signed actor equal authenticated agent, fresh subject account and asset, verified stored receipt. AccountState selector equals the bound account."
 access = "read"
 operation_class = "Read"
@@ -675,7 +675,7 @@ transport_ambiguity = "A mutating request whose outcome the client cannot know i
 "capability.rate" = "CapabilityRefusal Terminal. Owner refused the typed operation: the capability rate window is exhausted."
 "capability.purpose" = "CapabilityRefusal Terminal. Owner refused the typed operation: the capability does not admit the purpose."
 "owner.response_malformed" = "InternalFault Terminal. Owner response did not decode."
-"verification.inconsistent" = "VerificationFailure Terminal. Verification status violates the level ordering."
+"verification.inconsistent" = "VerificationFailure Terminal. Verification status violates the rung ordering."
 
 [compatibility.history.1_4]
 classification = "additive_only"
@@ -902,7 +902,7 @@ rust = "layerx_agent_api::identity::NativeSendPurposeV1"
 wire_type = "NativeSendPurposeV1Wire"
 fields = ["version:decimal_string", "tenant:utf8", "agent_did:utf8", "owner_did:utf8", "owner_public_key:hex32", "session_id:hex32", "generation:decimal_string", "expires_at_ms:decimal_string", "capability_id:hex32", "protocol_version:decimal_string", "network_id:decimal_string", "activity:NativeActivityV1", "preparation_id:hex32", "canonical_digest:hex32", "economic_action:hex32", "idempotency_key:hex32", "commitment:hex32"]
 canonical_bytes = "LayerX/native/send-purpose/v1 NUL, u8 version1, u32BE-length UTF8 tenant/agent_did/owner_did, owner_public_key32, session32, generation u64BE, expiry u64BE, capability32, protocol u16BE, network u32BE, NativeActivity.encode five bytes, preparation32, canonical_digest32, economic_action32, idempotency32, immutable economic commitment32."
-validation = "Closed version1, protocol3, nonzero kernel network, ordinary Asset Send module1 ordinal5, actual owner_did exactly did:layerx: plus owner_public_key lowercasehex; canonical identifiers, nonzero generation/expiry/digests, bounded texts, exact inverse decoder and reencoding, no trailing bytes."
+validation = "Configured nonzero chain id, EIP-1559 type 2, ordinary Asset Send module1 ordinal5, actual owner address exactly 20 bytes; canonical identifiers, nonzero generation/expiry/digests, bounded texts, exact inverse decoder and reencoding, no trailing bytes."
 authority = "Owner signatures authenticate this distinct consent statement, never an embedded protocol purpose; validate actual principal/session/generation/capability/current authority, native active chain, exact canonical Send and economic action from retained production owners. Existing preparation-purpose and local-grant encodings and refusals remain unchanged."
 
 [record.SignedNativeSendPurposeV1]

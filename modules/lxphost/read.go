@@ -10,12 +10,15 @@ package lxphost
 #include "layerx/programs.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lxp_governance.h"
+#include "layerx/lxp_authority.h"
+#include "layerx/lxp_crypto.h"
 
 typedef struct lxphost_read_state {
     lxp_kernel kernel;
     lxp_state_store store;
     lxp_state_journal journal;
     lx_account_registry accounts;
+    lxp_identity_store identities;
     uint64_t parameters;
 } lxphost_read_state;
 
@@ -161,6 +164,126 @@ static int32_t lxphost_read_receipt(lxphost_read_state *state,
     if (status != LXP_ERR_IDEMPOTENT_REPLAY) return status;
     return lxp_receipt_decode(*encoded, *length, true, receipt);
 }
+
+static int32_t lxphost_read_identity_id(lxphost_read_state *state,
+                                        const uint8_t id[32], lxp_identity *out)
+{
+    int32_t status = lxp_governance_identities_restore(&state->kernel,
+                                                       &state->identities);
+    if (status != LXP_OK) return status;
+    for (size_t i = 0U; i < state->identities.count; ++i) {
+        const lxp_identity *identity = &state->identities.identities[i];
+        if (memcmp(identity->did_id, id, 32U) != 0) continue;
+        if (identity->status == LXP_IDENTITY_FROZEN) return LXP_ERR_IDENTITY_FROZEN;
+        if (identity->status != LXP_IDENTITY_ACTIVE &&
+            identity->status != LXP_IDENTITY_RECOVERING) return LXP_ERR_UNKNOWN_DID;
+        *out = *identity;
+        return LXP_OK;
+    }
+    return LXP_ERR_UNKNOWN_DID;
+}
+
+static int32_t lxphost_read_identity(lxphost_read_state *state,
+                                     const uint8_t *did, size_t length,
+                                     lxp_identity *out)
+{
+    uint8_t id[32];
+    int32_t status = lxp_did_id_derive(did, length, id);
+    if (status != LXP_OK) return status;
+    return lxphost_read_identity_id(state, id, out);
+}
+
+static int32_t lxphost_read_live(lxphost_read_state *state,
+                                 const lxp_authority_grant *grant,
+                                 uint64_t timestamp, uint64_t sequence)
+{
+    lxp_identity identity;
+    int32_t status = lxphost_read_identity_id(state, grant->grantor, &identity);
+    if (status != LXP_OK) return status;
+    return lxp_authority_is_live(grant, identity.revocation_sequence,
+                                  timestamp, sequence);
+}
+
+static int32_t lxphost_read_authority_envelope(lxphost_read_state *state,
+                                               lxp_authority_envelope *out)
+{
+    int32_t status = lxp_kernel_register_module(&state->kernel,
+                                                 lxp_governance_module_iface());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&state->kernel,
+                                             programs_module_registration());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&state->kernel,
+                                             lx_asset_module_iface());
+    if (status != LXP_OK) return status;
+    return lxp_authority_envelope_declare(&state->kernel, state->kernel.epoch, out);
+}
+
+static int32_t lxphost_read_resolve(lxphost_read_state *state,
+                                    const uint8_t actor[32],
+                                    const lxp_authority_grant *grant,
+                                    const lxp_authority_envelope *envelope,
+                                    lxp_authority_resolved *out)
+{
+    // This API has no activity type: resolve eligibility within the stored
+    // scope, against the same registered envelope used by execution.
+    for (size_t i = 0U; i < state->kernel.module_count; ++i) {
+        const lxp_module_registration *module = &state->kernel.modules[i];
+        if (!module->enabled || state->kernel.epoch < module->enabled_epoch ||
+            state->kernel.epoch >= module->disabled_epoch) continue;
+        for (size_t j = 0U; j < module->activity_type_count; ++j) {
+            uint32_t type = module->activity_types[j];
+            if (lxp_authority_check_scope(&grant->scope, type,
+                    envelope->module_mask, envelope->activity_ordinal_min,
+                    envelope->activity_ordinal_max) != LXP_OK) continue;
+            int32_t status = lxp_authority_resolve(grant, actor, type,
+                envelope->module_mask, envelope->activity_ordinal_min,
+                envelope->activity_ordinal_max, true, out);
+            // The Go caller copies the scope from grant; do not retain its pointer.
+            out->scope = NULL;
+            return status;
+        }
+    }
+    return LXP_ERR_AUTH_SCOPE;
+}
+
+static int32_t lxphost_read_check_activity(lxphost_read_state *state,
+                                           const uint8_t *did, size_t length,
+                                           const uint8_t id[32],
+                                           const uint8_t payload_hash[32],
+                                           uint64_t timestamp, uint64_t sequence,
+                                           lxp_authority_grant *grant,
+                                           lxp_authority_resolved *out)
+{
+    lxp_identity identity;
+    lxp_authority_envelope envelope;
+    int32_t status = lxphost_read_identity(state, did, length, &identity);
+    if (status == LXP_OK) status = lxp_authority_grant_load(&state->kernel, id, grant);
+    if (status == LXP_OK) status = lxphost_read_live(state, grant, timestamp, sequence);
+    if (status != LXP_OK) return status;
+    if (!lxp_ct_is_zero(grant->scope.purpose_hash, 32U) &&
+        lxp_ct_memcmp(grant->scope.purpose_hash, payload_hash, 32U) != 0)
+        return LXP_ERR_AUTH_SCOPE;
+    status = lxphost_read_authority_envelope(state, &envelope);
+    if (status != LXP_OK) return status;
+    return lxphost_read_resolve(state, identity.did_id, grant, &envelope, out);
+}
+
+static int32_t lxphost_read_identity_state(lxphost_read_state *state,
+                                           const uint8_t *did, size_t length,
+                                           lxp_identity *identity,
+                                           lxp_authority_grant *grant,
+                                           lxp_authority_resolved *out)
+{
+    lxp_authority_envelope envelope;
+    int32_t status = lxphost_read_identity(state, did, length, identity);
+    if (status == LXP_OK) status = lxphost_read_authority_envelope(state, &envelope);
+    if (status == LXP_OK)
+        status = lxp_authority_owner_grant(identity, identity->primary_key,
+                                            &envelope, 0U, UINT64_MAX - 1U, grant);
+    if (status != LXP_OK) return status;
+    return lxphost_read_resolve(state, identity->did_id, grant, &envelope, out);
+}
 */
 import "C"
 
@@ -212,6 +335,129 @@ type PayerGrantState struct {
 	RevokedAt       uint64
 	Revoked         bool
 	InvoiceSettled  bool
+}
+
+type AuthorityScope struct {
+	ModuleMask         uint64
+	ActivityOrdinalMin uint16
+	ActivityOrdinalMax uint16
+	AssetID            [32]byte
+	MaximumPerActivity sdk.Int
+	MaximumTotal       sdk.Int
+	SpentTotal         sdk.Int
+	PeriodLength       uint64
+	MaximumPerPeriod   sdk.Int
+	SpentThisPeriod    sdk.Int
+	PeriodStart        uint64
+	PurposeHash        [32]byte
+	EarliestSequence   uint64
+	EarliestTimestamp  uint64
+	SignerThreshold    uint8
+	SignerCount        uint8
+	ApprovalCount      uint8
+	Signers            [8][32]byte
+	Approvals          [8][32]byte
+}
+
+type AuthorityFeeBudget struct {
+	Present            bool
+	AssetID            [32]byte
+	MaximumPerActivity sdk.Int
+	MaximumTotal       sdk.Int
+	SpentTotal         sdk.Int
+	PeriodLength       uint64
+	MaximumPerPeriod   sdk.Int
+	SpentThisPeriod    sdk.Int
+	PeriodStart        uint64
+}
+
+type AuthorityGrant struct {
+	GrantID                   [32]byte
+	Grantor                   [32]byte
+	Grantee                   [32]byte
+	Kind                      uint8
+	Key                       [32]byte
+	Scope                     AuthorityScope
+	NotBefore                 uint64
+	NotAfter                  uint64
+	GrantorRevocationSequence uint64
+	Revoked                   bool
+	RevokedAtSequence         uint64
+	GrantorSignature          [64]byte
+	FeeBudget                 AuthorityFeeBudget
+	AuthenticationOnly        bool
+}
+
+type AuthorityState struct {
+	Actor         [32]byte
+	Principal     [32]byte
+	Kind          uint8
+	VerifiedKey   [32]byte
+	Scope         AuthorityScope
+	AuthorityHash [32]byte
+	GrantID       [32]byte
+}
+
+type IdentityState struct {
+	DIDID                     [32]byte
+	Status                    uint8
+	PrimaryKey                [32]byte
+	PendingKey                [32]byte
+	HasPendingKey             bool
+	RotationAnnouncedAt       uint64
+	RotationEffectiveAt       uint64
+	RotationLapseAt           uint64
+	RotationEffectiveSequence uint64
+	SupersededKey             [32]byte
+	HasSupersededKey          bool
+	NextSequence              uint64
+	RevocationSequence        uint64
+	RecoveryRoot              [32]byte
+	RecoveryThreshold         uint16
+	RecoveryPendingKey        [32]byte
+	RecoveryApprovals         uint16
+	RecoveryEffectiveAt       uint64
+	RecoveryLapseAt           uint64
+	RecoveryVetoed            bool
+	EVMPayoutAddress          [20]byte
+	HasEVMPayoutBinding       bool
+	Authority                 AuthorityState
+}
+
+func readAuthorityScope(scope *C.struct_lxp_authority_scope) AuthorityScope {
+	return AuthorityScope{
+		ModuleMask:         uint64(scope.module_mask),
+		ActivityOrdinalMin: uint16(scope.activity_ordinal_min),
+		ActivityOrdinalMax: uint16(scope.activity_ordinal_max),
+		AssetID:            *(*[32]byte)(unsafe.Pointer(&scope.asset_id[0])),
+		MaximumPerActivity: readAmount(scope.maximum_per_activity),
+		MaximumTotal:       readAmount(scope.maximum_total),
+		SpentTotal:         readAmount(scope.spent_total),
+		PeriodLength:       uint64(scope.period_length),
+		MaximumPerPeriod:   readAmount(scope.maximum_per_period),
+		SpentThisPeriod:    readAmount(scope.spent_this_period),
+		PeriodStart:        uint64(scope.period_start),
+		PurposeHash:        *(*[32]byte)(unsafe.Pointer(&scope.purpose_hash[0])),
+		EarliestSequence:   uint64(scope.earliest_sequence),
+		EarliestTimestamp:  uint64(scope.earliest_timestamp),
+		SignerThreshold:    uint8(scope.signer_threshold),
+		SignerCount:        uint8(scope.signer_count),
+		ApprovalCount:      uint8(scope.approval_count),
+		Signers:            *(*[8][32]byte)(unsafe.Pointer(&scope.signers[0][0])),
+		Approvals:          *(*[8][32]byte)(unsafe.Pointer(&scope.approvals[0][0])),
+	}
+}
+
+func readAuthorityState(authority *C.struct_lxp_authority_resolved, scope *C.struct_lxp_authority_scope) AuthorityState {
+	return AuthorityState{
+		Actor:         *(*[32]byte)(unsafe.Pointer(&authority.actor[0])),
+		Principal:     *(*[32]byte)(unsafe.Pointer(&authority.principal[0])),
+		Kind:          uint8(authority.kind),
+		VerifiedKey:   *(*[32]byte)(unsafe.Pointer(&authority.verified_key[0])),
+		Scope:         readAuthorityScope(scope),
+		AuthorityHash: *(*[32]byte)(unsafe.Pointer(&authority.authority_hash[0])),
+		GrantID:       *(*[32]byte)(unsafe.Pointer(&authority.grant_id[0])),
+	}
 }
 
 func readAmount(amount C.struct_lxp_u128) sdk.Int {
@@ -407,6 +653,170 @@ func (h *Host) ReadSessionKey(ctx sdk.Context, grantID [32]byte) ([]byte, error)
 		return nil, err
 	}
 	return summary[:], nil
+}
+
+func (h *Host) ReadGrant(ctx sdk.Context, grantID [32]byte) (AuthorityGrant, error) {
+	var out AuthorityGrant
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		var grant C.lxp_authority_grant
+		if err := result(C.lxp_authority_grant_load(&state.kernel, bytes32(&grantID), &grant)); err != nil {
+			return err
+		}
+		fee := &grant.fee_budget
+		out = AuthorityGrant{
+			GrantID:                   *(*[32]byte)(unsafe.Pointer(&grant.grant_id[0])),
+			Grantor:                   *(*[32]byte)(unsafe.Pointer(&grant.grantor[0])),
+			Grantee:                   *(*[32]byte)(unsafe.Pointer(&grant.grantee[0])),
+			Kind:                      uint8(grant.kind),
+			Key:                       *(*[32]byte)(unsafe.Pointer(&grant.key[0])),
+			Scope:                     readAuthorityScope(&grant.scope),
+			NotBefore:                 uint64(grant.not_before),
+			NotAfter:                  uint64(grant.not_after),
+			GrantorRevocationSequence: uint64(grant.grantor_revocation_sequence),
+			Revoked:                   bool(grant.revoked),
+			RevokedAtSequence:         uint64(grant.revoked_at_sequence),
+			GrantorSignature:          *(*[64]byte)(unsafe.Pointer(&grant.grantor_signature[0])),
+			FeeBudget: AuthorityFeeBudget{
+				Present:            bool(fee.present),
+				AssetID:            *(*[32]byte)(unsafe.Pointer(&fee.asset_id[0])),
+				MaximumPerActivity: readAmount(fee.maximum_per_activity),
+				MaximumTotal:       readAmount(fee.maximum_total),
+				SpentTotal:         readAmount(fee.spent_total),
+				PeriodLength:       uint64(fee.period_length),
+				MaximumPerPeriod:   readAmount(fee.maximum_per_period),
+				SpentThisPeriod:    readAmount(fee.spent_this_period),
+				PeriodStart:        uint64(fee.period_start),
+			},
+			AuthenticationOnly: bool(grant.authentication_only),
+		}
+		return nil
+	})
+	if err != nil {
+		return AuthorityGrant{}, err
+	}
+	return out, nil
+}
+
+func (h *Host) ReadIsLive(ctx sdk.Context, grantID [32]byte, atSequence uint64) (bool, error) {
+	live := false
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		var grant C.lxp_authority_grant
+		if err := result(C.lxp_authority_grant_load(&state.kernel, bytes32(&grantID), &grant)); err != nil {
+			return err
+		}
+		timestamp := ctx.BlockTime().UnixMilli()
+		if timestamp < 0 {
+			return codeNonCanonical
+		}
+		status := C.lxphost_read_live(state, &grant, C.uint64_t(timestamp), C.uint64_t(atSequence))
+		switch status {
+		case C.LXP_OK:
+			live = true
+			return nil
+		case C.LXP_ERR_NOT_YET_VALID, C.LXP_ERR_AUTH_EXPIRED, C.LXP_ERR_AUTH_REVOKED, C.LXP_ERR_AUTH_NOT_MATURE:
+			return nil
+		default:
+			return result(status)
+		}
+	})
+	if err != nil {
+		return false, err
+	}
+	return live, nil
+}
+
+func (h *Host) ReadCapabilityScope(ctx sdk.Context, grantID [32]byte) (AuthorityScope, error) {
+	var out AuthorityScope
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		var grant C.lxp_authority_grant
+		if err := result(C.lxp_authority_grant_load(&state.kernel, bytes32(&grantID), &grant)); err != nil {
+			return err
+		}
+		out = readAuthorityScope(&grant.scope)
+		return nil
+	})
+	if err != nil {
+		return AuthorityScope{}, err
+	}
+	return out, nil
+}
+
+// ReadCheckActivity resolves grant eligibility and its purpose-hash restriction.
+// It does not authenticate a signature or validate a concrete activity type.
+func (h *Host) ReadCheckActivity(ctx sdk.Context, actorDID []byte, grantID [32]byte, payloadHash [32]byte) (AuthorityState, error) {
+	var out AuthorityState
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		timestamp := ctx.BlockTime().UnixMilli()
+		if timestamp < 0 {
+			return codeNonCanonical
+		}
+		branch := &branchCtx{store: ctx.KVStore(h.cfg.StoreKey)}
+		sequence, err := branch.lastSequence()
+		if err != nil {
+			return err
+		}
+		var grant C.lxp_authority_grant
+		var authority C.struct_lxp_authority_resolved
+		if err := result(C.lxphost_read_check_activity(state, bytesPtr(actorDID), C.size_t(len(actorDID)),
+			bytes32(&grantID), bytes32(&payloadHash), C.uint64_t(timestamp), C.uint64_t(sequence), &grant, &authority)); err != nil {
+			return err
+		}
+		out = readAuthorityState(&authority, &grant.scope)
+		return nil
+	})
+	if err != nil {
+		return AuthorityState{}, err
+	}
+	return out, nil
+}
+
+func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityState, error) {
+	var out IdentityState
+	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+		var identity C.struct_lxp_identity
+		var grant C.lxp_authority_grant
+		var authority C.struct_lxp_authority_resolved
+		if err := result(C.lxphost_read_identity_state(state, bytesPtr(actorDID), C.size_t(len(actorDID)),
+			&identity, &grant, &authority)); err != nil {
+			return err
+		}
+		id := *(*[32]byte)(unsafe.Pointer(&identity.did_id[0]))
+		branch := &branchCtx{store: ctx.KVStore(h.cfg.StoreKey)}
+		next, err := branch.identitySequence(id)
+		if err != nil {
+			return err
+		}
+		out = IdentityState{
+			DIDID:                     id,
+			Status:                    uint8(identity.status),
+			PrimaryKey:                *(*[32]byte)(unsafe.Pointer(&identity.primary_key[0])),
+			PendingKey:                *(*[32]byte)(unsafe.Pointer(&identity.pending_key[0])),
+			HasPendingKey:             bool(identity.has_pending_key),
+			RotationAnnouncedAt:       uint64(identity.rotation_announced_at),
+			RotationEffectiveAt:       uint64(identity.rotation_effective_at),
+			RotationLapseAt:           uint64(identity.rotation_lapse_at),
+			RotationEffectiveSequence: uint64(identity.rotation_effective_sequence),
+			SupersededKey:             *(*[32]byte)(unsafe.Pointer(&identity.superseded_key[0])),
+			HasSupersededKey:          bool(identity.has_superseded_key),
+			NextSequence:              next,
+			RevocationSequence:        uint64(identity.revocation_sequence),
+			RecoveryRoot:              *(*[32]byte)(unsafe.Pointer(&identity.recovery_root[0])),
+			RecoveryThreshold:         uint16(identity.recovery_threshold),
+			RecoveryPendingKey:        *(*[32]byte)(unsafe.Pointer(&identity.recovery_pending_key[0])),
+			RecoveryApprovals:         uint16(identity.recovery_approvals),
+			RecoveryEffectiveAt:       uint64(identity.recovery_effective_at),
+			RecoveryLapseAt:           uint64(identity.recovery_lapse_at),
+			RecoveryVetoed:            bool(identity.recovery_vetoed),
+			EVMPayoutAddress:          *(*[20]byte)(unsafe.Pointer(&identity.evm_payout_address[0])),
+			HasEVMPayoutBinding:       bool(identity.has_evm_payout_binding),
+			Authority:                 readAuthorityState(&authority, &grant.scope),
+		}
+		return nil
+	})
+	if err != nil {
+		return IdentityState{}, err
+	}
+	return out, nil
 }
 
 func (h *Host) ReadPayerGrant(ctx sdk.Context, grantID [32]byte) (PayerGrantState, error) {

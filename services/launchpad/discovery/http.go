@@ -1,9 +1,7 @@
 package discovery
 
 import (
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -41,24 +39,14 @@ func decode(w http.ResponseWriter, r *http.Request, v any) error {
 	}
 	return nil
 }
-func reply(w http.ResponseWriter, v any, e error) {
-	w.Header().Set("Content-Type", "application/json")
-	w.Header().Set("Cache-Control", "private, no-store")
+func reply(w http.ResponseWriter, r *http.Request, v any, e error) {
 	if e != nil {
-		status := 503
-		if errors.Is(e, ErrInvalid) {
-			status = 400
-		} else if errors.Is(e, ErrForbidden) {
-			status = 403
-		} else if errors.Is(e, ErrConflict) {
-			status = 409
-		} else if errors.Is(e, sql.ErrNoRows) {
-			status = 404
-		}
-		w.WriteHeader(status)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "discovery_unavailable"})
+		status, code := errorStatus(e)
+		writeError(w, r, status, code)
 		return
 	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "private, no-store")
 	_ = json.NewEncoder(w).Encode(v)
 }
 func (h HTTP) Handler() http.Handler {
@@ -69,7 +57,7 @@ func (h HTTP) Handler() http.Handler {
 			var e error
 			account, e = h.actor(r)
 			if e != nil {
-				w.WriteHeader(401)
+				writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 				return
 			}
 		}
@@ -82,12 +70,12 @@ func (h HTTP) Handler() http.Handler {
 			var e error
 			limit, e = strconv.Atoi(s)
 			if e != nil {
-				w.WriteHeader(400)
+				writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 				return
 			}
 		}
 		v, e := h.Feed.Page(r.Context(), account, order, r.URL.Query().Get("cursor"), limit, time.Now().UTC())
-		reply(w, v, e)
+		reply(w, r, v, e)
 	})
 	mux.HandleFunc("GET /v2/discovery/feed/{id}", func(w http.ResponseWriter, r *http.Request) {
 		account := ""
@@ -95,32 +83,32 @@ func (h HTTP) Handler() http.Handler {
 			var e error
 			account, e = h.actor(r)
 			if e != nil {
-				w.WriteHeader(401)
+				writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 				return
 			}
 		}
 		v, e := h.Feed.Detail(r.Context(), account, r.PathValue("id"), time.Now().UTC())
-		reply(w, v, e)
+		reply(w, r, v, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/callouts", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var input struct{ ID, PoolAddress, Body, Direction, Disclosure, PositionDisclosure, SquadID string }
 		if e = decode(w, r, &input); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		next := Callout{ID: input.ID, AuthorAccountID: actor, PoolAddress: input.PoolAddress, Body: input.Body, Direction: input.Direction, Disclosure: input.Disclosure, PositionDisclosure: input.PositionDisclosure, ModerationStatus: "approved", Revision: 1, CreatedAt: time.Now().UTC()}
 		e = h.Callouts.Publish(r.Context(), actor, input.SquadID, next)
-		reply(w, next, e)
+		reply(w, r, next, e)
 	})
 	mux.HandleFunc("PATCH /v2/discovery/callouts/{id}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var input struct {
@@ -129,16 +117,16 @@ func (h HTTP) Handler() http.Handler {
 			Delete   bool
 		}
 		if e = decode(w, r, &input); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		v, e := h.Callouts.Edit(r.Context(), actor, r.PathValue("id"), input.Body, input.Expected, input.Delete)
-		reply(w, v, e)
+		reply(w, r, v, e)
 	})
 	mux.HandleFunc("PUT /v2/discovery/alerts/{id}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var input struct {
@@ -146,33 +134,33 @@ func (h HTTP) Handler() http.Handler {
 			Expected uint64
 		}
 		if e = decode(w, r, &input); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		input.Rule.OwnerAccountID = actor
 		input.Rule.ID = r.PathValue("id")
 		e = h.Store.SaveRule(r.Context(), actor, input.Rule, input.Expected)
-		reply(w, input.Rule, e)
+		reply(w, r, input.Rule, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var input struct{ ID, Name, Policy string }
 		if e = decode(w, r, &input); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		q := Squad{ID: input.ID, OwnerAccountID: actor, Name: input.Name, Policy: input.Policy, Revision: 1}
 		e = h.Store.CreateSquad(r.Context(), actor, q)
-		reply(w, q, e)
+		reply(w, r, q, e)
 	})
 	mux.HandleFunc("PATCH /v2/discovery/squads/{id}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var in struct {
@@ -180,17 +168,17 @@ func (h HTTP) Handler() http.Handler {
 			Expected uint64
 		}
 		if e = decode(w, r, &in); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		in.Squad.ID = r.PathValue("id")
 		e = h.Store.UpdateSquad(r.Context(), actor, in.Squad, in.Expected)
-		reply(w, in.Squad, e)
+		reply(w, r, in.Squad, e)
 	})
 	mux.HandleFunc("PATCH /v2/discovery/squads/{id}/members/{account}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var in struct {
@@ -198,16 +186,16 @@ func (h HTTP) Handler() http.Handler {
 			Expected uint64
 		}
 		if e = decode(w, r, &in); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		e = h.Store.SetMemberStatus(r.Context(), actor, r.PathValue("id"), r.PathValue("account"), in.Status, in.Expected)
-		reply(w, map[string]bool{"updated": e == nil}, e)
+		reply(w, r, map[string]bool{"updated": e == nil}, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/invitations", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var in struct {
@@ -215,16 +203,16 @@ func (h HTTP) Handler() http.Handler {
 			Expires        time.Time
 		}
 		if e = decode(w, r, &in); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		e = h.Store.Invite(r.Context(), actor, r.PathValue("id"), in.Account, in.Token, in.Expires)
-		reply(w, map[string]bool{"invited": e == nil}, e)
+		reply(w, r, map[string]bool{"invited": e == nil}, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/accept", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var in struct {
@@ -232,16 +220,16 @@ func (h HTTP) Handler() http.Handler {
 			Expected uint64
 		}
 		if e = decode(w, r, &in); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		v, e := h.Store.AcceptInvitation(r.Context(), actor, r.PathValue("id"), in.Token, in.Expected, time.Now().UTC())
-		reply(w, v, e)
+		reply(w, r, v, e)
 	})
 	mux.HandleFunc("POST /v2/discovery/squads/{id}/transfer", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var in struct {
@@ -250,7 +238,7 @@ func (h HTTP) Handler() http.Handler {
 			Confirm   bool
 		}
 		if e = decode(w, r, &in); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		if in.Confirm {
@@ -258,21 +246,21 @@ func (h HTTP) Handler() http.Handler {
 		} else {
 			e = h.Store.ProposeTransfer(r.Context(), actor, r.PathValue("id"), in.Recipient, in.Expected)
 		}
-		reply(w, map[string]bool{"accepted": e == nil}, e)
+		reply(w, r, map[string]bool{"accepted": e == nil}, e)
 	})
 	mux.HandleFunc("GET /v2/discovery/leaderboards", func(w http.ResponseWriter, r *http.Request) {
 		start, e := time.Parse(time.RFC3339, r.URL.Query().Get("start"))
 		if e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		end, e := time.Parse(time.RFC3339, r.URL.Query().Get("end"))
 		if e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		v, e := RankIntervals(r.Context(), h.Intervals, start.UTC(), end.UTC())
-		reply(w, v, e)
+		reply(w, r, v, e)
 	})
 	return mux
 }
