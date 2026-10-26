@@ -1,9 +1,9 @@
 //! Verified read, proof, availability, export, and projection contract types.
 
 use crate::identity::{Asset, ContractError};
-use crate::verify::Level;
+use crate::verify::Rung;
 use crate::write_contract::CanonicalBytes;
-use crate::{Amount, Sequence, TimestampSeconds};
+use crate::{Amount, TimestampSeconds};
 use layerx_proof::export_codec::{parse_fact_set, FactRefError, FactSelector};
 
 macro_rules! required_reference {
@@ -36,7 +36,13 @@ required_reference!(AccountRef, "account");
 required_reference!(ModuleRef, "module");
 required_reference!(BatchRef, "batch");
 required_reference!(CheckpointRef, "checkpoint");
-required_reference!(HistoryCursor, "cursor");
+/// Ordered position within a block, without a lossy text or sequence conversion.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct HistoryCursor {
+    pub block_height: u64,
+    pub tx_index: u64,
+    pub log_index: u64,
+}
 required_reference!(ProviderRef, "provider");
 required_reference!(FactRef, "fact");
 
@@ -62,11 +68,11 @@ pub fn validate_export_request(
     Ok(request)
 }
 
-/// Checks that a verified export answers exactly the requested facts at the requested level.
+/// Checks that a verified export answers exactly the requested facts at the requested rung.
 ///
 /// # Errors
 /// Returns [`ContractError::Mismatch`] when the stated facts differ from the request,
-/// [`ContractError::OutOfRange`] when the achieved level is below the requested level, or the
+/// [`ContractError::OutOfRange`] when the achieved rung is below the requested rung, or the
 /// evidence refusal of [`OfflineExport::validate`].
 pub fn check_export_response(
     request: &ReadRequest<Vec<FactRef>>,
@@ -75,8 +81,14 @@ pub fn check_export_response(
     if response.value.facts != request.selector {
         return Err(ContractError::Mismatch("export_facts"));
     }
-    if response.achieved_verification_level < request.requested_verification_level {
-        return Err(ContractError::OutOfRange("export_verification_level"));
+    if response.achieved_rung < request.requested_rung {
+        return Err(ContractError::OutOfRange("export_rung"));
+    }
+    if response.achieved_rung != Rung::Committed {
+        return Err(ContractError::OutOfRange("offline_rung"));
+    }
+    if response.value.height != response.freshness.value_height {
+        return Err(ContractError::Mismatch("export_height"));
     }
     response.value.clone().validate()?;
     Ok(())
@@ -84,17 +96,14 @@ pub fn check_export_response(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RelativeTo {
-    Batch(BatchRef),
-    Checkpoint(CheckpointRef),
+    Block { height: u64, hash: [u8; 32] },
 }
 
 /// Full freshness coordinate attached to every authoritative read.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Freshness {
-    pub chain_head: Sequence,
-    pub latest_sealed_batch: BatchRef,
-    pub latest_finalised_checkpoint: CheckpointRef,
-    pub value_sequence: Sequence,
+    pub chain_head: u64,
+    pub value_height: u64,
     pub relative_to: RelativeTo,
 }
 
@@ -105,20 +114,20 @@ mod sealed {
 /// Values whose bytes and meaning originate from the `LayerX` core or its evidence.
 pub trait CoreProduced: sealed::Sealed {}
 
-/// An authoritative value that always carries achieved proof level and freshness.
+/// An authoritative value that always carries its achieved rung and freshness.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct VerifiedRead<T: CoreProduced> {
     pub value: T,
-    pub achieved_verification_level: Level,
+    pub achieved_rung: Rung,
     pub freshness: Freshness,
 }
 
 impl<T: CoreProduced> VerifiedRead<T> {
     #[must_use]
-    pub const fn new(value: T, achieved_verification_level: Level, freshness: Freshness) -> Self {
+    pub const fn new(value: T, achieved_rung: Rung, freshness: Freshness) -> Self {
         Self {
             value,
-            achieved_verification_level,
+            achieved_rung,
             freshness,
         }
     }
@@ -127,7 +136,7 @@ impl<T: CoreProduced> VerifiedRead<T> {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReadRequest<S> {
     pub selector: S,
-    pub requested_verification_level: Level,
+    pub requested_rung: Rung,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -144,8 +153,8 @@ pub struct ModuleStateSelector {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HistorySelector {
-    pub first: Sequence,
-    pub last: Sequence,
+    pub from_height: u64,
+    pub to_height: u64,
     pub cursor: Option<HistoryCursor>,
     pub page_limit: u32,
 }
@@ -156,11 +165,14 @@ impl HistorySelector {
     /// # Errors
     /// Returns [`ContractError::Zero`] for an inverted range or zero page limit.
     pub fn validate(self) -> Result<Self, ContractError> {
-        if self.last.0 < self.first.0 {
+        if self.to_height < self.from_height {
             return Err(ContractError::Zero("history_range"));
         }
         if self.page_limit == 0 {
             return Err(ContractError::Zero("page_limit"));
+        }
+        if self.page_limit > 65_535 {
+            return Err(ContractError::OutOfRange("page_limit"));
         }
         Ok(self)
     }
@@ -172,6 +184,7 @@ pub struct BalanceValue {
     pub asset: Asset,
     pub amount: Amount,
     pub canonical_state: CanonicalBytes,
+    pub height: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -184,27 +197,43 @@ pub struct ModuleStateValue(pub CanonicalBytes);
 pub struct HistoryValue {
     pub records: Vec<CanonicalBytes>,
     pub next_cursor: Option<HistoryCursor>,
+    pub height: u64,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct BatchValue(pub CanonicalBytes);
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CheckpointValue(pub CanonicalBytes);
+pub struct CheckpointValue {
+    pub commit: CanonicalBytes,
+    pub validator_set: CanonicalBytes,
+    pub height: u64,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProofBundle {
-    pub target: CanonicalBytes,
-    pub proofs: Vec<CanonicalBytes>,
+    pub format: String,
+    pub verification_level: Rung,
+    pub raw_transaction: CanonicalBytes,
+    pub signed_receipt: CanonicalBytes,
+    pub receipt_digest: [u8; 32],
+    pub receipt_key: layerx_client::sequencer::ReceiptKeyEntry,
+    pub block_header: Option<CanonicalBytes>,
+    pub receipt_inclusion: Option<CanonicalBytes>,
+    pub commit: Option<CanonicalBytes>,
+    pub validator_set: Option<CanonicalBytes>,
+    pub account_proof: Option<CanonicalBytes>,
 }
-
 
 pub const MAX_PROOF_BUNDLE_BYTES: usize = 262_144;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProofBundleTarget {
     Activity([u8; 32]),
-    AccountState { activity_id: [u8; 32], account_id: [u8; 32] },
+    AccountState {
+        activity_id: [u8; 32],
+        account_id: [u8; 32],
+    },
     Receipt([u8; 32]),
 }
 
@@ -213,17 +242,26 @@ impl ProofBundleTarget {
         if !matches!(bytes.len(), 35 | 67) || bytes[..2] != [0, 1] {
             return Err(ContractError::Mismatch("proof_bundle_target"));
         }
-        let activity_id: [u8; 32] = bytes[3..35].try_into()
+        let activity_id: [u8; 32] = bytes[3..35]
+            .try_into()
             .map_err(|_| ContractError::Mismatch("proof_bundle_target"))?;
-        if activity_id == [0; 32] { return Err(ContractError::Zero("activity_id")); }
+        if activity_id == [0; 32] {
+            return Err(ContractError::Zero("activity_id"));
+        }
         match (bytes[2], bytes.len()) {
             (1, 35) => Ok(Self::Activity(activity_id)),
             (3, 35) => Ok(Self::Receipt(activity_id)),
             (2, 67) => {
-                let account_id: [u8; 32] = bytes[35..67].try_into()
+                let account_id: [u8; 32] = bytes[35..67]
+                    .try_into()
                     .map_err(|_| ContractError::Mismatch("account_id"))?;
-                if account_id == [0; 32] { return Err(ContractError::Zero("account_id")); }
-                Ok(Self::AccountState { activity_id, account_id })
+                if account_id == [0; 32] {
+                    return Err(ContractError::Zero("account_id"));
+                }
+                Ok(Self::AccountState {
+                    activity_id,
+                    account_id,
+                })
             }
             _ => Err(ContractError::Mismatch("proof_bundle_target")),
         }
@@ -237,11 +275,19 @@ impl ProofBundleTarget {
     }
 
     pub fn encode(self) -> Result<CanonicalBytes, ContractError> {
-        let mut bytes = vec![0, 1, match self {
-            Self::Activity(_) => 1, Self::AccountState { .. } => 2, Self::Receipt(_) => 3,
-        }];
+        let mut bytes = vec![
+            0,
+            1,
+            match self {
+                Self::Activity(_) => 1,
+                Self::AccountState { .. } => 2,
+                Self::Receipt(_) => 3,
+            },
+        ];
         bytes.extend_from_slice(&self.activity_id());
-        if let Self::AccountState { account_id, .. } = self { bytes.extend_from_slice(&account_id); }
+        if let Self::AccountState { account_id, .. } = self {
+            bytes.extend_from_slice(&account_id);
+        }
         Self::decode(&bytes)?;
         CanonicalBytes::new(bytes)
     }
@@ -249,7 +295,12 @@ impl ProofBundleTarget {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
-pub enum ProofBundleVariant { Activity = 1, Account = 2, Receipt = 3, MaintainedAccount = 4 }
+pub enum ProofBundleVariant {
+    Activity = 1,
+    Account = 2,
+    Receipt = 3,
+    MaintainedAccount = 4,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProofBundleRecord {
@@ -261,25 +312,37 @@ pub struct ProofBundleRecord {
 
 impl ProofBundleRecord {
     pub fn encode(&self) -> Result<CanonicalBytes, ContractError> {
-        if (self.variant == ProofBundleVariant::MaintainedAccount) != self.activity_receipt.is_some() {
+        if (self.variant == ProofBundleVariant::MaintainedAccount)
+            != self.activity_receipt.is_some()
+        {
             return Err(ContractError::Mismatch("proof_bundle_variant"));
         }
         let mut bytes = b"LXPB1".to_vec();
         bytes.push(self.variant as u8);
         let mut append = |field: &CanonicalBytes| -> Result<(), ContractError> {
             let value = field.as_bytes();
-            if value.is_empty() || bytes.len().checked_add(4).and_then(|n| n.checked_add(value.len()))
-                .filter(|n| *n <= MAX_PROOF_BUNDLE_BYTES).is_none() {
+            if value.is_empty()
+                || bytes
+                    .len()
+                    .checked_add(4)
+                    .and_then(|n| n.checked_add(value.len()))
+                    .filter(|n| *n <= MAX_PROOF_BUNDLE_BYTES)
+                    .is_none()
+            {
                 return Err(ContractError::OutOfRange("proof_bundle_bytes"));
             }
-            let length = u32::try_from(value.len()).map_err(|_| ContractError::OutOfRange("proof_bundle_bytes"))?;
+            let length = u32::try_from(value.len())
+                .map_err(|_| ContractError::OutOfRange("proof_bundle_bytes"))?;
             bytes.extend_from_slice(&length.to_be_bytes());
             bytes.extend_from_slice(value);
             Ok(())
         };
         append(&self.canonical_value)?;
         append(&self.native_proof)?;
-        if let Some((receipt, proof)) = &self.activity_receipt { append(receipt)?; append(proof)?; }
+        if let Some((receipt, proof)) = &self.activity_receipt {
+            append(receipt)?;
+            append(proof)?;
+        }
         CanonicalBytes::new(bytes)
     }
 
@@ -288,19 +351,33 @@ impl ProofBundleRecord {
             return Err(ContractError::Mismatch("proof_bundle_record"));
         }
         let variant = match bytes[5] {
-            1 => ProofBundleVariant::Activity, 2 => ProofBundleVariant::Account,
-            3 => ProofBundleVariant::Receipt, 4 => ProofBundleVariant::MaintainedAccount,
+            1 => ProofBundleVariant::Activity,
+            2 => ProofBundleVariant::Account,
+            3 => ProofBundleVariant::Receipt,
+            4 => ProofBundleVariant::MaintainedAccount,
             _ => return Err(ContractError::Mismatch("proof_bundle_variant")),
         };
         let mut offset = 6_usize;
         let mut field = || -> Result<CanonicalBytes, ContractError> {
-            let length_end = offset.checked_add(4).ok_or(ContractError::OutOfRange("proof_bundle_bytes"))?;
-            let length = u32::from_be_bytes(bytes.get(offset..length_end)
-                .ok_or(ContractError::Mismatch("proof_bundle_record"))?.try_into()
-                .map_err(|_| ContractError::Mismatch("proof_bundle_record"))?) as usize;
-            let end = length_end.checked_add(length).ok_or(ContractError::OutOfRange("proof_bundle_bytes"))?;
-            let value = CanonicalBytes::new(bytes.get(length_end..end)
-                .ok_or(ContractError::Mismatch("proof_bundle_record"))?.to_vec())?;
+            let length_end = offset
+                .checked_add(4)
+                .ok_or(ContractError::OutOfRange("proof_bundle_bytes"))?;
+            let length = u32::from_be_bytes(
+                bytes
+                    .get(offset..length_end)
+                    .ok_or(ContractError::Mismatch("proof_bundle_record"))?
+                    .try_into()
+                    .map_err(|_| ContractError::Mismatch("proof_bundle_record"))?,
+            ) as usize;
+            let end = length_end
+                .checked_add(length)
+                .ok_or(ContractError::OutOfRange("proof_bundle_bytes"))?;
+            let value = CanonicalBytes::new(
+                bytes
+                    .get(length_end..end)
+                    .ok_or(ContractError::Mismatch("proof_bundle_record"))?
+                    .to_vec(),
+            )?;
             offset = end;
             Ok(value)
         };
@@ -308,40 +385,117 @@ impl ProofBundleRecord {
         let native_proof = field()?;
         let activity_receipt = if variant == ProofBundleVariant::MaintainedAccount {
             Some((field()?, field()?))
-        } else { None };
-        if offset != bytes.len() { return Err(ContractError::Mismatch("proof_bundle_trailing")); }
-        Ok(Self { variant, canonical_value, native_proof, activity_receipt })
+        } else {
+            None
+        };
+        if offset != bytes.len() {
+            return Err(ContractError::Mismatch("proof_bundle_trailing"));
+        }
+        Ok(Self {
+            variant,
+            canonical_value,
+            native_proof,
+            activity_receipt,
+        })
     }
 }
 
 impl ProofBundle {
+    /// Checks the mirror's field set and rung; consumers must independently verify evidence.
     pub fn check_response(
-        request: &ReadRequest<CanonicalBytes>, response: &VerifiedRead<Self>,
-    ) -> Result<ProofBundleRecord, ContractError> {
-        ProofBundleTarget::decode(request.selector.as_bytes())?;
-        if response.value.target != request.selector {
-            return Err(ContractError::Mismatch("proof_bundle_target"));
-        }
-        let record = response.value.record()?;
-        let expected = match record.variant {
-            ProofBundleVariant::Activity | ProofBundleVariant::Receipt => Level::BatchIncluded,
-            ProofBundleVariant::Account | ProofBundleVariant::MaintainedAccount => Level::StateProven,
+        request: &ReadRequest<ProofBundleTarget>,
+        response: &VerifiedRead<Self>,
+    ) -> Result<(), ContractError> {
+        request.selector.encode()?;
+        response.value.validate()?;
+        let expected = match request.selector {
+            ProofBundleTarget::Activity(_) | ProofBundleTarget::Receipt(_) => Rung::Receipted,
+            ProofBundleTarget::AccountState { .. } => Rung::Committed,
         };
-        if response.achieved_verification_level != expected
-            || response.achieved_verification_level < request.requested_verification_level {
-            return Err(ContractError::OutOfRange("proof_bundle_verification_level"));
+        if response.achieved_rung != expected
+            || response.achieved_rung < request.requested_rung
+            || response.value.verification_level != response.achieved_rung
+        {
+            return Err(ContractError::OutOfRange("proof_bundle_rung"));
         }
-        Ok(record)
+        if matches!(request.selector, ProofBundleTarget::AccountState { .. })
+            && response.value.account_proof.is_none()
+        {
+            return Err(ContractError::Empty("account_proof"));
+        }
+        Ok(())
     }
 
-    pub fn record(&self) -> Result<ProofBundleRecord, ContractError> {
-        let target = ProofBundleTarget::decode(self.target.as_bytes())?;
-        if self.proofs.len() != 1 { return Err(ContractError::OutOfRange("proof_bundle_count")); }
-        let record = ProofBundleRecord::decode(self.proofs[0].as_bytes())?;
-        if !matches!((target, record.variant),
+    pub fn validate(&self) -> Result<(), ContractError> {
+        if self.format != "layerx-receipt-proof-v2" {
+            return Err(ContractError::Mismatch("proof_bundle_format"));
+        }
+        if self.receipt_key.key_id == [0; 32] || self.receipt_key.public_key == [0; 32] {
+            return Err(ContractError::Zero("receipt_key"));
+        }
+        if self.receipt_key.first_height > self.receipt_key.last_height {
+            return Err(ContractError::OutOfRange("receipt_key_heights"));
+        }
+        let committed = [
+            &self.block_header,
+            &self.receipt_inclusion,
+            &self.commit,
+            &self.validator_set,
+        ];
+        match self.verification_level {
+            Rung::Submitted => return Err(ContractError::OutOfRange("proof_bundle_rung")),
+            Rung::Receipted
+                if committed.iter().any(|field| field.is_some())
+                    || self.account_proof.is_some() =>
+            {
+                return Err(ContractError::Mismatch("proof_bundle_committed_fields"));
+            }
+            Rung::Committed if committed.iter().any(|field| field.is_none()) => {
+                return Err(ContractError::Empty("proof_bundle_committed_fields"));
+            }
+            _ => {}
+        }
+        let mut size = 32_usize + 32 + 32 + 8 + 8 + self.format.len();
+        for field in [
+            Some(&self.raw_transaction),
+            Some(&self.signed_receipt),
+            self.block_header.as_ref(),
+            self.receipt_inclusion.as_ref(),
+            self.commit.as_ref(),
+            self.validator_set.as_ref(),
+            self.account_proof.as_ref(),
+        ]
+        .into_iter()
+        .flatten()
+        {
+            size = size
+                .checked_add(field.as_bytes().len())
+                .ok_or(ContractError::OutOfRange("proof_bundle_bytes"))?;
+        }
+        if size > MAX_PROOF_BUNDLE_BYTES {
+            return Err(ContractError::OutOfRange("proof_bundle_bytes"));
+        }
+        Ok(())
+    }
+
+    pub fn record(
+        target: &CanonicalBytes,
+        proofs: &[CanonicalBytes],
+    ) -> Result<ProofBundleRecord, ContractError> {
+        let target = ProofBundleTarget::decode(target.as_bytes())?;
+        if proofs.len() != 1 {
+            return Err(ContractError::OutOfRange("proof_bundle_count"));
+        }
+        let record = ProofBundleRecord::decode(proofs[0].as_bytes())?;
+        if !matches!(
+            (target, record.variant),
             (ProofBundleTarget::Activity(_), ProofBundleVariant::Activity)
-            | (ProofBundleTarget::Receipt(_), ProofBundleVariant::Receipt)
-            | (ProofBundleTarget::AccountState { .. }, ProofBundleVariant::Account | ProofBundleVariant::MaintainedAccount)) {
+                | (ProofBundleTarget::Receipt(_), ProofBundleVariant::Receipt)
+                | (
+                    ProofBundleTarget::AccountState { .. },
+                    ProofBundleVariant::Account | ProofBundleVariant::MaintainedAccount
+                )
+        ) {
             return Err(ContractError::Mismatch("proof_bundle_target_variant"));
         }
         Ok(record)
@@ -411,7 +565,7 @@ impl CoreProduced for AvailabilityReport {}
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AvailabilityRequest {
     pub selector: String,
-    pub requested_verification_level: Level,
+    pub requested_rung: Rung,
     pub maximum_bytes: u64,
     pub maximum_chunks: u32,
     pub deadline: TimestampSeconds,
@@ -437,10 +591,8 @@ impl AvailabilityRequest {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OfflineExport {
     pub facts: Vec<FactRef>,
-    pub receipts: Vec<CanonicalBytes>,
-    pub proofs: Vec<CanonicalBytes>,
-    pub certificates: Vec<CanonicalBytes>,
-    pub headers: Vec<CanonicalBytes>,
+    pub bundles: Vec<ProofBundle>,
+    pub height: u64,
 }
 
 impl sealed::Sealed for OfflineExport {}
@@ -455,12 +607,14 @@ impl OfflineExport {
         if self.facts.is_empty() {
             return Err(ContractError::Empty("fact_set"));
         }
-        if self.receipts.is_empty()
-            && self.proofs.is_empty()
-            && self.certificates.is_empty()
-            && self.headers.is_empty()
-        {
+        if self.bundles.is_empty() {
             return Err(ContractError::Empty("offline_evidence"));
+        }
+        for bundle in &self.bundles {
+            bundle.validate()?;
+            if bundle.verification_level != Rung::Committed {
+                return Err(ContractError::OutOfRange("offline_rung"));
+            }
         }
         Ok(self)
     }
@@ -536,9 +690,11 @@ pub struct FeeProjection {
     pub request: FeeProjectionRequest,
     pub parameter_version: u32,
     pub fee: Amount,
+    pub gas_units: u64,
+    pub denom: String,
     pub canonical_schedule: CanonicalBytes,
     /// Committed snapshot the native read answered from; equal to the captured head.
-    pub snapshot_sequence: Sequence,
+    pub snapshot_height: u64,
     pub snapshot_state_root: [u8; 32],
 }
 
@@ -551,11 +707,16 @@ impl FeeProjection {
     pub fn from_observation(
         request: FeeProjectionRequest,
         observation: layerx_client::client::FeeObservation,
+        gas_units: u64,
+        denom: String,
     ) -> Result<Self, ContractError> {
         let request = request.validate()?;
+        if denom.is_empty() {
+            return Err(ContractError::Empty("fee_denom"));
+        }
         let (head, snapshot) = observation.into_parts();
         if snapshot.observed_sequence != head.chain_sequence {
-            return Err(ContractError::Mismatch("fee_snapshot_sequence"));
+            return Err(ContractError::Mismatch("fee_snapshot_height"));
         }
         if snapshot.value.parameter_version == 0 {
             return Err(ContractError::Zero("parameter_version"));
@@ -567,8 +728,10 @@ impl FeeProjection {
             request,
             parameter_version: snapshot.value.parameter_version,
             fee: Amount(snapshot.value.fee),
+            gas_units,
+            denom,
             canonical_schedule: CanonicalBytes::new(snapshot.value.canonical_schedule)?,
-            snapshot_sequence: Sequence(snapshot.observed_sequence),
+            snapshot_height: snapshot.observed_sequence,
             snapshot_state_root: snapshot.state_root,
         })
     }
@@ -577,16 +740,16 @@ impl FeeProjection {
     ///
     /// # Errors
     /// Returns [`ContractError::Mismatch`] when the freshness does not name this snapshot as
-    /// both chain head and value sequence, or the rationale refusal of [`ProjectionResult::new`].
+    /// both chain head and value height, or the rationale refusal of [`ProjectionResult::new`].
     pub fn into_projection(
         self,
         rationale: impl Into<String>,
         observed_freshness: Freshness,
     ) -> Result<ProjectionResult<Self>, ContractError> {
-        if observed_freshness.chain_head != self.snapshot_sequence
-            || observed_freshness.value_sequence != self.snapshot_sequence
+        if observed_freshness.chain_head != self.snapshot_height
+            || observed_freshness.value_height != self.snapshot_height
         {
-            return Err(ContractError::Mismatch("fee_snapshot_sequence"));
+            return Err(ContractError::Mismatch("fee_snapshot_height"));
         }
         ProjectionResult::new(self, rationale, observed_freshness)
     }
@@ -597,9 +760,16 @@ mod proof_bundle_framing_tests {
     use super::*;
 
     #[test]
-    fn target_preserves_native_pb1_and_refuses_noncanonical_selectors() -> Result<(), ContractError> {
-        for target in [ProofBundleTarget::Activity([1; 32]), ProofBundleTarget::Receipt([2; 32]),
-            ProofBundleTarget::AccountState { activity_id: [3; 32], account_id: [4; 32] }] {
+    fn target_preserves_native_pb1_and_refuses_noncanonical_selectors() -> Result<(), ContractError>
+    {
+        for target in [
+            ProofBundleTarget::Activity([1; 32]),
+            ProofBundleTarget::Receipt([2; 32]),
+            ProofBundleTarget::AccountState {
+                activity_id: [3; 32],
+                account_id: [4; 32],
+            },
+        ] {
             let encoded = target.encode()?;
             assert_eq!(ProofBundleTarget::decode(encoded.as_bytes())?, target);
             let mut trailing = encoded.as_bytes().to_vec();
@@ -613,21 +783,35 @@ mod proof_bundle_framing_tests {
             assert!(ProofBundleTarget::decode(&unknown).is_err());
         }
         assert!(ProofBundleTarget::Activity([0; 32]).encode().is_err());
-        assert!(ProofBundleTarget::AccountState { activity_id: [1; 32], account_id: [0; 32] }.encode().is_err());
-        for length in 0..35 { assert!(ProofBundleTarget::decode(&vec![0; length]).is_err()); }
+        assert!(ProofBundleTarget::AccountState {
+            activity_id: [1; 32],
+            account_id: [0; 32]
+        }
+        .encode()
+        .is_err());
+        for length in 0..35 {
+            assert!(ProofBundleTarget::decode(&vec![0; length]).is_err());
+        }
         Ok(())
     }
 
     #[test]
     fn framing_keeps_four_variants_and_maintenance_link_distinct() -> Result<(), ContractError> {
-        for variant in [ProofBundleVariant::Activity, ProofBundleVariant::Receipt,
-            ProofBundleVariant::Account, ProofBundleVariant::MaintainedAccount] {
+        for variant in [
+            ProofBundleVariant::Activity,
+            ProofBundleVariant::Receipt,
+            ProofBundleVariant::Account,
+            ProofBundleVariant::MaintainedAccount,
+        ] {
             let record = ProofBundleRecord {
-                variant, canonical_value: CanonicalBytes::new(vec![1])?,
+                variant,
+                canonical_value: CanonicalBytes::new(vec![1])?,
                 native_proof: CanonicalBytes::new(vec![2])?,
                 activity_receipt: if variant == ProofBundleVariant::MaintainedAccount {
                     Some((CanonicalBytes::new(vec![3])?, CanonicalBytes::new(vec![4])?))
-                } else { None },
+                } else {
+                    None
+                },
             };
             let encoded = record.encode()?;
             assert_eq!(ProofBundleRecord::decode(encoded.as_bytes())?, record);
@@ -641,8 +825,11 @@ mod proof_bundle_framing_tests {
             empty[6..10].fill(0);
             assert!(ProofBundleRecord::decode(&empty).is_err());
             let mut wrong_link = record.clone();
-            wrong_link.activity_receipt = if record.activity_receipt.is_some() { None }
-                else { Some((CanonicalBytes::new(vec![3])?, CanonicalBytes::new(vec![4])?)) };
+            wrong_link.activity_receipt = if record.activity_receipt.is_some() {
+                None
+            } else {
+                Some((CanonicalBytes::new(vec![3])?, CanonicalBytes::new(vec![4])?))
+            };
             assert!(wrong_link.encode().is_err());
         }
         Ok(())
@@ -653,7 +840,8 @@ mod proof_bundle_framing_tests {
         let mut record = ProofBundleRecord {
             variant: ProofBundleVariant::Receipt,
             canonical_value: CanonicalBytes::new(vec![1; MAX_PROOF_BUNDLE_BYTES - 15])?,
-            native_proof: CanonicalBytes::new(vec![2])?, activity_receipt: None,
+            native_proof: CanonicalBytes::new(vec![2])?,
+            activity_receipt: None,
         };
         assert_eq!(record.encode()?.as_bytes().len(), MAX_PROOF_BUNDLE_BYTES);
         record.canonical_value = CanonicalBytes::new(vec![1; MAX_PROOF_BUNDLE_BYTES - 14])?;
@@ -661,14 +849,14 @@ mod proof_bundle_framing_tests {
         assert!(ProofBundleRecord::decode(&vec![1; MAX_PROOF_BUNDLE_BYTES + 1]).is_err());
         record.canonical_value = CanonicalBytes::new(vec![1])?;
         let encoded = record.encode()?;
-        let mut value = ProofBundle { target: ProofBundleTarget::Receipt([1; 32]).encode()?,
-            proofs: vec![encoded.clone()] };
-        assert!(value.record().is_ok());
-        value.proofs.push(encoded);
-        assert!(value.record().is_err());
-        value.proofs.pop();
-        value.target = ProofBundleTarget::Activity([1; 32]).encode()?;
-        assert!(value.record().is_err());
+        let mut target = ProofBundleTarget::Receipt([1; 32]).encode()?;
+        let mut proofs = vec![encoded.clone()];
+        assert!(ProofBundle::record(&target, &proofs).is_ok());
+        proofs.push(encoded);
+        assert!(ProofBundle::record(&target, &proofs).is_err());
+        proofs.pop();
+        target = ProofBundleTarget::Activity([1; 32]).encode()?;
+        assert!(ProofBundle::record(&target, &proofs).is_err());
         Ok(())
     }
 }
