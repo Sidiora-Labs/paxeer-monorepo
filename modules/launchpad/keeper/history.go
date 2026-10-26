@@ -76,34 +76,6 @@ func (k *Keeper) getHoldingEntry(ctx sdk.Context, denom string, holder sdk.AccAd
 	return holdingEntry{Epoch: binary.BigEndian.Uint64(bz[:8]), Balance: balance}, nil
 }
 
-// OpenHoldingHistory starts recording denom's holder balances at the airdrop
-// epoch boundary the market has just reached. The first call opens the
-// history at the market's current epoch; each later call must advance it by
-// exactly one epoch.
-func (k *Keeper) OpenHoldingHistory(ctx sdk.Context, denom string, epoch uint64) error {
-	market, found := k.GetMarket(ctx, denom)
-	if !found {
-		return fmt.Errorf("%w: %s", types.ErrUnknownMarket, denom)
-	}
-	if epoch == 0 || epoch != market.AirdropEpoch {
-		return fmt.Errorf("%w: epoch %d is not market epoch %d", types.ErrHoldingHistory, epoch, market.AirdropEpoch)
-	}
-	history, found, err := k.getHoldingHistory(ctx, denom)
-	if err != nil {
-		return err
-	}
-	if !found {
-		k.setHoldingHistory(ctx, denom, holdingHistory{FirstEpoch: epoch, CurrentEpoch: epoch})
-		return nil
-	}
-	if history.CurrentEpoch == math.MaxUint64 || epoch != history.CurrentEpoch+1 {
-		return fmt.Errorf("%w: epoch %d does not follow recorded epoch %d", types.ErrHoldingHistory, epoch, history.CurrentEpoch)
-	}
-	history.CurrentEpoch = epoch
-	k.setHoldingHistory(ctx, denom, history)
-	return nil
-}
-
 // BeforeBalanceChange is the bank balance-change hook. For a launched denom
 // with an open history it records the holder's balance before its first
 // write in the current epoch, on the caller's metered context.
@@ -146,50 +118,4 @@ func (k *Keeper) BeforeBalanceChange(ctx sdk.Context, addr sdk.AccAddress, denom
 	store.Set(types.HoldingEntryKey(denom, addr, count), append(binary.BigEndian.AppendUint64(nil, history.CurrentEpoch), amount...))
 	store.Set(types.HoldingCountKey(denom, addr), binary.BigEndian.AppendUint64(nil, count+1))
 	return nil
-}
-
-// EpochBalance is holder's denom balance at the boundary of airdrop epoch
-// epoch: the balance before the first write at or after that boundary, or
-// the live balance when no write happened since. Only epochs inside the
-// recorded interval are answered.
-func (k *Keeper) EpochBalance(ctx sdk.Context, denom string, holder sdk.AccAddress, epoch uint64) (sdk.Int, error) {
-	history, found, err := k.getHoldingHistory(ctx, denom)
-	if err != nil {
-		return sdk.Int{}, err
-	}
-	if !found {
-		return sdk.Int{}, fmt.Errorf("%w: no holding history for %s", types.ErrUnsupportedHoldingEpoch, denom)
-	}
-	if epoch < history.FirstEpoch || epoch > history.CurrentEpoch {
-		return sdk.Int{}, fmt.Errorf("%w: epoch %d outside [%d, %d]", types.ErrUnsupportedHoldingEpoch, epoch,
-			history.FirstEpoch, history.CurrentEpoch)
-	}
-	count, err := k.HoldingCheckpointCount(ctx, denom, holder)
-	if err != nil {
-		return sdk.Int{}, err
-	}
-	// Binary search for the first checkpoint at or after epoch; every probe
-	// must lie strictly between the epochs of the probes bracketing it.
-	lo, hi := uint64(0), count
-	var below, above *holdingEntry
-	for lo < hi {
-		mid := lo + (hi-lo)/2
-		entry, err := k.getHoldingEntry(ctx, denom, holder, mid)
-		if err != nil {
-			return sdk.Int{}, err
-		}
-		if entry.Epoch > history.CurrentEpoch || (below != nil && entry.Epoch <= below.Epoch) ||
-			(above != nil && entry.Epoch >= above.Epoch) {
-			return sdk.Int{}, fmt.Errorf("%w: checkpoint %d out of order", types.ErrHoldingHistory, mid)
-		}
-		if entry.Epoch >= epoch {
-			above, hi = &entry, mid
-		} else {
-			below, lo = &entry, mid+1
-		}
-	}
-	if above != nil {
-		return above.Balance, nil
-	}
-	return k.bankKeeper.GetBalance(ctx, holder, denom).Amount, nil
 }
