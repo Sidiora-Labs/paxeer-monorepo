@@ -3,9 +3,10 @@ import type { ReactNode } from "react";
 import { copyEntry } from "../../copy/runtime";
 import { formatCopy } from "../../copy/format";
 import { ExplorerFreshness as ExplorerFreshnessView, ExplorerNavigation } from "../kit/explorer";
+import { verificationWord } from "../kit/model";
 import { ScreenCard } from "../kit/surface";
 import { EXPLORER_NAVIGATION } from "./links";
-import type { ExplorerFreshness, ExplorerVerificationLevel, MirrorVerificationProvenance } from "./model";
+import type { ExplorerFreshness, MirrorVerificationProvenance } from "./model";
 
 export { EXPLORER_NAVIGATION };
 
@@ -30,8 +31,8 @@ export function ExplorerFrame({
   );
 }
 
-export function verificationLabel(level: ExplorerVerificationLevel): string {
-  return copyEntry(`explorer.verification.${level.replaceAll("-", "_")}`).message;
+export function verificationLabel(level: string): string {
+  return verificationWord(level);
 }
 
 export function FreshnessDisplay({ freshness }: Readonly<{ freshness?: ExplorerFreshness }>) {
