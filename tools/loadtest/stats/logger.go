@@ -2,6 +2,7 @@ package stats
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -354,22 +355,18 @@ func (l *Logger) logCurrentStats() {
 }
 
 // LogFinalStats logs comprehensive final statistics
-func (l *Logger) LogFinalStats() {
+func (l *Logger) LogFinalStats() (*FinalStats, error) {
 	finalStats := l.BuildFinalStats()
 	fmt.Print(finalStats.String())
 
 	if l.reportPath != "" {
-		// just write the string to file
-		reportFile, err := os.Create(l.reportPath)
+		data, err := json.MarshalIndent(finalStats, "", "  ")
 		if err != nil {
-			log.Printf("Error creating report file: %v", err)
-			return
+			return finalStats, fmt.Errorf("marshal report %s: %w", l.reportPath, err)
 		}
-		defer reportFile.Close()
-		_, err = reportFile.WriteString(finalStats.String())
-		if err != nil {
-			log.Printf("Error writing report file: %v", err)
-			return
+		if err := os.WriteFile(l.reportPath, data, 0o644); err != nil {
+			return finalStats, fmt.Errorf("write report %s: %w", l.reportPath, err)
 		}
 	}
+	return finalStats, nil
 }
