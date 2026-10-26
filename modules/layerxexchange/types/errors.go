@@ -19,6 +19,7 @@ const (
 	CodeInvalidGenesis  = "LXP_EXCHANGE_INVALID_GENESIS"
 	CodeKeeperMissing   = "LXP_EXCHANGE_KEEPER_MISSING"
 	CodeEvidenceTooLong = "LXP_EXCHANGE_EVIDENCE_TOO_LONG"
+	CodeRetired         = "LXP_EXCHANGE_RETIRED"
 )
 
 var (
@@ -34,6 +35,7 @@ var (
 	ErrInvalidGenesis  = sdkerrors.Register(ModuleName, 11, "invalid genesis")
 	ErrKeeperMissing   = sdkerrors.Register(ModuleName, 12, "layerxexchange keeper is not wired")
 	ErrEvidenceTooLong = sdkerrors.Register(ModuleName, 13, "state proof exceeds the exchange bound")
+	ErrRetired         = sdkerrors.Register(ModuleName, 14, "exchange is retired from v6.12.0")
 )
 
 func ErrorCode(err error) string {
@@ -62,6 +64,8 @@ func ErrorCode(err error) string {
 		return CodeKeeperMissing
 	case errors.Is(err, ErrEvidenceTooLong):
 		return CodeEvidenceTooLong
+	case errors.Is(err, ErrRetired):
+		return CodeRetired
 	default:
 		return ""
 	}

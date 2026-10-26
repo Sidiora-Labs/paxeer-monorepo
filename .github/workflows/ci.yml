@@ -77,3 +77,21 @@ jobs:
         run: forge build --sizes
       - name: Run contract and invariant suites
         run: forge test -vvv
+
+  loadtest:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 20
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: tools/loadtest/go.mod
+          cache-dependency-path: tools/loadtest/go.sum
+      - name: Build loadtest module
+        run: go -C tools/loadtest build ./...
+      - name: Test loadtest module
+        run: go -C tools/loadtest test -count=1 ./...

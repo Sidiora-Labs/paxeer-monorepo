@@ -8,6 +8,7 @@ pub enum PolicyRefusal {
     PerAccount,
     PerInterval,
     BalanceFloor,
+    DidUnavailable,
     InvalidAmount,
     ClockRegression,
 }
@@ -247,13 +248,13 @@ impl QuotePolicy {
     }
 
     /// Charges the per-account and DID gas budgets of `budget`, the outcome of
-    /// the 0x1004 DID read for `account`; a failed read refuses as the balance
-    /// floor does and consumes nothing.
+    /// the 0x1004 DID read for `account`; a failed read refuses as
+    /// `DidUnavailable` and consumes nothing.
     ///
     /// # Errors
-    /// Refuses a failed DID read, a budget key that does not belong to
-    /// `account`, fees whose gas cost overflows, and names the budget or
-    /// balance floor that would be exceeded. Failed checks consume no budget.
+    /// Refuses a failed DID read as `DidUnavailable`, a budget key that does not
+    /// belong to `account`, fees whose gas cost overflows, and names the budget
+    /// or balance floor that would be exceeded. Failed checks consume no budget.
     pub fn reserve_for_budget<E>(
         &mut self,
         budget: Result<&BudgetKey, E>,
@@ -263,7 +264,7 @@ impl QuotePolicy {
         balance: u128,
         now: u64,
     ) -> Result<(), PolicyRefusal> {
-        let budget = budget.map_err(|_| PolicyRefusal::BalanceFloor)?;
+        let budget = budget.map_err(|_| PolicyRefusal::DidUnavailable)?;
         if !budget.admits(account) {
             return Err(PolicyRefusal::InvalidAmount);
         }
@@ -307,7 +308,7 @@ impl QuotePolicy {
     ///
     /// # Errors
     /// Refuses an invalid request, an unpriceable or above-maximum amount, a policy
-    /// refusal (a failed DID read refuses as the balance floor does) or a signer
+    /// refusal (a failed DID read refuses as `DidUnavailable`) or a signer
     /// failure. Failed quotes consume no budget.
     pub fn quote_for_budget<E>(
         &mut self,
@@ -585,7 +586,7 @@ mod tests {
                     Err::<&BudgetKey, _>(fault),
                     (u128::MAX, 1000)
                 ),
-                Err(crate::QuoteError::Policy(PolicyRefusal::BalanceFloor))
+                Err(crate::QuoteError::Policy(PolicyRefusal::DidUnavailable))
             ));
             assert_eq!(policy.outstanding_pax(), 0);
             assert_eq!(policy.did_budget().used(did.as_str(), 16), 0);
@@ -599,7 +600,7 @@ mod tests {
                 u128::MAX,
                 1000
             ),
-            Err(PolicyRefusal::BalanceFloor)
+            Err(PolicyRefusal::DidUnavailable)
         );
         assert_eq!(policy.used(did.as_str(), 1000), 0);
         let quote = policy

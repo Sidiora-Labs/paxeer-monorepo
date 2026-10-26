@@ -1,6 +1,8 @@
 package epoch_test
 
 import (
+	"encoding/json"
+	"math/rand"
 	"testing"
 	"time"
 
@@ -11,9 +13,31 @@ import (
 	epoch "github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/epoch/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/stretchr/testify/require"
 )
+
+func TestGenerateGenesisStateValidates(t *testing.T) {
+	cdc := codec.NewProtoCodec(codectypes.NewInterfaceRegistry())
+	for seed := int64(0); seed < 64; seed++ {
+		simState := module.SimulationState{
+			Cdc:      cdc,
+			Rand:     rand.New(rand.NewSource(seed)),
+			GenState: make(map[string]json.RawMessage),
+		}
+		epoch.AppModule{}.GenerateGenesisState(&simState)
+
+		var genesis types.GenesisState
+		require.NoError(t, cdc.UnmarshalAsJSON(simState.GenState[types.ModuleName], &genesis))
+		require.NotNil(t, genesis.Epoch, "seed %d", seed)
+		require.NoError(t, genesis.Validate(), "seed %d", seed)
+		expectedDuration := time.Duration(rand.New(rand.NewSource(seed)).Intn(60)+1) * time.Minute
+		require.Equal(t, expectedDuration, genesis.Epoch.EpochDuration, "seed %d", seed)
+	}
+}
 
 func TestBasic(t *testing.T) {
 	t.Parallel()

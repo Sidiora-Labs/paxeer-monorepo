@@ -275,6 +275,8 @@ func mulDiv(a, b, c *big.Int) *big.Int { return new(big.Int).Div(new(big.Int).Mu
 
 func TestPoolRoleServesEverySelector(t *testing.T) {
 	e := newPoolEnv(t)
+	var keeper launchpad.PoolKeeper = e.k
+	require.Same(t, e.k, keeper)
 	swapDeadline := n(genesisTime.Add(time.Hour).Unix())
 	wad := new(big.Int).Exp(n(10), n(18), nil)
 	startPrice := mulDiv(n(poolVirtualQuote), wad, n(poolTokenReserve))

@@ -15,9 +15,20 @@ fn fixture(name: &str) -> PathBuf {
 }
 
 fn valid_json() -> Result<Value, Box<dyn std::error::Error>> {
-    Ok(serde_json::from_str(&std::fs::read_to_string(fixture(
-        "valid.json",
-    ))?)?)
+    let mut value: Value = serde_json::from_str(&std::fs::read_to_string(fixture("valid.json"))?)?;
+    let gateway = value["gateway"].as_object_mut().ok_or("gateway object")?;
+    let key_id = gateway.remove("sequencer_id").ok_or("key id")?;
+    let public_key = gateway.remove("sequencer_public_key").ok_or("public key")?;
+    gateway.insert(
+        "receipt_keys".to_owned(),
+        serde_json::json!([{
+            "key_id": key_id,
+            "public_key": public_key,
+            "first_height": 0,
+            "last_height": u64::MAX,
+        }]),
+    );
+    Ok(value)
 }
 
 fn refusal(field: &str, refusal: Refusal) -> ConfigError {
@@ -82,11 +93,11 @@ fn committed_configuration_is_accepted_with_every_field() -> Result<(), Box<dyn 
     );
     assert_eq!(config.gateway.endpoint, "http://127.0.0.1:8547/rpc");
     assert_eq!(
-        hex(&config.gateway.sequencer.public_key),
+        hex(&config.gateway.receipt_keys[0].public_key()),
         "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
     );
     assert_eq!(
-        hex(&config.gateway.sequencer.sequencer_id),
+        hex(&config.gateway.receipt_keys[0].sequencer_id()),
         "2a7d1c5e9b3f4a6d8c0e2f4a6b8d0c2e4f6a8b0d2c4e6f8a0b2d4c6e8f0a2b4d"
     );
     assert_eq!(config.evm.endpoint, "http://127.0.0.1:8545");
@@ -343,6 +354,155 @@ fn unreadable_oversized_and_non_json_files_are_refused() -> Result<(), Box<dyn s
     assert_eq!(
         directory_result.err(),
         Some(refusal("config", Refusal::Unreadable))
+    );
+    Ok(())
+}
+
+#[test]
+fn receipt_keys_are_read_from_the_gateway_object() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_proof::inclusion::SequencerAuthorization;
+    let mut value = valid_json()?;
+    let first = value["gateway"]["receipt_keys"][0].clone();
+    let key_id = x_websearch::config::parse_hex32(first["key_id"].as_str().ok_or("key id")?)
+        .ok_or("key id bytes")?;
+    let public_key =
+        x_websearch::config::parse_hex32(first["public_key"].as_str().ok_or("public key")?)
+            .ok_or("public key bytes")?;
+    let other_id = ed25519_dalek::SigningKey::from_bytes(&[17; 32])
+        .verifying_key()
+        .to_bytes();
+    let other_key = ed25519_dalek::SigningKey::from_bytes(&[19; 32])
+        .verifying_key()
+        .to_bytes();
+    value["gateway"]["receipt_keys"] = serde_json::json!([
+        {"key_id": hex(&key_id), "public_key": hex(&public_key), "first_height": 0, "last_height": 9},
+        {"key_id": hex(&other_id), "public_key": hex(&other_key), "first_height": 10, "last_height": u64::MAX},
+        {"key_id": hex(&key_id), "public_key": hex(&other_key), "first_height": 10, "last_height": 10}
+    ]);
+    let config = Config::parse(&value.to_string())?;
+    assert_eq!(
+        config.gateway.receipt_keys,
+        vec![
+            SequencerAuthorization::new(key_id, public_key, 0, 9),
+            SequencerAuthorization::new(other_id, other_key, 10, u64::MAX),
+            SequencerAuthorization::new(key_id, other_key, 10, 10),
+        ]
+    );
+    assert!(value["gateway"].get("sequencer_id").is_none());
+    assert!(value["gateway"].get("sequencer_public_key").is_none());
+    Ok(())
+}
+
+#[test]
+fn malformed_receipt_keys_are_refused_naming_the_field() -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::json;
+    let valid = valid_json()?;
+    let entry = valid["gateway"]["receipt_keys"][0].clone();
+    for malformed in [json!([]), json!({}), json!("keys"), json!([false])] {
+        let mut value = valid.clone();
+        value["gateway"]["receipt_keys"] = malformed.clone();
+        let error = Config::parse(&value.to_string())
+            .err()
+            .ok_or("accepted malformed list")?;
+        assert!(
+            error.field.starts_with("gateway.receipt_keys"),
+            "{malformed}: {error}"
+        );
+        assert_eq!(error.refusal, Refusal::Invalid);
+    }
+    for (field, malformed, reason) in [
+        ("key_id", json!("bad"), Refusal::Invalid),
+        ("public_key", json!("bad"), Refusal::Invalid),
+        ("public_key", json!("02".repeat(32)), Refusal::Placeholder),
+        (
+            "public_key",
+            json!(format!("01{}", "00".repeat(31))),
+            Refusal::Invalid,
+        ),
+        ("public_key", json!("0".repeat(64)), Refusal::Placeholder),
+        (
+            "public_key",
+            json!(format!("02{}", "00".repeat(31))),
+            Refusal::Invalid,
+        ),
+        ("first_height", json!(-1), Refusal::Invalid),
+        ("first_height", json!("0"), Refusal::Invalid),
+        ("last_height", json!(1.5), Refusal::Invalid),
+    ] {
+        let mut value = valid.clone();
+        value["gateway"]["receipt_keys"][0][field] = malformed.clone();
+        let error = Config::parse(&value.to_string())
+            .err()
+            .ok_or("accepted malformed entry")?;
+        assert_eq!(
+            error,
+            refusal(&format!("gateway.receipt_keys[0].{field}"), reason),
+            "{malformed}"
+        );
+    }
+    for field in ["key_id", "public_key", "first_height", "last_height"] {
+        let mut value = valid.clone();
+        value["gateway"]["receipt_keys"][0]
+            .as_object_mut()
+            .ok_or("key object")?
+            .remove(field);
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal(
+                &format!("gateway.receipt_keys[0].{field}"),
+                Refusal::Missing
+            ))
+        );
+    }
+    let mut reversed = valid.clone();
+    reversed["gateway"]["receipt_keys"][0]["first_height"] = json!(10);
+    reversed["gateway"]["receipt_keys"][0]["last_height"] = json!(9);
+    assert_eq!(
+        Config::parse(&reversed.to_string()).err(),
+        Some(refusal(
+            "gateway.receipt_keys[0].last_height",
+            Refusal::Invalid
+        ))
+    );
+    for (first, last) in [(0, 9), (9, 20), (3, 5), (0, 20)] {
+        let mut value = valid.clone();
+        let mut earlier = entry.clone();
+        earlier["last_height"] = json!(9);
+        let mut overlap = entry.clone();
+        overlap["first_height"] = json!(first);
+        overlap["last_height"] = json!(last);
+        value["gateway"]["receipt_keys"] = json!([earlier, overlap]);
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("gateway.receipt_keys", Refusal::Invalid))
+        );
+    }
+    for legacy in ["sequencer_id", "sequencer_public_key"] {
+        for setting in [entry["public_key"].clone(), json!("old"), Value::Null] {
+            let mut value = valid.clone();
+            value["gateway"][legacy] = setting;
+            assert_eq!(
+                Config::parse(&value.to_string()).err(),
+                Some(refusal(&format!("gateway.{legacy}"), Refusal::Unknown))
+            );
+            value["gateway"]
+                .as_object_mut()
+                .ok_or("gateway object")?
+                .remove("receipt_keys");
+            assert_eq!(
+                Config::parse(&value.to_string()).err(),
+                Some(refusal(&format!("gateway.{legacy}"), Refusal::Unknown))
+            );
+        }
+    }
+    let mut missing = valid;
+    missing["gateway"]
+        .as_object_mut()
+        .ok_or("gateway object")?
+        .remove("receipt_keys");
+    assert_eq!(
+        Config::parse(&missing.to_string()).err(),
+        Some(refusal("gateway.receipt_keys", Refusal::Missing))
     );
     Ok(())
 }

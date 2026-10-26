@@ -1,4 +1,6 @@
 mod config;
+mod payer_tx;
+mod relay;
 mod server;
 
 use layerx_platform_gateway::http;
