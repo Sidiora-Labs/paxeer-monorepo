@@ -21,8 +21,8 @@ var (
 	// ErrInvalidReceiptKey refuses an entry with a malformed keyId or public
 	// key, or a keyId pinned twice.
 	ErrInvalidReceiptKey = errors.New("sequencer: invalid receipt key")
-	// ErrReceiptKeyRange refuses an entry whose firstHeight is above its
-	// lastHeight.
+	// ErrReceiptKeyRange refuses an entry whose firstHeight is zero or above
+	// its lastHeight.
 	ErrReceiptKeyRange = errors.New("sequencer: receipt key range has firstHeight above lastHeight")
 	// ErrReceiptKeyNotPinned refuses a keyId that no entry pins at the height.
 	ErrReceiptKeyNotPinned = errors.New("sequencer: receipt key not pinned at height")
@@ -59,6 +59,9 @@ func (e ReceiptKeyEntry) Validate() error {
 	}
 	if !verify.PublicKeyIsCanonical([32]byte(e.PublicKey)) {
 		return fmt.Errorf("%w: keyId %X public key is not a canonical ed25519 key", ErrInvalidReceiptKey, e.KeyId)
+	}
+	if e.FirstHeight == 0 {
+		return fmt.Errorf("%w: keyId %X firstHeight is zero", ErrReceiptKeyRange, e.KeyId)
 	}
 	if e.FirstHeight > e.LastHeight {
 		return fmt.Errorf("%w: keyId %X range %d-%d", ErrReceiptKeyRange, e.KeyId, e.FirstHeight, e.LastHeight)
