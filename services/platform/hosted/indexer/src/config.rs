@@ -19,7 +19,6 @@ use crate::IndexError;
 pub const ANCHOR_DEFAULT_CHALLENGE_WINDOW_SECONDS: u64 = 0;
 
 const DEFAULT_LISTEN: &str = "127.0.0.1:8095";
-const DEFAULT_BLOCK_TIME_MS: u64 = 1_000;
 const DEFAULT_BATCH_INTERVAL_MS: u64 = 1_000;
 const DEFAULT_POLL_MS: u64 = 1_000;
 const DEFAULT_TIMEOUT_MS: u64 = 10_000;
@@ -285,24 +284,23 @@ impl Config {
             DEFAULT_MAX_UNITS_PER_STEP,
         )?
         .max(1);
-        let policy =
-            |interval_name: &str, default_interval: u64| -> Result<FollowPolicy, IndexError> {
-                let interval = number(lookup, interval_name, default_interval)?;
-                Ok(FollowPolicy {
-                    finality_depth: fixed_depth
-                        .unwrap_or_else(|| finality_depth_from_challenge_window(window, interval)),
-                    max_units_per_step,
-                })
-            };
+        let policy = |default_depth| FollowPolicy {
+            finality_depth: fixed_depth.unwrap_or(default_depth),
+            max_units_per_step,
+        };
         let layerx = endpoint("LAYERX_INDEXER_RELAY_URL", "LAYERX_INDEXER_RELAY_CA_DER")?
             .map(|relay| -> Result<LayerXSource, IndexError> {
                 Ok(LayerXSource {
                     relay,
                     start_batch: optional_number(lookup, "LAYERX_INDEXER_START_BATCH")?,
-                    policy: policy(
-                        "LAYERX_INDEXER_BATCH_INTERVAL_MS",
-                        DEFAULT_BATCH_INTERVAL_MS,
-                    )?,
+                    policy: policy(finality_depth_from_challenge_window(
+                        window,
+                        number(
+                            lookup,
+                            "LAYERX_INDEXER_BATCH_INTERVAL_MS",
+                            DEFAULT_BATCH_INTERVAL_MS,
+                        )?,
+                    )),
                 })
             })
             .transpose()?;
@@ -324,7 +322,7 @@ impl Config {
                     start_block: number(lookup, "LAYERX_INDEXER_START_BLOCK", 1)?,
                     chain_id: optional_number(lookup, "LAYERX_INDEXER_EVM_CHAIN_ID")?,
                     encoding,
-                    policy: policy("LAYERX_INDEXER_BLOCK_TIME_MS", DEFAULT_BLOCK_TIME_MS)?,
+                    policy: policy(0),
                 })
             })
             .transpose()?;
@@ -373,6 +371,53 @@ mod tests {
     }
 
     #[test]
+    fn paxeer_source_is_final_at_block_commit() {
+        for window in ["0", "30", "18446744073709551615"] {
+            for block_time in [
+                None,
+                Some("0"),
+                Some("1"),
+                Some("500"),
+                Some("3000"),
+                Some("18446744073709551615"),
+            ] {
+                for fixed_depth in [None, Some("3")] {
+                    let mut values: BTreeMap<&str, &str> = [
+                        ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
+                        ("LAYERX_INDEXER_EVM_URL", "http://127.0.0.1:8545"),
+                        ("LAYERX_INDEXER_RELAY_URL", "http://127.0.0.1:7000"),
+                        ("LAYERX_INDEXER_CHALLENGE_WINDOW_SECONDS", window),
+                        ("LAYERX_INDEXER_MAX_UNITS_PER_STEP", "7"),
+                    ]
+                    .into_iter()
+                    .collect();
+                    if let Some(block_time) = block_time {
+                        values.insert("LAYERX_INDEXER_BLOCK_TIME_MS", block_time);
+                    }
+                    if let Some(fixed_depth) = fixed_depth {
+                        values.insert("LAYERX_INDEXER_FINALITY_DEPTH", fixed_depth);
+                    }
+                    let config = Config::from_lookup(&|name: &str| {
+                        values.get(name).map(|value| (*value).to_owned())
+                    })
+                    .unwrap_or_else(|error| panic!("{error}"));
+                    let paxeer = config.paxeer.unwrap_or_else(|| panic!("paxeer source"));
+                    assert_eq!(
+                        paxeer.policy.finality_depth,
+                        if fixed_depth.is_some() { 3 } else { 0 }
+                    );
+                    assert_eq!(paxeer.policy.max_units_per_step, 7);
+                    let layerx = config.layerx.unwrap_or_else(|| panic!("layerx source"));
+                    if fixed_depth.is_some() {
+                        assert_eq!(layerx.policy.finality_depth, 3);
+                    }
+                    assert_eq!(layerx.policy.max_units_per_step, 7);
+                }
+            }
+        }
+    }
+
+    #[test]
     fn environment_builds_both_sources() {
         let values: BTreeMap<&str, &str> = [
             ("LAYERX_INDEXER_DB", "/tmp/indexer.sqlite"),
@@ -392,7 +437,7 @@ mod tests {
             Config::from_lookup(&|name: &str| values.get(name).map(|value| (*value).to_owned()))
                 .unwrap_or_else(|error| panic!("{error}"));
         let paxeer = config.paxeer.unwrap_or_else(|| panic!("paxeer source"));
-        assert_eq!(paxeer.policy.finality_depth, 60);
+        assert_eq!(paxeer.policy.finality_depth, 0);
         assert!(paxeer.comet.is_some());
         let layerx = config.layerx.unwrap_or_else(|| panic!("layerx source"));
         assert_eq!(layerx.policy.finality_depth, 30);

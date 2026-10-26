@@ -1078,7 +1078,9 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 	// Wait for txs to be available in the mempool
 	// before we enterPropose in round 0. If the last block changed the app hash,
 	// we may need an empty "proof" block, and enterPropose immediately.
-	waitForTxs := cs.config.WaitForTxs() && round == 0 && !cs.needProofBlock(height)
+	// At pinned heights, enterPropose immediately because sequenced transactions
+	// never enter the consensus mempool.
+	waitForTxs := cs.waitForTxs(height, round)
 	if waitForTxs {
 		if cs.config.CreateEmptyBlocksInterval > 0 {
 			cs.scheduleTimeout(cs.config.CreateEmptyBlocksInterval, height, round,
@@ -1089,6 +1091,10 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 
 	span.End()
 	cs.enterPropose(ctx, height, round, "enterNewRound")
+}
+
+func (cs *State) waitForTxs(height int64, round int32) bool {
+	return cs.config.WaitForTxs() && round == 0 && !cs.needProofBlock(height) && !cs.roundState.CopyInternal().LeaderPin.Applies(height)
 }
 
 // needProofBlock returns true on the first height (so the genesis app hash is signed right away)
@@ -2760,7 +2766,15 @@ func (cs *State) calculatePrevoteMessageDelayMetrics() {
 
 //---------------------------------------------------------
 
+func (cs *State) sequencerTimeouts() bool {
+	rs := cs.roundState.CopyInternal()
+	return cs.config.Sequencer.Enable && rs.LeaderPin.Applies(rs.Height)
+}
+
 func (cs *State) proposeTimeout(round int32) time.Duration {
+	if cs.sequencerTimeouts() {
+		return cs.config.Sequencer.ProposeTimeout(round)
+	}
 	tp := cs.state.ConsensusParams.Timeout.TimeoutParamsOrDefaults()
 	p := tp.Propose
 	if cs.config.UnsafeProposeTimeoutOverride != 0 {
@@ -2776,6 +2790,9 @@ func (cs *State) proposeTimeout(round int32) time.Duration {
 }
 
 func (cs *State) voteTimeout(round int32) time.Duration {
+	if cs.sequencerTimeouts() {
+		return cs.config.Sequencer.TimeoutVote
+	}
 	tp := cs.state.ConsensusParams.Timeout.TimeoutParamsOrDefaults()
 	v := tp.Vote
 	if cs.config.UnsafeVoteTimeoutOverride != 0 {
@@ -2789,6 +2806,9 @@ func (cs *State) voteTimeout(round int32) time.Duration {
 }
 
 func (cs *State) commitTime(t time.Time) time.Time {
+	if cs.sequencerTimeouts() {
+		return t.Add(cs.config.Sequencer.TimeoutCommit)
+	}
 	c := cs.state.ConsensusParams.Timeout.Commit
 	if cs.config.UnsafeCommitTimeoutOverride != 0 {
 		c = cs.config.UnsafeCommitTimeoutOverride
