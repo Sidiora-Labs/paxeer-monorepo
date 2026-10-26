@@ -207,7 +207,7 @@ func NewEVMHTTPServer(
 			watermarks,
 		)
 		if seq != nil {
-			api.SetReceiptLogFeed(seq.receiptLogs)
+			api.setReceiptLogFeed(seq.receiptLogs)
 		}
 		return api
 	}
