@@ -12,18 +12,28 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 )
 
 type Keeper struct {
 	storeKey   sdk.StoreKey
 	bankKeeper types.BankKeeper
 	evmKeeper  types.EVMKeeper
+	upgrades   types.UpgradeReader
 }
 
 // NewKeeper builds the xweb keeper. The xweb module address must be able to
 // receive coins: it escrows every pending request's fee.
 func NewKeeper(storeKey sdk.StoreKey, bankKeeper types.BankKeeper, evmKeeper types.EVMKeeper) Keeper {
-	return Keeper{storeKey: storeKey, bankKeeper: bankKeeper, evmKeeper: evmKeeper}
+	k := Keeper{storeKey: storeKey, bankKeeper: bankKeeper, evmKeeper: evmKeeper}
+	if getter, ok := evmKeeper.(interface {
+		UpgradeKeeper() *upgradekeeper.Keeper
+	}); ok {
+		if upgrades := getter.UpgradeKeeper(); upgrades != nil {
+			k.upgrades = upgrades
+		}
+	}
+	return k
 }
 
 func (k Keeper) ModuleAddress() sdk.AccAddress { return types.ModuleAddress() }
