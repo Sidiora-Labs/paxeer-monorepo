@@ -21,6 +21,7 @@ export * from "./account-derivation.js";
 export * from "./rpc.js";
 
 export * from "./wallet.js";
+export * from "./evm-transaction.js";
 
 export * from "./x402/activity.js";
 export * from "./x402/draw.js";

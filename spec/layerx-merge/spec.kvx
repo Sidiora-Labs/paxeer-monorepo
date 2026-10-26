@@ -40436,7 +40436,7 @@ touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "servic
 tests = ["services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs::lock_lists_every_member_dependency"]
 verification_contract = "contracts/interop-deploy.md#deploy-workspace"
 do_1 = "Add `crates/layerx-committed-proof` to the members list at services/interop/Cargo.toml:2-18 and `layerx-committed-proof = { path = \"crates/layerx-committed-proof\" }` to the workspace dependencies at services/interop/Cargo.toml:27-50."
-symbols = ["layerx-committed-proof", "lock_lists_every_member_dependency"]
+symbols = ["lock_lists_every_member_dependency"]
 
 [capability.11.15.2]
 title = "Guard the workspace against the retired batch settlement path"
@@ -47071,7 +47071,7 @@ do_1 = "Declare int lxp_test_run_one(const char *name) and int lxp_test_main(int
 do_2 = "Implement lxp_test_run_one in tests/lxp_test_harness.c after lxp_test_run_all at tests/lxp_test_harness.c:29: scan registry[0..registry_length) with strcmp, print PASS or FAIL lines exactly as tests/lxp_test_harness.c:40-43 do, return 2 when no name matches."
 do_3 = "Implement lxp_test_main in tests/lxp_test_harness.c next to lxp_test_run_all at tests/lxp_test_harness.c:29: argc == 1 runs lxp_test_run_all(0), --list runs lxp_test_run_all(1), --run <name> returns lxp_test_run_one(name), any other argument prints usage to stderr and returns 2."
 do_4 = "Replace the argument parsing in main at tests/protocol/lxp_test_smoke.c:15-20 with lxp_test_main(argc, argv) and register two more cases, harness.run-one-runs-named-case asserting lxp_test_run_one(\"protocol.no-op\") == 0 and harness.run-one-reports-unknown-case asserting lxp_test_run_one(\"harness.no-such-case\") == 2."
-symbols = ["lxp_test_run_one", "lxp_test_main", "harness.run-one-runs-named-case", "harness.run-one-reports-unknown-case"]
+symbols = ["lxp_test_run_one", "lxp_test_main", "run_one_runs_named_case", "run_one_reports_unknown_case"]
 
 [capability.16.22.1]
 title = "Genesis-override test app constructor"
@@ -90635,7 +90635,7 @@ title = "Add the kernel case-dispatch test harness and request its build rule"
 status = "pending"
 mode = "BUILD"
 wave = 0
-requires = []
+requires = ["16.2.1"]
 reqs = ["1001.1", "1001.2"]
 capabilities = ["1.0.1"]
 interfaces = []
@@ -90765,7 +90765,7 @@ title = "Gate domain 1 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1"]
+requires = ["1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.2.3", "1.2.4", "1.2.5", "1.6.1", "1.6.3", "1.15.2", "1.17.4", "1.18.2", "1.18.3", "1.19.3", "1.26.1", "1.26.2", "1.27.1", "1.28.1", "1.28.2", "1.28.3", "1.29.2", "1.29.4", "1.29.5", "1.31.1", "1.31.2", "1.31.3", "1.31.5", "1.31.7", "1.32.1", "1.32.2", "1.32.3", "1.32.4", "1.32.5", "1.33.1", "1.33.2", "1.33.3", "1.33.4", "1.33.5", "1.33.6", "1.34.1", "1.34.2", "1.34.3", "1.34.4", "1.35.1", "1.35.2", "1.35.3", "1.35.4", "1.36.1", "1.36.2", "1.36.3", "1.37.1", "1.38.1", "1.38.2", "1.39.2", "1.97.1", "16.2.1"]
 reqs = ["1999.1"]
 capabilities = ["1.0.9"]
 interfaces = []
@@ -146835,7 +146835,7 @@ do_2 = "Create services/interop/crates/layerx-committed-proof/Cargo.toml (planne
 do_3 = "Add `layerx-crypto.workspace = true` and `layerx-client.workspace = true` to services/interop/crates/layerx-interop-service/Cargo.toml:12-34 for the payer transaction decoder and chain relay of tasks 11.11.1 and 11.11.2, `layerx-committed-proof.workspace = true` to services/interop/crates/layerx-x402/Cargo.toml:8-15 for the committed rung of tasks 11.4.2 and 11.5.2, `layerx-proof.workspace = true` to services/interop/crates/layerx-bridge-relayer/Cargo.toml:19 for the receipt decoder of task 11.22.1, and `sha3.workspace = true` to services/interop/crates/layerx-portable/Cargo.toml:8-14 for the raw-transaction hash of task 11.29.1."
 do_4 = "Regenerate services/interop/Cargo.lock once with `cargo update --workspace --offline` under the toolchain pinned at services/interop/Cargo.toml:23 so every edge above has a lock entry and `--locked` builds hold; the lock is consistent at HEAD (decision.1101) and this is the only wave-0 lock change."
 do_5 = "Create services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs (planned) that parses services/interop/Cargo.lock and every member manifest with `include_str!` and asserts each non-optional dependency of a member names a package entry in the lock, the check stale finding 5.0.8 asked for."
-symbols = ["layerx-committed-proof", "lock_lists_every_member_dependency"]
+symbols = ["lock_lists_every_member_dependency"]
 touches = ["services/interop/Cargo.toml", "services/interop/Cargo.lock", "services/interop/crates/layerx-committed-proof/Cargo.toml", "services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-interop-service/Cargo.toml", "services/interop/crates/layerx-x402/Cargo.toml", "services/interop/crates/layerx-bridge-relayer/Cargo.toml", "services/interop/crates/layerx-portable/Cargo.toml", "services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs"]
 tests = ["services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs::lock_lists_every_member_dependency"]
 planned_paths = ["services/interop/crates/layerx-committed-proof/Cargo.toml", "services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs"]
@@ -165750,7 +165750,7 @@ do_1 = "Declare int lxp_test_run_one(const char *name) and int lxp_test_main(int
 do_2 = "Implement lxp_test_run_one in tests/lxp_test_harness.c after lxp_test_run_all at tests/lxp_test_harness.c:29: scan registry[0..registry_length) with strcmp, print PASS or FAIL lines exactly as tests/lxp_test_harness.c:40-43 do, return 2 when no name matches."
 do_3 = "Implement lxp_test_main in tests/lxp_test_harness.c next to lxp_test_run_all at tests/lxp_test_harness.c:29: argc == 1 runs lxp_test_run_all(0), --list runs lxp_test_run_all(1), --run <name> returns lxp_test_run_one(name), any other argument prints usage to stderr and returns 2."
 do_4 = "Replace the argument parsing in main at tests/protocol/lxp_test_smoke.c:15-20 with lxp_test_main(argc, argv) and register two more cases, harness.run-one-runs-named-case asserting lxp_test_run_one(\"protocol.no-op\") == 0 and harness.run-one-reports-unknown-case asserting lxp_test_run_one(\"harness.no-such-case\") == 2."
-symbols = ["lxp_test_run_one", "lxp_test_main", "harness.run-one-runs-named-case", "harness.run-one-reports-unknown-case"]
+symbols = ["lxp_test_run_one", "lxp_test_main", "run_one_runs_named_case", "run_one_reports_unknown_case"]
 touches = ["tests/lxp_test_harness.h", "tests/lxp_test_harness.c", "tests/protocol/lxp_test_smoke.c"]
 tests = ["tests/protocol/lxp_test_smoke.c::harness.run-one-runs-named-case", "tests/protocol/lxp_test_smoke.c::harness.run-one-reports-unknown-case"]
 planned_paths = []

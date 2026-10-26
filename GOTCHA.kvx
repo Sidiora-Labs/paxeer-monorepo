@@ -8795,3 +8795,33 @@ detail = "Config construction requires LAYERX_GATEWAY_REDIS_URL with username an
 area = "spec/layerx-merge/contracts"
 summary = "Regenerating a specification document can overwrite a file that code parses at build time"
 detail = "services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests read contracts/address-table.md sections (a), (a2), (b) and (c) by heading text and column count; a generated inventory written under the same name made cargo build exit 101 for every crate depending on layerx-types and every cgo-linked Go package. Before replacing a contract file, grep the code for its path and keep generated inventories under their own names."
+
+[gotcha.1845]
+area = "spec"
+symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
+cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
+do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
+
+[gotcha.1846]
+area = "tooling"
+symptom = "cg spec done refuses a task with ✗ symbol — not defined in the graph for a Go const or var, a Rust const, static or enum variant, a TypeScript const, or a qualified name such as module::Item or Type.Method, although the declaration exists"
+cause = "Hyperfide revisions before 3762f1c43 extracted functions, types, methods and enums only and matched a qualified name's last segment without its container"
+do = "Use Hyperfide at 3762f1c43 or later (CG_EXTRACTION_VERSION 4) and rebuild the index; do not remove the symbol from the task"
+
+[gotcha.1847]
+area = "spec"
+symptom = "a Go package stops compiling with `TransferLeg redeclared in this block` after two sibling tasks land"
+cause = "two tasks' do-lines named the same type, one declaring it and one only using it, with no requires between them, so both wrote the declaration"
+do = "a type belongs to the task whose do-line declares it; a task that only uses it requires that task and never declares it; delete the duplicate from the user's file and record the finding"
+
+[gotcha.1848]
+area = "build"
+symptom = "a kernel task's verify_cmd fails with make: No rule to make target 'build/tests/kernel/...'"
+cause = "the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982) and a kernel task that does not require it builds on a tree without the rule"
+do = "every task whose verify_cmd builds build/tests/kernel/... requires 16.2.1; add the missing requires and re-qualify the finished implementation instead of rewriting it"
+
+[gotcha.1849]
+area = "tooling"
+symptom = "verify_cmd fails with `No module named pytest` after the task's unittest or build passed"
+cause = "the base python of the build environment carries pip only; pytest-based verify_cmds assume pytest is installed"
+do = "install pytest once before the gates when build_cmd or verify_cmd mentions pytest, record the install in the run log, and re-qualify the result"
