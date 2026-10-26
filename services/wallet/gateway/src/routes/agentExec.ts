@@ -15,7 +15,7 @@ import { evaluateAgent, type AgentTxIntent } from '../policy/agent.js';
 import { AttestorError, AttestorTokenError, AttestorReauthorizationRequired, attestorErrorBody, attestorErrorStatus } from '../attestor/client.js';
 import { resolveGas } from '../chainReads.js';
 import { NonceBelowLatestError, NonceOutstandingError, NonceUnresolvedError, broadcastReserved, type NonceLease } from '../nonce/store.js';
-import { BroadcastOutcomeUnknownError, NonceConflictError, TransactionRejectedError, outcomeUnknownBody, sharedRpcPool } from '../rpc/pool.js';
+import { BroadcastOutcomeUnknownError, NonceConflictError, TransactionRejectedError, outcomeUnknownBody, sharedRpcPool, type SequencerReceiptResult } from '../rpc/pool.js';
 import { BROADCAST_GRACE_MS } from '../chain.js';
 
 /**
@@ -184,6 +184,7 @@ export async function executeAgentTransaction(args: {
 
   let txHash: Hex | null = null;
   let signedTx: Hex | null = null;
+  let receipt: SequencerReceiptResult | null = null;
   let custodyBudgetReservationId: string | null = null;
   const broadcastDeadline = new Date(Date.now() + BROADCAST_GRACE_MS).toISOString();
   try {
@@ -217,6 +218,7 @@ export async function executeAgentTransaction(args: {
     if (signed.error !== null) throw signed.error;
     txHash = signed.hash;
     signedTx = signed.raw;
+    if (broadcast && txHash) receipt = await sharedRpcPool().sequencerReceipt(txHash);
   } catch (err) {
     // The send failed — give back any budget the gate reserved.
     if (decision.reservedBudgetId && signedTx === null) {
@@ -251,7 +253,7 @@ export async function executeAgentTransaction(args: {
   return {
     status: 200,
     body: broadcast
-      ? { tx_hash: txHash, address: wallet.address, chain_id: chainId, op: args.label ?? 'send' }
+      ? { tx_hash: txHash, address: wallet.address, chain_id: chainId, op: args.label ?? 'send', receipt, rung: receipt?.rung ?? 'submitted' }
       : { signed_tx: signedTx, address: wallet.address, chain_id: chainId, op: args.label ?? 'sign', broadcast_deadline: broadcastDeadline },
   };
 }
