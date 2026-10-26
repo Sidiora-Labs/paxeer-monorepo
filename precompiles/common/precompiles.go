@@ -14,7 +14,6 @@ import (
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -316,14 +315,7 @@ func (d DynamicGasPrecompile) mergePlanActive(evm *vm.EVM) bool {
 	if sdb == nil {
 		return false
 	}
-	getter, ok := d.executor.EVMKeeper().(interface {
-		UpgradeKeeper() *upgradekeeper.Keeper
-	})
-	if !ok {
-		return false
-	}
-	ctx := sdb.Ctx()
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), MergeUpgrade, ctx.BlockHeight())
+	return MergePlanActive(sdb.Ctx(), d.executor.EVMKeeper())
 }
 
 func (d DynamicGasPrecompile) RunAndCalculateGas(evm *vm.EVM, caller common.Address, callingContract common.Address, input []byte, suppliedGas uint64, value *big.Int, hooks *tracing.Hooks, readOnly bool, isFromDelegateCall bool) (ret []byte, remainingGas uint64, err error) {
