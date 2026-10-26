@@ -177,8 +177,7 @@ func (k *Keeper) GetUserLimitOrders(ctx sdk.Context, user common.Address) ([]uin
 // activeCount is the number of active order ids under prefix, each indexed
 // as prefix + order id.
 func activeCount(store sdk.KVStore, prefix []byte) (uint64, error) {
-	ids, err := exportIDs(store, prefix)
-	return uint64(len(ids)), err
+	return orderUint(store, types.ActiveLengthKey(prefix))
 }
 
 // activePosition decodes the 8-byte big-endian list position stored as the
@@ -191,7 +190,6 @@ func activePosition(key, value []byte) (uint64, error) {
 }
 
 // activeAt is the active order id stored at position of prefix.
-// ponytail: linear scan of the index; keep a position index if lists grow large.
 func activeAt(store sdk.KVStore, prefix []byte, position uint64) (uint64, error) {
 	count, err := activeCount(store, prefix)
 	if err != nil {
@@ -200,27 +198,12 @@ func activeAt(store sdk.KVStore, prefix []byte, position uint64) (uint64, error)
 	if position >= count {
 		return 0, fmt.Errorf("spot: active index out of bounds")
 	}
-	it := sdk.KVStorePrefixIterator(store, prefix)
-	defer it.Close()
-	var id uint64
-	found := false
-	for ; it.Valid(); it.Next() {
-		pos, err := activePosition(it.Key(), it.Value())
-		if err != nil {
-			return 0, err
-		}
-		if pos != position {
-			continue
-		}
-		if found {
-			return 0, fmt.Errorf("spot: duplicate active index position %d", position)
-		}
-		id, found = binary.BigEndian.Uint64(it.Key()[len(prefix):]), true
-	}
-	if !found {
+	key := types.ActivePositionKey(prefix, position)
+	value := store.Get(key)
+	if value == nil {
 		return 0, fmt.Errorf("spot: missing active index position %d", position)
 	}
-	return id, nil
+	return activePosition(key, value)
 }
 
 // activeOrdered is the active order ids of prefix ordered by stored position.
@@ -230,18 +213,20 @@ func activeOrdered(store sdk.KVStore, prefix []byte) ([]uint64, error) {
 		return nil, err
 	}
 	ids := make([]uint64, count)
-	seen := make([]bool, count)
-	it := sdk.KVStorePrefixIterator(store, prefix)
-	defer it.Close()
-	for ; it.Valid(); it.Next() {
-		pos, err := activePosition(it.Key(), it.Value())
+	for position := uint64(0); position < count; position++ {
+		id, err := activeAt(store, prefix, position)
 		if err != nil {
 			return nil, err
 		}
-		if pos >= count || seen[pos] {
-			return nil, fmt.Errorf("spot: corrupt active index entry %x", it.Key())
+		key := recordKey(prefix, orderIDBytes(id))
+		pos, err := activePosition(key, store.Get(key))
+		if err != nil {
+			return nil, err
 		}
-		ids[pos], seen[pos] = binary.BigEndian.Uint64(it.Key()[len(prefix):]), true
+		if pos != position {
+			return nil, fmt.Errorf("spot: corrupt active index entry %x", key)
+		}
+		ids[position] = id
 	}
 	return ids, nil
 }
@@ -255,7 +240,12 @@ func activeAdd(store sdk.KVStore, prefix []byte, id uint64) error {
 	if err != nil {
 		return err
 	}
+	if count == math.MaxUint64 {
+		return fmt.Errorf("spot: active index length exhausted")
+	}
 	store.Set(key, orderIDBytes(count))
+	store.Set(types.ActivePositionKey(prefix, count), orderIDBytes(id))
+	store.Set(types.ActiveLengthKey(prefix), orderIDBytes(count+1))
 	return nil
 }
 
@@ -275,14 +265,20 @@ func activeRemove(store sdk.KVStore, prefix []byte, id uint64) error {
 	if err != nil {
 		return err
 	}
+	if pos >= count {
+		return fmt.Errorf("spot: corrupt active index entry %x", key)
+	}
 	last, err := activeAt(store, prefix, count-1)
 	if err != nil {
 		return err
 	}
 	if last != id {
 		store.Set(recordKey(prefix, orderIDBytes(last)), orderIDBytes(pos))
+		store.Set(types.ActivePositionKey(prefix, pos), orderIDBytes(last))
 	}
 	store.Delete(key)
+	store.Delete(types.ActivePositionKey(prefix, count-1))
+	store.Set(types.ActiveLengthKey(prefix), orderIDBytes(count-1))
 	return nil
 }
 
