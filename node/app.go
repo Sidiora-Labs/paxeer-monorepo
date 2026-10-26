@@ -990,7 +990,11 @@ func New(
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	if enableCustomEVMPrecompiles {
-		app.customPrecompiles = precompiles.GetCustomPrecompiles(LatestUpgrade, app.GetPrecompileKeepers())
+		custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, app.GetPrecompileKeepers())
+		if err != nil {
+			panic(fmt.Sprintf("error building the custom precompiles due to %s", err))
+		}
+		app.customPrecompiles = custom
 		next, err := app.v6120Contracts()
 		if err != nil {
 			panic(fmt.Sprintf("error building the v6.12.0 precompiles due to %s", err))
