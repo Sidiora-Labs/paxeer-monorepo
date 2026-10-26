@@ -176,7 +176,8 @@ func decodeProgramRequest(data []byte) (uint64, uint8, []byte, error) {
 // RequestFromProgram is the origin-2 entry the hosted programs module calls
 // for every guest event a program call emits. An event under any topic other
 // than ProgramRequestTopic is not a web request and records nothing. For a
-// request event it refuses, in order: a paused module (LXP_XWEB_PAUSED), a
+// request event it refuses, in order: an inactive merge plan
+// (LXP_MODULE_DISABLED), a paused module (LXP_XWEB_PAUSED), a
 // second request in the same call (LXP_DUPLICATE_ENTRY), event data that does
 // not decode (LXP_NON_CANONICAL), a request id the program already recorded,
 // pending or answered (LXP_SEQUENCE_REUSED), a full pending store
@@ -192,6 +193,9 @@ func decodeProgramRequest(data []byte) (uint64, uint8, []byte, error) {
 func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, data []byte) error {
 	if !bytes.Equal(topic, []byte(ProgramRequestTopic)) {
 		return nil
+	}
+	if !k.ProgramOriginActive(ctx) {
+		return ErrProgramModuleDisabled
 	}
 	if k.IsPaused(ctx) {
 		return types.ErrPaused
