@@ -65,6 +65,7 @@ type Options struct {
 	PeerProbe       func(ctx context.Context) map[string]health.PeerState
 	Replica         func() health.ReplicaState
 	Snapshots       *backup.Writer
+	Metrics         *health.Metrics
 	ProtocolTimeout time.Duration
 	PeerTimeout     time.Duration
 	RoundTimeout    time.Duration
@@ -155,13 +156,14 @@ func (s *Server) Handler() http.Handler { return s.mux }
 
 func (s *Server) post(h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		w = &errorResponseWriter{ResponseWriter: w, server: s}
 		if r.Method != http.MethodPost {
 			w.Header().Set("Allow", http.MethodPost)
-			writeError(w, newError(CodeSessionBadRequest, "method %s not allowed", r.Method))
+			s.writeError(w, newError(CodeSessionBadRequest, "method %s not allowed", r.Method))
 			return
 		}
 		if !verifiedClient(r) {
-			writeError(w, newError(CodeOperatorRequired, "a verified client certificate is required"))
+			s.writeError(w, newError(CodeOperatorRequired, "a verified client certificate is required"))
 			return
 		}
 		h(w, r)
@@ -255,7 +257,7 @@ func (c *ClientAuthorities) Of(state *tls.ConnectionState) Authority {
 func (s *Server) requireAuthority(kind string, want Authority, name string, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if s.opts.Clients.Of(r.TLS)&want == 0 {
-			writeError(w, s.deny(kind, "", "", "denied", "", newError(CodeOperatorRequired, "%s needs a client certificate issued by the %s CA", kind, name)))
+			s.writeError(w, s.deny(kind, "", "", "denied", "", newError(CodeOperatorRequired, "%s needs a client certificate issued by the %s CA", kind, name)))
 			return
 		}
 		h(w, r)
@@ -317,7 +319,7 @@ func (s *Server) readiness() error {
 func (s *Server) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		w.Header().Set("Allow", http.MethodGet)
-		writeError(w, newError(CodeSessionBadRequest, "method %s not allowed", r.Method))
+		s.writeError(w, newError(CodeSessionBadRequest, "method %s not allowed", r.Method))
 		return
 	}
 	report := s.reporter.Report(r.Context())
@@ -381,7 +383,11 @@ func (s *Server) finish(w http.ResponseWriter, kind string, body []byte, v any, 
 		}
 		e = s.deny(kind, ids.KeyID, "", "failed", ids.SessionID, e)
 	}
-	respond(w, v, e)
+	if e != nil {
+		s.writeError(w, e)
+		return
+	}
+	respond(w, v, nil)
 }
 
 func APITLSConfig(certFile, keyFile string, clients *ClientAuthorities) (*tls.Config, error) {
