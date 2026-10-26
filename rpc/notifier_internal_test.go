@@ -207,6 +207,7 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 				LastBlockId:     tmproto.BlockID{Hash: parentHash.Bytes()},
 				DataHash:        dataHash.Bytes(),
 				LastResultsHash: resultsHash.Bytes(),
+				AppHash:         appHash.Bytes(),
 				ProposerAddress: proposer.Bytes(),
 			},
 			response: &abci.ResponseFinalizeBlock{
@@ -259,7 +260,7 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 		require.EqualError(t, err, "committed Autobahn head 12345 lacks canonical parent, transaction, and receipt roots", name)
 	}
 	evt := event()
-	evt.response.AppHash = nil
+	evt.header.AppHash = nil
 	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000, headExecution{})
 	require.Nil(t, out)
 	require.EqualError(t, err, "committed Autobahn head 12345 lacks a state root")
@@ -268,6 +269,48 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000, headExecution{})
 	require.Nil(t, out)
 	require.EqualError(t, err, "committed Autobahn head 12345 has a 31-byte block hash")
+}
+
+func TestEncodeCommittedBlockStateRootIsHeaderAppHash(t *testing.T) {
+	headerAppHash := common.HexToHash("0x44")
+	responseAppHash := common.HexToHash("0x55")
+	evt := blockHeaderEvent{
+		hash: common.HexToHash("0x11").Bytes(),
+		header: &tmproto.Header{
+			Height:          12345,
+			Time:            time.Unix(1_700_000_000, 0).UTC(),
+			LastBlockId:     tmproto.BlockID{Hash: common.HexToHash("0x22").Bytes()},
+			DataHash:        ethtypes.EmptyTxsHash.Bytes(),
+			LastResultsHash: common.HexToHash("0x33").Bytes(),
+			AppHash:         headerAppHash.Bytes(),
+			ProposerAddress: common.HexToAddress("0x66").Bytes(),
+		},
+		response: &abci.ResponseFinalizeBlock{AppHash: responseAppHash.Bytes()},
+	}
+
+	out, err := encodeCommittedBlock(evt, big.NewInt(42), 10_000_000, headExecution{})
+	require.NoError(t, err)
+	require.Equal(t, headerAppHash, out["stateRoot"])
+	require.NotEqual(t, responseAppHash, out["stateRoot"])
+	encoded, err := json.Marshal(out)
+	require.NoError(t, err)
+	var got map[string]any
+	require.NoError(t, json.Unmarshal(encoded, &got))
+	require.Equal(t, headerAppHash.Hex(), got["stateRoot"])
+
+	t.Run("missingResponseAppHash", func(t *testing.T) {
+		evt.response.AppHash = nil
+		out, err := encodeCommittedBlock(evt, big.NewInt(42), 10_000_000, headExecution{})
+		require.NoError(t, err)
+		require.Equal(t, headerAppHash, out["stateRoot"])
+	})
+	for _, size := range []int{0, common.HashLength - 1, common.HashLength + 1} {
+		evt.header.AppHash = make([]byte, size)
+		evt.response.AppHash = responseAppHash.Bytes()
+		out, err := encodeCommittedBlock(evt, big.NewInt(42), 10_000_000, headExecution{})
+		require.Nil(t, out, "header AppHash length %d", size)
+		require.EqualError(t, err, "committed Autobahn head 12345 lacks a state root", "header AppHash length %d", size)
+	}
 }
 
 func TestNewHeadsKeySetMatchesBlockHeader(t *testing.T) {
