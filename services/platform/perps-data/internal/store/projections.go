@@ -64,8 +64,14 @@ const (
 // section 18).
 func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	board, err := project(ctx, tx, rows)
-	if err != nil || !board {
+	if err != nil {
 		return err
+	}
+	if err := FoldSpotBoard(ctx, tx, rows); err != nil {
+		return err
+	}
+	if !board {
+		return nil
 	}
 	return rebuildLeaderboard(ctx, tx, rows[0].Common().BlockTime)
 }
