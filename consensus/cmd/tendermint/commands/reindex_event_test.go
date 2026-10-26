@@ -3,6 +3,7 @@ package commands
 import (
 	"context"
 	"errors"
+	"path/filepath"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -16,6 +17,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state/indexer"
 	indexermocks "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state/indexer/mocks"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state/mocks"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 
 	_ "github.com/lib/pq" // for the psql sink
@@ -28,15 +30,10 @@ const (
 
 func setupReIndexEventCmd(ctx context.Context, conf *config.Config) *cobra.Command {
 	cmd := MakeReindexEventCommand(conf)
-
-	reIndexEventCmd := &cobra.Command{
-		Use: cmd.Use,
-		Run: func(cmd *cobra.Command, args []string) {},
-	}
-
-	_ = reIndexEventCmd.ExecuteContext(ctx)
-
-	return reIndexEventCmd
+	cmd.Flags().String(cli.HomeFlag, conf.RootDir, "directory for config and data")
+	cmd.SetContext(ctx)
+	cmd.SetArgs([]string{})
+	return cmd
 }
 
 func TestReIndexEventCheckHeight(t *testing.T) {
@@ -131,6 +128,39 @@ func TestLoadBlockStore(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, bs)
 	require.NotNil(t, ss)
+}
+
+func setupAutobahnOfflineStoreConfig(t *testing.T) *config.Config {
+	t.Helper()
+	cfg := config.TestConfig().SetRoot(t.TempDir())
+	cfg.DBBackend = "goleveldb"
+	cfg.AutobahnConfigFile = "autobahn.json"
+
+	for _, name := range []string{"blockstore", "state"} {
+		db, err := dbm.NewDB(name, dbm.BackendType(cfg.DBBackend), cfg.DBDir())
+		require.NoError(t, err)
+		t.Cleanup(func() { require.NoError(t, db.Close()) })
+	}
+	return cfg
+}
+
+func TestLoadBlockStoreRefusesUnderAutobahn(t *testing.T) {
+	cfg := setupAutobahnOfflineStoreConfig(t)
+
+	bs, ss, err := loadStateAndBlockStore(cfg)
+	require.ErrorIs(t, err, ErrAutobahnOfflineStore)
+	require.Nil(t, bs)
+	require.Nil(t, ss)
+}
+
+func TestReIndexEventRefusesUnderAutobahn(t *testing.T) {
+	cfg := setupAutobahnOfflineStoreConfig(t)
+	cmd := setupReIndexEventCmd(t.Context(), cfg)
+	cmd.SetArgs([]string{"--start-height", "1", "--end-height", "2"})
+
+	err := cmd.Execute()
+	require.ErrorIs(t, err, ErrAutobahnOfflineStore)
+	require.NoDirExists(t, filepath.Join(config.ResolveDBDir("tx_index", cfg.DBDir()), "tx_index.db"))
 }
 
 func TestReIndexEvent(t *testing.T) {

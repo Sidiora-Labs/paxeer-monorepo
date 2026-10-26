@@ -967,6 +967,12 @@ lxp_result lxp_programs_program_abi(
     lxp_module_ctx *ctx, const uint8_t program_id[32], uint16_t *abi_version);
 lxp_result lxp_programs_program_active(
     lxp_module_ctx *ctx, const uint8_t program_id[32]);
+lxp_result lxp_programs_interface_read(
+    lxp_module_ctx *ctx, const uint8_t program_id[32],
+    const uint8_t **bytes, size_t *length);
+lxp_result lxp_programs_sandbox_read(
+    lxp_module_ctx *ctx, const uint8_t lease_id[32], uint16_t kind,
+    const uint8_t **bytes, size_t *length);
 lxp_result lxp_programs_wind_down_read(
     lxp_module_ctx *ctx, const uint8_t program_id[32],
     lx_programs_wind_down_view *view);

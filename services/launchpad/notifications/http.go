@@ -2,9 +2,7 @@ package notifications
 
 import (
 	"crypto/subtle"
-	"database/sql"
 	"encoding/json"
-	"errors"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/discovery"
 	"io"
 	"net/http"
@@ -27,7 +25,7 @@ func (h HTTP) Handler() http.Handler {
 	mux.HandleFunc("GET /v2/discovery/notifications", func(w http.ResponseWriter, r *http.Request) {
 		account, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		items, e := h.Store.List(r.Context(), account, 50)
@@ -36,7 +34,7 @@ func (h HTTP) Handler() http.Handler {
 	mux.HandleFunc("PATCH /v2/discovery/notifications/{id}", func(w http.ResponseWriter, r *http.Request) {
 		account, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		var input struct {
@@ -45,12 +43,12 @@ func (h HTTP) Handler() http.Handler {
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
 		decoder.DisallowUnknownFields()
 		if e = decoder.Decode(&input); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		var extra any
 		if e = decoder.Decode(&extra); e != io.EOF {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		e = h.Store.SetRead(r.Context(), account, r.PathValue("id"), input.Read)
@@ -59,7 +57,7 @@ func (h HTTP) Handler() http.Handler {
 	mux.HandleFunc("DELETE /v2/discovery/notifications/{id}", func(w http.ResponseWriter, r *http.Request) {
 		account, e := h.actor(r)
 		if e != nil {
-			w.WriteHeader(401)
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
 			return
 		}
 		e = h.Store.DeleteItem(r.Context(), account, r.PathValue("id"))
@@ -81,16 +79,8 @@ func respond(w http.ResponseWriter, v any, e error) {
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Content-Type", "application/json")
 	if e != nil {
-		code := 503
-		if errors.Is(e, sql.ErrNoRows) {
-			code = 404
-		} else if errors.Is(e, ErrInvalid) {
-			code = 400
-		} else if errors.Is(e, ErrForbidden) {
-			code = 403
-		}
-		w.WriteHeader(code)
-		_ = json.NewEncoder(w).Encode(map[string]string{"error": "notification_unavailable"})
+		status, code := errorStatus(e)
+		writeError(w, nil, status, code)
 		return
 	}
 	_ = json.NewEncoder(w).Encode(v)
@@ -139,11 +129,11 @@ func (h HTTP) InternalHandler() http.Handler {
 		deletion := r.URL.Query().Get("deletionId")
 		uuid := regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 		if !uuid.MatchString(account) || !uuid.MatchString(deletion) {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		if h.InternalAuthorize == nil {
-			w.WriteHeader(503)
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
 		if e := h.InternalAuthorize(r, account); e != nil {
@@ -151,7 +141,7 @@ func (h HTTP) InternalHandler() http.Handler {
 			return
 		}
 		if h.Discovery.DB == nil {
-			w.WriteHeader(503)
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
 		if e := h.Discovery.DeleteAccount(r.Context(), account); e != nil {
@@ -166,16 +156,16 @@ func (h HTTP) InternalHandler() http.Handler {
 		decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096))
 		decoder.DisallowUnknownFields()
 		if e := decoder.Decode(&in); e != nil {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		var extra any
 		if e := decoder.Decode(&extra); e != io.EOF {
-			w.WriteHeader(400)
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
 			return
 		}
 		if h.InternalAuthorize == nil {
-			w.WriteHeader(503)
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
 			return
 		}
 		if e := h.InternalAuthorize(r, in.AccountID); e != nil {

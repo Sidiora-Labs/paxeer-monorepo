@@ -111,11 +111,11 @@ func (m *Minter) GetEndDateTime() time.Time {
 }
 
 func (m Minter) GetLastMintAmountCoin() sdk.Coin {
-	return sdk.NewCoin(m.GetDenom(), sdk.NewInt(int64(m.GetLastMintAmount()))) //nolint:gosec
+	return sdk.NewCoin(m.GetDenom(), sdk.NewIntFromUint64(m.GetLastMintAmount()))
 }
 
 func (m *Minter) GetReleaseAmountToday(currentTime time.Time) sdk.Coins {
-	return sdk.NewCoins(sdk.NewCoin(m.GetDenom(), sdk.NewInt(int64(m.getReleaseAmountToday(currentTime.UTC()))))) //nolint:gosec
+	return sdk.NewCoins(sdk.NewCoin(m.GetDenom(), sdk.NewIntFromUint64(m.getReleaseAmountToday(currentTime.UTC()))))
 }
 
 func (m *Minter) RecordSuccessfulMint(ctx sdk.Context, epoch epochTypes.Epoch, mintedAmount uint64) {
@@ -123,7 +123,11 @@ func (m *Minter) RecordSuccessfulMint(ctx sdk.Context, epoch epochTypes.Epoch, m
 	m.LastMintDate = epoch.CurrentEpochStartTime.Format(TokenReleaseDateFormat)
 	m.LastMintHeight = uint64(epoch.CurrentEpochHeight) //nolint:gosec
 	m.LastMintAmount = mintedAmount
-	mintMetrics.coinsMinted.Record(ctx.Context(), int64(mintedAmount), otelmetric.WithAttributes(attribute.String("denom", m.GetDenom()))) //nolint:gosec
+	metricAmount := mintedAmount
+	if metricAmount > math.MaxInt64 {
+		metricAmount = math.MaxInt64
+	}
+	mintMetrics.coinsMinted.Record(ctx.Context(), int64(metricAmount), otelmetric.WithAttributes(attribute.String("denom", m.GetDenom()))) //nolint:gosec
 	// TODO(PLT-336): remove once mint_coins_minted verified
 	metrics.SetCoinsMinted(mintedAmount, m.GetDenom())
 	ctx.EventManager().EmitEvent(

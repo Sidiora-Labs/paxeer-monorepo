@@ -6,6 +6,7 @@ import { PRECOMPILES } from "@/core/network/precompiles";
 import { pecorAbi } from "@/core/network/spot_abi/PECOR";
 import { pecorOrdersAbi } from "@/core/network/spot_abi/PECOROrders";
 import { pecorStopOrdersAbi } from "@/core/network/spot_abi/PECORStopOrders";
+import { pecorVaultAbi } from "@/core/network/spot_abi/PECORVault";
 
 /** A call at a spot precompile whose args are checked against that rail's ABI. */
 export interface SpotCall<
@@ -26,6 +27,7 @@ export const WEI_PER_UHPX = 10n ** 12n;
 const MARKET = PRECOMPILES.spot.PECOR;
 const ORDERS = PRECOMPILES.spot.PECOROrders;
 const STOPS = PRECOMPILES.spot.PECORStopOrders;
+const VAULT = PRECOMPILES.spot.PECORVault;
 
 function refuse(code: ErrorCode): never {
   throw makeError(code, "spot.calls");
@@ -118,6 +120,22 @@ export function buildGetPaxPointer() {
   return { address: MARKET, abi: pecorAbi, functionName: "WETH", args: [] as const } satisfies SpotCall<
     typeof pecorAbi,
     "WETH"
+  >;
+}
+
+export function buildIsTokenPaused(token: Address) {
+  const args = [token] as const;
+  return { address: VAULT, abi: pecorVaultAbi, functionName: "isTokenPaused", args } satisfies SpotCall<
+    typeof pecorVaultAbi,
+    "isTokenPaused"
+  >;
+}
+
+export function buildGetTokenInfo(token: Address) {
+  const args = [token] as const;
+  return { address: VAULT, abi: pecorVaultAbi, functionName: "getTokenInfo", args } satisfies SpotCall<
+    typeof pecorVaultAbi,
+    "getTokenInfo"
   >;
 }
 

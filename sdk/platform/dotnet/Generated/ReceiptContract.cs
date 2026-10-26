@@ -7,64 +7,39 @@ public enum ReceiptCheck
 {
     Decode,
     CanonicalEncoding,
-    ReceiptShape,
-    MissingSignature,
-    ProtocolVersion,
-    ResultCode,
-    Operation,
+    ReceiptVersion,
     ActivityId,
-    GlobalSequence,
-    ModuleId,
-    ModuleVersion,
-    Timestamp,
-    BatchId,
-    Asset,
-    PreviousStateRoot,
-    ResultingStateRoot,
-    DebitBalance,
-    CreditBalance,
-    ProgramOutcome,
-    SequencerSignature,
+    KeyId,
+    KeyHeight,
+    RawTransaction,
+    Fields,
+    ReturnData,
+    Logs,
+    SequenceHash,
+    Signature,
 }
 
 public static class GeneratedReceiptContract
 {
-    public const ushort ProgramsModuleId = 9;
-    public const uint ProgramOutcomeV1 = 0x50524731;
-    public const uint ProgramOutcomeV2 = 0x50524732;
-    public const uint ProgramOutcomeV3 = 0x50524733;
-    public const uint ProgramOutcomeV4 = 0x50524734;
-    public static readonly ReceiptCheck[] RequiredNonzeroChecks = [
-        ReceiptCheck.GlobalSequence,
-        ReceiptCheck.ModuleId,
-        ReceiptCheck.ModuleVersion,
-        ReceiptCheck.Timestamp,
-        ReceiptCheck.ActivityId,
-        ReceiptCheck.ResultingStateRoot,
-    ];
+    public const ushort ReceiptVersionV2 = 2;
+    public const ushort ReceiptVersionV3 = 3;
+    public const string ReceiptDomain = "LXP/v1/receipt";
+    public const string SequenceDomain = "PAXEER/v1/sequence";
 
     public static string MachineCode(this ReceiptCheck check) => check switch
     {
         ReceiptCheck.Decode => "decode",
         ReceiptCheck.CanonicalEncoding => "canonical-encoding",
-        ReceiptCheck.ReceiptShape => "receipt-shape",
-        ReceiptCheck.MissingSignature => "missing-signature",
-        ReceiptCheck.ProtocolVersion => "protocol-version",
-        ReceiptCheck.ResultCode => "result-code",
-        ReceiptCheck.Operation => "operation",
+        ReceiptCheck.ReceiptVersion => "receipt-version",
         ReceiptCheck.ActivityId => "activity-id",
-        ReceiptCheck.GlobalSequence => "global-sequence",
-        ReceiptCheck.ModuleId => "module-id",
-        ReceiptCheck.ModuleVersion => "module-version",
-        ReceiptCheck.Timestamp => "timestamp",
-        ReceiptCheck.BatchId => "batch-id",
-        ReceiptCheck.Asset => "asset",
-        ReceiptCheck.PreviousStateRoot => "previous-state-root",
-        ReceiptCheck.ResultingStateRoot => "resulting-state-root",
-        ReceiptCheck.DebitBalance => "debit-balance",
-        ReceiptCheck.CreditBalance => "credit-balance",
-        ReceiptCheck.ProgramOutcome => "program-outcome",
-        ReceiptCheck.SequencerSignature => "sequencer-signature",
+        ReceiptCheck.KeyId => "key-id",
+        ReceiptCheck.KeyHeight => "key-height",
+        ReceiptCheck.RawTransaction => "raw-transaction",
+        ReceiptCheck.Fields => "fields",
+        ReceiptCheck.ReturnData => "return-data",
+        ReceiptCheck.Logs => "logs",
+        ReceiptCheck.SequenceHash => "sequence-hash",
+        ReceiptCheck.Signature => "signature",
         _ => throw new ArgumentOutOfRangeException(nameof(check)),
     };
 

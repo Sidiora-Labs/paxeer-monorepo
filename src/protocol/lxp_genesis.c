@@ -14,7 +14,6 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_authority.h"
 #include "layerx/lxp_hash.h"
-#include "layerx/lxp_handover.h"
 #include "layerx/lxp_fee.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_ledger.h"
@@ -32,6 +31,14 @@ static const uint8_t parameter_version_key[32] = {
 };
 
 static const uint8_t genesis_manifest_key[] = "genesis/manifest/v1";
+
+static const char *const custody_asset_ids[] = {
+    "layerx-asset:125:PAX", "layerx-asset:125:SID",
+    "layerx-asset:125:USDC", "layerx-asset:125:USDL"
+};
+_Static_assert(sizeof(custody_asset_ids) / sizeof(custody_asset_ids[0]) ==
+                   LXP_GENESIS_CUSTODY_ASSET_COUNT,
+               "custody asset count");
 
 static const uint8_t module_enable_prefix[] =
     "module-enable:";
@@ -274,16 +281,39 @@ static lxp_result perps_order_tif(const lxp_genesis_manifest *manifest, bool *en
     return LXP_OK;
 }
 
+static lxp_result genesis_governance_authority(
+    const lxp_genesis_manifest *manifest, lxp_governance_authority *authority)
+{
+    static const uint8_t authority_key[32] = "handover-authority";
+    if (manifest == NULL || authority == NULL ||
+        manifest->parameter_count > LXP_GENESIS_MAX_PARAMETERS)
+        return LXP_ERR_NON_CANONICAL;
+    (void)memset(authority, 0, sizeof(*authority));
+    authority->network_id = manifest->network_id;
+    for (size_t i = 0U; i < manifest->parameter_count; ++i) {
+        const lxp_genesis_parameter *parameter = &manifest->parameters[i];
+        if (memcmp(parameter->key, authority_key, sizeof(authority_key)) != 0) continue;
+        if (parameter->module_id != LXP_MODULE_GOVERNANCE ||
+            authority->enabled ||
+            manifest->protocol_version != LXP_PROTOCOL_VERSION_STATE_COMMITMENT ||
+            !lxp_ed25519_pubkey_is_canonical(parameter->value) ||
+            memcmp(parameter->value, manifest->signer_public_key, 32U) == 0)
+            return LXP_ERR_AUTH_SCOPE;
+        (void)memcpy(authority->governance_public_key, parameter->value, 32U);
+        authority->enabled = true;
+    }
+    return LXP_OK;
+}
+
 lxp_result lxp_genesis_module_plan_resolve(
     const lxp_genesis_manifest *manifest, lxp_genesis_module_plan *plan)
 {
     lxp_bridge_profile bridge;
     bool bridge_present = false;
-    bool handover_enabled = false;
     bool oracle_transport = false;
     bool order_tif = false;
     bool perps_selected = false;
-    uint8_t handover_authority[32];
+    lxp_governance_authority authority;
     size_t count = sizeof(module_table) / sizeof(module_table[0]);
     size_t index;
     size_t position = 0U;
@@ -299,8 +329,7 @@ lxp_result lxp_genesis_module_plan_resolve(
     if (status == LXP_OK) status = perps_order_tif(manifest, &order_tif);
     if (status == LXP_OK && order_tif && !oracle_transport) status = LXP_ERR_VERSION_UNSUPPORTED;
     if (status == LXP_OK)
-        status = lxp_handover_genesis_authority(manifest, handover_authority,
-                                                &handover_enabled);
+        status = genesis_governance_authority(manifest, &authority);
     if (status != LXP_OK) return status;
     (void)memset(plan, 0, sizeof(*plan));
     for (index = 0U; index < count; ++index) {
@@ -338,8 +367,6 @@ lxp_result lxp_genesis_module_plan_resolve(
                 if (oracle_transport) iface = lx_perps_oracle_transport_module_iface();
                 if (order_tif) iface = lx_perps_tif_module_iface();
             }
-            if (entry->module_id == LXP_MODULE_GOVERNANCE)
-                iface = lxp_governance_module_iface_for_handover(handover_enabled);
             plan->modules[position++] = iface;
         }
     }
@@ -450,26 +477,32 @@ static lxp_result validate_legacy_accounts(const lxp_genesis_manifest *manifest)
     return LXP_OK;
 }
 
+lxp_result lxp_genesis_custody_asset_id(size_t index, uint8_t asset_id[32])
+{
+    if (asset_id == NULL) return LXP_ERR_NON_CANONICAL;
+    if (index >= LXP_GENESIS_CUSTODY_ASSET_COUNT)
+        return LXP_ERR_PARAMETER_BOUNDS;
+    return lxp_hash_sha256((const uint8_t *)custody_asset_ids[index],
+                           strlen(custody_asset_ids[index]), asset_id);
+}
+
 static lxp_result registry_profiles(const lxp_genesis_manifest *manifest,
                                     lxp_bridge_profile profiles[4], bool *present)
 {
-    static const char *const ids[] = {
-        "layerx-asset:125:PAX", "layerx-asset:125:SID",
-        "layerx-asset:125:USDC", "layerx-asset:125:USDL"
-    };
     size_t count = 0U;
     *present = false;
-    for (size_t i = 0U; i < 4U; ++i) {
+    for (size_t i = 0U; i < LXP_GENESIS_CUSTODY_ASSET_COUNT; ++i) {
         uint8_t asset_id[32];
         bool found = false;
-        lxp_result status = lxp_hash_sha256((const uint8_t *)ids[i], strlen(ids[i]), asset_id);
+        lxp_result status = lxp_genesis_custody_asset_id(i, asset_id);
         if (status == LXP_OK)
             status = lxp_bridge_registry_profile(manifest, asset_id, &profiles[i], &found);
         if (status != LXP_OK) return status;
         if (found) ++count;
     }
-    if (count != 0U && count != 4U) return LXP_ERR_UNKNOWN_FIELD;
-    *present = count == 4U;
+    if (count != 0U && count != LXP_GENESIS_CUSTODY_ASSET_COUNT)
+        return LXP_ERR_UNKNOWN_FIELD;
+    *present = count == LXP_GENESIS_CUSTODY_ASSET_COUNT;
     return LXP_OK;
 }
 
@@ -540,9 +573,8 @@ static lxp_result validate(const lxp_genesis_manifest *manifest)
     lxp_bridge_profile bridge;
     bool bridge_present;
     size_t i;
-    uint8_t handover_authority[32];
-    bool handover_enabled;
-    lxp_result handover_status;
+    lxp_governance_authority authority;
+    lxp_result authority_status;
     lxp_byte_span fee_head = {NULL, 0U}, fee_prices = {NULL, 0U};
     if (manifest == NULL ||
         !lxp_protocol_version_supported(manifest->protocol_version) ||
@@ -574,9 +606,8 @@ static lxp_result validate(const lxp_genesis_manifest *manifest)
              manifest->parameters[i].value[31] != 2U))
             return LXP_ERR_VERSION_UNSUPPORTED;
     }
-    handover_status = lxp_handover_genesis_authority(manifest, handover_authority,
-                                                    &handover_enabled);
-    if (handover_status != LXP_OK) return handover_status;
+    authority_status = genesis_governance_authority(manifest, &authority);
+    if (authority_status != LXP_OK) return authority_status;
     for (i = 0U; i < manifest->guarantor_count; ++i) {
         if (lxp_ct_is_zero(manifest->guarantors[i].guarantor_id, 32U) ||
             lxp_ct_is_zero(manifest->guarantors[i].public_key, 33U) ||
@@ -1063,6 +1094,8 @@ lxp_result lxp_genesis_materialize(const lxp_genesis_manifest *manifest,
                                genesis_manifest_key,
                                sizeof(genesis_manifest_key) - 1U,
                                commitment, sizeof(commitment));
+    if (status == LXP_OK)
+        status = genesis_governance_authority(manifest, &kernel->governance_authority);
     return status;
 }
 

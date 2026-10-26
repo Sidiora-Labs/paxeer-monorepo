@@ -103,13 +103,6 @@ export interface PxAssetTable {
   readonly joinedLimit: bigint;
 }
 
-export interface PxAnchorHead {
-  readonly latestFinalizedBatch: bigint | null;
-  readonly status: bigint | null;
-  readonly statusName: string | null;
-  readonly statusLadder: Readonly<Record<string, string>> | null;
-}
-
 export interface PxPaxeerHead {
   readonly chainId: bigint;
   readonly latestBlock: bigint;
@@ -213,6 +206,7 @@ export class PxClient {
     method: PxMethod,
     params: readonly RpcParam[],
   ): Promise<Record<string, unknown>> {
+    if (!PX_METHODS.includes(method)) throw new Error("Invalid gateway method");
     const id = (++this.#id).toString();
     const body = Buffer.from(
       JSON.stringify({ jsonrpc: "2.0", id, method, params }),
@@ -325,10 +319,6 @@ function pxCounted(value: unknown): bigint {
   const parsed = pxQuantity(value);
   if (parsed > MAX_U64) throw new Error("Invalid gateway count");
   return parsed;
-}
-
-function pxOptionalCounted(value: unknown): bigint | null {
-  return value === null ? null : pxCounted(value);
 }
 
 export function decodePxResolvedIdentities(
@@ -455,6 +445,8 @@ export function decodePxAssetTable(value: unknown): PxAssetTable {
 
 export function decodePxNetworkHead(value: unknown): PxNetworkHead {
   const document = object(value);
+  if (Object.keys(document).some((name) => name.startsWith("lx_")))
+    throw new Error("Invalid gateway network field");
   present(document, [
     "network_id",
     "paxeer",
@@ -511,31 +503,6 @@ function receiptKeyBytes(value: unknown): string {
   if (bytes.length !== 32 || bytes.toString("base64") !== value)
     throw new Error("Invalid gateway receipt key bytes");
   return bytes.toString("hex");
-}
-
-export function decodePxAnchorHead(value: unknown): PxAnchorHead {
-  const anchor = object(value);
-  present(anchor, [
-    "latest_finalized_batch",
-    "status",
-    "status_name",
-    "status_ladder",
-  ]);
-  const ladder = anchor.status_ladder;
-  let statusLadder: Readonly<Record<string, string>> | null = null;
-  if (ladder !== null) {
-    const rungs = object(ladder);
-    for (const rung of Object.values(rungs))
-      if (typeof rung !== "string" || rung.length === 0 || rung.length > 64)
-        throw new Error("Invalid anchor ladder");
-    statusLadder = Object.freeze({ ...rungs } as Record<string, string>);
-  }
-  return Object.freeze({
-    latestFinalizedBatch: pxOptionalCounted(anchor.latest_finalized_batch),
-    status: pxOptionalCounted(anchor.status),
-    statusName: optionalText(anchor.status_name, 64),
-    statusLadder,
-  });
 }
 
 function decodePaxeerAccount(value: unknown): PxPaxeerAccount {

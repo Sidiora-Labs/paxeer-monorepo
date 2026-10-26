@@ -1,0 +1,24 @@
+syntax = "proto3";
+package paxprotocol.paxchain.layerxagent;
+
+import "gogoproto/gogo.proto";
+import "layerxagent/tx.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types";
+
+message Job {
+  uint64 id = 1;
+  string creator = 2;
+  string target = 3;
+  bytes call_data = 4;
+  uint64 execute_at_block = 5;
+  uint64 gas_limit = 6;
+  string deposit = 7;
+  bool active = 8;
+}
+
+message GenesisState {
+  Params params = 1 [(gogoproto.nullable) = false];
+  repeated Job jobs = 2 [(gogoproto.nullable) = false];
+  uint64 next_job_id = 3;
+}

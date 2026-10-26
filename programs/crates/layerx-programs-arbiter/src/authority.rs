@@ -9,7 +9,7 @@ use layerx_proof::state_range::{ModuleRangeWitness, MAX_UNIVERSAL_LEAVES};
 use layerx_proof::state_witness::StateWitness;
 use sha2::{Digest, Sha256};
 
-use crate::ReplayError;
+use crate::{activity_codec::signed_activity_bytes, ReplayError};
 
 #[derive(Clone, Debug)]
 pub struct VerifiedReplayAuthority {
@@ -277,8 +277,7 @@ impl VerifiedReplayAuthority {
         } else {
             actor
         };
-        let signed =
-            layerx_wire::activity::encode_signed(activity).map_err(|_| ReplayError::Authority)?;
+        let signed = signed_activity_bytes(activity)?;
         let mut bytes = b"LXP/program-replay-authority/v1\0".to_vec();
         vector(&mut bytes, &signed)?;
         bytes.extend_from_slice(&actor);

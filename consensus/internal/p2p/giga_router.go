@@ -189,6 +189,11 @@ func (r *GigaRouter) LastCommittedBlockNumber() int64 {
 	return int64(gr.Next - 1) //nolint:gosec // data.State rejects certificates above the executable int64 height range.
 }
 
+// EarliestBlockNumber returns the lowest retained global block number.
+func (r *GigaRouter) EarliestBlockNumber() int64 {
+	return int64(r.data.FirstBlock())
+}
+
 // MaxGasEstimatedPerBlock .
 func (r *GigaRouter) MaxGasEstimatedPerBlock() uint64 {
 	return r.cfg.Producer.MaxGasEstimatedPerBlock
@@ -198,6 +203,8 @@ func (r *GigaRouter) MaxGasEstimatedPerBlock() uint64 {
 // into the CometBFT coretypes.ResultBlock shape. This lets consumers
 // (notably evmrpc, which wraps receipts/logs with block context) keep
 // working under Autobahn without CometBFT's BlockStore being populated.
+// Once finalized, the block at EarliestBlockNumber is available; lower
+// heights return an error wrapping coretypes.ErrHeightNotAvailable.
 //
 // Fields populated when the underlying GlobalBlock is well-formed:
 // BlockID.Hash (Autobahn lane-block header hash — the same bytes passed to

@@ -736,7 +736,7 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		}
 		var pub [32]byte
 		copy(pub[:], pubBytes)
-		return digest[:], &lx.SendAuthorizationRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: digest, PublicKey: pub, Disclosure: disclosure}, policy.KindLXActivity, nil
+		return digest[:], &lx.SendAuthorizationRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: digest, PublicKey: pub, Disclosure: disclosure}, policy.KindLXSendAuth, nil
 	case KindLXBind:
 		raw, e := decodeHex("message", req.Message)
 		if e != nil {
