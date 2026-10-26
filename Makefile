@@ -41,7 +41,12 @@ endif
 LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
 	src/network/lx_oracle_adapter.c src/network/lx_web_adapter.c \
 	src/sequencer/lx_oracle_root.c src/sequencer/lx_web_root.c \
-	src/state/lxp_idempotency.c src/paxeer/lxp_checkpoint_cert.c, \
+	src/state/lxp_idempotency.c src/paxeer/lxp_checkpoint_cert.c \
+	src/sequencer/lxp_batch_seal.c src/replica/lxp_replica_ingest.c \
+	src/network/lxp_da_service.c src/network/lxp_da_kernel.c \
+	src/network/lxp_da_bundle.c src/storage/lxp_da_verified.c \
+	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c \
+	src/guarantor/lxp_da_possession.c src/guarantor/lxp_guarantor.c, \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
 LIBRARY := $(BUILD_DIR)/liblayerx.a
@@ -127,27 +132,13 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-batch \
 	test-sequencer \
 	test-batch-time \
-	test-batch-seal \
-	test-batch-distribute \
 	test-sequencer-recovery \
 	test-wave-10 \
-	test-replica \
-	test-replay \
-	test-replica-divergence \
 	test-snapshot \
 	test-history \
 	test-replay-crossarch \
 	test-wave-11 \
-	test-guarantor \
-	test-guarantor-cert \
-	test-guarantor-bond \
 	test-equivocation \
-	test-guarantor-disagreement \
-	test-da \
-	test-da-possession \
-	test-da-retrieval \
-	test-da-challenge \
-	test-da-unavailable \
 	test-governance \
 	test-governance-activation \
 	test-governance-emergency \
@@ -162,7 +153,6 @@ TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 	test-reserve \
 	test-gateway \
 	test-gateway-send \
-	test-gateway-receive \
 	test-gateway-kv \
 	test-receipt-offline \
 	test-layerxd test-daemon-lni-admission \
@@ -276,7 +266,7 @@ test-harness: $(BUILD_DIR)/tests/lxp_test_harness
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
-test: test-state-diff test-da-verified test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-daemon-lni-account test-daemon-lni-module test-daemon-lni-head-attestation test-daemon-allowance test-arena test-harness test-codec \
+test: test-state-diff test-result test-protocol test-state-commitment-transition test-program-artifacts test-daemon-maintenance-protocol test-daemon-lni-account test-daemon-lni-module test-daemon-lni-head-attestation test-daemon-allowance test-arena test-harness test-codec \
 	test-codec-limits test-codec-version test-codec-vectors fuzz-codec-smoke \
 	test-crypto-suite test-arith-u128 test-arith-u256 test-arith-rounding \
 	test-arith-property test-arith-nofloat test-log test-log-durability \
@@ -921,22 +911,6 @@ test-batch-time: $(BUILD_DIR)/tests/test_batch_time
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_batch_time
 	sh tests/protocol/lxp_check_no_clock.sh
 
-$(BUILD_DIR)/tests/test_batch_seal: tests/test_batch_seal.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-batch-seal: $(BUILD_DIR)/tests/test_batch_seal
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_batch_seal
-
-$(BUILD_DIR)/tests/test_batch_publish: tests/test_batch_publish.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-batch-distribute: $(BUILD_DIR)/tests/test_batch_publish
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_batch_publish
-
 $(BUILD_DIR)/tests/test_sequencer_recovery: \
 		tests/test_sequencer_recovery.c src/storage/lxp_projection.c $(LIBRARY)
 	@mkdir -p $(@D)
@@ -947,37 +921,7 @@ $(BUILD_DIR)/tests/test_sequencer_recovery: \
 test-sequencer-recovery: $(BUILD_DIR)/tests/test_sequencer_recovery
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_sequencer_recovery
 
-test-wave-10: test-batch test-sequencer test-batch-time test-batch-seal \
-		test-batch-distribute test-sequencer-recovery
-
-$(BUILD_DIR)/tests/test_replica_ingest: tests/test_replica_ingest.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) tests/support/lxp_real_replay.h \
-		| programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -Itests $(CFLAGS) $< $(LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-replica: $(BUILD_DIR)/tests/test_replica_ingest
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_replica_ingest
-
-$(BUILD_DIR)/tests/test_replica_replay: tests/test_replica_replay.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) tests/support/lxp_real_replay.h | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-replay: $(BUILD_DIR)/tests/test_replica_replay
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_replica_replay
-	! nm -u $(BUILD_DIR)/obj/src/replica/lxp_replay.o | grep -q sqlite3_
-
-$(BUILD_DIR)/tests/test_replica_divergence: \
-		tests/test_replica_divergence.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-replica-divergence: $(BUILD_DIR)/tests/test_replica_divergence
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_replica_divergence
+test-wave-10: test-batch test-sequencer test-batch-time test-sequencer-recovery
 
 $(BUILD_DIR)/tests/test_snapshot: tests/test_snapshot.c $(LIBRARY) \
 		$(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -1000,33 +944,7 @@ test-history: $(BUILD_DIR)/tests/test_history_query
 test-replay-crossarch: tests/vectors/replay_corpus.lxb
 	sh tests/replica/lxp_replay_matrix.sh
 
-test-wave-11: test-replica test-replay test-replica-divergence \
-		test-snapshot test-history test-replay-crossarch
-
-$(BUILD_DIR)/tests/test_guarantor_duties: \
-		tests/test_guarantor_duties.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) tests/support/lxp_real_replay.h | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-guarantor: $(BUILD_DIR)/tests/test_guarantor_duties
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_guarantor_duties
-
-$(BUILD_DIR)/tests/test_guarantor_cert: tests/test_guarantor_cert.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-guarantor-cert: $(BUILD_DIR)/tests/test_guarantor_cert
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_guarantor_cert
-
-$(BUILD_DIR)/tests/test_guarantor_bond: tests/test_guarantor_bond.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-guarantor-bond: $(BUILD_DIR)/tests/test_guarantor_bond
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_guarantor_bond
+test-wave-11: test-snapshot test-history test-replay-crossarch
 
 $(BUILD_DIR)/tests/test_equivocation: tests/test_equivocation.c $(LIBRARY)
 	@mkdir -p $(@D)
@@ -1035,66 +953,6 @@ $(BUILD_DIR)/tests/test_equivocation: tests/test_equivocation.c $(LIBRARY)
 
 test-equivocation: $(BUILD_DIR)/tests/test_equivocation
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_equivocation
-
-$(BUILD_DIR)/tests/test_guarantor_disagreement: \
-		tests/test_guarantor_disagreement.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-guarantor-disagreement: $(BUILD_DIR)/tests/test_guarantor_disagreement
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_guarantor_disagreement
-
-$(BUILD_DIR)/tests/test_da_bundle: tests/test_da_bundle.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-da: $(BUILD_DIR)/tests/test_da_bundle
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_da_bundle
-
-$(BUILD_DIR)/tests/test_da_possession: tests/test_da_possession.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-da-possession: $(BUILD_DIR)/tests/test_da_possession
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_da_possession
-
-$(BUILD_DIR)/tests/lxp_test_da_verified: tests/storage/lxp_test_da_verified.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -o $@
-
-.PHONY: test-da-verified
-test-da-verified: $(BUILD_DIR)/tests/lxp_test_da_verified
-	@mkdir -p qual-logs/dan1
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_da_verified
-
-$(BUILD_DIR)/tests/test_da_retrieval: tests/test_da_retrieval.c \
-		cmd/layerx-verify/lxp_verify_fetch.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) tests/support/lxp_real_replay.h | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_da_retrieval.c \
-		cmd/layerx-verify/lxp_verify_fetch.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-da-retrieval: $(BUILD_DIR)/tests/test_da_retrieval
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_da_retrieval
-
-$(BUILD_DIR)/tests/test_da_challenge: tests/test_da_challenge.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-da-challenge: $(BUILD_DIR)/tests/test_da_challenge
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_da_challenge
-
-$(BUILD_DIR)/tests/test_da_unavailable: tests/test_da_unavailable.c $(LIBRARY)
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) \
-		-lcrypto -o $@
-
-test-da-unavailable: $(BUILD_DIR)/tests/test_da_unavailable
-	tests/paxeer/lxp_da_withhold.sh all $(BUILD_DIR)/tests/test_da_unavailable
 
 $(BUILD_DIR)/tests/test_governance_params: \
 		tests/test_governance_params.c $(LIBRARY)
@@ -1168,10 +1026,7 @@ $(BUILD_DIR)/tests/test_fee_replay: tests/test_fee_replay.c \
 test-fee-replay: $(BUILD_DIR)/tests/test_fee_replay test-dispatch
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_fee_replay
 
-test-wave-12: test-guarantor test-guarantor-cert test-guarantor-bond \
-		test-equivocation test-guarantor-disagreement test-da \
-		test-da-possession test-da-retrieval test-da-challenge \
-		test-da-unavailable test-governance test-governance-activation \
+test-wave-12: test-equivocation test-governance test-governance-activation \
 		test-governance-emergency test-fees test-metering test-fee-replay
 
 $(BUILD_DIR)/tests/test_paxeer_custody: tests/test_paxeer_custody.c $(LIBRARY)
@@ -1277,16 +1132,6 @@ $(BUILD_DIR)/tests/test_gateway_send: tests/test_gateway_send.c \
 
 test-gateway-send: $(BUILD_DIR)/tests/test_gateway_send
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_gateway_send
-
-$(BUILD_DIR)/tests/test_gateway_receive: tests/test_gateway_receive.c \
-		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $< $(TEST_LIBRARY) \
-		$(PROGRAMS_RUNTIME_LIB) $(TEST_LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
-test-gateway-receive: $(BUILD_DIR)/tests/test_gateway_receive
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_gateway_receive
 
 $(BUILD_DIR)/tests/test_gateway_kv: tests/network/test_gateway_kv.c \
 		$(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -3196,7 +3041,7 @@ core-test-all: test test-kernel test-module-ctx test-dispatch test-receipts \
 	test-stream-accrual test-stream-meter test-stream-settle test-stream-lifecycle \
 	test-wave-8 test-wave-9 test-wave-10 test-wave-11 test-wave-12 test-paxeer \
 	test-paxeer-bond test-bridge-deposit test-bridge-withdraw test-emergency-exit \
-	test-reserve test-gateway test-gateway-send test-gateway-receive \
+	test-reserve test-gateway test-gateway-send \
 	test-gateway-kv \
 	test-receipt-offline test-layerxd test-tools test-genesis test-genesis-import \
 	test-genesis-reconcile test-legacy-readonly test-shadow \
@@ -4084,9 +3929,9 @@ test-native-withdrawal-proof: $(BUILD_DIR)/tests/test_asset_withdraw_activity
 build: layerx-module-registry
 layerx-module-registry: $(BUILD_DIR)/bin/layerx-module-registry
 
-$(BUILD_DIR)/bin/layerx-module-registry: cmd/layerx-module-registry/main.c cmd/layerx-module-registry/node.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+$(BUILD_DIR)/bin/layerx-module-registry: cmd/layerx-module-registry/main.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) cmd/layerx-module-registry/main.c cmd/layerx-module-registry/node.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) cmd/layerx-module-registry/main.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-module-registry: layerx-module-registry
 	python3 cmd/layerx-module-registry/test_registry.py $(BUILD_DIR)/bin/layerx-module-registry

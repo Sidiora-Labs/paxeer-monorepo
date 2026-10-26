@@ -77,3 +77,171 @@ symbol = "run_one_dispatches_case"
 observed = "At revision ec6d59cc5 `make -C . build/tests/kernel/codec/lxp_test_case_dispatch` exited 2 (log /out/logs/verify-1.log): No rule to make target 'build/tests/kernel/codec/lxp_test_case_dispatch'; the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982), which the other 71 kernel tasks require and 1.0.1 (wave 0, requires []) and 1.0.9 did not."
 assumption = "1.0.1 and 1.0.9 now require 16.2.1; 1.0.1's implementation at ec6d59cc5 is re-qualified unchanged once 16.2.1 is done."
 severity = "blocker"
+
+[finding.5.31.1]
+task = "5.31.1"
+file = "consensus/types/sequencer.go:20"
+symbol = "LeaderSchedule"
+observed = "At revision 0fcd7657f `cg spec done 5.31.1` (log /out/logs/verify-1.log) exited 1 with `LeaderSchedule — not defined in the graph` after the verify_cmd passed, and the same gate refused 10.0.1 (frame::Limits, frame::ConnectionGate), 11.0.1 (evidence::SettlementRung), 11.31.1 (GatewayConfig.receipt_keys), 12.0.1 (SEQUENCER_RPC_URL, RPC_URLS, sequencerUrlDefaultsToFirstReadUrl, configuredSequencerUrlIsKept), 6.61.1 (Keeper.upgrades), 6.73.1 (GenesisState.Params), 6.51.1 (RETIRED), 13.21.1 (ILayerXPrograms, LAYERX_PROGRAMS_ADDRESS) and 11.13.1 (render_ethereum_only), every one declared in a touched file: Hyperfide 3762f1c43 (extraction version 4) indexed no Go interface methods or struct fields, Rust struct fields, module-level Python bindings, Solidity interfaces, libraries, structs, enums, errors or constants, exported TypeScript object keys, named function expressions or shell functions, and a qualified Rust type tied with its own impl block."
+assumption = "Hyperfide 37e6b5737 (extraction version 5) extracts those kinds and skips impl rows, so each result is re-qualified unchanged at its recorded revision and no symbol list changes."
+severity = "suspect"
+
+[finding.6.6.1]
+task = "6.6.1"
+file = "precompiles/common/precompiles.go:30"
+symbol = "pcommon.MergeUpgrade"
+observed = "At revision 664b028c9 `cg spec done 6.6.1` (log /out/logs/verify-1.log) exited 1 with `pcommon.MergeUpgrade — not defined in the graph` while MergeUpgrade (constant, precompiles/common/precompiles.go:30) and TestMergeUpgradeSingleSource resolved: pcommon is the import alias of precompiles/common and the code graph keeps a whole-module import without its alias, so an alias-qualified name can never resolve."
+assumption = "The alias entry duplicates MergeUpgrade and leaves the symbol list; the result at 664b028c9 is re-qualified unchanged."
+severity = "note"
+
+[finding.17.0.1]
+task = "17.0.1"
+file = "spec/layerx-merge/programme/kvx.py:35"
+symbol = "_value"
+observed = "At revision 6bacebc05 the 17.0.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `KvxError: spec/layerx-merge/spec.kvx:145120: invalid value` because programme/kvx.py decodes every quoted value with json.loads, which rejects the `\0` escape inside the do_3 of 11.0.1 (one of 27 such lines), while the gate's reader (Hyperfide kvx_str) strips the quotes and keeps every byte between them."
+assumption = "The gate's reader defines the accepted kvx string syntax; the parser is repaired within 17.0.1 and spec.kvx stays as written."
+severity = "suspect"
+
+[finding.4.54.1]
+task = "4.54.1"
+file = "sdk/launchpad/protocol/catalog/registry_input_test.go:66"
+symbol = "TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation"
+observed = "At revisions 6e8b08215 and b28402274 the 4.54.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `open ../../../contracts/launchpad/artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json: no such file or directory` because do_2 prescribed three parent segments from the package directory the test runs in, which resolves to sdk/contracts/launchpad; the repository root is four segments above sdk/launchpad/protocol/catalog."
+assumption = "The step names the wrong depth, not the wrong artifact: do_2 now prescribes four parent segments and the test body stays as written."
+severity = "note"
+
+[finding.1.21.3]
+task = "1.21.3"
+file = "src/protocol/lxp_result.c:10"
+symbol = "lxp_result_name"
+observed = "Five verify runs of 1.21.3 (latest revision 6b8c97dc7, log /out/logs/verify-1.log) exited 1 with `Code(v).Error() = \"LXP_UNKNOWN_RESULT\", kernel = \"LXP_ERR_UNKNOWN\"` for every value outside the registry because do_2 named LXP_UNKNOWN_RESULT as the string lxp_result_name returns for an unknown value, while its default branch returns \"LXP_ERR_UNKNOWN\" and the registry defines no LXP_UNKNOWN_RESULT row."
+assumption = "The kernel's default branch is the authority the test asserts; do_2 now names LXP_ERR_UNKNOWN and the test stays as written."
+severity = "note"
+
+[finding.4.44.2]
+task = "4.44.2"
+file = "apps/launchpad/web/src/core/sdk-config.ts"
+symbol = "mediaApiUrl"
+observed = "At revision 3df382457 the 4.44.2 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused the result with `symbol mediaApiUrl — not defined in the graph` because do_1 deletes that alias; the symbols list now names gatewayUrl and sdkConfigExportsNoMediaApiUrl."
+assumption = "A symbols list names only declarations the finished tree contains; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.7.4.1]
+task = "7.4.1"
+file = "rpc/web3.go"
+symbol = "crypto.Keccak256"
+observed = "At revision 3df382457 the 7.4.1 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused `symbol crypto.Keccak256 — not defined in the graph`: the name is an imported package's function, never declared in this tree; the symbols list now names Web3API.Sha3 and TestWeb3Sha3HashesInput."
+assumption = "An imported package's function is not a symbol of this tree; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.5.61.2]
+task = "5.61.2"
+file = "consensus/Makefile:14"
+symbol = "LD_FLAGS"
+observed = "At revision 3df382457 the 5.61.2 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused `symbol LD_FLAGS — not defined in the graph`: LD_FLAGS is a Makefile variable, which the graph does not index; the symbols list now names the two tests only."
+assumption = "Makefile variables are not code symbols; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.7.15.1]
+task = "7.15.1"
+file = "rpc/utils.go:254"
+symbol = "ValidateEVMBlockHeight"
+observed = "At revision 3df382457 the 7.15.1 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused ValidateEVMBlockHeight and Pacific1EVMLaunchHeight as not defined because do_1 removes both; the symbols list now names getBlockByHash (rpc/block.go:181), getBlockByNumber (rpc/block.go:218) and the test."
+assumption = "The names a task deletes cannot be checked as definitions; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.6.63.3]
+task = "6.63.3"
+file = "modules/xweb/keeper/program_fulfil.go:233"
+symbol = "programFeeDenom"
+observed = "At revision 3df382457 the 6.63.3 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused programFeeDenom and programMappedFeeDenoms as not defined because do_2 deletes both; the symbols list now names ProgramFeeDenom, splitProgramFee and the three tests of verify_cmd."
+assumption = "The names a task deletes cannot be checked as definitions; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.7.13.3]
+task = "7.13.3"
+file = "rpc/ip_rate_limit.go"
+symbol = "rate.Limiter"
+observed = "At revision 3df382457 the 7.13.3 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused `symbol rate.Limiter — not defined in the graph`: the type belongs to golang.org/x/time/rate; the symbols list now names the tree's own declarations and tests."
+assumption = "An imported package's type is not a symbol of this tree; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.1.1.1]
+task = "1.1.1"
+file = "include/layerx/lxp_result.h:30"
+symbol = "LXP_RESULT_CODE_LIST"
+observed = "At revision 3df382457 the 1.1.1 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused LXP_ERR_ARBITER_REQUIRED, LXP_ERR_UNAUTHORIZED_ARBITER and LXP_ERR_ESCROW_LINK_MISMATCH as not defined: the result codes are entries of the X-macro LXP_RESULT_CODE_LIST, and the graph holds the list macro and the lxp_result enum, never the generated enumerators; 1.1.4 (LXP_ERR_NON_CANONICAL) is the same case."
+assumption = "X-macro enumerators are not declarations the graph can see; the two symbols lists now name the functions and tests, and both results are re-qualified unchanged."
+severity = "note"
+
+[finding.1.11.1]
+task = "1.11.1"
+file = "include/layerx/lx_asset.h:130"
+symbol = "binding_authority"
+observed = "At revision 3df382457 the 1.11.1 verify_cmd passed (log /out/logs/verify-1.log) and cg spec done refused `symbol binding_authority — not defined in the graph`: it is a struct field (also include/layerx/lxp_ledger.h:196), and the C index emits no field rows; the symbols list now names the functions and tests."
+assumption = "C struct fields are not graph symbols; the result is re-qualified unchanged."
+severity = "note"
+
+[finding.1.5.1]
+task = "1.5.1"
+file = "src/protocol/lxp_fee.c:71"
+symbol = "lxp_fee_params_encode"
+observed = "At revision 3df382457 twelve results whose verify_cmd passed (1.5.1 1.5.3 1.6.4 1.7.1 1.8.1 1.8.2 1.9.3 1.10.2 1.17.1 6.66.1 7.14.3 7.21.2; logs /out/logs/verify-1.log) were refused by cg spec done as `not defined in the graph` for symbols declared outside the touched directories, which the qualification graph had indexed as spec/ plus the touched directories only."
+assumption = "The graph must index the directories declaring every listed symbol; it now does, and each result is re-qualified unchanged."
+severity = "note"
+
+[finding.4.48.5]
+task = "4.48.5"
+file = "sdk/launchpad/packages/sdk/test/run-phase2.py"
+symbol = "run-phase2.py"
+observed = "At revision 3df382457 (attempt 8; 4.41.4 attempt 7 for apps/launchpad/web/ecosystem.config.mjs) the verify_cmd passed and cg spec done refused every deleted touched path with `no matching change in the worktree or in commits tagged layerx-merge/4.48.5` although the result deletes them, the graph snapshot having been taken after the deletion was already in the tree."
+assumption = "The changed-path check sees a deletion only when the snapshot before it exists; both results stay parked until the qualification order supplies that snapshot."
+severity = "blocker"
+
+[finding.3.42.8]
+task = "3.42.8"
+file = "services/platform/perps-data/internal/store/chain_counters_test.go:43"
+symbol = "TestChainCounters"
+observed = "At revision 3df382457 the verify commands of 3.42.8 and 3.45.1 (log /out/logs/verify-1.log) exited 1 with `TestMigrate requires PERPS_DATA_TEST_DATABASE_URL`; 3.54.1, 3.54.4, 4.26.2 and 4.27.2 name that variable or DISCOVERY_/NOTIFICATIONS_TEST_DATABASE_URL in their steps, and no PostgreSQL is available where the gates run."
+assumption = "The tests need a database the qualification environment must provide; the results stay parked until it does."
+severity = "blocker"
+
+[finding.6.81.1]
+task = "6.81.1"
+file = "contracts/test/hardhat_solc_parity.test.js"
+symbol = "hardhatSolcMatchesFoundryPaxeer"
+observed = "At revisions through f6ca8455b (attempts 4–6) the 6.81.1 node test passed and cg spec done ended with signal 11 (exit -11) before writing a verdict; no other task produces this outcome."
+assumption = "Hyperfide 37e6b5737 crashes on this task's graph; the result stays parked until the crash is understood."
+severity = "blocker"
+
+[finding.14.9.1]
+task = "14.9.1"
+file = "apps/web/e2e/verification-rungs.test.ts"
+symbol = "verification_rung_keeps_three_rungs"
+observed = "At revision 3df382457 the verify commands of 14.9.1, 14.10.1 and 14.11.1 passed and cg spec done then ran until the attempt deadline (exit 124) without a verdict; the apps/web index covers 8003 files and takes 443 s to build."
+assumption = "The graph check on the apps/web tree exceeds the time budget; the three results stay parked until the check is bounded."
+severity = "blocker"
+
+[finding.4.46.1]
+task = "4.46.1"
+file = "apps/launchpad/mobile/test/vitest/harness.test.ts"
+symbol = "mobileHarnessLoadsSdkSource"
+observed = "At revision 3df382457 the 4.46.1 verify_cmd (log /out/logs/verify-1.log) failed with `Cannot find module './validators-v1.gen.js'`: the SDK source imports a generated module that exists only in dist/, so loading the SDK from source as the test demands cannot succeed."
+assumption = "The test's premise and the SDK layout contradict each other; the result stays parked until the task or the layout changes."
+severity = "blocker"
+
+[finding.16.9.2]
+task = "16.9.2"
+file = "tools/paxeer-x/tests/test_service_catalogue.py"
+symbol = "test_catalogue_reads_layerx_merge_services"
+observed = "At revision 3df382457 the 16.9.2 verify_cmd (log /out/logs/verify-1.log) fails because the test expects 36 [service.*] blocks while spec/layerx-merge/interfaces.kvx holds 40."
+assumption = "Either the expected count or the catalogue is wrong; the result stays parked until the authority decides which."
+severity = "blocker"
+
+[finding.6.23.1]
+task = "6.23.1"
+file = "modules/tokenfactory/keeper/grpc_query.go:13"
+symbol = "QueryServer"
+observed = "Every attempt of 6.23.1 failed its build_cmd `go build ./modules/tokenfactory/...` (log /out/logs/build-1.log) with Keeper not implementing types.QueryServer: regenerating query.pb.go adds DenomPaused to the interface while the keeper method belonged to 6.23.2, so the task could never build as split."
+assumption = "The compile-time assertion makes the method part of the regeneration; 6.23.1 now adds it (do_5, touches, symbols) and 6.23.2 keeps only the two tests."
+severity = "note"
