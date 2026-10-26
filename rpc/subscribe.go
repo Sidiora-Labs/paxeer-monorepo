@@ -34,6 +34,8 @@ type SubscriptionAPI struct {
 	logFetcher          *LogFetcher
 	newHeadListenersMtx *sync.RWMutex
 	newHeadListeners    map[rpc.ID]chan map[string]interface{}
+	logSubscriptionsMtx sync.Mutex
+	logSubscriptions    map[rpc.ID]*rpc.Subscription
 	connectionType      ConnectionType
 	// receiptLogs, set by the sequencer's WebSocket server, feeds logs
 	// subscriptions from the logs of receipted transactions.
@@ -43,6 +45,7 @@ type SubscriptionAPI struct {
 type SubscriptionConfig struct {
 	subscriptionCapacity int
 	newHeadLimit         uint64
+	logLimit             uint64
 }
 
 func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider func(int64) sdk.Context, logFetcher *LogFetcher, subscriptionConfig *SubscriptionConfig, filterConfig *FilterConfig, connectionType ConnectionType, blockHeaderNotifier *BlockHeaderNotifier) (*SubscriptionAPI, error) {
@@ -263,7 +266,24 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 		filter = unboundedFilter
 	}
 
+	a.logSubscriptionsMtx.Lock()
+	for id, sub := range a.logSubscriptions {
+		select {
+		case <-sub.Err():
+			delete(a.logSubscriptions, id)
+		default:
+		}
+	}
+	if a.subscriptonConfig != nil && a.subscriptonConfig.logLimit > 0 && uint64(len(a.logSubscriptions)) >= a.subscriptonConfig.logLimit {
+		a.logSubscriptionsMtx.Unlock()
+		return nil, errors.New("no new subscription can be created")
+	}
 	rpcSub := notifier.CreateSubscription()
+	if a.logSubscriptions == nil {
+		a.logSubscriptions = make(map[rpc.ID]*rpc.Subscription)
+	}
+	a.logSubscriptions[rpcSub.ID] = rpcSub
+	a.logSubscriptionsMtx.Unlock()
 
 	// Track subscription metrics
 	wpMetrics := GetGlobalMetrics()
@@ -275,6 +295,7 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 			defer cancel()
 			var err error
 			defer recoverAndLog()
+			defer a.removeLogSubscription(rpcSub.ID)
 			defer wpMetrics.RecordSubscriptionEnd()
 			logs, _, err := a.logFetcher.GetLogsByFilters(subCtx, *filter, 0)
 			if err != nil {
@@ -302,6 +323,7 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 		defer cancel()
 		var err error
 		defer recoverAndLog()
+		defer a.removeLogSubscription(rpcSub.ID)
 		defer wpMetrics.RecordSubscriptionEnd()
 		begin := int64(0)
 		for {
@@ -336,6 +358,12 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	return rpcSub, nil
 }
 
+func (a *SubscriptionAPI) removeLogSubscription(id rpc.ID) {
+	a.logSubscriptionsMtx.Lock()
+	defer a.logSubscriptionsMtx.Unlock()
+	delete(a.logSubscriptions, id)
+}
+
 // notifyReceiptedLogs notifies the logs queued for listener, each once, at
 // receipt, with its seq; the committed copy of a log is never notified. Ahead
 // of the first log after a drop the subscriber receives one lag notification
@@ -344,6 +372,7 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 // the open height passes its toBlock.
 func (a *SubscriptionAPI) notifyReceiptedLogs(notifier *rpc.Notifier, sub *rpc.Subscription, listener *receiptLogListener, wpMetrics *WorkerPoolMetrics) {
 	defer recoverAndLog()
+	defer a.removeLogSubscription(sub.ID)
 	defer wpMetrics.RecordSubscriptionEnd()
 	defer a.receiptLogs.removeLogListener(listener)
 	for {
