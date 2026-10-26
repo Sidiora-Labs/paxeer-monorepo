@@ -13,7 +13,6 @@ const (
 	ABCISemVer = "0.17.0"
 
 	ABCIVersion = ABCISemVer
-	TMVersion   = TMVersionDefault
 
 	// P2PProtocol versions all p2p behavior and msgs.
 	// This includes proposer selection.
@@ -23,6 +22,8 @@ const (
 	// This includes validity of blocks and state updates.
 	BlockProtocol uint64 = 11
 )
+
+var TMVersion = TMVersionDefault
 
 type Consensus struct {
 	Block uint64 `json:"block,string"`

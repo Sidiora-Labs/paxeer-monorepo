@@ -123,6 +123,7 @@ func removeIfExists(path, label string) {
 
 // ResetState removes all blocks, tendermint state, indexed transactions and evidence.
 // It handles both the legacy flat layout and the new subdirectory layout.
+// It also removes the Autobahn persistent state directory data/autobahn.
 func ResetState(dbDir string) error {
 	// Legacy paths (flat under data/)
 	removeIfExists(filepath.Join(dbDir, "blockstore.db"), "blockstore.db")
@@ -138,6 +139,8 @@ func ResetState(dbDir string) error {
 	removeIfExists(filepath.Join(dbDir, "tendermint", "cs.wal"), "tendermint/cs.wal")
 	removeIfExists(filepath.Join(dbDir, "tendermint", "evidence.db"), "tendermint/evidence.db")
 	removeIfExists(filepath.Join(dbDir, "tendermint", "peerstore.db"), "tendermint/peerstore.db")
+
+	removeIfExists(filepath.Join(dbDir, "autobahn"), "autobahn")
 
 	return tmos.EnsureDir(dbDir, 0700)
 }
