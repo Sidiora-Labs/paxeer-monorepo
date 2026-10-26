@@ -997,3 +997,19 @@ symbol = "Cargo.lock"
 observed = "At 88bf97442 the first attempt's build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service` (log /out/logs/build-1.log) exited 101 because the domain merge left Cargo.lock behind its manifests in fourteen workspaces."
 assumption = "8905cf9fe re-resolves them minimally and every result that failed only on the lock is re-qualified unchanged."
 severity = "blocker"
+
+[finding.9.1.1.1]
+task = "9.1.1"
+file = "services/agent/crates/layerx-agent-api/src/read.rs:93"
+symbol = "Freshness"
+observed = "The publication 71550012a (merged as eb07b57bd) built layerx-agent-api alone; its dependents layerx-mirror, layerx-sdk and layerx-agentd no longer compile on main b59b5e362, with 9 errors in layerx-mirror node.rs and publisher.rs, about 38 across nine layerx-sdk files and about 100 sites in 24 layerx-agentd src and 24 test files."
+assumption = "Tasks 9.1.6, 9.1.7 and 9.1.8 port the dependents crate by crate, and every task that owns a consumer file or whose crate depends on one requires the port of that crate."
+severity = "note"
+
+[finding.9.1.2]
+task = "9.1.2"
+file = "services/agent/crates/layerx-agent-api/src/identity.rs:1142"
+symbol = "ProtocolBudgetView"
+observed = "The publication d7ffdc755 built layerx-agent-api alone; the ProtocolBudgetView.achieved_rung and ReceiptReference::Verified.rung renames reach layerx-mirror, layerx-sdk and layerx-agentd, which no longer compile on main b59b5e362."
+assumption = "Tasks 9.1.6, 9.1.7 and 9.1.8 port the dependents crate by crate, and every task that owns a consumer file or whose crate depends on one requires the port of that crate."
+severity = "note"
