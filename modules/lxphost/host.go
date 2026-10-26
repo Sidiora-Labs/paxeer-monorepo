@@ -56,6 +56,15 @@ typedef struct lxphost_outcome {
     int32_t result_code;
     uint64_t global_sequence;
     uint64_t timestamp;
+    uint64_t fee_hi;
+    uint64_t fee_lo;
+    const lxp_effect *effects;
+    size_t effect_count;
+    uint8_t asset[32];
+    lxp_u128 amount;
+    uint8_t from[32];
+    uint8_t to[32];
+    lxp_program_outcome program_outcome;
     uint8_t previous_state_root[32];
     uint8_t resulting_state_root[32];
     const uint8_t *encoded;
@@ -475,24 +484,78 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
                                        execution, &node->receipt);
 }
 
+static int32_t lxphost_span_copy(lxp_byte_span source, size_t limit,
+                                 lxp_byte_span *destination)
+{
+    uint8_t *copy;
+    if (source.length > limit ||
+        (source.bytes == NULL && source.length != 0U))
+        return LXP_ERR_LENGTH_LIMIT;
+    if (source.length == 0U) return LXP_OK;
+    copy = malloc(source.length);
+    if (copy == NULL) return LXP_ERR_ARENA_EXHAUSTED;
+    (void)memcpy(copy, source.bytes, source.length);
+    *destination = (lxp_byte_span){copy, source.length};
+    return LXP_OK;
+}
+
+static void lxphost_outcome_release(lxphost_outcome *outcome)
+{
+    free((void *)outcome->program_outcome.terminal_payload.bytes);
+    free((void *)outcome->program_outcome.call_graph_payload.bytes);
+    free((void *)outcome->program_outcome.event_envelope_payload.bytes);
+}
+
 static int32_t lxphost_outcome_read(lxphost_node *node, lxphost_outcome *outcome)
 {
     lxp_byte_span encoded;
+    lxp_receipt receipt;
     int32_t status;
+    (void)memset(outcome, 0, sizeof(*outcome));
     if (node->kernel.publication_poisoned || node->journal.open ||
         node->store.count != 0U || node->store.accounts != &node->accounts)
         return LXP_FATAL_INVARIANT;
+    receipt = node->receipt;
+    if (receipt.program_outcome.present) {
+        const lxp_program_outcome *source = &node->receipt.program_outcome;
+        lxp_program_outcome *program = &outcome->program_outcome;
+        *program = *source;
+        program->terminal_payload = (lxp_byte_span){NULL, 0U};
+        program->call_graph_payload = (lxp_byte_span){NULL, 0U};
+        program->event_envelope_payload = (lxp_byte_span){NULL, 0U};
+        status = lxphost_span_copy(source->terminal_payload,
+                                   LXP_MAX_ACTIVITY_BYTES,
+                                   &program->terminal_payload);
+        if (status == LXP_OK)
+            status = lxphost_span_copy(source->call_graph_payload,
+                                       LXP_MAX_ACTIVITY_BYTES,
+                                       &program->call_graph_payload);
+        if (status == LXP_OK)
+            status = lxphost_span_copy(source->event_envelope_payload,
+                                       LXP_PROGRAM_EVENT_LIST_MAX_BYTES,
+                                       &program->event_envelope_payload);
+        if (status != LXP_OK) return status;
+        receipt.program_outcome = *program;
+    }
     status = lxp_arena_reset(&node->arena, 0U);
     if (status == LXP_OK)
-        status = lxp_receipt_encode(&node->receipt, false, &node->arena, &encoded);
+        status = lxp_receipt_encode(&receipt, false, &node->arena, &encoded);
     if (status != LXP_OK) return status;
-    outcome->result_code = node->receipt.result_code;
-    outcome->global_sequence = node->receipt.global_sequence;
-    outcome->timestamp = node->receipt.timestamp;
+    outcome->result_code = receipt.result_code;
+    outcome->global_sequence = receipt.global_sequence;
+    outcome->timestamp = receipt.timestamp;
+    outcome->fee_hi = receipt.fee_charged.hi;
+    outcome->fee_lo = receipt.fee_charged.lo;
+    outcome->effects = node->receipt.effects.effects;
+    outcome->effect_count = receipt.effects.count;
+    (void)memcpy(outcome->asset, receipt.asset, 32U);
+    outcome->amount = receipt.amount;
+    (void)memcpy(outcome->from, receipt.from, 32U);
+    (void)memcpy(outcome->to, receipt.to, 32U);
     (void)memcpy(outcome->previous_state_root,
-                 node->receipt.previous_state_root, 32U);
+                 receipt.previous_state_root, 32U);
     (void)memcpy(outcome->resulting_state_root,
-                 node->receipt.resulting_state_root, 32U);
+                 receipt.resulting_state_root, 32U);
     outcome->encoded = encoded.bytes;
     outcome->encoded_length = encoded.length;
     return LXP_OK;
@@ -513,10 +576,14 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-type Code int32
+func kernelResultName(code int32) string {
+	return C.GoString(C.lxp_result_name(C.int32_t(code)))
+}
 
-func (c Code) Error() string {
-	return C.GoString(C.lxp_result_name(C.int32_t(c)))
+type lxphost_outcome = C.lxphost_outcome
+
+func lxphost_outcome_read(node *C.lxphost_node, outcome *lxphost_outcome) error {
+	return result(C.lxphost_outcome_read(node, outcome))
 }
 
 const (
@@ -571,6 +638,27 @@ type KernelAuthority struct {
 	VerifiedKey [32]byte
 }
 
+type ReceiptEvent struct {
+	Code uint16
+	Body []byte
+}
+
+type TransferLeg struct {
+	Asset  [32]byte
+	From   [32]byte
+	To     [32]byte
+	Amount sdk.Int
+}
+
+type ProgramOutcome struct {
+	Status                  int32
+	Kind                    uint8
+	Response                []byte
+	FeeScheduleVersion      uint64
+	MeteringScheduleVersion uint64
+	Events                  []byte
+}
+
 type Receipt struct {
 	ResultCode         Code
 	GlobalSequence     uint64
@@ -578,6 +666,10 @@ type Receipt struct {
 	PreviousStateRoot  [32]byte
 	ResultingStateRoot [32]byte
 	Encoded            []byte
+	FeeCharged         sdk.Int
+	Events             []ReceiptEvent
+	Transfers          []TransferLeg
+	ProgramOutcome     *ProgramOutcome
 }
 
 type Host struct {
@@ -720,17 +812,45 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		C.uint32_t(h.cfg.ParameterVersion), C.uint64_t(h.cfg.GasLimit))); err != nil {
 		return Receipt{}, err
 	}
-	var outcome C.lxphost_outcome
-	if err := result(C.lxphost_outcome_read(h.node, &outcome)); err != nil {
+	var outcome lxphost_outcome
+	defer C.lxphost_outcome_release(&outcome)
+	if err := lxphost_outcome_read(h.node, &outcome); err != nil {
 		return Receipt{}, err
 	}
 	receipt := Receipt{
+		FeeCharged:         readAmount(C.struct_lxp_u128{hi: outcome.fee_hi, lo: outcome.fee_lo}),
 		ResultCode:         Code(outcome.result_code),
 		GlobalSequence:     uint64(outcome.global_sequence),
 		Timestamp:          uint64(outcome.timestamp),
 		PreviousStateRoot:  *(*[32]byte)(unsafe.Pointer(&outcome.previous_state_root[0])),
 		ResultingStateRoot: *(*[32]byte)(unsafe.Pointer(&outcome.resulting_state_root[0])),
 		Encoded:            C.GoBytes(unsafe.Pointer(outcome.encoded), C.int(outcome.encoded_length)),
+	}
+	for _, effect := range unsafe.Slice(outcome.effects, int(outcome.effect_count)) {
+		if effect.kind == C.LXP_EFFECT_EVENT {
+			receipt.Events = append(receipt.Events, ReceiptEvent{
+				Code: uint16(effect.event_type),
+				Body: C.GoBytes(unsafe.Pointer(&effect.body[0]), C.int(effect.body_length)),
+			})
+		}
+	}
+	if outcome.amount.hi != 0 || outcome.amount.lo != 0 {
+		receipt.Transfers = []TransferLeg{{
+			Asset:  *(*[32]byte)(unsafe.Pointer(&outcome.asset[0])),
+			From:   *(*[32]byte)(unsafe.Pointer(&outcome.from[0])),
+			To:     *(*[32]byte)(unsafe.Pointer(&outcome.to[0])),
+			Amount: readAmount(outcome.amount),
+		}}
+	}
+	if program := &outcome.program_outcome; program.present != C.bool(false) {
+		receipt.ProgramOutcome = &ProgramOutcome{
+			Status:                  int32(program.result_code),
+			Kind:                    uint8(program.terminal_kind),
+			Response:                C.GoBytes(unsafe.Pointer(program.terminal_payload.bytes), C.int(program.terminal_payload.length)),
+			FeeScheduleVersion:      uint64(program.fee_schedule_version),
+			MeteringScheduleVersion: uint64(program.metering_schedule_version),
+			Events:                  C.GoBytes(unsafe.Pointer(program.event_envelope_payload.bytes), C.int(program.event_envelope_payload.length)),
+		}
 	}
 	stagedBlobs, err := h.moduleBlobs()
 	if err != nil {
