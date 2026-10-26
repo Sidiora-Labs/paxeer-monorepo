@@ -1,0 +1,97 @@
+syntax = "proto3";
+package paxprotocol.paxchain.pricefeed;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "pricefeed/tx.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/pricefeed/params";
+  }
+  rpc Price(QueryPriceRequest) returns (QueryPriceResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/pricefeed/price/{market_id}";
+  }
+  rpc Prices(QueryPricesRequest) returns (QueryPricesResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/pricefeed/prices";
+  }
+  rpc FeedKey(QueryFeedKeyRequest) returns (QueryFeedKeyResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/pricefeed/feed_key/{validator}";
+  }
+  rpc ValidatorByFeedAccount(QueryValidatorByFeedAccountRequest) returns (QueryValidatorByFeedAccountResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/pricefeed/validator_by_feed_account/{feed_account}";
+  }
+  rpc Observation(QueryObservationRequest) returns (QueryObservationResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/pricefeed/observation/{market_id}/{validator}";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  string authority = 1;
+  repeated Market markets = 2 [(gogoproto.nullable) = false];
+  uint64 staleness_window_ms = 3;
+  uint64 max_clock_skew_ms = 4;
+  uint32 min_sources = 5;
+  uint32 max_divergence_bps = 6;
+  uint32 max_deviation_bps = 7;
+  uint32 max_observations_per_submission = 8;
+  uint32 max_submission_bytes = 9;
+  uint64 mark_ema_tau_ms = 10;
+  uint32 max_mark_basis_bps = 11;
+  uint64 max_price_age_ms = 12;
+}
+
+message QueryPriceRequest {
+  uint64 market_id = 1;
+}
+
+message QueryPriceResponse {
+  string index = 1;
+  string mark = 2;
+  uint64 timestamp_ms = 3;
+  int64 height = 4;
+  uint32 sources = 5;
+  bool fresh = 6;
+}
+
+message QueryPricesRequest {
+  repeated uint64 market_ids = 1;
+}
+
+message QueryPricesResponse {
+  repeated QueryPriceResponse prices = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryFeedKeyRequest {
+  string validator = 1;
+}
+
+message QueryFeedKeyResponse {
+  string pub_key = 1;
+  string feed_account = 2;
+}
+
+message QueryValidatorByFeedAccountRequest {
+  string feed_account = 1;
+}
+
+message QueryValidatorByFeedAccountResponse {
+  string validator = 1;
+}
+
+message QueryObservationRequest {
+  uint64 market_id = 1;
+  string validator = 2;
+}
+
+message QueryObservationResponse {
+  uint64 sequence = 1;
+  string index_price = 2;
+  string mark_price = 3;
+  uint64 source_timestamp_ms = 4;
+  int64 height = 5;
+}

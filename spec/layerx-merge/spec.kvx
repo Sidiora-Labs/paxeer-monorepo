@@ -21564,7 +21564,7 @@ ac_1 = "test_tools_ops_completion_retired_surfaces_absent passes on the merged c
 [req.17001]
 title = "Add the programme kvx reader and the evidence line writer"
 ac_1 = "load of spec/workflow.kvx returns the [limits] section with max_task_minutes 30 (spec/workflow.kvx:32-36) through spec/layerx-merge/programme/kvx.py (planned)."
-ac_2 = "load of spec/layerx-merge/qualification.kvx raises KvxError naming finding.5.0.8 and line 46 (spec/layerx-merge/qualification.kvx:46)."
+ac_2 = "load of a copy of spec/layerx-merge/qualification.kvx (spec/layerx-merge/qualification.kvx:1) with one [finding.<N>.<k>.<m>] section of the six keys appended twice raises KvxError naming that section and the line of the second header."
 ac_3 = "evidence_line in spec/layerx-merge/programme/evidence.py (planned) returns exactly 'revision=R command=C exit=E log=L' for its four arguments."
 ac_4 = "run in spec/layerx-merge/programme/evidence.py (planned) returns the child's exit code and writes its output to the log path."
 
@@ -21609,8 +21609,8 @@ ac_1 = "the index holds ids 1..94 and 1701..1720 with carry in kept, rewritten, 
 ac_2 = "decisions 1, 2, 6, 8, 25, 30, 32, 39, 62 and 73 carry rewritten."
 
 [req.17010]
-title = "Remove the duplicate finding sections from the qualification ledger"
-ac_1 = "kvx.load of spec/layerx-merge/qualification.kvx returns without KvxError and holds finding.5.0.8.2 and finding.7.0.8.2."
+title = "Guard the qualification ledger against duplicate finding sections"
+ac_1 = "kvx.load of spec/layerx-merge/qualification.kvx returns without KvxError, every [finding.*] section id in it occurs once and every finding section carries the six keys of spec/layerx-merge/qualification.kvx:2."
 
 [req.17011]
 title = "Record the zero-test pass and the kernel link prerequisite in the gotcha ledger"
@@ -21683,7 +21683,7 @@ ac_1 = "check_against_spec refuses a card naming 3.0.9 when the spec holds no ta
 
 [req.17026]
 title = "Record rehearsal evidence in the qualification ledger format"
-ac_1 = "to_finding of a failed result returns a block with the five ledger keys that kvx.load parses."
+ac_1 = "to_finding of a failed result returns a block with the six ledger keys of spec/layerx-merge/qualification.kvx:2 that kvx.load parses, its observed naming revision, command, exit code and log path."
 
 [req.17027]
 title = "Write the off-chain service catalogue"
@@ -21708,8 +21708,8 @@ title = "Bind the activation plan to the shared merge plan constant"
 ac_1 = "constant_sites returns precompiles/common/precompiles.go and precompiles/setup.go and no file under node/ after task 5.6.1 (precompiles/common/precompiles.go:30, precompiles/setup.go:50 and node/upgrades.go:112 declare the literal today)."
 
 [req.17032]
-title = "Point the qualification ledger header at the v2 task ids"
-ac_1 = "the first two lines of spec/layerx-merge/qualification.kvx name <N>.<k>.<m> and the five keys."
+title = "Check the qualification ledger header against the v2 task ids and entry keys"
+ac_1 = "the first two lines of spec/layerx-merge/qualification.kvx name <N>.<k>.<m> and the six entry keys of spec/workflow.kvx:64 in order."
 
 [req.17033]
 title = "Regenerate the system precompile reference with the v6.12.0 venues"
@@ -48031,7 +48031,7 @@ reqs = ["17026.1"]
 touches = ["spec/layerx-merge/programme/rehearsal.py", "spec/layerx-merge/programme/tests/test_rehearsal_finding.py"]
 tests = ["spec/layerx-merge/programme/tests/test_rehearsal_finding.py::test_failed_step_yields_finding_block"]
 verification_contract = "contracts/programme.md#programme"
-do_1 = "Add to_finding(result, task_id) to spec/layerx-merge/programme/rehearsal.py (planned) returning a [finding.<task>] block with revision, command, exit_code, log_path and observed_and_assumption, the keys of spec/layerx-merge/qualification.kvx:2."
+do_1 = "Add to_finding(result, task_id) to spec/layerx-merge/programme/rehearsal.py (planned) returning a [finding.<task>] block with the six keys of spec/layerx-merge/qualification.kvx:2 (task, file, symbol, observed, assumption and severity), whose observed sentence names the revision, exact command, exit code and log path as spec/layerx-merge/qualification.kvx:7 and spec/workflow.kvx:74 require and whose assumption is one sentence."
 symbols = ["to_finding"]
 
 [capability.17.3.4]
@@ -48251,12 +48251,12 @@ do_1 = "Create spec/layerx-merge/programme/data/decisions.kvx (planned) with one
 symbols = ["load_index", "records_missing"]
 
 [capability.17.8.2]
-title = "Rewrite decision records D01 to D11 from the carry-forward index"
+title = "Rewrite decision records D1 to D11 from the carry-forward index"
 reqs = ["17038.1"]
-touches = ["spec/layerx-merge/docs/decisions/D01.md", "spec/layerx-merge/docs/decisions/D02.md", "spec/layerx-merge/docs/decisions/D03.md", "spec/layerx-merge/docs/decisions/D04.md", "spec/layerx-merge/docs/decisions/D05.md", "spec/layerx-merge/docs/decisions/D06.md", "spec/layerx-merge/docs/decisions/D07.md", "spec/layerx-merge/docs/decisions/D08.md", "spec/layerx-merge/docs/decisions/D09.md", "spec/layerx-merge/docs/decisions/D10.md", "spec/layerx-merge/docs/decisions/D11.md", "spec/layerx-merge/programme/tests/test_17_8_2_records.py"]
+touches = ["spec/layerx-merge/docs/decisions/D1.md", "spec/layerx-merge/docs/decisions/D2.md", "spec/layerx-merge/docs/decisions/D3.md", "spec/layerx-merge/docs/decisions/D4.md", "spec/layerx-merge/docs/decisions/D5.md", "spec/layerx-merge/docs/decisions/D6.md", "spec/layerx-merge/docs/decisions/D7.md", "spec/layerx-merge/docs/decisions/D8.md", "spec/layerx-merge/docs/decisions/D9.md", "spec/layerx-merge/docs/decisions/D10.md", "spec/layerx-merge/docs/decisions/D11.md", "spec/layerx-merge/programme/tests/test_17_8_2_records.py"]
 tests = ["spec/layerx-merge/programme/tests/test_17_8_2_records.py::test_records_1_to_11_match_index"]
 verification_contract = "contracts/programme.md#programme"
-do_1 = "Rewrite spec/layerx-merge/docs/decisions/D01.md .. spec/layerx-merge/docs/decisions/D11.md so each record states the carry status, the HEAD basis and the bound tasks of spec/layerx-merge/programme/data/decisions.kvx (planned); records marked rewritten replace their value text."
+do_1 = "Rewrite spec/layerx-merge/docs/decisions/D1.md .. spec/layerx-merge/docs/decisions/D11.md so each record states the carry status, the HEAD basis and the bound tasks of spec/layerx-merge/programme/data/decisions.kvx (planned); records marked rewritten replace their value text."
 symbols = ["render_record"]
 
 [capability.17.8.3]
@@ -48314,21 +48314,21 @@ do_1 = "Rewrite spec/layerx-merge/docs/off-chain-services.md (sections from spec
 symbols = ["render_doc"]
 
 [capability.17.10.1]
-title = "Remove the duplicate finding sections from the qualification ledger"
+title = "Guard the qualification ledger against duplicate finding sections"
 reqs = ["17010.1"]
-touches = ["spec/layerx-merge/qualification.kvx", "spec/layerx-merge/programme/tests/test_qualification_ledger.py"]
+touches = ["spec/layerx-merge/programme/tests/test_qualification_ledger.py"]
 tests = ["spec/layerx-merge/programme/tests/test_qualification_ledger.py::test_ledger_has_no_duplicate_section"]
 verification_contract = "contracts/programme.md#programme"
-do_1 = "Merge the second [finding.5.0.8] at spec/layerx-merge/qualification.kvx:46 into the first at spec/layerx-merge/qualification.kvx:4 as finding.5.0.8.2 with its own revision, command and exit_code keys."
+do_1 = "spec/layerx-merge/qualification.kvx:14 holds no finding section at the pinned revision and spec/layerx-merge/qualification.kvx:1 gives a second finding for the same task the id [finding.<N>.<k>.<m>.<n>]; entries are appended during the run by loop step 6 (spec/workflow.kvx:74), so the ledger itself is not edited by this task."
 symbols = ["test_ledger_has_no_duplicate_section"]
 
 [capability.17.10.2]
-title = "Point the qualification ledger header at the v2 task ids"
+title = "Check the qualification ledger header against the v2 task ids and entry keys"
 reqs = ["17032.1"]
-touches = ["spec/layerx-merge/qualification.kvx", "spec/layerx-merge/programme/tests/test_qualification_header.py"]
+touches = ["spec/layerx-merge/programme/tests/test_qualification_header.py"]
 tests = ["spec/layerx-merge/programme/tests/test_qualification_header.py::test_header_names_v2_ids_and_keys"]
 verification_contract = "contracts/programme.md#programme"
-do_1 = "Rewrite the two header comment lines of spec/layerx-merge/qualification.kvx:1-2 to state that finding ids are v2 task ids <N>.<k>.<m> and keep the five keys."
+do_1 = "spec/layerx-merge/qualification.kvx:1 names finding ids as v2 task ids [finding.<N>.<k>.<m>] and spec/layerx-merge/qualification.kvx:2 lists the six keys task, file, symbol, observed, assumption and severity of spec/workflow.kvx:64 entry_keys; the header is not edited by this task."
 symbols = ["test_header_names_v2_ids_and_keys"]
 
 [capability.17.11.1]
@@ -79858,7 +79858,7 @@ qualification = "UNRUN"
 [acceptance.17.1.2]
 feature = "17"
 req = "17001.2"
-scenario = "Given spec/layerx-merge/qualification.kvx at HEAD with [finding.5.0.8] at lines 4 and 46, when kvx.load reads it, then KvxError is raised and its message names finding.5.0.8 and line 46"
+scenario = "Given a copy of spec/layerx-merge/qualification.kvx at HEAD with one [finding.1.0.1] section of the six ledger keys appended twice, when kvx.load reads it, then KvxError is raised and its message names finding.1.0.1 and the line of the second header"
 contract = "contracts/programme.md#programme"
 test = "spec/layerx-merge/programme/tests/test_kvx.py::test_refuses_duplicate_section (planned)"
 qualification = "UNRUN"
@@ -80010,7 +80010,7 @@ qualification = "UNRUN"
 [acceptance.17.10.1]
 feature = "17"
 req = "17010.1"
-scenario = "Given spec/layerx-merge/qualification.kvx after the change, when kvx.load reads it, then no KvxError is raised and both renamed sections exist"
+scenario = "Given spec/layerx-merge/qualification.kvx with the entries appended during the run, when kvx.load reads it, then no KvxError is raised, no finding section id repeats and every finding section has the six keys task, file, symbol, observed, assumption and severity"
 contract = "contracts/programme.md#programme"
 test = "spec/layerx-merge/programme/tests/test_qualification_ledger.py::test_ledger_has_no_duplicate_section (planned)"
 qualification = "UNRUN"
@@ -80210,7 +80210,7 @@ qualification = "UNRUN"
 [acceptance.17.26.1]
 feature = "17"
 req = "17026.1"
-scenario = "Given a RehearsalResult with failed_step 2, when rehearsal.to_finding runs and the text is parsed, then the block has revision, command, exit_code, log_path and observed_and_assumption"
+scenario = "Given a RehearsalResult with failed_step 2, when rehearsal.to_finding runs and the text is parsed, then the block has task, file, symbol, observed, assumption and severity, and observed names the revision, command, exit code and log path of step 2"
 contract = "contracts/programme.md#programme"
 test = "spec/layerx-merge/programme/tests/test_rehearsal_finding.py::test_failed_step_yields_finding_block (planned)"
 qualification = "UNRUN"
@@ -80274,7 +80274,7 @@ qualification = "UNRUN"
 [acceptance.17.32.1]
 feature = "17"
 req = "17032.1"
-scenario = "Given the ledger after the change, when its first two lines are read, then they contain <N>.<k>.<m> and revision, command, exit_code, log_path, observed_and_assumption"
+scenario = "Given the ledger at HEAD, when its first two lines are read, then line 1 contains <N>.<k>.<m> and line 2 names task, file, symbol, observed, assumption and severity in the order of spec/workflow.kvx:64 entry_keys"
 contract = "contracts/programme.md#programme"
 test = "spec/layerx-merge/programme/tests/test_qualification_header.py::test_header_names_v2_ids_and_keys (planned)"
 qualification = "UNRUN"
@@ -168382,7 +168382,7 @@ reqs = ["17001.1", "17001.2", "17001.3", "17001.4"]
 capabilities = ["17.0.1"]
 interfaces = ["interface.17.go-programme-kvx-parser-j60", "interface.17.cli-programme-evidence-line-j60"]
 do_1 = "Create spec/layerx-merge/programme/kvx.py (planned) with load(path) that parses the grammar of the spec files, one [section] header per line and one key = value per line split on the first '=', quoted strings with \\\" escapes, bare integers and bracketed string lists, the same grammar spec/layerx-merge/spec.kvx:1-8 is written in."
-do_2 = "Make load in spec/layerx-merge/programme/kvx.py (planned) raise KvxError naming the file and line for a duplicate section, a duplicate key, a tab or a value that is neither quoted, integer nor list, so the duplicate [finding.5.0.8] at spec/layerx-merge/qualification.kvx:4 and :46 is reported."
+do_2 = "Make load in spec/layerx-merge/programme/kvx.py (planned) raise KvxError naming the file and line for a duplicate section, a duplicate key, a tab or a value that is neither quoted, integer nor list, so a [finding.<N>.<k>.<m>] section appended twice during the run to spec/layerx-merge/qualification.kvx (format at spec/layerx-merge/qualification.kvx:1-12) is reported at the line of its second header."
 do_3 = "Create spec/layerx-merge/programme/evidence.py (planned) with evidence_line(revision, command, exit_code, log_path) returning 'revision=<rev> command=<cmd> exit=<code> log=<path>' and run(command, log_path) that runs an argument list with shell=False, writes stdout and stderr to log_path and returns the exit code, the argv, exit_code and log fields the release runner records at tools/qualification/release_runner.py:618-623."
 do_4 = "Create spec/layerx-merge/programme/__init__.py (planned) and spec/layerx-merge/programme/tests/__init__.py (planned) so pytest's rootdir insertion puts spec/layerx-merge on sys.path and every test imports the package as programme."
 do_5 = "Create spec/layerx-merge/programme/tests/test_kvx.py (planned) and spec/layerx-merge/programme/tests/test_evidence.py (planned) with the four tests named below; each reads real files of the repository, never a mock of the reader."
@@ -169108,7 +169108,7 @@ requires = ["17.3.2", "17.0.2"]
 reqs = ["17026.1"]
 capabilities = ["17.3.3"]
 interfaces = []
-do_1 = "Add to_finding(result, task_id) to spec/layerx-merge/programme/rehearsal.py (planned) returning a [finding.<task>] block with revision, command, exit_code, log_path and observed_and_assumption, the keys of spec/layerx-merge/qualification.kvx:2."
+do_1 = "Add to_finding(result, task_id) to spec/layerx-merge/programme/rehearsal.py (planned) returning a [finding.<task>] block with the six keys of spec/layerx-merge/qualification.kvx:2 (task, file, symbol, observed, assumption and severity), whose observed sentence names the revision, exact command, exit code and log path as spec/layerx-merge/qualification.kvx:7 and spec/workflow.kvx:74 require and whose assumption is one sentence."
 do_2 = "Write the finding only for a failed step and never for a passed one, so the ledger records failures outside a task's scope as spec/layerx-merge/qualification.kvx:1 states."
 do_3 = "Create spec/layerx-merge/programme/tests/test_rehearsal_finding.py (planned) with the test named below."
 symbols = ["to_finding"]
@@ -169858,7 +169858,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.17.8.2]
-title = "Rewrite decision records D01 to D11 from the carry-forward index"
+title = "Rewrite decision records D1 to D11 from the carry-forward index"
 status = "pending"
 mode = "BUILD"
 wave = 5
@@ -169866,11 +169866,11 @@ requires = ["17.8.1", "17.0.3"]
 reqs = ["17038.1"]
 capabilities = ["17.8.2"]
 interfaces = []
-do_1 = "Rewrite spec/layerx-merge/docs/decisions/D01.md .. spec/layerx-merge/docs/decisions/D11.md so each record states the carry status, the HEAD basis and the bound tasks of spec/layerx-merge/programme/data/decisions.kvx (planned); records marked rewritten replace their value text."
-do_2 = "Add render_record(entry) to spec/layerx-merge/programme/decisions.py (planned) that produces one record; the first record today begins at spec/layerx-merge/docs/decisions/D01.md:1."
+do_1 = "Rewrite spec/layerx-merge/docs/decisions/D1.md .. spec/layerx-merge/docs/decisions/D11.md so each record states the carry status, the HEAD basis and the bound tasks of spec/layerx-merge/programme/data/decisions.kvx (planned); records marked rewritten replace their value text."
+do_2 = "Add render_record(entry) to spec/layerx-merge/programme/decisions.py (planned) that produces one record; the first record today begins at spec/layerx-merge/docs/decisions/D1.md:1."
 do_3 = "Create spec/layerx-merge/programme/tests/test_17_8_2_records.py (planned) with the test named below."
 symbols = ["render_record"]
-touches = ["spec/layerx-merge/docs/decisions/D01.md", "spec/layerx-merge/docs/decisions/D02.md", "spec/layerx-merge/docs/decisions/D03.md", "spec/layerx-merge/docs/decisions/D04.md", "spec/layerx-merge/docs/decisions/D05.md", "spec/layerx-merge/docs/decisions/D06.md", "spec/layerx-merge/docs/decisions/D07.md", "spec/layerx-merge/docs/decisions/D08.md", "spec/layerx-merge/docs/decisions/D09.md", "spec/layerx-merge/docs/decisions/D10.md", "spec/layerx-merge/docs/decisions/D11.md", "spec/layerx-merge/programme/tests/test_17_8_2_records.py"]
+touches = ["spec/layerx-merge/docs/decisions/D1.md", "spec/layerx-merge/docs/decisions/D2.md", "spec/layerx-merge/docs/decisions/D3.md", "spec/layerx-merge/docs/decisions/D4.md", "spec/layerx-merge/docs/decisions/D5.md", "spec/layerx-merge/docs/decisions/D6.md", "spec/layerx-merge/docs/decisions/D7.md", "spec/layerx-merge/docs/decisions/D8.md", "spec/layerx-merge/docs/decisions/D9.md", "spec/layerx-merge/docs/decisions/D10.md", "spec/layerx-merge/docs/decisions/D11.md", "spec/layerx-merge/programme/tests/test_17_8_2_records.py"]
 tests = ["spec/layerx-merge/programme/tests/test_17_8_2_records.py::test_records_1_to_11_match_index"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_17_8_2_records.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_17_8_2_records.py"
@@ -169957,12 +169957,12 @@ reqs = ["17041.1"]
 capabilities = ["17.8.5"]
 interfaces = ["interface.17.fmt-decision-index-doc-j60"]
 do_1 = "Rewrite spec/layerx-merge/docs/decisions/INDEX.md (table at spec/layerx-merge/docs/decisions/INDEX.md:3) with one row per id 1..94 and 1701..1720 and its carry status."
-do_2 = "Rewrite spec/layerx-merge/docs/decisions/D34.md and add D1701.md .. D1706.md (planned) for the 0x1015 perps, pricefeed 0x1020, spot 0x1021-0x1025, launchpad v6.12.0, origin-2 web fee and address-table decisions."
+do_2 = "Rewrite spec/layerx-merge/docs/decisions/D34.md (from spec/layerx-merge/docs/decisions/D34.md:1) and spec/layerx-merge/docs/decisions/D1701.md .. spec/layerx-merge/docs/decisions/D1706.md (from spec/layerx-merge/docs/decisions/D1701.md:1 .. spec/layerx-merge/docs/decisions/D1706.md:1) for the 0x1015 perps, pricefeed 0x1020, spot 0x1021-0x1025, launchpad v6.12.0, origin-2 web fee and address-table decisions."
 do_3 = "Create spec/layerx-merge/programme/tests/test_decision_records_index.py (planned) with the test named below; decisions.records_missing returns nothing."
 symbols = ["records_missing"]
 touches = ["spec/layerx-merge/docs/decisions/INDEX.md", "spec/layerx-merge/docs/decisions/D34.md", "spec/layerx-merge/docs/decisions/D1701.md", "spec/layerx-merge/docs/decisions/D1702.md", "spec/layerx-merge/docs/decisions/D1703.md", "spec/layerx-merge/docs/decisions/D1704.md", "spec/layerx-merge/docs/decisions/D1705.md", "spec/layerx-merge/docs/decisions/D1706.md", "spec/layerx-merge/programme/tests/test_decision_records_index.py"]
 tests = ["spec/layerx-merge/programme/tests/test_decision_records_index.py::test_index_rows_and_records_complete"]
-planned_paths = ["spec/layerx-merge/docs/decisions/D1701.md", "spec/layerx-merge/docs/decisions/D1702.md", "spec/layerx-merge/docs/decisions/D1703.md", "spec/layerx-merge/docs/decisions/D1704.md", "spec/layerx-merge/docs/decisions/D1705.md", "spec/layerx-merge/docs/decisions/D1706.md", "spec/layerx-merge/programme/tests/test_decision_records_index.py"]
+planned_paths = ["spec/layerx-merge/programme/tests/test_decision_records_index.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_decision_records_index.py"
 verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_decision_records_index.py::test_index_rows_and_records_complete -q"
 gate_kind = "planned"
@@ -170068,19 +170068,19 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.17.10.1]
-title = "Remove the duplicate finding sections from the qualification ledger"
+title = "Guard the qualification ledger against duplicate finding sections"
 status = "pending"
 mode = "BUILD"
 wave = 0
 requires = ["17.0.1"]
 reqs = ["17010.1"]
 capabilities = ["17.10.1"]
-interfaces = ["interface.17.fmt-layerx-merge-qualification-j60"]
-do_1 = "Merge the second [finding.5.0.8] at spec/layerx-merge/qualification.kvx:46 into the first at spec/layerx-merge/qualification.kvx:4 as finding.5.0.8.2 with its own revision, command and exit_code keys."
-do_2 = "Rename the second [finding.7.0.8] at spec/layerx-merge/qualification.kvx:53 to finding.7.0.8.2, leaving the first at spec/layerx-merge/qualification.kvx:18 untouched."
+interfaces = []
+do_1 = "spec/layerx-merge/qualification.kvx:14 holds no finding section at the pinned revision and spec/layerx-merge/qualification.kvx:1 gives a second finding for the same task the id [finding.<N>.<k>.<m>.<n>]; entries are appended during the run by loop step 6 (spec/workflow.kvx:74), so the ledger itself is not edited by this task."
+do_2 = "Make test_ledger_has_no_duplicate_section load spec/layerx-merge/qualification.kvx through kvx.load of spec/layerx-merge/programme/kvx.py (planned), assert that no KvxError is raised and that every [finding.*] section id occurs once, and assert that every finding section carries exactly the six keys of spec/layerx-merge/qualification.kvx:2 (task, file, symbol, observed, assumption and severity)."
 do_3 = "Create spec/layerx-merge/programme/tests/test_qualification_ledger.py (planned) with the test named below, reading the ledger through spec/layerx-merge/programme/kvx.py (planned)."
 symbols = ["test_ledger_has_no_duplicate_section"]
-touches = ["spec/layerx-merge/qualification.kvx", "spec/layerx-merge/programme/tests/test_qualification_ledger.py"]
+touches = ["spec/layerx-merge/programme/tests/test_qualification_ledger.py"]
 tests = ["spec/layerx-merge/programme/tests/test_qualification_ledger.py::test_ledger_has_no_duplicate_section"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_qualification_ledger.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_qualification_ledger.py"
@@ -170088,7 +170088,7 @@ verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_qualifica
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
-rollback = "Revert spec/layerx-merge/qualification.kvx; no gate reads the renamed sections."
+rollback = "Delete spec/layerx-merge/programme/tests/test_qualification_ledger.py; the ledger is not changed by this task."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -170098,7 +170098,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.17.10.2]
-title = "Point the qualification ledger header at the v2 task ids"
+title = "Check the qualification ledger header against the v2 task ids and entry keys"
 status = "pending"
 mode = "BUILD"
 wave = 4
@@ -170106,11 +170106,11 @@ requires = ["17.10.1", "17.0.2"]
 reqs = ["17032.1"]
 capabilities = ["17.10.2"]
 interfaces = []
-do_1 = "Rewrite the two header comment lines of spec/layerx-merge/qualification.kvx:1-2 to state that finding ids are v2 task ids <N>.<k>.<m> and keep the five keys."
-do_2 = "Leave every existing finding body unchanged; the stale v1 ids stay as history; the change lands in spec/layerx-merge/programme/tests/test_qualification_header.py (planned)."
+do_1 = "spec/layerx-merge/qualification.kvx:1 names finding ids as v2 task ids [finding.<N>.<k>.<m>] and spec/layerx-merge/qualification.kvx:2 lists the six keys task, file, symbol, observed, assumption and severity of spec/workflow.kvx:64 entry_keys; the header is not edited by this task."
+do_2 = "Make test_header_names_v2_ids_and_keys read the first two lines of spec/layerx-merge/qualification.kvx and the entry_keys list of spec/workflow.kvx:64 through kvx.load of spec/layerx-merge/programme/kvx.py (planned), and assert that line 1 contains <N>.<k>.<m> and line 2 names every entry key in entry_keys order, so a header that drifts from the workflow fails the gate."
 do_3 = "Create spec/layerx-merge/programme/tests/test_qualification_header.py (planned) with the test named below."
 symbols = ["test_header_names_v2_ids_and_keys"]
-touches = ["spec/layerx-merge/qualification.kvx", "spec/layerx-merge/programme/tests/test_qualification_header.py"]
+touches = ["spec/layerx-merge/programme/tests/test_qualification_header.py"]
 tests = ["spec/layerx-merge/programme/tests/test_qualification_header.py::test_header_names_v2_ids_and_keys"]
 planned_paths = ["spec/layerx-merge/programme/tests/test_qualification_header.py"]
 build_cmd = "python3 -m py_compile spec/layerx-merge/programme/tests/test_qualification_header.py"
@@ -170118,7 +170118,7 @@ verify_cmd = "python3 -m pytest spec/layerx-merge/programme/tests/test_qualifica
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-programme"
-rollback = "Revert the two header lines."
+rollback = "Delete spec/layerx-merge/programme/tests/test_qualification_header.py; the ledger header is not changed by this task."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
