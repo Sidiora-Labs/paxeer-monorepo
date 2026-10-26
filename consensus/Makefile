@@ -11,7 +11,7 @@ else
 VERSION := $(shell git describe --tags --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/||')
 endif
 
-LD_FLAGS = -X github.com/tendermint/tendermint/version.TMVersion=$(VERSION)
+LD_FLAGS = -X github.com/Sidiora-Labs/Paxeer-X-Network/consensus/version.TMVersion=$(VERSION)
 BUILD_FLAGS = -mod=readonly -ldflags "$(LD_FLAGS)"
 CGO_ENABLED ?= 0
 
@@ -68,7 +68,7 @@ build: $(BUILDDIR)/
 .PHONY: build
 
 install:
-	CGO_ENABLED=$(CGO_ENABLED) go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
+	CGO_ENABLED=$(CGO_ENABLED) go install $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' ./cmd/tendermint
 .PHONY: install
 
 $(BUILDDIR)/:
