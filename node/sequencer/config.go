@@ -8,19 +8,24 @@ import (
 
 	servertypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/types"
 	"github.com/spf13/cast"
+	"github.com/spf13/cobra"
 )
 
 const (
-	FlagEnable             = "sequencer.enable"
-	FlagMode               = "sequencer.mode"
-	FlagWALDir             = "sequencer.wal-dir"
-	FlagReceiptKeyFile     = "sequencer.receipt-key-file"
-	flagReceiptForwardURL  = "sequencer.receipt-forward-url"
-	flagRole               = "sequencer.role"
-	FlagStandbyAddress     = "sequencer.standby-address"
-	FlagReplicationTimeout = "sequencer.replication-timeout"
-	FlagMicroBatchWindow   = "sequencer.microbatch-window"
-	FlagMicroBatchMaxCount = "sequencer.microbatch-max-count"
+	FlagEnable                 = "sequencer.enable"
+	FlagMode                   = "sequencer.mode"
+	FlagWALDir                 = "sequencer.wal-dir"
+	FlagReceiptKeyFile         = "sequencer.receipt-key-file"
+	flagReceiptForwardURL      = "sequencer.receipt-forward-url"
+	flagRole                   = "sequencer.role"
+	FlagStandbyAddress         = "sequencer.standby-address"
+	FlagReplicationTimeout     = "sequencer.replication-timeout"
+	FlagMicroBatchWindow       = "sequencer.microbatch-window"
+	FlagMicroBatchMaxCount     = "sequencer.microbatch-max-count"
+	FlagWALRetainBlocks        = "sequencer.wal-retain-blocks"
+	FlagNonceQueueMaxPerSender = "sequencer.nonce-queue-max-per-sender"
+	FlagNonceQueueMaxTotal     = "sequencer.nonce-queue-max-total"
+	FlagLeaseDuration          = "sequencer.lease-duration"
 )
 
 const (
@@ -77,7 +82,11 @@ type Config struct {
 	// Mode selects the executor; Sequential is the default.
 	Mode Mode
 	// WALDir is the directory of the sequencer WAL.
-	WALDir string
+	WALDir                 string
+	WALRetainBlocks        uint64
+	NonceQueueMaxPerSender int
+	NonceQueueMaxTotal     int
+	LeaseDuration          time.Duration
 	// ReceiptKeyFile holds the ed25519 receipt signing seed, apart from the consensus key.
 	ReceiptKeyFile string
 	// ReceiptForwardURL forwards receipt requests when this node is not the sequencer.
@@ -96,7 +105,36 @@ type Config struct {
 
 // DefaultConfig returns the sequencer section of a node that is not the sequencer.
 func DefaultConfig() Config {
-	return Config{Mode: ModeSequential, Role: RolePrimary}
+	queue := NonceQueueConfig{}
+	cfg := Config{
+		Mode:                   ModeSequential,
+		Role:                   RolePrimary,
+		WALRetainBlocks:        2,
+		NonceQueueMaxPerSender: queue.PerSender,
+		NonceQueueMaxTotal:     queue.Total,
+	}
+	cfg.LeaseDuration = 3 * cfg.ReplicationTimeout
+	return cfg
+}
+
+// AddStartFlags registers the sequencer section on the node's start command.
+func AddStartFlags(cmd *cobra.Command) {
+	cfg := DefaultConfig()
+	flags := cmd.Flags()
+	flags.Bool(FlagEnable, cfg.Enable, "Run this node as the sequencer")
+	flags.String(FlagMode, cfg.Mode.String(), "Sequencer executor: sequential or microbatch")
+	flags.String(FlagWALDir, cfg.WALDir, "Sequencer write-ahead log directory")
+	flags.String(FlagReceiptKeyFile, cfg.ReceiptKeyFile, "Sequencer receipt signing seed file")
+	flags.String(flagReceiptForwardURL, cfg.ReceiptForwardURL, "Forward receipt requests to this URL when disabled")
+	flags.String(flagRole, cfg.Role.String(), "Sequencer replication role: primary or standby")
+	flags.String(FlagStandbyAddress, cfg.StandbyAddress, "Standby replication destination or listen address")
+	flags.Duration(FlagReplicationTimeout, cfg.ReplicationTimeout, "Timeout for one standby replication exchange")
+	flags.Duration(FlagMicroBatchWindow, cfg.MicroBatchWindow, "Maximum wait for a microbatch group")
+	flags.Int(FlagMicroBatchMaxCount, cfg.MicroBatchMaxCount, "Maximum transactions in a microbatch group")
+	flags.Uint64(FlagWALRetainBlocks, cfg.WALRetainBlocks, "Number of committed blocks to retain in the WAL")
+	flags.Int(FlagNonceQueueMaxPerSender, cfg.NonceQueueMaxPerSender, "Maximum future nonces held per sender; set at activation")
+	flags.Int(FlagNonceQueueMaxTotal, cfg.NonceQueueMaxTotal, "Maximum future nonces held in total; set at activation")
+	flags.Duration(FlagLeaseDuration, cfg.LeaseDuration, "Sequencer lease duration; defaults to three times replication-timeout")
 }
 
 // String returns the config name of the mode.
@@ -164,6 +202,21 @@ func (c Config) Validate() error {
 		if c.ReplicationTimeout == 0 {
 			return fmt.Errorf("%w: must be positive when standby-address is set", ErrConfigReplicationTimeout)
 		}
+	}
+	if c.WALRetainBlocks == 0 {
+		return fmt.Errorf("%w: %s must be positive", ErrConfigValue, FlagWALRetainBlocks)
+	}
+	if c.NonceQueueMaxPerSender <= 0 {
+		return fmt.Errorf("%w: %s must be positive", ErrConfigValue, FlagNonceQueueMaxPerSender)
+	}
+	if c.NonceQueueMaxTotal <= 0 {
+		return fmt.Errorf("%w: %s must be positive", ErrConfigValue, FlagNonceQueueMaxTotal)
+	}
+	if c.NonceQueueMaxTotal < c.NonceQueueMaxPerSender {
+		return fmt.Errorf("%w: %s must be at least %s", ErrConfigValue, FlagNonceQueueMaxTotal, FlagNonceQueueMaxPerSender)
+	}
+	if c.LeaseDuration <= 0 {
+		return fmt.Errorf("%w: %s must be positive", ErrConfigValue, FlagLeaseDuration)
 	}
 	return nil
 }
@@ -235,6 +288,36 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagMicroBatchMaxCount, err)
 		}
 	}
+	if v := opts.Get(FlagWALRetainBlocks); v != nil {
+		if cfg.WALRetainBlocks, err = cast.ToUint64E(v); err != nil {
+			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagWALRetainBlocks, err)
+		}
+	}
+	if v := opts.Get(FlagNonceQueueMaxPerSender); v != nil {
+		if cfg.NonceQueueMaxPerSender, err = cast.ToIntE(v); err != nil {
+			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagNonceQueueMaxPerSender, err)
+		}
+	}
+	if v := opts.Get(FlagNonceQueueMaxTotal); v != nil {
+		if cfg.NonceQueueMaxTotal, err = cast.ToIntE(v); err != nil {
+			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagNonceQueueMaxTotal, err)
+		}
+	}
+	lease := opts.Get(FlagLeaseDuration)
+	// Viper exposes bound flag defaults through Get even when the flag was not set.
+	if explicit, ok := opts.(interface{ IsSet(string) bool }); ok && !explicit.IsSet(FlagLeaseDuration) {
+		lease = nil
+	}
+	if lease != nil {
+		if cfg.LeaseDuration, err = cast.ToDurationE(lease); err != nil {
+			return cfg, fmt.Errorf("%w: %s: %v", ErrConfigValue, FlagLeaseDuration, err)
+		}
+	} else {
+		if cfg.ReplicationTimeout > time.Duration(1<<63-1)/3 {
+			return cfg, fmt.Errorf("%w: %s overflows three times %s", ErrConfigValue, FlagLeaseDuration, FlagReplicationTimeout)
+		}
+		cfg.LeaseDuration = 3 * cfg.ReplicationTimeout
+	}
 	return cfg, cfg.Validate()
 }
 
@@ -262,6 +345,13 @@ mode = "` + modeSequentialName + `"
 # wal-dir is the directory of the sequencer write-ahead log.
 wal-dir = ""
 
+# wal-retain-blocks is the positive number of committed WAL blocks to retain.
+wal-retain-blocks = 2
+
+# Future nonce queue bounds are set at activation; both must be positive when enabled.
+nonce-queue-max-per-sender = 0
+nonce-queue-max-total = 0
+
 # receipt-key-file holds the hex ed25519 receipt signing seed, mode 0600, apart from the consensus key.
 receipt-key-file = ""
 
@@ -276,6 +366,9 @@ standby-address = ""
 # replication-timeout bounds one replication exchange with the standby; it must be positive
 # when standby-address is set.
 replication-timeout = "0s"
+
+# lease-duration must be positive when enabled; omit it to use three times replication-timeout.
+lease-duration = "0s"
 
 # microbatch-window is how long the first transaction of a MicroBatch group waits for others;
 # it must be positive when mode is "microbatch".

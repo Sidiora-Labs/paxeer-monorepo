@@ -478,6 +478,128 @@ func TestWALReplayReproducesReceipts(t *testing.T) {
 	}
 }
 
+func TestReplayReportsLastLoggedAccept(t *testing.T) {
+	for _, segment := range []struct {
+		name string
+		cfg  Config
+	}{
+		{name: "head", cfg: DefaultConfig()},
+		{name: "sealed", cfg: Config{SegmentSizeLimit: 1}},
+	} {
+		for _, tc := range []struct {
+			name      string
+			committed bool
+			tail      bool
+		}{
+			{name: "without committed"},
+			{name: "before committed", committed: true},
+			{name: "after committed", committed: true, tail: true},
+		} {
+			t.Run(segment.name+"/"+tc.name, func(t *testing.T) {
+				dir := t.TempDir()
+				w := mustOpen(t, dir, segment.cfg)
+				t.Cleanup(w.Close)
+				primary := &chainExecutor{}
+				var seq uint64
+				accepts := writeHeight(t, w, primary, 1000, &seq, 2)
+				wantLogged := accepts[len(accepts)-1]
+				wantLastAccept := wantLogged
+				wantAccepts := len(accepts)
+				var committed *Committed
+				var committedState [32]byte
+				if tc.committed {
+					committed = &Committed{Height: 1000, LastSeq: seq, AppHash: primary.state}
+					mustAppend(t, w, committed)
+					committedState = primary.state
+					wantLastAccept = nil
+					wantAccepts = 0
+				}
+				if tc.tail {
+					accepts = writeHeight(t, w, primary, 1001, &seq, 2)
+					wantLogged = accepts[len(accepts)-1]
+					wantLastAccept = wantLogged
+					wantAccepts = len(accepts)
+				}
+				if _, err := w.GroupSync(); err != nil {
+					t.Fatal(err)
+				}
+				w.Close()
+
+				w = mustOpen(t, dir, segment.cfg)
+				defer w.Close()
+				exec := &chainExecutor{state: committedState}
+				res, err := w.Replay(exec)
+				if err != nil {
+					t.Fatalf("Replay: %v", err)
+				}
+				if !reflect.DeepEqual(res.LastLogged, wantLogged) {
+					t.Fatalf("last logged ACCEPT = %+v, want %+v", res.LastLogged, wantLogged)
+				}
+				if !reflect.DeepEqual(res.From, committed) {
+					t.Fatalf("replay started after %+v, want %+v", res.From, committed)
+				}
+				if res.Accepts != wantAccepts || !reflect.DeepEqual(res.LastAccept, wantLastAccept) {
+					t.Fatalf("replayed %d accepts ending at %+v, want %d ending at %+v", res.Accepts, res.LastAccept, wantAccepts, wantLastAccept)
+				}
+				if exec.state != primary.state {
+					t.Fatalf("replayed state %x, want primary state %x", exec.state, primary.state)
+				}
+			})
+		}
+	}
+}
+
+func TestReplayLastLoggedNilWithoutAccepts(t *testing.T) {
+	for _, segment := range []struct {
+		name string
+		cfg  Config
+	}{
+		{name: "head", cfg: DefaultConfig()},
+		{name: "sealed", cfg: Config{SegmentSizeLimit: 1}},
+	} {
+		for _, history := range []bool{false, true} {
+			name := "empty"
+			if history {
+				name = "non-accept entries"
+			}
+			t.Run(segment.name+"/"+name, func(t *testing.T) {
+				dir := t.TempDir()
+				w := mustOpen(t, dir, segment.cfg)
+				t.Cleanup(w.Close)
+				if history {
+					mustAppend(t, w, &Open{Height: 1000, OpenTimeMs: 400_000, BaseFee: uint256.NewInt(67_000_000)})
+					mustAppend(t, w, &Lease{Epoch: 7, KeyID: [32]byte{1}, ExpiryMs: 500_000})
+					mustAppend(t, w, &Committed{Height: 1000})
+					mustAppend(t, w, &Open{Height: 1001, OpenTimeMs: 400_400, BaseFee: uint256.NewInt(67_000_000)})
+					mustSync(t, w, 4)
+				}
+				w.Close()
+
+				w = mustOpen(t, dir, segment.cfg)
+				defer w.Close()
+				exec := &chainExecutor{}
+				res, err := w.Replay(exec)
+				if err != nil {
+					t.Fatalf("Replay: %v", err)
+				}
+				if res.LastLogged != nil {
+					t.Fatalf("last logged ACCEPT = %+v, want nil", res.LastLogged)
+				}
+				if res.Accepts != 0 || res.LastAccept != nil {
+					t.Fatalf("replayed ACCEPTs without any logged: %+v", res)
+				}
+				wantApplied := 0
+				if history {
+					wantApplied = 1
+				}
+				if len(exec.applied) != wantApplied {
+					t.Fatalf("applied %d entries, want %d", len(exec.applied), wantApplied)
+				}
+			})
+		}
+	}
+}
+
 func TestReplayKeepsLeaseBeforeCommitted(t *testing.T) {
 	for _, tc := range []struct {
 		name string
