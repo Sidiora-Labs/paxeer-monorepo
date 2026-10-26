@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { once } from "node:events";
 import * as http from "node:http";
+import type { Eip1559Transaction } from "../src/evm-transaction.js";
+import { PX_MAXIMUM_JOINED_ASSETS } from "../src/px.js";
 import { decodeAssetListSnapshot, decodeAssetSnapshot, decodeIdentitySequenceSnapshot, decodeJsonRpcResponse, JsonRpcClient, JsonRpcError, listAssetsParams, walletAccount, LIST_ASSETS_DEFAULT_PAGE, LIST_ASSETS_MAX_PAGE } from "../src/rpc.js";
 
 assert.throws(() => new JsonRpcClient("http://example.com"));
@@ -28,8 +30,13 @@ assert.equal(Buffer.from(encodeNativeRegistration({salt:registration.subarray(34
 assert.throws(()=>new WalletRpc("relative",{} as never));
 
 const feeClient = new JsonRpcClient("http://127.0.0.1:1");
-assert.throws(() => feeClient.estimateFee(new Uint8Array()));
-assert.throws(() => feeClient.estimateFee(new Uint8Array(524289)));
+const feeCall: Eip1559Transaction = {
+  chainId: 125n, nonce: 0n, maxPriorityFeePerGas: 1n, maxFeePerGas: 2n,
+  gasLimit: 21000n, to: new Uint8Array(20), value: 0n,
+  data: new Uint8Array(), accessList: [],
+};
+assert.throws(() => feeClient.estimateFee({...feeCall, to: new Uint8Array(1)}), /destination/u);
+assert.throws(() => feeClient.estimateFee({...feeCall, data: new Uint8Array(524289)}), /Invalid transaction length/u);
 assert.throws(() => feeClient.getAsset("AB".repeat(32)));
 
 const asset = {asset_id:"11".repeat(32),symbol:"USD",name:"Test Dollar",decimals:6,custody_kind:0,custody_reference:"",paused:false,supply_cap:"1000000",issuer_did:"22".repeat(32),issuer_kind:1,total_units:"100",salt:"33".repeat(32)};
@@ -74,16 +81,26 @@ for (const refused of [
 ]) assert.throws(() => decodeAssetListSnapshot(refused));
 
 const observed: unknown[] = [];
+const joinedAssets = {
+  assets: [asset, later].map(row => ({asset_id: row.asset_id, layerx: row, paxeer: null})),
+  joined_limit: String(PX_MAXIMUM_JOINED_ASSETS),
+};
+const oversizedAssets = {
+  ...joinedAssets,
+  assets: Array.from({length: PX_MAXIMUM_JOINED_ASSETS + 1}, (_, index) => ({
+    asset_id: (index + 1).toString(16).padStart(64, "0"), layerx: null, paxeer: null,
+  })),
+};
 const assetServer = http.createServer((request, response) => {
   const chunks: Buffer[] = [];
   request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
   request.on("end", () => {
     const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {id: string; method: string; params: unknown};
     assert.equal(request.url, "/rpc");
-    assert.equal(body.method, "lx_listAssets");
+    assert.equal(body.method, "px_listAssets");
     observed.push(body.params);
     response.writeHead(200, {"Content-Type": "application/json"});
-    response.end(JSON.stringify({jsonrpc:"2.0", id:body.id, result:assetPage([asset, later], second)}));
+    response.end(JSON.stringify({jsonrpc:"2.0", id:body.id, result:observed.length === 6 ? oversizedAssets : joinedAssets}));
   });
 });
 assetServer.listen(0, "127.0.0.1");
@@ -93,13 +110,19 @@ assert(assetAddress !== null && typeof assetAddress === "object", "asset listene
 try {
   const assetClient = new JsonRpcClient(`http://127.0.0.1:${assetAddress.port}`);
   const page = await assetClient.listAssets();
-  assert.equal(page.nextCursor, second);
+  assert.equal(page.nextCursor, null);
   assert.deepEqual(page.assets.map(record => record.assetId), [first, second]);
-  assert.equal((await assetClient.listAssetsPage(first)).nextCursor, second);
-  assert.equal((await assetClient.listAssetsPage(first, LIST_ASSETS_MAX_PAGE)).assets.length, 2);
+  assert.equal(page.joinedLimit, BigInt(PX_MAXIMUM_JOINED_ASSETS));
+  const remaining = await assetClient.listAssetsPage(first);
+  assert.equal(remaining.nextCursor, null);
+  assert.deepEqual(remaining.assets.map(record => record.assetId), [second]);
+  assert.equal((await assetClient.listAssetsPage(first, LIST_ASSETS_MAX_PAGE)).assets.length, 1);
   assert.equal((await assetClient.listAssetsPage(undefined, 2)).assets.length, 2);
-  await assert.rejects(assetClient.listAssetsPage(undefined, 1));
-  assert.deepEqual(observed, [[], [first], [first, 256], [null, 2], [null, 1]]);
+  const limited = await assetClient.listAssetsPage(undefined, 1);
+  assert.deepEqual(limited.assets.map(record => record.assetId), [first]);
+  assert.equal(limited.nextCursor, first);
+  await assert.rejects(assetClient.listAssetsPage(undefined, 1), /Invalid gateway asset map/u);
+  assert.deepEqual(observed, [[], [], [], [], [], []]);
 } finally {
   assetServer.close();
   await once(assetServer, "close");
