@@ -10,14 +10,6 @@ import (
 
 var ErrInvalidGenesis = sdkerrors.Register(ModuleName, 3, "invalid genesis")
 
-type Params struct {
-	Paused         bool `json:"paused"`
-	EscrowEnabled  bool `json:"escrow_enabled"`
-	BudgetEnabled  bool `json:"budget_enabled"`
-	StreamEnabled  bool `json:"stream_enabled"`
-	ServiceEnabled bool `json:"service_enabled"`
-}
-
 func DefaultParams() Params {
 	return Params{Paused: true}
 }

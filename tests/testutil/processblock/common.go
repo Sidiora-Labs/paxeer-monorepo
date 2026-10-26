@@ -34,16 +34,37 @@ type App struct {
 }
 
 func NewTestApp(t *testing.T) *App {
+	interfaceRegistry := codectypes.NewInterfaceRegistry()
+	marshaler := codec.NewProtoCodec(interfaceRegistry)
+	return newTestApp(t, app.NewDefaultGenesisState(marshaler))
+}
+
+func NewTestAppWithGenesis(t *testing.T, override map[string]json.RawMessage) *App {
+	t.Helper()
+	interfaceRegistry := codectypes.NewInterfaceRegistry()
+	marshaler := codec.NewProtoCodec(interfaceRegistry)
+	defaults := app.NewDefaultGenesisState(marshaler)
+	gs := make(map[string]json.RawMessage, len(defaults))
+	for name, section := range defaults {
+		gs[name] = section
+	}
+	for name, section := range override {
+		if _, ok := gs[name]; !ok {
+			t.Fatalf("unknown genesis module %q", name)
+		}
+		gs[name] = section
+	}
+	return newTestApp(t, gs)
+}
+
+func newTestApp(t *testing.T, gs map[string]json.RawMessage) *App {
 	a := &App{
 		App:           app.Setup(t, false, false, false),
 		height:        1,
 		accToMnemonic: map[string]string{},
 		accToSeqDelta: map[string]uint64{},
 	}
-	interfaceRegistry := codectypes.NewInterfaceRegistry()
-	marshaler := codec.NewProtoCodec(interfaceRegistry)
 	cp := tmtypes.DefaultConsensusParams().ToProto()
-	gs := app.NewDefaultGenesisState(marshaler)
 	gbz, err := json.Marshal(gs)
 	if err != nil {
 		panic(err)

@@ -77,6 +77,7 @@ function fixtureCodeHash(value: unknown): Hash {
   return value.toLowerCase() as Hash;
 }
 export function parsePrivateFixtureAuthorityProfileV1(input: unknown): PrivateFixtureAuthorityProfileV1 {
+  if (process.env.NODE_ENV === 'production' && input !== undefined) throw new Error('Private fixture authority is unavailable in production');
   if (typeof input === 'string') {
     if (!input || new TextEncoder().encode(input).byteLength > 64 * 1024) throw new Error('Reviewed local network input is unavailable');
     input = JSON.parse(input) as unknown;
