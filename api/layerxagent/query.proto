@@ -1,0 +1,43 @@
+syntax = "proto3";
+package paxprotocol.paxchain.layerxagent;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "layerxagent/genesis.proto";
+import "layerxagent/tx.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/layerxagent/params";
+  }
+  rpc Job(QueryJobRequest) returns (QueryJobResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/layerxagent/jobs/{id}";
+  }
+  rpc Pending(QueryPendingRequest) returns (QueryPendingResponse) {
+    option (google.api.http).get = "/paxprotocol/paxchain/layerxagent/pending/{creator}";
+  }
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryJobRequest {
+  uint64 id = 1;
+}
+
+message QueryJobResponse {
+  Job job = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryPendingRequest {
+  string creator = 1;
+}
+
+message QueryPendingResponse {
+  repeated uint64 job_ids = 1;
+}
