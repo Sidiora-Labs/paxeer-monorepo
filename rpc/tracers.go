@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
@@ -743,7 +744,15 @@ func (api *DebugAPI) GetRawTransaction(ctx context.Context, hash common.Hash) (_
 	defer func() {
 		recordMetricsWithError(ctx, "debug_getRawTransaction", api.connectionType, startTime, returnErr, recover())
 	}()
-	return nil, &ErrEVMNotSupported{Msg: "debug_getRawTransaction is not supported on Pax EVM RPC"}
+	rawAPI := NewRawTransactionAPI(api.tmClient, api.keeper, api.ctxProvider, api.txConfigProvider, "", api.connectionType, utils.None[time.Duration](), api.backend.watermarks, api.backend.globalBlockCache, api.backend.cacheCreationMutex)
+	raw, err := rawAPI.GetRawTransactionByHash(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	if raw == nil {
+		return nil, fmt.Errorf("transaction %s not found", hash.Hex())
+	}
+	return raw, nil
 }
 
 type StateAccessResponse struct {
