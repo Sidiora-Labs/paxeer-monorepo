@@ -2,25 +2,53 @@ package evmrpc
 
 import (
 	"context"
+	"math"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func (s *SendAPI) SendRawTransactionSync(ctx context.Context, input hexutil.Bytes) (map[string]interface{}, error) {
+type transactionNotIncludedError struct {
+	hash common.Hash
+}
+
+func (e *transactionNotIncludedError) Error() string          { return "transaction not yet included" }
+func (e *transactionNotIncludedError) ErrorCode() int         { return 4 }
+func (e *transactionNotIncludedError) ErrorData() interface{} { return e.hash.Hex() }
+
+var (
+	_ rpc.Error     = (*transactionNotIncludedError)(nil)
+	_ rpc.DataError = (*transactionNotIncludedError)(nil)
+)
+
+func (s *SendAPI) SendRawTransactionSync(ctx context.Context, input hexutil.Bytes, timeoutMs *hexutil.Uint64) (map[string]interface{}, error) {
 	hash, err := s.SendRawTransaction(ctx, input)
 	if err != nil {
 		return nil, err
 	}
 
-	if s.sendConfig.syncTimeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.sendConfig.syncTimeout)
-		defer cancel()
-	}
 	if timeout, ok := s.methodTimeout.Get(); ok {
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, timeout)
+		defer cancel()
+	}
+
+	timeout := s.sendConfig.syncTimeout
+	if timeoutMs != nil {
+		requested := time.Duration(math.MaxInt64)
+		if uint64(*timeoutMs) <= uint64(math.MaxInt64/int64(time.Millisecond)) {
+			requested = time.Duration(*timeoutMs) * time.Millisecond
+		}
+		if timeout <= 0 || requested < timeout {
+			timeout = requested
+		}
+	}
+	waitCtx := ctx
+	if timeout > 0 || timeoutMs != nil {
+		var cancel context.CancelFunc
+		waitCtx, cancel = context.WithTimeoutCause(ctx, timeout, &transactionNotIncludedError{hash: hash})
 		defer cancel()
 	}
 
@@ -35,7 +63,16 @@ func (s *SendAPI) SendRawTransactionSync(ctx context.Context, input hexutil.Byte
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		receipt, err := receipts.GetTransactionReceipt(ctx, hash)
+		if waitCtx.Err() != nil {
+			return nil, context.Cause(waitCtx)
+		}
+		receipt, err := receipts.GetTransactionReceipt(waitCtx, hash)
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if waitCtx.Err() != nil {
+			return nil, context.Cause(waitCtx)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -43,8 +80,7 @@ func (s *SendAPI) SendRawTransactionSync(ctx context.Context, input hexutil.Byte
 			return receipt, nil
 		}
 		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
+		case <-waitCtx.Done():
 		case <-ticker.C:
 		}
 	}
