@@ -337,6 +337,29 @@ func migratedV6120(t *testing.T) *v6120Run {
 	return r
 }
 
+func TestMigrationLeavesGenerationOnePrefixesEmpty(t *testing.T) {
+	r := migratedV6120(t)
+	store := r.ctx.KVStore(r.key)
+	for _, tc := range []struct {
+		name   string
+		prefix []byte
+	}{
+		{"ProtocolFeesPrefix", types.ProtocolFeesPrefix},
+		{"AirdropEpochPrefix", types.AirdropEpochPrefix},
+		{"AirdropClaimPrefix", types.AirdropClaimPrefix},
+		{"HoldingHistoryPrefix", types.HoldingHistoryPrefix},
+		{"HoldingCountPrefix", types.HoldingCountPrefix},
+		{"HoldingEntryPrefix", types.HoldingEntryPrefix},
+		{"AirdropBasisPrefix", types.AirdropBasisPrefix},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			iterator := sdk.KVStorePrefixIterator(store, tc.prefix)
+			defer func() { require.NoError(t, iterator.Close()) }()
+			require.False(t, iterator.Valid(), "generation 1 prefix %x must be empty after migration", tc.prefix)
+		})
+	}
+}
+
 func (r *v6120Run) view(to common.Address, signature string, words ...[]byte) []byte {
 	r.t.Helper()
 	ret, err := testkeeper.EVMTestApp.EvmKeeper.StaticCallEVM(r.ctx, r.k.ModuleAddress(), &to,
