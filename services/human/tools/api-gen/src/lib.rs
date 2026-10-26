@@ -19,10 +19,20 @@ pub struct Violation {
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub struct GeneratedClient {
+pub struct Generated {
     pub files: BTreeMap<String, String>,
     pub operations: usize,
     pub types: usize,
+    pub retired: usize,
+}
+
+pub type GeneratedClient = Generated;
+
+impl Generated {
+    #[must_use]
+    pub const fn retired(&self) -> usize {
+        self.retired
+    }
 }
 
 type Sections = BTreeMap<String, BTreeMap<String, String>>;
@@ -136,6 +146,7 @@ struct Operation {
     request: String,
     response: String,
     idempotency: bool,
+    retired: bool,
     origin: PathBuf,
 }
 
@@ -396,6 +407,18 @@ fn collect_operation(
     let path = quoted(entries, "path").unwrap_or_default().to_owned();
     let request = quoted(entries, "request").unwrap_or_default().to_owned();
     let response = quoted(entries, "response").unwrap_or_default().to_owned();
+    let retired = match entries.get("retired").map(String::as_str) {
+        None => false,
+        Some("\"true\"") => true,
+        Some(other) => {
+            violations.push(violation(
+                &file.path,
+                "invalid-retired-flag",
+                format!("{section} retired must be \"true\", not {other}"),
+            ));
+            return;
+        }
+    };
     if !METHODS.contains(&method.as_str()) {
         violations.push(violation(
             &file.path,
@@ -443,6 +466,7 @@ fn collect_operation(
         request,
         response,
         idempotency,
+        retired,
         origin: file.path.clone(),
     });
 }
@@ -614,6 +638,9 @@ fn plan_operations<'model>(
     let mut planned = Vec::new();
     let mut method_names: BTreeMap<String, String> = BTreeMap::new();
     for operation in &model.operations {
+        if operation.retired {
+            continue;
+        }
         for type_name in [&operation.request, &operation.response] {
             if !model.records.contains_key(type_name) {
                 violations.push(violation(
@@ -1513,6 +1540,11 @@ pub fn generate_client(root: &Path) -> Result<GeneratedClient, Vec<Violation>> {
         files: generated,
         operations: planned.len(),
         types: model.scalars.len() + model.enums.len() + model.records.len(),
+        retired: model
+            .operations
+            .iter()
+            .filter(|operation| operation.retired)
+            .count(),
     })
 }
 
