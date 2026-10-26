@@ -712,6 +712,8 @@ type ReplayResult struct {
 	Accepts int
 	// LastAccept is the last ACCEPT re-executed, nil when there was none.
 	LastAccept *Accept
+	// LastLogged is the last ACCEPT in the retained segments, before or after the last COMMITTED.
+	LastLogged *Accept
 	// Tail is the corrupt or torn head tail that OpenWAL cut off, nil when the head ended cleanly.
 	Tail *CorruptTail
 }
@@ -740,6 +742,9 @@ func (w *WAL) Replay(exec Executor) (ReplayResult, error) {
 	collect := func(e Entry) error {
 		if lease, ok := e.(*Lease); ok {
 			res.Lease = lease
+		}
+		if accept, ok := e.(*Accept); ok {
+			res.LastLogged = accept
 		}
 		if _, ok := e.(*Committed); ok {
 			after = after[:0]
