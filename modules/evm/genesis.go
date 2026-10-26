@@ -29,6 +29,9 @@ func InitGenesis(ctx sdk.Context, k *keeper.Keeper, genState types.GenesisState)
 		if err := types.ValidateLayerXGenesisEntry(serialized.Prefix, serialized.Key, serialized.Value); err != nil {
 			panic(err)
 		}
+		if err := types.ValidateAccountFeeDenomGenesisEntry(serialized.Prefix, serialized.Key, serialized.Value); err != nil {
+			panic(err)
+		}
 		if len(serialized.Key) == 0 {
 			ctx.KVStore(k.GetStoreKey()).Set(serialized.Prefix, serialized.Value)
 			continue
@@ -76,6 +79,7 @@ func ExportGenesis(ctx sdk.Context, k *keeper.Keeper) *types.GenesisState {
 		types.PointerRegistryPrefix,
 		types.PointerCWCodePrefix,
 		types.PointerReverseRegistryPrefix,
+		types.AccountFeeDenomKeyPrefix,
 		types.EVMAddressToLayerXDidKeyPrefix,
 		types.LayerXDidToEVMAddressKeyPrefix,
 		types.LayerXBindNonceKeyPrefix,
