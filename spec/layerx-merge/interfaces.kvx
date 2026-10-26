@@ -388963,7 +388963,7 @@ kind = "env_var"
 path = "services/agent/crates/layerx-sdk/src/program_http.rs"
 line = 2443
 signature = "let path = std::env::var_os(\"PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS\")"
-callers = ["scripts/paxeer-x/verify-sdk-program-jvm.sh:3", "scripts/paxeer-x/verify-sdk-program-jvm.sh:7", "scripts/paxeer-x/verify-sdk-program-python.sh:15", "scripts/paxeer-x/verify-sdk-program-swift.sh:8", "scripts/qualification/paxeer-x/program-http-producer.py:442", "scripts/qualification/paxeer-x/program-http-producer.py:481", "scripts/qualification/paxeer-x/program-terminal-v5.py:109", "sdk/platform/conformance/terminal-v4.test.py:58", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs:291", "sdk/platform/go/programs_http_test.go:825", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java:470", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift:300", "spec/layerx-merge/qualification.kvx:2137", "spec/layerx-merge/spec.kvx:43080", "spec/layerx-merge/spec.kvx:43085", "spec/layerx-merge/spec.kvx:43265", "tests/sdk/typescript/program-terminal-v5.test.mjs:8"]
+callers = ["scripts/paxeer-x/verify-sdk-program-jvm.sh:3", "scripts/paxeer-x/verify-sdk-program-jvm.sh:7", "scripts/paxeer-x/verify-sdk-program-python.sh:15", "scripts/paxeer-x/verify-sdk-program-swift.sh:8", "scripts/qualification/paxeer-x/program-http-producer.py:442", "scripts/qualification/paxeer-x/program-http-producer.py:481", "scripts/qualification/paxeer-x/program-terminal-v5.py:109", "sdk/platform/conformance/terminal-v4.test.py:58", "sdk/platform/dotnet/tests/LayerX.Sdk.Tests/ProgramsContractTests.cs:291", "sdk/platform/go/programs_http_test.go:825", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/ProgramsContractTest.java:470", "sdk/platform/swift/Tests/LayerXSDKTests/ProgramsContractTests.swift:300", "spec/layerx-merge/spec.kvx:43080", "spec/layerx-merge/spec.kvx:43085", "spec/layerx-merge/spec.kvx:43265", "tests/sdk/typescript/program-terminal-v5.test.mjs:8"]
 status = "stable"
 contract = "contracts/agent-config.md#harness-env"
 notes = "Test or qualification harness input, not a daemon setting."
@@ -391784,7 +391784,7 @@ kind = "http_route"
 path = "services/agent/schema/agent-api/identity.kvx"
 line = 178
 signature = "POST /rpc operation=mcp.invoke"
-callers = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1150", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1362", "GOTCHA.kvx:7417", "services/agent/crates/layerx-agentd/src/agent_rpc.rs:1226", "services/agent/crates/layerx-agentd/src/human_runtime.rs:4635", "services/agent/crates/layerx-agentd/src/human_runtime.rs:4833", "services/agent/crates/layerx-agentd/src/tenant.rs:115", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:250", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:254", "spec/layerx-merge/qualification.kvx:1052", "spec/layerx-merge/qualification.kvx:1059", "spec/layerx-merge/qualification.kvx:1066", "spec/layerx-merge/qualification.kvx:254", "spec/layerx-merge/qualification.kvx:660", "spec/layerx-merge/qualification.kvx:744", "spec/layerx-merge/qualification.kvx:751", "spec/layerx-merge/spec.kvx:40708", "spec/layerx-merge/spec.kvx:41659", "spec/layerx-merge/spec.kvx:41668", "spec/layerx-merge/spec.kvx:41674", "sdk/platform/conformance/operations.json:186", "sdk/platform/dotnet/Generated/OperationCatalog.cs:181", "sdk/platform/generators/tests/drift.rs:736", "sdk/platform/go/generated.go:31", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:30", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:76", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2970", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:4839", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedDescriptorCatalogTest.java:21", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift:174", "services/agent/crates/layerx-agentd/src/agent_rpc.rs:1100", "services/agent/sdk/python/layerx_sdk/generated/client.py:64", "services/agent/sdk/python/layerx_sdk/generated/client.pyi:27", "services/agent/sdk/typescript/src/generated/client.ts:85", "tools/qualification/paxeer-x/mcp_daemon_revocation.py:1123"]
+callers = ["services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1150", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs:1362", "GOTCHA.kvx:7417", "services/agent/crates/layerx-agentd/src/agent_rpc.rs:1226", "services/agent/crates/layerx-agentd/src/human_runtime.rs:4635", "services/agent/crates/layerx-agentd/src/human_runtime.rs:4833", "services/agent/crates/layerx-agentd/src/tenant.rs:115", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:250", "services/agent/crates/layerx-sdk/src/agent_envelope.rs:254", "spec/layerx-merge/spec.kvx:40708", "spec/layerx-merge/spec.kvx:41659", "spec/layerx-merge/spec.kvx:41668", "spec/layerx-merge/spec.kvx:41674", "sdk/platform/conformance/operations.json:186", "sdk/platform/dotnet/Generated/OperationCatalog.cs:181", "sdk/platform/generators/tests/drift.rs:736", "sdk/platform/go/generated.go:31", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:30", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java:76", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2970", "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:4839", "sdk/platform/jvm/src/test/java/com/sidiora/layerx/sdk/GeneratedDescriptorCatalogTest.java:21", "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift:174", "services/agent/crates/layerx-agentd/src/agent_rpc.rs:1100", "services/agent/sdk/python/layerx_sdk/generated/client.py:64", "services/agent/sdk/python/layerx_sdk/generated/client.pyi:27", "services/agent/sdk/typescript/src/generated/client.ts:85", "tools/qualification/paxeer-x/mcp_daemon_revocation.py:1123"]
 status = "stable"
 contract = "contracts/agent-api.md#mcp-invoke"
 notes = "Operation enum variant McpInvoke at services/agent/crates/layerx-agent-api/src/operation_generated.rs line 140; carried in the POST /rpc envelope field operation."
@@ -592601,7 +592601,7 @@ kind = "env_var"
 path = "tests/explorer/paxeer-x-data-boundary.py"
 line = 649
 signature = "os.environ.get(\"CARGO_TARGET_DIR\")"
-callers = ["tests/daemon/owner-production.py:119", "tests/daemon/owner-production.py:187", "spec/layerx-merge/qualification.kvx:1507", "spec/layerx-merge/qualification.kvx:1959", "spec/layerx-merge/qualification.kvx:2018", "tests/daemon/guarantor-publication-chain.py:180", "spec/layerx-merge/spec.kvx:30484", "spec/layerx-merge/spec.kvx:43034", "tests/daemon/movement_proof.py:71", "tests/daemon/owner_checkpoint.py:409"]
+callers = ["tests/daemon/owner-production.py:119", "tests/daemon/owner-production.py:187", "tests/daemon/guarantor-publication-chain.py:180", "spec/layerx-merge/spec.kvx:30484", "spec/layerx-merge/spec.kvx:43034", "tests/daemon/movement_proof.py:71", "tests/daemon/owner_checkpoint.py:409"]
 status = "stable"
 contract = "contracts/explorer-config.md#env-tests"
 notes = "read by the data-boundary harness"
@@ -774675,12 +774675,12 @@ notes = "append-only ledger, last entry gotcha.1843; callers are the programme t
 [interface.17.fmt-layerx-merge-qualification-j60]
 kind = "file_format"
 path = "spec/layerx-merge/qualification.kvx"
-line = 4
-signature = "[finding.<task>] revision, command, exit_code, log_path, observed_and_assumption"
+line = 2
+signature = "[finding.<N>.<k>.<m>] task, file, symbol, observed, assumption, severity"
 callers = []
-status = "change"
+status = "stable"
 contract = "contracts/programme.md#programme-artifacts"
-notes = "duplicate sections finding.5.0.8 (lines 4, 46) and finding.7.0.8 (lines 18, 53); callers are the programme tasks named in task.interfaces"
+notes = "reset ledger with no finding sections at the pinned revision; keys follow spec/workflow.kvx:64 entry_keys; entries are appended during the run; tasks 17.10.1 and 17.10.2 gate it without editing it"
 
 [interface.17.fmt-layerx-merge-spec-j60]
 kind = "file_format"
