@@ -231,6 +231,156 @@ func TestDisallowedSelector(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, addr, big.NewInt(0), []byte{0xde, 0xad, 0xbe, 0xef}), h.ledger), CodeDecodeError)
 }
 
+type policyTestTransferLeg struct {
+	From   [32]byte
+	Asset  [32]byte
+	To     [32]byte
+	Amount *big.Int
+}
+
+func TestLayerxpayBudgetFundCountsNativeSpend(t *testing.T) {
+	for _, tc := range []struct {
+		precompile string
+		method     string
+		args       func(*big.Int) []any
+	}{
+		{"layerxpay", "budgetFund", func(amount *big.Int) []any {
+			return []any{[32]byte{1}, amount}
+		}},
+		{"layerxpay", "budgetFundNative", func(amount *big.Int) []any {
+			return []any{[32]byte{1}, amount, uint64(2)}
+		}},
+		{"layerxprograms", "transfer", func(amount *big.Int) []any {
+			half := new(big.Int).Div(amount, big.NewInt(2))
+			return []any{[32]byte{1}, []policyTestTransferLeg{
+				{From: [32]byte{2}, Asset: [32]byte{3}, To: [32]byte{4}, Amount: half},
+				{From: [32]byte{5}, Asset: [32]byte{3}, To: [32]byte{6}, Amount: new(big.Int).Sub(amount, half)},
+			}}
+		}},
+		{"layerxprograms", "sandboxFund", func(amount *big.Int) []any {
+			return []any{[32]byte{1}, [32]byte{2}, [32]byte{3}, [32]byte{4}, [32]byte{5}, amount,
+				uint64(1_900_000_000), uint32(1), [7]uint64{}, []byte{}, [32]byte{6}, []policyTestTransferLeg{}}
+		}},
+	} {
+		t.Run(tc.precompile+"/"+tc.method, func(t *testing.T) {
+			h := newHarness(t)
+			address, _ := evm.PrecompileAddress(tc.precompile)
+			h.policy.doc.Defaults.Selectors[address.Hex()] = []string{selectorHex(t, tc.precompile, tc.method)}
+			contract, err := evm.PrecompileABI(tc.precompile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			evaluate := func(amount, value *big.Int) Decision {
+				data, err := contract.Pack(tc.method, tc.args(amount)...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return h.policy.Evaluate(testAccount, h.tx(t, address, value, data), h.ledger)
+			}
+			expect(t, evaluate(pax(11), big.NewInt(0)), CodeValueCap)
+			expect(t, evaluate(pax(10), big.NewInt(1)), CodeValueCap)
+			decision := evaluate(pax(10), big.NewInt(0))
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 1 || decision.Spends[0].Asset != AssetNative || decision.Spends[0].Amount.Cmp(pax(10)) != 0 {
+				t.Fatalf("spends %+v, want 10 native", decision.Spends)
+			}
+			h.now = h.now.Add(RateWindow)
+			expect(t, evaluate(pax(6), big.NewInt(0)), CodeDailyCap)
+			spent, err := h.ledger.Spent(strings.ToLower(testAccount), AssetNative, h.now.Add(-SpendWindow))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if spent.Cmp(pax(10)) != 0 {
+				t.Fatalf("ledger spent %s, want %s", spent, pax(10))
+			}
+		})
+	}
+}
+
+func TestLayerxprogramsUnlistedSelectorRefused(t *testing.T) {
+	for _, tc := range []struct {
+		precompile string
+		allowed    string
+		method     string
+		args       []any
+	}{
+		{"layerxprograms", "transfer", "tombstone", []any{[32]byte{1}}},
+		{"layerxprograms", "transfer", "call", []any{[32]byte{1}, uint16(1), "execute", []byte{}, []byte{}, []byte{}, uint32(0), [7]uint64{}, pax(100)}},
+		{"layerxpay", "budgetFund", "budgetSpend", []any{[32]byte{1}, [32]byte{2}, pax(100)}},
+	} {
+		t.Run(tc.precompile+"/"+tc.method, func(t *testing.T) {
+			h := newHarness(t)
+			address, _ := evm.PrecompileAddress(tc.precompile)
+			h.policy.doc.Defaults.Selectors[address.Hex()] = []string{selectorHex(t, tc.precompile, tc.allowed)}
+			contract, err := evm.PrecompileABI(tc.precompile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			data, err := contract.Pack(tc.method, tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := h.tx(t, address, big.NewInt(0), data)
+			expect(t, h.policy.Evaluate(testAccount, request, h.ledger), CodeSelectorNotAllowed)
+			h.policy.doc.Defaults.Selectors[address.Hex()] = append(h.policy.doc.Defaults.Selectors[address.Hex()], selectorHex(t, tc.precompile, tc.method))
+			decision := h.policy.Evaluate(testAccount, request, h.ledger)
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 0 {
+				t.Fatalf("%s.%s spends %+v, want no native spend", tc.precompile, tc.method, decision.Spends)
+			}
+		})
+	}
+}
+
+func TestShippedPolicyAllowsConstructSelectors(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	amount := new(big.Int).Div(pax(1), big.NewInt(2))
+	for _, tc := range []struct {
+		precompile string
+		method     string
+		args       []any
+		spend      *big.Int
+	}{
+		{"layerxpay", "budgetCreate", []any{[32]byte{1}, [32]byte{2}, [32]byte{3}, [32]byte{4}, pax(100), pax(100), pax(100), uint64(1), uint64(2), uint64(3), uint64(4), uint8(0)}, nil},
+		{"layerxpay", "budgetFund", []any{[32]byte{1}, amount}, amount},
+		{"layerxpay", "budgetFundNative", []any{[32]byte{1}, amount, uint64(2)}, amount},
+		{"layerxpay", "budgetClose", []any{[32]byte{1}, uint64(2)}, nil},
+		{"layerxpay", "escrowOpen", []any{[32]byte{1}, [32]byte{2}, [32]byte{3}, [32]byte{4}, [32]byte{5}, [32]byte{6}, pax(100), uint64(1), uint64(2), [32]byte{7}, [32]byte{8}}, nil},
+		{"layerxpay", "escrowRelease", []any{[32]byte{1}, [32]byte{2}}, nil},
+		{"layerxprograms", "call", []any{[32]byte{1}, uint16(1), "execute", []byte{}, []byte{}, []byte{}, uint32(0), [7]uint64{}, pax(100)}, nil},
+		{"layerxprograms", "transfer", []any{[32]byte{1}, []policyTestTransferLeg{{From: [32]byte{2}, Asset: [32]byte{3}, To: [32]byte{4}, Amount: amount}}}, amount},
+	} {
+		t.Run(tc.precompile+"/"+tc.method, func(t *testing.T) {
+			h := newHarness(t)
+			h.policy = New(doc)
+			address, _ := evm.PrecompileAddress(tc.precompile)
+			contract, err := evm.PrecompileABI(tc.precompile)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !slices.Contains(doc.Defaults.Selectors[strings.ToLower(address.Hex())], selectorHex(t, tc.precompile, tc.method)) {
+				t.Fatalf("shipped policy is missing %s.%s", tc.precompile, tc.method)
+			}
+			data, err := contract.Pack(tc.method, tc.args...)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision := h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+			expect(t, decision, CodeAllowed)
+			if tc.spend == nil {
+				if len(decision.Spends) != 0 {
+					t.Fatalf("spends %+v, want no native spend", decision.Spends)
+				}
+			} else if len(decision.Spends) != 1 || decision.Spends[0].Asset != AssetNative || decision.Spends[0].Amount.Cmp(tc.spend) != 0 {
+				t.Fatalf("spends %+v, want %s native", decision.Spends, tc.spend)
+			}
+		})
+	}
+}
+
 func TestUnknownKind(t *testing.T) {
 	h := newHarness(t)
 	expect(t, h.policy.Evaluate(testAccount, Request{Kind: "lx_activity", View: []byte{1}}, h.ledger), CodeUnknownKind)

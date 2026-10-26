@@ -39,6 +39,7 @@ const (
 	PathLXReview  = "/v1/lx/review"
 	PathEVMReview = "/v1/evm/review"
 	PathHealth    = "/health"
+	PathMetrics   = "/metrics"
 
 	DefaultProtocolTimeout = 5 * time.Minute
 	maxRequestBytes        = 2 << 20
@@ -151,6 +152,9 @@ func New(opts Options) (*Server, error) {
 	s.mux.HandleFunc(PathLXReview, s.post(s.gatewayOnly("lx.review", s.HandleLXReview)))
 	s.mux.HandleFunc(PathEVMReview, s.post(s.gatewayOnly("evm.review", s.HandleEVMReview)))
 	s.mux.HandleFunc(PathHealth, s.HandleHealth)
+	if opts.Metrics != nil {
+		s.mux.HandleFunc("GET "+PathMetrics, s.operatorOnly("metrics", opts.Metrics.Handler().ServeHTTP))
+	}
 	return s, nil
 }
 
