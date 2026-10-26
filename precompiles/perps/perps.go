@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"math/big"
 
-	exchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	perpskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
@@ -21,10 +20,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+// PerpsAddress is the address the venue serves from activation, the
+// address of the v6.9 exchange precompile below it.
+const PerpsAddress = "0x0000000000000000000000000000000000001015"
+
 const (
-	// PerpsAddress is the address the venue serves from activation, the
-	// address of the v6.9 exchange precompile below it.
-	PerpsAddress   = exchangetypes.ExchangeAddress
 	PrecompileName = "perps"
 
 	// TokenCallGas caps the nested USDL ERC20 call of a token leg; every
