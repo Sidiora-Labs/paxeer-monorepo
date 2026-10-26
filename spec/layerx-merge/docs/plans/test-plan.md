@@ -1,8 +1,8 @@
 # Test plan
 
-The test contract is one acceptance criterion, one unique test selector, and one owning task. The merged candidate contains 3,997 criteria, 3,997 acceptance blocks, 3,997 distinct task test selectors, and 2,517 tasks. There are no duplicate test owners, uncovered acceptance selectors, or task selectors without an acceptance. All acceptance qualification values remain `UNRUN`; these counts describe planned verification, not passing executions.
+The test contract is one acceptance criterion, one unique test selector, and one owning task. The merged candidate contains 4,025 criteria, 4,025 acceptance blocks, 4,025 distinct task test selectors, and 2,545 tasks. There are no duplicate test owners, uncovered acceptance selectors, or task selectors without an acceptance. All acceptance qualification values remain `UNRUN`; these counts describe planned verification, not passing executions.
 
-Baseline revision: `2a1033aa26a3f669f2fc23098926cc8dd5940000`. Candidate SHA-256: `e9b2e8c6a6dd2f595ff940309be9dde91599acb79ebc9d2ea7383c62b9b51929`. Counts come from `out/spec.kvx`; the build input is the final fragments, including the domain checks, wiring and graph repairs. `inventory/J20.md` sections 1–3 provide the baseline test and manifest inventory. The command and manifest review below reads source only; no repository build, test, dependency install or generated-file command was executed.
+Baseline revision: `2a1033aa26a3f669f2fc23098926cc8dd5940000`. Candidate SHA-256 (spec.kvx): `0c3b740c6cde1e8b2f0aef2914d0b1d65989268d928022cb4181417bf06ee32e`. Counts come from `out/spec.kvx`; the build input is the final fragments, including the domain checks, wiring and graph repairs. `inventory/J20.md` sections 1–3 provide the baseline test and manifest inventory. The command and manifest review below reads source only; no repository build, test, dependency install or generated-file command was executed.
 
 ## Counts and ownership
 
@@ -17,17 +17,17 @@ Baseline revision: `2a1033aa26a3f669f2fc23098926cc8dd5940000`. Candidate SHA-256
 | 5 node-runtime | 232 | 231 / 1 | 337 | 332 / 5 | 382 | 377 / 5 |
 | 6 chain-modules | 253 | 248 / 5 | 344 | 331 / 13 | 345 | 332 / 13 |
 | 7 rpc-api | 116 | 116 / 0 | 147 | 145 / 2 | 147 | 145 / 2 |
-| 8 platform | 200 | 199 / 1 | 365 | 357 / 8 | 365 | 357 / 8 |
-| 9 agent | 148 | 137 / 11 | 280 | 262 / 18 | 280 | 262 / 18 |
-| 10 human | 111 | 108 / 3 | 185 | 175 / 10 | 185 | 175 / 10 |
+| 8 platform | 213 | 212 / 1 | 378 | 370 / 8 | 378 | 370 / 8 |
+| 9 agent | 148 | 136 / 12 | 280 | 262 / 18 | 280 | 262 / 18 |
+| 10 human | 125 | 122 / 3 | 199 | 189 / 10 | 199 | 189 / 10 |
 | 11 interop | 125 | 125 / 0 | 236 | 234 / 2 | 236 | 234 / 2 |
 | 12 wallet | 117 | 116 / 1 | 168 | 167 / 1 | 168 | 167 / 1 |
-| 13 programs | 127 | 120 / 7 | 205 | 198 / 7 | 205 | 198 / 7 |
+| 13 programs | 128 | 121 / 7 | 206 | 199 / 7 | 206 | 199 / 7 |
 | 14 web-explorer-bridge | 163 | 161 / 2 | 274 | 272 / 2 | 274 | 272 / 2 |
 | 15 cosmos-fork | 57 | 57 / 0 | 136 | 136 / 0 | 90 | 90 / 0 |
 | 16 tools-ops | 153 | 152 / 1 | 216 | 214 / 2 | 216 | 214 / 2 |
 | 17 programme | 65 | 65 / 0 | 89 | 89 / 0 | 89 | 89 / 0 |
-| Total | 2517 | 2466 / 51 | 3997 | 3899 / 98 | 3997 | 3899 / 98 |
+| Total | 2545 | 2493 / 52 | 4025 | 3927 / 98 | 4025 | 3927 / 98 |
 
 Domain 15 keeps 46 acceptance criteria whose implementation paths belong to other domains: 45 `consensus/` tests are owned by tasks `5.61.1`–`5.69.1`; `acceptance.15.272.1` is owned by `6.13.1` for the `interchain/` proto registry. This explains the 337/382, 344/345 and 136/90 criterion/owner totals in domains 5, 6 and 15. Count the same selector once across the join; do not duplicate it to force each owner’s local criterion count to match.
 
@@ -56,7 +56,7 @@ Task `build_cmd` and `verify_cmd` are separate bounded invocations. Run the exac
 
 Go is pinned by `go.mod:3`. Native linkage in `modules/lxphost/host.go:7` requires the kernel static library, the programs sandbox static library, OpenSSL development libraries, and `CGO_ENABLED=1`. Provision those dependencies through the foundation/build tasks before the bounded verification command; do not consume the verification budget finding missing libraries. Root-wide Go coverage belongs to release aggregation, not an individual task.
 
-Rust is pinned by `rust-toolchain.toml:2`. Manifest reads found two commands selecting a package absent from the named workspace: `8.94.2` and `8.96.4` use `-p layerx-registry`; the actual package is `layerx-platform-registry` at `services/platform/hosted/registry/Cargo.toml:2`. These commands require owner correction before execution. The six commands selecting `layerx-committed-proof` are an expected planned boundary: task `11.15.1` creates that crate, adds it to `services/interop/Cargo.toml:2`, and updates the lock before its dependants run.
+Rust is pinned by `rust-toolchain.toml:2`. `8.94.2` and `8.96.4` select `-p layerx-platform-registry`, the package at `services/platform/hosted/registry/Cargo.toml:2`. The six commands selecting `layerx-committed-proof` are an expected planned boundary: task `11.15.1` creates that crate, adds it to `services/interop/Cargo.toml:2`, and updates the lock before its dependants run.
 
 The root JavaScript packages use the workspace declarations at `package.json:8`. J20 section 2.3 records root npm locking, app-local pnpm locking and the explorer yarn lock. Use the matching lockfile manager when provisioning dependencies. The declared gate commands below are reproduced from task blocks; using `pnpm exec` does not authorize installing a second dependency tree in a package governed by npm or yarn. The perps test script explicitly supplies `--import tsx` at `apps/perps/package.json:10`. TypeScript files run directly with Node require an explicit compatible loader or type-stripping runtime; a filename suffix alone proves nothing.
 
@@ -67,6 +67,8 @@ The explorer builder wrapper documents a disposable database and forwards a sing
 The iOS integration package at `sdk/integrations/ios/Package.swift:4` has no test target at baseline. Task `15.4.9` explicitly adds `LayerXMobileTests` and its test directory before that task and `15.4.10` can execute their planned Swift selectors. This is a planned manifest change, not an existing runnable target.
 
 ## Targets by domain and toolchain
+
+The per-domain toolchain tables below were classified on the 2,517-task candidate and are not recomputed here; the 28 tasks added since (domains 8, 10 and 13) and their 28 criteria are counted only in the table above.
 
 Each table counts owned, unique `path::TestName` selectors and distinct test files. Manifest citations were read at the pinned revision. Multiple manifest entries are separate boundaries, not an instruction to run each entire module. `task-defined runner environment` means that there is no local manifest for that target; it does not certify an absent dependency or a new package. The following representative commands are exact current task values; their planned tests must be created first and the defect notes below remain execution blockers. The full selector and command lists stay in the cited task blocks, so this plan does not create a second command registry.
 
@@ -546,24 +548,25 @@ Before accepting a gate, compare the runner’s executed test names to the task�
 
 A passing exit code is insufficient when the wrong tests ran or the assertions were vacuous. Negative cases must reach the real rejection path; receipt-event assertions must include at least one effect that should produce an event. Retirement checks must distinguish deleted files, removed symbols in surviving files, and runtime refusal of historical addresses. Keep necessary refusal tests after implementation retirement. The replay-matrix release gate remains required; a retirement wiring cannot delete it.
 
-Record an out-of-scope failure in `qualification.kvx` with the existing five-key format at `spec/layerx-merge/qualification.kvx:1` and `spec/layerx-merge/qualification.kvx:2`. Use a unique section per failure, appending an attempt suffix for repeat findings. Task `17.10.1` repairs duplicate historical sections; task `17.3.3` plans failure serialization. Keep the observed result separate from the cause hypothesis. The following is a format template, not a finding from this job:
+Record an out-of-scope failure in `qualification.kvx` with the six-key format at `spec/layerx-merge/qualification.kvx:1` and `spec/layerx-merge/qualification.kvx:2` (`spec/workflow.kvx:64` entry_keys). Use a unique section per failure; a second finding for the same task takes a `.<n>` suffix. The ledger holds no finding at the baseline and entries are appended during the run; task `17.10.1` gates section uniqueness and the six keys, task `17.10.2` gates the header against the workflow, and task `17.3.3` plans failure serialization. Keep the observed result separate from the cause hypothesis. The following is a format template, not a finding from this job:
 
 ```kvx
-[finding.<task>.<attempt>]
-revision = "<exact candidate revision>"
-command = "<complete exact command with escaped quotes>"
-exit_code = <actual integer>
-log_path = "<private evidence reference>"
-observed_and_assumption = "Observed: <failing test or zero executed tests>. Assumption: <unconfirmed cause>."
+[finding.<N>.<k>.<m>]
+task = "<N>.<k>.<m>"
+file = "<repo-relative path>:<line>"
+symbol = "<exact test, function, error code, selector or key>"
+observed = "At <exact candidate revision>, <complete exact command> exited <actual integer> (log <private evidence reference>): <failing test or zero executed tests>."
+assumption = "<one sentence: the unconfirmed cause the task proceeds on>"
+severity = "blocker"
 ```
 
-Preserve the complete command, including `|` inside regex alternatives; never split records on a pipe. For a zero-test result that exits 0, retain the actual `exit_code = 0` and explicitly record that coverage failed; do not relabel it as a pass or invent a different process exit. Keep raw logs and operational inventories in access-controlled evidence storage. Publish only reviewed, sanitized technical findings. A failed task stays incomplete and its dependants stop. Record exact revision, command, status, test identities/count and private log reference for successful gates in their execution evidence; do not use an unrelated successful command to clear a failed acceptance. The release runner already records argv, exit status, log reference and digest at `tools/qualification/release_runner.py:619`.
+Preserve the complete command, including `|` inside regex alternatives; never split records on a pipe. For a zero-test result that exits 0, record the actual exit 0 in `observed` and explicitly record that coverage failed; do not relabel it as a pass or invent a different process exit. Keep raw logs and operational inventories in access-controlled evidence storage. Publish only reviewed, sanitized technical findings. A failed task stays incomplete and its dependants stop. Record exact revision, command, status, test identities/count and private log reference for successful gates in their execution evidence; do not use an unrelated successful command to clear a failed acceptance. The release runner already records argv, exit status, log reference and digest at `tools/qualification/release_runner.py:619`.
 
 ## Aggregate gates and completion
 
-A task runs its bounded selectors. Aggregate scripts run once per required merged candidate and retain evidence under the wave runner. Creating a script or checking `--list` does not execute its aggregate. Tasks `16.1.1`–`16.1.8` create the scripts in wave 0; `17.5.8` creates their manifest and evidence wrapper; `16.97.4` checks command lists. Tasks `17.5.1`–`17.5.7` sit in wave 7 and requalify wave recipes 0–6 on the final merged revision. Earlier wave transitions still require their own wave gate before the next wave starts. Keep earlier evidence separately: it cannot satisfy the final requirement that all final wave evidence names the same candidate revision.
+A task runs its bounded selectors. Aggregate scripts run once per required merged candidate and retain evidence under the wave runner. Creating a script or checking `--list` does not execute its aggregate. Tasks `16.1.1`–`16.1.8` create the scripts in wave 0; `17.5.8` creates their manifest and evidence wrapper; `16.97.4` checks command lists. Tasks `17.5.1`–`17.5.7` sit in their target waves 0–6 (decision.1715) and run wave recipes 0–6 on each merged wave revision; `17.0.9` replays them on the final merged revision. Open item: the wave tasks carry no declared dependency closing every task of their wave, so the dispatcher enforces wave-wide closure before each run. Keep earlier evidence separately: it cannot satisfy the final requirement that all final wave evidence names the same candidate revision.
 
-| Recipe | Wave-7 execution task | Exact top-level entries, in order |
+| Recipe | Execution task | Exact top-level entries, in order |
 |---|---|---|
 | `scripts/gates/wave-0.sh` | `17.5.1` | `make -n build test; make workspace-build; make workspace-lint` |
 | `scripts/gates/wave-1.sh` | `17.5.2` | `make workspace-build; make workspace-test; make core-test-all; make test-sanitizer-suite` |
@@ -689,17 +692,14 @@ Wave 7 also includes dedicated merged-candidate work:
 
 The programme gate requires domain completions `1.0.9`–`16.0.9` and the listed merged-candidate tasks. Retirement scanning is supporting evidence alongside runtime refusal, migration and parity tests. A script that can only be listed, or a scan that merely finds strings absent, cannot complete behavioral acceptance.
 
-Document delivery has an additional independent lint gate. The Hyperfide CLI (`cg`) lint is detached from Python validation; delivery requires its recorded exit status to be 0 and its result to be newer than the generated spec. A successful `build.py check` does not waive the detached lint or any runtime qualification.
+Document delivery has an additional independent gate. The Hyperfide CLI (`cg`) acceptance, `cg spec status` on spec.kvx, is detached from Python validation; delivery requires its recorded exit status to be 0, every task reported, and its result newer than the generated spec. `cg spec lint` stays owed at release. A successful `build.py check` does not waive the detached acceptance or any runtime qualification.
 
 ## Findings requiring owner resolution
 
-The following findings are recorded for the final reconciliation job. They do not change any task command or acceptance ownership in this plan.
+Resolved in the merged candidate (decision.1724): `8.94.2` and `8.96.4` select `layerx-platform-registry`; the fourteen Rust commands of `8.93.1`, `8.94.1`, `8.94.2`, `8.94.3`, `8.96.1`, `8.96.2`, `8.96.4`, `9.92.2`, `9.94.1`, `9.95.1`, `9.96.2`, `9.97.2`, `9.97.4` and `12.95.1` carry `--locked` and `--exact` with their test names unchanged; task `9.27.6` declares `gate_kind = "existing"` because its four tests are defined at the baseline. The findings below remain open. They do not change any task command or acceptance ownership in this plan.
 
-- `8.94.2` and `8.96.4` select `layerx-registry`; the baseline package name is `layerx-platform-registry`. Correct the owner’s gate commands.
-- Fourteen Rust commands omit both `--locked` and `--exact`: `8.93.1`, `8.94.1`, `8.94.2`, `8.94.3`, `8.96.1`, `8.96.2`, `8.96.4`, `9.92.2`, `9.94.1`, `9.95.1`, `9.96.2`, `9.97.2`, `9.97.4`, `12.95.1`. Review full test names, target scope, package selection and lock ownership before accepting these gates.
 - The domain 1–16 completion gates describe source retirement and planned-path existence. A symbol can be retired while its containing file remains live; requiring the entire path to disappear would be wrong. Domain 2 has an empty retired-interface set, leaving only path existence. Require meaningful completion evidence from behavioral task results and distinguish file deletion from symbol removal. These gates do not alone prove domain completion.
 - Some planned Vitest commands use leaf-only anchored titles, and explorer commands use `--only test:<display name>`. Establish actual full titles/tags before implementing the tests; require executed-name equality and positive counts. Treat these as selector risks until the planned test declarations exist, not as proof that every such command is currently vacuous.
-- Task `9.27.6` declares `gate_kind = "planned"`, while all four of its acceptance tests are marked existing. Reconcile that metadata with the contract rule; the table preserves the declared value and keeps test existence counts independent.
 - Of 98 selectors declared existing, 96 have their leaf name present in the cited file. The two C selectors `programs_parallel_differential` and `golden_replay_two_kernels_match` label whole-binary behavior rather than named functions at baseline: `programs/tests/differential/parallel.c:1322` and `tests/replay/lxp_test_golden_replay.c:101`. Task `16.98.1` explicitly adds the replay case argument while retaining its release suite. Review the existing/planned classification and whole-binary gate granularity without discarding those behavioral assertions.
 
 Regenerate the counts and recheck the selector join after any fragment or ownership repair. The source snapshot hash above identifies exactly which candidate these tables describe.

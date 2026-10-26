@@ -1,14 +1,14 @@
 # Wave plan
 
-The plan contains **2,517 pending tasks** in waves 0–7 across 17 domains. All eligible tasks of one wave run concurrently in separate sandboxes, up to 500 active tasks. Same-wave `requires` edges determine admission within a wave; later waves wait for the preceding wave gate.
+The plan contains **2,545 pending tasks** in waves 0–7 across 17 domains. All eligible tasks of one wave run concurrently in separate sandboxes, up to 500 active tasks. Same-wave `requires` edges determine admission within a wave; later waves wait for the preceding wave gate.
 
-**Dispatch is blocked by the merged dependency graph.** 8 cyclic components prevent 672 tasks from becoming ready even before wave barriers are imposed. The first cycles are in wave 2. The runners `17.5.1`, `17.5.2`, `17.5.3`, `17.5.4`, `17.5.5`, `17.5.6`, `17.5.7` are assigned after their target wave, and their current prerequisites include `16.97.4` in wave 5. Their placement cannot satisfy the rule that each wave gate passes before the next wave begins. These source defects require resolution before an executable elapsed-time forecast can be issued.
+The merged dependency graph is acyclic. Aggregate wave closure must still honor the gate registry below.
 
 ## Source and calculation basis
 
 Counts, ownership, anchors, gate references and merged dependencies come from the generated `spec.kvx` task blocks. Repository baseline: revision `2a1033aa2`. This document describes planned implementation work; task gates have not been executed by writing this plan.
 
-Merged source SHA-256: `e9b2e8c6a6dd2f595ff940309be9dde91599acb79ebc9d2ea7383c62b9b51929`. The generator also reconstructs the task `requires` lists from their source fragments before wiring expansion and verifies that task ids, waves, titles and file ownership match the merged document. Fragment input digest: `c96cfce479437b3c028adf607748ba19f6b3cf5e4cb400638f48b1d2ea313631`. Regenerate these calculations when task scheduling fields change.
+Merged source SHA-256: `46934b307aa05fd9c836b590cdaf62102ea6e25584ffc665735876c0b173944a`. The generator also reconstructs the task `requires` lists from their source fragments before wiring expansion and verifies that task ids, waves, titles and file ownership match the merged document. Fragment input digest: `e6b5ba045183e6ab89afa7aad49f5e70b8d4765e57a2a79a6f327dd9b87f149f`. Regenerate these calculations when task scheduling fields change.
 
 A task receives one sandbox for 30 minutes, covering implementation and its bounded qualification. Dispatch requires all declared and wiring-expanded prerequisites to be complete. Each sandbox gets its task’s exact `touches`, `build_cmd`, `verify_cmd`, profile and rollback. One build and one focused verification run are allowed, with at most two repair cycles within the task limit; a failed or timed-out task holds the wave. An isolated workspace does not waive shared-file ownership.
 
@@ -23,40 +23,40 @@ A task receives one sandbox for 30 minutes, covering implementation and its boun
 | 5: node-runtime | `fm-node-runtime` | 15 | 44 | 38 | 27 | 31 | 42 | 34 | 1 | 232 |
 | 6: chain-modules | `fm-chain-modules` | 46 | 31 | 33 | 7 | 38 | 39 | 58 | 1 | 253 |
 | 7: rpc-api | `fm-rpc-api` | 8 | 53 | 15 | 8 | 23 | 3 | 5 | 1 | 116 |
-| 8: platform | `fm-platform` | 10 | 17 | 17 | 24 | 17 | 59 | 55 | 1 | 200 |
+| 8: platform | `fm-platform` | 10 | 17 | 22 | 32 | 17 | 59 | 55 | 1 | 213 |
 | 9: agent | `fm-agent` | 10 | 26 | 32 | 22 | 18 | 13 | 26 | 1 | 148 |
-| 10: human | `fm-human` | 6 | 19 | 12 | 7 | 15 | 38 | 13 | 1 | 111 |
+| 10: human | `fm-human` | 6 | 19 | 14 | 14 | 20 | 38 | 13 | 1 | 125 |
 | 11: interop | `fm-interop` | 13 | 17 | 22 | 21 | 14 | 11 | 26 | 1 | 125 |
 | 12: wallet | `fm-wallet` | 9 | 15 | 13 | 14 | 16 | 21 | 28 | 1 | 117 |
-| 13: programs | `fm-programs` | 12 | 20 | 31 | 21 | 20 | 8 | 14 | 1 | 127 |
+| 13: programs | `fm-programs` | 12 | 20 | 31 | 21 | 20 | 8 | 15 | 1 | 128 |
 | 14: web-explorer-bridge | `fm-web-explorer-bridge` | 11 | 32 | 35 | 22 | 17 | 28 | 17 | 1 | 163 |
 | 15: cosmos-fork | `fm-cosmos-fork` | 1 | 22 | 1 | 1 | 1 | 13 | 17 | 1 | 57 |
 | 16: tools-ops | `fm-tools-ops` | 14 | 20 | 9 | 6 | 6 | 64 | 33 | 1 | 153 |
-| 17: programme | `fm-programme` | 11 | 9 | 6 | 5 | 3 | 10 | 6 | 15 | 65 |
-| **Total** | | **259** | **440** | **431** | **205** | **314** | **407** | **430** | **31** | **2517** |
+| 17: programme | `fm-programme` | 12 | 10 | 7 | 6 | 4 | 11 | 7 | 8 | 65 |
+| **Total** | | **260** | **441** | **439** | **221** | **320** | **408** | **432** | **24** | **2545** |
 
 ## Capacity and duration
 
-Every whole wave fits under the 500-sandbox limit. Capacity alone would require one 30-minute batch per wave, or 4 hours for eight barriers, while total task effort is 1,258.5 sandbox-hours. Dependencies require more than one batch. For an acyclic wave, define rank as one plus the maximum same-wave prerequisite rank, with rank 1 for tasks having no same-wave prerequisites. Run every task of a rank concurrently; the largest rank is the exact wave duration in 30-minute task slots because capacity cannot bind.
+Every whole wave fits under the 500-sandbox limit. Capacity alone would require one 30-minute batch per wave, or 4 hours for eight barriers, while total task effort is 1,272.5 sandbox-hours. Dependencies require more than one batch. For an acyclic wave, define rank as one plus the maximum same-wave prerequisite rank, with rank 1 for tasks having no same-wave prerequisites. Run every task of a rank concurrently; the largest rank is the exact wave duration in 30-minute task slots because capacity cannot bind.
 
-The table separates the merged graph from a diagnostic calculation over the declared fragment edges before wiring expansion. That projection has 42 serial slots across wave barriers, or **21 h**. It excludes the added wiring edges and does not repair the merged graph or move its aggregate gates. The merged plan has **no finite completion estimate** until the cycles and gate placement are resolved. Times exclude dispatch, merge, external provisioning and aggregate runtime beyond the modeled task allocation; a repair or a gate requiring more than its task allocation must be recorded and rescheduled.
+The table separates the merged graph from a diagnostic calculation over the declared fragment edges before wiring expansion. That projection has 43 serial slots across wave barriers, or **21.5 h**. It excludes the added wiring edges and does not repair the merged graph or move its aggregate gates. Times exclude dispatch, merge, external provisioning and aggregate runtime beyond the modeled task allocation; a repair or a gate requiring more than its task allocation must be recorded and rescheduled.
 
 | Wave | Tasks | Capacity-only minimum | Merged same-wave chain | Declared-edge slots | Declared-edge duration | Declared-edge cumulative finish |
 |---|---:|---:|---|---:|---:|---:|
-| 0 | 259 | 30 min | 4 tasks / 2 h | 4 | 2 h | 2 h |
-| 1 | 440 | 30 min | 4 tasks / 2 h | 4 | 2 h | 4 h |
-| 2 | 431 | 30 min | Cyclic; completion blocked | 7 | 3.5 h | 7.5 h |
-| 3 | 205 | 30 min | 4 tasks / 2 h | 3 | 1.5 h | 9 h |
-| 4 | 314 | 30 min | Cyclic; completion blocked | 6 | 3 h | 12 h |
-| 5 | 407 | 30 min | Cyclic; completion blocked | 6 | 3 h | 15 h |
-| 6 | 430 | 30 min | Cyclic; completion blocked | 7 | 3.5 h | 18.5 h |
-| 7 | 31 | 30 min | 5 tasks / 2.5 h | 5 | 2.5 h | 21 h |
+| 0 | 260 | 30 min | 4 tasks / 2 h | 4 | 2 h | 2 h |
+| 1 | 441 | 30 min | 4 tasks / 2 h | 4 | 2 h | 4 h |
+| 2 | 439 | 30 min | 8 tasks / 4 h | 7 | 3.5 h | 7.5 h |
+| 3 | 221 | 30 min | 4 tasks / 2 h | 3 | 1.5 h | 9 h |
+| 4 | 320 | 30 min | 9 tasks / 4.5 h | 7 | 3.5 h | 12.5 h |
+| 5 | 408 | 30 min | 10 tasks / 5 h | 6 | 3 h | 15.5 h |
+| 6 | 432 | 30 min | 19 tasks / 9.5 h | 7 | 3.5 h | 19 h |
+| 7 | 24 | 30 min | 5 tasks / 2.5 h | 5 | 2.5 h | 21.5 h |
 
-Merged durations for acyclic individual waves assume every preceding wave is already complete; they are not a programme schedule. Even wave 0 cannot release wave 1 under the current aggregate-gate placement.
+Merged durations for acyclic individual waves assume every preceding wave is already complete; they are not a programme schedule. Each wave aggregate runs in its own wave; wave-wide closure before that run is the open item recorded in the gate registry below.
 
 ## Wave flow
 
-Each arrow means that all tasks of the preceding wave have qualified, its sandboxes have been merged, and its aggregate gate has passed. This is the required execution flow; the gate registry below records the placement conflict in the current task data.
+Each arrow means that all tasks of the preceding wave have qualified, its sandboxes have been merged, and its aggregate gate has passed. This is the required execution flow; the gate registry below records the open wave-closure item.
 
 ```mermaid
 flowchart TD
@@ -101,17 +101,17 @@ Every domain has five real anchor tasks. Foundation, surface, integration and cl
 | 16: tools-ops | `16.0.1` | `16.0.2` | `16.0.3` | `16.0.4` | `16.0.9` |
 | 17: programme | `17.0.1` | `17.0.2` | `17.0.3` | `17.0.4` | `17.0.9` |
 
-The aggregate gate manifest and runner are created by `17.5.8` in wave 0. Script authoring tasks `16.1.1`–`16.1.8` are also in wave 0. Authoring a script does not mean that the aggregate passed. All seven aggregate execution tasks currently sit in wave 7 and require `16.97.4` in wave 5; they also lack a declared dependency that closes every task of their target wave. A dispatcher must enforce wave-wide closure in addition to the anchor dependencies. The programme gate `17.0.9` requires all seven aggregate runners and domain completion anchors `1.0.9`–`16.0.9`.
+The aggregate gate manifest and runner are created by `17.5.8` in wave 0. Script authoring tasks `16.1.1`–`16.1.8` are also in wave 0. Authoring a script does not mean that the aggregate passed. Tasks `17.5.1`–`17.5.7` sit in their target waves 0–6 (decision.1715), each requiring the manifest task `17.5.8`, that wave's script author task (`16.1.1`–`16.1.7`) and the domain anchors. Open item: they carry no declared dependency that closes every task of their target wave, so the dispatcher must enforce wave-wide closure before it runs a wave aggregate. The programme gate `17.0.9` requires all seven aggregate runners and domain completion anchors `1.0.9`–`16.0.9`.
 
 | Target wave | Execution task | Assigned wave | Script author task | Planned aggregate script |
 |---|---|---:|---|---|
-| 0 | `17.5.1` | 7 | `16.1.1` | `scripts/gates/wave-0.sh` |
-| 1 | `17.5.2` | 7 | `16.1.2` | `scripts/gates/wave-1.sh` |
-| 2 | `17.5.3` | 7 | `16.1.3` | `scripts/gates/wave-2.sh` |
-| 3 | `17.5.4` | 7 | `16.1.4` | `scripts/gates/wave-3.sh` |
-| 4 | `17.5.5` | 7 | `16.1.5` | `scripts/gates/wave-4.sh` |
-| 5 | `17.5.6` | 7 | `16.1.6` | `scripts/gates/wave-5.sh` |
-| 6 | `17.5.7` | 7 | `16.1.7` | `scripts/gates/wave-6.sh` |
+| 0 | `17.5.1` | 0 | `16.1.1` | `scripts/gates/wave-0.sh` |
+| 1 | `17.5.2` | 1 | `16.1.2` | `scripts/gates/wave-1.sh` |
+| 2 | `17.5.3` | 2 | `16.1.3` | `scripts/gates/wave-2.sh` |
+| 3 | `17.5.4` | 3 | `16.1.4` | `scripts/gates/wave-3.sh` |
+| 4 | `17.5.5` | 4 | `16.1.5` | `scripts/gates/wave-4.sh` |
+| 5 | `17.5.6` | 5 | `16.1.6` | `scripts/gates/wave-5.sh` |
+| 6 | `17.5.7` | 6 | `16.1.7` | `scripts/gates/wave-6.sh` |
 | Programme | `17.0.9` | 7 | `16.1.8` | `scripts/gates/wave-programme.sh` |
 
 Run aggregate suites once on the merged wave revision through the manifest’s runner and record revision, command, exit code and evidence location. A nonzero exit holds the wave. Final candidate evidence for waves 0–6 must also satisfy `17.0.9`’s same-revision requirement. Use the Hyperfide CLI (`cg`) to claim and complete tasks only when their declared qualification has passed. Evidence remains distinct from the `pending` task inventory reported here.
@@ -124,119 +124,119 @@ Arrows in the following chains run prerequisite → dependent. A merged chain is
 
 Freeze types, ABI and protocol shapes, error registries, fixtures and task harnesses; prepare planned files without exposing new user behavior.
 
-Tasks: **259**; domain counts appear in the matrix above. Active shared-file claims: **157**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **260**; domain counts appear in the matrix above. Active shared-file claims: **156**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: `1.0.1`, `2.0.1`, `3.0.1`, `4.0.1`, `5.0.1`, `6.0.1`, `7.0.1`, `8.0.1`, `9.0.1`, `10.0.1`, `11.0.1`, `12.0.1`, `13.0.1`, `14.0.1`, `15.0.1`, `16.0.1`, `17.0.1`.
 
-Aggregate gate: `17.5.1`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.1`, assigned to this wave.
 
 Merged local critical chain: **4 tasks / 2 h**: `9.91.1` → `8.21.1` → `8.21.2` → `8.25.1`.
 
 Declared-edge diagnostic chain: **4 tasks / 2 h**: `8.0.1` → `8.21.1` → `8.21.2` → `8.25.1`.
 
-Declared-edge rank batch sizes: rank 1: 212; rank 2: 42; rank 3: 2; rank 4: 3.
+Declared-edge rank batch sizes: rank 1: 212; rank 2: 42; rank 3: 2; rank 4: 4.
 
 ### Wave 1 — core logic
 
 Implement keeper, kernel and crate internals, state layouts and pure functions with their focused behavior gates.
 
-Tasks: **440**; domain counts appear in the matrix above. Active shared-file claims: **256**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **441**; domain counts appear in the matrix above. Active shared-file claims: **265**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: none; retain the preceding fixed anchors and close every scheduled task.
 
-Aggregate gate: `17.5.2`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.2`, assigned to this wave.
 
 Merged local critical chain: **4 tasks / 2 h**: `2.3.1` → `2.3.2` → `2.3.4` → `2.3.5`.
 
 Declared-edge diagnostic chain: **4 tasks / 2 h**: `2.3.1` → `2.3.2` → `2.3.4` → `2.3.5`.
 
-Declared-edge rank batch sizes: rank 1: 409; rank 2: 26; rank 3: 4; rank 4: 1.
+Declared-edge rank batch sizes: rank 1: 409; rank 2: 27; rank 3: 4; rank 4: 1.
 
 ### Wave 2 — surfaces
 
 Freeze callable precompile methods, message and query handlers, RPC and HTTP routes, CLI commands, events and errors.
 
-Tasks: **431**; domain counts appear in the matrix above. Active shared-file claims: **263**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **439**; domain counts appear in the matrix above. Active shared-file claims: **273**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: `1.0.2`, `2.0.2`, `3.0.2`, `4.0.2`, `5.0.2`, `6.0.2`, `7.0.2`, `8.0.2`, `9.0.2`, `10.0.2`, `11.0.2`, `12.0.2`, `13.0.2`, `14.0.2`, `15.0.2`, `16.0.2`, `17.0.2`.
 
-Aggregate gate: `17.5.3`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.3`, assigned to this wave.
 
-Merged local critical path is blocked by **2 cyclic component(s)**. Their exact task ids and dependency edges are listed below.
+Merged local critical chain: **8 tasks / 4 h**: `7.8.1` → `7.9.2` → `7.0.2` → `8.0.2` → `8.93.1` → `14.21.2` → `14.0.2` → `17.5.3`.
 
-Declared-edge diagnostic chain: **7 tasks / 3.5 h**: `2.9.1` → `2.9.2` → `2.9.3` → `2.0.2` → `6.28.2` → `6.0.2` → `17.93.1`.
+Declared-edge diagnostic chain: **7 tasks / 3.5 h**: `2.9.1` → `2.9.2` → `2.9.3` → `2.0.2` → `6.28.2` → `6.0.2` → `17.5.3`.
 
-Declared-edge rank batch sizes: rank 1: 338; rank 2: 55; rank 3: 17; rank 4: 8; rank 5: 10; rank 6: 1; rank 7: 2.
+Declared-edge rank batch sizes: rank 1: 339; rank 2: 58; rank 3: 16; rank 4: 8; rank 5: 15; rank 6: 1; rank 7: 2.
 
 ### Wave 3 — services
 
 Move off-chain services and daemons to the frozen surfaces and qualify their service behavior.
 
-Tasks: **205**; domain counts appear in the matrix above. Active shared-file claims: **229**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **221**; domain counts appear in the matrix above. Active shared-file claims: **277**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: none; retain the preceding fixed anchors and close every scheduled task.
 
-Aggregate gate: `17.5.4`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.4`, assigned to this wave.
 
 Merged local critical chain: **4 tasks / 2 h**: `6.94.3` → `11.32.1` → `11.32.3` → `11.34.3`.
 
 Declared-edge diagnostic chain: **3 tasks / 1.5 h**: `13.2.1` → `13.3.1` → `13.3.4`.
 
-Declared-edge rank batch sizes: rank 1: 180; rank 2: 21; rank 3: 4.
+Declared-edge rank batch sizes: rank 1: 195; rank 2: 22; rank 3: 4.
 
 ### Wave 4 — integration
 
 Join node registration, activation, genesis, parameters, generated SDK surfaces and cross-domain consumers.
 
-Tasks: **314**; domain counts appear in the matrix above. Active shared-file claims: **198**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **320**; domain counts appear in the matrix above. Active shared-file claims: **217**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: `1.0.3`, `2.0.3`, `3.0.3`, `4.0.3`, `5.0.3`, `6.0.3`, `7.0.3`, `8.0.3`, `9.0.3`, `10.0.3`, `11.0.3`, `12.0.3`, `13.0.3`, `14.0.3`, `15.0.3`, `16.0.3`, `17.0.3`.
 
-Aggregate gate: `17.5.5`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.5`, assigned to this wave.
 
-Merged local critical path is blocked by **1 cyclic component(s)**. Their exact task ids and dependency edges are listed below.
+Merged local critical chain: **9 tasks / 4.5 h**: `16.0.3` → `16.95.1` → `1.16.2` → `1.0.3` → `13.0.3` → `6.12.4` → `6.0.3` → `17.0.3` → `17.5.5`.
 
-Declared-edge diagnostic chain: **6 tasks / 3 h**: `1.18.1` → `1.0.3` → `13.0.3` → `6.12.4` → `6.0.3` → `17.0.3`.
+Declared-edge diagnostic chain: **7 tasks / 3.5 h**: `1.18.1` → `1.0.3` → `13.0.3` → `6.12.4` → `6.0.3` → `17.0.3` → `17.5.5`.
 
-Declared-edge rank batch sizes: rank 1: 236; rank 2: 37; rank 3: 24; rank 4: 11; rank 5: 2; rank 6: 4.
+Declared-edge rank batch sizes: rank 1: 237; rank 2: 37; rank 3: 29; rank 4: 11; rank 5: 2; rank 6: 3; rank 7: 1.
 
 ### Wave 5 — clients
 
 Repoint applications, SDKs, wallets and explorers to integrated surfaces and remove displaced client paths.
 
-Tasks: **407**; domain counts appear in the matrix above. Active shared-file claims: **242**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **408**; domain counts appear in the matrix above. Active shared-file claims: **254**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: `1.0.4`, `2.0.4`, `3.0.4`, `4.0.4`, `5.0.4`, `6.0.4`, `7.0.4`, `8.0.4`, `9.0.4`, `10.0.4`, `11.0.4`, `12.0.4`, `13.0.4`, `14.0.4`, `15.0.4`, `16.0.4`, `17.0.4`.
 
-Aggregate gate: `17.5.6`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.6`, assigned to this wave.
 
-Merged local critical path is blocked by **1 cyclic component(s)**. Their exact task ids and dependency edges are listed below.
+Merged local critical chain: **10 tasks / 5 h**: `14.53.5` → `14.58.1` → `14.0.4` → `14.29.3` → `10.27.1` → `10.96.1` → `10.26.1` → `10.26.4` → `9.28.1` → `9.28.2`.
 
 Declared-edge diagnostic chain: **6 tasks / 3 h**: `10.6.2` → `10.6.1` → `10.20.5` → `10.26.1` → `10.26.15` → `10.21.3`.
 
-Declared-edge rank batch sizes: rank 1: 221; rank 2: 77; rank 3: 74; rank 4: 10; rank 5: 24; rank 6: 1.
+Declared-edge rank batch sizes: rank 1: 221; rank 2: 77; rank 3: 74; rank 4: 11; rank 5: 24; rank 6: 1.
 
 ### Wave 6 — conformance
 
 Close parity goldens, remaining retirements, migration rehearsals, cross-language checks and performance bounds.
 
-Tasks: **430**; domain counts appear in the matrix above. Active shared-file claims: **258**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **432**; domain counts appear in the matrix above. Active shared-file claims: **279**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: none; retain the preceding fixed anchors and close every scheduled task.
 
-Aggregate gate: `17.5.7`; its current assigned wave is 7, as recorded above.
+Aggregate gate: `17.5.7`, assigned to this wave.
 
-Merged local critical path is blocked by **4 cyclic component(s)**. Their exact task ids and dependency edges are listed below.
+Merged local critical chain: **19 tasks / 9.5 h**: `16.9.3` → `8.3.1` → `8.7.3` → `8.7.4` → `8.19.5` → `8.20.2` → `5.54.9` → `6.60.3` → `6.97.2` → `5.53.1` → `1.37.1` → `1.36.1` → `1.36.3` → `1.97.1` → `5.50.7` → `5.97.1` → `1.35.2` → `1.38.1` → `1.38.2`.
 
 Declared-edge diagnostic chain: **7 tasks / 3.5 h**: `9.1.4` → `9.18.2` → `9.18.7` → `9.30.1` → `9.29.1` → `9.27.4` → `9.26.3`.
 
-Declared-edge rank batch sizes: rank 1: 316; rank 2: 62; rank 3: 27; rank 4: 13; rank 5: 8; rank 6: 3; rank 7: 1.
+Declared-edge rank batch sizes: rank 1: 318; rank 2: 62; rank 3: 27; rank 4: 13; rank 5: 8; rank 6: 3; rank 7: 1.
 
 ### Wave 7 — completion
 
 Qualify each domain completion anchor and then the programme candidate, including aggregate evidence and release records.
 
-Tasks: **31**; domain counts appear in the matrix above. Active shared-file claims: **6**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
+Tasks: **24**; domain counts appear in the matrix above. Active shared-file claims: **5**; the ownership register lists every owner for this wave. All tasks use separate sandboxes and every ready, disjoint task may run concurrently. Actual starts still wait for same-wave prerequisites.
 
 Anchors closing this wave: `1.0.9`, `2.0.9`, `3.0.9`, `4.0.9`, `5.0.9`, `6.0.9`, `7.0.9`, `8.0.9`, `9.0.9`, `10.0.9`, `11.0.9`, `12.0.9`, `13.0.9`, `14.0.9`, `15.0.9`, `16.0.9`, `17.0.9`.
 
@@ -246,35 +246,24 @@ Merged local critical chain: **5 tasks / 2.5 h**: `5.0.9` → `17.1.7` → `17.1
 
 Declared-edge diagnostic chain: **5 tasks / 2.5 h**: `5.0.9` → `17.1.7` → `17.1.8` → `17.1.9` → `17.0.9`.
 
-Declared-edge rank batch sizes: rank 1: 23; rank 2: 4; rank 3: 2; rank 4: 1; rank 5: 1.
+Declared-edge rank batch sizes: rank 1: 16; rank 2: 4; rank 3: 2; rank 4: 1; rank 5: 1.
 
 ## Programme critical path and blockers
 
-The merged `requires` graph has 8 strongly connected components containing dependency cycles. No task in one of those components can become ready. Counting those tasks and all tasks transitively waiting for them gives 672 blocked tasks; imposing wave barriers can block progression further. This is a dependency result, independent of the number of available sandboxes.
+The merged `requires` graph, after wiring expansion, has no strongly connected component containing a dependency cycle (Tarjan SCC); the eight cyclic components of the earlier candidate were broken by decision.1713, so no task is blocked by a cycle before wave barriers. Across all waves the merged graph has 40 dependency layers, the widest holding 478 tasks (layer 2), and its longest prerequisite chain, the programme critical path, is 40 tasks. Same-wave merged chains are 4, 4, 8, 4, 9, 10, 19 and 5 tasks for waves 0 to 7. This is a dependency result, independent of the number of available sandboxes.
 
 | Wave | Tasks blocked by cycles before barriers |
 |---|---:|
 | 0 | 0 |
 | 1 | 0 |
-| 2 | 10 |
-| 3 | 18 |
-| 4 | 69 |
-| 5 | 233 |
-| 6 | 313 |
-| 7 | 29 |
+| 2 | 0 |
+| 3 | 0 |
+| 4 | 0 |
+| 5 | 0 |
+| 6 | 0 |
+| 7 | 0 |
 
-For the cyclic-component register only, arrows run **dependent → prerequisite**, directly matching each task’s `requires` list. Every listed edge is present in the merged document.
-
-| Component | Wave | Members | Internal dependency edges |
-|---|---:|---|---|
-| C1 | 6 | `1.36.1`, `1.36.3`, `1.37.1`, `1.97.1`, `5.50.7`, `5.51.1`, `5.51.4`, `5.97.1`, `8.19.1` | `1.36.1` → `1.37.1`; `1.36.3` → `1.36.1`; `1.37.1` → `5.97.1`; `1.97.1` → `1.36.3`; `5.50.7` → `1.97.1`; `5.51.1` → `8.19.1`; `5.51.4` → `8.19.1`; `5.97.1` → `5.50.7`; `5.97.1` → `5.51.1`; `5.97.1` → `5.51.4`; `8.19.1` → `5.97.1` |
-| C2 | 4 | `2.95.2`, `6.0.3`, `6.22.8` | `2.95.2` → `6.0.3`; `6.0.3` → `6.22.8`; `6.22.8` → `2.95.2` |
-| C3 | 6 | `5.54.9`, `6.60.2`, `6.60.3`, `6.97.2` | `5.54.9` → `6.97.2`; `6.60.2` → `5.54.9`; `6.60.3` → `5.54.9`; `6.97.2` → `6.60.2`; `6.97.2` → `6.60.3` |
-| C4 | 6 | `5.55.5`, `8.47.7` | `5.55.5` → `8.47.7`; `8.47.7` → `5.55.5` |
-| C5 | 2 | `6.0.2`, `6.2.1`, `17.93.1` | `6.0.2` → `6.2.1`; `6.2.1` → `17.93.1`; `17.93.1` → `6.0.2` |
-| C6 | 2 | `8.93.1`, `14.0.2`, `14.21.2`, `14.22.5`, `14.30.2`, `16.93.1` | `8.93.1` → `14.0.2`; `14.0.2` → `14.21.2`; `14.0.2` → `14.22.5`; `14.0.2` → `14.30.2`; `14.21.2` → `8.93.1`; `14.22.5` → `16.93.1`; `14.30.2` → `16.93.1`; `16.93.1` → `14.0.2` |
-| C7 | 5 | `10.26.1`, `10.96.1` | `10.26.1` → `10.96.1`; `10.96.1` → `10.26.1` |
-| C8 | 6 | `16.33.5`, `16.97.5` | `16.33.5` → `16.97.5`; `16.97.5` → `16.33.5` |
+The cyclic-component register is empty: the merged graph is acyclic.
 
 The declared-edge fragment graph is acyclic. Its longest literal `requires` chain is **24 tasks**, or **12 h** with no global wave-barrier delay. The full task-id witness follows; each task requires its predecessor. This chain is a diagnostic projection; merged dispatch status is recorded above.
 
@@ -305,11 +294,11 @@ The declared-edge fragment graph is acyclic. Its longest literal `requires` chai
 | 23 | `17.4.6` | 7 | Run the parity inventory once on the merged revision |
 | 24 | `17.0.9` | 7 | Run the programme gate once on the merged candidate |
 
-The 12 h literal-chain projection and 21 h wave-barrier projection measure different constraints. Each wave can have a longest chain in a different domain; barriers concatenate those wave maxima even when no literal `requires` edge joins them. Neither projection constitutes a successful qualification or an executable forecast for the merged graph.
+The 12 h literal-chain projection and 21.5 h wave-barrier projection measure different constraints. Each wave can have a longest chain in a different domain; barriers concatenate those wave maxima even when no literal `requires` edge joins them. Neither projection constitutes a successful qualification or an executable forecast for the merged graph.
 
 ## Shared-file ownership per wave
 
-A file has one task owner in each wave in which it is touched. The merged task inventory has **zero same-wave file ownership collisions**. A shared file below means an exact `touches` path named by more than one task across the programme; there are **615** such files. Path ownership remains with its feature manager across waves. Request changes outside that domain through wiring and let its owning task make the edit.
+A file has one task owner in each wave in which it is touched. The merged task inventory has **zero same-wave file ownership collisions**. A shared file below means an exact `touches` path named by more than one task across the programme; there are **663** such files. Path ownership remains with its feature manager across waves. Request changes outside that domain through wiring and let its owning task make the edit.
 
 The central-file matrix also includes reserved shared paths with no scheduled writer. A dash means no task writes that file in that wave; it does not delegate the file to another domain. Generated protocol files remain with their module owner, while `api/**` definitions follow the domain allocation and `buf.gen.yaml` remains with domain 7.
 
@@ -487,6 +476,7 @@ The complete register below includes existing and planned files exactly as decla
 | `precompiles/common/precompiles.go` | W0: `6.1.1`; W1: `6.1.3`; W2: `6.1.2` |
 | `precompiles/layerxanchor/layerxanchor.go` | W2: `6.32.1`; W4: `6.32.2`; W5: `6.96.1`; W6: `6.34.1` |
 | `precompiles/layerxprograms/layerxprograms.go` | W1: `13.22.1`; W4: `13.32.1` |
+| `precompiles/layerxprograms/submit.go` | W1: `13.22.4`; W6: `13.98.1` |
 | `precompiles/layerxverify/layerxverify.go` | W5: `6.96.2`; W6: `6.71.1` |
 | `precompiles/setup.go` | W0: `6.6.1`; W1: `6.6.2`; W2: `6.6.3`; W3: `6.6.4`; W4: `6.6.5`; W5: `6.6.9` |
 | `precompiles/setup_test.go` | W0: `6.0.1`; W4: `6.0.3` |
@@ -646,36 +636,65 @@ The complete register below includes existing and planned files exactly as decla
 | `services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/transaction_signature.ex` | W0: `14.22.4`; W3: `14.22.6` |
 | `services/explorer/backend/apps/ethereum_jsonrpc/lib/ethereum_jsonrpc/paxeer_x.ex` | W4: `14.28.1`; W5: `14.28.2` |
 | `services/explorer/services/sig-provider/sig-provider/src/sources/precompiles.rs` | W1: `14.30.1`; W4: `14.30.3` |
-| `services/human/crates/layerx-human-kms/src/attestor.rs` | W1: `10.11.2`; W4: `10.11.5`; W6: `10.97.1` |
-| `services/human/crates/layerx-human-kms/src/server.rs` | W2: `10.11.7`; W6: `10.97.1` |
+| `services/human/crates/layerx-explorer-index/src/lib.rs` | W3: `10.98.1`; W5: `10.27.5` |
+| `services/human/crates/layerx-explorer-index/src/main.rs` | W3: `10.98.1`; W5: `10.27.1` |
+| `services/human/crates/layerx-explorer-index/src/query.rs` | W3: `10.98.1`; W5: `10.27.8` |
+| `services/human/crates/layerx-explorer-index/src/reads.rs` | W3: `10.98.1`; W5: `10.27.7` |
+| `services/human/crates/layerx-explorer-index/src/receipt_authority.rs` | W3: `10.98.1`; W5: `10.27.11` |
+| `services/human/crates/layerx-explorer-index/tests/rebuild.rs` | W3: `10.98.1`; W5: `10.27.6` |
+| `services/human/crates/layerx-explorer-index/tests/receipt_authority_reader.rs` | W3: `10.98.1`; W5: `10.27.11` |
+| `services/human/crates/layerx-explorer-index/tests/verify.rs` | W3: `10.98.1`; W5: `10.27.10` |
+| `services/human/crates/layerx-human-kms/src/attestor.rs` | W1: `10.11.2`; W3: `10.98.7`; W4: `10.11.5`; W6: `10.97.1` |
+| `services/human/crates/layerx-human-kms/src/server.rs` | W2: `10.11.7`; W4: `10.98.8`; W6: `10.97.1` |
 | `services/human/crates/layerx-human-kms/src/store.rs` | W2: `10.11.3`; W3: `10.11.4`; W4: `10.11.5` |
 | `services/human/crates/layerx-human-kms/src/wire.rs` | W2: `10.11.3`; W3: `10.11.4`; W4: `10.11.5` |
-| `services/human/crates/layerx-human-kms/tests/provider.rs` | W1: `10.4.2`; W3: `10.11.4`; W6: `10.21.4` |
+| `services/human/crates/layerx-human-kms/tests/attestor.rs` | W3: `10.98.7`; W4: `10.11.9` |
+| `services/human/crates/layerx-human-kms/tests/provider.rs` | W1: `10.4.2`; W2: `10.98.2`; W3: `10.11.4`; W4: `10.98.8`; W6: `10.21.4` |
+| `services/human/crates/layerx-human-movement-provider/src/config.rs` | W3: `10.98.3`; W6: `10.10.1` |
+| `services/human/crates/layerx-human-movement-provider/tests/kms/mod.rs` | W3: `10.98.3`; W6: `10.10.2` |
 | `services/human/crates/layerx-human-service/src/activity/mod.rs` | W1: `10.2.1`; W2: `10.3.1` |
 | `services/human/crates/layerx-human-service/src/agents/create.rs` | W1: `10.13.1`; W6: `10.97.1` |
+| `services/human/crates/layerx-human-service/src/agents/create_native.rs` | W1: `10.13.1`; W4: `10.98.10` |
 | `services/human/crates/layerx-human-service/src/agents/reclaim.rs` | W1: `10.13.7`; W5: `10.2.4` |
-| `services/human/crates/layerx-human-service/src/custody/gateway.rs` | W1: `10.4.1`; W6: `10.97.1` |
-| `services/human/crates/layerx-human-service/src/custody/signer.rs` | W3: `10.20.3`; W5: `10.17.1` |
+| `services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs` | W1: `10.4.2`; W3: `10.98.5` |
+| `services/human/crates/layerx-human-service/src/custody/gateway.rs` | W1: `10.4.1`; W3: `10.98.5`; W4: `10.98.10`; W6: `10.97.1` |
+| `services/human/crates/layerx-human-service/src/custody/provider.rs` | W1: `10.4.1`; W3: `10.98.5`; W4: `10.98.10` |
+| `services/human/crates/layerx-human-service/src/custody/signer.rs` | W3: `10.20.3`; W4: `10.98.10`; W5: `10.17.1` |
 | `services/human/crates/layerx-human-service/src/journeys/engine.rs` | W4: `10.13.5`; W5: `10.2.4` |
 | `services/human/crates/layerx-human-service/src/journeys/intent_submit.rs` | W2: `10.7.1`; W3: `10.20.3`; W4: `10.0.3` |
 | `services/human/crates/layerx-human-service/src/journeys/mod.rs` | W3: `10.20.3`; W5: `10.2.4` |
 | `services/human/crates/layerx-human-service/src/lib.rs` | W0: `10.0.1`; W4: `10.9.1`; W6: `10.1.2` |
 | `services/human/crates/layerx-human-service/src/onboarding/mod.rs` | W2: `10.12.1`; W5: `10.2.4` |
-| `services/human/crates/layerx-human-service/src/server/agent_runtime.rs` | W0: `10.13.3`; W3: `10.13.4`; W4: `10.13.5`; W5: `10.2.4` |
-| `services/human/crates/layerx-human-service/src/server/backend.rs` | W1: `10.4.4`; W2: `10.0.2` |
-| `services/human/crates/layerx-human-service/src/server/component.rs` | W1: `10.4.4`; W2: `10.0.2` |
-| `services/human/crates/layerx-human-service/src/server/mod.rs` | W1: `10.4.4`; W5: `10.20.5` |
+| `services/human/crates/layerx-human-service/src/onboarding/native.rs` | W2: `10.5.2`; W4: `10.98.10` |
+| `services/human/crates/layerx-human-service/src/server/agent_creation_native.rs` | W1: `10.20.1`; W4: `10.98.10` |
+| `services/human/crates/layerx-human-service/src/server/agent_runtime.rs` | W0: `10.13.3`; W2: `10.98.4`; W3: `10.13.4`; W4: `10.13.5`; W5: `10.2.4` |
+| `services/human/crates/layerx-human-service/src/server/backend.rs` | W1: `10.4.4`; W2: `10.0.2`; W3: `10.98.5` |
+| `services/human/crates/layerx-human-service/src/server/component.rs` | W1: `10.4.4`; W2: `10.0.2`; W3: `10.98.5` |
+| `services/human/crates/layerx-human-service/src/server/mod.rs` | W1: `10.4.4`; W3: `10.98.5`; W5: `10.20.5` |
 | `services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs` | W3: `10.12.2`; W5: `10.96.2` |
 | `services/human/crates/layerx-human-service/src/server/production_components.rs` | W1: `10.20.1`; W2: `10.3.1`; W3: `10.20.3`; W4: `10.0.3`; W5: `10.20.5`; W6: `10.14.1` |
+| `services/human/crates/layerx-human-service/src/server/production_onboarding.rs` | W1: `10.20.1`; W4: `10.98.10` |
 | `services/human/crates/layerx-human-service/src/server/production_reads.rs` | W1: `10.92.1`; W5: `10.2.4` |
 | `services/human/crates/layerx-human-service/src/server/schema.rs` | W2: `10.0.2`; W6: `10.14.1` |
+| `services/human/crates/layerx-human-service/tests/binding.rs` | W3: `10.98.9`; W4: `10.9.1` |
+| `services/human/crates/layerx-human-service/tests/deposit.rs` | W3: `10.20.3`; W4: `10.98.10` |
+| `services/human/crates/layerx-human-service/tests/evidence_node.rs` | W1: `10.4.3`; W3: `10.98.5` |
+| `services/human/crates/layerx-human-service/tests/native_journey_approval.rs` | W1: `10.4.3`; W3: `10.98.5` |
+| `services/human/crates/layerx-human-service/tests/native_send_producer.rs` | W1: `10.4.3`; W3: `10.98.5` |
+| `services/human/crates/layerx-human-service/tests/render.rs` | W4: `10.98.11`; W5: `10.96.2` |
+| `services/human/crates/layerx-human-service/tests/support/withdraw_native.rs` | W3: `10.98.5`; W4: `10.8.2` |
+| `services/human/crates/layerx-human-service/tests/withdraw.rs` | W2: `10.98.4`; W3: `10.20.3` |
 | `services/human/crates/layerx-human-test-support/Cargo.toml` | W0: `10.25.5`; W1: `10.25.3` |
-| `services/human/crates/layerx-human-test-support/src/evidence_node.rs` | W1: `10.25.3`; W6: `10.25.4` |
-| `services/human/crates/layerx-human-test-support/src/lib.rs` | W0: `10.25.5`; W1: `10.25.3`; W2: `10.25.1`; W3: `10.25.2` |
+| `services/human/crates/layerx-human-test-support/src/evidence_node.rs` | W1: `10.25.3`; W3: `10.98.6`; W6: `10.25.4` |
+| `services/human/crates/layerx-human-test-support/src/lib.rs` | W0: `10.25.5`; W1: `10.25.3`; W2: `10.25.1`; W3: `10.25.2`; W4: `10.98.12` |
+| `services/human/crates/layerx-intents/src/canonical.rs` | W4: `10.98.14`; W6: `10.21.4` |
 | `services/human/crates/layerx-intents/src/compile.rs` | W4: `10.21.1`; W5: `10.21.3` |
-| `services/human/crates/layerx-intents/src/disclosure.rs` | W4: `10.21.1`; W5: `10.21.3` |
+| `services/human/crates/layerx-intents/src/disclosure.rs` | W3: `10.98.13`; W4: `10.21.1`; W5: `10.21.3` |
 | `services/human/crates/layerx-intents/src/lib.rs` | W4: `10.21.2`; W5: `10.21.3`; W6: `10.21.4` |
-| `services/human/crates/layerx-intents/src/vocabulary.rs` | W4: `10.21.1`; W5: `10.21.3` |
+| `services/human/crates/layerx-intents/src/owner_activity.rs` | W4: `10.98.14`; W6: `10.21.4` |
+| `services/human/crates/layerx-intents/src/vocabulary.rs` | W3: `10.98.13`; W4: `10.21.1`; W5: `10.21.3` |
+| `services/human/crates/layerx-intents/tests/compile.rs` | W4: `10.98.14`; W5: `10.21.3` |
+| `services/human/crates/layerx-intents/tests/native_session.rs` | W4: `10.98.14`; W6: `10.21.6` |
 | `services/human/crates/layerx-network-gateway/src/lib.rs` | W4: `10.24.1`; W5: `10.24.2`; W6: `10.24.3` |
 | `services/human/schema/human-api/baseline.kvx` | W1: `10.15.2`; W2: `10.15.3`; W3: `10.15.4` |
 | `services/human/schema/human-api/identity.kvx` | W1: `10.15.2`; W3: `10.15.4` |
@@ -774,15 +793,27 @@ The complete register below includes existing and planned files exactly as decla
 | `services/platform/Cargo.lock` | W0: `8.28.1`; W5: `8.20.3`; W6: `8.9.2` |
 | `services/platform/Makefile.inc` | W5: `8.96.3`; W6: `8.19.3` |
 | `services/platform/hosted/agent-boundary/src/chain_receipt.rs` | W3: `8.8.1`; W4: `8.8.2` |
-| `services/platform/hosted/agent-boundary/src/main.rs` | W3: `8.8.1`; W5: `8.8.3`; W6: `8.8.4` |
+| `services/platform/hosted/agent-boundary/src/deployment.rs` | W3: `8.98.2`; W4: `8.8.2` |
+| `services/platform/hosted/agent-boundary/src/head_attestation.rs` | W3: `8.98.2`; W6: `8.8.4` |
+| `services/platform/hosted/agent-boundary/src/head_attestation_tests.rs` | W3: `8.98.2`; W6: `8.8.4` |
+| `services/platform/hosted/agent-boundary/src/main.rs` | W2: `8.98.1`; W3: `8.8.1`; W5: `8.8.3`; W6: `8.8.4` |
 | `services/platform/hosted/agent-boundary/tests/chain_receipt.rs` | W3: `8.8.1`; W4: `8.8.2`; W6: `8.8.4` |
+| `services/platform/hosted/agent-boundary/tests/real_node.rs` | W3: `8.98.2`; W6: `8.19.6` |
+| `services/platform/hosted/agent-boundary/tests/real_node/custody.rs` | W3: `8.98.2`; W6: `8.19.6` |
+| `services/platform/hosted/agent-boundary/tests/real_node/lifecycle/account_upgrades.rs` | W3: `8.98.2`; W6: `8.19.6` |
+| `services/platform/hosted/agent-boundary/tests/real_node/native_interfaces.rs` | W3: `8.98.2`; W6: `8.19.6` |
 | `services/platform/hosted/authority/Cargo.toml` | W5: `8.20.3`; W6: `8.9.2` |
-| `services/platform/hosted/authority/src/main.rs` | W3: `8.11.1`; W6: `8.11.3` |
-| `services/platform/hosted/authority/src/trust.rs` | W4: `8.11.2`; W5: `8.20.3`; W6: `8.11.3` |
+| `services/platform/hosted/authority/src/main.rs` | W2: `8.98.3`; W3: `8.11.1`; W6: `8.11.3` |
+| `services/platform/hosted/authority/src/trust.rs` | W3: `8.98.4`; W4: `8.11.2`; W5: `8.20.3`; W6: `8.11.3` |
 | `services/platform/hosted/authority/tests/chain_receipts.rs` | W3: `8.11.1`; W4: `8.11.2`; W6: `8.11.3` |
+| `services/platform/hosted/authority/tests/real_node.rs` | W3: `8.98.4`; W6: `8.19.7` |
 | `services/platform/hosted/core/src/chain_fund.rs` | W3: `8.10.1`; W4: `8.10.2` |
-| `services/platform/hosted/core/src/main.rs` | W3: `8.10.1`; W4: `8.10.2`; W5: `8.20.1` |
+| `services/platform/hosted/core/src/lib.rs` | W2: `8.98.5`; W3: `8.94.3` |
+| `services/platform/hosted/core/src/main.rs` | W2: `8.98.5`; W3: `8.10.1`; W4: `8.10.2`; W5: `8.20.1` |
+| `services/platform/hosted/core/src/withdrawal.rs` | W3: `8.98.6`; W5: `8.20.1` |
+| `services/platform/hosted/core/tests/boundary.rs` | W3: `8.98.6`; W6: `8.20.2` |
 | `services/platform/hosted/core/tests/chain_fund.rs` | W3: `8.10.1`; W4: `8.10.2`; W5: `8.20.1` |
+| `services/platform/hosted/core/tests/custody_asset_send.rs` | W3: `8.98.6`; W6: `8.20.2` |
 | `services/platform/hosted/gateway/openrpc.json` | W2: `8.0.2`; W3: `8.5.1`; W4: `8.5.2`; W5: `8.5.3`; W6: `8.3.1` |
 | `services/platform/hosted/gateway/src/capabilities.rs` | W2: `8.4.2`; W4: `8.4.3` |
 | `services/platform/hosted/gateway/src/chain_reads.rs` | W2: `8.1.2`; W3: `8.1.3`; W5: `8.5.3` |
@@ -797,7 +828,8 @@ The complete register below includes existing and planned files exactly as decla
 | `services/platform/hosted/gateway/tests/chain_reads.rs` | W2: `8.1.2`; W3: `8.1.3`; W4: `8.7.1` |
 | `services/platform/hosted/gateway/tests/degraded.rs` | W1: `8.1.1`; W6: `8.3.1` |
 | `services/platform/hosted/gateway/tests/fixtures/paxeer-abi-vectors.json` | W1: `8.4.1`; W5: `8.4.4` |
-| `services/platform/hosted/gateway/tests/local/funding.rs` | W3: `8.94.3`; W6: `8.19.5` |
+| `services/platform/hosted/gateway/tests/local/funding.rs` | W2: `8.98.7`; W3: `8.94.3`; W6: `8.19.5` |
+| `services/platform/hosted/gateway/tests/local/registry_runtime.rs` | W3: `8.98.8`; W6: `8.19.5` |
 | `services/platform/hosted/gateway/tests/local/withdrawal.rs` | W3: `8.94.3`; W5: `8.96.1`; W6: `8.19.5` |
 | `services/platform/hosted/gateway/tests/one_source_reads.rs` | W3: `8.5.1`; W4: `8.5.2`; W5: `8.5.3` |
 | `services/platform/hosted/gateway/tests/router_surface.rs` | W4: `8.0.3`; W5: `8.0.4` |
@@ -810,13 +842,19 @@ The complete register below includes existing and planned files exactly as decla
 | `services/platform/hosted/indexer/src/config.rs` | W3: `8.16.2`; W5: `8.16.4`; W6: `8.16.7` |
 | `services/platform/hosted/indexer/src/layerx.rs` | W5: `8.16.4`; W6: `8.16.7` |
 | `services/platform/hosted/indexer/src/lib.rs` | W5: `8.16.4`; W6: `8.16.7` |
+| `services/platform/hosted/indexer/src/settlement.rs` | W3: `8.98.9`; W5: `8.16.4` |
 | `services/platform/hosted/indexer/src/store.rs` | W5: `8.16.4`; W6: `8.16.7` |
 | `services/platform/hosted/indexer/tests/ingest.rs` | W5: `8.16.3`; W6: `8.16.7` |
 | `services/platform/hosted/registry/Cargo.toml` | W5: `8.96.4`; W6: `8.9.2` |
+| `services/platform/hosted/registry/src/deployment.rs` | W3: `8.98.13`; W6: `8.12.3` |
+| `services/platform/hosted/registry/src/head_attestation.rs` | W3: `8.98.13`; W6: `8.12.3` |
 | `services/platform/hosted/registry/src/main.rs` | W3: `8.12.1`; W6: `8.12.3` |
+| `services/platform/hosted/registry/src/node_state.rs` | W3: `8.98.13`; W6: `8.12.3` |
 | `services/platform/hosted/registry/src/programs_chain.rs` | W3: `8.12.1`; W4: `8.12.2` |
-| `services/platform/hosted/registry/src/routes.rs` | W3: `8.12.1`; W4: `8.12.2`; W5: `8.96.4`; W6: `8.12.3` |
+| `services/platform/hosted/registry/src/routes.rs` | W2: `8.98.12`; W3: `8.12.1`; W4: `8.12.2`; W5: `8.96.4`; W6: `8.12.3` |
+| `services/platform/hosted/registry/tests/native_deployment.rs` | W3: `8.98.13`; W6: `8.12.3` |
 | `services/platform/hosted/registry/tests/programs_chain.rs` | W3: `8.12.1`; W4: `8.12.2`; W6: `8.12.3` |
+| `services/platform/hosted/registry/tests/relayed_head_attestation.rs` | W3: `8.98.13`; W6: `8.12.3` |
 | `services/platform/hosted/tests/beta-cluster.sh` | W5: `8.19.8`; W6: `8.14.2` |
 | `services/platform/hosted/tests/test_workspace_manifest.py` | W0: `8.9.1`; W5: `8.20.3`; W6: `8.9.2` |
 | `services/platform/hosted/webhooks/src/ai_market.rs` | W5: `8.96.2`; W6: `8.13.2` |
@@ -894,7 +932,6 @@ The complete register below includes existing and planned files exactly as decla
 | `spec/layerx-merge/programme/retired.py` | W0: `17.2.1`; W1: `17.2.2`; W5: `17.2.5`; W6: `17.2.6`; W7: `17.2.7` |
 | `spec/layerx-merge/programme/runcards.py` | W0: `17.7.1`; W2: `17.7.4`; W6: `17.7.5` |
 | `spec/layerx-merge/programme/services.py` | W3: `17.9.1`; W5: `17.9.2` |
-| `spec/layerx-merge/qualification.kvx` | W0: `17.10.1`; W4: `17.10.2`; W7: `17.3.4` |
 | `src/modules/asset/lx_asset_execution.h` | W1: `1.11.1`; W5: `1.12.1` |
 | `src/modules/asset/lx_asset_registry.c` | W1: `1.11.1`; W5: `1.12.1` |
 | `src/modules/programs/call.c` | W4: `1.18.1`; W6: `1.17.4` |
@@ -949,6 +986,6 @@ The complete register below includes existing and planned files exactly as decla
 
 ## Wave admission and closure
 
-Before dispatch, resolve the cyclic dependency components and place aggregate execution where the required wave barriers can be honored. Refresh this plan from the resulting merged task graph; preserve the declared acceptance criteria and gates while resolving the graph.
+The merged graph is acyclic and each aggregate execution task sits in its target wave. Before dispatch, enforce wave-wide closure for each wave aggregate (open item above) and refresh this plan from the merged task graph after any graph change; preserve the declared acceptance criteria and gates.
 
 Within a wave, admit a pending task only after every effective prerequisite is done, its sandbox is available, and its exact file claim is held. Integrate only tasks with successful bounded qualification and evidence. Once every scheduled task and closing anchor is complete on the merged wave revision, execute the wave aggregate and retain its result. Failed qualification, failed aggregate, or unresolved prerequisite holds advancement and follows the task’s rollback and finding policy. Wave 7 closes only after all domain completion gates and `17.0.9` pass.
