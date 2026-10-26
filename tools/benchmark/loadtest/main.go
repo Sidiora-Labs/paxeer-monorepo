@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -122,24 +121,12 @@ func deployEvmContracts(config *Config) {
 		}
 		config.EVMAddresses.ERC721 = erc721
 	}
-	if config.ContainsAnyMessageTypes(UNIV2) {
-		//TODO: this really should use `deployEvmContract`
-		fmt.Println("Deploying Uniswap contracts")
-		cmd := exec.Command("tools/benchmark/loadtest/contracts/deploy_univ2.sh", config.EVMRpcEndpoint())
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			panic("deploy_univ2.sh failed with error: " + err.Error())
-		}
-		UniV2SwapperRe := regexp.MustCompile(`Swapper Address: "(\w+)"`)
-		match := UniV2SwapperRe.FindStringSubmatch(out.String())
-		uniV2SwapperAddress := common.HexToAddress(match[1])
-		config.EVMAddresses.UniV2Swapper = uniV2SwapperAddress
-	}
 }
 
 func run(config *Config) {
+	if err := config.ValidateMessageTypes(); err != nil {
+		panic(err)
+	}
 	config.EVMAddresses = &EVMAddresses{}
 	// Start metrics collector in another thread
 	metricsServer := MetricsServer{}

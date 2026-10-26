@@ -2,6 +2,7 @@
 #define LAYERX_LXP_RESULT_H
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #define lxp_result int32_t
@@ -167,5 +168,8 @@ const char *lxp_result_name(lxp_result result);
 lxp_result_domain_id lxp_result_domain(lxp_result result);
 bool lxp_result_is_registered(lxp_result result);
 bool lxp_result_is_fatal(lxp_result result);
+size_t lxp_result_registry_count(void);
+lxp_result lxp_result_registry_at(size_t index, lxp_result *value,
+                                  const char **name);
 
 #endif

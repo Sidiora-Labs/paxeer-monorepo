@@ -197,6 +197,34 @@ lx_bind          = "ed25519; signs the LX:PAXEER-BIND:v1 message bytes; the bind
 lx_grant         = "ed25519; signs the 32-byte grant preimage with the key as the grant public key"
 lx_send_authorization = "ed25519; signs the 32-byte owner authorization digest of the asset send in activity under the lx_activity policy and authority rules, checking the account caps without counting; the amount counts once when the completed send is signed as lx_activity"
 
+[op.evm.review]
+method       = "POST"
+path         = "/v1/evm/review"
+auth         = "gateway certificate"
+credentials  = "Authorization: Bearer <original owner assertion>; agent headers are refused"
+participants = "local; independently decodes the unsigned transaction and evaluates account policy without signing"
+summary      = "Returns the decoded EVM call and signing hash for the held secp256k1 owner key; review records an audit entry without spending or granting signing approval."
+response     = "evm_review_response"
+errors       = ["operator_required", "session_bad_request", "policy_denied", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_curve_mismatch", "key_invalid_share", "store_failed", "store_audit_failed"]
+
+[op.evm.review.request]
+session_id  = "string"
+key_id      = "string: held secp256k1 owner key"
+transaction = "hex: unsigned typed or chain-protected legacy EVM transaction; optional 0x prefix"
+
+[type.evm_review_response]
+node_id        = "string"
+key_id         = "string"
+to             = "string: EIP-55 transaction destination address"
+value          = "string: unsigned decimal native value in wei"
+data           = "hex: transaction calldata with 0x prefix"
+method         = "string: decoded ABI method name, empty for a native transfer"
+destination    = "string: precompile name or erc20, empty for a native transfer to an ordinary address"
+signing_hash   = "hex: 32-byte transaction signing digest with 0x prefix"
+chain_id       = "uint64: transaction chain ID, equal to the node chain"
+decision       = "string: allowed policy decision code"
+audit_sequence = "uint64: this node's evm_review audit record"
+
 [op.sign.native]
 method       = "POST"
 path         = "/v2/sign/native"
@@ -270,6 +298,14 @@ path     = "/health"
 auth     = "client certificate"
 summary  = "Returns the health report; 200 when ready, 503 otherwise."
 response = "object: node_id, region, share_count, refresh_epoch, share_error optional, audit_sequence, audit_head, peers map of {reachable, rtt_ns}, reachable_peers, readiness_error optional, ready"
+
+[op.metrics]
+method   = "GET"
+path     = "/metrics"
+auth     = "operator certificate"
+summary  = "Returns Prometheus metrics when metrics are configured on the node."
+response = "Prometheus text exposition"
+errors   = ["operator_required"]
 
 [error.token_missing]
 category = "token"

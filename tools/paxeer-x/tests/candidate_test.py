@@ -13,10 +13,11 @@ import unittest
 ROOT = Path(__file__).resolve().parents[3]
 PROGRAM = ROOT / 'tools/paxeer-x/candidate.py'
 SHELL = ROOT / 'tools/paxeer-x/runtime-inventory.sh'
-SPEC = ROOT / 'spec/paxeer-x/spec.kvx'
 loader = importlib.util.spec_from_file_location('candidate', PROGRAM)
 candidate = importlib.util.module_from_spec(loader)
 loader.loader.exec_module(candidate)
+SERVICE_CATALOGUE = candidate.SERVICE_CATALOGUE
+SPEC = ROOT / SERVICE_CATALOGUE
 
 
 class CandidateTest(unittest.TestCase):
@@ -72,7 +73,7 @@ class CandidateTest(unittest.TestCase):
         return manifest
 
     def test_real_git_identity_complete_catalogue_private_output(self):
-        self.assertEqual(len(self.manifest['services']), 31)
+        self.assertEqual(len(self.manifest['services']), 40)
         self.assertEqual(self.manifest['source']['revision'], self.git('rev-parse', 'HEAD'))
         self.assertEqual(self.manifest['source']['tree'], self.git('rev-parse', 'HEAD^{tree}'))
         self.assertTrue(self.manifest['source']['integrated'])
