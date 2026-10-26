@@ -214,6 +214,10 @@ func (env *Environment) HeaderByHash(ctx context.Context, req *coretypes.Request
 // If no height is provided, it will fetch the commit for the latest block.
 // More: https://docs.tendermint.com/master/rpc/#/Info/commit
 func (env *Environment) Commit(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultCommit, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		return nil, coretypes.ErrCommitNotAvailable
+	}
+
 	height, err := env.getHeight(env.BlockStore.Height(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
