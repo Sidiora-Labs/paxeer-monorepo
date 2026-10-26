@@ -33,6 +33,14 @@ static const uint8_t parameter_version_key[32] = {
 
 static const uint8_t genesis_manifest_key[] = "genesis/manifest/v1";
 
+static const char *const custody_asset_ids[] = {
+    "layerx-asset:125:PAX", "layerx-asset:125:SID",
+    "layerx-asset:125:USDC", "layerx-asset:125:USDL"
+};
+_Static_assert(sizeof(custody_asset_ids) / sizeof(custody_asset_ids[0]) ==
+                   LXP_GENESIS_CUSTODY_ASSET_COUNT,
+               "custody asset count");
+
 static const uint8_t module_enable_prefix[] =
     "module-enable:";
 _Static_assert(sizeof(module_enable_prefix) ==
@@ -450,26 +458,32 @@ static lxp_result validate_legacy_accounts(const lxp_genesis_manifest *manifest)
     return LXP_OK;
 }
 
+lxp_result lxp_genesis_custody_asset_id(size_t index, uint8_t asset_id[32])
+{
+    if (asset_id == NULL) return LXP_ERR_NON_CANONICAL;
+    if (index >= LXP_GENESIS_CUSTODY_ASSET_COUNT)
+        return LXP_ERR_PARAMETER_BOUNDS;
+    return lxp_hash_sha256((const uint8_t *)custody_asset_ids[index],
+                           strlen(custody_asset_ids[index]), asset_id);
+}
+
 static lxp_result registry_profiles(const lxp_genesis_manifest *manifest,
                                     lxp_bridge_profile profiles[4], bool *present)
 {
-    static const char *const ids[] = {
-        "layerx-asset:125:PAX", "layerx-asset:125:SID",
-        "layerx-asset:125:USDC", "layerx-asset:125:USDL"
-    };
     size_t count = 0U;
     *present = false;
-    for (size_t i = 0U; i < 4U; ++i) {
+    for (size_t i = 0U; i < LXP_GENESIS_CUSTODY_ASSET_COUNT; ++i) {
         uint8_t asset_id[32];
         bool found = false;
-        lxp_result status = lxp_hash_sha256((const uint8_t *)ids[i], strlen(ids[i]), asset_id);
+        lxp_result status = lxp_genesis_custody_asset_id(i, asset_id);
         if (status == LXP_OK)
             status = lxp_bridge_registry_profile(manifest, asset_id, &profiles[i], &found);
         if (status != LXP_OK) return status;
         if (found) ++count;
     }
-    if (count != 0U && count != 4U) return LXP_ERR_UNKNOWN_FIELD;
-    *present = count == 4U;
+    if (count != 0U && count != LXP_GENESIS_CUSTODY_ASSET_COUNT)
+        return LXP_ERR_UNKNOWN_FIELD;
+    *present = count == LXP_GENESIS_CUSTODY_ASSET_COUNT;
     return LXP_OK;
 }
 
