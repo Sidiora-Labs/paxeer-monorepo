@@ -11,8 +11,8 @@ mod files {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{Duration, Instant};
 
+    use super::MAX_INPUT_BYTES as MAX_MESSAGE_BYTES;
     use layerx_types::result::KnownResult;
-    use layerx_wire::limits::MAX_MESSAGE_BYTES;
 
     static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
     const TARGET: &str = "0x0000000000000000000000000000000000000123";
