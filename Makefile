@@ -48,6 +48,7 @@ TEST_LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/test-obj/%.o,$(LIB_SOURCES))
 TEST_LIBRARY := $(BUILD_DIR)/liblayerx-testing.a
 
 .PHONY: all build clean reproducible layerxd layerx-genesis-build test \
+	test-exchange-native \
 	test-harness list-tests \
 	test-paxai-blob-lifecycle paxai-host-boundary-build \
 	test-paxai-blob-admission \
@@ -307,7 +308,7 @@ test: test-state-diff test-da-verified test-result test-protocol test-state-comm
 	test-stream-settle test-stream-lifecycle \
 	test-service-offer test-service-commit test-service-attest \
 	test-service-deliver test-service-acceptance test-service-dispute \
-	test-wave-9 test-lni-version-parity
+	test-wave-9 test-lni-version-parity test-exchange-native
 
 $(BUILD_DIR)/tests/lxp_test_kernel: tests/protocol/lxp_test_kernel.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
@@ -978,6 +979,9 @@ $(BUILD_DIR)/tests/test_perps_insurance: \
 test-perps-insurance: $(BUILD_DIR)/tests/test_perps_insurance
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_perps_insurance
 	tests/ledger/lxp_check_sole_writer.sh
+
+test-exchange-native: test-perps-market test-perps-book test-spot-book \
+		test-perps-margin test-perps-funding test-perps-liquidation test-perps-insurance
 
 test-wave-9: test-perps-market test-perps-book test-perps-margin \
 		test-perps-funding test-perps-liquidation test-perps-insurance
@@ -1664,6 +1668,12 @@ $(BUILD_DIR)/tests/test_qual_recovery: tests/test_qual_recovery.c \
 
 qualify-faults: $(BUILD_DIR)/tests/test_qual_recovery
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/test_qual_recovery
+
+$(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/codec $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_fuzz_smoke: tests/test_fuzz_smoke.c \
 		tests/fuzz/fuzz_activity.c tests/fuzz/fuzz_signature.c \
