@@ -46,6 +46,37 @@ int lxp_test_run_all(int list_only)
     return failures == 0 ? 0 : 1;
 }
 
+int lxp_test_run_one(const char *name)
+{
+    size_t i;
+
+    for (i = 0U; i < registry_length; ++i) {
+        if (strcmp(registry[i].name, name) == 0) {
+            int result = registry[i].function();
+            if (result != 0) {
+                (void)fprintf(stderr, "FAIL %s\n", registry[i].name);
+            } else {
+                (void)printf("PASS %s\n", registry[i].name);
+            }
+            return result;
+        }
+    }
+    return 2;
+}
+
+int lxp_test_main(int argc, char **argv)
+{
+    if (argc == 1) return lxp_test_run_all(0);
+    if (argc == 2 && strcmp(argv[1], "--list") == 0) {
+        return lxp_test_run_all(1);
+    }
+    if (argc == 3 && strcmp(argv[1], "--run") == 0) {
+        return lxp_test_run_one(argv[2]);
+    }
+    (void)fprintf(stderr, "Usage: %s [--list | --run <name>]\n", argv[0]);
+    return 2;
+}
+
 int lxp_test_assert_u64_eq(uint64_t expected, uint64_t produced,
                            const char *file, int line)
 {
