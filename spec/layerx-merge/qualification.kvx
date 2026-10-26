@@ -109,3 +109,11 @@ symbol = "TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestatio
 observed = "At revisions 6e8b08215 and b28402274 the 4.54.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `open ../../../contracts/launchpad/artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json: no such file or directory` because do_2 prescribed three parent segments from the package directory the test runs in, which resolves to sdk/contracts/launchpad; the repository root is four segments above sdk/launchpad/protocol/catalog."
 assumption = "The step names the wrong depth, not the wrong artifact: do_2 now prescribes four parent segments and the test body stays as written."
 severity = "note"
+
+[finding.1.21.3]
+task = "1.21.3"
+file = "src/protocol/lxp_result.c:10"
+symbol = "lxp_result_name"
+observed = "Five verify runs of 1.21.3 (latest revision 6b8c97dc7, log /out/logs/verify-1.log) exited 1 with `Code(v).Error() = \"LXP_UNKNOWN_RESULT\", kernel = \"LXP_ERR_UNKNOWN\"` for every value outside the registry because do_2 named LXP_UNKNOWN_RESULT as the string lxp_result_name returns for an unknown value, while its default branch returns \"LXP_ERR_UNKNOWN\" and the registry defines no LXP_UNKNOWN_RESULT row."
+assumption = "The kernel's default branch is the authority the test asserts; do_2 now names LXP_ERR_UNKNOWN and the test stays as written."
+severity = "note"
