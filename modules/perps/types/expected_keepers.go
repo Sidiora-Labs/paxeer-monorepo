@@ -24,4 +24,5 @@ type EVMKeeper interface {
 // false.
 type PricefeedKeeper interface {
 	GetPrice(ctx sdk.Context, marketId uint64) (pricefeedkeeper.Price, error)
+	MarketSymbol(ctx sdk.Context, marketId uint64) (string, bool, error)
 }
