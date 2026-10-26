@@ -5,9 +5,11 @@ import { afterAll, beforeAll, describe, expect, expectTypeOf, it, test } from 'v
 import {
   JOURNEY_STATES,
   LADDER_RUNGS,
+  decodeExplorerStatus,
   decodeJourney,
   readExplorerStatus,
   statusLadder,
+  type ExplorerRung,
   type ExplorerTransactionStatus,
   type JourneyState,
   type LadderRung,
@@ -15,13 +17,16 @@ import {
   type SequencerRung,
 } from '../src/index.js';
 
-const fixtureDir = new URL('./fixtures/endpoint/', import.meta.url);
+const fixtureDir = new URL('./fixtures/', import.meta.url);
 const schemaDir = new URL('../../../services/human/schema/human-api/', import.meta.url);
 
-const explorerStatuses = JSON.parse(readFileSync(new URL('explorer-status.json', fixtureDir), 'utf8')) as Record<
-  string,
+const explorerAnswers = JSON.parse(readFileSync(new URL('explorer-status.json', fixtureDir), 'utf8')) as Record<
+  SequencerRung,
   ExplorerTransactionStatus
 >;
+const explorerStatuses: Record<string, ExplorerTransactionStatus> = Object.fromEntries(
+  Object.values(explorerAnswers).map((answer, index) => [`0x${`e${index + 1}`.repeat(32)}`, answer]),
+);
 
 let server: Server;
 let base: string;
@@ -135,9 +140,58 @@ describe('statusLadder', () => {
       expect(status).toEqual(explorerStatuses[hash]);
       rungs[status.rung] = statusLadder.fromExplorer(status).rung;
     }
-    expect(rungs).toEqual({ pending: null, instant: 'instant', sealed: 'sealed', final: 'final' });
+    expect(rungs).toEqual({ submitted: 'submitted', receipted: 'receipted', committed: 'committed' });
     await expect(readExplorerStatus(base, `0x${'00'.repeat(32)}`)).rejects.toThrow('HTTP 404');
   });
+
+  async function ladder_explorer_status_decodes_rung_block_number_and_committed_height() {
+    expectTypeOf<ExplorerRung>().toEqualTypeOf<SequencerRung>();
+    expectTypeOf<ExplorerTransactionStatus>().toEqualTypeOf<{
+      rung: SequencerRung;
+      block_number: number | null;
+      committed_height: number | null;
+    }>();
+    expect(Object.keys(explorerAnswers)).toEqual(['submitted', 'receipted', 'committed']);
+    for (const [hash, answer] of Object.entries(explorerStatuses)) {
+      expect(decodeExplorerStatus(answer)).toEqual(answer);
+      const status = await readExplorerStatus(base, hash);
+      expect(status).toEqual(answer);
+      expect(statusLadder.fromExplorer(status)).toEqual({ rung: answer.rung, source: 'explorer', state: answer.rung });
+    }
+    expect(decodeExplorerStatus({ ...explorerAnswers.submitted, committed_height: null })).toEqual({
+      rung: 'submitted', block_number: null, committed_height: null,
+    });
+    const committed = explorerAnswers.committed;
+    expect(decodeExplorerStatus({ ...committed, committed_height: committed.block_number })).toEqual({
+      ...committed, committed_height: committed.block_number,
+    });
+    for (const field of ['block_number', 'committed_height']) {
+      for (const value of [undefined, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity, '1000']) {
+        expect(() => decodeExplorerStatus({ ...committed, [field]: value })).toThrow(TypeError);
+      }
+    }
+    for (const rung of ['pending', 'instant', 'sealed', 'final', 'unknown']) {
+      expect(() => decodeExplorerStatus({ ...committed, rung })).toThrow(TypeError);
+    }
+  }
+
+  test(ladder_explorer_status_decodes_rung_block_number_and_committed_height);
+
+  function ladder_explorer_status_refuses_a_committed_answer_below_its_block() {
+    const committed = explorerAnswers.committed;
+    expect(committed.block_number).toBe(1000);
+    expect(() => decodeExplorerStatus({ ...committed, committed_height: 999 })).toThrow(
+      new TypeError('malformed explorer status'),
+    );
+    expect(() => decodeExplorerStatus({ ...committed, committed_height: null })).toThrow(
+      new TypeError('malformed explorer status'),
+    );
+    expect(() => decodeExplorerStatus({ rung: committed.rung, block_number: committed.block_number })).toThrow(
+      new TypeError('malformed explorer status'),
+    );
+  }
+
+  test(ladder_explorer_status_refuses_a_committed_answer_below_its_block);
 
   it('ladder_maps_the_golden_journey_and_its_stages', () => {
     const recorded = JSON.parse(readFileSync(new URL('golden/journey.get.response.json', schemaDir), 'utf8')) as {
