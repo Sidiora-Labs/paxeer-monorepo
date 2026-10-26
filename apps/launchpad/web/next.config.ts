@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import { backendConfigurationProblems, browserImageOrigins } from './src/core/backend-origins';
+import { TRANSPILE_PACKAGES } from './src/core/next-build-config';
 
 // Run `ANALYZE=true pnpm --filter @sidiora/web build` to emit treemap reports
 // (.next/analyze/*.html) for per-route JS budgeting. No-op for normal builds.
@@ -163,17 +164,7 @@ const nextConfig: NextConfig = {
     imgOptTimeoutInSeconds: 7,
   },
 
-  transpilePackages: [
-    'candles-sdk',
-    'indexer-sdk',
-    'metadata-sdk',
-    'ranking-algo-sdk',
-    'stats-sdk',
-    'users-sdk',
-    'sidiora-launchpad-v3',
-    'paxifyui',
-    'sidiora-ui-tokens',
-  ],
+  transpilePackages: [...TRANSPILE_PACKAGES],
 };
 
 // Wrap with Sentry. Source-map upload only runs when SENTRY_AUTH_TOKEN is set
