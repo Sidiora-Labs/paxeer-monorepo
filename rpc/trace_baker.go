@@ -10,6 +10,8 @@ import (
 	gethtracers "github.com/ethereum/go-ethereum/eth/tracers"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/paxeer-network/paxlog"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/metric"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 )
@@ -37,9 +39,10 @@ type TraceBaker struct {
 	progress chan int64
 	workers  int
 
-	closeOnce sync.Once
-	done      chan struct{}
-	wg        sync.WaitGroup
+	closeOnce           sync.Once
+	done                chan struct{}
+	wg                  sync.WaitGroup
+	metricsRegistration metric.Registration
 
 	dropped, baked, failed uint64 // atomic
 }
@@ -65,6 +68,15 @@ func StartTraceBakerForDebugAPI(api *DebugAPI, cfg TraceBakerConfig) *TraceBaker
 		return nil
 	}
 	b := NewTraceBaker(api.tracersAPI, cache, cfg)
+	b.metricsRegistration = must(rpcTelemetryMeter.RegisterCallback(
+		func(_ context.Context, observer metric.Observer) error {
+			observer.ObserveInt64(metrics.traceBakeDroppedCount, int64(b.DroppedCount()))
+			observer.ObserveInt64(metrics.traceBakeBakedCount, int64(b.BakedCount()))
+			observer.ObserveInt64(metrics.traceBakeFailedCount, int64(b.FailedCount()))
+			return nil
+		},
+		metrics.traceBakeDroppedCount, metrics.traceBakeBakedCount, metrics.traceBakeFailedCount,
+	))
 	cache.SetTraceEnqueuer(b)
 	b.Start()
 	return b
@@ -127,7 +139,14 @@ func (b *TraceBaker) Start() {
 // Stop signals goroutines to exit and waits for them to drain. Idempotent.
 // Doesn't close b.queue so concurrent Enqueue calls can't panic.
 func (b *TraceBaker) Stop() {
-	b.closeOnce.Do(func() { close(b.done) })
+	b.closeOnce.Do(func() {
+		close(b.done)
+		if b.metricsRegistration != nil {
+			if err := b.metricsRegistration.Unregister(); err != nil {
+				otel.Handle(err)
+			}
+		}
+	})
 	b.wg.Wait()
 }
 
