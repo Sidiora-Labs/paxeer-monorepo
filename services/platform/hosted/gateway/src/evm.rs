@@ -45,6 +45,14 @@ pub const EXCHANGE_PRECOMPILE: [u8; 20] = precompile(0x10, 0x15);
 pub const BRIDGE_PRECOMPILE: [u8; 20] = precompile(0x10, 0x16);
 /// `0x0000000000000000000000000000000000001017`, live from the Paxeer X fork.
 pub const LAUNCHPAD_PRECOMPILE: [u8; 20] = precompile(0x10, 0x17);
+/// `0x000000000000000000000000000000000000101a`.
+pub const LEDGER_PRECOMPILE: [u8; 20] = precompile(0x10, 0x1a);
+/// `0x000000000000000000000000000000000000101b`.
+pub const PAY_PRECOMPILE: [u8; 20] = precompile(0x10, 0x1b);
+/// `0x000000000000000000000000000000000000101c`.
+pub const AUTH_PRECOMPILE: [u8; 20] = precompile(0x10, 0x1c);
+/// `0x000000000000000000000000000000000000101d`.
+pub const PROGRAMS_PRECOMPILE: [u8; 20] = precompile(0x10, 0x1d);
 
 const fn precompile(high: u8, low: u8) -> [u8; 20] {
     let mut address = [0_u8; 20];
@@ -75,6 +83,8 @@ pub const SELECTOR_STATUS_OF: [u8; 4] = [0x4e, 0xb4, 0x77, 0x10];
 pub const SELECTOR_CHECKPOINT: [u8; 4] = [0x2d, 0x58, 0x8b, 0x18];
 /// `balance(address,string)`.
 pub const SELECTOR_BANK_BALANCE: [u8; 4] = [0x16, 0xca, 0xde, 0xab];
+/// `all_balances(address)`.
+pub const SELECTOR_BANK_ALL_BALANCES: [u8; 4] = [0x0c, 0x5e, 0x27, 0x89];
 
 /// Largest ABI string the endpoint decodes from a precompile answer.
 pub const MAX_ABI_STRING_BYTES: usize = 4096;
@@ -391,6 +401,45 @@ pub fn decode_u8(answer: &[u8]) -> Result<u8, AbiError> {
     Answer::new(answer).u8(0)
 }
 
+/// Decodes `all_balances(address)` into denomination and full-width amount pairs.
+///
+/// # Errors
+/// Refuses malformed layouts, more than 256 coins, and invalid or oversized text.
+pub fn decode_coins(answer: &[u8]) -> Result<Vec<(String, [u8; 32])>, AbiError> {
+    let outer = Answer::new(answer);
+    let base = usize::try_from(outer.u64(0)?).map_err(|_| AbiError::Offset)?;
+    if base < 32 || base % 32 != 0 {
+        return Err(AbiError::Offset);
+    }
+    let array = Answer::new(answer.get(base..).ok_or(AbiError::Offset)?);
+    let count = usize::try_from(array.u64(0)?).map_err(|_| AbiError::Width)?;
+    if count > 256 {
+        return Err(AbiError::Width);
+    }
+    let head_bytes = count.checked_mul(32).ok_or(AbiError::Offset)?;
+    let elements_base = base.checked_add(32).ok_or(AbiError::Offset)?;
+    let elements = answer.get(elements_base..).ok_or(AbiError::Truncated)?;
+    if elements.len() < head_bytes {
+        return Err(AbiError::Truncated);
+    }
+    let offsets = Answer::new(elements);
+    let mut coins = Vec::with_capacity(count);
+    for index in 0..count {
+        let offset = usize::try_from(offsets.u64(index)?).map_err(|_| AbiError::Offset)?;
+        if offset < head_bytes || offset % 32 != 0 {
+            return Err(AbiError::Offset);
+        }
+        let tuple = Answer::new(elements.get(offset..).ok_or(AbiError::Offset)?);
+        let amount = tuple.word(0)?;
+        let denom_offset = tuple.u64(1)?;
+        if denom_offset < 64 || denom_offset % 32 != 0 {
+            return Err(AbiError::Offset);
+        }
+        coins.push((tuple.string(1, 0)?, amount));
+    }
+    Ok(coins)
+}
+
 /// Decodes `latestFinalized()`.
 ///
 /// # Errors
@@ -567,6 +616,75 @@ mod tests {
     }
 
     #[test]
+    fn merged_construct_addresses_are_exact() {
+        for (address, expected) in [
+            (
+                LEDGER_PRECOMPILE,
+                "0x000000000000000000000000000000000000101a",
+            ),
+            (PAY_PRECOMPILE, "0x000000000000000000000000000000000000101b"),
+            (
+                AUTH_PRECOMPILE,
+                "0x000000000000000000000000000000000000101c",
+            ),
+            (
+                PROGRAMS_PRECOMPILE,
+                "0x000000000000000000000000000000000000101d",
+            ),
+        ] {
+            assert_eq!(address_hex(&address), expected);
+        }
+    }
+
+    #[test]
+    fn all_balances_answer_decodes_exactly() {
+        let (calldata, result, out) = case("bank.all_balances");
+        let account = parse_address("0x102132435465768798a9bacbdcedfe0f1e2d3c4b")
+            .unwrap_or_else(|| panic!("address"));
+        assert_eq!(
+            calldata_address(SELECTOR_BANK_ALL_BALANCES, &account),
+            calldata
+        );
+        let coins = decode_coins(&result).unwrap_or_else(|error| panic!("{error:?}"));
+        let expected = out["response"]
+            .as_array()
+            .unwrap_or_else(|| panic!("coins"));
+        assert_eq!(expected.len(), 2);
+        assert_eq!(coins.len(), expected.len());
+        for ((denom, amount), expected) in coins.iter().zip(expected) {
+            assert_eq!(Value::String(denom.clone()), expected["denom"]);
+            assert_eq!(Value::String(uint256_decimal(amount)), expected["amount"]);
+        }
+        assert_eq!(coins[0].1, word_u64(123456789));
+        let mut large = [0_u8; 32];
+        large[6] = 1;
+        assert_eq!(coins[1].1, large);
+        for length in 0..result.len() {
+            assert!(decode_coins(&result[..length]).is_err(), "length {length}");
+        }
+        let mut too_many = result.clone();
+        too_many[32..64].copy_from_slice(&word_u64(257));
+        assert_eq!(decode_coins(&too_many), Err(AbiError::Width));
+        let mut bad_offset = result.clone();
+        bad_offset[..32].copy_from_slice(&word_u64(33));
+        assert_eq!(decode_coins(&bad_offset), Err(AbiError::Offset));
+        bad_offset[..32].copy_from_slice(&word_u64(0));
+        assert_eq!(decode_coins(&bad_offset), Err(AbiError::Offset));
+        let mut bad_tuple = result.clone();
+        bad_tuple[64..96].copy_from_slice(&word_u64(0));
+        assert_eq!(decode_coins(&bad_tuple), Err(AbiError::Offset));
+        let mut oversized_denom = result.clone();
+        oversized_denom[192..224].copy_from_slice(&word_u64(4097));
+        assert_eq!(decode_coins(&oversized_denom), Err(AbiError::Text));
+        let mut invalid_text = result.clone();
+        invalid_text[224] = 0xff;
+        assert_eq!(decode_coins(&invalid_text), Err(AbiError::Text));
+        let mut empty = word_u64(32).to_vec();
+        empty.extend_from_slice(&word_u64(0));
+        assert_eq!(decode_coins(&empty), Ok(Vec::new()));
+    }
+
+    #[test]
     fn precompile_addresses_and_selectors_match_the_generated_vectors() {
         let document = vectors();
         assert_eq!(
@@ -597,6 +715,7 @@ mod tests {
             ("anchor.statusOf", SELECTOR_STATUS_OF),
             ("anchor.checkpoint", SELECTOR_CHECKPOINT),
             ("bank.balance", SELECTOR_BANK_BALANCE),
+            ("bank.all_balances", SELECTOR_BANK_ALL_BALANCES),
         ] {
             let (calldata, _, _) = case(name);
             assert_eq!(calldata.get(..4), Some(selector.as_slice()), "{name}");
@@ -649,6 +768,10 @@ mod tests {
             (
                 "bank.balance",
                 calldata_address_string(SELECTOR_BANK_BALANCE, &account, "ulxp"),
+            ),
+            (
+                "bank.all_balances",
+                calldata_address(SELECTOR_BANK_ALL_BALANCES, &account),
             ),
         ] {
             let (expected, _, _) = case(name);
