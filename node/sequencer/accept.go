@@ -29,13 +29,19 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, err.Error())
 	}
+	beforeAdmission := s.open.ctx
+	if err := s.admit(tx, txBytes); err != nil {
+		return nil, err
+	}
 	checksum := sha256.Sum256(txBytes)
 	txIndex := len(s.open.txs) + 1
 	res, branch, err := s.deliver(tx, txBytes, checksum, txIndex)
 	if err != nil {
+		s.open.ctx = beforeAdmission
 		return nil, err
 	}
 	if !receipted(res) {
+		s.open.ctx = beforeAdmission
 		return nil, sdkerrors.ABCIError(res.Codespace, res.Code, res.Log)
 	}
 	branch.Write()
