@@ -16,6 +16,9 @@ var _ types.MsgServer = msgServer{}
 
 func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParams) (*types.MsgUpdateParamsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -24,6 +27,9 @@ func (s msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdateParam
 
 func (s msgServer) SetAsset(goCtx context.Context, msg *types.MsgSetAsset) (*types.MsgSetAssetResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -32,6 +38,9 @@ func (s msgServer) SetAsset(goCtx context.Context, msg *types.MsgSetAsset) (*typ
 
 func (s msgServer) RegisterCheckpoint(goCtx context.Context, msg *types.MsgRegisterCheckpoint) (*types.MsgRegisterCheckpointResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -48,6 +57,9 @@ func (s msgServer) RegisterCheckpoint(goCtx context.Context, msg *types.MsgRegis
 
 func (s msgServer) SetEmergency(goCtx context.Context, msg *types.MsgSetEmergency) (*types.MsgSetEmergencyResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -56,6 +68,9 @@ func (s msgServer) SetEmergency(goCtx context.Context, msg *types.MsgSetEmergenc
 
 func (s msgServer) CancelClaim(goCtx context.Context, msg *types.MsgCancelClaim) (*types.MsgCancelClaimResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	if err := s.k.requireAuthority(ctx, msg.Authority); err != nil {
 		return nil, err
 	}
@@ -68,7 +83,11 @@ func (s msgServer) CancelClaim(goCtx context.Context, msg *types.MsgCancelClaim)
 }
 
 func (s msgServer) RequestWithdrawal(goCtx context.Context, msg *types.MsgRequestWithdrawal) (*types.MsgRequestWithdrawalResponse, error) {
-	claim, err := s.k.RequestWithdrawal(sdk.UnwrapSDKContext(goCtx), WithdrawalEvidence{Receipt: msg.Receipt,
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
+	claim, err := s.k.RequestWithdrawal(ctx, WithdrawalEvidence{Receipt: msg.Receipt,
 		Proof: msg.Proof, Header: msg.Header, HeaderSignature: msg.HeaderSignature})
 	if err != nil {
 		return nil, err
@@ -77,7 +96,11 @@ func (s msgServer) RequestWithdrawal(goCtx context.Context, msg *types.MsgReques
 }
 
 func (s msgServer) FinaliseWithdrawal(goCtx context.Context, msg *types.MsgFinaliseWithdrawal) (*types.MsgFinaliseWithdrawalResponse, error) {
-	result, err := s.k.FinaliseWithdrawal(sdk.UnwrapSDKContext(goCtx), WithdrawalEvidence{Receipt: msg.Receipt,
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
+	result, err := s.k.FinaliseWithdrawal(ctx, WithdrawalEvidence{Receipt: msg.Receipt,
 		Proof: msg.Proof, Header: msg.Header, HeaderSignature: msg.HeaderSignature})
 	if err != nil {
 		return nil, err
@@ -103,11 +126,15 @@ func exitEvidence(witness []byte, batchNumber uint64, account, assetID, recipien
 }
 
 func (s msgServer) RequestForcedExit(goCtx context.Context, msg *types.MsgRequestForcedExit) (*types.MsgRequestForcedExitResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	evidence, err := exitEvidence(msg.Witness, msg.BatchNumber, msg.Account, msg.AssetId, msg.Recipient, msg.RecipientSignature)
 	if err != nil {
 		return nil, err
 	}
-	claim, err := s.k.RequestForcedExit(sdk.UnwrapSDKContext(goCtx), evidence)
+	claim, err := s.k.RequestForcedExit(ctx, evidence)
 	if err != nil {
 		return nil, err
 	}
@@ -115,11 +142,15 @@ func (s msgServer) RequestForcedExit(goCtx context.Context, msg *types.MsgReques
 }
 
 func (s msgServer) ExecuteForcedExit(goCtx context.Context, msg *types.MsgExecuteForcedExit) (*types.MsgExecuteForcedExitResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if s.k.Retired(ctx) {
+		return nil, types.ErrModuleRetired
+	}
 	evidence, err := exitEvidence(msg.Witness, msg.BatchNumber, msg.Account, msg.AssetId, msg.Recipient, msg.RecipientSignature)
 	if err != nil {
 		return nil, err
 	}
-	result, err := s.k.ExecuteForcedExit(sdk.UnwrapSDKContext(goCtx), evidence)
+	result, err := s.k.ExecuteForcedExit(ctx, evidence)
 	if err != nil {
 		return nil, err
 	}
