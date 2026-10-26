@@ -15,7 +15,7 @@ import (
 const (
 	// ProgramAnswerHeaderBytes is part 0 of a committed answer: the content
 	// digest, the u32 full length and the u32 response length.
-	ProgramAnswerHeaderBytes = 40
+	ProgramAnswerHeaderBytes = types.ProgramAnswerHeaderBytes
 
 	// ProgramAnswerChunkBytes bounds each response chunk, parts 1 and above.
 	ProgramAnswerChunkBytes = 1024
@@ -34,11 +34,6 @@ var (
 	errProgramUnknownField         = errors.New("LXP_UNKNOWN_FIELD")
 	errProgramContextMismatch      = errors.New("LXP_CONTEXT_MISMATCH")
 	errProgramInsufficientBalance  = errors.New("LXP_INSUFFICIENT_BALANCE")
-
-	// programMappedFeeDenoms are the bank denoms of the four mapped assets a
-	// recorded program fee can be held in.
-	programMappedFeeDenoms = []string{types.ProgramFeeDenomPAX, types.ProgramFeeDenomSID,
-		types.ProgramFeeDenomUSDC, types.ProgramFeeDenomUSDL}
 )
 
 func verifyProgramSignatures(set types.AttestorSet, observation types.Observation) ([]types.Address20, error) {
@@ -198,9 +193,9 @@ func (k Keeper) splitProgramFee(ctx sdk.Context, set types.AttestorSet, record P
 		return nil
 	}
 	source := address.Module(ProgramFeeAccountModule, record.FeeAccount[:])
-	denom, err := k.programFeeDenom(ctx, source, record.Amount)
-	if err != nil {
-		return err
+	denom, found := k.ProgramFeeDenom(ctx, record.FeeAsset)
+	if !found {
+		return errProgramAssetMismatch
 	}
 	share := record.Amount.QuoRaw(int64(len(signers)))
 	remainder := record.Amount.Sub(share.MulRaw(int64(len(signers))))
@@ -225,24 +220,4 @@ func (k Keeper) splitProgramFee(ctx sdk.Context, set types.AttestorSet, record P
 		}
 	}
 	return nil
-}
-
-// programFeeDenom resolves the bank denom the recorded asset is held in: the
-// one mapped program fee denom of which the fee account holds at least the
-// amount. None is LXP_INSUFFICIENT_BALANCE; two are LXP_ASSET_MISMATCH.
-func (k Keeper) programFeeDenom(ctx sdk.Context, account sdk.AccAddress, amount sdk.Int) (string, error) {
-	denom := ""
-	for _, candidate := range programMappedFeeDenoms {
-		if k.bankKeeper.GetBalance(ctx, account, candidate).Amount.LT(amount) {
-			continue
-		}
-		if denom != "" {
-			return "", errProgramAssetMismatch
-		}
-		denom = candidate
-	}
-	if denom == "" {
-		return "", errProgramInsufficientBalance
-	}
-	return denom, nil
 }

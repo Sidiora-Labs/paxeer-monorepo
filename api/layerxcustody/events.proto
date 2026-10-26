@@ -77,3 +77,11 @@ message EventDepositRootRegistered {
 message EventEmergencySet {
   bool enabled = 1;
 }
+
+message EventRetiredRelease {
+  string asset_id = 1;
+  string recipient = 2;
+  string amount = 3;
+  string denom = 4;
+  uint64 cancelled_claims = 5;
+}

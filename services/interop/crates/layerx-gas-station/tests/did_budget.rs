@@ -490,7 +490,7 @@ fn did_lookup_failure_refuses() -> TestResult {
     assert_eq!(
         quote(&mut station, account, 1).err(),
         Some(StationError::Quote(QuoteError::Policy(
-            PolicyRefusal::BalanceFloor
+            PolicyRefusal::DidUnavailable
         )))
     );
     assert_eq!(harness.signatures.get(), 0);

@@ -229,10 +229,7 @@ impl Wallet<'_> {
         {
             return Err(RpcError::MissingFinalityTrust);
         }
-        let sequence = self
-            .rpc
-            .get_identity_sequence(&options.actor)?
-            .next_sequence;
+        let sequence = self.rpc.get_identity_sequence(&options.actor)?;
         let prepared = prepare_payload(
             module,
             ordinal,

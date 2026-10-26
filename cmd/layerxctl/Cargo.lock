@@ -602,7 +602,6 @@ version = "0.1.0"
 dependencies = [
  "layerx-client",
  "layerx-types",
- "layerx-wire",
  "libc",
 ]
 

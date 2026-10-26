@@ -28,6 +28,7 @@ export * from './endpoint.js';
 export * from './kernel.js';
 export * from './human.js';
 export * from './ladder.js';
+export * from './receipt.js';
 export * from './modules/index.js';
 export * from './errors.js';
 export * from './provider.js';

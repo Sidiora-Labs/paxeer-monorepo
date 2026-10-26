@@ -12,6 +12,7 @@ import (
 
 const (
 	KindLXActivity = "lx_activity"
+	KindLXSendAuth = "lx_send_authorization"
 	KindLXBind     = "lx_bind"
 	KindLXGrant    = "lx_grant"
 
@@ -104,14 +105,14 @@ func (p *Policy) evaluateVerification(req Request) (Decision, bool) {
 }
 
 func KernelKinds() []string {
-	return []string{KindLXActivity, KindLXBind, KindLXGrant}
+	return []string{KindLXActivity, KindLXBind, KindLXGrant, KindLXSendAuth}
 }
 
-func (p *Policy) RegisterKernel(activity, bind, grant Inspector) error {
-	if activity == nil || bind == nil || grant == nil {
+func (p *Policy) RegisterKernel(activity, bind, grant, sendAuth Inspector) error {
+	if activity == nil || bind == nil || grant == nil || sendAuth == nil {
 		return errors.New("register kernel kinds: every inspector is required")
 	}
-	inspectors := map[string]Inspector{KindLXActivity: activity, KindLXBind: bind, KindLXGrant: grant}
+	inspectors := map[string]Inspector{KindLXActivity: activity, KindLXBind: bind, KindLXGrant: grant, KindLXSendAuth: sendAuth}
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	for _, kind := range KernelKinds() {

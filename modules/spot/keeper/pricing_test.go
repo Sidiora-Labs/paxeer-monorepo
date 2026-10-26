@@ -184,6 +184,60 @@ func TestTokenWithoutMarketIsRefused(t *testing.T) {
 	require.ErrorIs(t, err, pricefeedtypes.ErrUnknownMarket)
 }
 
+func TestValidatePriceMarketRefusesUnknownMarket(t *testing.T) {
+	t.Run("unknown market", func(t *testing.T) {
+		env := newPricingEnv(t, true)
+		token := env.tokens[1]
+		token.MarketID = uint64(len(pricefeedtypes.Markets))
+		_, err := env.keeper.pricefeedKeeper.GetPrice(env.ctx, token.MarketID)
+		require.ErrorIs(t, err, pricefeedtypes.ErrUnknownMarket)
+		err = env.keeper.ValidatePriceMarket(env.ctx, token)
+		require.ErrorIs(t, err, types.ErrInvalidOracle)
+		var abiErr *types.AbiError
+		require.ErrorAs(t, err, &abiErr)
+		require.Equal(t, []byte{0x95, 0x89, 0xa2, 0x7d}, abiErr.Data())
+	})
+	t.Run("zero market", func(t *testing.T) {
+		env := newPricingEnv(t, false)
+		token := env.tokens[1]
+		token.MarketID = 0
+		require.ErrorIs(t, env.keeper.ValidatePriceMarket(env.ctx, token), types.ErrInvalidOracle)
+	})
+	t.Run("stablecoin", func(t *testing.T) {
+		env := newPricingEnv(t, false)
+		token := env.tokens[0]
+		require.True(t, token.IsStablecoin)
+		token.MarketID = 0
+		require.NoError(t, env.keeper.ValidatePriceMarket(env.ctx, token))
+		token.MarketID = uint64(len(pricefeedtypes.Markets))
+		require.NoError(t, env.keeper.ValidatePriceMarket(env.ctx, token))
+	})
+	for _, tc := range []struct {
+		name    string
+		missing bool
+		offset  int64
+		fresh   bool
+	}{
+		{name: "listed fresh market", fresh: true},
+		{name: "listed stale market", offset: -int64(pricefeedtypes.DefaultMaxPriceAgeMs) - 1},
+		{name: "listed market without aggregate", missing: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			env := newPricingEnv(t, true)
+			token := env.tokens[1]
+			if !tc.missing {
+				price := sdk.NewIntWithDecimal(5, 17)
+				putPricingAggregate(t, env, token.MarketID, price, price,
+					uint64(env.ctx.BlockTime().UnixMilli()+tc.offset))
+			}
+			price, err := env.keeper.pricefeedKeeper.GetPrice(env.ctx, token.MarketID)
+			require.NoError(t, err)
+			require.Equal(t, tc.fresh, price.Fresh)
+			require.NoError(t, env.keeper.ValidatePriceMarket(env.ctx, token))
+		})
+	}
+}
+
 func TestGrossOutputConversion(t *testing.T) {
 	max := new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
 	maxText := max.String()

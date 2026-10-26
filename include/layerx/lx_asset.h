@@ -127,6 +127,7 @@ typedef struct lx_asset_runtime {
     size_t transfer_asset_count;
     uint32_t network_id;
     uint16_t protocol_version;
+    bool binding_authority;
 } lx_asset_runtime;
 
 enum {
