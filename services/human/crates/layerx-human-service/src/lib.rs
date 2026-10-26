@@ -8,6 +8,7 @@ pub mod auth;
 pub mod binding;
 pub mod custody;
 mod event_producer;
+pub mod frame;
 pub mod health;
 pub mod journeys;
 pub mod notify;
