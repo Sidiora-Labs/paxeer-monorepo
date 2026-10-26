@@ -83,8 +83,11 @@ func (a LayerXScopeAuthorization) ValidateBasic() error {
 	if a.ModuleMask == 0 {
 		return ErrAuthScope.Wrap("zero module mask")
 	}
-	if a.ModuleMask&1 != 0 {
-		return ErrAuthScope.Wrap("module mask names module 0")
+	if a.ModuleMask&^uint64(0x3fe) != 0 {
+		return ErrAuthScope.Wrapf("module mask %#x names unsupported modules", a.ModuleMask)
+	}
+	if a.Kind != 2 && a.Kind != 3 && a.Kind != 4 {
+		return ErrAuthScope.Wrapf("unsupported authority kind %d", a.Kind)
 	}
 	if a.OrdinalMin > a.OrdinalMax {
 		return ErrAuthScope.Wrapf("ordinal min %d above ordinal max %d", a.OrdinalMin, a.OrdinalMax)
@@ -98,6 +101,12 @@ func (a LayerXScopeAuthorization) ValidateBasic() error {
 	if len(a.GrantId) != scopeIDLength {
 		return ErrNonCanonical.Wrapf("grant id length %d", len(a.GrantId))
 	}
+	if len(a.PurposeHash) != 0 && len(a.PurposeHash) != scopeIDLength {
+		return ErrNonCanonical.Wrapf("purpose hash length %d", len(a.PurposeHash))
+	}
+	if a.NotBefore >= a.NotAfter {
+		return ErrAuthScope.Wrapf("not before %d is not before not after %d", a.NotBefore, a.NotAfter)
+	}
 	perActivity, err := parseScopeU128(a.MaxPerActivity)
 	if err != nil {
 		return err
@@ -108,6 +117,13 @@ func (a LayerXScopeAuthorization) ValidateBasic() error {
 	}
 	if total.Sign() != 0 && perActivity.Cmp(total) > 0 {
 		return ErrAuthScope.Wrapf("max per activity %s above max total %s", perActivity, total)
+	}
+	perPeriod, err := parseScopeU128(a.MaxPerPeriod)
+	if err != nil {
+		return err
+	}
+	if a.PeriodLength != 0 && perPeriod.Cmp(total) > 0 {
+		return ErrAuthScope.Wrapf("max per period %s above max total %s", perPeriod, total)
 	}
 	return nil
 }
