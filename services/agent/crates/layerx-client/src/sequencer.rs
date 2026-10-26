@@ -244,6 +244,24 @@ impl SequencerEndpoint {
         })
     }
 
+    /// Chain id reported by the sequencer.
+    ///
+    /// # Errors
+    /// Transport, refusal and decode failures as [`SequencerError`].
+    pub fn chain_id(&self) -> Result<u64, SequencerError> {
+        let result = self.call("eth_chainId", &json!([]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
+    }
+
+    /// Balance of `address` in the pending state, as a big-endian quantity.
+    ///
+    /// # Errors
+    /// Transport, refusal and decode failures as [`SequencerError`].
+    pub fn balance(&self, address: &[u8; 20]) -> Result<[u8; 32], SequencerError> {
+        let result = self.call("eth_getBalance", &json!([hex(address), "pending"]))?;
+        quantity_u256(&result).ok_or(SequencerError::Malformed)
+    }
+
     /// Next nonce of `address` from the sequencer's pending nonce map.
     ///
     /// # Errors
