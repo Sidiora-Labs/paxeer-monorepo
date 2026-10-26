@@ -10,7 +10,6 @@ publish = false
 libc = "0.2"
 layerx-client = { path = "../../services/agent/crates/layerx-client" }
 layerx-types = { path = "../../services/agent/crates/layerx-types" }
-layerx-wire = { path = "../../services/agent/crates/layerx-wire" }
 
 [workspace]
 
