@@ -34,20 +34,20 @@ The orchestrator owns the global frontier, worker capacity, the immutable base o
 
 **Admission and the 500-sandbox ceiling.**
 
-The merged baseline contains 2,517 tasks. Counts are a planning snapshot; the dispatcher recomputes them from the installed specification after any approved graph change.
+The merged baseline contains 2,545 tasks. Counts are a planning snapshot; the dispatcher recomputes them from the installed specification after any approved graph change.
 
 | Wave | Meaning | Baseline task count |
 |---|---|---:|
-| 0 | Foundations and harnesses | 259 |
-| 1 | Core logic | 440 |
-| 2 | Callable surfaces | 431 |
-| 3 | Services | 205 |
-| 4 | Integration | 314 |
-| 5 | Clients | 407 |
-| 6 | Conformance and retirement | 430 |
-| 7 | Completion and programme certification | 31 |
+| 0 | Foundations and harnesses | 260 |
+| 1 | Core logic | 441 |
+| 2 | Callable surfaces | 439 |
+| 3 | Services | 221 |
+| 4 | Integration | 320 |
+| 5 | Clients | 408 |
+| 6 | Conformance and retirement | 432 |
+| 7 | Completion and programme certification | 24 |
 
-For the open wave, admit at most `min(500, eligible conflict-free tasks, image capacity, resource capacity)`. The largest baseline wave has 440 tasks; 500 is a ceiling, not a utilization target. Same-wave dependencies and scarce fixtures reduce the concurrent frontier further. Use fair rotation among managers, admitting one eligible request per nonempty domain before a second round. Prioritize prerequisites that unblock the frontier within that rotation. Never hold a task claim while waiting indefinitely for image or fixture provisioning: prepare capacity first, then claim and start the task deadline.
+For the open wave, admit at most `min(500, eligible conflict-free tasks, image capacity, resource capacity)`. The largest baseline wave has 441 tasks; 500 is a ceiling, not a utilization target. Same-wave dependencies and scarce fixtures reduce the concurrent frontier further. Use fair rotation among managers, admitting one eligible request per nonempty domain before a second round. Prioritize prerequisites that unblock the frontier within that rotation. Never hold a task claim while waiting indefinitely for image or fixture provisioning: prepare capacity first, then claim and start the task deadline.
 
 `cg spec ready` lists eligible tasks across waves. In parallel mode the CLI also treats an implemented prerequisite as sufficient for implementation admission. The dispatcher therefore filters the CLI result through stricter rules: only the currently open wave; every prerequisite qualified, published and integrated; every requested anchor satisfied; every fulfilling wiring present; no overlapping file writer; and sufficient capacity. An implemented-only task never unlocks a successor in this plan. Empty readiness with outstanding tasks triggers dependency or fixture escalation, not forced starts or deletion of dependency edges.
 
@@ -73,7 +73,7 @@ The following CPU, memory and scratch figures are initial reservations for this 
 | `swift` | Swift 6.0.3 from `.github/workflows/platform.yml:55`; SwiftPM packages retain their 5.9 tools declaration at `sdk/platform/swift/Package.swift:1` and their locked dependencies. Linux allocations run declared portable package tests. A declared native UI gate requires a compatible execution environment before admission. | 4 / 8 / 30 |
 | `mixed` | A task-specific immutable union of the profiles needed by its `build_cmd`, `verify_cmd` and fixtures, including Python 3.12 for the programme runners. Record every component version. Do not provision an unspecified universal image or install another compiler during qualification. | 8 / 16 / 80 |
 
-The baseline profile counts are: `go` 501, `go-cgo` 744, `rust` 523, `node` 336, `elixir` 31, `solidity` 6, `python` 251, `jvm` 15, `dotnet` 8, `swift` 10, and `mixed` 92. A domain's default profile does not override the profile on an individual task.
+The baseline profile counts are: `go` 500, `go-cgo` 727, `rust` 546, `node` 336, `elixir` 31, `solidity` 2, `python` 251, `jvm` 15, `dotnet` 8, `swift` 10, and `mixed` 119. A domain's default profile does not override the profile on an individual task.
 
 Nested package constraints require explicit image variants. The explorer backend declares Node 20.17.0 in its tool versions, while `services/explorer/backend/apps/explorer/package.json:10-12` requires Node 18.x and npm 8.x for that package. A task that invokes those assets needs a pinned Node 18/npm 8 executable path for that invocation alongside the backend's default tools. Do not run those commands under the generic Node 24 path or change their engine declarations to obtain a pass. Likewise, preserve the Foundry version selected by a task-specific CI configuration when it differs from the root CI pin.
 
@@ -193,8 +193,8 @@ At the end of each wave the orchestrator drains workers, integrates every qualif
 
 Runner task `16.0.1`, manifest task `17.5.8`, and the script-producing tasks are in wave 0. Their bounded qualification tests check runner behavior and script declarations; `--list` output never substitutes for actually executing a wave aggregate. Persist an execution ledger keyed by wave, merged source revision, command digest and image/fixture digests. Admission of the next wave requires every mandatory gate's successful, revision-matching evidence. A task test's pass cannot be borrowed for a different revision's aggregate result.
 
-There is a pre-dispatch graph conflict in the merged baseline: tasks `17.5.1` through `17.5.7` are all scheduled in wave 7, require `16.97.4` from wave 5, and instruct their tests to execute the earlier wave scripts. They cannot supply barriers before waves 1 through 6, and executing them after boundary runs would repeat aggregate qualification. The graph owner must reconcile these wrappers with the boundary execution ledger before implementation dispatch, preserving all real aggregate commands and assertions. This plan requires the boundary gates above; it does not silently move those tasks, skip their verification, or claim the conflict resolved. The finding is recorded for the final specification repair job.
+The merged dependency graph is acyclic. Tasks `17.5.1`–`17.5.7` sit in their target waves 0–6 (decision.1715), each requiring the manifest task `17.5.8`, that wave's script author task (`16.1.1`–`16.1.7`) and the domain anchors. Open item: they carry no declared dependency that closes every task of their target wave, so the dispatcher must enforce wave-wide closure before it runs a wave aggregate. The programme gate `17.0.9` replays the wave scripts once on the final candidate and refuses evidence of two different revisions; this plan does not skip or merge either execution.
 
 Wave 7 closes the real per-domain completion tasks `N.0.9`; the programme completion task is `17.0.9`. The final programme gate requires every domain gate, publication receipt, resolved mandatory finding, acceptance evidence and applicable release matrix on its declared candidate. Aggregate browser, sanitizer, historical, performance and full cluster matrices run at their declared wave boundary or final release, outside ordinary task qualification. Missing external inputs remain explicit blockers for affected criteria; a registry of gaps is not passing evidence.
 
-For specification delivery, Python validation and Hyperfide CLI lint are separate gates. The specification builder may launch lint detached for the large merged document; a successful Python build does not certify that lint passed. Delivery requires the recorded lint exit to be zero and bound to the exact emitted specification, with its result newer than that emission. Keep one lint in flight per document, retain its log, and invalidate its result when the specification changes. No control-plane admission or final handoff treats a still-running lint as success.
+For specification delivery, Python validation and the Hyperfide CLI acceptance are separate gates. The specification builder launches `cg spec status` detached on the emitted spec.kvx; delivery requires its recorded exit to be zero, every task reported, and its result newer than that emission. Keep one acceptance in flight per document, retain its log, and invalidate its result when the specification changes. `cg spec lint` stays owed at release once its cycle check terminates on this plan. No control-plane admission or final handoff treats a still-running acceptance as success.
