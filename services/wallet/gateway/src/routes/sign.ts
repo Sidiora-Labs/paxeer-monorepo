@@ -175,6 +175,11 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
   const attestors = opts.attestors !== undefined ? opts.attestors : defaultAttestors();
   await lxApprovalRoutes(app, pool, attestors, limiter);
 
+  async function sequencerReceipt(hash: Hex) {
+    const receipt = await rpc.sequencerReceipt(hash);
+    return { receipt, rung: receipt === null ? ('submitted' as const) : ('receipted' as const) };
+  }
+
   function requireQuorumWallet(sw:SigningWallet):asserts sw is SigningWallet & {attestorKeyId:string} {
     if(!attestors||!sw.attestorKeyId||!usesAttestorCustody({migratedAt:sw.migratedAt,hasEnvelope:sw.row.encrypted_private_key!==null})) throw new AttestorQuorumError('attestor_custody_required','this operation requires the original wallet attestor key');
   }
@@ -601,7 +606,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
           const signed = await signer.signTransaction({ ...prepared, nonce });
           if (tx.nonce === undefined) {
             const sent = await broadcastReserved(lease, nonce, signed.value, (raw) => rpc.sendRawTransactionVia(raw));
-            return sent.error === null
+            return sent.hash !== null
               ? { ok: true as const, hash: sent.hash, nonce, signed }
               : { ok: false as const, error: sent.error as Error, nonce, signed };
           }
@@ -672,7 +677,12 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
         };
         return {
           status: 200,
-          body: { tx_hash: outcome.hash, address: sw.row.address, chain_id: chainId },
+          body: {
+            tx_hash: outcome.hash,
+            address: sw.row.address,
+            chain_id: chainId,
+            ...(await sequencerReceipt(outcome.hash)),
+          },
           decision: 'broadcast',
           path: signer.path,
           account: sw.row.address,
