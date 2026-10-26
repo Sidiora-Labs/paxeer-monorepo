@@ -437,9 +437,8 @@ func initAppConfig() (string, interface{}) {
 [wasm]
 # This is the maximum sdk gas (wasm and storage) that we allow for any x/wasm "smart" queries
 query_gas_limit = 300000
-# This is the number of wasm vm instances we keep cached in memory for speed-up
-# Warning: this is currently unstable and may lead to crashes, best to keep for 0 unless testing locally
-lru_size = 0
+memory_cache_size = {{ .WASM.MemoryCacheSize }}
+simulation_gas_limit = "{{ .WASM.SimulationGasLimit }}"
 
 ###############################################################################
 ###                     ETH Replay Configuration (Auto-managed)             ###
@@ -449,7 +448,7 @@ lru_size = 0
 eth_replay_enabled = {{ .ETHReplay.Enabled }}
 eth_rpc = "{{ .ETHReplay.EthRPC }}"
 eth_data_dir = "{{ .ETHReplay.EthDataDir }}"
-eth_replay_contract_state_checks = {{ .ETHReplay.ContractStateChecks }}
+contract_state_checks = {{ .ETHReplay.ContractStateChecks }}
 
 ###############################################################################
 ###                   ETH Block Test Configuration (Auto-managed)           ###
