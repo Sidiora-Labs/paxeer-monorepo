@@ -32,6 +32,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -120,6 +121,7 @@ type fixture struct {
 	t         *testing.T
 	ctx       sdk.Context
 	keeper    *keeper.Keeper
+	upgrade   upgradekeeper.Keeper
 	custody   *custodykeeper.Keeper
 	vectors   testvectors.Fixture
 	caller    common.Address
@@ -159,11 +161,15 @@ func newFixture(t *testing.T) *fixture {
 	base, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(11).WithBlockTime(genesisTime).CacheContext()
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	ctx := withStore(t, base, key)
+	upgradeKey := sdk.NewKVStoreKey("layerxexchange-fixture-upgrade")
+	ctx = withStore(t, ctx, upgradeKey)
 	vectors, err := testvectors.Load()
 	require.NoError(t, err)
 	f := &fixture{t: t, ctx: ctx, custody: app.LayerXCustodyKeeper, vectors: vectors,
 		native: vectorArray(t, vectors["withdrawal"][0], "asset"), token: vectorArray(t, vectors["exit"][0], "asset")}
 	f.keeper = keeper.NewKeeper(app.AppCodec(), key, app.LayerXCustodyKeeper, &app.EvmKeeper)
+	f.upgrade = upgradekeeper.NewKeeper(nil, upgradeKey, app.AppCodec(), t.TempDir(), nil)
+	f.keeper.SetUpgradeKeeper(f.upgrade)
 	// Finalized roots come from custody's authority-registered checkpoints;
 	// the app wires the anchor module's reader in its place.
 	f.custody.SetAnchorReader(nil)
@@ -200,6 +206,72 @@ func (f *fixture) typedEvents(ctx sdk.Context, name string) int {
 }
 
 func (f *fixture) fresh() sdk.Context { return f.ctx.WithEventManager(sdk.NewEventManager()) }
+
+func TestRecordIntentRefusedAfterRetirement(t *testing.T) {
+	f := newFixture(t)
+	const doneHeight int64 = 100
+	ctx := f.fresh().WithBlockHeight(doneHeight - 1)
+	writes := []struct {
+		name string
+		run  func(sdk.Context) (types.Intent, error)
+	}{
+		{"deposit", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordDepositMarginIntent(ctx, f.caller, f.callerAcc, f.native, account, sdk.NewInt(10))
+		}},
+		{"withdraw", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordWithdrawMarginIntent(ctx, f.caller, account, f.native, sdk.NewInt(10))
+		}},
+		{"place", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordPlaceOrderIntent(ctx, f.caller, marketID, types.SideBuy, sdk.NewInt(10), sdk.NewInt(1), types.TimeInForceGoodTillCancelled)
+		}},
+		{"cancel", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RecordCancelOrderIntent(ctx, f.caller, orderID)
+		}},
+		{"settle", func(ctx sdk.Context) (types.Intent, error) {
+			return f.keeper.RequestSettlement(ctx, f.caller, positionID)
+		}},
+	}
+	f.upgrade.SetDone(ctx.WithBlockHeight(doneHeight), types.RetiredFromUpgrade)
+	chainID := testkeeper.EVMTestApp.EvmKeeper.ChainID(ctx)
+	for i, write := range writes {
+		intent, err := write.run(ctx)
+		require.NoError(t, err, write.name)
+		require.Equal(t, uint64(i+1), intent.Nonce, write.name)
+		stored, found := f.keeper.GetIntent(ctx, types.IntentID(chainID, f.caller, intent.Kind, intent.Nonce))
+		require.True(t, found, write.name)
+		require.Equal(t, intent, stored, write.name)
+	}
+	count := f.keeper.GetIntentCount(ctx)
+	nonce := f.keeper.GetOwnerNonce(ctx, f.caller)
+	callerBalance := f.balance(f.callerAcc, sdk.MustGetBaseDenom())
+	custodyBalance := f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom())
+	depositCount := f.custody.GetDepositCount(ctx)
+	depositNonce := f.custody.GetDepositNonce(ctx, f.caller, f.native)
+	before := f.keeper.ExportGenesis(ctx)
+	for _, height := range []int64{doneHeight, doneHeight + 1} {
+		retiredCtx := f.fresh().WithBlockHeight(height)
+		for _, write := range writes {
+			intent, err := write.run(retiredCtx)
+			require.ErrorIs(t, err, types.ErrRetired, write.name)
+			require.Contains(t, err.Error(), "v6.12.0 done at height 100", write.name)
+			require.Equal(t, types.CodeRetired, types.ErrorCode(err), write.name)
+			require.Equal(t, types.Intent{}, intent, write.name)
+			require.Equal(t, count, f.keeper.GetIntentCount(retiredCtx), write.name)
+			require.Equal(t, nonce, f.keeper.GetOwnerNonce(retiredCtx, f.caller), write.name)
+			require.Equal(t, before, f.keeper.ExportGenesis(retiredCtx), write.name)
+			require.Equal(t, callerBalance, f.balance(f.callerAcc, sdk.MustGetBaseDenom()), write.name)
+			require.Equal(t, custodyBalance, f.balance(f.custody.ModuleAddress(), sdk.MustGetBaseDenom()), write.name)
+			require.Equal(t, depositCount, f.custody.GetDepositCount(retiredCtx), write.name)
+			require.Equal(t, depositNonce, f.custody.GetDepositNonce(retiredCtx, f.caller, f.native), write.name)
+			require.Empty(t, retiredCtx.EventManager().Events(), write.name)
+		}
+	}
+	f.keeper.SetUpgradeKeeper(nil)
+	for _, write := range writes {
+		_, err := write.run(ctx)
+		require.ErrorIs(t, err, types.ErrKeeperMissing, write.name)
+	}
+}
 
 func TestDepositMarginMovesFundsOnlyIntoCustody(t *testing.T) {
 	f := newFixture(t)

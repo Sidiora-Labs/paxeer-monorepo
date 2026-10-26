@@ -15,7 +15,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	simtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/simulation"
@@ -153,7 +152,7 @@ func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.
 	start := time.Now()
 	var genesisState types.GenesisState
 	cdc.MustUnmarshalJSON(data, &genesisState)
-	telemetry.MeasureSince(start, "InitGenesis", "crisis", "unmarshal")
+	bankMetrics.initGenesisDuration.Record(ctx.Context(), time.Since(start).Seconds())
 
 	am.keeper.InitGenesis(ctx, &genesisState)
 	return []abci.ValidatorUpdate{}

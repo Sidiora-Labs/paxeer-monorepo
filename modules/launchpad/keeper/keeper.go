@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
-	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -74,11 +73,6 @@ func (k *Keeper) store(ctx sdk.Context) sdk.KVStore { return ctx.KVStore(k.store
 // ModuleAddress is the escrow account of every market.
 func (k *Keeper) ModuleAddress() sdk.AccAddress { return authtypes.NewModuleAddress(types.ModuleName) }
 
-// TreasuryAddress receives creation fees and the protocol share of buy fees.
-func (k *Keeper) TreasuryAddress() sdk.AccAddress {
-	return authtypes.NewModuleAddress(types.TreasuryName)
-}
-
 // Generation2 returns the generation 2 role addresses.
 func (k *Keeper) Generation2() RoleAddresses { return k.generation2 }
 
@@ -141,60 +135,6 @@ func (k *Keeper) setUint64(ctx sdk.Context, key []byte, value uint64) {
 // GetMarketCount is the number of markets ever created.
 func (k *Keeper) GetMarketCount(ctx sdk.Context) uint64 {
 	return k.getUint64(ctx, types.MarketCountKey)
-}
-
-func (k *Keeper) GetProtocolFees(ctx sdk.Context, denom string) (sdk.Int, error) {
-	if denom == "" {
-		return sdk.Int{}, types.ErrUnknownMarket
-	}
-	bz := k.store(ctx).Get(types.ProtocolFeesKey(denom))
-	if bz == nil {
-		return sdk.ZeroInt(), nil
-	}
-	var out sdk.Int
-	if err := out.Unmarshal(bz); err != nil {
-		return sdk.Int{}, fmt.Errorf("%w: protocol fees %s: %v", types.ErrOverflow, denom, err)
-	}
-	if out.IsNil() || out.IsNegative() || out.BigInt().Cmp(types.MaxUint256()) > 0 {
-		return sdk.Int{}, types.ErrOverflow
-	}
-	return out, nil
-}
-
-func (k *Keeper) setProtocolFees(ctx sdk.Context, denom string, value sdk.Int) error {
-	if denom == "" {
-		return types.ErrUnknownMarket
-	}
-	if value.IsNil() || value.IsNegative() || value.BigInt().Cmp(types.MaxUint256()) > 0 {
-		return types.ErrOverflow
-	}
-	bz, err := value.Marshal()
-	if err != nil {
-		return err
-	}
-	k.store(ctx).Set(types.ProtocolFeesKey(denom), bz)
-	return nil
-}
-
-func (k *Keeper) AddProtocolFees(ctx sdk.Context, denom string, amount sdk.Int) error {
-	if denom == "" {
-		return types.ErrUnknownMarket
-	}
-	if amount.IsNil() || amount.IsNegative() {
-		return types.ErrOverflow
-	}
-	if amount.IsZero() {
-		return nil
-	}
-	current, err := k.GetProtocolFees(ctx, denom)
-	if err != nil {
-		return err
-	}
-	total := new(big.Int).Add(current.BigInt(), amount.BigInt())
-	if total.Cmp(types.MaxUint256()) > 0 {
-		return types.ErrOverflow
-	}
-	return k.setProtocolFees(ctx, denom, sdk.NewIntFromBigInt(total))
 }
 
 func (k *Keeper) GetMarket(ctx sdk.Context, denom string) (types.Market, bool) {
@@ -295,56 +235,4 @@ func (k *Keeper) IterateMarkets(ctx sdk.Context, cb func(types.Market) bool) {
 			return
 		}
 	}
-}
-
-func (k *Keeper) GetAirdropEpochAmount(ctx sdk.Context, denom string, epoch uint64) sdk.Int {
-	bz := k.store(ctx).Get(types.AirdropEpochKey(denom, epoch))
-	if bz == nil {
-		return sdk.ZeroInt()
-	}
-	var out sdk.Int
-	if err := out.Unmarshal(bz); err != nil {
-		panic(fmt.Errorf("launchpad: corrupt airdrop epoch: %w", err))
-	}
-	return out
-}
-
-func (k *Keeper) setAirdropEpochAmount(ctx sdk.Context, denom string, epoch uint64, amount sdk.Int) {
-	bz, err := amount.Marshal()
-	if err != nil {
-		panic(err)
-	}
-	k.store(ctx).Set(types.AirdropEpochKey(denom, epoch), bz)
-}
-
-// HasClaimedAirdrop reports whether holder claimed denom's airdrop at epoch.
-func (k *Keeper) HasClaimedAirdrop(ctx sdk.Context, denom string, holder sdk.AccAddress, epoch uint64) bool {
-	return k.store(ctx).Has(types.AirdropClaimKey(denom, holder, epoch))
-}
-
-func (k *Keeper) setAirdropClaimed(ctx sdk.Context, denom string, holder sdk.AccAddress, epoch uint64) {
-	k.store(ctx).Set(types.AirdropClaimKey(denom, holder, epoch), []byte{1})
-}
-
-// GetAirdropBasis returns the entitlement basis of denom's airdrop epoch;
-// epochs opened before bases were recorded have none.
-func (k *Keeper) GetAirdropBasis(ctx sdk.Context, denom string, epoch uint64) (types.AirdropEpochBasis, bool, error) {
-	bz := k.store(ctx).Get(types.AirdropBasisKey(denom, epoch))
-	if bz == nil {
-		return types.AirdropEpochBasis{}, false, nil
-	}
-	var basis types.AirdropEpochBasis
-	if err := json.Unmarshal(bz, &basis); err != nil || basis.Denom != denom || basis.Epoch != epoch ||
-		basis.Supply.IsNil() || !basis.Supply.IsPositive() || basis.Paid.IsNil() || basis.Paid.IsNegative() {
-		return types.AirdropEpochBasis{}, false, fmt.Errorf("%w: %s/%d", types.ErrAirdropBasis, denom, epoch)
-	}
-	return basis, true, nil
-}
-
-func (k *Keeper) setAirdropBasis(ctx sdk.Context, basis types.AirdropEpochBasis) {
-	bz, err := json.Marshal(basis)
-	if err != nil {
-		panic(err)
-	}
-	k.store(ctx).Set(types.AirdropBasisKey(basis.Denom, basis.Epoch), bz)
 }

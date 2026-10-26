@@ -14,10 +14,10 @@ mod limits;
 pub mod movement_provider;
 pub mod native_send;
 mod privileged;
-mod projection;
 pub mod production_auth;
 pub mod production_components;
 mod production_reads;
+mod projection;
 pub mod schema;
 pub(crate) mod stream_journal;
 
@@ -27,7 +27,7 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
 
-use layerx_client::lni::transport::ConnectionGate;
+use crate::frame::ConnectionGate;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use zeroize::Zeroize;

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
@@ -191,7 +192,8 @@ func isHistoricalDebugTraceBlock(blockHeight, latestHeight, maxBlockLookback int
 }
 
 type PaxDebugAPI struct {
-	*DebugAPI
+	debug   *DebugAPI
+	backend *Backend
 }
 
 func NewDebugAPI(
@@ -257,9 +259,9 @@ func NewPaxDebugAPI(
 	if debugCfg.MaxConcurrentTraceCalls > 0 {
 		sem = make(chan struct{}, debugCfg.MaxConcurrentTraceCalls)
 	}
-	// Note: The embedded DebugAPI here does not get its own isPanicCache initialized
+	// Note: The DebugAPI here does not get its own isPanicCache initialized
 	// This is consistent with the original code. If it needs one, it should be added.
-	embeddedDebugAPI := &DebugAPI{
+	debugAPI := &DebugAPI{
 		tracersAPI:         tracersAPI,
 		tmClient:           tmClient,
 		keeper:             k,
@@ -271,11 +273,12 @@ func NewPaxDebugAPI(
 		traceTimeout:       debugCfg.TraceTimeout,
 		profiledBlockTrace: debugCfg.EnableParallelizedBlockTrace,
 		backend:            backend,
-		// isPanicCache: nil, // Explicitly nil as per original structure for PaxDebugAPI's embedded DebugAPI
+		// isPanicCache: nil, // Explicitly nil as per original structure for PaxDebugAPI's DebugAPI
 	}
 
 	return &PaxDebugAPI{
-		DebugAPI: embeddedDebugAPI,
+		debug:   debugAPI,
+		backend: backend,
 	}
 }
 
@@ -520,28 +523,28 @@ func (api *DebugAPI) AsRawJSON(result interface{}) ([]byte, bool) {
 func (api *PaxDebugAPI) TraceBlockByNumberExcludeTraceFail(ctx context.Context, number rpc.BlockNumber, config *tracers.TraceConfig) (result interface{}, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "pax_traceBlockByNumberExcludeTraceFail", api.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "pax_traceBlockByNumberExcludeTraceFail", api.debug.connectionType, startTime, returnErr, recover())
 	}()
 
-	ctx, done, err := api.prepareTraceContext(ctx)
+	ctx, done, err := api.debug.prepareTraceContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer done()
 
-	latest := api.ctxProvider(LatestCtxHeight).BlockHeight()
-	if api.maxBlockLookback >= 0 && number.Int64() < latest-api.maxBlockLookback {
-		return nil, fmt.Errorf("block number %d is beyond max lookback of %d", number.Int64(), api.maxBlockLookback)
+	latest := api.debug.ctxProvider(LatestCtxHeight).BlockHeight()
+	if api.debug.maxBlockLookback >= 0 && number.Int64() < latest-api.debug.maxBlockLookback {
+		return nil, fmt.Errorf("block number %d is beyond max lookback of %d", number.Int64(), api.debug.maxBlockLookback)
 	}
 
-	if cached, ok := api.tryExcludeFailBlockTraceCacheByNumber(ctx, number, config); ok {
+	if cached, ok := api.debug.tryExcludeFailBlockTraceCacheByNumber(ctx, number, config); ok {
 		return cached, nil
 	}
 
-	if api.shouldUseProfiledBlockTrace(config) {
-		result, returnErr = api.profiledTraceBlockByNumber(ctx, number, config)
+	if api.debug.shouldUseProfiledBlockTrace(config) {
+		result, returnErr = api.debug.profiledTraceBlockByNumber(ctx, number, config)
 	} else {
-		result, returnErr = api.tracersAPI.TraceBlockByNumber(ctx, number, config)
+		result, returnErr = api.debug.tracersAPI.TraceBlockByNumber(ctx, number, config)
 	}
 	if returnErr != nil {
 		return
@@ -550,29 +553,29 @@ func (api *PaxDebugAPI) TraceBlockByNumberExcludeTraceFail(ctx context.Context, 
 	if !ok {
 		return nil, fmt.Errorf("unexpected type: %T", result)
 	}
-	return dropUntraceableTraces(traces, api.keeper, api.ctxProvider(LatestCtxHeight)), nil
+	return dropUntraceableTraces(traces, api.debug.keeper, api.debug.ctxProvider(LatestCtxHeight)), nil
 }
 
 func (api *PaxDebugAPI) TraceBlockByHashExcludeTraceFail(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (result interface{}, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "pax_traceBlockByHashExcludeTraceFail", api.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "pax_traceBlockByHashExcludeTraceFail", api.debug.connectionType, startTime, returnErr, recover())
 	}()
 
-	ctx, done, err := api.prepareTraceContext(ctx)
+	ctx, done, err := api.debug.prepareTraceContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 	defer done()
 
-	if cached, ok := api.tryExcludeFailBlockTraceCacheByHash(ctx, hash, config); ok {
+	if cached, ok := api.debug.tryExcludeFailBlockTraceCacheByHash(ctx, hash, config); ok {
 		return cached, nil
 	}
 
-	if api.shouldUseProfiledBlockTrace(config) {
-		result, returnErr = api.profiledTraceBlockByHash(ctx, hash, config)
+	if api.debug.shouldUseProfiledBlockTrace(config) {
+		result, returnErr = api.debug.profiledTraceBlockByHash(ctx, hash, config)
 	} else {
-		result, returnErr = api.tracersAPI.TraceBlockByHash(ctx, hash, config)
+		result, returnErr = api.debug.tracersAPI.TraceBlockByHash(ctx, hash, config)
 	}
 	if returnErr != nil {
 		return
@@ -581,7 +584,7 @@ func (api *PaxDebugAPI) TraceBlockByHashExcludeTraceFail(ctx context.Context, ha
 	if !ok {
 		return nil, fmt.Errorf("unexpected type: %T", result)
 	}
-	return dropUntraceableTraces(traces, api.keeper, api.ctxProvider(LatestCtxHeight)), nil
+	return dropUntraceableTraces(traces, api.debug.keeper, api.debug.ctxProvider(LatestCtxHeight)), nil
 }
 
 // isPanicOrSyntheticTx returns true if the tx isn't traceable — used by the
@@ -741,7 +744,15 @@ func (api *DebugAPI) GetRawTransaction(ctx context.Context, hash common.Hash) (_
 	defer func() {
 		recordMetricsWithError(ctx, "debug_getRawTransaction", api.connectionType, startTime, returnErr, recover())
 	}()
-	return nil, &ErrEVMNotSupported{Msg: "debug_getRawTransaction is not supported on Pax EVM RPC"}
+	rawAPI := NewRawTransactionAPI(api.tmClient, api.keeper, api.ctxProvider, api.txConfigProvider, "", api.connectionType, utils.None[time.Duration](), api.backend.watermarks, api.backend.globalBlockCache, api.backend.cacheCreationMutex)
+	raw, err := rawAPI.GetRawTransactionByHash(ctx, hash)
+	if err != nil {
+		return nil, err
+	}
+	if raw == nil {
+		return nil, fmt.Errorf("transaction %s not found", hash.Hex())
+	}
+	return raw, nil
 }
 
 type StateAccessResponse struct {

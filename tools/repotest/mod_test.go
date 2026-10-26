@@ -2,7 +2,9 @@ package repotest_test
 
 import (
 	"bufio"
+	"io/fs"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -88,4 +90,57 @@ func TestGoSum_NoBannedDependencies(t *testing.T) {
 			banned, line)
 	}
 	require.NoError(t, scanner.Err())
+}
+
+func TestEveryGoModHasNoBannedDependencies(t *testing.T) {
+	err := filepath.WalkDir(".", func(path string, entry fs.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.IsDir() {
+			switch entry.Name() {
+			case "vendor", "node_modules", ".git":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
+		switch entry.Name() {
+		case "go.mod":
+			t.Run(path, func(t *testing.T) {
+				data, err := os.ReadFile(path)
+				require.NoError(t, err, "%s", path)
+				f, err := modfile.Parse(path, data, nil)
+				require.NoError(t, err, "%s", path)
+				for _, req := range f.Require {
+					if banned, ok := isBannedModule(req.Mod.Path); ok {
+						t.Errorf("%s must not depend on %s (use local fork instead), but found: %s %s",
+							path, banned, req.Mod.Path, req.Mod.Version)
+					}
+				}
+			})
+		case "go.sum":
+			t.Run(path, func(t *testing.T) {
+				f, err := os.Open(path)
+				require.NoError(t, err, "%s", path)
+				defer func() { require.NoError(t, f.Close(), "%s", path) }()
+
+				scanner := bufio.NewScanner(f)
+				for scanner.Scan() {
+					line := scanner.Text()
+					modPath, _, _ := strings.Cut(line, " ")
+					if modPath == "" {
+						continue
+					}
+					if banned, ok := isBannedModule(modPath); ok {
+						t.Errorf("%s must not reference %s (use local fork instead), but found: %s",
+							path, banned, line)
+					}
+				}
+				require.NoError(t, scanner.Err(), "%s", path)
+			})
+		}
+		return nil
+	})
+	require.NoError(t, err)
 }
