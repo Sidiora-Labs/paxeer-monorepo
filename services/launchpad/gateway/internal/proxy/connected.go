@@ -79,10 +79,10 @@ func NewConnected(d ConnectedDeps) (*Connected, error) {
 }
 func allowedConnectedRoute(name string, r ConnectedRoute) bool {
 	routes := map[string]map[string]string{
-		"metadata":   {"/v2/tokens/{tokenAddress}/metadata": "GET PATCH", "/v2/tokens/{tokenAddress}/media": "GET", "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT", "/v2/assets/uploads": "POST", "/v2/assets/{assetId}": "GET", "/v2/assets/{assetId}:complete": "POST"},
+		"metadata":   {"/v2/tokens/{tokenAddress}/metadata": "GET PATCH", "/v2/tokens/{tokenAddress}/media": "GET", "/v2/tokens/{tokenAddress}/assets/{assetId}": "GET PUT", "/v2/accounts/{wallet}/assets/{assetId}": "GET PUT"},
 		"user":       {"/v2/profiles/{wallet}": "GET PATCH", "/v2/profiles:batch": "GET", "/v2/me/watchlist": "GET", "/v2/me/watchlist/{poolAddress}": "PUT DELETE"},
 		"livestream": {"/v2/streams": "GET POST", "/v2/streams/operations/{operationId}": "GET", "/v2/streams/{streamId}:start": "POST", "/v2/streams/{streamId}:end": "POST", "/v2/streams/{streamId}/viewers:heartbeat": "POST", "/v2/streams/{streamId}/ingest-credential": "POST"},
-		"social":     {"/v2/me/following/{wallet}": "PUT DELETE", "/v2/profiles/{wallet}/followers": "GET", "/v2/profiles/{wallet}/follow-stats": "GET", "/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE", "/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET", "/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST", "/v2/rooms/{roomId}/messages": "GET POST"},
+		"social":     {"/v2/me/following/{wallet}": "PUT DELETE", "/v2/profiles/{wallet}/followers": "GET", "/v2/profiles/{wallet}/follow-stats": "GET", "/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE", "/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET", "/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST"},
 	}
 	if r.Optional && (r.Authenticate || r.Method != "GET") {
 		return false
@@ -466,6 +466,16 @@ func connectedError(w http.ResponseWriter, status int, code string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"code": code})
 }
 
+func RetiredConnectedRoutes() []ConnectedRoute {
+	return []ConnectedRoute{
+		{Method: http.MethodPost, Template: "/v2/assets/uploads"},
+		{Method: http.MethodGet, Template: "/v2/assets/{assetId}"},
+		{Method: http.MethodPost, Template: "/v2/assets/{assetId}:complete"},
+		{Method: http.MethodGet, Template: "/v2/rooms/{roomId}/messages"},
+		{Method: http.MethodPost, Template: "/v2/rooms/{roomId}/messages"},
+	}
+}
+
 func SocialConnectedRoutes() []ConnectedRoute {
 	methods := map[string]string{
 		"/v2/chat/history": "GET", "/v2/chat/conversations": "GET", "/v2/chat/read": "POST", "/v2/chat/revise": "POST",
@@ -546,7 +556,6 @@ func DevelopmentSocialRoutes() []ConnectedRoute {
 		"/v2/pools/{poolAddress}/comments": "GET POST", "/v2/comments/{commentId}": "PATCH DELETE", "/v2/comments/{commentId}/likes/me": "PUT DELETE",
 		"/v2/reports": "POST", "/v2/callouts": "POST", "/v2/pools/{poolAddress}/callouts": "GET",
 		"/v2/bounties": "GET POST", "/v2/bounties/stats": "GET", "/v2/bounties/{bountyId}": "GET", "/v2/bounties/{bountyId}/submissions": "GET POST", "/v2/bounties/{bountyId}/submissions/{submissionId}:accept": "POST",
-		"/v2/rooms/{roomId}/messages": "GET POST",
 	}
 	routes := []ConnectedRoute{}
 	seen := map[string]bool{}
