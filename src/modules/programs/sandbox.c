@@ -683,6 +683,22 @@ static lxp_result sandbox_state_key(programs_sandbox_activity *value,
     return LXP_OK;
 }
 
+lxp_result lxp_programs_sandbox_read(
+    lxp_module_ctx *ctx, const uint8_t lease_id[32], uint16_t kind,
+    const uint8_t **bytes, size_t *length)
+{
+    programs_sandbox_activity value = {0};
+    uint8_t key[34];
+    lxp_result status;
+    if (ctx == NULL || lease_id == NULL || bytes == NULL || length == NULL ||
+        ctx->module_id != LXP_MODULE_PROGRAMS)
+        return LXP_ERR_NON_CANONICAL;
+    (void)memcpy(value.lease_id, lease_id, sizeof(value.lease_id));
+    status = sandbox_state_key(&value, kind, key);
+    if (status != LXP_OK) return status;
+    return lxp_ctx_kv_get(ctx, key, sizeof(key), bytes, length);
+}
+
 lxp_result layerx_programs_call_sandbox_state_length(uint64_t call_token,
                                                       uint16_t kind)
 {
