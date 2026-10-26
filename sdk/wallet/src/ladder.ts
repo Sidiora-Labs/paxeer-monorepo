@@ -63,9 +63,11 @@ export const statusLadder: Readonly<{
   tables: Object.freeze({ explorer: EXPLORER_TABLE, journey: JOURNEY_TABLE }),
   fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[] {
     const highestRung = answer.status === '0x0' ? 'submitted' : answer.rung;
-    return LADDER_RUNGS.slice(0, rank(highestRung) + 1).map(
-      (rung): LadderStep => ({ rung, source: 'receipt', state: answer.rung })
-    );
+    return LADDER_RUNGS.slice(0, rank(highestRung) + 1).map((rung): LadderStep => ({
+      rung,
+      source: 'receipt',
+      state: answer.rung,
+    }));
   },
   fromExplorer(status: ExplorerTransactionStatus | SequencerRung): LadderStep {
     return lookup(EXPLORER_TABLE, 'explorer', typeof status === 'string' ? status : status.rung);
@@ -129,12 +131,7 @@ export async function readExplorerStatus(
 }
 
 export type TransferTruth =
-  | 'submitted'
-  | 'pending'
-  | 'unknown'
-  | 'replaced'
-  | 'reverted'
-  | 'included';
+  'submitted' | 'pending' | 'unknown' | 'replaced' | 'reverted' | 'included';
 
 export interface TransferIntent {
   sender: string;
@@ -230,14 +227,19 @@ export function recoverTransferObservation(
   ) {
     const steps: LadderStep[] = [];
     for (const step of evidence.steps) {
+      if (!isRecord(step)) return submitted;
+      if (step.source === 'anchor') continue;
+      let rung = step.rung;
+      if (step.source === 'receipt' && rung === 'instant') rung = 'receipted';
+      if (step.source === 'explorer' && rung === 'sealed') rung = 'receipted';
+      if (step.source === 'explorer' && rung === 'final') rung = 'committed';
       if (
-        !isRecord(step) ||
-        !LADDER_RUNGS.includes(step.rung as LadderRung) ||
+        !LADDER_RUNGS.includes(rung as LadderRung) ||
         (step.source !== 'receipt' && step.source !== 'explorer') ||
         typeof step.state !== 'string'
       )
         return submitted;
-      steps.push({ rung: step.rung as LadderRung, source: step.source, state: step.state });
+      steps.push({ rung: rung as LadderRung, source: step.source, state: step.state });
     }
     let sequencer: SequencerReceiptAnswer | undefined;
     if (evidence.sequencer !== undefined) {

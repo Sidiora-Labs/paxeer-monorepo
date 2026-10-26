@@ -197,6 +197,59 @@ function status_ladder_from_sequencer_receipt_steps_up_to_the_node_rung() {
 
 test(status_ladder_from_sequencer_receipt_steps_up_to_the_node_rung);
 
+function recover_transfer_observation_maps_legacy_rungs_onto_the_merged_ladder() {
+  const identity = { hash: transferHash, chainId: 125 };
+  const legacySteps = [
+    { rung: 'instant', source: 'receipt', state: `instant:${transferBlockHash}` },
+    { rung: 'sealed', source: 'explorer', state: `sealed:${transferBlockHash}` },
+    { rung: 'final', source: 'explorer', state: `final:${transferBlockHash}` },
+    { rung: 'final', source: 'anchor', state: `final:${transferBlockHash}` },
+  ];
+  const evidence = {
+    blockNumber: Number(transferBlock),
+    blockHash: transferBlockHash,
+    steps: legacySteps,
+  };
+  const recoveredEvidence = {
+    ...evidence,
+    steps: [
+      { rung: 'receipted', source: 'receipt', state: `instant:${transferBlockHash}` },
+      { rung: 'receipted', source: 'explorer', state: `sealed:${transferBlockHash}` },
+      { rung: 'committed', source: 'explorer', state: `final:${transferBlockHash}` },
+    ],
+  };
+
+  for (const stored of [
+    { identity, truth: 'included', ...evidence },
+    { identity, truth: 'unknown', steps: [], blockNumber: null, lastVerified: evidence },
+  ]) {
+    expect(recoverTransferObservation(identity, stored)).toEqual({
+      ...submittedTransfer(identity),
+      lastVerified: recoveredEvidence,
+    });
+  }
+  expect(evidence.steps.map((step) => step.rung)).toEqual(['instant', 'sealed', 'final', 'final']);
+  expect(
+    recoverTransferObservation(identity, { identity, lastVerified: recoveredEvidence }).lastVerified
+  ).toEqual(recoveredEvidence);
+
+  for (const step of [
+    { rung: 'instant', source: 'explorer', state: 'instant' },
+    { rung: 'sealed', source: 'receipt', state: 'sealed' },
+    { rung: 'final', source: 'receipt', state: 'final' },
+    { rung: 'unexpected', source: 'explorer', state: 'unexpected' },
+  ]) {
+    expect(
+      recoverTransferObservation(identity, {
+        identity,
+        lastVerified: { ...evidence, steps: [step] },
+      })
+    ).toEqual(submittedTransfer(identity));
+  }
+}
+
+test(recover_transfer_observation_maps_legacy_rungs_onto_the_merged_ladder);
+
 async function observe_transfer_reaches_receipted_from_the_sequencer_receipt() {
   const submitted = submittedTransfer({ hash: transferHash, chainId: 125 });
   const start = observationRequests.length;
