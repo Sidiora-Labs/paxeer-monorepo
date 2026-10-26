@@ -114,8 +114,15 @@ export interface AgentBudgetLedger {
 
 export interface PreparedActivity {
   readonly preparation_ref: string;
-  readonly unsigned_canonical_bytes: string;
-  readonly signing_preimage: string;
+  readonly chain_id: string;
+  readonly nonce: string;
+  readonly max_priority_fee_per_gas: string;
+  readonly max_fee_per_gas: string;
+  readonly gas_limit: string;
+  readonly to: string;
+  readonly data: string;
+  readonly signing_hash: string;
+  readonly sender: string;
   readonly disclosure: Readonly<Record<string, unknown>>;
   readonly expiry: string;
   readonly approval?: ApprovalHold;
@@ -133,11 +140,26 @@ export interface Submission {
   readonly submission_ref: string;
   readonly state: string | Readonly<Record<string, unknown>>;
   readonly evidence?: readonly unknown[];
-  readonly verification_level?: string;
-  readonly activity_id?: string;
+  readonly verification_level?: "Submitted" | "Receipted" | "Committed";
+  readonly tx_hash: string;
   readonly receipt_ref?: string;
   readonly receiptEvidence?: AgentReceiptEvidence;
+  readonly portableReceipt?: PortableReceiptV2;
   readonly transitions?: readonly unknown[];
+}
+
+export interface PortableReceiptV2 {
+  readonly format: "layerx-receipt-proof-v2";
+  readonly verificationLevel: "receipted" | "committed";
+  readonly rawTransaction: string;
+  readonly signedReceipt: string;
+  readonly receiptDigest: string;
+  readonly receiptKey: {
+    readonly keyId: string;
+    readonly publicKey: string;
+    readonly firstHeight: string;
+    readonly lastHeight: string;
+  };
 }
 
 export interface AgentReceiptEvidence {
