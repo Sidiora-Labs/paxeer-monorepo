@@ -10,6 +10,7 @@ import (
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/simulation"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -137,7 +138,9 @@ func (am AppModule) ProposalContents(_ module.SimulationState) []simtypes.Weight
 
 func (am AppModule) RandomizedParams(_ *rand.Rand) []simtypes.ParamChange { return nil }
 
-func (am AppModule) RegisterStoreDecoder(_ sdk.StoreDecoderRegistry) {}
+func (am AppModule) RegisterStoreDecoder(sdr sdk.StoreDecoderRegistry) {
+	sdr[types.StoreKey] = simulation.NewDecodeStore()
+}
 
 func (am AppModule) WeightedOperations(_ module.SimulationState) []simtypes.WeightedOperation {
 	return nil
