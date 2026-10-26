@@ -10,6 +10,32 @@ pub mod explorer_target;
 pub mod http;
 pub mod store;
 
+pub const ROUTER_METHODS: [&str; 17] = [
+    "pax_sequencerReceipt",
+    "px_getAccount",
+    "px_getBalances",
+    "px_getCapabilities",
+    "px_getCommit",
+    "px_getHistory",
+    "px_getNetwork",
+    "px_getReceiptKeys",
+    "px_getRouteCatalogue",
+    "px_getSequenceBatch",
+    "px_getUnifiedHistory",
+    "px_getValidators",
+    "px_listAssets",
+    "px_listHolderRecords",
+    "px_register",
+    "px_requestFunds",
+    "px_resolveAccount",
+];
+
+#[must_use]
+pub fn router_method(name: &str) -> bool {
+    !name.starts_with("lx_")
+        && (ROUTER_METHODS.binary_search(&name).is_ok() || evm::is_evm_namespace(name))
+}
+
 use layerx_crypto::disclosure::{bind as bind_disclosure, AmountRole, CounterpartyRole};
 use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_proof::program::{
@@ -1588,9 +1614,66 @@ pub fn configured_sequencer(
 #[cfg(test)]
 mod tests {
     use super::{
-        platform_gateway_program_routes, production_route, IssuedKey, ProductionRoute,
-        ReceiptKeyList,
+        platform_gateway_program_routes, production_route, router_method, IssuedKey,
+        ProductionRoute, ReceiptKeyList, ROUTER_METHODS,
     };
+
+    #[test]
+    fn router_methods_are_sorted_unique_and_namespaced() {
+        assert_eq!(ROUTER_METHODS.len(), 17);
+        for pair in ROUTER_METHODS.windows(2) {
+            assert!(pair[0].as_bytes() < pair[1].as_bytes(), "{pair:?}");
+        }
+        for name in ROUTER_METHODS {
+            assert!(
+                name.starts_with("px_") || name.starts_with("pax_"),
+                "{name}"
+            );
+            assert!(router_method(name), "{name}");
+        }
+    }
+
+    #[test]
+    fn router_method_refuses_every_lx_name() {
+        for name in [
+            "lx_requestFunds",
+            "lx_sendActivity",
+            "lx_getAccount",
+            "lx_getBalance",
+            "lx_getBalances",
+            "lx_getSequence",
+            "lx_estimateFee",
+            "lx_getProgramEvents",
+            "lx_getReceipt",
+            "lx_getActivityStatus",
+            "lx_getBatchHeader",
+            "lx_getCheckpoint",
+            "lx_getProof",
+            "lx_listAssets",
+            "lx_getAsset",
+            "lx_getNodeInfo",
+            "lx_subscribe",
+            "lx_unsubscribe",
+            "lx_getWalletCaps",
+            "lx_",
+            "lx_unknown",
+            "lx_eth_chainId",
+        ] {
+            assert!(!router_method(name), "{name}");
+        }
+        for name in [
+            "eth_chainId",
+            "eth_sign",
+            "net_version",
+            "web3_clientVersion",
+            "px_getBalances",
+        ] {
+            assert!(router_method(name), "{name}");
+        }
+        for name in ["", "px_unknown", "pax_unknown", "getBalances"] {
+            assert!(!router_method(name), "{name}");
+        }
+    }
 
     #[test]
     fn receipt_keys_list_loads() -> Result<(), Box<dyn std::error::Error>> {
