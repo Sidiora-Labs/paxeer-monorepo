@@ -110824,7 +110824,7 @@ reqs = ["4533.1"]
 capabilities = ["4.54.1"]
 interfaces = []
 do_1 = "TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation (sdk/launchpad/protocol/catalog/registry_input_test.go:65) reads its artifact from an absolute host path outside the repository (sdk/launchpad/protocol/catalog/registry_input_test.go:66)."
-do_2 = "Set root to filepath.Join(\"..\", \"..\", \"..\", \"contracts\", \"launchpad\"), which holds contracts/launchpad/artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json:1 at the artifactPath of sdk/launchpad/protocol/catalog/registry_input_test.go:67."
+do_2 = "Set root to filepath.Join(\"..\", \"..\", \"..\", \"..\", \"contracts\", \"launchpad\"), which holds contracts/launchpad/artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json:1 at the artifactPath of sdk/launchpad/protocol/catalog/registry_input_test.go:67."
 do_3 = "Keep every assertion of the test body after sdk/launchpad/protocol/catalog/registry_input_test.go:67 unchanged."
 symbols = ["TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation"]
 touches = ["sdk/launchpad/protocol/catalog/registry_input_test.go"]
@@ -118668,7 +118668,7 @@ do_1 = "Replace the literal const MergeUpgrade = \"v7.0\" at precompiles/setup.g
 do_2 = "Leave precompiles/common/precompiles.go:30 as the single literal, read by bank (precompiles/bank/bank.go:214), addr (precompiles/addr/addr.go:531) and feetoken (precompiles/feetoken/feetoken.go:190)"
 do_3 = "Write TestMergeUpgradeSingleSource in precompiles/merge_upgrade_test.go (planned) asserting precompiles.MergeUpgrade == pcommon.MergeUpgrade, next to the node pin at precompiles/setup_test.go:194"
 do_4 = "Keep XWebUpgrade (precompiles/setup.go:38) and FeeTokenUpgrade (precompiles/setup.go:44) unchanged"
-symbols = ["MergeUpgrade", "pcommon.MergeUpgrade", "TestMergeUpgradeSingleSource"]
+symbols = ["MergeUpgrade", "TestMergeUpgradeSingleSource"]
 touches = ["precompiles/setup.go", "precompiles/merge_upgrade_test.go"]
 tests = ["precompiles/merge_upgrade_test.go::TestMergeUpgradeSingleSource"]
 planned_paths = ["precompiles/merge_upgrade_test.go"]
