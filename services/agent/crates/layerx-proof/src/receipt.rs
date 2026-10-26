@@ -2,7 +2,7 @@
 
 use layerx_crypto::ed25519;
 use layerx_programs_runtime::RUNTIME_VERSION;
-use layerx_types::{guest_abi, programs_module_abi};
+use layerx_types::{guest_abi, programs_module_abi, rung::Rung};
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::protocol_version_uses_occupancy;
 use layerx_wire::receipt::{decode, encode, encode_unsigned, Receipt};
@@ -96,6 +96,7 @@ pub struct AuthorizedBatch {
     previous_state_root: [u8; 32],
     resulting_state_root: [u8; 32],
     sequencer_public_key: [u8; 32],
+    pinned: bool,
 }
 
 impl AuthorizedBatch {
@@ -114,7 +115,33 @@ impl AuthorizedBatch {
             previous_state_root,
             resulting_state_root,
             sequencer_public_key,
+            pinned: false,
         }
+    }
+
+    pub fn from_receipt_keys<'a>(
+        receipt_bytes: &[u8],
+        receipt_keys: impl Into<ReceiptKeys<'a>>,
+        asset: [u8; 32],
+        previous_state_root: [u8; 32],
+        resulting_state_root: [u8; 32],
+    ) -> Result<Self, VerificationFailure> {
+        let receipt_keys = receipt_keys.into();
+        if !matches!(receipt_keys, ReceiptKeys::HeightRanges(_)) {
+            return Err(VerificationFailure::at(ReceiptCheck::SequencerSignature));
+        }
+        let receipt = verify_sequencer_signature(receipt_bytes, receipt_keys)?;
+        let protocol = receipt
+            .protocol()
+            .ok_or_else(|| VerificationFailure::at(ReceiptCheck::ReceiptShape))?;
+        Ok(Self {
+            batch_id: protocol.batch_id(),
+            asset,
+            previous_state_root,
+            resulting_state_root,
+            sequencer_public_key: select_receipt_key(protocol, receipt_keys)?,
+            pinned: true,
+        })
     }
 
     #[must_use]
@@ -238,6 +265,18 @@ impl ProtocolReceiptFacts {
 }
 
 impl VerifiedReceipt {
+    fn with_batch_authorization(mut self, authorised: &AuthorizedBatch) -> Self {
+        if authorised.pinned {
+            self.evidence = self.evidence.with_pinned_receipt_keys();
+        }
+        self
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> Rung {
+        self.evidence.rung()
+    }
+
     /// Borrows the decoded core receipt.
     #[must_use]
     pub const fn receipt(&self) -> &Receipt {
@@ -310,10 +349,12 @@ pub fn verify_outcome(
         return Err(VerificationFailure::at(ReceiptCheck::ProtocolVersion));
     }
     if protocol.module_id() == 8 && protocol.operation() == 0 {
-        return native_credit::verify(receipt_bytes, authorised);
+        return native_credit::verify(receipt_bytes, authorised)
+            .map(|verified| verified.with_batch_authorization(authorised));
     }
     if protocol.module_id() == 1 && protocol.operation() == 9 {
-        return withdrawal::verify_effects(receipt_bytes, authorised);
+        return withdrawal::verify_effects(receipt_bytes, authorised)
+            .map(|verified| verified.with_batch_authorization(authorised));
     }
     if u32::from(protocol.module_id()) == PROGRAMS_MODULE_ID && protocol.operation() == 0 {
         return verify_program_state_outcome(receipt_bytes, authorised);
@@ -370,7 +411,8 @@ pub fn verify_outcome(
         receipt,
         canonical_bytes: reproduced,
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -581,13 +623,12 @@ fn maintained_activity_batch_inner(
     {
         return Err(Failure(ReceiptCheck::ResultingStateRoot));
     }
-    Ok(AuthorizedBatch::new(
-        expected,
-        authorised.asset,
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        authorised.sequencer_public_key,
-    ))
+    Ok(AuthorizedBatch {
+        batch_id: expected,
+        previous_state_root: protocol.previous_state_root(),
+        resulting_state_root: protocol.resulting_state_root(),
+        ..*authorised
+    })
 }
 
 fn verify_maintained_chain(
@@ -686,7 +727,21 @@ pub fn verify_sequencer_signature<'a>(
     let signature = protocol
         .sequencer_signature()
         .ok_or_else(|| VerificationFailure::at(ReceiptCheck::MissingSignature))?;
-    let sequencer_public_key = match receipt_keys.into() {
+    let sequencer_public_key = select_receipt_key(protocol, receipt_keys.into())?;
+    let unsigned = encode_unsigned(&receipt)
+        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
+    let digest = receipt_digest(&unsigned)
+        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
+    ed25519::verify_digest(&sequencer_public_key, &signature, &digest)
+        .map_err(|_| VerificationFailure::at(ReceiptCheck::SequencerSignature))?;
+    Ok(receipt)
+}
+
+fn select_receipt_key(
+    protocol: &layerx_wire::receipt::ProtocolReceipt,
+    receipt_keys: ReceiptKeys<'_>,
+) -> Result<[u8; 32], VerificationFailure> {
+    match receipt_keys {
         ReceiptKeys::HeightRanges(keys) => {
             let batch_id = protocol.batch_id();
             if batch_id[..24] != [0; 24] {
@@ -709,22 +764,15 @@ pub fn verify_sequencer_signature<'a>(
             {
                 return Err(VerificationFailure::at(ReceiptCheck::SequencerSignature));
             }
-            key.public_key()
+            Ok(key.public_key())
         }
         ReceiptKeys::HistoricalKernel(key) => {
             if protocol.module_id() == 0 || protocol.module_id() > KERNEL_MODULE_COUNT {
                 return Err(VerificationFailure::at(ReceiptCheck::SequencerSignature));
             }
-            key
+            Ok(key)
         }
-    };
-    let unsigned = encode_unsigned(&receipt)
-        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
-    let digest = receipt_digest(&unsigned)
-        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
-    ed25519::verify_digest(&sequencer_public_key, &signature, &digest)
-        .map_err(|_| VerificationFailure::at(ReceiptCheck::SequencerSignature))?;
-    Ok(receipt)
+    }
 }
 
 /// Verifies one successful ABI-two Programs state receipt without imposing
@@ -804,7 +852,8 @@ fn verify_program_state_outcome(
         receipt,
         canonical_bytes: reproduced,
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 /// Verifies a sequencer-signed Programs execution receipt, preserving both
@@ -902,7 +951,8 @@ pub fn verify_program_preexecution_rejection(
         receipt,
         canonical_bytes: receipt_bytes.to_vec(),
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 pub fn verify_program_preexecution_rejection_maintained_chain(
@@ -996,7 +1046,8 @@ fn verify_program_outcome_selected(
         receipt,
         canonical_bytes: reproduced,
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 /// Verifies a Programs call against a separately pinned sequencer and prior
