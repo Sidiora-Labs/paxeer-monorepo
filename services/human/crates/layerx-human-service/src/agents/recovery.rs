@@ -4,7 +4,6 @@ use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use layerx_types::ids::Did;
-use layerx_types::verify::VerificationLevel;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -15,7 +14,10 @@ use crate::notify::{AgentId, Dispatcher, Event, EventId, NotifyError};
 use crate::store::{EvidenceRef, PrincipalId, PrincipalScope, RowKey, StoreError, Table};
 use crate::trace::TraceId;
 
-const RECORD_VERSION: u8 = 1;
+/// Transaction evidence rung used by managed-agent key changes.
+pub type Rung = layerx_types::rung::Rung;
+
+const RECORD_VERSION: u8 = 2;
 const RECORD_PREFIX: &str = "agent-key-change-";
 const EVENT_PREFIX: &str = "agent-key-event-";
 const REQUEST_DOMAIN: &[u8] = b"layerx-human/agent-key-change-request/v1\0";
@@ -115,7 +117,7 @@ impl AgentKeyChangeStage {
     }
 }
 
-/// The state-proven protocol result for the tracked key change.
+/// The commit-backed protocol result for the tracked key change.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProtocolKeyChangeState {
     ChallengeOpen,
@@ -160,7 +162,8 @@ pub struct ProtocolKeyChangeEvidence {
     pub effective_sequence: Option<u64>,
     pub observed_at: u64,
     pub observed_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
+    pub tx_hash: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub competing_rotation: Option<CompetingRotation>,
 }
@@ -181,13 +184,14 @@ impl ProtocolKeyChangeEvidence {
         hash_optional_u64(&mut digest, self.effective_sequence);
         digest.update(self.observed_at.to_be_bytes());
         digest.update(self.observed_sequence.to_be_bytes());
-        digest.update([self.verification_level.wire_rank()]);
+        digest.update([self.rung.wire_rank()]);
+        digest.update(self.tx_hash);
         hash_competition(&mut digest, self.competing_rotation.as_ref());
         digest.finalize().into()
     }
 }
 
-/// State-proven observation used to advance an existing challenge.
+/// Commit-backed observation used to advance an existing challenge.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProtocolKeyChangeObservation {
     pub kind: AgentKeyChangeKind,
@@ -202,7 +206,8 @@ pub struct ProtocolKeyChangeObservation {
     pub state: ProtocolKeyChangeState,
     pub observed_at: u64,
     pub observed_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
+    pub tx_hash: [u8; 32],
     pub competing_rotation: Option<CompetingRotation>,
 }
 
@@ -284,7 +289,8 @@ pub struct AgentKeyChallenge {
     superseded_public_key: Option<[u8; 32]>,
     superseded_key_usable_before_sequence: Option<u64>,
     announcement_receipt_digest: [u8; 32],
-    verification_level: VerificationLevel,
+    rung: Rung,
+    tx_hash: [u8; 32],
     observed_at: u64,
     observed_sequence: u64,
     history: Vec<EvidenceRef>,
@@ -292,6 +298,20 @@ pub struct AgentKeyChallenge {
 }
 
 impl AgentKeyChallenge {
+    /// Loads a challenge from its durable protocol evidence.
+    ///
+    /// # Errors
+    ///
+    /// Refuses corrupt durable state, including invalid transaction rungs.
+    pub fn load(
+        scope: &PrincipalScope<'_>,
+        idempotency_key: [u8; 32],
+    ) -> Result<Option<Self>, AgentRecoveryError> {
+        scope
+            .get(Table::Journeys, &record_row(idempotency_key)?)
+            .map_or(Ok(None), |row| status(&decode(row.bytes())?).map(Some))
+    }
+
     #[must_use]
     pub const fn agent_id(&self) -> &AgentId {
         &self.agent_id
@@ -358,8 +378,13 @@ impl AgentKeyChallenge {
     }
 
     #[must_use]
-    pub const fn verification_level(&self) -> VerificationLevel {
-        self.verification_level
+    pub const fn rung(&self) -> Rung {
+        self.rung
+    }
+
+    #[must_use]
+    pub const fn tx_hash(&self) -> [u8; 32] {
+        self.tx_hash
     }
 
     #[must_use]
@@ -485,7 +510,8 @@ struct Record {
     effective_sequence: Option<u64>,
     stage: StoredStage,
     announcement_receipt_digest: [u8; 32],
-    verification_rank: u8,
+    rung_rank: u8,
+    tx_hash: [u8; 32],
     observed_at: u64,
     observed_sequence: u64,
     history: Vec<StoredEvidenceRef>,
@@ -558,7 +584,7 @@ impl<B: AgentRecoveryBoundary> AgentRecovery<B> {
         self.start(scope, AgentKeyChangeKind::Recovery, request, trace, now)
     }
 
-    /// Reconciles one stored challenge exclusively from state-proven protocol
+    /// Reconciles one stored challenge exclusively from commit-backed protocol
     /// facts and emits any newly observed security event exactly once.
     ///
     /// # Errors
@@ -588,7 +614,7 @@ impl<B: AgentRecoveryBoundary> AgentRecovery<B> {
         record.primary_public_key = observation.primary_public_key;
         record.superseded_public_key = observation.superseded_public_key;
         record.stage = AgentKeyChangeStage::from(observation.state).into();
-        record.verification_rank = observation.verification_level.wire_rank();
+        record.rung_rank = observation.rung.wire_rank();
         record.observed_at = observation.observed_at;
         record.observed_sequence = observation.observed_sequence;
         record.competing_rotation = observation
@@ -610,9 +636,7 @@ impl<B: AgentRecoveryBoundary> AgentRecovery<B> {
         scope: &PrincipalScope<'_>,
         idempotency_key: [u8; 32],
     ) -> Result<Option<AgentKeyChallenge>, AgentRecoveryError> {
-        scope
-            .get(Table::Journeys, &record_row(idempotency_key)?)
-            .map_or(Ok(None), |row| status(&decode(row.bytes())?).map(Some))
+        AgentKeyChallenge::load(scope, idempotency_key)
     }
 
     fn start(
@@ -657,7 +681,8 @@ impl<B: AgentRecoveryBoundary> AgentRecovery<B> {
             effective_sequence: evidence.effective_sequence,
             stage: StoredStage::ChallengeOpen,
             announcement_receipt_digest: evidence.receipt_digest,
-            verification_rank: evidence.verification_level.wire_rank(),
+            rung_rank: evidence.rung.wire_rank(),
+            tx_hash: evidence.tx_hash,
             observed_at: evidence.observed_at,
             observed_sequence: evidence.observed_sequence,
             history: request.history.iter().map(stored_reference).collect(),
@@ -781,7 +806,8 @@ fn validate_start(
         || evidence.previous_public_key == evidence.pending_public_key
         || delay != lapse
         || evidence.observed_sequence == 0
-        || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+        || evidence.rung < Rung::Receipted
+        || evidence.tx_hash == [0; 32]
         || evidence.receipt_digest != evidence.expected_digest()
         || (kind == AgentKeyChangeKind::Rotation
             && evidence
@@ -812,8 +838,11 @@ fn validate_observation(
         || observation.effective_sequence != record.effective_sequence
         || observation.observed_at < record.observed_at
         || observation.observed_sequence < record.observed_sequence
-        || observation.verification_level < VerificationLevel::STATE_PROVEN
-        || observation.verification_level < verification_level(record.verification_rank)?
+        || observation.tx_hash != record.tx_hash
+        || observation.rung < Rung::Receipted
+        || observation.rung < rung_from_rank(record.rung_rank)?
+        || (observation.state == ProtocolKeyChangeState::Effective
+            && observation.rung != Rung::Committed)
         || !valid_transition(AgentKeyChangeStage::from(record.stage), next_stage)
         || (kind == AgentKeyChangeKind::Rotation
             && observation.state == ProtocolKeyChangeState::Vetoed)
@@ -884,7 +913,8 @@ fn status(record: &Record) -> Result<AgentKeyChallenge, AgentRecoveryError> {
             .then_some(record.effective_sequence)
             .flatten(),
         announcement_receipt_digest: record.announcement_receipt_digest,
-        verification_level: verification_level(record.verification_rank)?,
+        rung: rung_from_rank(record.rung_rank)?,
+        tx_hash: record.tx_hash,
         observed_at: record.observed_at,
         observed_sequence: record.observed_sequence,
         history: record
@@ -916,6 +946,7 @@ fn validate_record(record: &Record) -> Result<(), AgentRecoveryError> {
                 .saturating_add(record.challenge_delay_seconds)
         || record.observed_sequence == 0
         || record.announcement_receipt_digest == [0; 32]
+        || record.tx_hash == [0; 32]
         || record.history.is_empty()
         || record.updated_at < record.created_at
         || (kind == AgentKeyChangeKind::Rotation
@@ -926,8 +957,8 @@ fn validate_record(record: &Record) -> Result<(), AgentRecoveryError> {
     {
         return Err(AgentRecoveryError::Corrupt("invalid key-change record"));
     }
-    let level = verification_level(record.verification_rank)?;
-    if level < VerificationLevel::BATCH_INCLUDED {
+    let rung = rung_from_rank(record.rung_rank)?;
+    if rung < Rung::Receipted {
         return Err(AgentRecoveryError::Corrupt(
             "key-change evidence is not verified",
         ));
@@ -944,7 +975,8 @@ fn validate_record(record: &Record) -> Result<(), AgentRecoveryError> {
             }
         }
         AgentKeyChangeStage::Effective => {
-            if record.primary_public_key != record.pending_public_key
+            if rung != Rung::Committed
+                || record.primary_public_key != record.pending_public_key
                 || record.superseded_public_key != Some(record.previous_public_key)
             {
                 return Err(AgentRecoveryError::Corrupt(
@@ -1134,15 +1166,12 @@ fn competing_rotation(value: &StoredCompetition) -> CompetingRotation {
     }
 }
 
-fn verification_level(rank: u8) -> Result<VerificationLevel, AgentRecoveryError> {
+fn rung_from_rank(rank: u8) -> Result<Rung, AgentRecoveryError> {
     match rank {
-        0 => Ok(VerificationLevel::UNVERIFIED),
-        1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
-        2 => Ok(VerificationLevel::BATCH_INCLUDED),
-        3 => Ok(VerificationLevel::STATE_PROVEN),
-        4 => Ok(VerificationLevel::CHECKPOINT_FINALISED),
-        5 => Ok(VerificationLevel::SETTLEMENT_ANCHORED),
-        _ => Err(AgentRecoveryError::Corrupt("invalid verification rank")),
+        0 => Ok(Rung::Submitted),
+        1 => Ok(Rung::Receipted),
+        2 => Ok(Rung::Committed),
+        _ => Err(AgentRecoveryError::Corrupt("invalid rung rank")),
     }
 }
 

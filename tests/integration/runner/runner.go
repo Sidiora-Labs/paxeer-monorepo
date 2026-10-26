@@ -219,13 +219,17 @@ func evalExpr(expr string, envMap map[string]string) (bool, error) {
 		return true, nil
 	}
 	if parts := strings.Split(expr, " or "); len(parts) > 1 {
+		var firstErr error
 		for _, p := range parts {
 			ok, err := evalExpr(strings.TrimSpace(p), envMap)
+			if err != nil && firstErr == nil {
+				firstErr = err
+			}
 			if err == nil && ok {
 				return true, nil
 			}
 		}
-		return false, nil
+		return false, firstErr
 	}
 	return cmpExpr(strings.TrimSpace(expr), envMap)
 }

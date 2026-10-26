@@ -15,6 +15,7 @@ const (
 	SolvencyInvariantName     = "spot-solvency"
 	ShareBackingInvariantName = "spot-share-backing"
 	EscrowInvariantName       = "spot-escrow"
+	ActiveIndexInvariantName  = "active-index"
 	ConservationInvariantName = "spot-conservation"
 )
 
@@ -25,6 +26,57 @@ func RegisterInvariants(registry sdk.InvariantRegistry, k *Keeper) {
 	registry.RegisterRoute(types.ModuleName, SolvencyInvariantName, SolvencyInvariant(k))
 	registry.RegisterRoute(types.ModuleName, ShareBackingInvariantName, ShareBackingInvariant(k))
 	registry.RegisterRoute(types.ModuleName, EscrowInvariantName, EscrowInvariant(k))
+	registry.RegisterRoute(types.ModuleName, ActiveIndexInvariantName, ActiveIndexInvariant(k))
+}
+
+func ActiveIndexInvariant(k *Keeper) sdk.Invariant {
+	return func(ctx sdk.Context) (string, bool) {
+		report := &invariantReport{}
+		store := k.store(ctx)
+		for _, index := range []struct {
+			name   string
+			prefix []byte
+		}{
+			{"limit", types.ActiveLimitPrefix},
+			{"stop-limit", types.ActiveStopLimitPrefix},
+			{"stop-loss", types.ActiveStopLossPrefix},
+		} {
+			ids, err := exportIDs(store, index.prefix)
+			if err != nil {
+				report.fail("active %s index unreadable: %v\n", index.name, err)
+				continue
+			}
+			count, err := activeCount(store, index.prefix)
+			if err != nil {
+				report.fail("active %s length unreadable: %v\n", index.name, err)
+				continue
+			}
+			if count != uint64(len(ids)) {
+				report.fail("active %s length %d differs from %d id entries\n", index.name, count, len(ids))
+			}
+			positions, err := exportKeys(store, recordKey(types.ActivePositionPrefix, index.prefix), 8)
+			if err != nil {
+				report.fail("active %s positions unreadable: %v\n", index.name, err)
+			} else if len(positions) != len(ids) {
+				report.fail("active %s has %d position entries for %d id entries\n", index.name, len(positions), len(ids))
+			}
+			for _, id := range ids {
+				key := recordKey(index.prefix, orderIDBytes(id))
+				position, err := activePosition(key, store.Get(key))
+				if err != nil {
+					report.fail("active %s id %d position unreadable: %v\n", index.name, id, err)
+					continue
+				}
+				back, err := activeAt(store, index.prefix, position)
+				if err != nil {
+					report.fail("active %s id %d position %d unreadable: %v\n", index.name, id, position, err)
+				} else if back != id {
+					report.fail("active %s id %d position %d maps to id %d\n", index.name, id, position, back)
+				}
+			}
+		}
+		return report.result(ActiveIndexInvariantName)
+	}
 }
 
 // invariantReport collects the violations of one invariant.

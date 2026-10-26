@@ -142,7 +142,7 @@ bridge    runs services/bridge/deploy/checklist.sh for every chain under contrac
 
 wallet    reads the public wallet endpoint name from the wallet_endpoint
           value of [decision.public_names] in
-          spec/paxeer-x-bringup/spec.kvx, then runs the wallet gates of
+          spec/layerx-merge/spec.kvx, then runs the wallet gates of
           scripts/wallet/check-live.sh and prints their check lines:
   endpoint   "pass endpoint name=<host> source=spec", or "fail endpoint
              source=spec name=unset" when the value is unset or not a host

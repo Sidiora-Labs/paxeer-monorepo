@@ -190,7 +190,8 @@ impl From<&StationError> for ServiceError {
             )
             | StationError::Price(_)
             | StationError::Quote(
-                QuoteError::Price(_) | QuoteError::Policy(PolicyRefusal::ClockRegression),
+                QuoteError::Price(_)
+                | QuoteError::Policy(PolicyRefusal::ClockRegression | PolicyRefusal::DidUnavailable),
             ) => Self::Unavailable,
             StationError::Rpc(RpcFault::Configuration)
             | StationError::Journal(_)

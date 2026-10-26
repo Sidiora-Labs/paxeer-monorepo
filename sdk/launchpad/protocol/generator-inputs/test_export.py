@@ -1,4 +1,5 @@
 import importlib.util, json, pathlib, unittest, copy
+CONTRACTS_ROOT = pathlib.Path(__file__).resolve().parents[4] / 'contracts' / 'launchpad'
 spec = importlib.util.spec_from_file_location('export', pathlib.Path(__file__).with_name('export.py'))
 m = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(m)
@@ -7,7 +8,7 @@ class ExportTests(unittest.TestCase):
 
     def test_real_frozen_artifact_determinism_and_drift(self):
         reviewed = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'catalog/reviewed.json').read_text())
-        root = pathlib.Path('/root/mk-falcon/contracts')
+        root = CONTRACTS_ROOT
         first = m.export(reviewed, root)
         second = m.export(reviewed, root)
         self.assertEqual(m.canonical(first), m.canonical(second))
@@ -23,7 +24,7 @@ class ExportTests(unittest.TestCase):
 
     def test_selector_inputs_and_identity_validation(self):
         reviewed = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'catalog/reviewed.json').read_text())
-        root = pathlib.Path('/root/mk-falcon/contracts')
+        root = CONTRACTS_ROOT
         exported = m.export(reviewed, root)
         for bundle in exported['bundles']:
             source = next((c for c in reviewed['contracts'] if c['name'] == bundle['name']))
@@ -44,7 +45,7 @@ class ExportTests(unittest.TestCase):
 
     def test_versioned_inputs_are_deterministic_and_require_authentic_history(self):
         reviewed = json.loads((pathlib.Path(__file__).resolve().parents[1] / 'catalog/reviewed.json').read_text())
-        root = pathlib.Path('/root/mk-falcon/contracts')
+        root = CONTRACTS_ROOT
         first = m.export_revisions(reviewed, root, [], ['EventEmitter', 'SidioraFactory'])
         second = m.export_revisions(reviewed, root, [], ['SidioraFactory', 'EventEmitter'])
         self.assertEqual(m.canonical(first), m.canonical(second))
@@ -64,7 +65,7 @@ class ExportTests(unittest.TestCase):
             m.export_revisions(reviewed, root, [(raw, m.sha(raw))], [])
 
     def test_real_optical_registry_review_preserves_compiler_and_source_identity(self):
-        root = pathlib.Path('/root/mk-falcon/contracts')
+        root = CONTRACTS_ROOT
         path = root / 'artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json'
         artifact_raw = path.read_bytes()
         artifact = json.loads(artifact_raw)

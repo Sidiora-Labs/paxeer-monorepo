@@ -78,13 +78,7 @@ func servePool(p PrecompileExecutor, c *call) ([]byte, error) {
 	if c.market == nil {
 		return nil, fmt.Errorf("%w: pool surface %s carries no market", types.ErrUnknownMarket, c.target.Hex())
 	}
-	// ponytail: asserted at run time because the keeper does not yet serve
-	// every PoolKeeper method; pass p.keeper directly once it does.
-	keeper, ok := any(p.keeper).(PoolKeeper)
-	if !ok {
-		return nil, fmt.Errorf("launchpad: the keeper does not serve the %s role", types.RolePool)
-	}
-	ctx, ret, err := p.poolHandler(poolCall{ctx: c.ctx, evm: c.evm, keeper: keeper, nested: c.nested,
+	ctx, ret, err := p.poolHandler(poolCall{ctx: c.ctx, evm: c.evm, keeper: p.keeper, nested: c.nested,
 		method: c.method, args: c.args, caller: c.caller, market: *c.market})
 	c.ctx = ctx
 	return ret, err
