@@ -29,14 +29,16 @@ var (
 var abiFiles embed.FS
 
 var precompileAddresses = map[string]common.Address{
-	"addr":          common.HexToAddress("0x0000000000000000000000000000000000001004"),
-	"layerxcustody": common.HexToAddress("0x0000000000000000000000000000000000001013"),
-	"layerxanchor":  common.HexToAddress("0x0000000000000000000000000000000000001014"),
-	"perps":         common.HexToAddress("0x0000000000000000000000000000000000001015"),
-	"layerxbridge":  common.HexToAddress("0x0000000000000000000000000000000000001016"),
-	"launchpad":     common.HexToAddress("0x0000000000000000000000000000000000001017"),
-	"feetoken":      common.HexToAddress("0x0000000000000000000000000000000000001018"),
-	"xweb":          common.HexToAddress("0x0000000000000000000000000000000000001019"),
+	"addr":           common.HexToAddress("0x0000000000000000000000000000000000001004"),
+	"layerxcustody":  common.HexToAddress("0x0000000000000000000000000000000000001013"),
+	"layerxanchor":   common.HexToAddress("0x0000000000000000000000000000000000001014"),
+	"perps":          common.HexToAddress("0x0000000000000000000000000000000000001015"),
+	"layerxbridge":   common.HexToAddress("0x0000000000000000000000000000000000001016"),
+	"launchpad":      common.HexToAddress("0x0000000000000000000000000000000000001017"),
+	"feetoken":       common.HexToAddress("0x0000000000000000000000000000000000001018"),
+	"xweb":           common.HexToAddress("0x0000000000000000000000000000000000001019"),
+	"layerxpay":      common.HexToAddress("0x000000000000000000000000000000000000101B"),
+	"layerxprograms": common.HexToAddress("0x000000000000000000000000000000000000101D"),
 }
 
 const erc20Name = "erc20"

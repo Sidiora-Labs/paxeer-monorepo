@@ -716,6 +716,48 @@ FROM perps.leaderboard ORDER BY "window", rank`)
 	return out
 }
 
+func TestMarketStatsWindowExpiry(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	const q = `SELECT volume_24h::text, volume_7d::text, volume_30d::text, trades_count::text,
+    open_interest_long::text, open_interest_short::text, high_24h::text, low_24h::text,
+    open_24h::text, last_price::text, updated_block::text FROM perps.market_stats_rolling WHERE market_id = $1`
+	for _, otherFill := range []bool{false, true} {
+		name := "empty_block"
+		if otherFill {
+			name = "other_market_fill"
+		}
+		t.Run(name, func(t *testing.T) {
+			c := newChain(t, db)
+			c.want(`SELECT symbol FROM perps.markets WHERE market_id = $1`, []string{"BTC"}, "0")
+			c.blockRow(100, t0)
+			c.next(100, t0)
+			c.fill("0", "0", "0", traderA, traderB, "60000", "1000000")
+			c.openInterest("0", "2000000", "3000000")
+			c.project()
+			initial := []string{"1000000", "1000000", "1000000", "1", "2000000", "3000000", "60000", "60000", "60000", "60000", "100"}
+			c.want(q, initial, "0")
+
+			c.blockRow(101, t0.Add(23*time.Hour))
+			c.next(101, t0.Add(23*time.Hour))
+			c.project()
+			c.want(q, initial, "0")
+
+			c.blockRow(102, t0.Add(25*time.Hour))
+			c.next(102, t0.Add(25*time.Hour))
+			if otherFill {
+				c.fill("1", "0", "0", traderA, traderB, "3000", "500000")
+			}
+			c.project()
+			c.want(q, []string{"0", "1000000", "1000000", "1", "2000000", "3000000", "null", "null", "null", "60000", "102"}, "0")
+			if otherFill {
+				c.want(q, []string{"500000", "500000", "500000", "1", "0", "0", "3000", "3000", "3000", "3000", "102"}, "1")
+			}
+		})
+	}
+}
+
 func TestLeaderboardProjection(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)

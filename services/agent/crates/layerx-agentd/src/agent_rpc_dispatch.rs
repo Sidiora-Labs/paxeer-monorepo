@@ -8,6 +8,9 @@
 
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
 use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_crypto::evm_transaction::{
+    decode_signed, recover_sender, transaction_hash, Eip1559Call,
+};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -158,9 +161,15 @@ pub(crate) fn native_effect_variant(request: &Map<String, Value>) -> bool {
     request.get("variant").and_then(Value::as_str) == Some("native_effect_v1")
 }
 
-pub(crate) fn native_effect_prepare_digest(request: &layerx_agent_api::identity::NativeEffectPrepareRequestV1) -> Result<[u8;32], serde_json::Error> {
+pub(crate) fn native_effect_prepare_digest(
+    request: &layerx_agent_api::identity::NativeEffectPrepareRequestV1,
+) -> Result<[u8; 32], serde_json::Error> {
     use sha2::{Digest, Sha256};
-    Ok(Sha256::new().chain_update(b"LXP/agent/native-effect-prepare/v1\0").chain_update(serde_json::to_vec(&request.canonical())?).finalize().into())
+    Ok(Sha256::new()
+        .chain_update(b"LXP/agent/native-effect-prepare/v1\0")
+        .chain_update(serde_json::to_vec(&request.canonical())?)
+        .finalize()
+        .into())
 }
 
 pub(crate) fn native_registration_variant(request: &Map<String, Value>) -> bool {
@@ -552,13 +561,47 @@ fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Level
     }
 }
 
-/// Mirrors the client prepare reader. The client additionally re-binds the disclosure against
-/// its activity registry; that registry check is not repeated here.
+/// Reads a preparation reference, the type-2 call fields, and the activity disclosure.
+/// The signing hash is derived from the call rather than trusted from the owner payload.
+/// The client additionally re-binds the disclosure against its activity registry.
 pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     let mut out = Map::new();
     out.insert("preparation_ref".into(), Value::String(reader.text()?));
-    out.insert("unsigned_canonical_bytes".into(), hexv(reader.bytes()?));
-    out.insert("signing_preimage".into(), hexv(reader.bytes()?));
+    if reader.u8()? != 2 {
+        return None;
+    }
+    let transaction = Eip1559Call {
+        chain_id: reader.u64()?,
+        nonce: reader.u64()?,
+        max_priority_fee_per_gas: reader.u128()?,
+        max_fee_per_gas: reader.u128()?,
+        gas_limit: reader.u64()?,
+        to: reader.fixed::<20>()?,
+        data: {
+            let length = usize::try_from(reader.u32()?).ok()?;
+            if length > MAX_BYTES {
+                return None;
+            }
+            reader.take(length)?.to_vec()
+        },
+    };
+    if transaction.chain_id == 0
+        || transaction.gas_limit == 0
+        || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+    {
+        return None;
+    }
+    out.insert("chain_id".into(), dec(transaction.chain_id));
+    out.insert("nonce".into(), dec(transaction.nonce));
+    out.insert(
+        "max_priority_fee_per_gas".into(),
+        dec(transaction.max_priority_fee_per_gas),
+    );
+    out.insert("max_fee_per_gas".into(), dec(transaction.max_fee_per_gas));
+    out.insert("gas_limit".into(), dec(transaction.gas_limit));
+    out.insert("to".into(), hexv(&transaction.to));
+    out.insert("data".into(), hexv(&transaction.data));
+    out.insert("signing_hash".into(), hexv(&transaction.signing_hash()));
     out.insert("activity_type".into(), dec(reader.u32()?));
     out.insert("actor".into(), Value::String(reader.text()?));
     out.insert("authority".into(), Value::String(reader.text()?));
@@ -570,6 +613,55 @@ pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Opti
     out.insert("payload_hash".into(), hexv(&reader.fixed::<32>()?));
     out.insert("idempotency_key".into(), hexv(&reader.fixed::<32>()?));
     Some((Value::Object(out), None))
+}
+
+/// Decodes the same bounded owner payload used by the prepare dispatch path.
+///
+/// # Errors
+/// Returns an owner fault for malformed, invalid, or trailing payload bytes.
+pub fn decode_eip1559_prepare_answer(
+    request_id: RequestId,
+    response: HumanResponse,
+) -> Result<Value, Rejection> {
+    dispatched(request_id, Ok(response), decode_preparation).map(|answer| answer.value)
+}
+
+fn decode_eip1559_submission(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+    let preparation_ref = reader.text()?;
+    let raw_transaction = reader.bytes()?;
+    let (transaction, signature) = decode_signed(raw_transaction).ok()?;
+    recover_sender(&transaction, &signature).ok()?;
+    let tx_hash = transaction_hash(raw_transaction);
+    let signed_receipt = reader.bytes()?;
+    let receipt = layerx_wire::receipt::decode(signed_receipt).ok()?;
+    let protocol = receipt.protocol()?;
+    if protocol.activity_id() != tx_hash
+        || protocol.sequencer_signature().is_none()
+        || layerx_wire::receipt::encode(&receipt).ok()?.as_slice() != signed_receipt
+    {
+        return None;
+    }
+    Some((
+        serde_json::json!({
+            "preparation_ref": preparation_ref,
+            "state": "Receipted",
+            "signed_receipt": lower_hex(signed_receipt),
+            "tx_hash": lower_hex(&tx_hash),
+        }),
+        None,
+    ))
+}
+
+/// Decodes a preparation reference, signed transaction, and canonical signed receipt.
+/// The receipt must name the hash of that exact signed transaction.
+///
+/// # Errors
+/// Returns an owner fault for malformed transactions, mismatched receipts, or trailing bytes.
+pub fn decode_eip1559_submit_answer(
+    request_id: RequestId,
+    response: HumanResponse,
+) -> Result<Value, Rejection> {
+    dispatched(request_id, Ok(response), decode_eip1559_submission).map(|answer| answer.value)
 }
 
 pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
@@ -995,21 +1087,30 @@ pub(crate) fn canonical_request_bytes(
         }
         Operation::Prepare => {
             if request.get("variant").and_then(Value::as_str) == Some("native_disclosure_v1") {
-                let typed = decode_wire::<crate::agent_rpc_wire::NativeDisclosureV1Wire>(request, id)?.into_request(id)?;
-                return serde_json::to_vec(&typed.canonical()).map(Some).map_err(|_| malformed(id));
+                let typed =
+                    decode_wire::<crate::agent_rpc_wire::NativeDisclosureV1Wire>(request, id)?
+                        .into_request(id)?;
+                return serde_json::to_vec(&typed.canonical())
+                    .map(Some)
+                    .map_err(|_| malformed(id));
             }
             if native_send_variant(request) {
-                let typed = decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
+                let typed =
+                    decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
                 return native_send_prepare_digest(&typed)
                     .map(|digest| Some(digest.to_vec()))
                     .map_err(|_| malformed(id));
             }
             if native_effect_variant(request) {
-                let typed = decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_request(id)?;
-                return native_effect_prepare_digest(&typed).map(|digest| Some(digest.to_vec())).map_err(|_| malformed(id));
+                let typed =
+                    decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_request(id)?;
+                return native_effect_prepare_digest(&typed)
+                    .map(|digest| Some(digest.to_vec()))
+                    .map_err(|_| malformed(id));
             }
             if native_registration_variant(request) {
-                let typed = decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_registration(id)?;
+                let typed =
+                    decode_wire::<NativeEffectPrepareV1Wire>(request, id)?.into_registration(id)?;
                 return native_registration_prepare_digest(&typed)
                     .map(|digest| Some(digest.to_vec()))
                     .map_err(|_| malformed(id));
@@ -1175,10 +1276,16 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
     match operation {
         Operation::TenantReadiness => {
             if !request.is_empty() {
-                return Err(rejection(ErrorClass::ProtocolIncompatibility, id, "envelope.unknown_field"));
+                return Err(rejection(
+                    ErrorClass::ProtocolIncompatibility,
+                    id,
+                    "envelope.unknown_field",
+                ));
             }
             let guard = shared.lock().map_err(|error| owner_error(id, error))?;
-            let value = guard.rpc_tenant_readiness(context).map_err(|error| owner_error(id, error))?;
+            let value = guard
+                .rpc_tenant_readiness(context)
+                .map_err(|error| owner_error(id, error))?;
             Ok(Dispatched {
                 value: serde_json::json!({
                     "transport_ready": value.transport_ready,
@@ -1261,7 +1368,8 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         Operation::ApprovalReject => adapters::approval_reject(shared, context, request, ctx),
         Operation::Prepare => {
             if native_send_variant(request) {
-                let typed = decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
+                let typed =
+                    decode_wire::<NativeSendPrepareV1Wire>(request, id)?.into_request(id)?;
                 let envelope = crate::human::MutationEnvelope {
                     request_id: id.0,
                     key: mutation_key(ctx)?,
@@ -1292,7 +1400,17 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
                 });
                 dispatched(id, response, decode_observation)
             } else {
-                adapters::submit(shared, context, request, ctx)
+                let typed = human_submit(decode(request, id)?, id)?;
+                let envelope = crate::human::MutationEnvelope {
+                    request_id: id.0,
+                    key: mutation_key(ctx)?,
+                    body_digest: submit_digest(&typed),
+                    operation: typed,
+                };
+                let response = shared
+                    .lock()
+                    .and_then(|mut guard| guard.rpc_submit_external(context, envelope));
+                dispatched(id, response, decode_eip1559_submission)
             }
         }
         Operation::FaucetClaim => Err(rejection(

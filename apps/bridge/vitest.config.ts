@@ -13,8 +13,7 @@ export default defineConfig({
     }),
   ],
   test: {
-    globalSetup: [ './vitest/global-setup.ts' ],
-    setupFiles: [ './vitest/setup.ts' ],
+    environment: 'node',
     include: [ '**/*.spec.ts', '**/*.spec.tsx' ],
     exclude: [ '**/node_modules/**', '**/node_modules_linux/**' ],
   },

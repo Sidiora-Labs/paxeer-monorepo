@@ -1,6 +1,6 @@
 //! Agent identity, session, capability, and budget contract types.
 
-use crate::verify::Level;
+use crate::verify::Rung;
 use crate::write_contract::{PreparationRef, SignatureBytes};
 use crate::{Amount, BudgetLimit, Sequence, TimestampSeconds};
 
@@ -694,7 +694,9 @@ impl NativeRegistrationPrepareRequestV1 {
 
     pub fn validate(self) -> Result<Self, ContractError> {
         if self.request.activity != NativeActivity::new(1, 1)? {
-            return Err(ContractError::Mismatch("native_registration_prepare.activity"));
+            return Err(ContractError::Mismatch(
+                "native_registration_prepare.activity",
+            ));
         }
         Ok(Self {
             request: self.request.validate()?,
@@ -1139,20 +1141,20 @@ pub struct ProtocolBudgetView {
     pub revoked: bool,
     pub delegates: Vec<[u8; 32]>,
     pub source_account: Option<[u8; 32]>,
-    pub achieved_verification_level: Level,
+    pub achieved_rung: Rung,
 }
 
 impl ProtocolBudgetView {
     /// Projects one decoded core budget record whose state was proven.
     ///
     /// # Errors
-    /// Returns [`ContractError::OutOfRange`] when the attached evidence is below state proof.
+    /// Returns [`ContractError::OutOfRange`] when the attached evidence is below committed.
     pub fn from_proven(
         record: &layerx_client::budget::ProtocolBudgetRecord,
-        achieved_verification_level: Level,
+        achieved_rung: Rung,
     ) -> Result<Self, ContractError> {
-        if achieved_verification_level < Level::StateProven {
-            return Err(ContractError::OutOfRange("budget_verification_level"));
+        if achieved_rung < Rung::Committed {
+            return Err(ContractError::OutOfRange("budget_rung"));
         }
         Ok(Self {
             budget_id: record.budget_id,
@@ -1174,7 +1176,7 @@ impl ProtocolBudgetView {
             revoked: record.revoked,
             delegates: record.delegates.clone(),
             source_account: record.source_account,
-            achieved_verification_level,
+            achieved_rung,
         })
     }
 }

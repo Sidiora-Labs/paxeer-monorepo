@@ -34,8 +34,9 @@ use layerx_interop_gateway::adapter::ConformanceSuite;
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch};
+use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch, ReceiptKeys};
 use layerx_types::activity::Signature;
 use layerx_types::payload::ModuleId;
 use layerx_wire::encode::Encoder;
@@ -54,7 +55,7 @@ use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
 use crate::assets::{AcceptedAsset, AcceptedAssets, AssetRefusal};
-use crate::config::{payer_did_valid, AssetSymbol, Config, SequencerTrust};
+use crate::config::{payer_did_valid, AssetSymbol, Config};
 use crate::server::{Request, Response, Route, RouteError, RouteTable};
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
@@ -1073,7 +1074,7 @@ pub struct PaymentGate {
     receiver: Receiver,
     network: String,
     network_id: u32,
-    trust: SequencerTrust,
+    receipt_keys: Vec<SequencerAuthorization>,
     payer: Option<String>,
     draw_fee_limit: u128,
     rpc: GatewayRpc,
@@ -1159,7 +1160,7 @@ impl PaymentGate {
             },
             network: format!("eip155:{}", config.evm.chain_id),
             network_id: config.kernel_network_id,
-            trust: config.gateway.sequencer,
+            receipt_keys: config.gateway.receipt_keys.clone(),
             payer: payment.payer_did.clone(),
             draw_fee_limit: payment.draw_fee_limit,
             rpc,
@@ -2160,10 +2161,17 @@ impl Plane<'_> {
         bytes: &[u8],
         expected: &Expected,
     ) -> Result<(AuthorizedBatch, [u8; 32]), &'static str> {
-        let trusted = self.gate.trust.public_key;
         let receipt =
-            verify_sequencer_signature(bytes, trusted).map_err(|_| "receipt_unverified")?;
+            verify_sequencer_signature(bytes, ReceiptKeys::HeightRanges(&self.gate.receipt_keys))
+                .map_err(|_| "receipt_unverified")?;
         let facts = receipt.protocol().ok_or("receipt_unverified")?;
+        let trusted = self
+            .gate
+            .receipt_keys
+            .iter()
+            .find(|key| key.sequencer_id() == facts.context_hash())
+            .ok_or("receipt_unverified")?
+            .public_key();
         if facts.module_id() != ASSET_MODULE
             || facts.operation() != expected.operation
             || facts.result_code() != 0
@@ -2228,14 +2236,17 @@ impl Plane<'_> {
                 Ok(Some(_)) => return Err("receipt_consumed"),
                 Err(_) => return Ok(PlanePaymentOutcome::Pending),
             }
-            let facts = verify_sequencer_signature(&bytes, self.gate.trust.public_key)
-                .ok()
-                .and_then(|receipt| {
-                    receipt
-                        .protocol()
-                        .map(|facts| (facts.activity_id(), facts.from()))
-                })
-                .ok_or("receipt_unverified")?;
+            let facts = verify_sequencer_signature(
+                &bytes,
+                ReceiptKeys::HeightRanges(&self.gate.receipt_keys),
+            )
+            .ok()
+            .and_then(|receipt| {
+                receipt
+                    .protocol()
+                    .map(|facts| (facts.activity_id(), facts.from()))
+            })
+            .ok_or("receipt_unverified")?;
             let record = PaymentRecord {
                 payer: Some(hex(&facts.1)),
                 activity_id: Some(hex(&facts.0)),

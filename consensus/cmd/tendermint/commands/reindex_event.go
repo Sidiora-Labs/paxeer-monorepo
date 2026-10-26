@@ -27,6 +27,8 @@ const (
 	reindexFailed = "event re-index failed: "
 )
 
+var ErrAutobahnOfflineStore = errors.New("offline block and state store tooling is not supported when autobahn-config-file is set")
+
 // MakeReindexEventCommand constructs a command to re-index events in a block height interval.
 func MakeReindexEventCommand(conf *tmcfg.Config) *cobra.Command {
 	var (
@@ -147,6 +149,10 @@ func loadEventSinks(cfg *tmcfg.Config) ([]indexer.EventSink, error) {
 }
 
 func loadStateAndBlockStore(cfg *tmcfg.Config) (*store.BlockStore, state.Store, error) {
+	if cfg.AutobahnConfigFile != "" {
+		return nil, nil, ErrAutobahnOfflineStore
+	}
+
 	dbType := dbm.BackendType(cfg.DBBackend)
 
 	blockstoreDir := tmcfg.ResolveDBDir("blockstore", cfg.DBDir())

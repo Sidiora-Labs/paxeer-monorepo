@@ -9,7 +9,7 @@ import {
   type SequencerAuthorization,
 } from "@sidiora/layerx-sdk";
 
-export type PaymentCommitment = "executed" | "batched" | "finalised";
+export type PaymentCommitment = "receipted" | "committed";
 
 export interface PaymentCommitmentEvidence {
   readonly networkId: number;
@@ -33,12 +33,12 @@ function failure(): never {
 }
 
 export function paymentCommitment(extra: unknown): PaymentCommitment {
-  if (extra === undefined || extra === null || typeof extra !== "object" || Array.isArray(extra)) return "executed";
+  if (extra === undefined || extra === null || typeof extra !== "object" || Array.isArray(extra)) return "receipted";
   const layerx = (extra as Record<string, unknown>)["layerx"];
-  if (layerx === undefined) return "executed";
+  if (layerx === undefined) return "receipted";
   if (layerx === null || typeof layerx !== "object" || Array.isArray(layerx)) return failure();
   const commitment = (layerx as Record<string, unknown>)["commitment"];
-  if (commitment !== "executed" && commitment !== "batched" && commitment !== "finalised") return failure();
+  if (commitment !== "receipted" && commitment !== "committed") return failure();
   return commitment;
 }
 
@@ -98,8 +98,8 @@ export async function verifyPaymentCommitment(
   commitment: PaymentCommitment,
   resolver?: PaymentCommitmentResolver,
 ): Promise<void> {
-  if (commitment === "executed") return;
-  if (commitment !== "batched" && commitment !== "finalised") return failure();
+  if (commitment === "receipted") return;
+  if (commitment !== "committed") return failure();
   if (resolver === undefined) return failure();
   const evidence = await resolver.resolve(verified.canonicalBytes.slice(), network, commitment);
   await verifyPaymentCommitmentEvidence(verified, sequencerPublicKey, commitment, evidence);
@@ -111,8 +111,8 @@ export async function verifyPaymentCommitmentEvidence(
   commitment: PaymentCommitment,
   evidence: PaymentCommitmentEvidence,
 ): Promise<void> {
-  if (commitment === "executed") return;
-  if (commitment !== "batched" && commitment !== "finalised") return failure();
+  if (commitment === "receipted") return;
+  if (commitment !== "committed") return failure();
   evidence = {
     networkId: evidence.networkId,
     canonicalHeader: evidence.canonicalHeader.slice(),
@@ -138,7 +138,6 @@ export async function verifyPaymentCommitmentEvidence(
   if (inclusion.header.networkId !== evidence.networkId
     || verified.receipt.globalSequence < inclusion.header.firstSequence
     || verified.receipt.globalSequence > inclusion.header.lastSequence) return failure();
-  if (commitment === "batched") return;
   const checkpoint = evidence.checkpoint;
   if (checkpoint === undefined || !Number.isSafeInteger(checkpoint.requiredGuarantors)
     || checkpoint.requiredGuarantors <= 0

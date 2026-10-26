@@ -139,6 +139,9 @@ typedef enum lxp_result_domain_id {
     X(LXP_ERR_PARAMETER_BOUNDS, -734) \
     X(LXP_ERR_PAUSED_SCOPE, -735) \
     X(LXP_ERR_PROGRAM_REFUSED, -736) \
+    X(LXP_ERR_ARBITER_REQUIRED, -737) \
+    X(LXP_ERR_UNAUTHORIZED_ARBITER, -738) \
+    X(LXP_ERR_ESCROW_LINK_MISMATCH, -739) \
     X(LXP_ERR_BATCH_GAP, -800) \
     X(LXP_ERR_ROOT_MISMATCH, -801) \
     X(LXP_ERR_TIMESTAMP_REGRESSION, -802) \
@@ -162,6 +165,7 @@ LXP_RESULT_CODE_LIST(LXP_DECLARE_RESULT)
 
 const char *lxp_result_name(lxp_result result);
 lxp_result_domain_id lxp_result_domain(lxp_result result);
+bool lxp_result_is_registered(lxp_result result);
 bool lxp_result_is_fatal(lxp_result result);
 
 #endif

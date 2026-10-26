@@ -14,7 +14,7 @@ import {
   type PrecompileCall,
 } from "../../api/sdk";
 import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
-import { windowWalletProvider } from "../../journeys/custody/handoff";
+import { windowWalletProvider } from "../../api/provider";
 import { SegmentedControl } from "../../kit/collection";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";

@@ -249,6 +249,10 @@ func makeNode(
 		mpReactor.MarkReadyToStart()
 		node.services = append(node.services, mpReactor)
 
+		if _, ok := app.(types.LeaderSource); cfg.Consensus.Sequencer.Enable && !ok {
+			return nil, fmt.Errorf("sequencer mode needs an application implementing LeaderSource")
+		}
+
 		// make block executor for consensus and blockchain reactors to execute blocks
 		blockExec := sm.NewBlockExecutor(
 			stateStore,
@@ -299,6 +303,9 @@ func makeNode(
 			tracerProviderOptions,
 			nodeMetrics.consensus,
 		)
+		if src, ok := app.(types.LeaderSource); ok {
+			csState.SetLeaderSource(src)
+		}
 		node.rpcEnv.ConsensusState = utils.Some[rpccore.ConsensusState](csState)
 
 		csReactor, err := consensus.NewReactor(
