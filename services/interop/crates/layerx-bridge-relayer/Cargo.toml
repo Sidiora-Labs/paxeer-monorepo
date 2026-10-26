@@ -22,6 +22,7 @@ k256.workspace = true
 layerx-crypto.workspace = true
 layerx-mirror.workspace = true
 layerx-paxeer-verifier = { path = "../../../../services/agent/crates/layerx-paxeer-verifier" }
+layerx-proof.workspace = true
 openssl.workspace = true
 serde.workspace = true
 serde_json.workspace = true

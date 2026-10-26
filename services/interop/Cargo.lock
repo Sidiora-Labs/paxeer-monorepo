@@ -1226,6 +1226,7 @@ dependencies = [
  "layerx-crypto",
  "layerx-mirror",
  "layerx-paxeer-verifier",
+ "layerx-proof",
  "openssl",
  "serde",
  "serde_json",
@@ -1248,7 +1249,16 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2 0.10.9",
+ "tungstenite",
  "ureq",
+]
+
+[[package]]
+name = "layerx-committed-proof"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "sha2 0.10.9",
 ]
 
 [[package]]
@@ -1378,6 +1388,8 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "layerx-ap2",
+ "layerx-client",
+ "layerx-crypto",
  "layerx-fiat",
  "layerx-interop-gateway",
  "layerx-migrate",
@@ -1517,6 +1529,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.10.9",
+ "sha3",
 ]
 
 [[package]]
@@ -1636,6 +1649,7 @@ version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
+ "layerx-committed-proof",
  "layerx-interop-gateway",
  "layerx-proof",
  "layerx-wire",

@@ -5,7 +5,7 @@ use crate::identity::{
 };
 use crate::read::{AccountRef, ModuleRef};
 use crate::track::ReceiptRef;
-use crate::verify::Level;
+use crate::verify::Rung;
 use crate::{Sequence, TimestampSeconds};
 use layerx_types::result::ResultCode;
 
@@ -201,10 +201,7 @@ impl DeduplicationId {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ReceiptReference {
     None,
-    Verified {
-        receipt_ref: ReceiptRef,
-        verification_level: Level,
-    },
+    Verified { receipt_ref: ReceiptRef, rung: Rung },
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

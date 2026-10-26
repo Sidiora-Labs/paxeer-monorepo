@@ -193,6 +193,7 @@ typedef struct lxp_send_environment {
      * resolved none; a declared delegated or budget debit is refused without
      * it. */
     struct lxp_transfer_allowance *allowance;
+    bool binding_authority;
 } lxp_send_environment;
 
 typedef struct lxp_payer_grant {

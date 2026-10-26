@@ -110,7 +110,7 @@ func (k *Keeper) InstallRoleSurfaces(ctx sdk.Context, evm CodeWriter) error {
 		if err := k.SetSurface(ctx, address, Surface{Role: role, Generation: types.Generation2}); err != nil {
 			return err
 		}
-		evm.SetCode(ctx, address, surfaceRuntime)
+		evm.SetCode(ctx, address, SurfaceRuntime)
 	}
 	return nil
 }

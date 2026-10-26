@@ -83,10 +83,14 @@ async function checkWalletHealth(url: string, signal: AbortSignal): Promise<void
   if (
     typeof body !== 'object' ||
     body === null ||
-    !('ok' in body) || body.ok !== true ||
-    !('service' in body) || body.service !== 'paxeer-wallet-api' ||
-    !('version' in body) || body.version !== '0.1.0' ||
-    !('chain_id' in body) || body.chain_id !== 125
+    !('ok' in body) ||
+    body.ok !== true ||
+    !('service' in body) ||
+    body.service !== 'paxeer-wallet-api' ||
+    !('version' in body) ||
+    body.version !== '0.1.0' ||
+    !('chain_id' in body) ||
+    body.chain_id !== 125
   ) {
     throw new Error('Wallet health response is invalid');
   }
@@ -97,7 +101,7 @@ export async function GET(request: Request) {
   if (mode === 'liveness') {
     return NextResponse.json(
       { status: 'ok', check: 'liveness', timestamp: new Date().toISOString() },
-      { headers: { 'Cache-Control': 'no-store' } },
+      { headers: { 'Cache-Control': 'no-store' } }
     );
   }
   if (mode !== 'readiness') {
@@ -108,21 +112,25 @@ export async function GET(request: Request) {
           message: 'Health mode is invalid',
         },
       },
-      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } }
     );
   }
   const wallet = resolveWalletConfig();
-  const walletUrl = (select: (config: { identityUrl: string; gatewayUrl: string }) => string) => async (signal: AbortSignal) => {
-    if (!wallet.ok) throw wallet.error;
-    await checkHttp(select(wallet.config), signal);
-  };
+  const walletUrl =
+    (select: (config: { identityUrl: string; gatewayUrl: string }) => string) =>
+    async (signal: AbortSignal) => {
+      if (!wallet.ok) throw wallet.error;
+      await checkHttp(select(wallet.config), signal);
+    };
   const checks = {
     rpc: await timedCheck((signal) => checkRpc(signal)),
-    indexer: await timedCheck((signal) => checkHttp(`${PAXEER_CONFIG.portfolioApiBase}/health`, signal)),
+    indexer: await timedCheck((signal) =>
+      checkHttp(`${PAXEER_CONFIG.portfolioApiBase}/health`, signal)
+    ),
     supabase: await timedCheck(walletUrl((config) => `${config.identityUrl}/auth/v1/health`)),
     embeddedWallet: await timedCheck(async (signal) => {
       if (!wallet.ok) throw wallet.error;
-      await checkWalletHealth(`${wallet.config.gatewayUrl}/v1/wallet/health`, signal);
+      await checkWalletHealth(`${wallet.config.gatewayUrl}/healthz`, signal);
     }),
     push: await timedCheck(async () => {
       if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
@@ -149,6 +157,6 @@ export async function GET(request: Request) {
     {
       status: degraded ? 503 : 200,
       headers: { 'Cache-Control': 'no-store' },
-    },
+    }
   );
 }

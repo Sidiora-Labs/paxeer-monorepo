@@ -1,10 +1,13 @@
 package config_test
 
 import (
+	"bytes"
 	"testing"
+	"text/template"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -46,6 +49,12 @@ type opts struct {
 }
 
 func (o *opts) Get(k string) interface{} {
+	if k == "evm.batch_request_limit" ||
+		k == "evm.batch_response_max_size" ||
+		k == "evm.send_raw_tx_sync_timeout" ||
+		k == "evm.max_subscriptions_logs" {
+		return nil
+	}
 	if k == "evm.http_address" {
 		return o.httpAddress
 	}
@@ -203,6 +212,151 @@ func getDefaultOpts() opts {
 	}
 }
 
+func TestReadConfigIgnoresChecktxTimeout(t *testing.T) {
+	for _, value := range []string{`"5s"`, `"bad"`, `["5s"]`} {
+		t.Run(value, func(t *testing.T) {
+			options := viper.New()
+			options.SetConfigType("toml")
+			require.NoError(t, options.ReadConfig(bytes.NewBufferString("[evm]\nchecktx_timeout = "+value+"\n")))
+			require.True(t, options.IsSet("evm.checktx_timeout"))
+			cfg, err := config.ReadConfig(options)
+			require.NoError(t, err)
+			require.Equal(t, config.DefaultConfig, cfg)
+		})
+	}
+
+	tmpl, err := template.New("evm").Parse(config.ConfigTemplate)
+	require.NoError(t, err)
+	var rendered bytes.Buffer
+	require.NoError(t, tmpl.Execute(&rendered, struct{ EVM config.Config }{EVM: config.DefaultConfig}))
+	require.NotContains(t, rendered.String(), "checktx_timeout")
+	options := viper.New()
+	options.SetConfigType("toml")
+	require.NoError(t, options.ReadConfig(&rendered))
+	require.False(t, options.IsSet("evm.checktx_timeout"))
+}
+
+func readConfigTemplate(t *testing.T, cfg config.Config) config.Config {
+	t.Helper()
+	tmpl, err := template.New("evm").Parse(config.ConfigTemplate)
+	require.NoError(t, err)
+	var rendered bytes.Buffer
+	require.NoError(t, tmpl.Execute(&rendered, struct{ EVM config.Config }{EVM: cfg}))
+	options := viper.New()
+	options.SetConfigType("toml")
+	require.NoError(t, options.ReadConfig(&rendered))
+	result, err := config.ReadConfig(options)
+	require.NoError(t, err)
+	return result
+}
+
+func TestReadConfigBatchLimits(t *testing.T) {
+	tests := []struct {
+		name         string
+		request      interface{}
+		response     interface{}
+		wantRequest  int
+		wantResponse int
+		wantError    bool
+	}{
+		{name: "defaults", wantRequest: 1000, wantResponse: 25000000},
+		{name: "integers", request: 250, response: 5000000, wantRequest: 250, wantResponse: 5000000},
+		{name: "strings", request: "500", response: "10000000", wantRequest: 500, wantResponse: 10000000},
+		{name: "request only", request: 25, wantRequest: 25, wantResponse: 25000000},
+		{name: "response only", response: 5000, wantRequest: 1000, wantResponse: 5000},
+		{name: "zero", request: 0, response: 0},
+		{name: "invalid request", request: "bad", wantError: true},
+		{name: "invalid response", response: "bad", wantError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := viper.New()
+			if tt.request != nil {
+				options.Set("evm.batch_request_limit", tt.request)
+			}
+			if tt.response != nil {
+				options.Set("evm.batch_response_max_size", tt.response)
+			}
+			cfg, err := config.ReadConfig(options)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.wantRequest, cfg.BatchRequestLimit)
+			require.Equal(t, tt.wantResponse, cfg.BatchResponseMaxSize)
+			roundTrip := readConfigTemplate(t, cfg)
+			require.Equal(t, tt.wantRequest, roundTrip.BatchRequestLimit)
+			require.Equal(t, tt.wantResponse, roundTrip.BatchResponseMaxSize)
+		})
+	}
+}
+
+func TestReadConfigSendRawTxSyncTimeout(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     interface{}
+		want      time.Duration
+		wantError bool
+	}{
+		{name: "default", want: 2 * time.Second},
+		{name: "duration string", value: "750ms", want: 750 * time.Millisecond},
+		{name: "duration value", value: 3 * time.Second, want: 3 * time.Second},
+		{name: "zero", value: "0s"},
+		{name: "invalid duration", value: "bad", wantError: true},
+		{name: "invalid type", value: []string{"2s"}, wantError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := viper.New()
+			if tt.value != nil {
+				options.Set("evm.send_raw_tx_sync_timeout", tt.value)
+			}
+			cfg, err := config.ReadConfig(options)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cfg.SendRawTxSyncTimeout)
+			require.Equal(t, tt.want, readConfigTemplate(t, cfg).SendRawTxSyncTimeout)
+		})
+	}
+}
+
+func TestReadConfigMaxSubscriptionsLogs(t *testing.T) {
+	tests := []struct {
+		name      string
+		value     interface{}
+		want      uint64
+		wantError bool
+	}{
+		{name: "default", want: 10000},
+		{name: "integer", value: uint64(500), want: 500},
+		{name: "string", value: "25000", want: 25000},
+		{name: "zero", value: uint64(0)},
+		{name: "negative", value: -1, wantError: true},
+		{name: "invalid", value: "bad", wantError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			options := viper.New()
+			if tt.value != nil {
+				options.Set("evm.max_subscriptions_logs", tt.value)
+			}
+			cfg, err := config.ReadConfig(options)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, cfg.MaxSubscriptionsLogs)
+			require.Equal(t, uint64(10000), cfg.MaxSubscriptionsNewHead)
+			require.Equal(t, tt.want, readConfigTemplate(t, cfg).MaxSubscriptionsLogs)
+		})
+	}
+}
+
 func TestReadConfig(t *testing.T) {
 	goodOpts := getDefaultOpts()
 	cfg, err := config.ReadConfig(&goodOpts)
@@ -262,8 +416,9 @@ func TestReadConfig(t *testing.T) {
 	require.NotNil(t, err)
 	badOpts = goodOpts
 	badOpts.checkTxTimeout = "bad"
-	_, err = config.ReadConfig(&badOpts)
-	require.NotNil(t, err)
+	legacyCfg, err := config.ReadConfig(&badOpts)
+	require.NoError(t, err)
+	require.Equal(t, cfg, legacyCfg)
 	badOpts = goodOpts
 	badOpts.maxTxPoolTxs = "bad"
 	_, err = config.ReadConfig(&badOpts)

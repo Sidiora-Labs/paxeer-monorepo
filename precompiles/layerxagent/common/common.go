@@ -21,48 +21,49 @@ type ErrorCode string
 func (code ErrorCode) Error() string { return string(code) }
 
 const (
-	ErrInputTooShort            ErrorCode = "LXP_PRECOMPILE_INPUT_TOO_SHORT"
-	ErrUnknownMethod            ErrorCode = "LXP_PRECOMPILE_UNKNOWN_METHOD"
-	ErrArgCount                 ErrorCode = "LXP_PRECOMPILE_ARG_COUNT"
-	ErrNonPayable               ErrorCode = "LXP_PRECOMPILE_NON_PAYABLE"
-	ErrNoContext                ErrorCode = "LXP_PRECOMPILE_NO_CONTEXT"
-	ErrABIDecode                ErrorCode = "LXP_AGENT_ABI_DECODE"
-	ErrReadOnly                 ErrorCode = "LXP_AGENT_READ_ONLY"
-	ErrDelegatecall             ErrorCode = "LXP_AGENT_DELEGATECALL"
-	ErrOverflow                 ErrorCode = "LXP_AGENT_OVERFLOW"
-	ErrBatchTooLarge            ErrorCode = "LXP_AGENT_BATCH_TOO_LARGE"
-	ErrOrobOraclePrice          ErrorCode = "LXP_AGENT_OROB_ORACLE_PRICE"
-	ErrOrobOffsetRange          ErrorCode = "LXP_AGENT_OROB_OFFSET_RANGE"
-	ErrClearingLengthMismatch   ErrorCode = "LXP_AGENT_CLEARING_LENGTH_MISMATCH"
-	ErrOracleNoFeeds            ErrorCode = "LXP_AGENT_ORACLE_NO_FEEDS"
-	ErrOracleNoConfidentFeeds   ErrorCode = "LXP_AGENT_ORACLE_NO_CONFIDENT_FEEDS"
-	ErrOracleNotSigner          ErrorCode = "LXP_AGENT_ORACLE_NOT_SIGNER"
-	ErrOraclePrice              ErrorCode = "LXP_AGENT_ORACLE_PRICE"
-	ErrOracleConfidence         ErrorCode = "LXP_AGENT_ORACLE_CONFIDENCE"
-	ErrPofqLengthMismatch       ErrorCode = "LXP_AGENT_POFQ_LENGTH_MISMATCH"
-	ErrPofqDecayRange           ErrorCode = "LXP_AGENT_POFQ_DECAY_RANGE"
-	ErrSchedulerJobNotFound     ErrorCode = "LXP_AGENT_SCHEDULER_JOB_NOT_FOUND"
-	ErrSchedulerUnauthorized    ErrorCode = "LXP_AGENT_SCHEDULER_UNAUTHORIZED"
-	ErrSchedulerHorizonExceeded ErrorCode = "LXP_AGENT_SCHEDULER_HORIZON_EXCEEDED"
-	ErrSchedulerPastBlock       ErrorCode = "LXP_AGENT_SCHEDULER_PAST_BLOCK"
-	ErrSchedulerMaxJobs         ErrorCode = "LXP_AGENT_SCHEDULER_MAX_JOBS"
-	ErrSchedulerDepositTooLow   ErrorCode = "LXP_AGENT_SCHEDULER_DEPOSIT_TOO_LOW"
-	ErrSchedulerInvalidGasLimit ErrorCode = "LXP_AGENT_SCHEDULER_INVALID_GAS_LIMIT"
-	ErrSchedulerInvalidTarget   ErrorCode = "LXP_AGENT_SCHEDULER_INVALID_TARGET"
-	ErrSchedulerJobInactive     ErrorCode = "LXP_AGENT_SCHEDULER_JOB_INACTIVE"
-	ErrSchedulerEscrow          ErrorCode = "LXP_AGENT_SCHEDULER_ESCROW"
-	ErrStreamsInvalidPayee      ErrorCode = "LXP_AGENT_STREAMS_INVALID_PAYEE"
-	ErrStreamsSelfPayment       ErrorCode = "LXP_AGENT_STREAMS_SELF_PAYMENT"
-	ErrStreamsUnknownToken      ErrorCode = "LXP_AGENT_STREAMS_UNKNOWN_TOKEN"
-	ErrTEEUnknownFamily         ErrorCode = "LXP_AGENT_TEE_UNKNOWN_FAMILY"
-	ErrTEENoRoots               ErrorCode = "LXP_AGENT_TEE_NO_ROOTS"
-	ErrTEEInvalidQuote          ErrorCode = "LXP_AGENT_TEE_INVALID_QUOTE"
-	ErrTEEUntrustedChain        ErrorCode = "LXP_AGENT_TEE_UNTRUSTED_CHAIN"
-	ErrTEEStale                 ErrorCode = "LXP_AGENT_TEE_STALE"
-	ErrTEEDebugRefused          ErrorCode = "LXP_AGENT_TEE_DEBUG_REFUSED"
-	ErrTEEReportDataMismatch    ErrorCode = "LXP_AGENT_TEE_REPORT_DATA_MISMATCH"
-	ErrTEEUnauthorizedUpdate    ErrorCode = "LXP_AGENT_TEE_UNAUTHORIZED_UPDATE"
-	ErrNotActive                ErrorCode = "LXP_AGENT_NOT_ACTIVE"
+	ErrInputTooShort             ErrorCode = "LXP_PRECOMPILE_INPUT_TOO_SHORT"
+	ErrUnknownMethod             ErrorCode = "LXP_PRECOMPILE_UNKNOWN_METHOD"
+	ErrArgCount                  ErrorCode = "LXP_PRECOMPILE_ARG_COUNT"
+	ErrNonPayable                ErrorCode = "LXP_PRECOMPILE_NON_PAYABLE"
+	ErrNoContext                 ErrorCode = "LXP_PRECOMPILE_NO_CONTEXT"
+	ErrABIDecode                 ErrorCode = "LXP_AGENT_ABI_DECODE"
+	ErrReadOnly                  ErrorCode = "LXP_AGENT_READ_ONLY"
+	ErrDelegatecall              ErrorCode = "LXP_AGENT_DELEGATECALL"
+	ErrOverflow                  ErrorCode = "LXP_AGENT_OVERFLOW"
+	ErrBatchTooLarge             ErrorCode = "LXP_AGENT_BATCH_TOO_LARGE"
+	ErrOrobOraclePrice           ErrorCode = "LXP_AGENT_OROB_ORACLE_PRICE"
+	ErrOrobOffsetRange           ErrorCode = "LXP_AGENT_OROB_OFFSET_RANGE"
+	ErrClearingLengthMismatch    ErrorCode = "LXP_AGENT_CLEARING_LENGTH_MISMATCH"
+	ErrOracleNoFeeds             ErrorCode = "LXP_AGENT_ORACLE_NO_FEEDS"
+	ErrOracleNoConfidentFeeds    ErrorCode = "LXP_AGENT_ORACLE_NO_CONFIDENT_FEEDS"
+	ErrOracleNotSigner           ErrorCode = "LXP_AGENT_ORACLE_NOT_SIGNER"
+	ErrOraclePrice               ErrorCode = "LXP_AGENT_ORACLE_PRICE"
+	ErrOracleConfidence          ErrorCode = "LXP_AGENT_ORACLE_CONFIDENCE"
+	ErrPofqLengthMismatch        ErrorCode = "LXP_AGENT_POFQ_LENGTH_MISMATCH"
+	ErrPofqDecayRange            ErrorCode = "LXP_AGENT_POFQ_DECAY_RANGE"
+	ErrSchedulerJobNotFound      ErrorCode = "LXP_AGENT_SCHEDULER_JOB_NOT_FOUND"
+	ErrSchedulerUnauthorized     ErrorCode = "LXP_AGENT_SCHEDULER_UNAUTHORIZED"
+	ErrSchedulerHorizonExceeded  ErrorCode = "LXP_AGENT_SCHEDULER_HORIZON_EXCEEDED"
+	ErrSchedulerPastBlock        ErrorCode = "LXP_AGENT_SCHEDULER_PAST_BLOCK"
+	ErrSchedulerMaxJobs          ErrorCode = "LXP_AGENT_SCHEDULER_MAX_JOBS"
+	ErrSchedulerDepositTooLow    ErrorCode = "LXP_AGENT_SCHEDULER_DEPOSIT_TOO_LOW"
+	ErrSchedulerInvalidGasLimit  ErrorCode = "LXP_AGENT_SCHEDULER_INVALID_GAS_LIMIT"
+	ErrSchedulerInvalidTarget    ErrorCode = "LXP_AGENT_SCHEDULER_INVALID_TARGET"
+	ErrSchedulerJobInactive      ErrorCode = "LXP_AGENT_SCHEDULER_JOB_INACTIVE"
+	ErrSchedulerEscrow           ErrorCode = "LXP_AGENT_SCHEDULER_ESCROW"
+	ErrSchedulerCallDataTooLarge ErrorCode = "LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE"
+	ErrStreamsInvalidPayee       ErrorCode = "LXP_AGENT_STREAMS_INVALID_PAYEE"
+	ErrStreamsSelfPayment        ErrorCode = "LXP_AGENT_STREAMS_SELF_PAYMENT"
+	ErrStreamsUnknownToken       ErrorCode = "LXP_AGENT_STREAMS_UNKNOWN_TOKEN"
+	ErrTEEUnknownFamily          ErrorCode = "LXP_AGENT_TEE_UNKNOWN_FAMILY"
+	ErrTEENoRoots                ErrorCode = "LXP_AGENT_TEE_NO_ROOTS"
+	ErrTEEInvalidQuote           ErrorCode = "LXP_AGENT_TEE_INVALID_QUOTE"
+	ErrTEEUntrustedChain         ErrorCode = "LXP_AGENT_TEE_UNTRUSTED_CHAIN"
+	ErrTEEStale                  ErrorCode = "LXP_AGENT_TEE_STALE"
+	ErrTEEDebugRefused           ErrorCode = "LXP_AGENT_TEE_DEBUG_REFUSED"
+	ErrTEEReportDataMismatch     ErrorCode = "LXP_AGENT_TEE_REPORT_DATA_MISMATCH"
+	ErrTEEUnauthorizedUpdate     ErrorCode = "LXP_AGENT_TEE_UNAUTHORIZED_UPDATE"
+	ErrNotActive                 ErrorCode = "LXP_AGENT_NOT_ACTIVE"
 )
 
 func GuardWrite(ctx sdk.Context, readOnly, isDelegate bool) error {
@@ -146,7 +147,7 @@ var _ vm.PrecompiledContract = (*Precompile)(nil)
 
 func NewPrecompile(a abi.ABI, executor pcommon.PrecompileExecutor, address ethcommon.Address, name string, upgrade *upgradekeeper.Keeper, planName string) *Precompile {
 	return &Precompile{
-		Precompile: pcommon.NewPrecompile(a, boundExecutor{executor, upgrade, planName}, address, name).WithRevertReasons(),
+		Precompile: pcommon.NewPrecompile(a, boundExecutor{executor, upgrade, planName}, address, name).WithLXPReasons(),
 		executor:   executor,
 		upgrade:    upgrade,
 		planName:   planName,
@@ -169,7 +170,7 @@ func (p *Precompile) Run(evm *vm.EVM, caller ethcommon.Address, callingContract 
 		if evm != nil {
 			pcommon.HandlePrecompileError(err, evm, "layerxagent")
 		}
-		return pcommon.RevertReason(err), vm.ErrExecutionReverted
+		return pcommon.LXPReason(err), vm.ErrExecutionReverted
 	}
 	return p.Precompile.Run(evm, caller, callingContract, input, value, readOnly, isFromDelegateCall, hooks)
 }

@@ -10,14 +10,13 @@ export default defineConfig({
     fileParallelism: false,
     include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     globals: false,
-    // The four required backend origins have no fallback under any NODE_ENV
-    // (core/backend-origins.ts); suites run against the same public Railway
-    // values as client/apps/web/.env.local, and individual suites override them.
+    // Suites run against loopback backend origins by default and override
+    // them per suite as needed.
     env: {
-      NEXT_PUBLIC_DATA_API_URL: 'https://api-production-e4bd.up.railway.app',
-      NEXT_PUBLIC_GATEWAY_URL: 'https://gateway-production-800c.up.railway.app',
-      NEXT_PUBLIC_METADATA_API_URL: 'https://gateway-production-800c.up.railway.app',
-      NEXT_PUBLIC_PNL_API_URL: 'https://pnl-production-72f3.up.railway.app',
+      NEXT_PUBLIC_DATA_API_URL: 'http://127.0.0.1:18081',
+      NEXT_PUBLIC_GATEWAY_URL: 'http://127.0.0.1:18082',
+      NEXT_PUBLIC_METADATA_API_URL: 'http://127.0.0.1:18083',
+      NEXT_PUBLIC_PNL_API_URL: 'http://127.0.0.1:18084',
     },
     // @kindle/sdk dist validators read `.default` off CJS ajv runtime modules;
     // vitest's default interop unwraps it and breaks every SDK-importing suite.
