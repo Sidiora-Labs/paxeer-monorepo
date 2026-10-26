@@ -8808,3 +8808,20 @@ symptom = "cg spec done refuses a task with ✗ symbol — not defined in the gr
 cause = "Hyperfide revisions before 3762f1c43 extracted functions, types, methods and enums only and matched a qualified name's last segment without its container"
 do = "Use Hyperfide at 3762f1c43 or later (CG_EXTRACTION_VERSION 4) and rebuild the index; do not remove the symbol from the task"
 
+[gotcha.1847]
+area = "spec"
+symptom = "a Go package stops compiling with `TransferLeg redeclared in this block` after two sibling tasks land"
+cause = "two tasks' do-lines named the same type, one declaring it and one only using it, with no requires between them, so both wrote the declaration"
+do = "a type belongs to the task whose do-line declares it; a task that only uses it requires that task and never declares it; delete the duplicate from the user's file and record the finding"
+
+[gotcha.1848]
+area = "build"
+symptom = "a kernel task's verify_cmd fails with make: No rule to make target 'build/tests/kernel/...'"
+cause = "the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982) and a kernel task that does not require it builds on a tree without the rule"
+do = "every task whose verify_cmd builds build/tests/kernel/... requires 16.2.1; add the missing requires and re-qualify the finished implementation instead of rewriting it"
+
+[gotcha.1849]
+area = "tooling"
+symptom = "verify_cmd fails with `No module named pytest` after the task's unittest or build passed"
+cause = "the base python of the build environment carries pip only; pytest-based verify_cmds assume pytest is installed"
+do = "install pytest once before the gates when build_cmd or verify_cmd mentions pytest, record the install in the run log, and re-qualify the result"
