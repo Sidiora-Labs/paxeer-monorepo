@@ -107,6 +107,73 @@ func TestUpdateParamsAuthority(t *testing.T) {
 	require.Equal(t, changed, f.keeper.GetParams(ctx))
 }
 
+func TestUpdateParamsRefusedAfterRetirement(t *testing.T) {
+	f := newFixture(t)
+	const doneHeight int64 = 100
+	ctx := f.fresh().WithBlockHeight(doneHeight - 1)
+	server := keeper.NewMsgServerImpl(f.keeper)
+	params := f.keeper.GetParams(ctx)
+	params.Paused = true
+	msg := &types.MsgUpdateParams{Authority: governanceAuthority(), Params: params}
+	f.upgrade.SetDone(ctx.WithBlockHeight(doneHeight), types.RetiredFromUpgrade)
+	_, err := server.UpdateParams(sdk.WrapSDKContext(ctx), msg)
+	require.NoError(t, err)
+	require.Equal(t, params, f.keeper.GetParams(ctx))
+	msg.Params.Paused = false
+	for _, height := range []int64{doneHeight, doneHeight + 1} {
+		for _, authority := range []string{governanceAuthority(), f.callerAcc.String()} {
+			msg.Authority = authority
+			response, err := server.UpdateParams(sdk.WrapSDKContext(ctx.WithBlockHeight(height)), msg)
+			require.Nil(t, response)
+			require.ErrorIs(t, err, types.ErrRetired)
+			require.Contains(t, err.Error(), "v6.12.0 done at height 100")
+			require.Equal(t, types.CodeRetired, types.ErrorCode(err))
+			require.Equal(t, params, f.keeper.GetParams(ctx))
+		}
+	}
+	f.keeper.SetUpgradeKeeper(nil)
+	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), msg)
+	require.ErrorIs(t, err, types.ErrKeeperMissing)
+	require.Equal(t, params, f.keeper.GetParams(ctx))
+}
+
+func TestSetMarketRefusedAfterRetirement(t *testing.T) {
+	f := newFixture(t)
+	const doneHeight int64 = 100
+	ctx := f.fresh().WithBlockHeight(doneHeight - 1)
+	server := keeper.NewMsgServerImpl(f.keeper)
+	market, found := f.keeper.GetParams(ctx).Market(custodytypes.Hash32(marketID))
+	require.True(t, found)
+	market.Enabled = false
+	msg := &types.MsgSetMarket{Authority: governanceAuthority(), Market: market}
+	f.upgrade.SetDone(ctx.WithBlockHeight(doneHeight), types.RetiredFromUpgrade)
+	_, err := server.SetMarket(sdk.WrapSDKContext(ctx), msg)
+	require.NoError(t, err)
+	stored, found := f.keeper.GetParams(ctx).Market(market.MarketId)
+	require.True(t, found)
+	require.False(t, stored.Enabled)
+	msg.Market.Enabled = true
+	_, err = server.SetMarket(sdk.WrapSDKContext(ctx), msg)
+	require.NoError(t, err)
+	before := f.keeper.GetParams(ctx)
+	msg.Market.Enabled = false
+	for _, height := range []int64{doneHeight, doneHeight + 1} {
+		for _, authority := range []string{governanceAuthority(), f.callerAcc.String()} {
+			msg.Authority = authority
+			response, err := server.SetMarket(sdk.WrapSDKContext(ctx.WithBlockHeight(height)), msg)
+			require.Nil(t, response)
+			require.ErrorIs(t, err, types.ErrRetired)
+			require.Contains(t, err.Error(), "v6.12.0 done at height 100")
+			require.Equal(t, types.CodeRetired, types.ErrorCode(err))
+			require.Equal(t, before, f.keeper.GetParams(ctx))
+		}
+	}
+	f.keeper.SetUpgradeKeeper(nil)
+	_, err = server.SetMarket(sdk.WrapSDKContext(ctx), msg)
+	require.ErrorIs(t, err, types.ErrKeeperMissing)
+	require.Equal(t, before, f.keeper.GetParams(ctx))
+}
+
 func TestPausedRefusesWrites(t *testing.T) {
 	f := newFixture(t)
 	ctx := f.fresh()

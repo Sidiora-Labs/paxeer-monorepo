@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	atypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
 	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
@@ -21,8 +22,6 @@ import (
 // blocking integration-test CI today (no reader), but external tooling will
 // want them:
 //
-//   - LatestBlockHash / LatestBlockTime: need Autobahn block-header lookup
-//     for the latest global block.
 //   - EarliestBlockHash / EarliestAppHash / EarliestBlockHeight /
 //     EarliestBlockTime: need Autobahn's pruning-boundary metadata
 //     (FirstCommitQC or equivalent).
@@ -72,8 +71,7 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 	// Under Autobahn the CometBFT block store isn't populated, so the height
 	// above is stuck at 0. Pull the live height and app hash from the app —
 	// ABCIInfo reports both the last height the app committed in FinalizeBlock
-	// and the matching app hash. Block hash and block time stay empty; see
-	// the TODO on Status for what's left.
+	// and the matching app hash.
 	//
 	// LastCommittedBlockHeight reports the last block consensus has finalized.
 	// Under CometBFT commit == app-apply in one step, so latestHeight IS the
@@ -85,6 +83,10 @@ func (env *Environment) Status(ctx context.Context) (*coretypes.ResultStatus, er
 		if abciInfo, err := env.ABCIInfo(ctx); err == nil {
 			latestHeight = abciInfo.Response.LastBlockHeight
 			latestAppHash = abciInfo.Response.LastBlockAppHash
+			if block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(latestHeight)); err == nil {
+				latestBlockHash = block.BlockID.Hash
+				latestBlockTimeNano = block.Block.Header.Time.UnixNano()
+			}
 		}
 		lastCommittedBlockHeight = giga.LastCommittedBlockNumber()
 		// Invariant: under Autobahn, consensus finalizes before the app

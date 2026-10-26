@@ -455,7 +455,7 @@ test("explorerPath builds explorer URLs for receipts and checkpoints", () => {
 });
 
 test("verificationLabel returns localized label for verification levels", () => {
-  const levels = ["unverified", "receipt-verified", "checkpoint-finalised", "paxeer-finalised"] as const;
+  const levels = ["unverified", "receipt-verified", "checkpoint-finalised"] as const;
   for (const level of levels) {
     const label = verificationLabel(level);
     assert.equal(typeof label, "string");

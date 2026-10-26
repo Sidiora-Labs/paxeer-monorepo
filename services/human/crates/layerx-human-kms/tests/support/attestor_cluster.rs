@@ -1,4 +1,4 @@
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_human_kms::attestor::AttestorClient;
 use p256::ecdsa::signature::Signer as _;
@@ -325,6 +325,29 @@ pub struct TokenSigner {
 }
 
 impl TokenSigner {
+    fn public_pem(&self) -> String {
+        let mut spki = vec![
+            0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
+            0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+        ];
+        spki.extend_from_slice(self.key.verifying_key().to_encoded_point(false).as_bytes());
+        format!(
+            "-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----\n",
+            STANDARD.encode(spki)
+        )
+    }
+
+    fn sign_inventory(&self, claims: &Value) -> String {
+        let header = json!({"alg": "ES256", "typ": "wallet-custody-inventory+jwt"});
+        let input = format!(
+            "{}.{}",
+            URL_SAFE_NO_PAD.encode(header.to_string()),
+            URL_SAFE_NO_PAD.encode(claims.to_string())
+        );
+        let signature: Signature = self.key.sign(input.as_bytes());
+        format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
+    }
+
     pub fn generate(key_id: &str) -> Result<Self> {
         loop {
             let mut scalar = [0_u8; 32];
@@ -382,6 +405,9 @@ pub struct Cluster {
     children: Vec<(String, Child)>,
     pub tokens: TokenSigner,
     keys: KeySetServer,
+    inventory_members: Vec<Value>,
+    inventory_keys: Vec<Value>,
+    inventory_sequence: u64,
 }
 
 impl Drop for Cluster {
@@ -429,6 +455,7 @@ impl Cluster {
             pins.push(pki.pin(id)?);
         }
         let tokens = TokenSigner::generate("attestor-test-key")?;
+        fs::write(root.join("authority.pem"), tokens.public_pem())?;
         let keys = KeySetServer::serve(json!({ "keys": [tokens.jwk()?] }).to_string())?;
         fs::write(
             root.join("policy.json"),
@@ -436,7 +463,7 @@ impl Cluster {
                 "version": 1,
                 "defaults": {
                     "chain_id": 125,
-                    "kinds": ["lx_activity"],
+                    "kinds": ["lx_activity", "evm_tx"],
                     "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
                     "rate_per_minute": 1000
                 }
@@ -461,7 +488,15 @@ impl Cluster {
             children: Vec::new(),
             tokens,
             keys,
+            inventory_members: ids
+                .iter()
+                .zip(&pins)
+                .map(|(id, pin)| json!({"id": id, "spki_sha256": pin}))
+                .collect(),
+            inventory_keys: Vec::new(),
+            inventory_sequence: 0,
         };
+        cluster.publish_inventory()?;
         for (index, id) in ids.iter().enumerate() {
             let others: Vec<usize> = (0..NODES).filter(|other| *other != index).collect();
             let peer_list = others
@@ -494,6 +529,17 @@ impl Cluster {
                 .env("ATTESTOR_JWKS_URL", cluster.keys.url())
                 .env("ATTESTOR_JWT_ISSUER", ISSUER)
                 .env("ATTESTOR_JWT_AUDIENCE", AUDIENCE)
+                .env(
+                    "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE",
+                    root.join("authority.pem"),
+                )
+                .env("ATTESTOR_AUTHORITY_ISSUER", ISSUER)
+                .env("ATTESTOR_AUTHORITY_TENANT", "attestor-test")
+                .env(
+                    "ATTESTOR_INVENTORY_PUBLIC_KEY_FILE",
+                    root.join("authority.pem"),
+                )
+                .env("ATTESTOR_INVENTORY_FILE", root.join("inventory.jwt"))
                 .env("ATTESTOR_POLICY_FILE", root.join("policy.json"))
                 .env(
                     "ATTESTOR_TLS_CERT_FILE",
@@ -526,6 +572,124 @@ impl Cluster {
 
     pub fn client(&self) -> Result<AttestorClient> {
         operator_client(&self.pki, &self.nodes)
+    }
+
+    fn publish_inventory(&mut self) -> Result<()> {
+        self.inventory_sequence += 1;
+        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let claims = json!({
+            "version": 1, "iss": ISSUER, "aud": "wallet-custody-inventory",
+            "tenant": "attestor-test", "sequence": self.inventory_sequence.to_string(),
+            "iat": now - 1, "exp": now + 3600, "protocol": "wallet", "threshold": 3,
+            "members": self.inventory_members, "keys": self.inventory_keys,
+        });
+        let pending = self.root.join("inventory.pending");
+        fs::write(&pending, self.tokens.sign_inventory(&claims))?;
+        fs::set_permissions(&pending, fs::Permissions::from_mode(0o600))?;
+        fs::rename(pending, self.root.join("inventory.jwt"))?;
+        Ok(())
+    }
+
+    pub fn generate_key(
+        &mut self,
+        key_id: &str,
+        curve: &str,
+        owner: &str,
+        account: &str,
+    ) -> Result<Vec<u8>> {
+        self.inventory_keys.push(json!({
+            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
+            "owner": owner, "operations": ["generate"],
+        }));
+        self.publish_inventory()?;
+        let trusted =
+            ureq::tls::Certificate::from_der(&self.pki.certificate_der("node-ca")?).to_owned();
+        let certificate =
+            ureq::tls::Certificate::from_der(&self.pki.certificate_der("gateway")?).to_owned();
+        let private_key =
+            ureq::tls::PrivateKey::from_pem(&fs::read(self.pki.path("gateway.key"))?)?;
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .provider(ureq::tls::TlsProvider::Rustls)
+                    .root_certs(ureq::tls::RootCerts::new_with_certs(&[trusted]))
+                    .client_cert(Some(ureq::tls::ClientCert::new_with_certs(
+                        &[certificate],
+                        private_key,
+                    )))
+                    .build(),
+            )
+            .timeout_global(Some(Duration::from_secs(120)))
+            .max_redirects(0)
+            .build()
+            .into();
+        let body = serde_json::to_vec(&json!({
+            "session_id": format!("generate-{key_id}"), "key_id": key_id,
+            "curve": curve, "owner": owner, "account": account,
+        }))?;
+        let responses: Vec<Result<Value>> = thread::scope(|scope| {
+            let handles: Vec<_> = self
+                .nodes
+                .iter()
+                .map(|(_, address)| {
+                    let agent = &agent;
+                    let body = &body;
+                    scope.spawn(move || -> std::result::Result<Value, String> {
+                        let mut response = agent
+                            .post(format!("https://{address}/v1/keys/generate"))
+                            .header("content-type", "application/json")
+                            .send(body.as_slice())
+                            .map_err(|error| error.to_string())?;
+                        let bytes = response
+                            .body_mut()
+                            .with_config()
+                            .limit(65_536)
+                            .read_to_vec()
+                            .map_err(|error| error.to_string())?;
+                        serde_json::from_slice(&bytes).map_err(|error| error.to_string())
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| match handle.join() {
+                    Ok(result) => result.map_err(Into::into),
+                    Err(_) => Err("key generation worker panicked".into()),
+                })
+                .collect()
+        });
+        let mut public = None;
+        for ((node, _), response) in self.nodes.iter().zip(responses) {
+            let response = response?;
+            assert_eq!(response["node_id"], *node);
+            assert_eq!(response["key_id"], key_id);
+            assert_eq!(response["curve"], curve);
+            assert!(response["audit_sequence"]
+                .as_u64()
+                .is_some_and(|value| value > 0));
+            let encoded = response["public_key"]
+                .as_str()
+                .ok_or("missing public key")?;
+            let key = (0..encoded.len())
+                .step_by(2)
+                .map(|offset| u8::from_str_radix(&encoded[offset..offset + 2], 16))
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if let Some(agreed) = &public {
+                assert_eq!(agreed, &key);
+            } else {
+                public = Some(key);
+            }
+        }
+        let public = public.ok_or("no key generation responses")?;
+        assert_eq!(public.len(), if curve == "secp256k1" { 65 } else { 32 });
+        let entry = self
+            .inventory_keys
+            .last_mut()
+            .ok_or("missing inventory key")?;
+        entry["public_key"] = json!(hex(&public));
+        entry["operations"] = json!(["sign"]);
+        self.publish_inventory()?;
+        Ok(public)
     }
 
     pub fn gateway(&self) -> Result<AttestorClient> {

@@ -63,7 +63,7 @@ func TestArchivedRevisionRequiresExactReviewedArtifactAndProvenance(t *testing.T
 }
 
 func TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation(t *testing.T) {
-	root := "/root/mk-falcon/contracts"
+	root := filepath.Join("..", "..", "..", "..", "contracts", "launchpad")
 	artifactPath := "artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json"
 	artifact, err := os.ReadFile(filepath.Join(root, artifactPath))
 	if err != nil {

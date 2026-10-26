@@ -154,6 +154,10 @@ static lxp_result validate_send(lxp_module_ctx *ctx,
         asset_load(ctx, send->asset, &record) != LXP_OK)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     if (record.paused) return LXP_ERR_ASSET_PAUSED;
+    status = lxp_activity_verify_payload_hash(activity);
+    if (status == LXP_OK && !runtime->binding_authority)
+        status = lxp_activity_verify_signature(activity);
+    if (status != LXP_OK) return status;
     (void)memset(&environment, 0, sizeof(environment));
     environment.accounts = runtime->accounts;
     (void)lx_asset_transfer_state(&record, &transfer_asset);
@@ -162,6 +166,7 @@ static lxp_result validate_send(lxp_module_ctx *ctx,
     environment.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
     environment.network_id = runtime->network_id;
     environment.protocol_version = runtime->protocol_version;
+    environment.binding_authority = runtime->binding_authority;
     status = lxp_send_validate(send, &environment);
     if (status == LXP_OK && runtime_asset(runtime, send->asset) != NULL) {
         environment.assets = runtime->transfer_assets;
@@ -211,7 +216,8 @@ static lxp_result withdrawal_context(lxp_module_ctx *ctx,
         lxp_ct_is_zero(lxp_ctx_activity_id(ctx), 32U))
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK && !runtime->binding_authority)
+        status = lxp_activity_verify_signature(activity);
     if (status != LXP_OK) return status;
     if (activity->authority.length != 32U ||
         lxp_ct_memcmp(activity->authority.bytes, authority->verified_key, 32U) != 0)

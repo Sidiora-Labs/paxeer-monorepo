@@ -47,12 +47,13 @@ const (
 	ISOMillis = "2006-01-02T15:04:05.000Z"
 )
 
-// ErrUnknownSymbol reports a symbol outside MarketIDs.
+// ErrUnknownSymbol reports a symbol outside perps.markets.
 var ErrUnknownSymbol = errors.New("records: unknown symbol")
 
 // Symbol reads the symbol bodies from schema perps.
 type Symbol struct {
-	db *sql.DB
+	db      *sql.DB
+	markets *MarketSet
 }
 
 // NewSymbol returns the symbol reader of db.
@@ -60,7 +61,7 @@ func NewSymbol(db *sql.DB) (*Symbol, error) {
 	if db == nil {
 		return nil, errors.New("records: nil database")
 	}
-	return &Symbol{db: db}, nil
+	return &Symbol{db: db, markets: NewMarketSet(db, 30*time.Second)}, nil
 }
 
 // MarketRecord is one record of the markets table (Hyperpax:data_api.md:424-461,
@@ -219,7 +220,7 @@ type latestMark struct {
 	at                 *time.Time
 }
 
-func (s *Symbol) latestMark(ctx context.Context, market int64) (latestMark, error) {
+func (s *Symbol) latestMark(ctx context.Context, market string) (latestMark, error) {
 	var (
 		mark, index, basis sql.NullString
 		at                 time.Time
@@ -250,7 +251,7 @@ type fillWindow struct {
 	volume, liqVolume float64
 }
 
-func (s *Symbol) fillWindow(ctx context.Context, market int64) (fillWindow, error) {
+func (s *Symbol) fillWindow(ctx context.Context, market string) (fillWindow, error) {
 	var (
 		open, high, low, volume, liqVolume sql.NullString
 		out                                fillWindow
@@ -284,7 +285,7 @@ type marketState struct {
 	lastRate        *float64
 }
 
-func (s *Symbol) marketState(ctx context.Context, market int64) (marketState, error) {
+func (s *Symbol) marketState(ctx context.Context, market string) (marketState, error) {
 	var (
 		raw [4]sql.NullString
 		out marketState
@@ -311,7 +312,10 @@ func (s *Symbol) marketState(ctx context.Context, market int64) (marketState, er
 }
 
 func (s *Symbol) Price(ctx context.Context, symbol string) (Price, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Price{}, err
+	}
 	if !ok {
 		return Price{}, ErrUnknownSymbol
 	}
@@ -351,7 +355,10 @@ func statsFrom(symbol string, window fillWindow, state marketState) Stats {
 }
 
 func (s *Symbol) Stats(ctx context.Context, symbol string) (Stats, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Stats{}, err
+	}
 	if !ok {
 		return Stats{}, ErrUnknownSymbol
 	}
@@ -367,7 +374,10 @@ func (s *Symbol) Stats(ctx context.Context, symbol string) (Stats, error) {
 }
 
 func (s *Symbol) PerpStats(ctx context.Context, symbol string) (PerpStats, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return PerpStats{}, err
+	}
 	if !ok {
 		return PerpStats{}, ErrUnknownSymbol
 	}
@@ -448,7 +458,11 @@ SELECT block, log_index, block_time, buy, price, size FROM trades
 ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT $2`
 
 func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[SpotTrade], error) {
-	if _, ok := MarketIDs[symbol]; !ok {
+	_, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Trades[SpotTrade]{}, err
+	}
+	if !ok {
 		return Trades[SpotTrade]{}, ErrUnknownSymbol
 	}
 	body := Trades[SpotTrade]{Symbol: symbol, Trades: []SpotTrade{}}
@@ -457,7 +471,7 @@ func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[S
 		return body, nil
 	}
 	var token []byte
-	err := s.db.QueryRowContext(ctx, spotTokenSQL, rank).Scan(&token)
+	err = s.db.QueryRowContext(ctx, spotTokenSQL, rank).Scan(&token)
 	if errors.Is(err, sql.ErrNoRows) {
 		return body, nil
 	}
@@ -502,7 +516,10 @@ const perpTradesSQL = `SELECT f.block, f.log_index, f.block_time, f.taker_is_lon
 	ORDER BY f.block DESC, f.tx_index DESC, f.log_index DESC, f.sub DESC LIMIT $2`
 
 func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trades[PerpTrade], error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Trades[PerpTrade]{}, err
+	}
 	if !ok {
 		return Trades[PerpTrade]{}, ErrUnknownSymbol
 	}
@@ -549,7 +566,10 @@ const healthSQL = `SELECT
 	EXISTS (SELECT 1 FROM perps.cursors WHERE name = 'head')`
 
 func (s *Symbol) Health(ctx context.Context, symbol string) (Health, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Health{}, err
+	}
 	if !ok {
 		return Health{}, ErrUnknownSymbol
 	}

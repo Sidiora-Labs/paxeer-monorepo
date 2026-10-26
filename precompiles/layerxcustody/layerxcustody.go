@@ -82,6 +82,7 @@ const (
 const (
 	LayerXCustodyAddress = types.CustodyAddress
 	PrecompileName       = "layerxCustody"
+	RetiredRevert        = "LXP_MODULE_DISABLED: module disabled; " + PrecompileName + " retired"
 
 	BaseGas         uint64 = 3000
 	GasPerByte      uint64 = 16
@@ -223,6 +224,9 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 			err = fmt.Errorf("layerxcustody: %v", recovered)
 		}
 	}()
+	if p.keeper.Retired(ctx) {
+		return nil, errors.New(RetiredRevert)
+	}
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
 		return nil, errors.New("cannot delegatecall layerxCustody")
 	}

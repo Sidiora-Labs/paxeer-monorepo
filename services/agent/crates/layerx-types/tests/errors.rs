@@ -218,6 +218,73 @@ fn kernel_revert_retriability_matches_the_registry_column() {
 }
 
 #[test]
+fn registry_only_revert_codes_classify_by_their_retryable_column() {
+    let header_codes: BTreeSet<String> =
+        kernel_registry().into_iter().map(|row| row.code).collect();
+    let table = repository_file("spec/layerx-merge/contracts/address-table.md");
+    let section = table
+        .split_once("\n## (b) ")
+        .unwrap_or_else(|| panic!("section (b) of the registry is missing"))
+        .1;
+    let section = section
+        .split_once("\n## ")
+        .map_or(section, |(body, _)| body);
+    let mut retryable_rows = 0;
+    let mut terminal_rows = 0;
+    for line in section.lines().filter(|line| line.starts_with("| LXP_")) {
+        let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+        let ["", code, message, _construct, _origin, retryable, ""] = cells.as_slice() else {
+            panic!("registry row does not have five columns: {line}");
+        };
+        if header_codes.contains(*code) {
+            continue;
+        }
+        let expected = match *retryable {
+            "yes" => {
+                retryable_rows += 1;
+                Retriability::Retriable
+            }
+            "no" => {
+                terminal_rows += 1;
+                Retriability::Terminal
+            }
+            other => panic!("{code} has the Retryable cell {other:?}"),
+        };
+        let reason = format!("{code}: {message}");
+        assert_eq!(KnownResult::from_revert_reason(&reason), None, "{code}");
+        assert_eq!(Retriability::of_revert_reason(&reason), expected, "{code}");
+        for malformed in [
+            format!("{code}"),
+            format!("{code}:{message}"),
+            format!("{code}: {message}; detail"),
+            format!("{code}: {message} "),
+            format!("{code}_UNREGISTERED: {message}"),
+        ] {
+            assert_eq!(
+                Retriability::of_revert_reason(&malformed),
+                Retriability::Terminal,
+                "{malformed}"
+            );
+        }
+    }
+    assert!(
+        retryable_rows > 0,
+        "no registry-only retryable rows checked"
+    );
+    assert!(terminal_rows > 0, "no registry-only terminal rows checked");
+}
+
+#[test]
+fn bank_insufficient_funds_revert_is_retriable() {
+    let reason = "LXP_BANK_INSUFFICIENT_FUNDS: insufficient funds";
+    assert_eq!(KnownResult::from_revert_reason(reason), None);
+    assert_eq!(
+        Retriability::of_revert_reason(reason),
+        Retriability::Retriable
+    );
+}
+
+#[test]
 fn unknown_success_and_malformed_reasons_fail_closed() {
     for reason in [
         "LXP_UNKNOWN: unknown",
