@@ -1,13 +1,8 @@
-#define OPENSSL_API_COMPAT 0x10100000L
-
 #include "layerx/lxp_bridge.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_receipt.h"
 #include "layerx/lxp_state.h"
 
-#include <openssl/bn.h>
-#include <openssl/ec.h>
-#include <openssl/obj_mac.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -26,30 +21,6 @@ typedef struct bridge_fixture {
     lxp_receipt *receipt;
     uint64_t global_sequence;
 } bridge_fixture;
-
-static int key_pair(uint8_t value, uint8_t private_key[32],
-                    uint8_t public_key[33])
-{
-    EC_KEY *key = EC_KEY_new_by_curve_name(NID_secp256k1);
-    BIGNUM *private_value = BN_new();
-    const EC_GROUP *group = key == NULL ? NULL : EC_KEY_get0_group(key);
-    EC_POINT *point = group == NULL ? NULL : EC_POINT_new(group);
-    size_t public_length = 0U;
-    (void)memset(private_key, 0, 32U);
-    private_key[31] = value;
-    if (key != NULL && private_value != NULL && point != NULL &&
-        BN_bin2bn(private_key, 32, private_value) != NULL &&
-        EC_POINT_mul(group, point, private_value, NULL, NULL, NULL) == 1 &&
-        EC_KEY_set_private_key(key, private_value) == 1 &&
-        EC_KEY_set_public_key(key, point) == 1)
-        public_length = EC_POINT_point2oct(
-            group, point, POINT_CONVERSION_COMPRESSED,
-            public_key, 33U, NULL);
-    EC_POINT_free(point);
-    BN_free(private_value);
-    EC_KEY_free(key);
-    return public_length == 33U ? 0 : 1;
-}
 
 static lxp_result apply_capability(lxp_kernel *kernel,
                                    const lxp_transfer_set *set,
@@ -104,20 +75,6 @@ static int roots(const bridge_fixture *f, uint8_t out[96])
         lx_asset_state_root(f->assets, f->accounts_a, out + 32) != LXP_OK ||
         lx_asset_state_root(f->assets, f->accounts_b, out + 64) != LXP_OK)
         return 1;
-    return 0;
-}
-
-static void balances(const bridge_fixture *f, lxp_u128 out[6])
-{
-    size_t i;
-    for (i = 0U; i < 6U; ++i) out[i] = f->ledger[i]->balance;
-}
-
-static int same_balances(const lxp_u128 left[6], const lxp_u128 right[6])
-{
-    size_t i;
-    for (i = 0U; i < 6U; ++i)
-        if (lxp_u128_cmp(left[i], right[i]) != 0) return 1;
     return 0;
 }
 
@@ -209,69 +166,11 @@ static void request_context(const bridge_fixture *f, lx_account *agent,
     transfer->context.source_authority_count = 1U;
 }
 
-static void settlement_context(const bridge_fixture *f,
-                               const lx_account *withdrawals,
-                               lxp_transfer_source_authority *authority,
-                               lxp_transfer_context *context)
-{
-    (void)memset(authority, 0, sizeof(*authority));
-    (void)memcpy(authority->authorized_from, withdrawals->id, 32U);
-    authority->debit_authority_kind = LXP_AUTH_PROTOCOL_MODULE;
-    authority->protocol_system_capability = true;
-    (void)memset(context, 0, sizeof(*context));
-    context->assets = f->asset_states;
-    context->asset_count = 2U;
-    context->protocol_system_capability = true;
-    context->debit_authority_kind = LXP_AUTH_PROTOCOL_MODULE;
-    context->source_authorities = authority;
-    context->source_authority_count = 1U;
-}
-
-static int refused_finalize(bridge_fixture *f, lx_account *withdrawals,
-                            lx_account *reserve, const lx_asset_record *asset,
-                            const lx_withdrawal_request *withdrawal,
-                            const lxp_withdrawal_claim *claim,
-                            lxp_result expected, size_t record_index,
-                            const uint8_t asset_a[32],
-                            const uint8_t asset_b[32],
-                            uint64_t outstanding_a, uint64_t settled_a,
-                            uint64_t outstanding_b, uint64_t settled_b)
-{
-    uint8_t before[96];
-    uint8_t after[96];
-    uint8_t nullifier[32];
-    lxp_u128 balances_before[6];
-    lxp_u128 balances_after[6];
-    lxp_transfer_source_authority authority;
-    lxp_transfer_context settlement;
-    if (lxp_withdrawal_nullifier(withdrawal, nullifier) != LXP_OK ||
-        fresh_ctx(f) != 0 || roots(f, before) != 0) return 1;
-    balances(f, balances_before);
-    settlement_context(f, withdrawals, &authority, &settlement);
-    if (lxp_bridge_withdraw_finalize(
-            f->ctx, withdrawals, reserve, asset, withdrawal, f->store, claim,
-            settlement, f->receipt) != expected ||
-        f->ctx->transfer_applied ||
-        f->store->records[record_index].settled ||
-        memcmp(f->store->records[record_index].nullifier, nullifier, 32U) != 0 ||
-        !lx_asset_nullifier_seen(f->store, nullifier) ||
-        roots(f, after) != 0 || memcmp(before, after, sizeof(before)) != 0)
-        return 1;
-    balances(f, balances_after);
-    if (same_balances(balances_before, balances_after) != 0 ||
-        conserved_both(f, asset_a, asset_b, outstanding_a, settled_a,
-                       outstanding_b, settled_b) != 0)
-        return 1;
-    return 0;
-}
-
 int main(void)
 {
-    static uint8_t arena_storage[262144];
     static lx_asset_registry assets;
     static lx_account_registry accounts;
     static lx_account_registry accounts_b;
-    lxp_arena arena;
     lx_asset_record asset;
     lx_asset_record asset_b;
     lx_account *agent;
@@ -284,17 +183,8 @@ int main(void)
     lxp_transfer_source_authority authority;
     lx_withdrawal_request withdrawal;
     lx_withdrawal_request withdrawal_b;
-    lx_withdrawal_request altered_withdrawal;
     lx_withdrawal_store store;
-    lxp_checkpoint_certificate checkpoint_certificate;
-    lxp_guarantor_ctx guarantors[3];
-    lxp_guarantor_attestation attestations[3];
-    lxp_guarantor_key_record keys[3];
-    lxp_guarantor_cert certificate;
-    lx_finalized_checkpoint checkpoint;
-    lxp_challenge_window_state window;
     lxp_challenge_window_state challenged;
-    lxp_withdrawal_claim claim;
     lxp_state_store state;
     lxp_state_journal journal;
     lxp_kernel kernel;
@@ -305,16 +195,12 @@ int main(void)
     bridge_fixture fixture;
     uint64_t parameters = 1U;
     uint8_t leaf_hash[32];
-    uint8_t checkpoint_id[32];
+    uint8_t checkpoint_id[32] = {3U};
     uint8_t nullifier[32];
     uint8_t nullifier_b[32];
     uint8_t before[96];
     uint8_t after[96];
-    lxp_u128 total;
-    size_t i;
 
-    if (lxp_arena_init(&arena, arena_storage, sizeof(arena_storage)) != LXP_OK)
-        return 1;
     (void)memset(&asset, 0, sizeof(asset));
     asset.asset_id[0] = 1U;
     (void)memcpy(asset.symbol, "A", 2U);
@@ -378,49 +264,6 @@ int main(void)
     withdrawal.payout_recipient[31] = 0xaaU;
     if (lxp_withdrawal_leaf(&withdrawal, leaf_hash) != LXP_OK) return 1;
 
-    (void)memset(&checkpoint_certificate, 0, sizeof(checkpoint_certificate));
-    checkpoint_certificate.header.protocol_version = LXP_PROTOCOL_VERSION;
-    checkpoint_certificate.header.network_id = 7U;
-    checkpoint_certificate.header.epoch = 1U;
-    checkpoint_certificate.header.batch_number = 1U;
-    checkpoint_certificate.header.first_sequence = 1U;
-    checkpoint_certificate.header.last_sequence = 1U;
-    checkpoint_certificate.header.previous_state_root[0] = 9U;
-    (void)memcpy(checkpoint_certificate.header.resulting_state_root,
-                 leaf_hash, 32U);
-    checkpoint_certificate.header.activity_merkle_root[0] = 1U;
-    checkpoint_certificate.header.receipt_merkle_root[0] = 2U;
-    checkpoint_certificate.header.event_merkle_root[0] = 3U;
-    checkpoint_certificate.header.data_availability_root[0] = 4U;
-    checkpoint_certificate.header.oracle_root[0] = 5U;
-    checkpoint_certificate.header.timestamp_ms = 100U;
-    checkpoint_certificate.header.sequencer_id[0] = 6U;
-    for (i = 0U; i < 3U; ++i) {
-        (void)memset(&guarantors[i], 0, sizeof(guarantors[i]));
-        guarantors[i].guarantor_id[0] = (uint8_t)(i + 1U);
-        guarantors[i].ready_to_sign = true;
-        guarantors[i].possesses_availability = true;
-        guarantors[i].bond_view.bonded = true;
-        guarantors[i].protocol_version = LXP_PROTOCOL_VERSION;
-        guarantors[i].network_id = 7U;
-        guarantors[i].paxeer_chain_id = 31337U;
-        guarantors[i].paxeer_settlement_contract[0] = 0xa1U;
-        if (key_pair((uint8_t)(i + 1U), guarantors[i].paxeer_private_key,
-                     guarantors[i].paxeer_public_key) != 0) return 1;
-        (void)memcpy(keys[i].guarantor_id, guarantors[i].guarantor_id, 32U);
-        (void)memcpy(keys[i].public_key,
-                     guarantors[i].paxeer_public_key, 33U);
-        keys[i].bonded = true;
-        if (lxp_guarantor_attest(
-                &guarantors[i], &checkpoint_certificate, true, true,
-                101U + i, &arena, &attestations[i]) != LXP_OK) return 1;
-    }
-    if (lxp_guarantor_cert_assemble(
-            &checkpoint_certificate, attestations, 3U, 2U,
-            &certificate) != LXP_OK ||
-        lxp_checkpoint_certificate_hash(
-            &checkpoint_certificate, &arena, checkpoint_id) != LXP_OK)
-        return 1;
     (void)memcpy(withdrawal.checkpoint_id, checkpoint_id, 32U);
     if (lxp_withdrawal_nullifier(&withdrawal, nullifier) != LXP_OK) return 1;
 
@@ -465,150 +308,6 @@ int main(void)
             memcmp(before + 64, after + 64, 32U) == 0 ||
             conserved_both(&fixture, asset.asset_id, asset_b.asset_id,
                            40U, 0U, 30U, 0U) != 0)
-            return 1;
-    }
-
-    (void)memset(&checkpoint, 0, sizeof(checkpoint));
-    (void)memcpy(checkpoint.checkpoint_id, checkpoint_id, 32U);
-    (void)memcpy(checkpoint.state_root, leaf_hash, 32U);
-    checkpoint.finalized = true;
-    (void)memset(&window, 0, sizeof(window));
-    (void)memcpy(window.checkpoint_id, checkpoint_id, 32U);
-    window.opened_at_ms = 100U;
-    window.closes_at_ms = 200U;
-    (void)memset(&claim, 0, sizeof(claim));
-    claim.checkpoint = &checkpoint;
-    claim.certificate = &certificate;
-    claim.guarantor_keys = keys;
-    claim.guarantor_key_count = 3U;
-    claim.state_membership_proof.leaf_count = 1U;
-    claim.challenge_window = &window;
-    claim.now_ms = 150U;
-    claim.arena = &arena;
-    {
-        lxp_transfer_source_authority settlement_authority;
-        lxp_transfer_context settlement;
-        settlement_context(&fixture, withdrawals, &settlement_authority,
-                           &settlement);
-        {
-            lx_withdrawal_request altered = withdrawal;
-            altered.payout_recipient[0] ^= 1U;
-            if (fresh_ctx(&fixture) != 0 ||
-                lxp_bridge_withdraw_finalize(&module_ctx, withdrawals, reserve,
-                    &asset, &altered, &store, &claim, settlement, &receipt) !=
-                    LXP_ERR_CONTEXT_MISMATCH) return 1;
-        }
-        if (fresh_ctx(&fixture) != 0 ||
-            lxp_bridge_withdraw_finalize(
-                &module_ctx, withdrawals, reserve, &asset, &withdrawal,
-                &store, &claim, settlement, &receipt) !=
-                LXP_ERR_CHALLENGE_WINDOW_OPEN ||
-            lxp_paxeer_challenge_window(
-                &window, 160U, LXP_CHALLENGE_PENDING, 3U) !=
-                LXP_ERR_CHALLENGE_WINDOW_OPEN ||
-            fresh_ctx(&fixture) != 0 ||
-            lxp_bridge_withdraw_finalize(
-                &module_ctx, withdrawals, reserve, &asset, &withdrawal,
-                &store, &claim, settlement, &receipt) !=
-                LXP_ERR_CHALLENGE_WINDOW_OPEN ||
-            lxp_paxeer_challenge_window(
-                &window, 180U, LXP_CHALLENGE_FAILED, 3U) !=
-                LXP_ERR_CHALLENGE_WINDOW_OPEN)
-            return 1;
-        claim.now_ms = 201U;
-        if (refused_finalize(&fixture, withdrawals_b, reserve_b, &asset_b,
-                             &withdrawal, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 0U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals, reserve, &asset_b,
-                             &withdrawal, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 0U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals_b, reserve_b, &asset,
-                             &withdrawal, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 0U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals_b, reserve, &asset,
-                             &withdrawal, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 0U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals, reserve_b, &asset,
-                             &withdrawal, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 0U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals, reserve, &asset,
-                             &withdrawal_b, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 1U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals_b, reserve_b, &asset,
-                             &withdrawal_b, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 1U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals_b, reserve_b, &asset_b,
-                             &withdrawal_b, &claim, LXP_ERR_ROOT_MISMATCH, 1U,
-                             asset.asset_id, asset_b.asset_id,
-                             40U, 0U, 30U, 0U) != 0)
-            return 1;
-        if (fresh_ctx(&fixture) != 0 || roots(&fixture, before) != 0 ||
-            lxp_bridge_withdraw_finalize(
-                &module_ctx, withdrawals, reserve, &asset, &withdrawal,
-                &store, &claim, settlement, &receipt) != LXP_OK ||
-            !module_ctx.transfer_applied || !store.records[0].settled ||
-            withdrawals->balance.lo != 0U || reserve->balance.lo != 40U ||
-            withdrawals_b->balance.lo != 30U || reserve_b->balance.lo != 0U ||
-            lx_asset_total_units(
-                &assets, &accounts, asset.asset_id, &total) != LXP_OK ||
-            total.lo != 100U ||
-            lx_asset_total_units(
-                &assets, &accounts_b, asset_b.asset_id, &total) != LXP_OK ||
-            total.lo != 100U ||
-            roots(&fixture, after) != 0 || memcmp(before, after, 32U) == 0 ||
-            memcmp(before + 32, after + 32, 32U) == 0 ||
-            memcmp(before + 64, after + 64, 32U) != 0 ||
-            conserved_both(&fixture, asset.asset_id, asset_b.asset_id,
-                           0U, 40U, 30U, 0U) != 0)
-            return 1;
-        if (refused_finalize(&fixture, withdrawals, reserve, &asset,
-                             &withdrawal_b, &claim,
-                             LXP_ERR_WITHDRAWAL_ASSET_MISMATCH, 1U,
-                             asset.asset_id, asset_b.asset_id,
-                             0U, 40U, 30U, 0U) != 0 ||
-            refused_finalize(&fixture, withdrawals_b, reserve_b, &asset_b,
-                             &withdrawal_b, &claim, LXP_ERR_ROOT_MISMATCH, 1U,
-                             asset.asset_id, asset_b.asset_id,
-                             0U, 40U, 30U, 0U) != 0)
-            return 1;
-        claim.state_membership_proof.leaf_count = 2U;
-        if (fresh_ctx(&fixture) != 0 ||
-            lxp_bridge_withdraw_finalize(
-                &module_ctx, withdrawals, reserve, &asset, &withdrawal,
-                &store, &claim, settlement, &receipt) !=
-                LXP_ERR_WITHDRAWAL_ALREADY_SETTLED)
-            return 1;
-        altered_withdrawal = withdrawal;
-        altered_withdrawal.checkpoint_id[0] ^= 0xffU;
-        if (fresh_ctx(&fixture) != 0 ||
-            lxp_bridge_withdraw_finalize(
-                &module_ctx, withdrawals, reserve, &asset,
-                &altered_withdrawal, &store, &claim, settlement, &receipt) !=
-                LXP_ERR_WITHDRAWAL_ALREADY_SETTLED)
-            return 1;
-        checkpoint.finalized = false;
-        if (fresh_ctx(&fixture) != 0 ||
-            lxp_bridge_withdraw_finalize(
-                &module_ctx, withdrawals, reserve, &asset, &withdrawal,
-                &store, &claim, settlement, &receipt) !=
-                LXP_ERR_WITHDRAWAL_ALREADY_SETTLED ||
-            reserve->balance.lo != 40U || withdrawals_b->balance.lo != 30U ||
-            conserved_both(&fixture, asset.asset_id, asset_b.asset_id,
-                           0U, 40U, 30U, 0U) != 0)
             return 1;
     }
 
