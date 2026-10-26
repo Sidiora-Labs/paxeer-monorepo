@@ -766,7 +766,7 @@ pub struct ObservationSubmitter {
     did: String,
     network_id: u32,
     fee_limit: u128,
-    receipt_key: Option<[u8; 32]>,
+    receipt_keys: Vec<layerx_proof::inclusion::SequencerAuthorization>,
 }
 
 impl ObservationSubmitter {
@@ -785,7 +785,7 @@ impl ObservationSubmitter {
             did,
             network_id,
             fee_limit,
-            receipt_key: None,
+            receipt_keys: Vec::new(),
         })
     }
 
@@ -798,16 +798,16 @@ impl ObservationSubmitter {
     }
 
     #[must_use]
-    pub fn with_receipt_key(mut self, key: [u8; 32]) -> Self {
-        self.receipt_key = Some(key);
+    pub fn with_receipt_keys(
+        mut self,
+        keys: Vec<layerx_proof::inclusion::SequencerAuthorization>,
+    ) -> Self {
+        self.receipt_keys = keys;
         self
     }
 
     fn outcome(&self, answer: Option<RpcAnswer>, activity_id: &[u8; 32]) -> Outcome {
         let Some(RpcAnswer::Result(value)) = answer else {
-            return Outcome::Open;
-        };
-        let Some(key) = self.receipt_key else {
             return Outcome::Open;
         };
         if fixed::<32>(value.get("activity_id")) != Some(*activity_id) {
@@ -816,7 +816,10 @@ impl ObservationSubmitter {
         let Some(bytes) = value.get("receipt").and_then(Value::as_str).and_then(unhex) else {
             return Outcome::Open;
         };
-        let Ok(receipt) = layerx_proof::receipt::verify_sequencer_signature(&bytes, key) else {
+        let Ok(receipt) = layerx_proof::receipt::verify_sequencer_signature(
+            &bytes,
+            layerx_proof::receipt::ReceiptKeys::HeightRanges(&self.receipt_keys),
+        ) else {
             return Outcome::Open;
         };
         let Some(facts) = receipt.protocol() else {

@@ -1,18 +1,15 @@
 use ed25519_dalek::{Signer as _, SigningKey as EdSigningKey};
-use k256::ecdsa::{Signature, SigningKey};
 use layerx_agentd::read::{
-    checkpoint, proof_bundle, CheckpointReadError, ProofBundleKind, ProofBundleRequest,
-};
-use layerx_crypto::secp256k1;
-use layerx_proof::checkpoint::{
-    checkpoint_id, Attestation, Certificate, Checkpoint, CheckpointError, GuarantorKey,
-    SettlementDomain,
+    checkpoint, proof_bundle, validator_set_hash, BlockCommit, BlockId, CheckpointHeader,
+    CheckpointReadError, CommitTimestamp, CommitValidator, CommitVote, ProofBundleKind,
+    ProofBundleRequest,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::{build_proof, Proof};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{batch_header_digest, checkpoint_attestation_digest};
+use layerx_wire::hash::batch_header_digest;
 
 fn header_bytes(state_root: [u8; 32], activity_root: [u8; 32], sequencer_id: [u8; 32]) -> Vec<u8> {
     let mut encoder = Encoder::new(354);
@@ -45,95 +42,54 @@ fn header_bytes(state_root: [u8; 32], activity_root: [u8; 32], sequencer_id: [u8
     encoder.finish()
 }
 
-fn settlement_domain() -> SettlementDomain {
-    SettlementDomain::new(31_337, [0x55; 20])
-}
-
-fn guarantor_key(value: u8) -> (SigningKey, [u8; 33], [u8; 32]) {
-    let mut scalar = [0_u8; 32];
-    scalar[31] = value;
-    let signing = SigningKey::from_bytes((&scalar).into())
-        .unwrap_or_else(|error| panic!("signing key: {error}"));
-    let encoded = signing.verifying_key().to_encoded_point(true);
-    let public = encoded
-        .as_bytes()
-        .try_into()
-        .unwrap_or_else(|_| panic!("public key width"));
-    let mut identifier = [0_u8; 32];
-    identifier[0] = value;
-    (signing, public, identifier)
-}
-
-fn attestation(checkpoint: [u8; 32], guarantor_id: [u8; 32], key: &SigningKey) -> Attestation {
-    let settlement_contract = [0x55; 20];
-    let mut message = [0_u8; 189];
-    message[..2].copy_from_slice(&layerx_wire::limits::PROTOCOL_VERSION.to_be_bytes());
-    message[2..6].copy_from_slice(&42_u32.to_be_bytes());
-    message[6..14].copy_from_slice(&31_337_u64.to_be_bytes());
-    message[14..34].copy_from_slice(&settlement_contract);
-    message[34..42].copy_from_slice(&7_u64.to_be_bytes());
-    message[42..74].copy_from_slice(&checkpoint);
-    message[74..106].copy_from_slice(&checkpoint);
-    message[106..138].copy_from_slice(&guarantor_id);
-    message[138..146].copy_from_slice(&8_u64.to_be_bytes());
-    message[146..178].copy_from_slice(&[12; 32]);
-    message[178] = 1;
-    message[179] = 1;
-    message[180] = 0x1f;
-    message[181..].copy_from_slice(&(1_000 + u64::from(guarantor_id[0])).to_be_bytes());
-    let digest = checkpoint_attestation_digest(&message)
-        .unwrap_or_else(|error| panic!("attestation digest: {error:?}"));
-    let (signature, recovery_id): (Signature, _) = key
-        .sign_prehash_recoverable(&digest)
-        .unwrap_or_else(|error| panic!("attestation signature: {error}"));
-    let signer = secp256k1::evm_address(key.verifying_key().to_encoded_point(true).as_bytes())
-        .unwrap_or_else(|error| panic!("attestation signer: {error:?}"));
-    Attestation::new(
-        layerx_wire::limits::PROTOCOL_VERSION,
-        42,
-        31_337,
-        settlement_contract,
-        7,
-        checkpoint,
-        checkpoint,
-        guarantor_id,
-        8,
-        [12; 32],
-        true,
-        true,
-        0x1f,
-        1_000 + u64::from(guarantor_id[0]),
-        signer,
-        signature.to_bytes().into(),
-        27 + u8::from(recovery_id),
-    )
-}
-
-fn certificate(
-    header: &[u8],
-    signers: u8,
-    threshold: usize,
-    settlement: Option<Vec<u8>>,
-    duplicate: bool,
-) -> (Certificate, Vec<GuarantorKey>, [u8; 32]) {
-    let body = Checkpoint::new(header.to_vec(), b"PROOF".to_vec());
-    let identifier =
-        checkpoint_id(&body).unwrap_or_else(|error| panic!("checkpoint identifier: {error:?}"));
-    let mut attestations = Vec::new();
-    let mut keys = Vec::new();
-    for value in 1..=signers {
-        let (signing, public, guarantor_id) = guarantor_key(value);
-        attestations.push(attestation(identifier, guarantor_id, &signing));
-        keys.push(GuarantorKey::new(guarantor_id, public, true));
-    }
-    if duplicate {
-        attestations.push(attestations[0].clone());
-    }
-    (
-        Certificate::new(body, attestations, threshold, settlement),
-        keys,
-        identifier,
-    )
+fn committed_block() -> (CheckpointHeader, BlockCommit, Vec<CommitValidator>) {
+    let key = EdSigningKey::from_bytes(&[17; 32]);
+    let public_key = key.verifying_key().to_bytes();
+    let validators = vec![CommitValidator {
+        address: CommitValidator::address_for_key(&public_key),
+        public_key,
+        voting_power: 10,
+    }];
+    let timestamp = CommitTimestamp {
+        seconds: 1_700_000_000,
+        nanos: 0,
+    };
+    let header = CheckpointHeader {
+        version_block: 11,
+        version_app: 0,
+        chain_id: "paxeer-test".to_owned(),
+        height: 8,
+        time: timestamp,
+        last_block_id: None,
+        last_commit_hash: None,
+        data_hash: None,
+        validators_hash: validator_set_hash(&validators),
+        next_validators_hash: validator_set_hash(&validators),
+        consensus_hash: [1; 32],
+        app_hash: [2; 32],
+        last_results_hash: None,
+        evidence_hash: None,
+        proposer_address: validators[0].address,
+    };
+    let mut commit = BlockCommit {
+        height: 8,
+        round: 0,
+        block_id: BlockId {
+            hash: header.block_hash(),
+            part_set_total: 1,
+            part_set_hash: [3; 32],
+        },
+        votes: Vec::new(),
+    };
+    commit.votes.push(CommitVote {
+        validator_address: validators[0].address,
+        voting_power: 10,
+        timestamp,
+        signature: key
+            .sign(&commit.vote_sign_bytes(&header.chain_id, timestamp))
+            .to_bytes(),
+    });
+    (header, commit, validators)
 }
 
 struct InclusionFixture {
@@ -168,41 +124,17 @@ fn inclusion_fixture() -> InclusionFixture {
 }
 
 #[test]
-fn verified_checkpoint_derives_commitments_signers_and_registration_without_anchor_escalation() {
-    let fixture = inclusion_fixture();
-    let (certificate, bonded, identifier) = certificate(
-        &fixture.header,
-        3,
-        2,
-        Some(b"paxeer-anchor".to_vec()),
-        false,
-    );
-    let served = checkpoint(
-        &certificate,
-        &bonded,
-        identifier,
-        settlement_domain(),
-        Some(b"paxeer-anchor"),
-        true,
-    )
-    .unwrap_or_else(|error| panic!("checkpoint: {error:?}"));
-    assert_eq!(served.checkpoint_id, identifier);
-    assert_eq!(served.header_bytes, fixture.header);
-    assert_eq!(served.commitments.batch_number, 8);
-    assert_eq!(served.commitments.resulting_state_root, fixture.state_root);
-    assert_eq!(served.commitments.availability_root, [12; 32]);
-    assert_eq!(served.guarantor_signatures.len(), 3);
-    assert_eq!(served.achieved, 3);
-    assert_eq!(served.threshold, 2);
-    assert_eq!(
-        served.settlement_reference.as_deref(),
-        Some(b"paxeer-anchor".as_slice())
-    );
-    assert_eq!(
-        served.verification_level,
-        VerificationLevel::CHECKPOINT_FINALISED
-    );
+fn verified_checkpoint_derives_block_commit_without_anchor_escalation() {
+    let (header, commit, validators) = committed_block();
+    let served = checkpoint(8, "paxeer-test", &header, &commit, &validators)
+        .unwrap_or_else(|error| panic!("checkpoint: {error:?}"));
+    assert_eq!(served.height, 8);
+    assert_eq!(served.block_hash, header.block_hash());
+    assert_eq!(served.app_hash, header.app_hash);
+    assert_eq!(served.commit, commit);
+    assert_eq!(served.rung, Rung::Committed);
 
+    let fixture = inclusion_fixture();
     let bundle = proof_bundle(&ProofBundleRequest {
         kind: ProofBundleKind::State,
         canonical_leaf_bytes: &fixture.state,
@@ -219,69 +151,32 @@ fn verified_checkpoint_derives_commitments_signers_and_registration_without_anch
 }
 
 #[test]
-fn unavailable_subthreshold_duplicate_and_settlement_mismatch_are_refused() {
-    let fixture = inclusion_fixture();
-    let (valid, bonded, identifier) = certificate(&fixture.header, 2, 2, None, false);
+fn missing_subthreshold_duplicate_and_chain_mismatch_are_refused() {
+    let (header, commit, validators) = committed_block();
+    let mut missing = commit.clone();
+    missing.votes.clear();
     assert_eq!(
-        checkpoint(
-            &valid,
-            &bonded,
-            identifier,
-            settlement_domain(),
-            None,
-            false
-        ),
-        Err(CheckpointReadError::AvailabilityUnavailable {
-            checkpoint_id: identifier
-        })
+        checkpoint(8, "paxeer-test", &header, &missing, &validators),
+        Err(CheckpointReadError::Commit)
     );
-
-    let (subthreshold, keys, identifier) = certificate(&fixture.header, 1, 2, None, false);
-    assert!(matches!(
-        checkpoint(
-            &subthreshold,
-            &keys,
-            identifier,
-            settlement_domain(),
-            None,
-            true
-        ),
-        Err(CheckpointReadError::Certificate(
-            CheckpointError::Threshold {
-                achieved: 1,
-                required: 2
-            }
-        ))
-    ));
-
-    let (duplicate, keys, identifier) = certificate(&fixture.header, 1, 2, None, true);
-    assert!(matches!(
-        checkpoint(
-            &duplicate,
-            &keys,
-            identifier,
-            settlement_domain(),
-            None,
-            true
-        ),
-        Err(CheckpointReadError::Certificate(
-            CheckpointError::DuplicateSigner(_)
-        ))
-    ));
-
-    let (settlement, keys, identifier) =
-        certificate(&fixture.header, 2, 2, Some(b"registered".to_vec()), false);
+    let mut duplicate = commit.clone();
+    duplicate.votes.push(duplicate.votes[0]);
     assert_eq!(
-        checkpoint(
-            &settlement,
-            &keys,
-            identifier,
-            settlement_domain(),
-            Some(b"mismatch"),
-            true,
-        ),
-        Err(CheckpointReadError::Certificate(
-            CheckpointError::Settlement
-        ))
+        checkpoint(8, "paxeer-test", &header, &duplicate, &validators),
+        Err(CheckpointReadError::Commit)
+    );
+    assert_eq!(
+        checkpoint(8, "other-chain", &header, &commit, &validators),
+        Err(CheckpointReadError::Commit)
+    );
+    assert_eq!(
+        checkpoint(7, "paxeer-test", &header, &commit, &validators),
+        Err(CheckpointReadError::Commit)
+    );
+    let mut untrusted = validators.clone();
+    untrusted[0].voting_power = 11;
+    assert_eq!(
+        checkpoint(8, "paxeer-test", &header, &commit, &untrusted),
+        Err(CheckpointReadError::Commit)
     );
 }

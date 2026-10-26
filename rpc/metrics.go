@@ -36,16 +36,26 @@ const (
 // The process-wide MeterProvider (e.g. Prometheus exporter with namespace) is
 // configured by the application.
 
+type Int64ObservableCounter = metric.Int64ObservableCounter
+
 var (
 	rpcTelemetryMeter = otel.Meter("evmrpc")
+	metrics           = newRPCMetrics(rpcTelemetryMeter)
+)
 
-	metrics = struct {
-		requestLatencySeconds            metric.Float64Histogram
-		wsConnectionCount                metric.Int64Counter
-		redirectedRequestCount           metric.Int64Counter
-		historicalDebugTraceAttemptCount metric.Int64Counter
-	}{
-		requestLatencySeconds: must(rpcTelemetryMeter.Float64Histogram(
+type rpcMetrics struct {
+	requestLatencySeconds            metric.Float64Histogram
+	wsConnectionCount                metric.Int64Counter
+	redirectedRequestCount           metric.Int64Counter
+	historicalDebugTraceAttemptCount metric.Int64Counter
+	traceBakeDroppedCount            Int64ObservableCounter
+	traceBakeBakedCount              Int64ObservableCounter
+	traceBakeFailedCount             Int64ObservableCounter
+}
+
+func newRPCMetrics(meter metric.Meter) rpcMetrics {
+	return rpcMetrics{
+		requestLatencySeconds: must(meter.Float64Histogram(
 			"evmrpc_request_latency_seconds",
 			metric.WithDescription("RPC request latency in seconds (labeled by success, error_class, and jsonrpc_code bucket)"),
 			metric.WithUnit("s"),
@@ -54,23 +64,38 @@ var (
 				0.5, 1, 2.5, 5, 10, 30,
 			),
 		)),
-		wsConnectionCount: must(rpcTelemetryMeter.Int64Counter(
+		wsConnectionCount: must(meter.Int64Counter(
 			"evmrpc_websocket_connects_total",
 			metric.WithDescription("Number of new websocket connections"),
 			metric.WithUnit("{count}"),
 		)),
-		redirectedRequestCount: must(rpcTelemetryMeter.Int64Counter(
+		redirectedRequestCount: must(meter.Int64Counter(
 			"evmrpc_redirected_requests_total",
 			metric.WithDescription("Number of EVM RPC requests forwarded to another validator"),
 			metric.WithUnit("{count}"),
 		)),
-		historicalDebugTraceAttemptCount: must(rpcTelemetryMeter.Int64Counter(
+		historicalDebugTraceAttemptCount: must(meter.Int64Counter(
 			"evmrpc_historical_debug_trace_attempts_total",
 			metric.WithDescription("Number of debug_trace* requests targeting historical blocks"),
 			metric.WithUnit("{count}"),
 		)),
+		traceBakeDroppedCount: must(meter.Int64ObservableCounter(
+			"evmrpc_trace_bake_dropped_total",
+			metric.WithDescription("Number of trace bake heights dropped because the queue was full"),
+			metric.WithUnit("{count}"),
+		)),
+		traceBakeBakedCount: must(meter.Int64ObservableCounter(
+			"evmrpc_trace_bake_baked_total",
+			metric.WithDescription("Number of successful block traces baked"),
+			metric.WithUnit("{count}"),
+		)),
+		traceBakeFailedCount: must(meter.Int64ObservableCounter(
+			"evmrpc_trace_bake_failed_total",
+			metric.WithDescription("Number of block traces that failed to bake"),
+			metric.WithUnit("{count}"),
+		)),
 	}
-)
+}
 
 // rpcJSONCoder matches errors serialized by go-ethereum rpc with a JSON-RPC error code.
 type rpcJSONCoder interface {

@@ -100,6 +100,7 @@ export const copyEntries = [
   { key: "error.technical.title", message: "Technical details", context: "Collapsed diagnostic disclosure title.", surface: "technical", kind: "body", moneyAdjacent: false },
   { key: "error.technical.machine_code", message: "Code: {machineCode}", context: "Non-sensitive machine-readable error code.", surface: "technical", kind: "body", moneyAdjacent: false },
   { key: "error.technical.trace", message: "Trace: {traceId}", context: "Non-sensitive trace identifier for support.", surface: "technical", kind: "body", moneyAdjacent: false },
+  { key: "error.operation.retired", message: "This action is no longer available.", context: "Refusal when the service no longer supports the requested action.", surface: "default", kind: "body", moneyAdjacent: false },
   { key: "report.consent.title", message: "Send an error report?", context: "Consent confirmation title before submitting diagnostic context.", surface: "default", kind: "body", moneyAdjacent: false },
   { key: "report.consent.body", message: "This sends the trace, error code, and screen name. It does not include names, balances, or entered values.", context: "Explicit scope of consented redacted diagnostic submission.", surface: "default", kind: "body", moneyAdjacent: false },
   { key: "report.submit", message: "Send report", context: "Consent action for a redacted diagnostic report.", surface: "default", kind: "action", moneyAdjacent: false },
