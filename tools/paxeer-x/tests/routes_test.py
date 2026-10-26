@@ -16,7 +16,7 @@ import urllib.parse
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-from candidate import load_private, validate, catalogue, Invalid
+from candidate import load_private, validate, catalogue, Invalid, SERVICE_CATALOGUE
 
 MAX_BODY = 8 * 1024 * 1024
 COUNT = 0
@@ -646,7 +646,7 @@ def run():
     plan_path = os.environ.get('PAXEER_X_ROUTE_CASES')
     require(manifest_path and plan_path, 'real candidate manifest and PAXEER_X_ROUTE_CASES are required')
     manifest = load_private(manifest_path)
-    validate(manifest, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'), ROOT, False,
+    validate(manifest, catalogue(ROOT / SERVICE_CATALOGUE), ROOT, False,
              os.environ.get('PAXEER_X_MAINLINE', 'refs/heads/main'))
     require(not manifest['source']['dirty'], 'route evidence requires clean candidate source')
     for service in manifest['services']:

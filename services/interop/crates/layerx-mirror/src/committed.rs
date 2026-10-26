@@ -36,6 +36,10 @@ pub struct CommittedBlockSource {
 
 impl CommittedBlockSource {
     pub fn new(config: &CommittedSourceConfig) -> Result<Self, CommittedRefusal> {
+        Self::open(config)
+    }
+
+    pub fn open(config: &CommittedSourceConfig) -> Result<Self, CommittedRefusal> {
         let pin = |text: &str| {
             parse_hash(&Value::String(format!(
                 "0x{}",
@@ -74,6 +78,42 @@ impl CommittedBlockSource {
             return Err(CommittedRefusal::GenesisMismatch);
         }
         Ok(Self { rpc, receipt_keys })
+    }
+
+    pub fn latest_committed(
+        &self,
+        previous: Option<CommittedCoordinate>,
+    ) -> Result<CommittedCoordinate, CommittedRefusal> {
+        let block = self
+            .rpc
+            .call("eth_getBlockByNumber", json!(["finalized", false]))
+            .map_err(rpc_refusal)?;
+        if block.is_null() {
+            return Err(CommittedRefusal::Unavailable);
+        }
+        let coordinate = CommittedCoordinate {
+            height: parse_quantity(&block["number"])?,
+            block_hash: parse_hash(&block["hash"])?,
+        };
+        if previous.is_some_and(|previous| coordinate.height < previous.height) {
+            return Err(CommittedRefusal::HeightRegressed);
+        }
+        Ok(coordinate)
+    }
+
+    pub fn acquire_next(
+        &self,
+        previous: CommittedCoordinate,
+    ) -> Result<CommittedBlock, CommittedRefusal> {
+        let height = previous
+            .height
+            .checked_add(1)
+            .ok_or(CommittedRefusal::Malformed)?;
+        let block = self.acquire(height)?;
+        if block.header.parent_hash != previous.block_hash {
+            return Err(CommittedRefusal::ParentMismatch);
+        }
+        Ok(block)
     }
 
     pub fn acquire(&self, height: u64) -> Result<CommittedBlock, CommittedRefusal> {

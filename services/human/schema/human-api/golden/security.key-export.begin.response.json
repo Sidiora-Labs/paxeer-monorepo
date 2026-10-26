@@ -1,0 +1,12 @@
+{
+  "status": 200,
+  "body": {
+    "ok": true,
+    "result": {
+      "export_id": "key_export_contract_example",
+      "confirms": "opd_key_export_finish_example",
+      "expires_at": "2026-08-20T09:36:00Z"
+    },
+    "trace": "trc_key_export_begin_contract_example"
+  }
+}

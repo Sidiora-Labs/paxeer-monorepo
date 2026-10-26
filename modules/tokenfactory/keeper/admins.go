@@ -66,7 +66,15 @@ func (k Keeper) SetIssuerDid(ctx sdk.Context, denom string, issuerDid string) er
 		return types.ErrInvalidAuthorityMetadata.Wrapf("denom %s already has issuer did %s", denom, metadata.IssuerDid)
 	}
 	metadata.IssuerDid = issuerDid
-	return k.setAuthorityMetadata(ctx, denom, metadata)
+	if err := k.setAuthorityMetadata(ctx, denom, metadata); err != nil {
+		return err
+	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(
+		types.EventTypeSetIssuerDid,
+		sdk.NewAttribute(types.AttributeDenom, denom),
+		sdk.NewAttribute(types.AttributeIssuerDid, issuerDid),
+	))
+	return nil
 }
 
 // IssuerDid returns the LayerX DID the denom is bound to, empty for a denom without an issuer.

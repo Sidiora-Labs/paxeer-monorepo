@@ -117,3 +117,86 @@ func TestHeaderUnderAutobahnMatchesBlock(t *testing.T) {
 	})
 	require.NoError(t, err)
 }
+
+func TestHeaderByHashUnderAutobahnMatchesBlock(t *testing.T) {
+	const blocks = 3
+	ctx, cancel := context.WithTimeout(t.Context(), time.Minute)
+	defer cancel()
+	rng := utils.TestRng()
+	kv := &statusAutobahnObservedApplication{
+		Application: kvstore.NewApplication(),
+		committed:   utils.NewAtomicSend[int64](0),
+	}
+	t.Cleanup(func() { require.NoError(t, kv.Close()) })
+	app := proxy.New(kv, proxy.NopMetrics())
+	stateStore := sm.NewStore(dbm.NewMemDB())
+	t.Cleanup(func() { require.NoError(t, stateStore.Close()) })
+	blockStore := store.NewBlockStore(dbm.NewMemDB())
+	t.Cleanup(func() { require.NoError(t, blockStore.Close()) })
+	router, giga := newAutobahnTestRouter(t, rng, "autobahn-header-by-hash-test", app, stateStore, 1, 1_000)
+	env := &Environment{App: app, StateStore: stateStore, BlockStore: blockStore, Router: router}
+
+	err := scope.Run(ctx, func(ctx context.Context, s scope.Scope) error {
+		s.SpawnBgNamed("router", func() error { return utils.IgnoreCancel(router.Run(ctx)) })
+		for i := range blocks + 1 {
+			resp, err := giga.InsertTx(ctx, types.Tx(fmt.Sprintf("key%d=value%d", i, i)))
+			if err != nil {
+				return fmt.Errorf("giga.InsertTx(): %w", err)
+			}
+			require.False(t, resp.IsErr())
+		}
+		_, err := kv.committed.Subscribe().Wait(ctx, func(height int64) bool { return height >= blocks })
+		require.NoError(t, err)
+		require.Zero(t, blockStore.Height())
+		require.Zero(t, blockStore.Base())
+
+		for height := int64(1); height <= blocks; height++ {
+			t.Run(fmt.Sprintf("height_%d", height), func(t *testing.T) {
+				block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(height))
+				require.NoError(t, err)
+				require.NotNil(t, block.Block)
+				require.Len(t, block.BlockID.Hash, len(atypes.BlockHeaderHash{}))
+				req := &coretypes.RequestBlockByHash{Hash: block.BlockID.Hash}
+				byHash, err := env.BlockByHash(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, block, byHash)
+				require.Nil(t, blockStore.LoadBlockMetaByHash(req.Hash))
+				header, err := env.HeaderByHash(ctx, req)
+				require.NoError(t, err)
+				require.NotNil(t, header)
+				require.NotNil(t, header.Header)
+				require.Equal(t, byHash.Block.Header, *header.Header)
+				require.Equal(t, height, header.Header.Height)
+				require.Equal(t, "autobahn-header-by-hash-test", header.Header.ChainID)
+				require.False(t, header.Header.Time.IsZero())
+			})
+		}
+
+		classic := &Environment{BlockStore: blockStore}
+		for _, tc := range []struct {
+			name string
+			hash []byte
+		}{
+			{name: "unknown", hash: make([]byte, len(atypes.BlockHeaderHash{}))},
+			{name: "nil"},
+			{name: "empty", hash: []byte{}},
+			{name: "short", hash: make([]byte, len(atypes.BlockHeaderHash{})-1)},
+			{name: "long", hash: make([]byte, len(atypes.BlockHeaderHash{})+1)},
+		} {
+			t.Run(tc.name, func(t *testing.T) {
+				req := &coretypes.RequestBlockByHash{Hash: tc.hash}
+				block, err := env.BlockByHash(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, &coretypes.ResultBlock{}, block)
+				header, err := env.HeaderByHash(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, &coretypes.ResultHeader{}, header)
+				classicHeader, err := classic.HeaderByHash(ctx, req)
+				require.NoError(t, err)
+				require.Equal(t, classicHeader, header)
+			})
+		}
+		return nil
+	})
+	require.NoError(t, err)
+}

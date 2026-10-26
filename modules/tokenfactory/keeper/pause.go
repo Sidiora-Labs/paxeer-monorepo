@@ -1,6 +1,7 @@
 package keeper
 
 import (
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/prefix"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
@@ -26,6 +27,17 @@ func (k Keeper) setDenomPaused(ctx sdk.Context, denom string, paused bool) error
 		store.Delete(key)
 	}
 	return nil
+}
+
+func (k Keeper) GetPausedDenoms(ctx sdk.Context) []string {
+	store := prefix.NewStore(ctx.KVStore(k.storeKey), []byte(types.DenomPausedPrefixKey+types.KeySeparator))
+	iterator := store.Iterator(nil, nil)
+	defer func() { _ = iterator.Close() }()
+	var denoms []string
+	for ; iterator.Valid(); iterator.Next() {
+		denoms = append(denoms, string(iterator.Key()))
+	}
+	return denoms
 }
 
 // SendEnabledChecker reports whether bank transfers of the denom are allowed

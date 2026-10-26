@@ -1,7 +1,6 @@
 package launchpad_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +14,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -31,9 +31,11 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 	msgRouter.SetInterfaceRegistry(registry)
 	queryRouter := baseapp.NewGRPCQueryRouter()
 	queryRouter.SetInterfaceRegistry(registry)
-	k := keeper.NewKeeper(sdk.NewKVStoreKey(types.StoreKey), nil, nil, nil)
+	key := sdk.NewKVStoreKey(types.StoreKey)
+	k := keeper.NewKeeper(key, nil, nil, nil)
 	am := launchpad.NewAppModule(k)
-	am.RegisterServices(module.NewConfigurator(codec.NewProtoCodec(registry), msgRouter, queryRouter))
+	cdc := codec.NewProtoCodec(registry)
+	am.RegisterServices(module.NewConfigurator(cdc, msgRouter, queryRouter))
 
 	require.NotNil(t, msgRouter.Handler(&types.MsgUpdateParams{}))
 	require.NotNil(t, msgRouter.Handler(&types.MsgTreasuryWithdraw{}))
@@ -44,14 +46,25 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 		"AirdropEpoch", "AirdropClaimed", "HasRole", "QuoteLedger", "FeeAccounting", "PoolMetadata",
 	}
 	require.Len(t, methods, 17)
-	ctx := sdk.Context{}.WithContext(context.Background())
+	ctx := testutil.DefaultContext(key, sdk.NewTransientStoreKey("transient_launchpad"))
+	params := types.DefaultParams()
+	params.CreationFee = sdk.NewInt(7654321)
+	params.QuoteToken = "0x0000000000000000000000000000000000001017"
+	require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			handler := queryRouter.Route("/paxprotocol.paxchain.launchpad.Query/" + method)
 			require.NotNil(t, handler)
-			_, err := handler(ctx, abci.RequestQuery{})
-			require.Equal(t, codes.Unimplemented, status.Code(err))
-			require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())
+			response, err := handler(ctx, abci.RequestQuery{})
+			if method == "Params" {
+				require.NoError(t, err)
+				var result types.QueryParamsResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, params, result.Params)
+			} else {
+				require.Equal(t, codes.Unimplemented, status.Code(err))
+				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())
+			}
 		})
 	}
 }
