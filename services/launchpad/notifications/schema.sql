@@ -4,6 +4,8 @@ CREATE TABLE IF NOT EXISTS discovery_notifications.inbox (
  document jsonb NOT NULL, created_at timestamptz NOT NULL, read_at timestamptz,
  UNIQUE(account_id,trigger_id,template_version)
 );
+ALTER TABLE discovery_notifications.inbox ADD COLUMN IF NOT EXISTS v2_id uuid GENERATED ALWAYS AS (md5(id)::uuid) STORED;
+CREATE UNIQUE INDEX IF NOT EXISTS notification_v2_id ON discovery_notifications.inbox(v2_id);
 CREATE INDEX IF NOT EXISTS notification_recipient_time ON discovery_notifications.inbox(account_id,created_at DESC,id);
 CREATE TABLE IF NOT EXISTS discovery_notifications.outbox (
  id text PRIMARY KEY REFERENCES discovery_notifications.inbox(id) ON DELETE CASCADE,
