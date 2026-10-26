@@ -706,6 +706,8 @@ type Executor interface {
 type ReplayResult struct {
 	// From is the last COMMITTED entry replay started after, nil when the WAL holds none.
 	From *Committed
+	// Lease is the last LEASE entry in the retained segments, nil when they hold none.
+	Lease *Lease
 	// Accepts is the number of ACCEPT entries re-executed with byte-identical receipts.
 	Accepts int
 	// LastAccept is the last ACCEPT re-executed, nil when there was none.
@@ -716,6 +718,7 @@ type ReplayResult struct {
 
 // Replay feeds every entry after the last COMMITTED entry to exec in WAL order and stops with
 // ErrReceiptMismatch at the first ACCEPT whose re-executed receipt differs from the stored bytes.
+// The result reports the last LEASE entry in the retained segments, even before the last COMMITTED.
 // Appends wait while the segments are read; exec runs after they are read.
 func (w *WAL) Replay(exec Executor) (ReplayResult, error) {
 	w.pruneMu.Lock()
@@ -735,6 +738,9 @@ func (w *WAL) Replay(exec Executor) (ReplayResult, error) {
 	res := ReplayResult{From: w.lastCommitted, Tail: w.tail}
 	var after []Entry
 	collect := func(e Entry) error {
+		if lease, ok := e.(*Lease); ok {
+			res.Lease = lease
+		}
 		if _, ok := e.(*Committed); ok {
 			after = after[:0]
 			return nil
