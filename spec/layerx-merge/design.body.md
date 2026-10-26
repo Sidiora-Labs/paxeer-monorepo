@@ -1,350 +1,449 @@
+## Reading this design
+
+This body describes the merged design of the layerx-merge specification at repository revision `2a1033aa2`. Every `path:line` names the defining line at that revision. **HEAD** means code that exists at the revision; **planned** means work declared by a pending task of this specification. A planned statement names the task that delivers it. The kvx blocks are the authority: where this text and a block differ, the block governs and the difference is a defect of this text.
+
+The specification is merged mechanically from per-job fragments. It carries 2545 tasks, 2388 requirements with 4025 acceptance criteria (one test each), 77723 interface blocks, 615 decisions, 536 wiring requests, 40 services and 200 contract contexts.
+
+| Interface status | Count | Meaning |
+|---|---|---|
+| stable | 68958 | Code and intent agree; no task modifies it. |
+| change | 2945 | Exists at HEAD; behaviour or shape must change. |
+| new | 1461 | Absent at HEAD; a task creates it. |
+| retire | 4359 | A task removes it or makes it refuse. |
+
+Status counts include the 1333 `[override.*]` blocks that later jobs used to correct an inventoried status without editing the inventory fragment.
+
 ## One execution domain
 
-After activation the Paxeer X Network runs one execution domain: paxd, with the Cosmos SDK modules, the EVM, CosmWasm and optimistic concurrency control (OCC) in one state machine. The LayerX kernel's ledger, payments, authority, programs and trading functions stop being a second ledger beside the chain. They become chain modules and precompiles next to the existing bank, addr, tokenfactory, evm, feetoken, layerxexchange, layerxbridge, launchpad, xweb and layerxgov constructs. Users sign ordinary EVM transactions. Each one is executed by the proposer at receipt and committed by the validator set.
+The Paxeer X Network runs one execution domain: paxd, with the Cosmos SDK modules, the EVM, CosmWasm and optimistic concurrency control (OCC) in one state machine. The LayerX kernel stops being a second ledger beside the chain. Its ledger, payment, authority, program and trading functions become chain modules and precompiles that run inside paxd transactions (decision.1). The kernel daemon, its WAL, its replicas and its checkpoint anchoring are retired because block commit is finality.
 
-### Kernel modules hosted inside paxd (D1)
+### Node assembly at HEAD
 
-The kernel C modules (ledger and assets, escrow, budget, stream and service payments, perps and spot, programs) and the Rust program runtime are hosted through cgo inside the keepers. They are not ported.
+- The application constructs the EVM keeper at node/app.go:823 and the native keepers beside it at node/app.go:828; the launchpad keeper at node/app.go:837; pricefeed, perps and spot together at node/app.go:841.
+- Module services are registered at node/app.go:1133, and the proposal and finalization handlers are installed at node/app.go:1212.
+- The custom precompile set is constructed and its activation entries installed at node/app.go:990-997. `PrecompileKeepers` carries the venue, custody, bridge and xweb keepers at node/precompiles.go:26-54, built by `NewPrecompileKeepers` at node/precompiles.go:56.
+- RPC construction receives the application and keeper handles at rpc/server.go:167. BaseApp commits through the multistore at sdk/baseapp/abci.go:296.
+- An EVM transaction creates its state database in `EVMTransaction` (modules/evm/keeper/msg_server.go:69-86), and `applyEVMMessage` passes `CustomPrecompiles` to the EVM (modules/evm/keeper/msg_server.go:231-243). Merge surfaces keep this route.
 
-- Every kernel C module already executes through an `lxp_module_ctx` execute function, for example `programs_execute` (src/modules/programs/registration.c:164) and `execute_deploy` (src/modules/programs/deploy.c:485). The context type is declared at include/layerx/lxp_module.h:31 and defined at include/layerx/lxp_kernel.h:162.
-- The node already links C through cgo for CosmWasm (wasm-runtime/version_cgo.go:1, wasm-runtime/internal/api/link_system.go:5-6). The kernel host follows the same pattern.
-- Each hosting keeper owns a native/ package that links the C module. That package implements `lxp_module_ctx` over the module's `sdk.KVStore`, with an effect buffer and a transfer set. Kernel effects become store writes and bank moves inside the same transaction. The shim's receipt record is the sequencer receipt (see the proposer section).
-- Parity is byte-exact. The existing C unit tests, the Rust runtime tests and the kernel replay goldens run through the shim unchanged.
-- A determinism gate comes before any hosting task lands. It passes when all of the following hold:
-  - the same block replayed through the shim on every validator build gives an identical app hash and identical per-transaction results;
-  - OCC execution with forced aborts and re-execution gives the same state as strictly sequential execution;
-  - no kernel in-memory state survives outside the committed KV store between transactions, or that state is proved reset per transaction;
-  - the existing C tests, Rust runtime tests and replay goldens pass byte-exact;
-  - no execute path reachable from a keeper depends on wall-clock time, allocator addresses, threads or floating point.
+### Kernel host inside paxd (decision.1)
 
-### OCC
+The kernel C modules and the Rust program runtime are hosted through cgo inside the node, not ported.
 
-Validators keep the OCC block executor unchanged:
+- `HostExecute` is the host entry (modules/lxphost/host.go:678). It loads the SDK branch, serializes access with its mutex, locks the operating-system thread, binds authority and assets, and enters the native activity executor (modules/lxphost/host.go:718).
+- The cgo link inputs already include the kernel and program sandbox archives (modules/lxphost/host.go:6-7). `NewHost` validates its configuration at modules/lxphost/host.go:600-609.
+- The C bridge calls `lxp_kernel_execute_activity` (modules/lxphost/host.go:474), defined at src/protocol/lxp_kernel.c:6950. Module-context initialization and dispatch are at src/protocol/lxp_kernel.c:7158-7162 and src/protocol/lxp_kernel.c:7221-7225.
+- Changes are staged through the module context (modules/lxphost/ctx.go:232) into the Cosmos context's KV store obtained at modules/lxphost/ctx.go:95. `HostExecute` reads the outcome and commits rows and blobs at modules/lxphost/host.go:723-742. The writes stay in the transaction context until BaseApp commit.
+- The Rust sandbox keeps its FFI entry points at programs/crates/layerx-programs-sandbox/src/lib.rs:18.
+- Planned: task.5.19.2 constructs the shared host and the ledger, auth and agent keepers; task.5.19.4 links the merge constructor packages; task.1.21.3 widens the returned receipt; task.1.22.1 scopes restoration; task.1.23.1 verifies binding authority.
 
-- OCC is on by default (sdk/server/config/config.go:29).
-- Workers are clamped to 2 × NumCPU within [10, 128] (sdk/server/config/config.go:41-48).
-- The scheduler is built at node/abci.go:247 and driven by `ProcessTXsWithOCCV2` (node/app.go:1888) under `ExecuteTxsConcurrently` (node/app.go:1861).
+Determinism is a gate, not an assumption. The same block replayed through the host on every validator build must give an identical app hash and per-transaction results; OCC with forced aborts must equal sequential execution; no kernel in-memory state may survive between transactions outside the committed store; no execute path reachable from a keeper may depend on wall-clock time, allocator addresses, threads or floating point.
 
-Hosted kernel modules run inside that executor, so their store access must stay key-scoped. The launchpad protocol-fee total moves to a per-market counter so swaps on different markets no longer share a key. The exchange's global intent count leaves the call path with the intent store (see the native constructs section).
+### OCC, CosmWasm and the EVM
 
-### CosmWasm
-
-CosmWasm stays what it is today:
-
-- native CosmWasm contracts in wasm/x/wasm;
-- the message bridge in node/wasmbinding (node/wasmbinding/message_plugin.go:19);
-- the wasmd precompile at 0x1002.
-
-It is not the program host. Kernel programs import the `layerx_v1` to `layerx_v5` host modules (programs/crates/layerx-programs-runtime/src/abi/manifest.rs:8-12), not the CosmWasm environment. They run under layerxprograms at 0x101D.
-
-### EVM
-
-The EVM is the user entry point for every write.
-
-- The ante handler authorises the user's own signature. Deliver mode requires the exact next nonce (modules/evm/ante/sig.go:75).
-- Kernel operations are precompile calls inside ordinary EVM transactions. Precompiles are served from `GetCustomPrecompiles` (precompiles/setup.go:63-97).
-- Precompile failures revert. Revert data is `Error(string)` when a precompile opts into revert reasons (precompiles/common/precompiles.go:53, :82-92).
-- Every new precompile returns `Error("LXP_<code>: <message>")` (D6). bank 0x1001 and addr 0x1004 return the same text through an opt-in reason path in the shared dynamic-gas precompile base.
-- One shared table maps kernel result codes to `LXP_` strings. Errors raised by the xweb Go keeper use `LXP_XWEB_*` codes. Errors raised inside a kernel module keep their kernel code.
+- OCC stays on for validators: `DefaultOccEnabled = true` (sdk/server/config/config.go:29), with `DefaultConcurrencyWorkers` derived by `getConcurrencyWorkers` (sdk/server/config/config.go:41-45).
+- CosmWasm keeps its own cgo runtime under wasm-runtime/ and the wasmd precompile at 0x1002 (precompiles/wasmd/wasmd.go:30).
+- The EVM keeps the precompile dispatch of precompiles/common: `Precompile.Run` decodes input and calls `Execute` with the state database context (precompiles/common/precompiles.go:187-215); `Prepare` is at precompiles/common/precompiles.go:227-250.
 
 ## Native constructs
 
-The table lists every precompile address the chain serves after activation. "Existing" means the address keeps its current behaviour; when the activation adds the `LXP_` revert text, the Role column says so. "Extended" means the activation adds or changes methods. "New" means the address is served from the activation height. "Retired at activation" means the address stays registered, but each method returns `Error("LXP_MODULE_DISABLED: <precompile> retired")` from the activation height. An unregistered address would return empty success instead.
+A native construct is a fixed precompile address served by a Go executor over a chain keeper, or over the shared kernel host. The common registration map is at precompiles/setup.go:164-192. Height-dependent venue replacement is at node/app.go:3528-3535 and node/precompiles_v6120.go:70-93. Each short address below means its 20-byte zero-padded form.
 
-| Address | Name | Role | Owning module path | Kind of change | Registration (path:line) |
-|---|---|---|---|---|---|
-| 0x1001 | bank | Native balances. Holds every former kernel balance, including derived sub-account addresses. Gains the `send(address,address,string,uint256,bytes32)` overload carrying a LayerX context hash and its `LayerXReceipt` log. Revert text with the `LXP_` prefix. | sdk/x/bank | extended | precompiles/setup.go:68; address precompiles/bank/bank.go:33 |
-| 0x1002 | wasmd | CosmWasm execute and query | wasm/x/wasm, node/wasmbinding | existing | precompiles/setup.go:69; address precompiles/wasmd/wasmd.go:30 |
-| 0x1003 | json | JSON utility | precompiles/json | existing | precompiles/setup.go:70; address precompiles/json/json.go:28 |
-| 0x1004 | addr | Pax and EVM address association, and the DID binding used by every unified-account flow and by principal resolution on 0x101A-0x101D and 0x0901-0x0908. Revert text with the `LXP_` prefix. | modules/evm (keeper modules/evm/keeper/layerx_binding.go:18, :30) | extended | precompiles/setup.go:71; address precompiles/addr/addr.go:57 |
-| 0x1005 | staking | Validator staking | sdk/x/staking | existing | precompiles/setup.go:72; address precompiles/staking/staking.go:49 |
-| 0x1006 | gov | Governance | sdk/x/gov | existing | precompiles/setup.go:73; address precompiles/gov/gov.go:30 |
-| 0x1007 | distribution | Rewards distribution | sdk/x/distribution | existing | precompiles/setup.go:74; address precompiles/distribution/distribution.go:37 |
-| 0x1008 | oracle | Validator price oracle. Not the perps price source. | modules/oracle | existing | precompiles/setup.go:75; address precompiles/oracle/oracle.go:26 |
-| 0x1009 | ibc | IBC transfer | precompiles/ibc | existing | precompiles/setup.go:76; address precompiles/ibc/ibc.go:30 |
-| 0x100A | pointerview | ERC-20 and pointer views | precompiles/pointerview | existing | precompiles/setup.go:78; address precompiles/pointerview/pointerview.go:24 |
-| 0x100B | pointer | Pointer registration | precompiles/pointer | existing | precompiles/setup.go:77; address precompiles/pointer/pointer.go:29 |
-| 0x100C | solo | Solo utility | precompiles/solo | existing | precompiles/setup.go:80; address precompiles/solo/solo.go:32 |
-| 0x1011 | p256Verify | P-256 signature verification | precompiles/p256 | existing | precompiles/setup.go:79; address precompiles/p256/p256.go:24 |
-| 0x1012 | layerxVerify | Former kernel receipt and state-proof verifier. Replaced by abci_query prove=true, eth_getProof and receipt inclusion. | none | retired at activation | precompiles/setup.go:81; address precompiles/layerxverify/layerxverify.go:52-53 |
-| 0x1013 | layerxCustody | Former deposit, withdrawal, forced-exit and deposit-root surface (all twenty methods). Funding a sub-account becomes a bank or layerxledger move. | modules/layerxcustody | retired at activation | precompiles/setup.go:82; address modules/layerxcustody/types/ids.go:17, precompiles/layerxcustody/layerxcustody.go:83-84 |
-| 0x1014 | layerxAnchor | Former checkpoint and guarantor surface. The twelve write methods retire at activation. The nine read methods stay served until every posted guarantor bond and open challenge deposit has been returned; then the store is deleted and the reads retire too. Finality is block height and commit. | modules/layerxanchor | retired at activation | precompiles/setup.go:83; address precompiles/layerxanchor/layerxanchor.go:65-66 |
-| 0x1015 | layerxExchange | Native perps and spot engine (hosted kernel engine):<br>• margin deposit becomes an in-transaction bank transfer, replacing the custody hop at modules/layerxexchange/keeper/intents.go:63<br>• `withdrawMargin` is a bank release behind a free-margin check<br>• new methods: market creation, oracle push, positions, funding, liquidation, ADL, spot book<br>• `requestSettlement` and `getIntent` retire<br>• `intentNonce` stays as the nonce input of chain-derived order ids<br>• per-module `Paused` param | modules/layerxexchange | extended | precompiles/setup.go:84; address modules/layerxexchange/types/ids.go:15, precompiles/layerxexchange/layerxexchange.go:71-72 |
-| 0x1016 | layerxBridge | Inbound and outbound bridge with attestor threshold (keeper modules/layerxbridge/keeper/bridge.go:65). Revert text with the `LXP_` prefix. | modules/layerxbridge | existing | precompiles/setup.go:85; address modules/layerxbridge/types/keys.go:27, precompiles/layerxbridge/layerxbridge.go:54-55 |
-| 0x1017 | launchpad | Bonding-curve markets. The protocol cut moves to a per-market counter read by the new `getProtocolFees(address)`, and the `getConfig` tuple drops `protocolFeesPending`. | modules/launchpad | extended | precompiles/setup.go:86; address modules/launchpad/types/keys.go:26, precompiles/launchpad/launchpad.go:84-85 |
-| 0x1018 | feeToken | Per-account fee denomination: `setFeeDenom`, `getFeeDenom`, `clearFeeDenom`. SID is paid as gas through it. Revert text with the `LXP_` prefix. | modules/evm (fee-token keeper) | existing | precompiles/setup.go:88-92; address precompiles/feetoken/feetoken.go:22-23 |
-| 0x1019 | xweb | Paid web requests. Adds `fulfilProgram(bytes)`, `getProgramResult(bytes32,uint64)` and `getKernelNetworkId()` for program-origin requests. One attestor set serves both origins: the existing registry (modules/xweb/types/keys.go:21) admits at most 16 for program-origin requests (include/layerx/lx_web.h:29). `refund` serves EVM-origin requests only. | modules/xweb | extended | precompiles/setup.go:93-95; address precompiles/xweb/xweb.go:58-59 |
-| 0x101A | layerxledger | Kernel asset ledger and payment grants:<br>• `register`, `pause`, `unpause`, `openAccount`, `send`, `mint`, `burn`<br>• `issueGrant`, `revokeGrant`, `draw`, `payExact`<br>• one `draw` per paid web request, emitting `PaymentDrawn`<br>• `payExact` is a typed send whose payment reference is its idempotency key, emitting `PaymentExact`<br>The `ILxPay` interface is this precompile's grant and draw subset. | modules/layerxledger (new) | new | entry added to precompiles/setup.go:63-97 |
-| 0x101B | layerxpay | Escrow, budget, stream and service payments. Service disputes go to the linked escrow's arbiter, which settles the escrow on the ruling. Its stream keeper holds the only stream state. | modules/layerxpay (new) | new | entry added to precompiles/setup.go:63-97 |
-| 0x101C | layerxauth | Session and capability grants on authz `LayerXScopeAuthorization`, the shared idempotency index and `resultByIdempotency`. | modules/layerxauth (new) | new | entry added to precompiles/setup.go:63-97 |
-| 0x101D | layerxprograms | Kernel program host (hosted C programs module plus Rust runtime): deploy, upgrade, call, simulate, registry, wind-down, sandbox, fee and metering schedules, program-origin web requests | modules/layerxprograms (new) | new | entry added to precompiles/setup.go:63-97 |
-| 0x0901 | orob resolver | Pure offset resolution | precompiles/layerxagent/orob (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:18 |
-| 0x0902 | batch clearing | Pure clearing computation | precompiles/layerxagent/clearing (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:19 |
-| 0x0903 | oracle aggregator | Aggregation. Price submission writes and reads the 0x1015 oracle store, not 0x1008. | precompiles/layerxagent/oracle (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:20 |
-| 0x0904 | pofq scorer | Pure fill-quality scoring | precompiles/layerxagent/pofq (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:21 |
-| 0x0905 | scheduler | Job store run in receipt order | precompiles/layerxagent/scheduler (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:22 |
-| 0x0906 | payment streams | Agent stream methods. Keeps no store and executes through the 0x101B stream keeper. | precompiles/layerxagent/streams (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:23 |
-| 0x0907 | tee attestor | Attestation verification against governance-set roots. Signer rules use the embedded-wallet attestor set. | precompiles/layerxagent/teeattestor (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:24 |
-| 0x0908 | eip712 helper | EIP-712 hashing and typed-signer recovery | precompiles/layerxagent/eip712 (new) | new | entry added to precompiles/setup.go:63-97; route human/wallet/gateway/src/precompiles.ts:25 |
+### Addresses served at HEAD
 
-Addresses 0x100D to 0x1010 are not assigned. The four addresses 0x0901 to 0x0904 have no execution function in this repository. They are specified anew from the original paxspot design of the earlier implementation, and nothing is copied from it. 0x0905 to 0x0908 are real precompiles behind the gateway routes that already target them.
+| Address | Construct | Defining line | Merged disposition |
+|---|---|---|---|
+| `0x1001` | bank | precompiles/bank/bank.go:36 | kept; ABI freeze task.6.9.1, pause refusal task.6.3.2 |
+| `0x1002` | wasmd | precompiles/wasmd/wasmd.go:30 | kept |
+| `0x1003` | json | precompiles/json/json.go:28 | kept |
+| `0x1004` | addr (EVM to DID binding) | precompiles/addr/addr.go:58 | kept; the binding is the authority source of ledger, auth and pay |
+| `0x1005` | staking | precompiles/staking/staking.go:49 | kept |
+| `0x1006` | gov | precompiles/gov/gov.go:30 | kept |
+| `0x1007` | distribution | precompiles/distribution/distribution.go:37 | kept |
+| `0x1008` | oracle | precompiles/oracle/oracle.go:26 | refusal surface: both queries return the retired error (precompiles/oracle/oracle.go:93, precompiles/oracle/oracle.go:104) |
+| `0x1009` | ibc | precompiles/ibc/ibc.go:30 | kept |
+| `0x100A` | pointerview | precompiles/pointerview/pointerview.go:24 | kept |
+| `0x100B` | pointer | precompiles/pointer/pointer.go:29 | kept |
+| `0x100C` | solo | precompiles/solo/solo.go:32 | kept |
+| `0x1011` | p256 | precompiles/p256/p256.go:24 | kept |
+| `0x1012` | layerxVerify | precompiles/layerxverify/layerxverify.go:52 | retired executor: task.6.71.1 returns LXP_MODULE_DISABLED from the merge plan, address stays registered |
+| `0x1013` | layerxCustody | modules/layerxcustody/types/ids.go:17 | retired executor: task.6.45.1 refuses every method; task.6.46.1 releases stranded balances (decision.642) |
+| `0x1014` | layerxAnchor | precompiles/layerxanchor/layerxanchor.go:65 | writes retire at merge (task.6.32.1); reads retire at the store-delete step (task.6.32.2); bonds returned (task.6.33.1) |
+| `0x1015` | perps (historical exchange below v6.12.0) | precompiles/perps/perps.go:27 | native perps engine (decision.301); legacy exchange writes refused (task.3.27.3) |
+| `0x1016` | layerxBridge | modules/layerxbridge/types/keys.go:27 | kept |
+| `0x1017` | launchpad | modules/launchpad/types/keys.go:26 | native launchpad from v6.12.0 (decision.1704) |
+| `0x1018` | feeToken | precompiles/feetoken/feetoken.go:24 | kept; SID self-pay |
+| `0x1019` | xweb | precompiles/xweb/xweb.go:59 | kept; program-origin requests added (task.13.32.1) |
+| `0x1020` | pricefeed | precompiles/pricefeed/pricefeed.go:23 | venue price source (decision.1702) |
+| `0x1021-0x1025` | spot (PECOR, Orders, StopOrders, Quoter, Vault) | modules/spot/types/keys.go:12 | served with the gas wrapper (task.3.21.1, task.3.21.2) |
 
-The non-precompile constructs that carry kernel state are:
+### Merge addresses
 
-- tokenfactory (modules/tokenfactory): denom registry, pause and issuer;
-- layerxgov (modules/layerxgov): the kernel fee table, the programs fee and the per-module `Paused` params;
-- authz (sdk/x/authz): the base of `LayerXScopeAuthorization`;
-- the new modules/sequencer: the on-chain order commitment;
-- BatchCallAndSponsor (contracts/src/BatchCallAndSponsor.sol:16): the EIP-7702 delegate and paymaster.
+Twelve addresses are declared in `MergeAddressTable` (precompiles/setup.go:61-73) and gated by `mergePrecompileGate` (node/upgrades.go:521-536). None is served at HEAD: constructors register through precompiles/setup.go:89-103, and `newMergePrecompiles` skips every entry without a registered constructor (precompiles/setup.go:117-139). The tee-attestor package shows the registration pattern (precompiles/layerxagent/teeattestor/teeattestor.go:103-106) but the production node does not import it.
+
+| Address | Construct | Planned executor |
+|---|---|---|
+| `0x101A` | layerxledger: assets, accounts, send, payer grants, draw, payExact | task.2.10.1 |
+| `0x101B` | layerxpay: escrow, budget, stream, service | task.2.28.1 |
+| `0x101C` | layerxauth: session and capability grants | task.2.11.1 |
+| `0x101D` | layerxprograms: deploy, upgrade, call, wind-down, retireStorage | task.13.22.1 |
+| `0x0901-0x0908` | agent functions: orob, clearing, oracle aggregator, pofq, scheduler, streams, tee attestor, eip712 | domain 2 (decision.22) |
+
+A declared address, a linked library and a registered constructor are three separate facts; an address is live only when its constructor is imported by the node and its gate is active at the height.
+
+### Gas
+
+Every new precompile method charges a fixed per-method row (decision.30). `GasTable` maps an ABI method name to its fixed row (precompiles/common/precompiles.go:65), and `WithGasTable` charges every method from that table and refuses an unknown method (precompiles/common/precompiles.go:115). Dynamic-gas precompiles use the same table through precompiles/common/precompiles.go:307.
 
 ## The proposer is the executor
 
-One node runs paxd in sequencer mode, and a second validator follows it as hot standby. The sequencer keeps three layers of `CacheMultiStore` over the committed store:
+An operator-run primary and hot standby execute every transaction at receipt on a speculative branch of committed state, return a canonical ProtocolReceipt v2 signed by a receipt key, serve pending reads from the open block, and propose blocks containing exactly that sequence. Other validators re-execute and commit. Block time is settlement only (decision.18, decision.19).
 
-- L_c: committed state;
-- L_N: the sealed block N waiting for commit;
-- L_open: the open block N+1.
+### Components at HEAD
 
-Every received transaction executes at receipt on a per-transaction branch of L_open. The sequencer returns a signed receipt, serves reads from L_open, and proposes blocks in exactly that order. The other validators re-execute each block with OCC and commit it.
+- `NewExecutor` builds the executor (node/sequencer/executor.go:194), and `sequential.Open` opens the speculative block on committed state (node/sequencer/executor.go:226-259).
+- `Receipter.Accept` signs an accepted result (node/sequencer/receipt.go:325-370); the local producer calls `SignReceipt` at node/sequencer/receipt.go:366.
+- `Replicator.Release` syncs locally and awaits the standby (node/sequencer/standby.go:214-262).
+- `ConsensusSource.Seal` constructs the signed tx-0 batch (node/sequencer/consensus_source.go:56-109).
+- The keeper admits a committed batch at modules/sequencer/keeper/keeper.go:56 and writes `LastSeq`, `LastSeqHash` and the last batch height only after authentication (modules/sequencer/keeper/keeper.go:98-104).
 
-### The eight properties
+These components do not connect themselves. At HEAD the daemon reads and discards the sequencer config (daemon/paxd/cmd/root.go:249-251), and consensus looks for `types.SequencerSource` on the application (consensus/node/node.go:263-264) whose `Sequenced` signature differs (node/app.go:3099-3102, consensus/types/sequencer.go:10-16). Planned: task.5.0.1 adds the application source, RPC option and commit-listener seams; task.5.5.12 assembles the runtime and hands the source to consensus; task.5.5.19 loads keys and replays the WAL before admitting sends; task.5.46.7 starts the runtime from parsed config.
 
-| # | Property | Code point (path:line) | What the activation adds |
-|---|---|---|---|
-| 1 | Execute at receipt on a speculative branch, in receipt order | `DeliverTx` node/abci.go:169 in deliver mode (nonce must equal next, modules/evm/ante/sig.go:75); BeginBlock vote reads node/legacyabci/begin_block.go:60-61; ante `LatestCtxGetter` node/app.go:1122-1124 | node/sequencer `Accept`: decode, per-transaction branch of L_open, deliver-mode ante, write on success. `LatestCtxGetter` returns the L_open context in sequencer mode. A per-sender future queue holds gapped nonces until they are executable. The sequencer's `FinalizeBlocker` (node/app.go:1551) adopts L_N when the hash matches. |
-| 2 | Signed receipt returned immediately | `SendRawTransaction` rpc/send.go:76 returns only a hash after broadcast (rpc/send.go:139-159); receipt construction read by rpc/tx.go:106 | `eth_sendRawTransactionSync` and `pax_sequencerReceipt` (receipt shape below) |
-| 3 | Reads from pending state | `RPCContextProvider` node/app.go:2895; pending mapped to latest at rpc/watermark_manager.go:196 and rpc/utils.go:66; pending nonce rpc/tx.go:370; gas estimate against latest rpc/send.go:171 | A pending context height that resolves to a read-only snapshot of L_open; pending nonce from the sequencer's next-nonce map; a log stream fed by `Accept`; estimates against pending |
-| 4 | Blocks contain exactly the executed sequence | `CreateProposalBlock` consensus/internal/state/execution.go:101 with mempool reap at :126; header time consensus/internal/state/state.go:279; `checkTotalBlockGas` node/app.go:1477; block limits consensus/types/params.go:135-143; upgrade stop node/app.go:1500 | In sequencer mode, `Seal()` replaces the mempool reap. Header time is the time L_open opened (D7), and `proposalIsTimely` (consensus/internal/consensus/state.go:1347) accepts it. Seal closes within the block gas limits. Speculation stops at an upgrade height. |
-| 5 | Pinned proposer; the others execute and commit | `Leader()` consensus/internal/consensus/types/round_state.go:422; `ProcessBlock` node/app.go:2091 | Leader list rule: round r is proposed by list[r mod len], with the primary at round 0 and the standby at round 1. The validator set and OCC replay are unchanged. |
-| 6 | A block that deviates from sequencer order is refused | `ProcessProposalHandler` node/app.go:1457, before `checkTotalBlockGas` at :1477; base `ProcessProposal` sdk/baseapp/abci.go:968; height-gate pattern modules/layerxcustody/keeper/keeper.go:42 | The proposer address must be in the leader list. The first transaction must be `MsgSequenceBatch{fromSeq, toSeq, prevSeqHash, txRoot, sig}` of modules/sequencer, with continuity against the stored `lastSeq` and `lastSeqHash` and `txRoot` equal to the hash of the remaining transactions. |
-| 7 | WAL and hot standby | Consensus WAL autofile group consensus/internal/consensus/wal.go; per-node signing state consensus/privval/file.go | node/sequencer WAL (see below) |
-| 8 | Fee policy | modules/evm/ante/fee.go:53-56; modules/evm/types/params.go:39, :52; daemon/paxd/cmd/root.go:397 | See the fee policy section |
+### Receipts and rungs
 
-### Receipt shape and key
+- The receipt method name is fixed at rpc/sequencer_receipt.go:26 and the three rungs `submitted`, `receipted` and `committed` at rpc/sequencer_receipt.go:28-37. Clients report only these rungs (decision.17).
+- Receipt keys are separate from validator keys (decision.15). Loading refuses exposed files, a shared key file, a key equal to the consensus key, malformed pins and missing coverage (node/sequencer/receiptkey.go:42-84).
+- `ReceiptKeys.VerifyReceipt` checks canonical bytes, height coverage and the signature (modules/sequencer/keeper/receipt_keys.go:112). Primary and standby key ranges may overlap (modules/sequencer/keeper/receipt_keys.go:74-76; decision.36).
+- HEAD `sequential.Accept` delivers on a transaction cache and advances the sequence only for code zero or an EVM execution with a VM error (node/sequencer/accept.go:16-78); block position zero is reserved for the batch (node/sequencer/accept.go:33).
+- `ErrReceiptInvariant` marks execution accepted but receipt construction failed (node/sequencer/receipt.go:363-368); it is not an ordinary refusal.
 
-- `eth_sendRawTransactionSync` returns the full Ethereum receipt.
-- `pax_sequencerReceipt` returns `{txHash, seq, height, index, status, gasUsed, cumulativeGasUsed, logs, revertReason, effectiveGasPrice, feeDenom, prevSeqHash}`. `blockHash` is omitted because the header of N+1 depends on the commit of N.
-- The signed receipt is a separate method. `eth_getTransactionReceipt` keeps its standard meaning: it answers once the block is committed, with the same fields plus `blockHash`.
-- The signature is ed25519, made with a receipt key that is separate from the validator key (D15). The receipt authority and the settle endpoint pin the key, and modules/sequencer holds it as a governance-set param, so the key rotates without touching validator keys.
-- Verifiers reuse `verify_sequencer_signature` (agent/crates/layerx-proof/src/receipt.rs:631).
-- Clients read three status rungs: submitted, receipted and committed (D17).
+### Proposal validation and delivery
 
-### Pending reads
+At a sequenced height a block is `[MsgSequenceBatch, tx1, ..., txN]`. `CreateProposalBlock` obtains it from `SequencerSource.Seal` and preserves `OpenTime` (consensus/internal/state/execution.go:266-275). `MsgSequenceBatch` carries height, range, previous and final sequence hashes, transaction root, key id and signature (modules/sequencer/types/msgs.go:33-42).
 
-Pending reads come from a read-only snapshot of L_open. A read never holds the L_open write lock. Exchange order-book views are `eth_call` into 0x1015, so they follow the pending context with no module change. Full nodes have no pending state. The unified router sends `pending` reads to the sequencer and returns an explicit error instead of silently serving latest.
+HEAD proposal validation checks that tx 0 exists and decodes, checks the transaction root and applies total-block-gas validation to the remaining transactions (node/app.go:1533-1585). It does not yet run batch authentication and sequence continuity before accepting the proposal. Planned order: decode tx 0 from keeper activation state; `VerifyBatchTxs` checks count, root and the `seqHash` fold (task.5.22.4); `checkSequencerOrder` runs `DeliverSequenceBatch` on a disposable cache (task.5.1.1); `checkSequencerProposer` checks membership in the leader list (task.5.1.2); task.5.0.2 installs the checks and rejection counters.
 
-### Order check
-
-ProcessProposal on every validator checks two things:
-
-1. The proposer is in the leader list. This check needs no app state.
-2. The leading `MsgSequenceBatch` continues the stored sequence and commits to the remaining transactions. This check lives in app state behind the activation height.
-
-A receipt holder can prove a deviation from `seq` and `prevSeqHash` against the on-chain `lastSeqHash`. A refused block costs one round and raises an alert; it is not retried.
+Validator re-execution runs BeginBlock, delivers the batch at index zero, executes the remaining transactions at their block positions (node/app.go:2235-2275), then MidBlock, Giga flush, deferred balances and EndBlock (node/app.go:2278-2308). Planned task.5.23.1, task.5.23.2 and task.5.9.1 store decided votes so speculative and validator BeginBlock see the same votes; HEAD executor `beginBlock` passes nil votes (node/sequencer/executor.go:265-271).
 
 ### WAL and standby
 
-The sequencer appends `(seq, txBytes, receiptHash)` to node/sequencer/wal before it releases a receipt. Entries are written with group-commit fdatasync on the autofile group that consensus/internal/consensus/wal.go already uses.
+- WAL records are defined at node/sequencer/wal/wal.go:107-141; frames carry CRC32C, an eight-byte header and an 8 MiB entry bound (node/sequencer/wal/wal.go:38-49). `GroupSync` flushes a group and issues `fdatasync` (node/sequencer/wal/wal.go:557-590).
+- `Replay` begins after the last `COMMITTED`, re-executes each `ACCEPT` and stops on `ErrReceiptMismatch` (node/sequencer/wal/wal.go:717-778).
+- Standby acknowledgements are `AckOK`, `AckGap` or `AckRefused` in 25 bytes (node/sequencer/standby.go:25-29); task.5.27.2 adds the epoch and grows the ack to 33 bytes. `NewStandby` requires distinct primary and standby keys (node/sequencer/standby.go:494-521).
+- A send without the standby acknowledgement returns an error and no receipt; after a primary stop the standby proposes the replicated slice with receipts unchanged.
 
-The standby is the second entry in the leader list.
+### Activation height
 
-- It receives each WAL entry synchronously and acknowledges it before the primary releases the receipt.
-- It replays every entry through the same `Accept` path, so its receipts match the primary's byte for byte.
-- If the primary stops, the standby proposes the next WAL slice at round 1.
-- Each node keeps its own key and last-sign state (consensus/privval/file.go).
-
-Without a standby acknowledgement, receipts stop and sends return an error (fail closed). Round-based leadership together with `prevSeqHash` continuity refuses a second primary's block.
-
-### Execution mode (D19)
-
-The strictly sequential executor lands first. The target is OCC micro-batches executed in receipt order on the existing OCC engine (node/app.go:1888). The switch is made on measured throughput and receipt latency.
-
-### Activation of the fork (D18)
-
-The consensus scope is one fork at one activation height H_act. At H_act:
-
-1. **BeginBlock votes.** BeginBlock(N+1) is fed the votes of N-1. Today distribution and slashing read the LastCommit votes of N (node/legacyabci/begin_block.go:60-61), and N+1 is already executing while N is in consensus. With this change, receipt latency no longer depends on consensus.
-2. **Sequence commitment.** modules/sequencer is mounted with `MsgSequenceBatch`, `lastSeq`, `lastSeqHash` and the receipt key param, and the ProcessProposal check above becomes active.
-3. **Leader list.** The `Leader()` list rule (consensus/internal/consensus/types/round_state.go:422) becomes active. H_act and the leader list live in node config and must be identical on every validator. A node whose list or H_act differs refuses to start, so a mixed rollout cannot split prevotes.
-
-The merge upgrade plan's height equals H_act.
+HEAD `App.Sequenced` compares with strict `>` against the upgrade done height (node/app.go:3099-3102) while the leader helper uses an inclusive gate (node/upgrades.go:472-483), and the merge plan checks key coverage at the plan height (node/upgrades.go:458-463). The merged rule is keeper state: `ActivationHeightKey = 0x07`, sequencing when `S > 0 && h >= S`, with genesis `activation_height = 0` defaulting to the initialization height plus one (decision.521; task.5.24.2, task.5.25.2, task.5.0.2). task.5.6.2 checks key coverage at the first sequenced height; task.5.6.4 removes the old leader helper. `ReceiptKey.Covers` is the inclusive interval at modules/sequencer/types/genesis.go:20-21.
 
 ## Fee policy
 
-Fees are policy. Execution runs no fee logic beyond the existing ante path.
+Fees are policy, not security.
 
-| Item | Code today (path:line) | Target |
-|---|---|---|
-| EVM minimum gas price | `DefaultMinFeePerGas` 1 gwei modules/evm/types/params.go:52; base-fee and minimum-fee checks modules/evm/ante/fee.go:53-56; dynamic base fee modules/evm/keeper/fee.go:100 | A near-zero `MinimumFeePerGas`, set by governance param change. The base fee is fixed per open block when L_open opens, so receipts inside one block quote one base fee. |
-| Node floor | `minimum-gas-prices` "0.01uhpx" daemon/paxd/cmd/root.go:397, checked only in CheckTx sdk/x/auth/ante/validator_tx_fee.go:33 | The same near-zero floor, applied by the sequencer before `Accept`, because `Accept` runs the deliver-mode ante |
-| Draw sender class | Not present today | Minimum gas price of at most 0.067 gwei for the paid-search `draw` sender class (D10). One draw per request gives one receipt at USD 0.001. |
-| SID as second gas token, self-paid | feetoken 0x1018 `setFeeDenom`; `GetFeeTokenCharge` modules/evm/keeper/feetoken.go:92, called at modules/evm/ante/fee.go:74, conversion at :96; rate entries in `AllowedFeeDenoms`, changed by `ParameterChangeProposal` (modules/evm/gov.go:26-41); fee-token routing node/app.go:2165 | SID pays gas at the governance-set rate, initially 3.114 SID per PAX |
-| Rate age | Age is counted in blocks (modules/evm/keeper/params.go:318-336), default `DefaultMaxFeeTokenRateAge` 1000 (modules/evm/types/params.go:39), read by `GetMaxFeeTokenRateAge` (modules/evm/keeper/params.go:310) | `MaxFeeTokenRateAge` is raised by governance so a governance-paced rate update stays fresh under the sequencer cadence (D7). The value is set at activation rehearsal. Rate age stays block-based, with no fork. |
-| Sponsorship | `executeSponsored` contracts/src/BatchCallAndSponsor.sol:135; gas station requires the 7702 delegate to equal the configured paymaster (interop/crates/layerx-gas-station/src/tx.rs:314) | Every sponsored agent write is a 7702 `executeSponsored` batch through the gas station with one paymaster nonce (D14). The station also sponsors feeder, perps keeper, attestor, worker and onboarding transactions. There is no ante change and no fork. |
-| Sponsored SID rate | `setRate` contracts/src/BatchCallAndSponsor.sol:88; publisher call interop/crates/layerx-gas-station/src/rate.rs:440; `max_rate_age` bound interop/crates/layerx-gas-station/src/config.rs:147-148 | The rate publisher refreshes the paymaster rate. The station refuses quotes older than `max_rate_age`. Self-paid SID through 0x1018 does not depend on it. |
-| Per-identity budgets | Per-quote, per-account and per-interval limits keyed by EVM address (interop/crates/layerx-gas-station/src/policy.rs:98-107); balance floor :115 | Budgets keyed by DID, resolved through `getLayerXDid` on addr 0x1004 (precompiles/addr/addr.go:391). Unbound accounts are keyed per address. Counters are reconciled from the station journal. The station fails closed when it is unavailable. x/feegrant stays on the Cosmos fee path only (node/ante.go:80). |
+- The EVM minimum fee per gas is 0.067 gwei at HEAD: `DefaultMinFeePerGas` (modules/evm/types/params.go:52), set into `DefaultParams` (modules/evm/types/params.go:85). The draw sender class pays at most that price (decision.10). Cosmos transactions keep the node minimum gas price; the daemon's default app config sets `MinGasPrices = "0.01uhpx"` (daemon/paxd/cmd/root.go:404). Because the ante chain runs in deliver mode on the sequencer and never checks the node floor there, `FeeFloor` applies the floor before Accept with the CheckTx checker (node/sequencer/fee.go:18-22).
+- SID is self-paid through feeToken 0x1018 at the governed rate. `DefaultMaxFeeTokenRateAge` permits a governed rate for 1000 blocks (modules/evm/types/params.go:39); the rate age is raised by governance for the sequencer cadence (decision.7).
+- Sponsored writes are type-4 transactions calling `executeSponsored` (contracts/src/BatchCallAndSponsor.sol:135) with one paymaster nonce; the gas station keeps per-DID budgets (services/interop/crates/layerx-gas-station/src/policy.rs:124) resolved through `getLayerXDid` at 0x1004 (precompiles/addr/addr.go:41; decision.14).
+- Paid search is drawn at 0x101A (decision.10). The xweb module default fee is one PAX in base units at HEAD (modules/xweb/types/state.go:79); the activation value is set from the governed price.
+- The program fee (metering times prices) stays on top of gas (decision.9).
 
 ## Authority model
 
-### DID binding through 0x1004
+- Every kernel account is a derived bank address with its own margin account (decision.2). Balances without an addr binding at activation follow decision.5.
+- The EVM to DID binding is the 0x1004 surface: `bindLayerX`, `unbindLayerX` and `getLayerXDid` (precompiles/addr/addr.go:39-41). Write precompiles resolve the sender to the granting DID before execute.
+- Session keys and delegated authorities live in authz as LayerX-scope authorizations (decision.3); `LayerXScopeAuthorization.MsgTypeURL` is at modules/layerxauth/types/authorization.go:41.
+- Payment payloads are typed per family, for example `StreamOpen` (modules/layerxpay/types/payload_stream.go:28); there is one stream state (decision.29).
+- Custody claims and guarantor bonds are settled at the activation height (decision.4, superseded by decision.642): bonds return to their posters and stranded custody balances are released to the custody authority.
 
-A LayerX identity is a `did:layerx` ed25519 key bound to an EVM address on addr 0x1004:
+## Activation and retirement
 
-- write methods: `bindLayerX`, `unbindLayerX` (precompiles/addr/addr.go:38-39);
-- read methods: `getLayerXDid`, `getEvmAddrByLayerX`, `layerXBindNonce`, `getUnifiedAccount` (precompiles/addr/addr.go:40-43);
-- keeper: modules/evm/keeper/layerx_binding.go:18, :30;
-- binding message: the binder signs the domain `LX:PAXEER-BIND:v1` (modules/evm/types/layerx_binding.go:18) over the chain id and the EVM address. The bind transaction therefore carries both the DID signature and the EVM sender.
+Activation is a bring-up at the activation height; no account-state migration is required. Four plans are recognized from an upgrade info file by `knownUpgradePlans` (node/upgrades.go:543).
 
-Every write precompile at 0x101A-0x101D and 0x0901-0x0908 resolves its principal by reading the sender's DID from this binding.
+| Plan | Constant | HEAD behaviour | Merged behaviour |
+|---|---|---|---|
+| `v6.9` | `ActivationUpgrade` (node/upgrades.go:95) | gates 0x1012-0x1019 through `activationPrecompileGate` (node/upgrades.go:501) | preserved |
+| `v6.10` | `V610Upgrade` (node/upgrades.go:104) | operating parameters | preserved |
+| `v6.12.0` | `V6120Upgrade` (node/upgrades_v6120.go:32) | adds perps, spot and pricefeed | rehearsal starts after this plan |
+| `v7.0` | `MergeUpgrade` (node/upgrades.go:112) | `mergeUpgradePlan` (node/upgrades.go:432) adds only the sequencer store (node/upgrades.go:418-421) | task.5.6.5 adds ledger, auth, pay, programs, agent and host stores; bonds refunded; custody released |
+| `v7.0-anchor-store-delete` | planned | none | task.5.7.1 deletes the anchor store and keeps the 0x1014 executor |
 
-Account derivation:
+The merge plan name is declared three times: node/upgrades.go:112, precompiles/setup.go:50 and precompiles/common/precompiles.go:30. task.5.6.1 derives the node constant from the common constant; decision.51 keeps the setup declaration under an equality test.
 
-- The main kernel account maps to the bound EVM address.
-- Sub-accounts such as margin and agent accounts map to bank addresses derived from the DID and a suffix. Their balances are visible to bank, the explorer and ERC-20 pointers.
+Retired executors stay registered and refuse. `RetiredAt` (precompiles/common/retire.go:24) and `RetiredRevert` (precompiles/common/retire.go:34) are the shared helpers; at HEAD no executor calls them. Legacy surfaces follow decision.20; layerxAnchor reads stay served until bond return completes (decision.21).
 
-The ed25519 key signs only bindings and DID proofs. All other writes use the secp256k1 EVM signature.
+Components that existed only to join two domains are retired after their replacements land: the intent ingester under services/interop/crates/layerx-intent-ingester/, the kernel finality path, and the anchor-reading mirror input. Kernel governance halt and resume become per-module pause params set through governance.
 
-### LayerX-scope authorizations (D3)
+## Off-chain services and clients
 
-All eight kernel authority kinds stay (include/layerx/lxp_authority.h:11-20):
+Services read chain state and sequencer receipts; none of them mutates the node store directly.
 
-1. the account's own key;
-2. session key;
-3. delegated capability;
-4. budget allowance;
-5. escrow;
-6. protocol module;
-7. multisig;
-8. timelock.
+- The platform gateway relays JSON-RPC at services/platform/hosted/gateway/src/paxeer.rs:82.
+- The agent shared client submits signed bytes with `eth_sendRawTransaction` (services/agent/crates/layerx-client/src/sequencer.rs:321), performs EVM reads (services/agent/crates/layerx-client/src/sequencer.rs:303) and requests receipt keys (services/agent/crates/layerx-client/src/sequencer.rs:367).
+- The interop web watcher performs EVM calls (services/interop/crates/x-websearch/src/watch.rs:164) and reads logs (services/interop/crates/x-websearch/src/watch.rs:580); the chain verifies program answers at modules/xweb/keeper/program_fulfil.go:117.
+- The wallet gateway registers its routes at services/wallet/gateway/src/index.ts:91, authenticates service requests at services/wallet/gateway/src/middleware/auth.ts:21 and broadcasts signed transactions at services/wallet/gateway/src/rpc/pool.ts:347.
+- The explorer backend reaches the node over HTTP and JSON-RPC (services/explorer/README.md:21); the web app fetches the explorer API at apps/web/src/explorer/client.ts:99.
+- 40 `[service.*]` blocks declare each process with its route, inputs, outputs, state, dependencies, failure policy, completion task and operation task.
 
-They live on sdk/x/authz through one `LayerXScopeAuthorization` type registered by layerxauth. That type gives one grant path for kernel calls and program calls. Its Accept rule reproduces the kernel authority check for each kind. For example, the session-key grant rules are at src/state/lxp_authority.c:164.
+## Domains
 
-layerxauth 0x101C exposes:
+Seventeen domains partition the repository by exclusive path prefixes. Each domain has one feature manager role, one `[feature.N]` block and five anchor tasks: N.0.1 foundation (wave 0), N.0.2 surface frozen (wave 2), N.0.3 integrated (wave 4), N.0.4 clients repointed (wave 5) and N.0.9 completion gate (wave 7). Cross-domain `requires` name only anchors; a change in another domain's path is a `[wiring.*]` request fulfilled by a task of the owning domain.
 
-- `grantSession`, `grantSessionSuccessor`, `grantCapability` and `revokeGrant`;
-- views over grants and scopes;
-- the shared idempotency index and its view `resultByIdempotency`.
+| N | Slug | Owner role | Requirements | Criteria | Tasks | Interfaces |
+|---|---|---|---|---|---|---|
+| 1 | kernel | fm-kernel | 142 | 244 | 141 | 2755 |
+| 2 | ledger-auth-pay | fm-ledger-auth-pay | 153 | 283 | 153 | 617 |
+| 3 | markets | fm-markets | 111 | 225 | 170 | 4202 |
+| 4 | launchpad | fm-launchpad | 186 | 263 | 186 | 14315 |
+| 5 | node-runtime | fm-node-runtime | 196 | 337 | 232 | 2946 |
+| 6 | chain-modules | fm-chain-modules | 193 | 344 | 253 | 5092 |
+| 7 | rpc-api | fm-rpc-api | 70 | 147 | 116 | 864 |
+| 8 | platform | fm-platform | 214 | 378 | 213 | 7469 |
+| 9 | agent | fm-agent | 148 | 280 | 148 | 4994 |
+| 10 | human | fm-human | 125 | 199 | 125 | 2554 |
+| 11 | interop | fm-interop | 125 | 236 | 125 | 3077 |
+| 12 | wallet | fm-wallet | 117 | 168 | 117 | 3511 |
+| 13 | programs | fm-programs | 128 | 206 | 128 | 5152 |
+| 14 | web-explorer-bridge | fm-web-explorer-bridge | 163 | 274 | 163 | 7355 |
+| 15 | cosmos-fork | fm-cosmos-fork | 95 | 136 | 57 | 6070 |
+| 16 | tools-ops | fm-tools-ops | 157 | 216 | 153 | 6709 |
+| 17 | programme | fm-programme | 65 | 89 | 65 | 41 |
 
-The index refuses a replayed idempotency key even at a new nonce. That is the same outcome as the kernel's `LXP_ERR_IDEMPOTENT_REPLAY` (src/ledger/lxp_apply.c:323).
+### 1. kernel
 
-### One custody set
+- Paths: `include/layerx/`, `src/`, `modules/lxphost/`, `layerxproof/`, `custodyproof/` and the kernel C tests.
+- The C kernel and its cgo host. `HostExecute` (modules/lxphost/host.go:678) and the state writeback (modules/lxphost/ctx.go:232) are the boundary between SDK transaction state and C activity execution. The kernel result-code registry adds -737 to -739 (decision.40).
+- Tasks by wave: w0 18, w1 17, w2 19, w3 7, w4 9, w5 19, w6 51, w7 1; anchors 1.0.1, 1.0.2, 1.0.3, 1.0.4, 1.0.9.
+- Interfaces: stable 2183, change 69, new 22, retire 481; incoming wiring requests: 27.
 
-The embedded-wallet attestors in human/wallet/attestor are the one custody set:
+### 2. ledger-auth-pay
 
-- They hold the key shares and threshold-sign user transactions. The chain sees an ordinary secp256k1 signature, and the ed25519 signature for binds.
-- They also sign for the agent-host web payer.
-- They are the signer set of the tee attestor at 0x0907.
+- Paths: `modules/layerxledger/`, `modules/layerxauth/`, `modules/layerxpay/`, `modules/layerxagent/` and their precompiles and protos.
+- Chain adapters for kernel accounts, authorization, payment constructs and the agent functions 0x0901-0x0908. Typed exact payment at 0x101A follows decision.27; agent functions follow decision.22, decision.31 and decision.32.
+- Tasks by wave: w0 27, w1 15, w2 79, w4 15, w5 2, w6 14, w7 1; anchors 2.0.1, 2.0.2, 2.0.3, 2.0.4, 2.0.9.
+- Interfaces: stable 232, change 56, new 324, retire 5; incoming wiring requests: 4.
 
-There is no second custody set. Separately, xweb keeps a single attestor registry for observations from both request origins (see 0x1019 above).
+### 3. markets
 
-## Off-chain support
+- Paths: `modules/perps/`, `modules/spot/`, `modules/pricefeed/`, `modules/oracle/`, `modules/layerxexchange/`, `apps/perps/` and their precompiles.
+- The served venues are native Go. The perps keeper owns the EVM collateral and pricefeed dependencies (modules/perps/keeper/keeper.go:20); spot has five addresses (modules/spot/types/keys.go:12). decision.301 and decision.334 fix the served topology; trading semantics where kernel and exchange differ follow decision.8.
+- Tasks by wave: w0 11, w1 40, w2 25, w3 6, w4 46, w5 12, w6 29, w7 1; anchors 3.0.1, 3.0.2, 3.0.3, 3.0.4, 3.0.9.
+- Interfaces: stable 3798, change 283, new 99, retire 22; incoming wiring requests: 5.
 
-Each retained service class writes to the chain only through user-signed transactions, or through keyed EVM transactions that the chain authorises. None relays an unsigned write. The chain-facing contract of each service is in the service contracts document of this feature, under the service name given here.
+### 4. launchpad
 
-- **Sequencer and standby.** paxd in sequencer and follower mode runs the proposer path above: receipts, pending reads, WAL, and the standby takeover at round 1. Contract: "Sequencer (primary and hot standby)".
-- **Archive node.** A paxd archive deployment serves `eth_getProof`, ICS23 proofs and logs at past heights. It replaces the kernel replica and the relay archive. Contract: "Archive node".
-- **Unified router and onboarding.** services/platform/hosted/gateway is the public entry point. It relays `eth_*` writes to the sequencer and serves compatibility reads. Today `lx_sendActivity` is routed to the kernel component (services/platform/hosted/gateway/src/rpc.rs:341); the `lx_*` ingress is switched off at activation. services/platform/hosted/identity and services/platform/hosted/faucet handle registration and test funds through ordinary user or faucet transactions. Contracts: "Unified router", "Identity registration service", "Faucet".
-- **Receipt verification and settlement adapters.** services/platform/hosted/authority verifies sequencer receipts plus inclusion against the pinned receipt key. interop/crates/layerx-interop-service and services/platform/middleware carry x402 and the other payment protocols, with the user's own transaction as the settlement leg. services/platform/hosted/core keeps treasury sends. Contracts: "Receipt authority (verifier)", "Interop service and protocol adapters", "x402 seller middleware", "Core boundary (treasury)".
-- **Gas station.** interop/crates/layerx-gas-station sponsors 7702 batches under DID-keyed budgets, and its rate publisher keeps the paymaster SID rate fresh (see the fee policy section). Contracts: "Gas station relayer", "Gas station SID rate publisher".
-- **Web search sidecars.** interop/crates/x-websearch runs one sidecar per node. Each crawls and answers queries. Its `RequestWatcher` (interop/crates/x-websearch/src/watch.rs:299) follows requests of both origins and collects attestor signatures. It submits `fulfil` (modules/xweb/keeper/fulfil.go:93) or `fulfilProgram` to 0x1019, settles paid requests by `draw` on 0x101A, and releases results only after the receipt. Contract: "x-websearch sidecar (per node)".
-- **Bridge and mirrors.** interop/crates/layerx-bridge-relayer submits `bridgeIn` under attestor threshold signatures (modules/layerxbridge/keeper/bridge.go:65) and releases on remote vaults. interop/crates/layerx-mirror and layerx-mirror-signer publish the chain's own header and app hash to remote archives. Contracts: "Bridge relayer (EVM and Solana)", "Mirror publisher (conditional)", "Mirror signer".
-- **Trading drivers.** The price feeder (services/platform/hosted/feeder) pushes ed25519-signed observations to 0x1015 `pushOracle`. A new perps keeper service submits permissionless `fundingTick`, `liquidate` and `adl` calls from pending reads. Validator oracle feeders keep voting on modules/oracle. Contracts: "Price feeder (perps)", "Perps keeper (new)", "Validator oracle price feeders".
-- **AI and program workers.** These services call layerxprograms 0x101D guests with keys bound through 0x1004:
-  - services/platform/hosted/paxai-worker (workers);
-  - services/platform/hosted/ai-artifacts (sealed evidence storage);
-  - AI evaluators;
-  - compute-lease providers;
-  - stream metering providers.
+- Paths: `modules/launchpad/`, `precompiles/launchpad/`, `services/launchpad/`, `apps/launchpad/`, `sdk/launchpad/`, `contracts/launchpad/`.
+- The launchpad precompile binds its address at precompiles/launchpad/launchpad.go:37 over the keeper built at node/app.go:837; the statistics process starts at services/launchpad/stats-workers/cmd/statsd/main.go:16. Service projections serve reads and never establish consensus state.
+- Tasks by wave: w0 37, w1 43, w2 44, w3 7, w4 25, w5 25, w6 4, w7 1; anchors 4.0.1, 4.0.2, 4.0.3, 4.0.4, 4.0.9.
+- Interfaces: stable 13934, change 128, new 195, retire 58; incoming wiring requests: 0.
 
-  Contracts: "paxai-worker and runner", "ai-artifacts", "AI evaluator service (new)", "Compute-lease providers", "Stream metering provider".
-- **Agent runtime.** agent/crates/layerx-agentd and layerx-agentd-host prepare, sign and submit agent EVM transactions. Pending nonces and estimates come from the sequencer, and the outbox retries by transaction hash. Contract: "agentd and agentd-host".
-- **Human surfaces.** These services use the one attestor custody set:
-  - human/wallet/gateway: sign, send, provision, review and approve;
-  - human/wallet/attestor: threshold signing;
-  - human/crates/layerx-human-service: web journeys;
-  - human/crates/layerx-human-kms: KMS signing of EVM actions.
+### 5. node-runtime
 
-  The wallet app backends serve metadata only. Contracts: "Embedded wallet gateway", "Wallet attestors (TSS)", "Human service", "Human identity and security providers, KMS", "Wallet app backends".
-- **Read side.** These services serve history, projections, catalogues and notifications from blocks, logs and module queries:
-  - services/platform/hosted/indexer (the Paxeer half);
-  - services/platform/hosted/webhooks;
-  - services/platform/hosted/registry, rebuilt as a read cache over the layerxprograms module;
-  - the explorer fork in explorer/.
+- Paths: `node/`, `modules/sequencer/`, `storage/`, `engine/`, `consensus/`, `daemon/`, `cmd/`, `go.mod`.
+- Execution assembly, consensus hooks, receipt production and node persistence; the sequencer runtime described above. Shared files `node/app.go` and `node/precompiles.go` belong here.
+- Tasks by wave: w0 15, w1 44, w2 38, w3 27, w4 31, w5 42, w6 34, w7 1; anchors 5.0.1, 5.0.2, 5.0.3, 5.0.4, 5.0.9.
+- Interfaces: stable 2563, change 119, new 109, retire 155; incoming wiring requests: 113.
 
-  Contracts: "Indexer", "Webhooks", "Program registry read cache", "Explorer fork and explorer index".
-- **Operations.** tools/ops/monitoring probes the chain, sequencer, router, indexer, gas station, attestors and mirrors. It alerts when receipt order and block order diverge, and when the sponsor balance reaches its floor. tools/rollout deploys the sequencer unit in ordered waves. The one-shot merge tools build the activation state. Contracts: "Monitoring", "Rollout controller", "One-shot merge tools".
+### 6. chain-modules
 
-## Activation
+- Paths: `modules/evm/`, `modules/tokenfactory/`, `modules/layerxgov/`, `modules/layerxbridge/`, `modules/layerxcustody/`, `modules/layerxanchor/`, `modules/xweb/`, `precompiles/` (rest), `contracts/` (Solidity).
+- EVM execution and shared precompile registration: `precompiles/setup.go:89` registers merge constructors and precompiles/setup.go:117 builds the registered set. The retired executors 0x1012-0x1014 and the custody release belong here.
+- Tasks by wave: w0 46, w1 31, w2 33, w3 7, w4 38, w5 39, w6 58, w7 1; anchors 6.0.1, 6.0.2, 6.0.3, 6.0.4, 6.0.9.
+- Interfaces: stable 4134, change 49, new 181, retire 728; incoming wiring requests: 36.
 
-### One height
+### 7. rpc-api
 
-The merge is one named upgrade plan, registered beside the existing plans:
+- Paths: `rpc/`, `api/eth`, `api/pax`, `buf.*`, `sdk/proto/`.
+- Node listeners for chain reads, submission, subscriptions and receipts. rpc/server.go:220 registers the EVM namespace; the receipt rungs are fixed at rpc/sequencer_receipt.go:33.
+- Tasks by wave: w0 8, w1 53, w2 15, w3 8, w4 23, w5 3, w6 5, w7 1; anchors 7.0.1, 7.0.2, 7.0.3, 7.0.4, 7.0.9.
+- Interfaces: stable 812, change 14, new 28, retire 10; incoming wiring requests: 2.
 
-- plan constants: node/upgrades.go:82-107;
-- handlers: `RegisterUpgradeHandlers`, node/upgrades.go:117-194;
-- the plan is appended to `knownUpgradePlans` (node/upgrades.go:416-418);
-- the plan name is set at activation rehearsal.
+### 8. platform
 
-Its height equals the sequencer fork height H_act (D18). The activation is a bring-up at the activation height; no account-state migration is required.
+- Paths: `services/platform/` (except perps-data), `tools/platform/`, `sdk/platform/`.
+- Gateway, core, authority, indexer and supporting services in the workspace at services/platform/Cargo.toml:2. Service databases and caches stay outside replicated execution.
+- Tasks by wave: w0 10, w1 17, w2 22, w3 32, w4 17, w5 59, w6 55, w7 1; anchors 8.0.1, 8.0.2, 8.0.3, 8.0.4, 8.0.9.
+- Interfaces: stable 6327, change 558, new 93, retire 491; incoming wiring requests: 41.
 
-At that height, three things happen:
+### 9. agent
 
-1. **Store mounts and initialisation.** A store upgrade mounts layerxledger, layerxpay, layerxauth, layerxprograms and sequencer through the store loader, following the pattern at node/app.go:1307-1325. The plan handler runs module migrations and initialises the five new modules from genesis params.
-2. **Anchor bond return.** The plan handler returns every posted guarantor bond and open challenge deposit held by layerxanchor.
-3. **Precompile serving.** Addresses 0x101A-0x101D and 0x0901-0x0908 join `GetCustomPrecompiles` (precompiles/setup.go:63-97) and are served from the plan height only. Today the evm keeper holds one `CustomPrecompileActivation` (modules/evm/keeper/keeper.go:100, :195-223). It is set at node/app.go:940 from `activationPrecompileGate` (node/upgrades.go:398-411) and becomes a list of (plan name, address set) entries. Each entry is read through `IsUpgradeActiveAtHeight` (sdk/x/upgrade/keeper/keeper.go:296-299).
+- Paths: `services/agent/`.
+- Agent daemon, agent API and shared clients (services/agent/crates/layerx-client/src/sequencer.rs:321). agent-api major 2 replaces major 1.
+- Tasks by wave: w0 10, w1 26, w2 32, w3 22, w4 18, w5 13, w6 26, w7 1; anchors 9.0.1, 9.0.2, 9.0.3, 9.0.4, 9.0.9.
+- Interfaces: stable 4174, change 396, new 29, retire 395; incoming wiring requests: 21.
 
-Reference guest programs (interpreter, compute-lease market, AI market) are deployed through `MsgDeploy` at activation.
+### 10. human
 
-### Clean break
+- Paths: `services/human/`.
+- Human identity, intents and KMS services that reuse the agent clients through workspace dependencies (services/human/Cargo.toml:31). decision.1081 takes the three retired crates out of the human workspace members.
+- Tasks by wave: w0 6, w1 19, w2 14, w3 14, w4 20, w5 38, w6 13, w7 1; anchors 10.0.1, 10.0.2, 10.0.3, 10.0.4, 10.0.9.
+- Interfaces: stable 1588, change 159, new 8, retire 799; incoming wiring requests: 16.
 
-The client-facing contract changes in one step (D17):
+### 11. interop
 
-- agent-api major 2: 65-byte signature, new cursor format, `SettlementAnchored` removed;
-- status rungs: submitted, receipted, committed;
-- signed receipts only on `pax_sequencerReceipt` and `eth_sendRawTransactionSync`;
-- same-nonce replacement refused;
-- the `lx_*` ingress names switched off at activation.
+- Paths: `services/interop/`.
+- Relayers, gas station, x402, web attestors and portable receipts. The gas station keeps per-DID budgets (services/interop/crates/layerx-gas-station/src/policy.rs:124).
+- Tasks by wave: w0 13, w1 17, w2 22, w3 21, w4 14, w5 11, w6 26, w7 1; anchors 11.0.1, 11.0.2, 11.0.3, 11.0.4, 11.0.9.
+- Interfaces: stable 2671, change 164, new 80, retire 162; incoming wiring requests: 6.
 
-Middleware, the x402 seller, the CLI, the agent SDKs, the gateway, and the explorer and wallet status views move to major 2 together.
+### 12. wallet
 
-### Retired executors
+- Paths: `services/wallet/`, `apps/wallet/`, `sdk/wallet/`.
+- Wallet UI, gateway and signing service; route registration at services/wallet/gateway/src/index.ts:91.
+- Tasks by wave: w0 9, w1 15, w2 13, w3 14, w4 16, w5 21, w6 28, w7 1; anchors 12.0.1, 12.0.2, 12.0.3, 12.0.4, 12.0.9.
+- Interfaces: stable 3139, change 234, new 54, retire 84; incoming wiring requests: 6.
 
-A retired method checks `IsUpgradeActiveAtHeight(ctx, <merge plan>, ctx.BlockHeight())`, following the gate at modules/layerxcustody/keeper/keeper.go:38-46. Below the height it behaves as today. At or above the height it returns `Error("LXP_MODULE_DISABLED: <precompile> retired")`.
+### 13. programs
 
-- 0x1012 retires in full.
-- 0x1013 retires in full.
-- 0x1014 retires its writes at the height. Its reads retire after the bond return, when a later step deletes the anchor store.
-- On 0x1015, `requestSettlement` and `getIntent` retire. The old selectors of the three re-signed methods `withdrawMargin`, `placeOrder` and `cancelOrder` return `LXP_PRECOMPILE_UNKNOWN_METHOD`.
-- The addresses stay registered permanently, so no retired call ever returns empty success.
+- Paths: `programs/`, `precompiles/layerxprograms/`.
+- The Rust program runtime, sandbox and evidence verifiers; task.13.0.3 connects runtime and host and task.13.22.1 builds the 0x101D executor. Reference guests deploy through MsgDeploy at activation (decision.13).
+- Tasks by wave: w0 12, w1 20, w2 31, w3 21, w4 20, w5 8, w6 15, w7 1; anchors 13.0.1, 13.0.2, 13.0.3, 13.0.4, 13.0.9.
+- Interfaces: stable 4858, change 168, new 99, retire 27; incoming wiring requests: 11.
 
-The off-chain components that existed only to bridge two domains retire with them:
+### 14. web-explorer-bridge
 
-- kernel admission and batch sealing (src/sequencer/lxp_admission.c:58, src/sequencer/lxp_batch_seal.c:19);
-- the kernel receipt signature (src/protocol/lxp_receipt.c:859);
-- the batch WAL (cmd/layerxd/lxp_daemon_batch_wal.c:362);
-- the replica (cmd/layerxd/lxp_daemon_replica.c:216);
-- the guarantor runtime;
-- the intent ingester (interop/crates/layerx-intent-ingester);
-- the exchange's custody margin hop (modules/layerxexchange/keeper/intents.go:63);
-- the router's cross-domain joins.
+- Paths: `apps/web/`, `apps/explorer/`, `apps/bridge/`, `services/explorer/`, `services/bridge/`, `sdk/js/`.
+- Client applications and index services that use node APIs; the explorer status UI moves to the three rungs.
+- Tasks by wave: w0 11, w1 32, w2 35, w3 22, w4 17, w5 28, w6 17, w7 1; anchors 14.0.1, 14.0.2, 14.0.3, 14.0.4, 14.0.9.
+- Interfaces: stable 6779, change 354, new 66, retire 156; incoming wiring requests: 7.
 
-### Served afterwards
+### 15. cosmos-fork
 
-| Address | Below the activation height | At or above the activation height |
+- Paths: `sdk/` (everything not owned by 4, 7, 8, 12, 14).
+- The in-tree SDK supplies BaseApp, contexts and the multistore: sdk/baseapp/abci.go:254 selects the proposal state for commitment and sdk/baseapp/abci.go:269 implements Commit.
+- Tasks by wave: w0 1, w1 22, w2 1, w3 1, w4 1, w5 13, w6 17, w7 1; anchors 15.0.1, 15.0.2, 15.0.3, 15.0.4, 15.0.9.
+- Interfaces: stable 5933, change 27, new 18, retire 92; incoming wiring requests: 3.
+
+### 16. tools-ops
+
+- Paths: `tools/`, `deploy/`, `docker/`, `scripts/`, `Makefile`, `chain.mk`, `.github/`, `tests/` (rest).
+- Build, release, deployment and qualification tooling. Makefile:3145 declares the native prerequisites and Makefile:3147 the node build target.
+- Tasks by wave: w0 14, w1 20, w2 9, w3 6, w4 6, w5 64, w6 33, w7 1; anchors 16.0.1, 16.0.2, 16.0.3, 16.0.4, 16.0.9.
+- Interfaces: stable 6326, change 251, new 39, retire 93; incoming wiring requests: 231.
+
+### 17. programme
+
+- Paths: `spec/`, `docs/`, root `*.md`, `GOTCHA.kvx`, `codify.kvx`.
+- The specification, documentation and aggregate delivery gates. Its wave-7 gate 17.0.9 requires every domain completion gate.
+- Tasks by wave: w0 12, w1 10, w2 7, w3 6, w4 4, w5 11, w6 7, w7 8; anchors 17.0.1, 17.0.2, 17.0.3, 17.0.4, 17.0.9.
+- Interfaces: stable 16, change 9, new 16, retire 0; incoming wiring requests: 7.
+
+## Execution model
+
+Tasks run in waves 0 to 7. Every task of a wave runs concurrently in its own sandbox; a wave starts when the previous wave's gate passed.
+
+| Wave | Meaning | Tasks |
 |---|---|---|
-| 0x1001 bank, 0x1004 addr, 0x1016 layerxBridge, 0x1018 feeToken | as today | as today, with `LXP_` revert text; bank also serves the context-hash `send` overload and its `LayerXReceipt` log |
-| 0x1002, 0x1003, 0x1005-0x100C, 0x1011 | as today | as today |
-| 0x1012 layerxVerify, 0x1013 layerxCustody | as today | `LXP_MODULE_DISABLED` |
-| 0x1014 layerxAnchor | as today | writes `LXP_MODULE_DISABLED`; reads served until the anchor store is deleted, then `LXP_MODULE_DISABLED` |
-| 0x1015 layerxExchange | intent recording | engine execution, new perps and spot methods, direct-state views |
-| 0x1017 launchpad | as today | per-market protocol fee counter and `getProtocolFees` |
-| 0x1019 xweb | EVM-origin requests | both origins; `fulfilProgram`, `getProgramResult`, `getKernelNetworkId` live |
-| 0x101A-0x101D | not served | live |
-| 0x0901-0x0908 | not served | live |
+| 0 | foundations: type, ABI, proto and error-registry freezes, fixtures, scaffolds | 260 |
+| 1 | core logic: keeper, kernel and crate internals, unit tests | 441 |
+| 2 | surfaces: precompile methods, Msg and Query handlers, JSON-RPC, HTTP routes, CLI, events and errors | 439 |
+| 3 | services: off-chain services and daemons against wave-2 surfaces | 221 |
+| 4 | integration: node/app.go wiring, activation lists, genesis, params, SDK regeneration | 320 |
+| 5 | clients: apps, SDKs, wallets and explorers repointed | 408 |
+| 6 | conformance: parity goldens, retirements, migration rehearsal, performance bounds | 432 |
+| 7 | completion: per-domain gates N.0.9 and the programme gate 17.0.9 | 24 |
 
-From the activation height, users get these from one network through one endpoint:
+- One acceptance criterion is one test is one task: each `[acceptance.N.k.a]` names exactly one test, each test belongs to exactly one task, and the task's `verify_cmd` runs exactly its listed tests.
+- A task is bounded: one sandbox, 30 minutes, one build, one verify run, at most two repair cycles, at most 12 touched files, touches inside its own domain only.
+- `gate_kind` is `planned` when any listed test does not exist at HEAD; planned test files appear in `planned_paths`.
+- A wiring request names the owner domain, the insertion point `path:line`, the change and the requesting task; the build adds the fulfilling task to the requester's `requires`. The build checks the expanded graph for cycles with a linear strongly-connected-component pass.
+- The Hyperfide CLI (`cg`) reads the merged document; the build asks it to parse the document and compute eligibility (`cg spec status`, `cg spec ready`) as a bounded acceptance step.
 
-- one signed receipt per transaction at send;
-- pending reads from the sequencer;
-- the block at the promised height and index;
-- finality at commit.
+## Carried-forward decisions
+
+Decisions 1 to 94 carry the earlier specification's rulings forward where the code at HEAD still agrees; each block's `basis` cites the code. Later decisions use `decision.<N*100+k>` per domain. The list below names the carried-forward set.
+
+| Decision | Title |
+|---|---|
+| decision.1 | Kernel C modules and the Rust program runtime inside paxd |
+| decision.2 | Kernel account and margin model |
+| decision.3 | Home of session keys and delegated authorities |
+| decision.4 | Custody claims and guarantor bonds at the activation height (superseded by decision.642) |
+| decision.5 | Kernel balances without an addr binding at activation |
+| decision.6 | Precompile error encoding |
+| decision.7 | Time semantics under the sequencer cadence |
+| decision.8 | Trading semantics where kernel and exchange differ |
+| decision.9 | Program fee versus gas |
+| decision.10 | Paid search settlement and lxpay placement |
+| decision.11 | Program-origin web request terms |
+| decision.12 | Program-origin observation admission |
+| decision.13 | Reference guest deployment |
+| decision.14 | Sponsorship path and per-identity budget home |
+| decision.15 | Sequencer receipt signing key |
+| decision.16 | DID key rotation and the embedded-wallet ed25519 share |
+| decision.17 | Client-facing contract |
+| decision.18 | Sequencer consensus scope |
+| decision.19 | Sequencer execution mode |
+| decision.20 | Legacy surfaces |
+| decision.21 | layerxAnchor reads after the fold |
+| decision.22 | Agent functions 0x0901-0x0904 |
+| decision.23 | Revert reasons for addr and bank |
+| decision.24 | Service dispute resolution |
+| decision.25 | Exchange withdrawMargin |
+| decision.26 | Signer of the agent-host web payer |
+| decision.27 | Typed exact payment at 0x101A |
+| decision.28 | xweb error naming |
+| decision.29 | One stream state |
+| decision.30 | Gas rule across the new precompiles |
+| decision.31 | computeClearing and scoreBatch ABI form |
+| decision.32 | submitPrice signer rule |
+| decision.33 | TEE attestor roots |
+| decision.34 | TEE signer threshold and key type |
+| decision.35 | Result-code retryability source of truth |
+| decision.36 | Receipt key range overlap |
+| decision.37 | Stream rate update ordinal 8 |
+| decision.38 | Blob store key layout |
+| decision.39 | Payments and exchange governance surfaces |
+| decision.40 | Kernel result codes -737 to -739 |
+| decision.41 | Subscription lag signalling |
+| decision.42 | Cross-module grant state stage |
+| decision.43 | Activity proof verifier |
+| decision.44 | Agent signing and client interfaces |
+| decision.45 | Committed proof codecs |
+| decision.46 | Sequencer handover encoding |
+| decision.47 | .NET and Swift gates |
+| decision.48 | PXVE v1 dev attestation envelope |
+| decision.49 | Pure agent helpers gate on the agent module |
+| decision.50 | AI reputation history retention prune runs at epoch opening |
+| decision.51 | Merge plan name constant in the precompiles package |
+| decision.52 | Gas station: a finalized earlier publication never consumes the renewal tick |
+| decision.53 | Autobahn receiptsRoot is the same-block results root |
+| decision.54 | KMS secp256k1 key kind for EVM sender handles |
+| decision.55 | Wallet SDK formatting configuration |
+| decision.56 | addr 0x1004 revert reasons use the registry LXP_ADDR codes |
+| decision.57 | CosmWasm transaction counter is the block position from the merge plan height |
+| decision.58 | Stream rate change is activity ordinal 8 end to end |
+| decision.59 | Checkpoint settlement header without the retired policy field |
+| decision.60 | One serde_json pin |
+| decision.61 | FinalizeBlock response retention |
+| decision.62 | Fatal kernel codes in the exchange code table |
+| decision.63 | Intent plan vector holder |
+| decision.64 | transactionsRoot verifier |
+| decision.65 | History finality API removal order |
+| decision.66 | Explorer paxeer-x page retirement |
+| decision.67 | Guarantor header trim order |
+| decision.68 | xweb program pair and the applied v6.10 state |
+| decision.69 | newHeads receiptsRoot |
+| decision.70 | lxphost raw-key scan scope |
+| decision.71 | layerxagent params |
+| decision.72 | Pay contract record views and stream rate event |
+| decision.73 | Retained exchange intent selectors |
+| decision.74 | Committed-proof verifier per language |
+| decision.75 | Sequencer log ordinal |
+| decision.76 | Indexer position migration |
+| decision.77 | Prepared EIP-1559 fields order |
+| decision.78 | native_terminal_outcome evidence |
+| decision.79 | Explorer receipts heights |
+| decision.80 | 8.73 acceptance vector |
+| decision.81 | Gateway position cursor ownership |
+| decision.82 | Wallet SDK curve library version |
+| decision.83 | Oracle feeder transaction path |
+| decision.84 | Model runner engine binding |
+| decision.85 | Giga block fee-token charge destination |
+| decision.86 | Curve library resolution in the wallet app |
+| decision.87 | Vendor-native quotes in the exchange interface |
+| decision.88 | Malformed snapshot ring refusal in launchpad price history |
+| decision.89 | Relay journal restore admits the local signer beyond the observation cap |
+| decision.90 | eth_subscribe relays over the WebSocket entry; HTTP answers WebSocket required |
+| decision.91 | Explorer signature route vectors |
+| decision.92 | Router sequence batch read |
+| decision.93 | Hosted registry retirement is one compile unit |
+| decision.94 | AI market guest size is met by a binaryen post-pass |
+

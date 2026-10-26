@@ -1,0 +1,103 @@
+# Platform examples contract
+
+Source revision: `2a1033aa2`. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
+
+The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
+
+## examples-config
+
+| Interface | Kind | Status | Source at pinned revision | Signature |
+|---|---|---|---|---|
+| <code>interface.8.cfg-examples-buyer-agent-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-buyer-agent-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-buyer-agent-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-buyer-agent-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/buyer-agent/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-marketplace-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-marketplace-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-marketplace-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-marketplace-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/marketplace/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-merchant-checkout-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-merchant-checkout-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-merchant-checkout-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-merchant-checkout-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-checkout/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-merchant-shop-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-merchant-shop-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-merchant-shop-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-merchant-shop-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/merchant-shop/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-paid-api-environments-beta-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.beta."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-paid-api-environments-beta-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.beta."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+| <code>interface.8.cfg-examples-paid-api-environments-emulator-receiptkeysenvironment-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.emulator."receiptKeysEnvironment": name of the variable holding the pinned receipt key entries</code> |
+| <code>interface.8.cfg-examples-paid-api-environments-emulator-rpcurl-j41</code> | <code>config_key</code> | <code>new</code> | <code>services/platform/examples/paid-api/layerx.example.json</code> (planned) | <code>environments.emulator."rpcUrl": JSON-RPC endpoint serving eth_sendRawTransaction and pax_sequencerReceipt</code> |
+
+| Citing block | Field | Frozen criterion or rule |
+|---|---|---|
+| <code>acceptance.8.289.1</code> | req | 8289.1 |
+| <code>acceptance.8.289.1</code> | scenario | Given both merchant example configs, when their four environment objects are read, then each satisfies the network, present-key and absent-key conditions. |
+| <code>acceptance.8.289.1</code> | test | services/platform/examples/test/merchant-config.test.mjs::merchantExampleConfigsUseEip155AndReceiptKeys (planned) |
+| <code>acceptance.8.289.1</code> | qualification | UNRUN |
+| <code>req.8289</code> | ac_1 | Every environment of merchant-checkout and merchant-shop layerx.example.json names network eip155:125, rpcUrl and receiptKeysEnvironment and neither receiptAuthorityUrl nor protocolVersion. |
+| <code>capability.8.34.5</code> | title | Ship merchant example configurations for eip155 and receipt keys |
+| <code>capability.8.34.5</code> | reqs | 8289.1 |
+
+## examples-environment
+
+| Interface | Kind | Status | Source at pinned revision | Signature |
+|---|---|---|---|---|
+| <code>interface.8.env-examples-agent-spend-layerx-protocol-version-j41</code> | <code>env_var</code> | <code>retire</code> | <code>services/platform/examples/agent-spend/index.mjs:17</code> | <code>env.LAYERX_PROTOCOL_VERSION read by the agent spend example</code> |
+
+| Interface | Field | Value |
+|---|---|---|
+| <code>interface.8.env-examples-agent-spend-layerx-protocol-version-j41</code> | notes | read only by services/platform/examples/agent-spend/index.mjs:17-18 |
+
+## examples-js-exports
+
+| Interface | Kind | Status | Source at pinned revision | Signature |
+|---|---|---|---|---|
+| <code>interface.8.ts-examples-agent-spend-services-createagentservices-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/agent-spend/services.mjs:123</code> | <code>export async function createAgentServices(environment)</code> |
+| <code>interface.8.ts-examples-agent-spend-services-ownerwallethandoff-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/agent-spend/services.mjs:119</code> | <code>export function ownerWalletHandoff()</code> |
+| <code>interface.8.ts-examples-agent-spend-services-preparedtransactionreference-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/agent-spend/services.mjs</code> (planned) | <code>export function preparedTransactionReference(prepared): string</code> |
+| <code>interface.8.ts-examples-buyer-agent-index-platform-ref-buyer-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/buyer-agent/index.mjs:10</code> | <code>export function platform_ref_buyer()</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-accountnamefordid-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:52</code> | <code>export function accountNameForDid(did)</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-buy-operation-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:178</code> | <code>export const BUY_OPERATION = 2;</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-canonicalnativeprogramdeploy-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:18</code> | <code>export function canonicalNativeProgramDeploy(</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-identity-sequence-selector-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:62</code> | <code>export const IDENTITY_SEQUENCE_SELECTOR = "pending";</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-immutable-policy-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:13</code> | <code>export const IMMUTABLE_POLICY = 0;</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-lifecycle-window-ms-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:14</code> | <code>export const LIFECYCLE_WINDOW_MS = 300_000n;</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-list-operation-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:177</code> | <code>export const LIST_OPERATION = 1;</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-marketplacecallrequest-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:180</code> | <code>export function marketplaceCallRequest(</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-readlifecycleanchor-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:64</code> | <code>export async function readLifecycleAnchor(</code> |
+| <code>interface.8.ts-examples-marketplace-deploy-payload-u128-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/marketplace/deploy-payload.mjs:228</code> | <code>export function u128(value)</code> |
+| <code>interface.8.ts-examples-marketplace-index-platform-ref-marketplace-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/marketplace/index.mjs:25</code> | <code>export function platform_ref_marketplace()</code> |
+| <code>interface.8.ts-examples-marketplace-receipt-outcome-verifyprogramoutcome-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/marketplace/receipt-outcome.mjs</code> (planned) | <code>export async function verifyProgramOutcome(output, receipts): Promise&lt;ProgramOutcome&gt;</code> |
+| <code>interface.8.ts-examples-paid-api-index-platform-ref-seller-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/paid-api/index.mjs:20</code> | <code>export function platform_ref_seller()</code> |
+| <code>interface.8.ts-examples-support-artifacts-referenceartifacts-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/artifacts.mjs:6</code> | <code>export async function referenceArtifacts(path, root)</code> |
+| <code>interface.8.ts-examples-support-merchant-app-platform-ref-merchant-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/merchant-app.mjs:22</code> | <code>export function platform_ref_merchant()</code> |
+| <code>interface.8.ts-examples-support-merchant-app-runmerchantapplication-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/support/merchant-app.mjs:338</code> | <code>export async function runMerchantApplication(moduleUrl, application)</code> |
+| <code>interface.8.ts-examples-support-runtime-applicationprotocolversion-j41</code> | <code>ts_export</code> | <code>retire</code> | <code>services/platform/examples/support/runtime.mjs:61</code> | <code>export function applicationProtocolVersion(config)</code> |
+| <code>interface.8.ts-examples-support-runtime-applicationstatepath-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:46</code> | <code>export function applicationStatePath(config, relative)</code> |
+| <code>interface.8.ts-examples-support-runtime-applyendpointoverride-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/support/runtime.mjs:69</code> | <code>export function applyEndpointOverride(environment, config)</code> |
+| <code>interface.8.ts-examples-support-runtime-commandpath-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:143</code> | <code>export function commandPath(arguments_)</code> |
+| <code>interface.8.ts-examples-support-runtime-diagnostictext-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:132</code> | <code>export function diagnosticText(value, secrets = [], limit = DIAGNOSTIC_LIMIT)</code> |
+| <code>interface.8.ts-examples-support-runtime-equalbytes-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:179</code> | <code>export function equalBytes(left, right)</code> |
+| <code>interface.8.ts-examples-support-runtime-exactobject-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:152</code> | <code>export function exactObject(value)</code> |
+| <code>interface.8.ts-examples-support-runtime-hex32-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:173</code> | <code>export function hex32(value)</code> |
+| <code>interface.8.ts-examples-support-runtime-layerxapplicationstateerror-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:7</code> | <code>export class LayerXApplicationStateError extends Error</code> |
+| <code>interface.8.ts-examples-support-runtime-loadapplicationconfig-j41</code> | <code>ts_export</code> | <code>change</code> | <code>services/platform/examples/support/runtime.mjs:29</code> | <code>export async function loadApplicationConfig(moduleUrl, application)</code> |
+| <code>interface.8.ts-examples-support-runtime-optionalenvironment-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:22</code> | <code>export const optionalEnvironment = (name) =&gt;</code> |
+| <code>interface.8.ts-examples-support-runtime-receiptauthorityclient-j41</code> | <code>ts_export</code> | <code>retire</code> | <code>services/platform/examples/support/runtime.mjs:84</code> | <code>export class ReceiptAuthorityClient</code> |
+| <code>interface.8.ts-examples-support-runtime-receiptkeysfromenvironment-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/support/runtime.mjs</code> (planned) | <code>export function receiptKeysFromEnvironment(name): readonly ReceiptKeyEntry[]</code> |
+| <code>interface.8.ts-examples-support-runtime-requiredenvironment-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:15</code> | <code>export const requiredEnvironment = (name) =&gt;</code> |
+| <code>interface.8.ts-examples-support-runtime-securebaseurl-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:157</code> | <code>export function secureBaseUrl(value)</code> |
+| <code>interface.8.ts-examples-support-runtime-secureurl-j41</code> | <code>ts_export</code> | <code>stable</code> | <code>services/platform/examples/support/runtime.mjs:162</code> | <code>export function secureUrl(value)</code> |
+| <code>interface.8.ts-examples-support-runtime-selectable-protocol-versions-j41</code> | <code>ts_export</code> | <code>retire</code> | <code>services/platform/examples/support/runtime.mjs:59</code> | <code>export const SELECTABLE_PROTOCOL_VERSIONS = Object.freeze([2, 3]);</code> |
+| <code>interface.8.ts-examples-support-runtime-sequencerreceiptclient-j41</code> | <code>ts_export</code> | <code>new</code> | <code>services/platform/examples/support/runtime.mjs</code> (planned) | <code>export class SequencerReceiptClient { constructor(rpcUrl, receiptKeys); resolve(transactionHash): Promise&lt;PortableReceiptV2&gt; }</code> |
+
+| Interface | Field | Value |
+|---|---|---|
+| <code>interface.8.ts-examples-agent-spend-services-createagentservices-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
+| <code>interface.8.ts-examples-buyer-agent-index-platform-ref-buyer-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
+| <code>interface.8.ts-examples-marketplace-index-platform-ref-marketplace-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
+| <code>interface.8.ts-examples-marketplace-receipt-outcome-verifyprogramoutcome-j41</code> | notes | planned extraction of verifyOutcome at services/platform/examples/marketplace/index.mjs:133 |
+| <code>interface.8.ts-examples-paid-api-index-platform-ref-seller-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
+| <code>interface.8.ts-examples-support-merchant-app-platform-ref-merchant-j41</code> | notes | public item of its package; no in-repo caller outside the defining line found at HEAD |
+| <code>interface.8.ts-examples-support-runtime-sequencerreceiptclient-j41</code> | notes | planned replacement for ReceiptAuthorityClient at services/platform/examples/support/runtime.mjs:84 |

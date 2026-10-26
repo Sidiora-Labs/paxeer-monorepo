@@ -1,275 +1,927 @@
-# layerxpay precompile (escrow, budget, stream, service) and the D10 per-request draw reference
+# Pay contract: layerxpay 0x101B and the layerxpay module
 
-Name: layerxpay, address 0x101B (the address table, row 0x101B). Version: 1.0.3. Source revision: 52b672ac4.
-Change control: Changes only by amendment to this contract, recorded with a new version number.
-Binding decisions:
-- D2: derived bank address per DID plus sub-account suffix.
-- D3: sdk/x/authz LayerX-scope Authorization for delegated kinds; all eight kinds kept.
-- D6: Error(string) with prefix LXP_<code>.
-- D10: per-request draw, one receipt per request at USD 0.001, draw sender class min gas price at most 0.067 gwei; the address table places the draw at 0x101A layerxledger.
-- Service disputes gain an arbiter authority, and the linked escrow settles on the ruling (A.6).
-- One stream state: agent streams 0x0906 executes through the 0x101B stream keeper (A.7).
-- Gas is a fixed per-method table (D.2).
+This contract freezes the 0x101B layerxpay precompile (57 methods and 38 events of `precompiles/layerxpay/abi.json` over the escrow, budget, stream and service kernel modules 2 to 5), the layerxpay keeper, types, genesis, params, query and the pause and gas rules. At the pinned revision the ABI, the gas table and the Solidity binding exist but no executor or merge constructor serves 0x101B; `mergePrecompileGate` gates it on the layerxpay module (`node/upgrades.go:526`).
 
-Conventions, each taken from the code:
-- Activity type is (module_id<<16)|ordinal, with ESCROW=2, BUDGET=3, STREAM=4 and SERVICE=5 (include/layerx/lxp_module.h:16-19).
-- u64 and u128 are big-endian on the wire (src/modules/stream/lx_stream_payload.c:7-19, include/layerx/lxp_u128.h:24).
-- Times are milliseconds, compared against lxp_ctx_batch_timestamp_ms (include/layerx/lxp_module.h:151).
-- Amounts are raw asset base units.
-- "principal" is the resolved authority principal. lxp_authority_resolve_activity (src/state/lxp_authority.c:744) binds it to the signer DID. The precompile obtains it from the sender's DID binding at 0x1004.
-- "holder" is the account-holder principal recorded by the kernel record (the escrow opener, the budget creator; kernel record field `owner`, include/layerx/lx_escrow.h:49).
-- EVM authority: the shim builds an account-holder authority (kind LXP_AUTHORITY_OWNER, include/layerx/lxp_authority.h:12) from msg.sender's 0x1004 binding: verified_key = the bound 32-byte didPublicKey, principal = the kernel id derived from it; no envelope signature on the EVM path. A D3 authz grantee is the 0x1004-bound address of the grantee key; an unbound key is refused.
-- DID string: 0x1004 stores only the 32-byte didPublicKey (precompiles/addr/addr.go:391-399). The precompile derives the DID string "did:layerx:" + 64 lowercase hex of that key (modules/evm/types/layerx_binding.go:21; same encoding src/modules/bridge/lxp_bridge_credit.c:409-414); the caller passes nothing.
-- Error mapping (D6): LXP_ERR_<X> becomes LXP_<X>, and LXP_FATAL_<X> keeps its name. Every code listed below exists in include/layerx/lxp_result.h:30-160, including the three service-dispute codes of A.6 (LXP_ERR_ARBITER_REQUIRED -737, LXP_ERR_UNAUTHORIZED_ARBITER -738, LXP_ERR_ESCROW_LINK_MISMATCH -739, proposed values, final values set at activation rehearsal).
-- Common errors, shown as COMMON in the rows below: LXP_UNKNOWN_ACTIVITY, LXP_GAS_EXHAUSTED (lxp_ctx_charge_gas, src/protocol/lxp_module_ctx.c:3176), LXP_ARENA_EXHAUSTED, LXP_FATAL_INVARIANT, and on every write method outside the exit set in F, LXP_PAUSED_SCOPE (F pause row).
-- Gas: every method's gas comes from the fixed per-method table D.2, shown as D.2 in the rows below. The kernel's internal payload_length+1 charge (validate sites cited per module) is kernel accounting only and is not converted into EVM gas.
-- Account-holder authority kind: written LXP_AUTHORITY_OWNER below (include/layerx/lxp_authority.h:12); ledger authorization kinds are written with their identifiers (LXP_AUTH_OWNER, LXP_AUTH_BUDGET_ALLOWANCE, LXP_AUTH_PROTOCOL_MODULE, include/layerx/lxp_ledger.h:108-113).
+The pay keeper runs on the one shared kernel host and its store keeps Params only (decision.221). The 0x0906 agent streams precompile executes through the same stream keeper; its ABI is in [agent-functions.md](agent-functions.md#streams-0x0906).
 
-## A. Methods
+Revision `2a1033aa2`. Every `path:line` below was read at that revision; `(planned)` marks a file that does not exist there.
 
-### A.1 escrow (module 2; iface src/modules/escrow/lx_escrow_module.c:433; validate :176 charges payload_length+1; execute :361 returns LXP_MODULE_DISABLED without the runtime :380)
+```mermaid
+flowchart LR
+  caller["EVM caller"] --> pay["0x101B layerxpay"]
+  agent["0x0906 streams"] --> keeper
+  pay --> keeper["layerxpay keeper"]
+  keeper --> bind["0x1004 DID binding"]
+  keeper --> host["lxphost.Host shared store"]
+  host --> k2["escrow module 2"]
+  host --> k3["budget module 3"]
+  host --> k4["stream module 4"]
+  host --> k5["service module 5"]
+  gov["layerxgov pause scope"] --> keeper
+```
 
-| Solidity signature | inputs (type, unit, max length) | outputs | authority rule | effects | errors | kernel execution function | gas or fee rule |
-|---|---|---|---|---|---|---|---|
-| escrowOpen(bytes32 escrowId, bytes32 `owner`, bytes32 escrowAccount, bytes32 beneficiary, bytes32 arbiter, bytes32 assetId, uint128 amount, uint64 expiryMs, uint64 disputeWindowMs, bytes32 termsHash, bytes32 agreementReference) | wire 288 B fixed (decode_open lx_escrow_module.c:47); escrowId nonzero; amount base units >0 (:190); expiryMs absolute ms, 0 = no expiry; disputeWindowMs ABSOLUTE ms limit, 0 = disputes disabled; holder/escrowAccount/beneficiary account ids, arbiter principal id | none (escrowId is the handle) | bound DID holder via 0x1004; principal == holder, any authority kind (lx_escrow_module.c:222-223); holder account AGENT_MAIN, escrow account AGENT_ESCROW; v3: escrowAccount == account_id("agent:"+did+":escrow:"+hex(escrowId)) (src/protocol/lxp_module_ctx.c:884) | transfer holder→escrowAccount amount reason ESCROW_LOCK; kv "hold:"+escrowId (305 B) and "result:"+escrowId; event EscrowOpened | COMMON, LXP_LENGTH_LIMIT, LXP_NON_CANONICAL, LXP_ZERO_AMOUNT, LXP_MODULE_DISABLED, LXP_UNKNOWN_ACCOUNT_NAMESPACE, LXP_ACCOUNT_ID_MISMATCH, LXP_CONTEXT_MISMATCH, LXP_UNAUTHORIZED_DEBIT, LXP_ASSET_MISMATCH (lx_escrow_open.c:31), LXP_ESCROW_STATE (hold exists lx_escrow_open.c:33), LXP_IDEMPOTENT_REPLAY, LXP_OVERFLOW | lx_escrow_open_execute src/modules/escrow/lx_escrow_open.c:37 (validate_open :8) | D.2 |
-| escrowCapture(bytes32 escrowId, uint128 amount, bytes32 idempotencyKey) | wire 80 B (decode_capture lx_escrow_module.c:72); amount is bound into the replay digest only, the transfer is the full remaining balance | none | principal == beneficiary (any kind) OR (kind DELEGATED_CAPABILITY via D3 authz AND principal == holder) (authority_can_capture src/modules/escrow/lx_escrow_capture.c:18; refusal :78) | transfer escrowAccount→beneficiary remaining, reason ESCROW_CAPTURE, ledger kind ESCROW; hold state CAPTURED(3); kv "result:"+idempotencyKey; event EscrowCaptured | COMMON, LXP_LENGTH_LIMIT, LXP_NON_CANONICAL, LXP_MODULE_DISABLED, LXP_ESCROW_STATE, LXP_CONTEXT_MISMATCH (:52), LXP_HOLD_EXPIRED (:67, :75), LXP_HOLD_DISPUTED (:69), LXP_UNAUTHORIZED_CAPTURE, LXP_CAPTURE_EXCEEDS_HOLD (:88, :90), LXP_OVERFLOW, LXP_ZERO_AMOUNT, LXP_IDEMPOTENT_REPLAY, LXP_UNKNOWN_ACCOUNT_NAMESPACE | lx_escrow_capture_execute lx_escrow_capture.c:118 → execute_capture :28 | D.2 |
-| escrowPartialCapture(bytes32 escrowId, uint128 amount, bytes32 idempotencyKey) | as capture; 0 < amount < remaining (lx_escrow_capture.c:88-90; zero lx_escrow_module.c:193) | none | as escrowCapture | transfer escrowAccount→beneficiary amount; state PARTIALLY_CAPTURED(2); result record; event EscrowPartiallyCaptured | as escrowCapture | lx_escrow_partial_capture_execute lx_escrow_capture.c:125 | D.2 |
-| escrowRelease(bytes32 escrowId, bytes32 idempotencyKey) | wire 64 B (decode_release lx_escrow_module.c:89) | none | principal == holder, any kind (src/modules/escrow/lx_escrow_timeout.c:59) | transfer escrowAccount→holder remaining (none if 0), reason ESCROW_RELEASE; state RELEASED(4); result record; event EscrowReleased | COMMON, LXP_LENGTH_LIMIT, LXP_NON_CANONICAL, LXP_MODULE_DISABLED, LXP_ESCROW_STATE (:48, :52), LXP_CONTEXT_MISMATCH (:31), LXP_HOLD_DISPUTED (:47), LXP_UNAUTHORIZED_DEBIT, LXP_OVERFLOW, LXP_IDEMPOTENT_REPLAY | lx_escrow_release_execute lx_escrow_timeout.c:90 → execute_release :9 | D.2 |
-| escrowTimeout(bytes32 escrowId, bytes32 idempotencyKey) | wire 64 B | none | permissionless: any admitted signer (no principal check, lx_escrow_timeout.c:54-59 path) | as release, state TIMED_OUT(7); event EscrowTimedOut | as escrowRelease minus LXP_UNAUTHORIZED_DEBIT, plus LXP_NOT_YET_VALID (:56) | lx_escrow_timeout_execute lx_escrow_timeout.c:97 | D.2 |
-| escrowDisputeOpen(bytes32 escrowId) | wire 32 B (decode_dispute lx_escrow_module.c:103); no idempotency key | none | principal == holder OR beneficiary, any kind (party_authorized src/modules/escrow/lx_escrow_dispute.c:8; refusal :27) | state DISPUTED(5); no balance move; no result record; event EscrowDisputed | COMMON, LXP_LENGTH_LIMIT, LXP_NON_CANONICAL, LXP_MODULE_DISABLED, LXP_ESCROW_STATE, LXP_UNKNOWN_ACCOUNT_NAMESPACE, LXP_UNAUTHORIZED_DEBIT, LXP_DISPUTE_WINDOW_CLOSED (:30) | lx_escrow_dispute_open_execute lx_escrow_dispute.c:16 | D.2 |
-| escrowDisputeResolve(bytes32 escrowId, uint32 beneficiaryBps, bytes32 idempotencyKey) | wire 68 B; beneficiaryBps 0..10000 (lx_escrow_module.c:196) | none | principal == arbiter, any kind (lx_escrow_dispute.c:91-92) | split balance floor(bal·bps/10000) to beneficiary, rest to holder, reason ESCROW_RESOLVE (lx_escrow_split_bps :35); state RESOLVED(6); result record; event EscrowResolved | COMMON, LXP_LENGTH_LIMIT, LXP_NON_CANONICAL, LXP_PARAMETER_BOUNDS, LXP_MODULE_DISABLED, LXP_ESCROW_STATE (:90), LXP_CONTEXT_MISMATCH, LXP_UNAUTHORIZED_DEBIT, LXP_CONSERVATION, LXP_OVERFLOW, LXP_ZERO_AMOUNT, LXP_IDEMPOTENT_REPLAY | lx_escrow_dispute_resolve_execute lx_escrow_dispute.c:49 | D.2 |
+## Contents
 
-### A.2 budget (module 3; iface src/modules/budget/lx_budget_module.c:777; validate :704 charges payload_length+1; every method passes budget_authorized_signer :257)
-Common budget authority (BA):
-- kind must be LXP_AUTHORITY_OWNER (lx_budget_module.c:266).
-- activity authority bytes must equal verified_key, and the payload hash and ed25519 signature are re-verified (:267-278).
-- The signer account is AGENT_MAIN named "agent:"+did+":main" (:282-285).
-- The sequence is checked against signer.next_sequence (:289-292).
-- D3 authz kinds are refused.
-- EVM path: the shim-built LXP_AUTHORITY_OWNER authority (verified_key = 0x1004-bound key) stands in for the envelope; the payload-hash and signature re-verification (:277-278) has no envelope to check and is replaced by the 0x1004 binding; the signer account check (:279-286) and the sequence check (:287-292, sequence presented = signer.next_sequence) run unchanged.
+- [layerxpay-0x101b](#layerxpay-0x101b)
+- [escrow](#escrow)
+- [budget](#budget)
+- [stream](#stream)
+- [service](#service)
+- [views](#views)
+- [events](#events)
+- [errors](#errors)
+- [gas](#gas)
+- [authority](#authority)
+- [idempotency](#idempotency)
+- [execution](#execution)
+- [pause](#pause)
+- [pay-keeper](#pay-keeper)
+- [pay-types](#pay-types)
+- [pay-genesis](#pay-genesis)
+- [genesis](#genesis)
+- [queries](#queries)
+- [msg-layerxpay-updateparams](#msg-layerxpay-updateparams)
+- [proto-layerxpay-params](#proto-layerxpay-params)
+- [proto-layerxpay-msgupdateparams](#proto-layerxpay-msgupdateparams)
+- [proto-layerxpay-msgupdateparamsresponse](#proto-layerxpay-msgupdateparamsresponse)
+- [decisions](#decisions)
 
-Common budget errors (BE): COMMON, LXP_NON_CANONICAL, LXP_UNAUTHORIZED_DEBIT, LXP_SEQUENCE_REUSED, LXP_SEQUENCE_GAP and LXP_CONTEXT_MISMATCH.
+## layerxpay-0x101b
 
-| Solidity signature | inputs (type, unit, max length) | outputs | authority rule | effects | errors | kernel execution function | gas or fee rule |
-|---|---|---|---|---|---|---|---|
-| budgetCreate(bytes32 budgetId, bytes32 budgetAccount, bytes32 assetId, bytes32 purposeHash, uint128 perPeriodLimit, uint128 carryCap, uint128 amount, uint64 periodLengthMs, uint64 periodStartMs, uint64 expiryMs, uint64 revocationSequence, uint8 rolloverPolicy) | wire v1 211 B (lx_budget_create_decode src/modules/budget/lx_budget_codec.c:130); amount, perPeriodLimit >0; rolloverPolicy 1 NONE (carryCap 0) / 2 CAPPED | none | BA; budgetAccount AGENT_BUDGET "agent:"+did+":budget:"+suffix; v3 id = account_id("agent:"+did+":budget:"+hex(budgetId)) (lxp_module_ctx.c:885) | transfer holder main→budgetAccount amount, reason BUDGET_FUND, kind LXP_AUTH_OWNER; kv "budget:"+budgetId; event BudgetCreated | BE, LXP_INVALID_AMOUNT, LXP_ARENA_EXHAUSTED, LXP_ACCOUNT_ID_MISMATCH, LXP_UNKNOWN_ACCOUNT_NAMESPACE, LXP_ASSET_MISMATCH, LXP_OVERFLOW | budget_execute_create lx_budget_module.c:312 | D.2 |
-| budgetCreateNative(bytes32 budgetId, bytes32 budgetAccount, bytes32 assetId, bytes32 purposeHash, uint128 perPeriodLimit, uint128 carryCap, uint128 amount, uint64 periodLengthMs, uint64 periodStartMs, uint64 expiryMs, uint64 revocationSequence, uint8 rolloverPolicy, bytes32 sourceAccount, uint64 sourceSequence) | wire v2 251 B (lx_budget_codec.c:141-160); protocol_version 3 only | none | BA; source = lxp_kernel_program_payment_account(actor, asset) (budget_business_source lx_budget_module.c:295) | as budgetCreate with source→budgetAccount | as budgetCreate plus LXP_VERSION_UNSUPPORTED | budget_execute_create lx_budget_module.c:312 | D.2 |
-| budgetFund(bytes32 budgetId, uint128 amount) / budgetFundNative(bytes32 budgetId, uint128 amount, uint64 sourceSequence) | wire v1 50 B / v2 58 B (lx_budget_amount_decode lx_budget_codec.c:173) | none | BA; `record.owner` == signer (lx_budget_module.c:383-384) | transfer source→budgetAccount, reason BUDGET_FUND; record unchanged; event BudgetFunded | BE, LXP_INVALID_AMOUNT, LXP_UNKNOWN_FIELD (closed), LXP_BUDGET_REVOKED, LXP_VERSION_UNSUPPORTED, LXP_ASSET_MISMATCH, LXP_OVERFLOW | budget_execute_fund lx_budget_module.c:370 | D.2 |
-| budgetAmend(bytes32 budgetId, uint128 perPeriodLimit, uint128 carryCap, uint64 expiryMs, uint8 rolloverPolicy) | wire 75 B (lx_budget_codec.c:197) | none | BA + holder (lx_budget_module.c:413-414) | record limit/carry/expiry/rollover; event BudgetAmended | BE, LXP_INVALID_AMOUNT, LXP_UNKNOWN_FIELD, LXP_BUDGET_REVOKED, LXP_BUDGET_PERIOD_CAP, LXP_OVERFLOW | budget_execute_amend lx_budget_module.c:402 | D.2 |
-| budgetDelegateAdd(bytes32 budgetId, bytes32 delegateActor) | wire 66 B (lx_budget_codec.c:221); delegateActor = DID-derived actor id; max 16 | none | BA + holder (lx_budget_module.c:445-446) | record delegate set (sorted); event BudgetDelegateAdded | BE, LXP_UNKNOWN_FIELD, LXP_BUDGET_REVOKED, LXP_SEQUENCE_REUSED (dup), LXP_ARENA_EXHAUSTED (16) | budget_execute_delegate lx_budget_module.c:435 → lx_budget_delegate_add_execute src/modules/budget/lx_budget_delegate.c:30 | D.2 |
-| budgetDelegateRemove(bytes32 budgetId, bytes32 delegateActor) | wire 66 B | none | BA + holder | record delegate set; event BudgetDelegateRemoved | BE, LXP_UNKNOWN_FIELD, LXP_BUDGET_REVOKED, LXP_UNAUTHORIZED_DELEGATE | budget_execute_delegate lx_budget_module.c:435 → lx_budget_delegate_remove_execute lx_budget_delegate.c:52 | D.2 |
-| budgetSpend(bytes32 budgetId, bytes32 recipient, uint128 amount) | wire 82 B (lx_budget_codec.c:239); recipient account id AGENT_MAIN (AGENT_ASSET if native) | none | BA; signer == holder OR authority->actor in delegate set (lx_budget_module.c:470-472) | transfer budgetAccount→recipient, reason BUDGET_SPEND, kind LXP_AUTH_BUDGET_ALLOWANCE; record spent (lazy rollover); event BudgetSpent | BE, LXP_INVALID_AMOUNT, LXP_UNAUTHORIZED_DELEGATE, LXP_UNKNOWN_FIELD, LXP_UNKNOWN_ACCOUNT_NAMESPACE, LXP_BUDGET_REVOKED, LXP_EXPIRED, LXP_TIMESTAMP_REGRESSION, LXP_OVERFLOW, LXP_BUDGET_ALLOWANCE_EXCEEDED, LXP_INSUFFICIENT_BUDGET_FUNDS, LXP_ASSET_MISMATCH | budget_execute_spend lx_budget_module.c:457 | D.2 |
-| budgetClose(bytes32 budgetId, uint64 revocationSequence) | wire 42 B (lx_budget_codec.c:261); revocationSequence > stored | none | BA + holder (lx_budget_module.c:512-513) | drain balance to refund (holder main or native source), reason BUDGET_DEFUND; closed=true; event BudgetClosed | BE, LXP_UNKNOWN_FIELD, LXP_STALE_REVOCATION, LXP_VERSION_UNSUPPORTED, LXP_UNKNOWN_ACCOUNT_NAMESPACE, LXP_ASSET_MISMATCH, LXP_OVERFLOW | budget_execute_close lx_budget_module.c:499 | D.2 |
-| budgetDefund(bytes32 budgetId, uint128 amount) | wire 50 B (lx_budget_codec.c:279) | none | BA + holder (lx_budget_module.c:553-554) | transfer budgetAccount→refund amount, reason BUDGET_DEFUND; per_period_limit lowered (lx_budget_defund_limit src/modules/budget/lx_budget_close.c:62); event BudgetDefunded | BE, LXP_INVALID_AMOUNT, LXP_UNKNOWN_FIELD, LXP_BUDGET_REVOKED, LXP_INSUFFICIENT_BUDGET_FUNDS, LXP_VERSION_UNSUPPORTED, LXP_ASSET_MISMATCH, LXP_OVERFLOW | budget_execute_defund lx_budget_module.c:567 | D.2 |
-| budgetRevoke(bytes32 budgetId, uint64 revocationSequence) | wire 42 B (lx_budget_codec.c:298) | none | BA + holder | drain to refund; revoked=true, per_period_limit=spent; event BudgetRevoked | as budgetClose plus LXP_BUDGET_REVOKED | budget_execute_revoke lx_budget_module.c:601 | D.2 |
-| budgetPull(bytes32 budgetId, bytes32 recipient, uint128 amount, bytes payerGrant) | executes through a kernel activity type that reaches lx_budget_pull_execute (src/modules/budget/lx_budget_delegate.c:146), added as a required change; payerGrant = lxp_payer_grant canonical encoding (include/layerx/lxp_ledger.h:198-214), ed25519-signed by the budget holder's authority key | none | the executor checks no caller; authorization is the payer grant (pull_authorize lx_budget_delegate.c:126-144): lxp_verify_payer_grant against the holder account (src/ledger/lxp_grant_store.c:72-99), grant.from == `record.owner`, grant.recipient == recipient, asset and purpose match, amount ≤ per_draw_maximum and ≤ allowance, expiration ≥ now, revocation_sequence == the record's; the caller rule of the new activity type is defined with that activity type | as budgetSpend (lx_budget_spend_execute via lx_budget_delegate.c:162); the pull records the grant drawn total (today no lxp_grant_draw_record call in :146-163; required change) | COMMON, LXP_GRANT_SCOPE_VIOLATION (:142, :155), LXP_MALFORMED_GRANT, LXP_BAD_SIGNATURE (lxp_grant_store.c:89-99), plus the budgetSpend errors | lx_budget_pull_execute lx_budget_delegate.c:146 (reached through the new activity type) | D.2 |
-| budgetDelegateSpend(bytes32 budgetId, bytes32 recipient, uint128 amount) | executes through a kernel activity type that reaches lx_budget_delegate_spend_execute (lx_budget_delegate.c:101), added as a required change; the delegate capability (include/layerx/lx_budget.h:102-113: holder, asset, recipient, maximum_per_spend, maximum_total, consumed, expiry, revocation_sequence, purpose_hash, revoked) is persisted in a kv store added with that activity type | none | submitter ∈ record delegate set and capability.holder == submitter, asset, recipient, purpose, expiry, revocation_sequence, per-spend and total caps (lx_budget_authorize_delegate lx_budget_delegate.c:71-99) | as budgetSpend; capability.consumed += amount, rolled back on spend failure (:115-122) | COMMON, LXP_UNAUTHORIZED_DELEGATE (:83, :93, :96), plus the budgetSpend errors | lx_budget_delegate_spend_execute lx_budget_delegate.c:101 (reached through the new activity type) | D.2 |
+Precompile 0x000000000000000000000000000000000000101B: the full ABI method and event tables. Family sections below repeat the rows of their family.
 
-### A.3 stream (module 4; iface src/modules/stream/lx_stream_open.c:193; validate :143 charges payload_length+1 (:163); execute :168 → stream_execute_typed src/modules/stream/lx_stream_execution.h:353; this keeper holds the only stream state, agent streams 0x0906 executes through it, see A.7)
-- Stream authority (SA): the kind must be LXP_AUTHORITY_OWNER, SESSION_KEY or DELEGATED_CAPABILITY, and the principal must be nonzero (lx_stream_open.c:157-160). Delegated kinds come through the D3 authz grant.
-- Every wire payload starts with the 2-byte header [0x00, 0x01] (lx_stream_payload.c:21-36).
+| Aspect | Rule |
+|---|---|
+| Authority | Every write acts for the LayerX DID bound to msg.sender through the 0x1004 binding; an unbound caller is refused before any kernel call and no envelope signature is checked (decision.206). serviceDisputeResolve is refused from any caller other than the escrow arbiter with LXP_UNAUTHORIZED_ARBITER before HostExecute (decision.240). |
+| Effects | Each write submits exactly one kernel activity through HostExecute on the caller gas meter and emits its event after the commit (decision.234); escrowPartialCapture and escrowTimeout reuse the capture and release payloads (decision.222). |
 
-| Solidity signature | inputs (type, unit, max length) | outputs | authority rule | effects | errors | kernel execution function | gas or fee rule |
-|---|---|---|---|---|---|---|---|
-| streamOpen(bytes32 streamId, bytes32 streamAccount, bytes32 recipient, bytes32 assetId, uint8 mode, uint128 rate, uint64 rateUnit, uint64 startMs, uint64 endMs, uint128 totalCap, uint128 initialFunding, bytes32[] meterAuthorities) | wire 204 B + 32·n, n ≤ 8 (lx_stream_open_decode lx_stream_payload.c:82); mode 1 TIME (n=0) / 2 METERED (n≥1); meterAuthorities ed25519 keys, nonzero, strictly ascending; rate, rateUnit, startMs, totalCap, initialFunding nonzero; endMs 0 = open-ended else > startMs; streamAccount ≠ recipient | none | SA; payer := principal (lx_stream_execution.h:162); payer account AGENT_MAIN, streamAccount AGENT_STREAM (fund_check lx_stream_open.c:234); v3 streamAccount = account_id("agent:"+did+":stream:"+hex(streamId)) (lxp_module_ctx.c:886) | transfer payer→streamAccount initialFunding, reason STREAM_FUND, kind LXP_AUTH_OWNER (fund_context lx_stream_open.c:204); kv "stream:"+streamId (541 B); event StreamOpened | COMMON, LXP_NON_CANONICAL, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_UNAUTHORIZED_DEBIT, LXP_SEQUENCE_REUSED (lx_stream_open.c:277), LXP_ASSET_MISMATCH, LXP_ASSET_PAUSED (lx_stream_execution.h:27), LXP_ACCOUNT_ID_MISMATCH, LXP_OVERFLOW | lx_stream_open_execute lx_stream_open.c:249 (via stream_execute_open lx_stream_execution.h:147) | D.2 |
-| streamTopUp(bytes32 streamId, uint128 amount) | wire 50 B (lx_stream_amount_decode lx_stream_payload.c:177); amount >0 | none | SA; principal == payer (lx_stream_execution.h:199-200) | transfer payer→streamAccount amount, reason STREAM_FUND; clears underfunded; event StreamToppedUp | COMMON, LXP_NON_CANONICAL, LXP_VERSION_UNSUPPORTED, LXP_UNAUTHORIZED_DEBIT, LXP_STREAM_CLOSED, LXP_NON_MONOTONIC_TIME (lx_stream_open.c:309), LXP_ASSET_PAUSED, LXP_ASSET_MISMATCH | lx_stream_top_up_execute lx_stream_open.c:288 (via lx_stream_execution.h:184) | D.2 |
-| streamMeter(bytes32 streamId, uint64 cumulativeReading, bytes32 authorityKey, bytes signature) | wire 138 B (lx_stream_meter_decode lx_stream_payload.c:212); signature exactly 64 B ed25519 | none | SA (any principal; no payer check, lx_stream_execution.h:221); authorityKey ∈ record.meterAuthorities and ed25519 over "LXP:STREAM:METER:v1"‖streamId‖reading‖authorityKey, domain SIGNATURE_PREIMAGE (lx_stream_meter_authority_check src/modules/stream/lx_stream_meter.c:27) | accrual accrued += floor((rate·Δreading + carry)/rateUnit) capped at totalCap (lx_stream_meter.c:58); kv stream record; event StreamMetered | COMMON, LXP_NON_CANONICAL, LXP_VERSION_UNSUPPORTED, LXP_UNAUTHORIZED_DEBIT, LXP_STREAM_CLOSED, LXP_UNAUTHORIZED_METER, LXP_METER_REGRESSION, LXP_ACCRUAL_OVERFLOW, LXP_NON_MONOTONIC_TIME, LXP_EXPIRED (stream_meter_window lx_stream_open.c:87-94) | lx_stream_meter_execute lx_stream_meter.c:113 (via lx_stream_execution.h:221) | D.2 |
-| streamSettle(bytes32 streamId, bytes32 idempotencyKey) | wire 66 B (lx_stream_keyed_decode lx_stream_payload.c:247) | none (replay of the key returns the stored result) | SA; principal == payer OR recipient (lx_stream_execution.h:257-259) | TIME mode accrues to now; pays min(unsettled, balance) streamAccount→recipient, reason STREAM_DRAW, kind LXP_AUTH_PROTOCOL_MODULE; short balance marks underfunded; kv stream record + "result:"+idempotencyKey (99 B); event StreamSettled | COMMON, LXP_NON_CANONICAL, LXP_VERSION_UNSUPPORTED, LXP_UNAUTHORIZED_DEBIT, LXP_CONTEXT_MISMATCH (lx_stream_settle.c:120), LXP_STREAM_CLOSED (:125), LXP_NON_MONOTONIC_TIME, LXP_ACCRUAL_OVERFLOW, LXP_OVERFLOW | lx_stream_settle_execute src/modules/stream/lx_stream_settle.c:95 (via lx_stream_execution.h:242) | D.2 |
-| streamPause(bytes32 streamId) | wire 34 B (lx_stream_id_decode lx_stream_payload.c:278) | none | SA; principal == payer (lifecycle_load src/modules/stream/lx_stream_lifecycle.c:19-20) | TIME mode accrues to now; paused=true (idempotent if already paused); event StreamPaused | COMMON, LXP_NON_CANONICAL, LXP_VERSION_UNSUPPORTED, LXP_UNAUTHORIZED_DEBIT, LXP_STREAM_CLOSED, LXP_NON_MONOTONIC_TIME, LXP_ACCRUAL_OVERFLOW | lx_stream_pause_execute lx_stream_lifecycle.c:24 (via lx_stream_execution.h:284) | D.2 |
-| streamResume(bytes32 streamId) | wire 34 B | none | SA; principal == payer (lx_stream_lifecycle.c:19-20) | last_accrual := now; paused=false; event StreamResumed | as streamPause | lx_stream_resume_execute lx_stream_lifecycle.c:44 | D.2 |
-| streamClose(bytes32 streamId, bytes32 idempotencyKey) | wire 66 B | none | SA; principal == payer (lx_stream_lifecycle.c:19-20) | pays min(unsettled, balance) → recipient (STREAM_DRAW), remainder → payer (STREAM_REFUND); closed=true; kv record + result; event StreamClosed | COMMON, LXP_NON_CANONICAL, LXP_VERSION_UNSUPPORTED, LXP_UNAUTHORIZED_DEBIT, LXP_CONTEXT_MISMATCH (lx_stream_lifecycle.c:113), LXP_STREAM_CLOSED, LXP_NON_MONOTONIC_TIME, LXP_ACCRUAL_OVERFLOW, LXP_OVERFLOW | lx_stream_close_execute lx_stream_lifecycle.c:87 (via lx_stream_execution.h:312) | D.2 |
+Contract context `2.layerxpay-0x101b`:
 
-### A.4 service (module 5; iface src/modules/service/lx_service_module.c:445; validate :48 requires nonzero principal, any kind, charges payload_length+1 :61; execute :358 charges payload_length+1 again :373; lx_service_effect_audit src/modules/service/lx_service_dispute.c:106 makes any transfer effect LXP_FATAL_INVARIANT, so service never moves balances)
-- Every wire payload starts with the 2-byte header [0x00, 0x01] (lx_service_payload.c:7-13).
-- Every event body is 73 B: primary bytes32, secondary bytes32, code u8, sequence u64 (lx_service_emit src/modules/service/lx_service_state.c:1040).
-- Agreement states are the lx_service_agreement_state values (include/layerx/lx_service.h:101-110): FORMED 1, COMMITTED 2, DELIVERED 3, ACCEPTED 4, LX_SERVICE_AGREEMENT_REJECTED 5, DISPUTED 6, RESOLVED 7, PROPOSED 8.
+| Aspect | Rule |
+|---|---|
+| Interface | Precompile 0x000000000000000000000000000000000000101B named layerxpay: 57 ABI methods of precompiles/layerxpay/abi.json over the escrow, budget, stream and service kernel modules 2 to 5, and its Solidity binding |
+| Storage | No precompile-owned state; every write submits one kernel activity through the pay keeper on the shared layerxhost store (decision.221) and every view decodes the kernel record read back through the host |
+| Errors | Error(string) reasons LXP_&lt;CODE&gt; from kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320), the layerxpay codespace codes 4 to 6 through PayRevertCode and LXP_PAUSED_SCOPE 735 from layerxgov |
+| Events | One 0x101B log per successful write as listed in the events context layerxpay-0x101b-events |
+| Gas | methodGas rows of precompiles/layerxpay/gas.go:18-76 charged by the framework WithGasTable (decision.235): escrow writes 60000, dispute open 30000, plus DefaultGasCost of the input; views charge the read rows |
+| Activation | Served from the height where MergeUpgrade is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxpay module (node/upgrades.go:526) |
+| Invariants | Every write acts for the DID bound to the EVM caller (decision.236); idempotency keys and stream ids are never zero (decision.223); the ledger effect of a call equals its kernel receipt |
+| Pause | Params.Paused refuses every write except escrowRelease, escrowTimeout, budgetClose, budgetDefund, budgetRevoke, streamPause, streamClose, serviceOfferWithdraw and serviceCommitAbandon (modules/layerxgov/types/proposal.go:28-32); views always answer |
 
-| Solidity signature | inputs (type, unit, max length) | outputs | authority rule | effects | errors | kernel execution function | gas or fee rule |
-|---|---|---|---|---|---|---|---|
-| serviceOfferPublish(bytes32 offerId, bytes32 assetId, uint128 price, bytes32 termsHash, bytes32 deliverableSpecHash, uint64 deliveryDeadlineMs, uint64 acceptanceWindowMs, uint64 disputeWindowMs, uint8 defaultOutcome, uint64 offerExpiryMs) | wire 179 B (offer_publish_decode lx_service_payload.c:16); all nonzero; deliveryDeadlineMs and offerExpiryMs absolute ms, acceptance/dispute windows are durations ms; defaultOutcome 1 ACCEPT / 2 REJECT | none | any kind; offeringAgent := principal (lx_service_module.c:75) | kv "offer::1"+offerId (252 B); event OfferPublished | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_UNAUTHORIZED_DEBIT, LXP_SEQUENCE_REUSED, LXP_MODULE_MAY_NOT_WRITE_BALANCE | lx_service_offer_publish_execute src/modules/service/lx_service_offer.c:33 | D.2 |
-| serviceOfferWithdraw(bytes32 offerId) | wire 34 B (identifier_decode lx_service_payload.c:54) | none | principal == offeringAgent (lx_service_offer.c:70-71) | offer.withdrawn=true; event OfferWithdrawn | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_OFFER_UNAVAILABLE, LXP_UNAUTHORIZED_DEBIT | lx_service_offer_withdraw_execute lx_service_offer.c:56 | D.2 |
-| serviceAgreementPropose(bytes32 agreementId, bytes32 offerId, bytes32 termsHash, bytes32 escrowId) | wire 130 B (agreement_propose_decode lx_service_payload.c:68) | none | buyer := principal; buyer ≠ offeringAgent (src/modules/service/lx_service_agreement.c:25-32) | kv "agree::1"+agreementId state PROPOSED(8), windows = deadline+acceptance, +dispute; event AgreementProposed | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_UNAUTHORIZED_DEBIT, LXP_OFFER_UNAVAILABLE, LXP_TERMS_MISMATCH, LXP_SEQUENCE_REUSED, LXP_OVERFLOW | lx_service_agreement_propose_execute lx_service_agreement.c:8 | D.2 |
-| serviceAgreementAccept(bytes32 agreementId) | wire 34 B | none | principal == provider (lx_service_agreement.c:80-81) | agreement FORMED(1); offer.accepted=true; event AgreementAccepted | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_AGREEMENT_STATE, LXP_UNAUTHORIZED_DEBIT, LXP_OFFER_UNAVAILABLE, LXP_TERMS_MISMATCH | lx_service_agreement_accept_execute lx_service_agreement.c:63 | D.2 |
-| serviceCommitTask(bytes32 commitmentId, bytes32 agreementId, bytes32 taskHash, bytes32 escrowId, uint64 deadlineMs, uint64 resourceBound) | wire 146 B (commit_task_decode lx_service_payload.c:92); deadlineMs (lx_service_commitment field `deadline`, include/layerx/lx_service.h:157) and resourceBound nonzero; escrowId may be zero | none (existing id returns it unchanged, src/modules/service/lx_service_commit.c:36-40) | provider := principal; principal == agreement.provider and state FORMED (:44-47) | kv "commit:1"+commitmentId (220 B); agreement COMMITTED(2); event TaskCommitted | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_AGREEMENT_STATE, LXP_MODULE_MAY_NOT_WRITE_BALANCE | lx_service_commit_task_execute lx_service_commit.c:26 | D.2 |
-| serviceCommitAbandon(bytes32 commitmentId, uint16 reason) | wire 36 B (commit_abandon_decode lx_service_payload.c:117); reason nonzero | none | principal == commitment.provider (lx_service_commit.c:80-82) | commitment.abandoned; agreement back to FORMED; event CommitAbandoned | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_AGREEMENT_STATE, LXP_MODULE_MAY_NOT_WRITE_BALANCE | lx_service_commit_abandon_execute lx_service_commit.c:61 | D.2 |
-| serviceToolExecAttest(bytes execution) | wire exactly 416 B (lx_service_execution_decode src/modules/service/lx_service_attest.c:67): attestationId, activityId, agreementId, commitmentId, toolId, inputCommitmentHash, outputCommitmentHash (bytes32 each), executionStartMs, executionEndMs, resourceUnits (u64), attestorIdentity, availabilityReference, publicKey (bytes32), signature (64 B), globalSequence (u64, overwritten) | none | grant built from authority: attestorIdentity == principal, publicKey == verified_key (lx_service_module.c:207-211); commitment.provider == principal (lx_service_attest.c:132); the activityId check binds to the activity idempotency key (required change at lx_service_module.c:205-206: the activity id hashes the canonical encoding that includes payload_hash and payload bytes, src/protocol/lxp_kernel.c:379-381 and src/protocol/lxp_activity.c:65-69, so a payload cannot carry its own activity id; tests set ctx.activity_id directly, tests/modules/test_service_helpers.h:91); EVM path: verified_key = the caller's 0x1004-bound key, so publicKey must equal it; ed25519 over "LXP:SERVICE:ATTEST:v1"‖fields (lx_service_attestation_bytes lx_service_attest.c:8, verify :137) | kv "execut:1"+attestationId (417 B); event ExecutionAttested | COMMON, LXP_NON_CANONICAL, LXP_INVALID_ATTESTATION, LXP_SEQUENCE_REUSED, LXP_LENGTH_LIMIT, LXP_MODULE_MAY_NOT_WRITE_BALANCE | lx_service_tool_exec_attest_execute lx_service_attest.c:144 | D.2 |
-| serviceProgressReport(bytes32 reportId, bytes32 commitmentId, bytes32 noteHash, bytes32 availabilityReference, uint32 progressBps) | wire 134 B (progress_decode lx_service_payload.c:136); progressBps 1..10000, strictly above high-water | none | provider := principal == commitment.provider (lx_service_commit.c:128-131) | kv "progrs:1"+reportId (245 B); event ProgressReported (code 1 at 10000) | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_PARAMETER_BOUNDS, LXP_SEQUENCE_REUSED, LXP_AGREEMENT_STATE, LXP_DELIVERY_DEADLINE_PASSED, LXP_METER_REGRESSION | lx_service_progress_report_execute lx_service_commit.c:99 | D.2 |
-| serviceDeliver(bytes32 deliveryId, bytes32 agreementId, (bytes32 hash, uint64 artifactSizeBytes, bytes32 availabilityReference)[] deliverables) | wire 67 + 72·n, n 1..16 (deliver_decode lx_service_payload.c:163); each hash == offer.deliverableSpecHash | none | principal == agreement.provider; state COMMITTED or LX_SERVICE_AGREEMENT_REJECTED (src/modules/service/lx_service_deliver.c:80-85) | kv "delivr:1"+deliveryId (138 B) + "delitm:1" items; agreement DELIVERED(3) from COMMITTED; event Delivered | COMMON, LXP_TRUNCATED, LXP_LENGTH_LIMIT, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_AGREEMENT_STATE, LXP_DELIVERY_DEADLINE_PASSED, LXP_DELIVERABLE_MISMATCH, LXP_DA_MISSING, LXP_SEQUENCE_REUSED | lx_service_deliver_execute lx_service_deliver.c:63 | D.2 |
-| serviceAccept(bytes32 agreementId) | wire 34 B | none | principal == buyer; state DELIVERED; now ≤ acceptanceWindowEnd (outcome_agreement src/modules/service/lx_service_acceptance.c:8-25) | agreement ACCEPTED(4); event OutcomeAccepted | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_AGREEMENT_STATE | lx_service_accept_execute lx_service_acceptance.c:29 | D.2 |
-| serviceReject(bytes32 agreementId, uint16 reason, bytes32[] contestedHashes) | wire 37 + 32·n, n 1..16, unique nonzero (reject_decode lx_service_payload.c:199); reason nonzero | none | as serviceAccept | agreement LX_SERVICE_AGREEMENT_REJECTED (5) with sorted contested hashes; event OutcomeRejected | COMMON, LXP_TRUNCATED, LXP_LENGTH_LIMIT, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_DUPLICATE_ENTRY, LXP_AGREEMENT_STATE, LXP_DELIVERABLE_MISMATCH | lx_service_reject_execute lx_service_acceptance.c:57 | D.2 |
-| serviceDisputeOpen(bytes32 disputeId, bytes32 agreementId, bytes32[] evidenceHashes) | wire 67 + 32·n, n 1..16, unique nonzero (dispute_open_decode lx_service_payload.c:224) | none | raiser := principal ∈ {provider, buyer}; state LX_SERVICE_AGREEMENT_REJECTED; now ≤ disputeWindowEnd (lx_service_dispute.c:33-41); the linked escrow passes the A.6 link check and the escrow dispute-open rule (party, active state, escrow window; lx_escrow_dispute.c:25-30) | kv "disput:1"+disputeId; agreement DISPUTED(6); event DisputeOpened; linked escrow state DISPUTED (lx_escrow_dispute.c:31-32), event EscrowDisputed (A.6) | COMMON, LXP_TRUNCATED, LXP_LENGTH_LIMIT, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_NON_CANONICAL, LXP_DUPLICATE_ENTRY, LXP_AGREEMENT_STATE, LXP_UNAUTHORIZED_DISPUTANT, LXP_DISPUTE_WINDOW_CLOSED, LXP_SEQUENCE_REUSED, LXP_ESCROW_LINK_MISMATCH, LXP_ARBITER_REQUIRED, LXP_ESCROW_STATE, LXP_UNAUTHORIZED_DEBIT | lx_service_dispute_open_execute lx_service_dispute.c:15, then lx_escrow_dispute_open_execute src/modules/escrow/lx_escrow_dispute.c:16 (A.6) | D.2 |
-| serviceDisputeResolve(bytes32 disputeId, uint16 ruling, uint32 providerBps, bytes32 escrowResolutionId) | wire 72 B (dispute_resolve_decode lx_service_payload.c:250); ruling nonzero; providerBps 0..10000; escrowResolutionId nonzero, used as the escrow settlement idempotency key | none | principal == linked escrow arbiter (A.6 arbiter authorization); this replaces the kernel's provider-or-buyer rule (lx_service_dispute.c:87-90; change relative to kernel lx_service_dispute.c:89) | dispute resolved; agreement RESOLVED(7); event DisputeResolved; linked escrow settled by the A.6 legs, escrow state RESOLVED, escrow result record under escrowResolutionId, event EscrowResolved | COMMON, LXP_TRUNCATED, LXP_TRAILING_BYTES, LXP_VERSION_UNSUPPORTED, LXP_PARAMETER_BOUNDS, LXP_AGREEMENT_STATE, LXP_UNAUTHORIZED_DISPUTANT (agreement not DISPUTED, lx_service_dispute.c:87-88), LXP_UNAUTHORIZED_ARBITER, LXP_ESCROW_LINK_MISMATCH, LXP_ESCROW_STATE, LXP_CONTEXT_MISMATCH, LXP_CONSERVATION, LXP_OVERFLOW, LXP_IDEMPOTENT_REPLAY | lx_service_dispute_resolve_execute lx_service_dispute.c:66 (amended), then lx_escrow_dispute_resolve_execute lx_escrow_dispute.c:49 (A.6) | D.2 |
+Frozen interfaces: 105 (stable 4, change 95, new 6).
 
-### A.5 D10 per-request draw (reference only)
-The draw is owned by ledger-auth.md at 0x101A layerxledger; this row records the kernel receive path it reproduces and is not part of the 0x101B ABI. Caller signature: the 7-field form in the row below, the same form ledger-auth.md defines for draw (from, assetId, amount, grantId, receiverSequence, idempotencyKey, contextHash). Derived, not passed: to := stored grant recipient, which must be the caller's account; payer grant := stored grant by grantId (grant_load src/modules/asset/lx_asset_execution.h:81); receiver authorization from the 0x1004 binding. Logs: the precompile emits PaymentDrawn from the applied transfer set and grant id, and PaymentExact for payExact, since typed payExact is a send with a payment reference; both are defined in ledger-auth.md.
+**ABI methods**
 
-| Solidity signature | inputs (type, unit, max length) | outputs | authority rule | effects | errors | kernel execution function | gas or fee rule |
-|---|---|---|---|---|---|---|---|
-| draw(bytes32 from, bytes32 assetId, uint128 amount, bytes32 grantId, uint64 receiverSequence, bytes32 idempotencyKey, bytes32 contextHash) | fields of lxp_receive (include/layerx/lxp_ledger.h:216); `to` := stored grant recipient, equal to the caller's account (lx_asset_execution.h:332-336); amount base units, USD 0.001 per request (D10) | none | LXP_AUTHORITY_OWNER only, activity authority == verified_key (src/modules/asset/lx_asset_execution.h:175-179); recipient == actor, receiver_authorization.kind LXP_AUTH_OWNER, idempotencyKey == activity key, from ≠ to (:332-336) | grant state "grant:"+grantId drawn totals (lxp_grant_draw_record src/ledger/lxp_grant_store.c:123); transfer from→to reason PAYMENT (src/ledger/lxp_receive.c:442); no kernel event of its own (the precompile emits PaymentDrawn, defined in ledger-auth.md) | COMMON, LXP_UNAUTHORIZED_DEBIT, LXP_MALFORMED_RECEIVE, LXP_NO_PAYER_GRANT, LXP_GRANT_SCOPE_VIOLATION, LXP_GRANT_REVOKED, LXP_GRANT_EXPIRED, LXP_PURPOSE_MISMATCH, LXP_INVOICE_ALREADY_SETTLED, LXP_SEQUENCE_MISMATCH, LXP_SEQUENCE_EXHAUSTED, LXP_CONTEXT_MISMATCH, LXP_UNKNOWN_AUTHORITY_KIND, LXP_ZERO_AMOUNT, LXP_GRANT_EXHAUSTED, LXP_ARENA_EXHAUSTED | LX_ASSET_RECEIVE 0x00010006 (include/layerx/lx_asset.h:26) → asset_execute_typed ordinal 6 lx_asset_execution.h:316 → lxp_receive_execute src/ledger/lxp_receive.c:383 → lxp_verify_payer_grant lxp_grant_store.c:72 + lxp_grant_draw_record :123. It reproduces the payer-grant draw, NOT a budget function | D10: min gas price ≤ 0.067 gwei for the draw sender class; gas in ledger-auth.md D |
+| Method | Address | Selector | Status | Gas | Defined at |
+|---|---|---|---|---|---|
+| `budgetAmend(bytes32,uint128,uint128,uint64,uint8) nonpayable` | 0x101b | `0x90ce21c0` | change | 30000 write (`precompiles/layerxpay/gas.go:30`) | `precompiles/layerxpay/abi.json:2` |
+| `budgetClose(bytes32,uint64) nonpayable` | 0x101b | `0xa139eb39` | change | 50000 write (`precompiles/layerxpay/gas.go:34`) | `precompiles/layerxpay/abi.json:3` |
+| `budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8) nonpayable` | 0x101b | `0xa863162b` | change | 50000 write (`precompiles/layerxpay/gas.go:26`) | `precompiles/layerxpay/abi.json:4` |
+| `budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64) nonpayable` | 0x101b | `0x9cca862b` | change | 50000 write (`precompiles/layerxpay/gas.go:27`) | `precompiles/layerxpay/abi.json:5` |
+| `budgetDefund(bytes32,uint128) nonpayable` | 0x101b | `0x3d054fb3` | change | 50000 write (`precompiles/layerxpay/gas.go:35`) | `precompiles/layerxpay/abi.json:6` |
+| `budgetDelegateAdd(bytes32,bytes32) nonpayable` | 0x101b | `0xd7a025b7` | change | 30000 write (`precompiles/layerxpay/gas.go:31`) | `precompiles/layerxpay/abi.json:7` |
+| `budgetDelegateRemove(bytes32,bytes32) nonpayable` | 0x101b | `0xe90bac70` | change | 30000 write (`precompiles/layerxpay/gas.go:32`) | `precompiles/layerxpay/abi.json:8` |
+| `budgetDelegateSpend(bytes32,bytes32,uint128) nonpayable` | 0x101b | `0xf9708fc1` | change | 60000 write (`precompiles/layerxpay/gas.go:38`) | `precompiles/layerxpay/abi.json:9` |
+| `budgetFund(bytes32,uint128) nonpayable` | 0x101b | `0x5051eb50` | change | 40000 write (`precompiles/layerxpay/gas.go:28`) | `precompiles/layerxpay/abi.json:10` |
+| `budgetFundNative(bytes32,uint128,uint64) nonpayable` | 0x101b | `0x10b28d90` | change | 40000 write (`precompiles/layerxpay/gas.go:29`) | `precompiles/layerxpay/abi.json:11` |
+| `budgetPull(bytes32,bytes32,uint128,bytes) nonpayable` | 0x101b | `0xbc2548e7` | change | 58000 write (`precompiles/layerxpay/gas.go:37`) | `precompiles/layerxpay/abi.json:12` |
+| `budgetRemaining(bytes32) view returns (uint128)` | 0x101b | `0xd7778749` | change | read row (`precompiles/layerxpay/gas.go:63`) | `precompiles/layerxpay/abi.json:13` |
+| `budgetRevoke(bytes32,uint64) nonpayable` | 0x101b | `0x62da81cd` | change | 50000 write (`precompiles/layerxpay/gas.go:36`) | `precompiles/layerxpay/abi.json:14` |
+| `budgetSpend(bytes32,bytes32,uint128) nonpayable` | 0x101b | `0x8608d32b` | change | 50000 write (`precompiles/layerxpay/gas.go:33`) | `precompiles/layerxpay/abi.json:15` |
+| `escrowCapture(bytes32,uint128,bytes32) nonpayable` | 0x101b | `0xb291ec43` | change | 60000 write (`precompiles/layerxpay/gas.go:20`) | `precompiles/layerxpay/abi.json:16` |
+| `escrowDisputeOpen(bytes32) nonpayable` | 0x101b | `0xeafee6d1` | change | 30000 write (`precompiles/layerxpay/gas.go:24`) | `precompiles/layerxpay/abi.json:17` |
+| `escrowDisputeResolve(bytes32,uint32,bytes32) nonpayable` | 0x101b | `0x3d00261e` | change | 80000 write (`precompiles/layerxpay/gas.go:25`) | `precompiles/layerxpay/abi.json:18` |
+| `escrowOpen(bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint64,uint64,bytes32,bytes32) nonpayable` | 0x101b | `0xa179121e` | change | 60000 write (`precompiles/layerxpay/gas.go:19`) | `precompiles/layerxpay/abi.json:19` |
+| `escrowPartialCapture(bytes32,uint128,bytes32) nonpayable` | 0x101b | `0xb7a902ab` | change | 60000 write (`precompiles/layerxpay/gas.go:21`) | `precompiles/layerxpay/abi.json:20` |
+| `escrowRelease(bytes32,bytes32) nonpayable` | 0x101b | `0x50e0d150` | change | 60000 write (`precompiles/layerxpay/gas.go:22`) | `precompiles/layerxpay/abi.json:21` |
+| `escrowRemaining(bytes32) view returns (uint128)` | 0x101b | `0x9c328bc9` | change | read row (`precompiles/layerxpay/gas.go:60`) | `precompiles/layerxpay/abi.json:22` |
+| `escrowTimeout(bytes32,bytes32) nonpayable` | 0x101b | `0xa49e626f` | change | 60000 write (`precompiles/layerxpay/gas.go:23`) | `precompiles/layerxpay/abi.json:23` |
+| `getAgreement(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,uint64,uint8,uint8,uint64,uint16,bytes32[],bool,uint64,uint64))` | 0x101b | `0xf42eb765` | change | read row (`precompiles/layerxpay/gas.go:68`) | `precompiles/layerxpay/abi.json:24` |
+| `getBudget(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bool,bool,bytes32[],bytes32))` | 0x101b | `0x546887a3` | change | read row (`precompiles/layerxpay/gas.go:62`) | `precompiles/layerxpay/abi.json:25` |
+| `getCommitment(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,bytes32,uint64,bool,uint16))` | 0x101b | `0x7795820c` | change | read row (`precompiles/layerxpay/gas.go:69`) | `precompiles/layerxpay/abi.json:26` |
+| `getDelivery(bytes32) view returns ((bytes32,bytes32,(bytes32,uint64,bytes32)[],uint64))` | 0x101b | `0xedab743e` | change | read row (`precompiles/layerxpay/gas.go:71`) | `precompiles/layerxpay/abi.json:27` |
+| `getDispute(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32[],uint64,bool,uint16,uint32,bytes32,uint64))` | 0x101b | `0x136ba6aa` | change | read row (`precompiles/layerxpay/gas.go:75`) | `precompiles/layerxpay/abi.json:28` |
+| `getEscrow(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint8,uint64,uint64,bytes32,bytes32))` | 0x101b | `0xf023b811` | change | read row (`precompiles/layerxpay/gas.go:59`) | `precompiles/layerxpay/abi.json:29` |
+| `getEscrowResult(bytes32) view returns (bytes)` | 0x101b | `0x068833a7` | change | read row (`precompiles/layerxpay/gas.go:61`) | `precompiles/layerxpay/abi.json:30` |
+| `getExecution(bytes32) view returns (bytes)` | 0x101b | `0x0fe11ab3` | change | read row (`precompiles/layerxpay/gas.go:70`) | `precompiles/layerxpay/abi.json:31` |
+| `getOffer(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32,uint64,uint64,uint64,uint8,uint64,uint64,bool,bool))` | 0x101b | `0xd597b8c8` | change | read row (`precompiles/layerxpay/gas.go:67`) | `precompiles/layerxpay/abi.json:32` |
+| `getProgress(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint32,uint64,uint64))` | 0x101b | `0x0f89ff41` | change | read row (`precompiles/layerxpay/gas.go:73`) | `precompiles/layerxpay/abi.json:33` |
+| `getStream(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint8,uint128,uint64,uint64,uint64,uint64,uint128,uint128,uint128,uint128,uint64,bytes32[],bool,bool,bool))` | 0x101b | `0x1290abe8` | change | read row (`precompiles/layerxpay/gas.go:64`) | `precompiles/layerxpay/abi.json:34` |
+| `getStreamResult(bytes32) view returns ((bytes32,bytes32,uint128,uint128,uint16,uint8))` | 0x101b | `0xb3d268df` | change | read row (`precompiles/layerxpay/gas.go:66`) | `precompiles/layerxpay/abi.json:35` |
+| `latestDelivery(bytes32) view returns ((bytes32,bytes32,(bytes32,uint64,bytes32)[],uint64))` | 0x101b | `0x1e0ac80d` | change | read row (`precompiles/layerxpay/gas.go:72`) | `precompiles/layerxpay/abi.json:36` |
+| `progressHighWater(bytes32) view returns (uint32)` | 0x101b | `0x2c4e8866` | change | read row (`precompiles/layerxpay/gas.go:74`) | `precompiles/layerxpay/abi.json:37` |
+| `serviceAccept(bytes32) nonpayable` | 0x101b | `0x9f8dfee6` | change | 30000 write (`precompiles/layerxpay/gas.go:55`) | `precompiles/layerxpay/abi.json:38` |
+| `serviceAgreementAccept(bytes32) nonpayable` | 0x101b | `0x85997911` | change | 40000 write (`precompiles/layerxpay/gas.go:49`) | `precompiles/layerxpay/abi.json:39` |
+| `serviceAgreementPropose(bytes32,bytes32,bytes32,bytes32) nonpayable` | 0x101b | `0xe5589018` | change | 30000 write (`precompiles/layerxpay/gas.go:48`) | `precompiles/layerxpay/abi.json:40` |
+| `serviceCommitAbandon(bytes32,uint16) nonpayable` | 0x101b | `0x3415adc7` | change | 40000 write (`precompiles/layerxpay/gas.go:51`) | `precompiles/layerxpay/abi.json:41` |
+| `serviceCommitTask(bytes32,bytes32,bytes32,bytes32,uint64,uint64) nonpayable` | 0x101b | `0xdbc88a65` | change | 40000 write (`precompiles/layerxpay/gas.go:50`) | `precompiles/layerxpay/abi.json:42` |
+| `serviceDeliver(bytes32,bytes32,(bytes32,uint64,bytes32)[]) nonpayable` | 0x101b | `0xbda35baa` | change | 50000 write (`precompiles/layerxpay/gas.go:54`) | `precompiles/layerxpay/abi.json:43` |
+| `serviceDisputeOpen(bytes32,bytes32,bytes32[]) nonpayable` | 0x101b | `0x1274face` | change | 50000 write (`precompiles/layerxpay/gas.go:57`) | `precompiles/layerxpay/abi.json:44` |
+| `serviceDisputeResolve(bytes32,uint16,uint32,bytes32) nonpayable` | 0x101b | `0x696b2d17` | change | 100000 write (`precompiles/layerxpay/gas.go:58`) | `precompiles/layerxpay/abi.json:45` |
+| `serviceOfferPublish(bytes32,bytes32,uint128,bytes32,bytes32,uint64,uint64,uint64,uint8,uint64) nonpayable` | 0x101b | `0x34569433` | change | 30000 write (`precompiles/layerxpay/gas.go:46`) | `precompiles/layerxpay/abi.json:46` |
+| `serviceOfferWithdraw(bytes32) nonpayable` | 0x101b | `0xd5584d7c` | change | 30000 write (`precompiles/layerxpay/gas.go:47`) | `precompiles/layerxpay/abi.json:47` |
+| `serviceProgressReport(bytes32,bytes32,bytes32,bytes32,uint32) nonpayable` | 0x101b | `0xa203571a` | change | 30000 write (`precompiles/layerxpay/gas.go:53`) | `precompiles/layerxpay/abi.json:48` |
+| `serviceReject(bytes32,uint16,bytes32[]) nonpayable` | 0x101b | `0x4d71a096` | change | 30000 write (`precompiles/layerxpay/gas.go:56`) | `precompiles/layerxpay/abi.json:49` |
+| `serviceToolExecAttest(bytes) nonpayable` | 0x101b | `0x5169415d` | change | 38000 write (`precompiles/layerxpay/gas.go:52`) | `precompiles/layerxpay/abi.json:50` |
+| `streamAccrued(bytes32) view returns (uint128,uint128)` | 0x101b | `0xb750cb8e` | change | read row (`precompiles/layerxpay/gas.go:65`) | `precompiles/layerxpay/abi.json:51` |
+| `streamClose(bytes32,bytes32) nonpayable` | 0x101b | `0x78725d86` | change | 80000 write (`precompiles/layerxpay/gas.go:45`) | `precompiles/layerxpay/abi.json:52` |
+| `streamMeter(bytes32,uint64,bytes32,bytes) nonpayable` | 0x101b | `0xb96ba914` | change | 38000 write (`precompiles/layerxpay/gas.go:41`) | `precompiles/layerxpay/abi.json:53` |
+| `streamOpen(bytes32,bytes32,bytes32,bytes32,uint8,uint128,uint64,uint64,uint64,uint128,uint128,bytes32[]) nonpayable` | 0x101b | `0x89fdbd3b` | change | 50000 write (`precompiles/layerxpay/gas.go:39`) | `precompiles/layerxpay/abi.json:54` |
+| `streamPause(bytes32) nonpayable` | 0x101b | `0x71ed5358` | change | 30000 write (`precompiles/layerxpay/gas.go:43`) | `precompiles/layerxpay/abi.json:55` |
+| `streamResume(bytes32) nonpayable` | 0x101b | `0x59aa40a2` | change | 30000 write (`precompiles/layerxpay/gas.go:44`) | `precompiles/layerxpay/abi.json:56` |
+| `streamSettle(bytes32,bytes32) nonpayable` | 0x101b | `0x00a56e5f` | change | 60000 write (`precompiles/layerxpay/gas.go:42`) | `precompiles/layerxpay/abi.json:57` |
+| `streamTopUp(bytes32,uint128) nonpayable` | 0x101b | `0x0b69f222` | change | 50000 write (`precompiles/layerxpay/gas.go:40`) | `precompiles/layerxpay/abi.json:58` |
 
-### A.6 service dispute arbiter and escrow settlement (change relative to kernel src/modules/service/lx_service_dispute.c:89)
-| item | rule | code anchor |
+**Events**
+
+| Event | Address | topic0 | Status | Defined at |
+|---|---|---|---|---|
+| `AgreementAccepted(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x9de5935a09572b051c9194e7e83c1e5e340c717e25a06c66268b8892121474d4` | change | `precompiles/layerxpay/abi.json:59` |
+| `AgreementProposed(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x3e9d8e46bd4c26cf3e14abb64acb712a44dfdc616aaf61b4b2e1bac16aedee39` | change | `precompiles/layerxpay/abi.json:60` |
+| `BudgetAmended(bytes32 indexed,uint128,uint64)` | 0x101b | `0x31c93d31b53c28bc0fa050fb1c3062f782ba9a79bddc2e03ce2fd9b1fe6beff1` | change | `precompiles/layerxpay/abi.json:61` |
+| `BudgetClosed(bytes32 indexed,uint128,uint64)` | 0x101b | `0xa75bf542dcea5f85d998297a562512ea52af43a7dbf6b2e52283ac9e7269a064` | change | `precompiles/layerxpay/abi.json:62` |
+| `BudgetCreated(bytes32 indexed,bytes32,uint128)` | 0x101b | `0x4ffe02fb44ac10fea9c67d108d6137f20d66416c427018cd7c5c85134367a2b3` | change | `precompiles/layerxpay/abi.json:63` |
+| `BudgetDefunded(bytes32 indexed,uint128,uint128)` | 0x101b | `0xddf7b24a523c211d8e64a31f112821e871669f996eac19ae03a6ca742cf33dd3` | change | `precompiles/layerxpay/abi.json:64` |
+| `BudgetDelegateAdded(bytes32 indexed,bytes32)` | 0x101b | `0xfb88d261a6feb94af7f84c47e1ee79be8f7a17b4592b3cfaacfd30e7fcc8de3b` | change | `precompiles/layerxpay/abi.json:65` |
+| `BudgetDelegateRemoved(bytes32 indexed,bytes32)` | 0x101b | `0x5cde5fb6325cdde9badecb2d773ddcbd29bbd1ab44f7fa976e9b824ddccf2dbc` | change | `precompiles/layerxpay/abi.json:66` |
+| `BudgetFunded(bytes32 indexed,uint128)` | 0x101b | `0xb5395e31b1001c1a3db7533e5433ded6d549d5831c06882d39e8747947506d3f` | change | `precompiles/layerxpay/abi.json:67` |
+| `BudgetRevoked(bytes32 indexed,uint128,uint64)` | 0x101b | `0x6940118bfee95d3acf3b067b81e5d0eed108c543c9b0e0a462b502a81de64586` | change | `precompiles/layerxpay/abi.json:68` |
+| `BudgetSpent(bytes32 indexed,bytes32,uint128)` | 0x101b | `0xe7061a9872a2a196198f5fc257e098280fc29533217100b36a8a45113481624a` | change | `precompiles/layerxpay/abi.json:69` |
+| `CommitAbandoned(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0xf82b0eee8867ff42a37f93f9ff76ac9f49c6d9d87212401d309bfe38d8784080` | change | `precompiles/layerxpay/abi.json:70` |
+| `DefaultOutcomeApplied(bytes32 indexed,uint8,bool,uint64,uint64)` | 0x101b | `0x52cdc71e077aa63bc67e6a932084f167c9160b7b857a3e3c1d26d3ec4923da98` | change | `precompiles/layerxpay/abi.json:71` |
+| `Delivered(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x8e7c33a038e5e59bac9f44a0eb4bb592c7d0cc1c7271360f73f232a8c9511552` | change | `precompiles/layerxpay/abi.json:72` |
+| `DisputeOpened(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0xbf7c0c01d9d1cca84d5e6e3c398fd19d7b9bf4aa1eb2344706c0cd9605734d07` | change | `precompiles/layerxpay/abi.json:73` |
+| `DisputeResolved(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0xa4df9ab184633d8a0e83b36ceccf4a447aab7b5d6c0687d9cbec51e2eb54192a` | change | `precompiles/layerxpay/abi.json:74` |
+| `EscrowCaptured(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xad68d39439fc7b036c914e06aff1e364d909efc098ae0a50a48f10dfb4246e34` | change | `precompiles/layerxpay/abi.json:75` |
+| `EscrowDisputed(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0x01030c369649c257abfaf58265fd8e25cfd284243d7e111bf34ae8df760ef1a6` | change | `precompiles/layerxpay/abi.json:76` |
+| `EscrowOpened(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xeb55494fa55a2ce6e323b2b8776e5e352d2964877c0f5bc592679325749bfc2f` | change | `precompiles/layerxpay/abi.json:77` |
+| `EscrowPartiallyCaptured(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xc84c61f008e334a19c74068689bf3a54f2ae0ecfec049d62b819f5f68d7a1a9d` | change | `precompiles/layerxpay/abi.json:78` |
+| `EscrowReleased(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0x65407a7b21a4dbbe609b634d05221c6beab59a52ac8e17b8be2bb7fa6e399654` | change | `precompiles/layerxpay/abi.json:79` |
+| `EscrowResolved(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xe3a9e891d675b5ae5ea35ed61028e3f15be7ab2dad8b4bb7ad51ac5af1737c73` | change | `precompiles/layerxpay/abi.json:80` |
+| `EscrowTimedOut(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0x3cb7cfeaeaccd65cfb44ed6f0f50c4ecd0d08b5b9b7c507c8554672ea0e2df98` | change | `precompiles/layerxpay/abi.json:81` |
+| `ExecutionAttested(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x3fd39a11ff049c70f0c6c1e3e311f2bd0d00607756c7fae5156587bf82a19467` | change | `precompiles/layerxpay/abi.json:82` |
+| `OfferPublished(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x094bfb6e853a36faae49604b89e04fef60a8ce2f9e4c1f9d0c53c6166d7f6b43` | change | `precompiles/layerxpay/abi.json:83` |
+| `OfferWithdrawn(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x1dc29fd3e5c1c7ecf9bbd0e84ede6461886d0dafe96843e82dd32efd004c31b4` | change | `precompiles/layerxpay/abi.json:84` |
+| `OutcomeAccepted(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x5d654e0e0378bd06e4e6fcd1728c8954e62e820aa2147d3a6a90a133bffaf1de` | change | `precompiles/layerxpay/abi.json:85` |
+| `OutcomeRejected(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x6b6c89470b91617fc6fa2384b31e88021ddf3bcb78491fc0e82748dc84b13518` | change | `precompiles/layerxpay/abi.json:86` |
+| `ProgressReported(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x819ea4c59366246bb925fe1c7273f9af36a52b0ff8d393e63e789762e328c0fa` | change | `precompiles/layerxpay/abi.json:87` |
+| `StreamClosed(bytes32 indexed,uint128,uint128)` | 0x101b | `0x8063cfde1c85c4898f9fff27df374f273806733152313f92e8a5914423678a9f` | change | `precompiles/layerxpay/abi.json:88` |
+| `StreamMetered(bytes32 indexed,uint64,uint128,uint128)` | 0x101b | `0x932366bfeca08e9b804274a1a7eb67bd4d66f03e9290b961e60b8eeaf5d78b02` | change | `precompiles/layerxpay/abi.json:89` |
+| `StreamOpened(bytes32 indexed,bytes32,bytes32,bytes32,bytes32,uint8,uint128)` | 0x101b | `0x8277b76c675fc9dab63f492a7ac5479a66d6552828f1fdbc9a76e2340ada9448` | change | `precompiles/layerxpay/abi.json:90` |
+| `StreamPaused(bytes32 indexed,uint64,uint128)` | 0x101b | `0x9032eddf8dcc6800a443fad0f2630b6edbeb66a914d9cb09347325363cf7fe1e` | change | `precompiles/layerxpay/abi.json:91` |
+| `StreamRateUpdated(bytes32 indexed,uint128,uint128,uint128)` | 0x101b | `0x6006a657a93ec26224beb6993b55b31a96ca5b9e8719252665286ab2b7f58e60` | change | `precompiles/layerxpay/abi.json:92` |
+| `StreamResumed(bytes32 indexed,uint64,uint128)` | 0x101b | `0x90f70f76c4cceddd91668722f7b46eb8b8df7612a6f9c6087fc49b97b9758a14` | change | `precompiles/layerxpay/abi.json:93` |
+| `StreamSettled(bytes32 indexed,uint128,uint128,bool)` | 0x101b | `0xa87dc98d52838f3eb3a565c28fa8ccfb54ffcc925bc81b759eb3e64fb5185f69` | change | `precompiles/layerxpay/abi.json:94` |
+| `StreamToppedUp(bytes32 indexed,uint128,bool)` | 0x101b | `0x643cbe429fc24e5e4f0f1ddb6f5d583d651e5558832d390e9b65557734ce47c9` | change | `precompiles/layerxpay/abi.json:95` |
+| `TaskCommitted(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x6e00443b450170a849061291f9a4797138ee198a5cc8de5f4c30f1aa79e501f1` | change | `precompiles/layerxpay/abi.json:96` |
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-activity-constants-j24` | go_exported | `const ActivityEscrowOpen uint32 = 0x00020001 .. ActivityServiceDisputeResolve uint32 = 0x0005000d` | new | `modules/layerxpay/types/activity.go` (planned) |
+| `interface.2.go-layerxpay-methodactivity-j24` | go_exported | `var MethodActivity map[string]KernelActivity` | new | `modules/layerxpay/types/activity.go` (planned) |
+| `interface.2.go-layerxpay-pc-requiredgas-j24` | go_exported | `func RequiredGas(input []byte) uint64` | stable | `precompiles/layerxpay/gas.go:82` |
+| `interface.2.go-layerxpay-pc-layerxpaykeepers-j24` | go_exported | `type LayerXPayKeepers interface { LayerXPayK() *paykeeper.Keeper }` | new | `precompiles/layerxpay/keepers.go` (planned) |
+| `interface.2.go-layerxpay-pc-newmergeprecompile-j24` | go_exported | `func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error)` | new | `precompiles/layerxpay/layerxpay.go` (planned) |
+| `interface.2.go-layerxpay-pc-newprecompile-j24` | go_exported | `func NewPrecompile(k *paykeeper.Keeper, evm *evmkeeper.Keeper, upgrade *upgradekeeper.Keeper, planName string) (*pcommon.Precompile, error)` | new | `precompiles/layerxpay/layerxpay.go` (planned) |
+| `interface.2.go-layerxpay-pc-payaddress-j24` | go_exported | `const PayAddress = "0x000000000000000000000000000000000000101B"; const PrecompileName = "layerxpay"` | new | `precompiles/layerxpay/layerxpay.go` (planned) |
+| `interface.2.sol-layerxpay-precompile-address-j24` | sol_function | `address constant LAYERX_PAY_PRECOMPILE_ADDRESS = 0x000000000000000000000000000000000000101B;` | stable | `precompiles/layerxpay/LayerXPay.sol:4` |
+| `interface.2.sol-layerxpay-contract-j24` | sol_function | `ILayerXPay constant LAYERX_PAY_CONTRACT = ILayerXPay(LAYERX_PAY_PRECOMPILE_ADDRESS);` | stable | `precompiles/layerxpay/LayerXPay.sol:6` |
+| `interface.2.sol-layerxpay-ilayerxpay-j24` | sol_function | `interface ILayerXPay (57 functions, 38 events, 12 structs mirroring precompiles/layerxpay/abi.json)` | stable | `precompiles/layerxpay/LayerXPay.sol:12` |
+
+Capabilities verified against this section: 2.21.4, 2.25.5, 2.28.1, 2.38.2, 2.40.1, 2.40.2, 2.40.3.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| linked escrow | the agreement's escrowId, nonzero at propose and stored on the agreement | src/modules/service/lx_service_agreement.c:21, :44; src/modules/service/lx_service_payload.c:87 |
-| arbiter identity | the linked escrow record's arbiter principal, fixed by the buyer at escrowOpen and visible to the provider before serviceAgreementAccept | include/layerx/lx_escrow.h:52; lx_escrow_lookup include/layerx/lx_escrow.h:153 |
-| arbiter authorization (D3) | a LayerX-scope authorization: resolved principal == escrow arbiter, presented either as LXP_AUTHORITY_OWNER through the arbiter's 0x1004 binding or as DELEGATED_CAPABILITY through a D3 authz grant whose granter is the arbiter's D2 main account and whose LayerXScopeAuthorization covers module SERVICE ordinal 13 (0x0005000d) and module ESCROW ordinal 7 (0x00020007); accept rule: kind ∈ {LXP_AUTHORITY_OWNER, DELEGATED_CAPABILITY}, principal == escrow arbiter, both ordinals in scope, grant live | escrow already accepts any kind whose principal == arbiter (src/modules/escrow/lx_escrow_dispute.c:91-92); capability scope fields per kernel grant_scope_validate src/modules/governance/lxp_governance.c:457-490 (ledger-auth.md grantCapability) |
-| link check | at serviceDisputeOpen and serviceDisputeResolve: escrow exists; escrow `owner` == agreement.buyer; escrow.beneficiary == agreement.provider; escrow.assetId == offer.assetId; else LXP_ESCROW_LINK_MISMATCH. escrow.arbiter nonzero, else LXP_ARBITER_REQUIRED (escrowOpen does not require an arbiter) | the escrow holder is the opener's principal (src/modules/escrow/lx_escrow_module.c:222-223); buyer and provider are principals (lx_service_agreement.c:25-32); validate_open src/modules/escrow/lx_escrow_open.c:8-35 has no arbiter check |
-| freeze on dispute open | serviceDisputeOpen runs the escrow dispute-open sub-op on the linked escrow in the same call; the raiser is the holder or the beneficiary, so the escrow party rule holds; the escrow window rule applies (escrow disputeWindowMs 0 or past refuses the service dispute with LXP_DISPUTE_WINDOW_CLOSED); escrow → DISPUTED, which blocks release, timeout, capture and the epoch sweep | lx_escrow_dispute.c:8-14, :25-32; release refused lx_escrow_timeout.c:46-47; sweep skips non-active lx_escrow_timeout.c:114; capture refused src/modules/escrow/lx_escrow_capture.c:68-69 |
-| settlement legs | serviceDisputeResolve then runs the escrow dispute-resolve sub-op with beneficiaryBps := providerBps and idempotencyKey := escrowResolutionId. balance = remaining escrow balance. Provider leg: escrowAccount → beneficiary floor(balance·providerBps/10000), the capture direction. Buyer leg: escrowAccount → holder remainder, the release/refund direction. Both legs go in one transfer set with reason ESCROW_RESOLVE; zero legs are skipped; escrow → RESOLVED, captured += provider leg, locked = 0; result record bound to escrowResolutionId | lx_escrow_remaining lx_escrow_capture.c:8; capture leg execute_capture lx_escrow_capture.c:28; release leg lx_escrow_timeout.c:63-68; split lx_escrow_dispute.c:35-47; legs and settle :99-125; state :126-132; zero legs src/ledger/lxp_journal.c:222-227 (a transfer set is refused only when every leg is zero) |
-| atomicity | the service record and the escrow sub-op are two kernel activities run in one precompile call, service first; any failure reverts the whole call; the service activity still moves no balance, so lx_service_effect_audit stays unchanged | src/modules/service/lx_service_dispute.c:106-124 |
-| timeout | a service dispute carries no timeout of its own: service never holds funds; the linked escrow keeps its own expiry and timeout | src/modules/service/lx_service_dispute.c:106-124 |
-| new error codes | LXP_ARBITER_REQUIRED, LXP_UNAUTHORIZED_ARBITER, LXP_ESCROW_LINK_MISMATCH; kernel names LXP_ERR_ARBITER_REQUIRED, LXP_ERR_UNAUTHORIZED_ARBITER, LXP_ERR_ESCROW_LINK_MISMATCH, proposed values -737, -738, -739 (next free after LXP_ERR_PROGRAM_REFUSED -736; final values set at activation rehearsal); kernel-origin codes, registered for 0x101B in the address table | include/layerx/lxp_result.h:142-144 |
-| change relative to kernel | the kernel resolver rule agreement_party (provider or buyer) is replaced by the arbiter rule; a party is refused with LXP_UNAUTHORIZED_ARBITER; a non-DISPUTED agreement keeps LXP_UNAUTHORIZED_DISPUTANT; serviceDisputeOpen now freezes the linked escrow and serviceDisputeResolve settles it | lx_service_dispute.c:8-13, :87-90 |
-| vectors to rewrite | tests/modules/test_service_dispute.c:488-497 (outsider refused LXP_UNAUTHORIZED_DISPUTANT, provider resolves): becomes party refused LXP_UNAUTHORIZED_ARBITER, arbiter resolves; :522-524 escrow_hold_unchanged (helper :241): becomes hold RESOLVED with the split legs; :378-384 dispute open: adds escrow DISPUTED; :526-528 transfer_calls == 0 stays for the service activity, plus an escrow-leg assertion; replay identity lists tests/test_replay_crossarch.c:25-26 and tests/qualification/lxp_qual_replay.c:44-45 (0x0005000c, 0x0005000d) with tests/vectors/replay_corpus.lxb and tests/vectors/qualification_replay_10m.digest regenerated; new vectors: link mismatch, zero arbiter, arbiter through a D3 grant, providerBps 0 and 10000, escrow window closed | paths checked with ls |
+| 2.244.1 | 2244.1 | `modules/layerxpay/types/activity_test.go::TestMethodActivityMatchesKernelTypes (planned)` |
+| 2.244.2 | 2244.2 | `modules/layerxpay/types/activity_test.go::TestMethodActivitySharedOrdinals (planned)` |
+| 2.266.1 | 2266.1 | `modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamOpenMapsTokenAndUnits (planned)` |
+| 2.266.2 | 2266.2 | `modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamSettleCloseRateAndView (planned)` |
+| 2.266.3 | 2266.3 | `modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamUnknownTokenRefused (planned)` |
+| 2.276.1 | 2276.1 | `precompiles/layerxpay/layerxpay_test.go::TestPayPrecompileRegistersMergeConstructor (planned)` |
+| 2.276.2 | 2276.2 | `precompiles/layerxpay/layerxpay_test.go::TestPayPrecompileChargesGasTable (planned)` |
+| 2.304.1 | 2304.1 | `precompiles/layerxpay/served/served_test.go::TestPayServedAfterUpgrade (planned)` |
+| 2.304.2 | 2304.2 | `precompiles/layerxpay/served/served_test.go::TestPayServedEscrowOpenThroughEVM (planned)` |
+| 2.311.1 | 2311.1 | `precompiles/layerxpay/conformance_escrow_test.go::TestPayEscrowPathMatchesHostExecute (planned)` |
+| 2.312.1 | 2312.1 | `precompiles/layerxpay/conformance_budget_test.go::TestPayBudgetPathMatchesHostExecute (planned)` |
+| 2.313.1 | 2313.1 | `precompiles/layerxpay/conformance_service_test.go::TestPayServicePathMatchesHostExecute (planned)` |
 
-### A.7 agent streams 0x0906 through the 0x101B stream keeper
-One stream state: 0x0906 keeps no store and calls the A.3 methods; the 0x0906 ABI is frozen in agent-functions.md.
+## escrow
 
-| 0x0906 element | what 0x0906 needs | what the kernel stream module provides | what it does not provide |
-|---|---|---|---|
-| open(address payee, address token, uint256 ratePerSecond, uint64 startTime, uint64 stopTime, uint256 cap) returns uint256 streamId; payer = caller; full cap escrowed at open | a TIME stream funded with cap | streamOpen mode 1 TIME with rate := ratePerSecond and rateUnit := 1000 (accrual is floor((rate·elapsed_ms + carry)/rateUnit), src/modules/stream/lx_stream_accrue.c:52-66), startMs/endMs, totalCap := cap, initialFunding := cap, payer := principal (lx_stream_execution.h:162) | a returned sequential uint256 id (kernel takes a caller-chosen bytes32 streamId); token address → assetId mapping; seconds → ms; uint256 → u128 bounds; ERC-20 transferFrom funding (kernel funds only from the payer AGENT_MAIN account, fund_check lx_stream_open.c:234) |
-| settle(uint256 streamId) returns paid; any caller | accrue to now, pay the payee | streamSettle: TIME accrual to now, pays min(unsettled, balance) to recipient, paid in the result record (lx_stream_settle.c:95; getStreamResult) | a permissionless caller: the kernel requires principal == payer or recipient (lx_stream_execution.h:257-259); the idempotencyKey must be derived by 0x0906 |
-| close(uint256 streamId) returns finalPaid; payer or payee | settle, refund the unspent cap, end the stream | streamClose: pays recipient, refunds payer, closed=true (lx_stream_lifecycle.c:87) | payee-initiated close (kernel: payer only, lx_stream_lifecycle.c:19-20); record deletion (the kernel keeps the closed record) |
-| updateRate(uint256 streamId, uint256 newRate); payer only, settles at the old rate first | a rate change | nothing: the stream activity types are 0x00040001-0x00040007 (include/layerx/lx_stream.h:26-32), none changes the rate | the whole operation is a required change: the kernel stream module gains a rate-change activity type beside the existing ones (include/layerx/lx_stream.h:26-32) that settles at the old rate up to the block-open time (src/modules/stream/lx_stream_settle.c:95) and then sets the new rate |
-| accrued(uint256 streamId) view | pending accrual without settling | lx_stream_accrue include/layerx/lx_stream.h:217 run on a copy of the lx_stream_load record (lx_stream_state.c:37) | block time in ms instead of s |
-| getStream(uint256 streamId) tuple (id, payer, payee, token, ratePerSecond, cap, startTime, stopTime, settled, active) | the stream summary | getStream view (B): payer, recipient, assetId, rate, startMs, endMs, totalCap, settledTotal, paused, closed | address forms of payer, payee and token; active := !closed && !paused, derived by 0x0906 |
-| events StreamOpened, StreamSettled, StreamClosed, StreamRateUpdated | logs | StreamOpened, StreamSettled, StreamClosed (C) | StreamRateUpdated, emitted by updateRate once the rate-change activity type exists |
+Escrow family, kernel module 2: open, capture, partial capture, release, timeout, dispute open and dispute resolve, with the escrow views.
 
-A.7 resolutions (0x0906 adapts; the kernel stream module is unchanged):
+Methods of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
 
-| item | rule | code anchor |
+| Method | Address | Selector | Status | Gas | Defined at |
+|---|---|---|---|---|---|
+| `escrowCapture(bytes32,uint128,bytes32) nonpayable` | 0x101b | `0xb291ec43` | change | 60000 write (`precompiles/layerxpay/gas.go:20`) | `precompiles/layerxpay/abi.json:16` |
+| `escrowDisputeOpen(bytes32) nonpayable` | 0x101b | `0xeafee6d1` | change | 30000 write (`precompiles/layerxpay/gas.go:24`) | `precompiles/layerxpay/abi.json:17` |
+| `escrowDisputeResolve(bytes32,uint32,bytes32) nonpayable` | 0x101b | `0x3d00261e` | change | 80000 write (`precompiles/layerxpay/gas.go:25`) | `precompiles/layerxpay/abi.json:18` |
+| `escrowOpen(bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint64,uint64,bytes32,bytes32) nonpayable` | 0x101b | `0xa179121e` | change | 60000 write (`precompiles/layerxpay/gas.go:19`) | `precompiles/layerxpay/abi.json:19` |
+| `escrowPartialCapture(bytes32,uint128,bytes32) nonpayable` | 0x101b | `0xb7a902ab` | change | 60000 write (`precompiles/layerxpay/gas.go:21`) | `precompiles/layerxpay/abi.json:20` |
+| `escrowRelease(bytes32,bytes32) nonpayable` | 0x101b | `0x50e0d150` | change | 60000 write (`precompiles/layerxpay/gas.go:22`) | `precompiles/layerxpay/abi.json:21` |
+| `escrowRemaining(bytes32) view returns (uint128)` | 0x101b | `0x9c328bc9` | change | read row (`precompiles/layerxpay/gas.go:60`) | `precompiles/layerxpay/abi.json:22` |
+| `escrowTimeout(bytes32,bytes32) nonpayable` | 0x101b | `0xa49e626f` | change | 60000 write (`precompiles/layerxpay/gas.go:23`) | `precompiles/layerxpay/abi.json:23` |
+| `getEscrow(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint8,uint64,uint64,bytes32,bytes32))` | 0x101b | `0xf023b811` | change | read row (`precompiles/layerxpay/gas.go:59`) | `precompiles/layerxpay/abi.json:29` |
+| `getEscrowResult(bytes32) view returns (bytes)` | 0x101b | `0x068833a7` | change | read row (`precompiles/layerxpay/gas.go:61`) | `precompiles/layerxpay/abi.json:30` |
+
+Events of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Event | Address | topic0 | Status | Defined at |
+|---|---|---|---|---|
+| `EscrowCaptured(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xad68d39439fc7b036c914e06aff1e364d909efc098ae0a50a48f10dfb4246e34` | change | `precompiles/layerxpay/abi.json:75` |
+| `EscrowDisputed(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0x01030c369649c257abfaf58265fd8e25cfd284243d7e111bf34ae8df760ef1a6` | change | `precompiles/layerxpay/abi.json:76` |
+| `EscrowOpened(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xeb55494fa55a2ce6e323b2b8776e5e352d2964877c0f5bc592679325749bfc2f` | change | `precompiles/layerxpay/abi.json:77` |
+| `EscrowPartiallyCaptured(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xc84c61f008e334a19c74068689bf3a54f2ae0ecfec049d62b819f5f68d7a1a9d` | change | `precompiles/layerxpay/abi.json:78` |
+| `EscrowReleased(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0x65407a7b21a4dbbe609b634d05221c6beab59a52ac8e17b8be2bb7fa6e399654` | change | `precompiles/layerxpay/abi.json:79` |
+| `EscrowResolved(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0xe3a9e891d675b5ae5ea35ed61028e3f15be7ab2dad8b4bb7ad51ac5af1737c73` | change | `precompiles/layerxpay/abi.json:80` |
+| `EscrowTimedOut(bytes32 indexed,uint16,uint8,uint128,uint128)` | 0x101b | `0x3cb7cfeaeaccd65cfb44ed6f0f50c4ecd0d08b5b9b7c507c8554672ea0e2df98` | change | `precompiles/layerxpay/abi.json:81` |
+
+Capabilities verified against this section: 2.23.1, 2.23.2, 2.28.4.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| streamId | 0x0906 derives a nonzero chain-derived bytes32 streamId and passes it to streamOpen; its uint256 id is a view of that bytes32 | kernel takes any nonzero caller-chosen id (lx_stream_open_decode zero check src/modules/stream/lx_stream_payload.c:135) and refuses a reused one with LXP_SEQUENCE_REUSED (lx_stream_open.c:277) |
-| settle and close idempotencyKey | 0x0906 derives a nonzero key per call; a replayed key returns the stored result; a key stored for another stream or ordinal is LXP_CONTEXT_MISMATCH | nonzero check lx_stream_keyed_decode lx_stream_payload.c:258-260; result lookup lx_stream_settle.c:114-121, lx_stream_lifecycle.c:107-113 |
-| caller rules | 0x0906 accepts the kernel narrowing: settle by payer or recipient, close by payer only (a change relative to the 0x0906 reference behaviour, recorded in agent-functions.md) | lx_stream_execution.h:257-259; lx_stream_lifecycle.c:19-20 |
-| accrued at now | B streamAccrued: load the record into a local copy, run lx_stream_accrue on the copy at the block-open ms, never save; TIME mode only | lx_stream_load lx_stream_state.c:37; lx_stream_accrue src/modules/stream/lx_stream_accrue.c:34 (METERED refused :48-50; accrued_total updated on the copy :82-83) |
-| token ↔ assetId | forward: address(0) → asset of the base denom, ERC-20 → asset by pointer; reverse: asset record → pointer, empty pointer on the base denom → address(0); no mapping → LXP_AGENT_STREAMS_UNKNOWN_TOKEN (agent-functions.md A.0) | GetAssetByDenom modules/layerxcustody/keeper/keeper.go:183 (as nativeAssetId precompiles/layerxcustody/layerxcustody.go:294); GetAssetByPointer modules/layerxcustody/keeper/keeper.go:172; GetAsset modules/layerxcustody/keeper/keeper.go:162; AssetMapping.Pointer modules/layerxcustody/types/state.pb.go:125 |
-| principal ↔ address | forward: caller and payee address → 0x1004 didPublicKey; reverse: payer DID from the stream account name "agent:"+did+":stream:"+hex(streamId), payee DID from the recipient account name "agent:"+did+":main", DID = "did:layerx:"+hex(key), key → bound address; an unbound key reads as address(0); an exported C account read helper by id backs it | GetLayerXDid modules/evm/keeper/layerx_binding.go:18; GetEVMAddressByLayerXDid :30; account name include/layerx/lxp_ledger.h:51; stream account name src/protocol/lxp_module_ctx.c:886 |
+| 2.254.1 | 2254.1 | `modules/layerxpay/keeper/escrow_open_test.go::TestEscrowOpenLocksFunds (planned)` |
+| 2.254.2 | 2254.2 | `modules/layerxpay/keeper/escrow_open_test.go::TestEscrowCaptureAndPartialCapture (planned)` |
+| 2.255.1 | 2255.1 | `modules/layerxpay/keeper/escrow_settle_test.go::TestEscrowReleaseAndTimeout (planned)` |
+| 2.255.2 | 2255.2 | `modules/layerxpay/keeper/escrow_settle_test.go::TestEscrowDisputeResolveSplit (planned)` |
+| 2.279.1 | 2279.1 | `precompiles/layerxpay/escrow_test.go::TestPrecompileEscrowLifecycle (planned)` |
+| 2.279.2 | 2279.2 | `precompiles/layerxpay/escrow_test.go::TestPrecompileEscrowViews (planned)` |
+| 2.279.3 | 2279.3 | `precompiles/layerxpay/escrow_test.go::TestPrecompileEscrowUnboundCallerReverts (planned)` |
 
-## B. Views
-Each record view (escrow, budget, stream, stream result, service offer, agreement, commitment, delivery, progress, dispute) returns one named struct of the ILayerXPay interface, as precompiles/layerxpay/abi.json serves it; the returns column names the struct, its output name, then its fields in order.
-| view | returns | kernel read helper |
+## budget
+
+Budget family, kernel module 3: create and create native, fund and fund native, amend, spend, delegate add, remove and spend, pull against a payer grant, close, defund and revoke, with the budget views.
+
+Methods of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Method | Address | Selector | Status | Gas | Defined at |
+|---|---|---|---|---|---|
+| `budgetAmend(bytes32,uint128,uint128,uint64,uint8) nonpayable` | 0x101b | `0x90ce21c0` | change | 30000 write (`precompiles/layerxpay/gas.go:30`) | `precompiles/layerxpay/abi.json:2` |
+| `budgetClose(bytes32,uint64) nonpayable` | 0x101b | `0xa139eb39` | change | 50000 write (`precompiles/layerxpay/gas.go:34`) | `precompiles/layerxpay/abi.json:3` |
+| `budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8) nonpayable` | 0x101b | `0xa863162b` | change | 50000 write (`precompiles/layerxpay/gas.go:26`) | `precompiles/layerxpay/abi.json:4` |
+| `budgetCreateNative(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bytes32,uint64) nonpayable` | 0x101b | `0x9cca862b` | change | 50000 write (`precompiles/layerxpay/gas.go:27`) | `precompiles/layerxpay/abi.json:5` |
+| `budgetDefund(bytes32,uint128) nonpayable` | 0x101b | `0x3d054fb3` | change | 50000 write (`precompiles/layerxpay/gas.go:35`) | `precompiles/layerxpay/abi.json:6` |
+| `budgetDelegateAdd(bytes32,bytes32) nonpayable` | 0x101b | `0xd7a025b7` | change | 30000 write (`precompiles/layerxpay/gas.go:31`) | `precompiles/layerxpay/abi.json:7` |
+| `budgetDelegateRemove(bytes32,bytes32) nonpayable` | 0x101b | `0xe90bac70` | change | 30000 write (`precompiles/layerxpay/gas.go:32`) | `precompiles/layerxpay/abi.json:8` |
+| `budgetDelegateSpend(bytes32,bytes32,uint128) nonpayable` | 0x101b | `0xf9708fc1` | change | 60000 write (`precompiles/layerxpay/gas.go:38`) | `precompiles/layerxpay/abi.json:9` |
+| `budgetFund(bytes32,uint128) nonpayable` | 0x101b | `0x5051eb50` | change | 40000 write (`precompiles/layerxpay/gas.go:28`) | `precompiles/layerxpay/abi.json:10` |
+| `budgetFundNative(bytes32,uint128,uint64) nonpayable` | 0x101b | `0x10b28d90` | change | 40000 write (`precompiles/layerxpay/gas.go:29`) | `precompiles/layerxpay/abi.json:11` |
+| `budgetPull(bytes32,bytes32,uint128,bytes) nonpayable` | 0x101b | `0xbc2548e7` | change | 58000 write (`precompiles/layerxpay/gas.go:37`) | `precompiles/layerxpay/abi.json:12` |
+| `budgetRemaining(bytes32) view returns (uint128)` | 0x101b | `0xd7778749` | change | read row (`precompiles/layerxpay/gas.go:63`) | `precompiles/layerxpay/abi.json:13` |
+| `budgetRevoke(bytes32,uint64) nonpayable` | 0x101b | `0x62da81cd` | change | 50000 write (`precompiles/layerxpay/gas.go:36`) | `precompiles/layerxpay/abi.json:14` |
+| `budgetSpend(bytes32,bytes32,uint128) nonpayable` | 0x101b | `0x8608d32b` | change | 50000 write (`precompiles/layerxpay/gas.go:33`) | `precompiles/layerxpay/abi.json:15` |
+| `getBudget(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bool,bool,bytes32[],bytes32))` | 0x101b | `0x546887a3` | change | read row (`precompiles/layerxpay/gas.go:62`) | `precompiles/layerxpay/abi.json:25` |
+
+Events of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Event | Address | topic0 | Status | Defined at |
+|---|---|---|---|---|
+| `BudgetAmended(bytes32 indexed,uint128,uint64)` | 0x101b | `0x31c93d31b53c28bc0fa050fb1c3062f782ba9a79bddc2e03ce2fd9b1fe6beff1` | change | `precompiles/layerxpay/abi.json:61` |
+| `BudgetClosed(bytes32 indexed,uint128,uint64)` | 0x101b | `0xa75bf542dcea5f85d998297a562512ea52af43a7dbf6b2e52283ac9e7269a064` | change | `precompiles/layerxpay/abi.json:62` |
+| `BudgetCreated(bytes32 indexed,bytes32,uint128)` | 0x101b | `0x4ffe02fb44ac10fea9c67d108d6137f20d66416c427018cd7c5c85134367a2b3` | change | `precompiles/layerxpay/abi.json:63` |
+| `BudgetDefunded(bytes32 indexed,uint128,uint128)` | 0x101b | `0xddf7b24a523c211d8e64a31f112821e871669f996eac19ae03a6ca742cf33dd3` | change | `precompiles/layerxpay/abi.json:64` |
+| `BudgetDelegateAdded(bytes32 indexed,bytes32)` | 0x101b | `0xfb88d261a6feb94af7f84c47e1ee79be8f7a17b4592b3cfaacfd30e7fcc8de3b` | change | `precompiles/layerxpay/abi.json:65` |
+| `BudgetDelegateRemoved(bytes32 indexed,bytes32)` | 0x101b | `0x5cde5fb6325cdde9badecb2d773ddcbd29bbd1ab44f7fa976e9b824ddccf2dbc` | change | `precompiles/layerxpay/abi.json:66` |
+| `BudgetFunded(bytes32 indexed,uint128)` | 0x101b | `0xb5395e31b1001c1a3db7533e5433ded6d549d5831c06882d39e8747947506d3f` | change | `precompiles/layerxpay/abi.json:67` |
+| `BudgetRevoked(bytes32 indexed,uint128,uint64)` | 0x101b | `0x6940118bfee95d3acf3b067b81e5d0eed108c543c9b0e0a462b502a81de64586` | change | `precompiles/layerxpay/abi.json:68` |
+| `BudgetSpent(bytes32 indexed,bytes32,uint128)` | 0x101b | `0xe7061a9872a2a196198f5fc257e098280fc29533217100b36a8a45113481624a` | change | `precompiles/layerxpay/abi.json:69` |
+
+Capabilities verified against this section: 2.24.1, 2.24.2, 2.24.3, 2.24.4, 2.28.5.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| getEscrow(bytes32 escrowId) | ILayerXPay.Escrow escrow (bytes32 owner, bytes32 escrowAccount, bytes32 beneficiary, bytes32 arbiter, bytes32 assetId, uint128 lockedAmount, uint128 capturedAmount, uint8 state, uint64 expiryMs, uint64 disputeWindowMs, bytes32 termsHash, bytes32 agreementReference) | lx_escrow_lookup src/modules/escrow/lx_escrow_state.c:237 |
-| escrowRemaining(bytes32 escrowId) | uint128 (escrow account balance) | lx_escrow_remaining src/modules/escrow/lx_escrow_capture.c:8 |
-| getEscrowResult(bytes32 idempotencyKey) | bytes (243 or 276 B result record) | lx_escrow_result_lookup include/layerx/lx_escrow.h:194 |
-| getBudget(bytes32 budgetId) | ILayerXPay.Budget budget (bytes32 owner, bytes32 budgetAccount, bytes32 assetId, bytes32 purposeHash, uint128 perPeriodLimit, uint128 configuredPeriodLimit, uint128 carryCap, uint128 spentThisPeriod, uint128 carried, uint64 periodLengthMs, uint64 periodStartMs, uint64 expiryMs, uint64 revocationSequence, uint8 rolloverPolicy, bool closed, bool revoked, bytes32[] delegates, bytes32 sourceAccount) | budget_load src/modules/budget/lx_budget_module.c:89 (static) + lx_budget_record_decode include/layerx/lx_budget.h:207; an exported C read helper over the kv record backs the view (no raw-key reads from Go) |
-| budgetRemaining(bytes32 budgetId) | uint128 | lx_budget_remaining src/modules/budget/lx_budget_spend.c:35 after lx_budget_rollover src/modules/budget/lx_budget_period.c:19 |
-| getStream(bytes32 streamId) | ILayerXPay.Stream stream (bytes32 payer, bytes32 streamAccount, bytes32 recipient, bytes32 assetId, uint8 mode, uint128 rate, uint64 rateUnit, uint64 startMs, uint64 lastAccrualMs, uint64 endMs, uint128 totalCap, uint128 accruedTotal, uint128 settledTotal, uint128 remainderCarry, uint64 cumulativeMeter, bytes32[] meterAuthorities, bool underfunded, bool paused, bool closed) | lx_stream_load src/modules/stream/lx_stream_state.c:37 |
-| streamAccrued(bytes32 streamId) | (uint128 accruedTotal, uint128 unsettled) at the block-open ms, nothing written; unsettled = accruedTotal − settledTotal | exported C read helper: lx_stream_load lx_stream_state.c:37 into a copy, then lx_stream_accrue lx_stream_accrue.c:34 (A.7 resolutions) |
-| getStreamResult(bytes32 idempotencyKey) | ILayerXPay.StreamResult result (bytes32 streamId, bytes32 transferSetRoot, uint128 paid, uint128 refunded, uint16 ordinal, uint8 legCount) | lx_stream_result_load lx_stream_state.c:97 |
-| getOffer(bytes32 offerId) | ILayerXPay.Offer offer (bytes32 offerId, bytes32 activityId, bytes32 offeringAgent, bytes32 assetId, uint128 price, bytes32 termsHash, bytes32 deliverableSpecHash, uint64 deliveryDeadlineMs, uint64 acceptanceWindowMs, uint64 disputeWindowMs, uint8 defaultOutcome, uint64 offerExpiryMs, uint64 globalSequence, bool withdrawn, bool accepted) | lx_service_offer_lookup src/modules/service/lx_service_state.c:240 |
-| getAgreement(bytes32 agreementId) | ILayerXPay.Agreement agreement (bytes32 agreementId, bytes32 offerId, bytes32 provider, bytes32 buyer, bytes32 termsHash, bytes32 escrowId, uint64 deliveryDeadlineMs, uint64 acceptanceWindowEndMs, uint64 disputeWindowEndMs, uint8 defaultOutcome, uint8 state, uint64 acceptedSequence, uint16 rejectionReason, bytes32[] contestedHashes, bool defaultApplied, uint64 outcomeSequence, uint64 outcomeTimestampMs) | lx_service_agreement_lookup lx_service_state.c:395 |
-| getCommitment(bytes32 commitmentId) | ILayerXPay.Commitment commitment (bytes32 commitmentId, bytes32 activityId, bytes32 provider, bytes32 agreementId, bytes32 taskHash, uint64 deadlineMs, uint64 resourceBound, bytes32 escrowId, uint64 globalSequence, bool abandoned, uint16 abandonReason) | lx_service_commitment_lookup lx_service_state.c:502 |
-| getExecution(bytes32 attestationId) | bytes (416 B execution) | lx_service_execution_lookup lx_service_state.c:539 |
-| getDelivery(bytes32 deliveryId) / latestDelivery(bytes32 agreementId) | ILayerXPay.Delivery delivery (bytes32 agreementId, bytes32 provider, ILayerXPay.Deliverable[] deliverables (bytes32 hash, uint64 artifactSizeBytes, bytes32 availabilityReference), uint64 globalSequence) | lx_service_delivery_lookup lx_service_state.c:700 / lx_service_delivery_latest :758 |
-| getProgress(bytes32 reportId) / progressHighWater(bytes32 commitmentId) | ILayerXPay.Progress progress (bytes32 reportId, bytes32 activityId, bytes32 commitmentId, bytes32 agreementId, bytes32 provider, bytes32 noteHash, bytes32 availabilityReference, uint32 progressBps, uint64 reportedAtMs, uint64 globalSequence) / uint32 progressBps | lx_service_progress_lookup lx_service_state.c:860 / lx_service_progress_high_water :899 |
-| getDispute(bytes32 disputeId) | ILayerXPay.Dispute dispute (bytes32 disputeId, bytes32 activityId, bytes32 agreementId, bytes32 raiser, bytes32[] evidenceHashes, uint64 globalSequence, bool resolved, uint16 ruling, uint32 providerBps, bytes32 escrowResolutionId, uint64 resolutionSequence) | lx_service_dispute_lookup lx_service_state.c:1023 |
+| 2.257.1 | 2257.1 | `modules/layerxpay/keeper/budget_create_test.go::TestBudgetCreateAndFund (planned)` |
+| 2.257.2 | 2257.2 | `modules/layerxpay/keeper/budget_create_test.go::TestBudgetNativeVariantsAndAmend (planned)` |
+| 2.258.1 | 2258.1 | `modules/layerxpay/keeper/budget_spend_test.go::TestBudgetSpendWithinPeriodLimit (planned)` |
+| 2.258.2 | 2258.2 | `modules/layerxpay/keeper/budget_spend_test.go::TestBudgetDelegateSpendDerivedKey (planned)` |
+| 2.259.1 | 2259.1 | `modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant (planned)` |
+| 2.259.2 | 2259.2 | `modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant (planned)` |
+| 2.260.1 | 2260.1 | `modules/layerxpay/keeper/budget_close_test.go::TestBudgetCloseDrainsToOwner (planned)` |
+| 2.260.2 | 2260.2 | `modules/layerxpay/keeper/budget_close_test.go::TestBudgetDefundAndRevoke (planned)` |
+| 2.280.1 | 2280.1 | `precompiles/layerxpay/budget_test.go::TestPrecompileBudgetLifecycle (planned)` |
+| 2.280.2 | 2280.2 | `precompiles/layerxpay/budget_test.go::TestPrecompileBudgetNativeAndPull (planned)` |
 
-## C. Events
-These event names are this contract's own. The kernel emits event_type = activity ordinal through lxp_ctx_emit_event (src/protocol/lxp_module_ctx.c:3126). Escrow, budget and stream have no named event constants, so the third column cites the emission site.
+## stream
 
-| event signature | fields | kernel event constant / emission site |
+Stream family, kernel module 4: open, top up, meter, settle, pause, resume and close. The 0x0906 agent streams share the stream records of this keeper and the kernel rate change (decision.237).
+
+Methods of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Method | Address | Selector | Status | Gas | Defined at |
+|---|---|---|---|---|---|
+| `getStream(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint8,uint128,uint64,uint64,uint64,uint64,uint128,uint128,uint128,uint128,uint64,bytes32[],bool,bool,bool))` | 0x101b | `0x1290abe8` | change | read row (`precompiles/layerxpay/gas.go:64`) | `precompiles/layerxpay/abi.json:34` |
+| `getStreamResult(bytes32) view returns ((bytes32,bytes32,uint128,uint128,uint16,uint8))` | 0x101b | `0xb3d268df` | change | read row (`precompiles/layerxpay/gas.go:66`) | `precompiles/layerxpay/abi.json:35` |
+| `streamAccrued(bytes32) view returns (uint128,uint128)` | 0x101b | `0xb750cb8e` | change | read row (`precompiles/layerxpay/gas.go:65`) | `precompiles/layerxpay/abi.json:51` |
+| `streamClose(bytes32,bytes32) nonpayable` | 0x101b | `0x78725d86` | change | 80000 write (`precompiles/layerxpay/gas.go:45`) | `precompiles/layerxpay/abi.json:52` |
+| `streamMeter(bytes32,uint64,bytes32,bytes) nonpayable` | 0x101b | `0xb96ba914` | change | 38000 write (`precompiles/layerxpay/gas.go:41`) | `precompiles/layerxpay/abi.json:53` |
+| `streamOpen(bytes32,bytes32,bytes32,bytes32,uint8,uint128,uint64,uint64,uint64,uint128,uint128,bytes32[]) nonpayable` | 0x101b | `0x89fdbd3b` | change | 50000 write (`precompiles/layerxpay/gas.go:39`) | `precompiles/layerxpay/abi.json:54` |
+| `streamPause(bytes32) nonpayable` | 0x101b | `0x71ed5358` | change | 30000 write (`precompiles/layerxpay/gas.go:43`) | `precompiles/layerxpay/abi.json:55` |
+| `streamResume(bytes32) nonpayable` | 0x101b | `0x59aa40a2` | change | 30000 write (`precompiles/layerxpay/gas.go:44`) | `precompiles/layerxpay/abi.json:56` |
+| `streamSettle(bytes32,bytes32) nonpayable` | 0x101b | `0x00a56e5f` | change | 60000 write (`precompiles/layerxpay/gas.go:42`) | `precompiles/layerxpay/abi.json:57` |
+| `streamTopUp(bytes32,uint128) nonpayable` | 0x101b | `0x0b69f222` | change | 50000 write (`precompiles/layerxpay/gas.go:40`) | `precompiles/layerxpay/abi.json:58` |
+
+Events of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Event | Address | topic0 | Status | Defined at |
+|---|---|---|---|---|
+| `StreamClosed(bytes32 indexed,uint128,uint128)` | 0x101b | `0x8063cfde1c85c4898f9fff27df374f273806733152313f92e8a5914423678a9f` | change | `precompiles/layerxpay/abi.json:88` |
+| `StreamMetered(bytes32 indexed,uint64,uint128,uint128)` | 0x101b | `0x932366bfeca08e9b804274a1a7eb67bd4d66f03e9290b961e60b8eeaf5d78b02` | change | `precompiles/layerxpay/abi.json:89` |
+| `StreamOpened(bytes32 indexed,bytes32,bytes32,bytes32,bytes32,uint8,uint128)` | 0x101b | `0x8277b76c675fc9dab63f492a7ac5479a66d6552828f1fdbc9a76e2340ada9448` | change | `precompiles/layerxpay/abi.json:90` |
+| `StreamPaused(bytes32 indexed,uint64,uint128)` | 0x101b | `0x9032eddf8dcc6800a443fad0f2630b6edbeb66a914d9cb09347325363cf7fe1e` | change | `precompiles/layerxpay/abi.json:91` |
+| `StreamRateUpdated(bytes32 indexed,uint128,uint128,uint128)` | 0x101b | `0x6006a657a93ec26224beb6993b55b31a96ca5b9e8719252665286ab2b7f58e60` | change | `precompiles/layerxpay/abi.json:92` |
+| `StreamResumed(bytes32 indexed,uint64,uint128)` | 0x101b | `0x90f70f76c4cceddd91668722f7b46eb8b8df7612a6f9c6087fc49b97b9758a14` | change | `precompiles/layerxpay/abi.json:93` |
+| `StreamSettled(bytes32 indexed,uint128,uint128,bool)` | 0x101b | `0xa87dc98d52838f3eb3a565c28fa8ccfb54ffcc925bc81b759eb3e64fb5185f69` | change | `precompiles/layerxpay/abi.json:94` |
+| `StreamToppedUp(bytes32 indexed,uint128,bool)` | 0x101b | `0x643cbe429fc24e5e4f0f1ddb6f5d583d651e5558832d390e9b65557734ce47c9` | change | `precompiles/layerxpay/abi.json:95` |
+
+Capabilities verified against this section: 2.25.1, 2.25.2, 2.25.3, 2.28.6.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| EscrowOpened/EscrowCaptured/EscrowPartiallyCaptured/EscrowReleased/EscrowTimedOut/EscrowDisputed/EscrowResolved(bytes32 indexed escrowId, uint16 ordinal, uint8 state, uint128 capturedAmount, uint128 lockedAmount) | 67 B body | types 1..7; lx_escrow_event_body lx_escrow_state.c:489; LX_ESCROW_EVENT_BYTES include/layerx/lx_escrow.h:33 |
-| BudgetCreated(bytes32 indexed budgetId, bytes32 assetId, uint128 amount) | 80 B | type 1, lx_budget_module.c:363-367 |
-| BudgetFunded(bytes32 indexed budgetId, uint128 amount) | 48 B | type 2, :396-399 |
-| BudgetAmended(bytes32 indexed budgetId, uint128 perPeriodLimit, uint64 expiryMs) | 56 B | type 3, :428-432 |
-| BudgetDelegateAdded / BudgetDelegateRemoved(bytes32 indexed budgetId, bytes32 delegateActor) | 64 B | types 4/5, :452-454 |
-| BudgetSpent(bytes32 indexed budgetId, bytes32 recipient, uint128 amount) | 80 B | type 6, :492-496 |
-| BudgetClosed / BudgetRevoked(bytes32 indexed budgetId, uint128 drained, uint64 revocationSequence) | 56 B | types 7/9, :534-538 / :628-632 |
-| BudgetDefunded(bytes32 indexed budgetId, uint128 amount, uint128 perPeriodLimit) | 64 B | type 8, :593-598 |
-| StreamOpened(bytes32 indexed streamId, bytes32 payer, bytes32 streamAccount, bytes32 recipient, bytes32 assetId, uint8 mode, uint128 funding) | 177 B | type 1, stream_event_open lx_stream_execution.h:60 |
-| StreamToppedUp(bytes32 indexed streamId, uint128 amount, bool wasUnderfunded) | 49 B | type 2, :77 |
-| StreamMetered(bytes32 indexed streamId, uint64 cumulativeMeter, uint128 accrued, uint128 accruedTotal) | 72 B | type 3, :90 |
-| StreamSettled(bytes32 indexed streamId, uint128 paid, uint128 settledTotal, bool underfunded) | 65 B | type 4, :105 |
-| StreamPaused / StreamResumed(bytes32 indexed streamId, uint64 lastAccrualMs, uint128 accruedTotal) | 56 B | types 5/6, :120 |
-| StreamClosed(bytes32 indexed streamId, uint128 paid, uint128 refunded) | 64 B | type 7, :133 |
-| StreamRateUpdated(bytes32 indexed streamId, uint128 oldRate, uint128 newRate, uint128 paid) | 80 B; logged by 0x0906 updateRate | type 8, stream_event_rate_change lx_stream_execution.h:120 |
-| OfferPublished, OfferWithdrawn, AgreementProposed, AgreementAccepted, TaskCommitted, CommitAbandoned, ExecutionAttested, ProgressReported, Delivered, OutcomeAccepted, OutcomeRejected, DisputeOpened, DisputeResolved (bytes32 indexed primary, bytes32 indexed secondary, uint8 code, uint64 sequence) | 73 B; primary/secondary per lx_service_module.c:88-355 | LX_SERVICE_EVENT_* 1..13 include/layerx/lx_service.h:33-45 |
-| DefaultOutcomeApplied(bytes32 indexed agreementId, uint8 state, bool defaultApplied, uint64 outcomeSequence, uint64 outcomeTimestampMs) | 50 B | LX_SERVICE_EVENT_DEFAULT_APPLIED 14 lx_service.h:46; emit_default_outcome lx_service_acceptance.c:121 |
+| 2.262.1 | 2262.1 | `modules/layerxpay/keeper/stream_open_test.go::TestStreamOpenFundsFromPayer (planned)` |
+| 2.262.2 | 2262.2 | `modules/layerxpay/keeper/stream_open_test.go::TestStreamTopUpAddsFunding (planned)` |
+| 2.263.1 | 2263.1 | `modules/layerxpay/keeper/stream_settle_test.go::TestStreamSettlePaysAccrued (planned)` |
+| 2.263.2 | 2263.2 | `modules/layerxpay/keeper/stream_settle_test.go::TestStreamMeterThenClose (planned)` |
+| 2.264.1 | 2264.1 | `modules/layerxpay/keeper/stream_lifecycle_test.go::TestStreamPauseResumeStopsAccrual (planned)` |
+| 2.264.2 | 2264.2 | `modules/layerxpay/keeper/stream_lifecycle_test.go::TestStreamRateChangeSettlesAtOldRate (planned)` |
+| 2.281.1 | 2281.1 | `precompiles/layerxpay/stream_test.go::TestPrecompileStreamLifecycle (planned)` |
+| 2.281.2 | 2281.2 | `precompiles/layerxpay/stream_test.go::TestPrecompileStreamViews (planned)` |
+| 2.281.3 | 2281.3 | `precompiles/layerxpay/stream_test.go::TestPrecompileStreamRateUpdatedLog (planned)` |
 
-## D. Framework fit
-| item | passed as | reason |
+## service
+
+Service family, kernel module 5: offers, agreements, task commitments, tool attestations, progress, delivery, acceptance, rejection and disputes, with the service views.
+
+Methods of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Method | Address | Selector | Status | Gas | Defined at |
+|---|---|---|---|---|---|
+| `getAgreement(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,uint64,uint8,uint8,uint64,uint16,bytes32[],bool,uint64,uint64))` | 0x101b | `0xf42eb765` | change | read row (`precompiles/layerxpay/gas.go:68`) | `precompiles/layerxpay/abi.json:24` |
+| `getCommitment(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,bytes32,uint64,bool,uint16))` | 0x101b | `0x7795820c` | change | read row (`precompiles/layerxpay/gas.go:69`) | `precompiles/layerxpay/abi.json:26` |
+| `getDelivery(bytes32) view returns ((bytes32,bytes32,(bytes32,uint64,bytes32)[],uint64))` | 0x101b | `0xedab743e` | change | read row (`precompiles/layerxpay/gas.go:71`) | `precompiles/layerxpay/abi.json:27` |
+| `getDispute(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32[],uint64,bool,uint16,uint32,bytes32,uint64))` | 0x101b | `0x136ba6aa` | change | read row (`precompiles/layerxpay/gas.go:75`) | `precompiles/layerxpay/abi.json:28` |
+| `getExecution(bytes32) view returns (bytes)` | 0x101b | `0x0fe11ab3` | change | read row (`precompiles/layerxpay/gas.go:70`) | `precompiles/layerxpay/abi.json:31` |
+| `getOffer(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32,uint64,uint64,uint64,uint8,uint64,uint64,bool,bool))` | 0x101b | `0xd597b8c8` | change | read row (`precompiles/layerxpay/gas.go:67`) | `precompiles/layerxpay/abi.json:32` |
+| `getProgress(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint32,uint64,uint64))` | 0x101b | `0x0f89ff41` | change | read row (`precompiles/layerxpay/gas.go:73`) | `precompiles/layerxpay/abi.json:33` |
+| `latestDelivery(bytes32) view returns ((bytes32,bytes32,(bytes32,uint64,bytes32)[],uint64))` | 0x101b | `0x1e0ac80d` | change | read row (`precompiles/layerxpay/gas.go:72`) | `precompiles/layerxpay/abi.json:36` |
+| `progressHighWater(bytes32) view returns (uint32)` | 0x101b | `0x2c4e8866` | change | read row (`precompiles/layerxpay/gas.go:74`) | `precompiles/layerxpay/abi.json:37` |
+| `serviceAccept(bytes32) nonpayable` | 0x101b | `0x9f8dfee6` | change | 30000 write (`precompiles/layerxpay/gas.go:55`) | `precompiles/layerxpay/abi.json:38` |
+| `serviceAgreementAccept(bytes32) nonpayable` | 0x101b | `0x85997911` | change | 40000 write (`precompiles/layerxpay/gas.go:49`) | `precompiles/layerxpay/abi.json:39` |
+| `serviceAgreementPropose(bytes32,bytes32,bytes32,bytes32) nonpayable` | 0x101b | `0xe5589018` | change | 30000 write (`precompiles/layerxpay/gas.go:48`) | `precompiles/layerxpay/abi.json:40` |
+| `serviceCommitAbandon(bytes32,uint16) nonpayable` | 0x101b | `0x3415adc7` | change | 40000 write (`precompiles/layerxpay/gas.go:51`) | `precompiles/layerxpay/abi.json:41` |
+| `serviceCommitTask(bytes32,bytes32,bytes32,bytes32,uint64,uint64) nonpayable` | 0x101b | `0xdbc88a65` | change | 40000 write (`precompiles/layerxpay/gas.go:50`) | `precompiles/layerxpay/abi.json:42` |
+| `serviceDeliver(bytes32,bytes32,(bytes32,uint64,bytes32)[]) nonpayable` | 0x101b | `0xbda35baa` | change | 50000 write (`precompiles/layerxpay/gas.go:54`) | `precompiles/layerxpay/abi.json:43` |
+| `serviceDisputeOpen(bytes32,bytes32,bytes32[]) nonpayable` | 0x101b | `0x1274face` | change | 50000 write (`precompiles/layerxpay/gas.go:57`) | `precompiles/layerxpay/abi.json:44` |
+| `serviceDisputeResolve(bytes32,uint16,uint32,bytes32) nonpayable` | 0x101b | `0x696b2d17` | change | 100000 write (`precompiles/layerxpay/gas.go:58`) | `precompiles/layerxpay/abi.json:45` |
+| `serviceOfferPublish(bytes32,bytes32,uint128,bytes32,bytes32,uint64,uint64,uint64,uint8,uint64) nonpayable` | 0x101b | `0x34569433` | change | 30000 write (`precompiles/layerxpay/gas.go:46`) | `precompiles/layerxpay/abi.json:46` |
+| `serviceOfferWithdraw(bytes32) nonpayable` | 0x101b | `0xd5584d7c` | change | 30000 write (`precompiles/layerxpay/gas.go:47`) | `precompiles/layerxpay/abi.json:47` |
+| `serviceProgressReport(bytes32,bytes32,bytes32,bytes32,uint32) nonpayable` | 0x101b | `0xa203571a` | change | 30000 write (`precompiles/layerxpay/gas.go:53`) | `precompiles/layerxpay/abi.json:48` |
+| `serviceReject(bytes32,uint16,bytes32[]) nonpayable` | 0x101b | `0x4d71a096` | change | 30000 write (`precompiles/layerxpay/gas.go:56`) | `precompiles/layerxpay/abi.json:49` |
+| `serviceToolExecAttest(bytes) nonpayable` | 0x101b | `0x5169415d` | change | 38000 write (`precompiles/layerxpay/gas.go:52`) | `precompiles/layerxpay/abi.json:50` |
+
+Events of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Event | Address | topic0 | Status | Defined at |
+|---|---|---|---|---|
+| `AgreementAccepted(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x9de5935a09572b051c9194e7e83c1e5e340c717e25a06c66268b8892121474d4` | change | `precompiles/layerxpay/abi.json:59` |
+| `AgreementProposed(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x3e9d8e46bd4c26cf3e14abb64acb712a44dfdc616aaf61b4b2e1bac16aedee39` | change | `precompiles/layerxpay/abi.json:60` |
+| `CommitAbandoned(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0xf82b0eee8867ff42a37f93f9ff76ac9f49c6d9d87212401d309bfe38d8784080` | change | `precompiles/layerxpay/abi.json:70` |
+| `DefaultOutcomeApplied(bytes32 indexed,uint8,bool,uint64,uint64)` | 0x101b | `0x52cdc71e077aa63bc67e6a932084f167c9160b7b857a3e3c1d26d3ec4923da98` | change | `precompiles/layerxpay/abi.json:71` |
+| `Delivered(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x8e7c33a038e5e59bac9f44a0eb4bb592c7d0cc1c7271360f73f232a8c9511552` | change | `precompiles/layerxpay/abi.json:72` |
+| `DisputeOpened(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0xbf7c0c01d9d1cca84d5e6e3c398fd19d7b9bf4aa1eb2344706c0cd9605734d07` | change | `precompiles/layerxpay/abi.json:73` |
+| `DisputeResolved(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0xa4df9ab184633d8a0e83b36ceccf4a447aab7b5d6c0687d9cbec51e2eb54192a` | change | `precompiles/layerxpay/abi.json:74` |
+| `ExecutionAttested(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x3fd39a11ff049c70f0c6c1e3e311f2bd0d00607756c7fae5156587bf82a19467` | change | `precompiles/layerxpay/abi.json:82` |
+| `OfferPublished(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x094bfb6e853a36faae49604b89e04fef60a8ce2f9e4c1f9d0c53c6166d7f6b43` | change | `precompiles/layerxpay/abi.json:83` |
+| `OfferWithdrawn(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x1dc29fd3e5c1c7ecf9bbd0e84ede6461886d0dafe96843e82dd32efd004c31b4` | change | `precompiles/layerxpay/abi.json:84` |
+| `OutcomeAccepted(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x5d654e0e0378bd06e4e6fcd1728c8954e62e820aa2147d3a6a90a133bffaf1de` | change | `precompiles/layerxpay/abi.json:85` |
+| `OutcomeRejected(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x6b6c89470b91617fc6fa2384b31e88021ddf3bcb78491fc0e82748dc84b13518` | change | `precompiles/layerxpay/abi.json:86` |
+| `ProgressReported(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x819ea4c59366246bb925fe1c7273f9af36a52b0ff8d393e63e789762e328c0fa` | change | `precompiles/layerxpay/abi.json:87` |
+| `TaskCommitted(bytes32 indexed,bytes32 indexed,uint8,uint64)` | 0x101b | `0x6e00443b450170a849061291f9a4797138ee198a5cc8de5f4c30f1aa79e501f1` | change | `precompiles/layerxpay/abi.json:96` |
+
+Capabilities verified against this section: 2.26.1, 2.26.2, 2.26.3, 2.26.4, 2.28.7.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| all methods | Error(string) "LXP_<code>" via WithRevertReasons | precompiles/common/precompiles.go:53, Run :82 |
-| wire header [0x00,0x01] (stream, service, budget) and v1/v2 budget payloads | built by the precompile, not by the caller | lx_stream_payload.c:21-36; lx_service_payload.c:7-13; lx_budget_codec.c:130, :173 |
-| budget methods' authority | nothing extra: the shim-built LXP_AUTHORITY_OWNER authority from the 0x1004 binding | the envelope re-verification (lx_budget_module.c:277-278) is replaced on the EVM path; the DID string is derived per the conventions (A.2 BA EVM path) |
-| v3 custody account ids (escrowAccount, budgetAccount, streamAccount) | bytes32 computed from "agent:"+did+":<segment>:"+hex(id) | lxp_ctx_account_stage_module_custody src/protocol/lxp_module_ctx.c:855, :884-886 needs the DID string; derived from the 0x1004 didPublicKey as "did:layerx:"+hex(key) (conventions) |
-| escrow replay digest | the precompile reproduces the 293 B context preimage | lx_escrow_context_digest lx_escrow_state.c:387 binds the resolved authority fields |
-| streamMeter signature, serviceToolExecAttest | bytes (64 B ed25519 signature; 416 B execution) | ed25519 under LXP_DOMAIN_SIGNATURE_PREIMAGE (lx_stream_meter.c:51; lx_service_attest.c:137); activityId binding per the A.4 serviceToolExecAttest row (lx_service_module.c:205) |
-| serviceToolExecAttest authority | verified_key = the caller's 0x1004-bound didPublicKey | the grant public key is authority->verified_key (lx_service_module.c:209); the attestor signs the 416 B execution with that key off chain |
-| budgetPull payer grant | bytes payerGrant (lxp_payer_grant include/layerx/lxp_ledger.h:198-214, ed25519-signed) | lxp_verify_payer_grant src/ledger/lxp_grant_store.c:72-99 hashes and verifies the canonical encoding (the draw form is reference only, A.5) |
-| getEscrowResult, getExecution | bytes | versioned or signed records |
+| 2.267.1 | 2267.1 | `modules/layerxpay/keeper/service_offer_test.go::TestServiceOfferPublishWithdraw (planned)` |
+| 2.268.1 | 2268.1 | `modules/layerxpay/keeper/service_agreement_test.go::TestServiceAgreementProposeAccept (planned)` |
+| 2.268.2 | 2268.2 | `modules/layerxpay/keeper/service_agreement_test.go::TestServiceCommitAndAbandon (planned)` |
+| 2.269.1 | 2269.1 | `modules/layerxpay/keeper/service_delivery_test.go::TestServiceDeliverAcceptFlow (planned)` |
+| 2.269.2 | 2269.2 | `modules/layerxpay/keeper/service_delivery_test.go::TestServiceRejectAndToolAttest (planned)` |
+| 2.270.1 | 2270.1 | `modules/layerxpay/keeper/service_dispute_test.go::TestServiceDisputeResolvedByEscrowArbiter (planned)` |
+| 2.270.2 | 2270.2 | `modules/layerxpay/keeper/service_dispute_test.go::TestServiceDisputeArbiterRefusals (planned)` |
+| 2.282.1 | 2282.1 | `precompiles/layerxpay/service_test.go::TestPrecompileServiceHappyPath (planned)` |
+| 2.282.2 | 2282.2 | `precompiles/layerxpay/service_test.go::TestPrecompileServiceDisputePath (planned)` |
+| 2.282.3 | 2282.3 | `precompiles/layerxpay/service_test.go::TestPrecompileServiceWithdrawAbandonAttest (planned)` |
 
-### D.2 Gas table
-Fixed per method, following the DefaultGasCost pattern (precompiles/common/precompiles.go:286-292: flat + per-byte over len(input); KVGasConfig read 1000 + 3/byte, write 2000 + 30/byte, sdk/store/types/gas.go:349-358); total = the listed gas + the per-byte term of the class; classes: read = view, write = state change, heavy = ed25519 verification or two kernel activities in one call. The numbers below are provisional; the final numbers are set at activation rehearsal.
+## views
 
-| method | gas class | gas |
+The 17 0x101B views decode the kernel record read back through the host; they never check pause and never write.
+
+Contract context `2.layerxpay-payloads`:
+
+| Aspect | Rule |
+|---|---|
+| Interface | modules/layerxpay/types kernel module ids, stream and service constants and kernel record decoders for the escrow, budget, stream and service families |
+| Storage | None; encoders produce kernel activity payloads and decoders read kernel records fetched through the host |
+| Errors | Encoders refuse zero idempotency keys and zero stream ids; decoders refuse records of the wrong length |
+| Events | None |
+| Gas | Payload lengths feed the kernel validate charge of payload_length+1 |
+| Activation | Linked into the application with the pay keeper at wave 4 |
+| Invariants | Every encoded payload length equals its PayloadBytes constant and decodes in the kernel module of its activity type (decision.222) |
+| Pause | Not pausable |
+
+Methods of this group (rows repeated from [layerxpay-0x101b](#layerxpay-0x101b)):
+
+| Method | Address | Selector | Status | Gas | Defined at |
+|---|---|---|---|---|---|
+| `budgetRemaining(bytes32) view returns (uint128)` | 0x101b | `0xd7778749` | change | read row (`precompiles/layerxpay/gas.go:63`) | `precompiles/layerxpay/abi.json:13` |
+| `escrowRemaining(bytes32) view returns (uint128)` | 0x101b | `0x9c328bc9` | change | read row (`precompiles/layerxpay/gas.go:60`) | `precompiles/layerxpay/abi.json:22` |
+| `getAgreement(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,uint64,uint8,uint8,uint64,uint16,bytes32[],bool,uint64,uint64))` | 0x101b | `0xf42eb765` | change | read row (`precompiles/layerxpay/gas.go:68`) | `precompiles/layerxpay/abi.json:24` |
+| `getBudget(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8,bool,bool,bytes32[],bytes32))` | 0x101b | `0x546887a3` | change | read row (`precompiles/layerxpay/gas.go:62`) | `precompiles/layerxpay/abi.json:25` |
+| `getCommitment(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,uint64,uint64,bytes32,uint64,bool,uint16))` | 0x101b | `0x7795820c` | change | read row (`precompiles/layerxpay/gas.go:69`) | `precompiles/layerxpay/abi.json:26` |
+| `getDelivery(bytes32) view returns ((bytes32,bytes32,(bytes32,uint64,bytes32)[],uint64))` | 0x101b | `0xedab743e` | change | read row (`precompiles/layerxpay/gas.go:71`) | `precompiles/layerxpay/abi.json:27` |
+| `getDispute(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32[],uint64,bool,uint16,uint32,bytes32,uint64))` | 0x101b | `0x136ba6aa` | change | read row (`precompiles/layerxpay/gas.go:75`) | `precompiles/layerxpay/abi.json:28` |
+| `getEscrow(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint8,uint64,uint64,bytes32,bytes32))` | 0x101b | `0xf023b811` | change | read row (`precompiles/layerxpay/gas.go:59`) | `precompiles/layerxpay/abi.json:29` |
+| `getEscrowResult(bytes32) view returns (bytes)` | 0x101b | `0x068833a7` | change | read row (`precompiles/layerxpay/gas.go:61`) | `precompiles/layerxpay/abi.json:30` |
+| `getExecution(bytes32) view returns (bytes)` | 0x101b | `0x0fe11ab3` | change | read row (`precompiles/layerxpay/gas.go:70`) | `precompiles/layerxpay/abi.json:31` |
+| `getOffer(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32,uint64,uint64,uint64,uint8,uint64,uint64,bool,bool))` | 0x101b | `0xd597b8c8` | change | read row (`precompiles/layerxpay/gas.go:67`) | `precompiles/layerxpay/abi.json:32` |
+| `getProgress(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint32,uint64,uint64))` | 0x101b | `0x0f89ff41` | change | read row (`precompiles/layerxpay/gas.go:73`) | `precompiles/layerxpay/abi.json:33` |
+| `getStream(bytes32) view returns ((bytes32,bytes32,bytes32,bytes32,uint8,uint128,uint64,uint64,uint64,uint64,uint128,uint128,uint128,uint128,uint64,bytes32[],bool,bool,bool))` | 0x101b | `0x1290abe8` | change | read row (`precompiles/layerxpay/gas.go:64`) | `precompiles/layerxpay/abi.json:34` |
+| `getStreamResult(bytes32) view returns ((bytes32,bytes32,uint128,uint128,uint16,uint8))` | 0x101b | `0xb3d268df` | change | read row (`precompiles/layerxpay/gas.go:66`) | `precompiles/layerxpay/abi.json:35` |
+| `latestDelivery(bytes32) view returns ((bytes32,bytes32,(bytes32,uint64,bytes32)[],uint64))` | 0x101b | `0x1e0ac80d` | change | read row (`precompiles/layerxpay/gas.go:72`) | `precompiles/layerxpay/abi.json:36` |
+| `progressHighWater(bytes32) view returns (uint32)` | 0x101b | `0x2c4e8866` | change | read row (`precompiles/layerxpay/gas.go:74`) | `precompiles/layerxpay/abi.json:37` |
+| `streamAccrued(bytes32) view returns (uint128,uint128)` | 0x101b | `0xb750cb8e` | change | read row (`precompiles/layerxpay/gas.go:65`) | `precompiles/layerxpay/abi.json:51` |
+
+Frozen interfaces: 12 (new 12).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-decodebudgetrecord-j24` | go_exported | `func DecodeBudgetRecord(b []byte) (BudgetRecord, error)` | new | `modules/layerxpay/types/records_budget.go` (planned) |
+| `interface.2.go-layerxpay-decodeescrowrecord-j24` | go_exported | `func DecodeEscrowRecord(b []byte) (EscrowRecord, error)` | new | `modules/layerxpay/types/records_escrow.go` (planned) |
+| `interface.2.go-layerxpay-decodeescrowresult-j24` | go_exported | `func DecodeEscrowResult(b []byte) (EscrowResult, error)` | new | `modules/layerxpay/types/records_escrow.go` (planned) |
+| `interface.2.go-layerxpay-decodeserviceagreement-j24` | go_exported | `func DecodeServiceAgreement(b []byte) (ServiceAgreement, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodeservicecommitment-j24` | go_exported | `func DecodeServiceCommitment(b []byte) (ServiceCommitment, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodeservicedelivery-j24` | go_exported | `func DecodeServiceDelivery(b []byte) (ServiceDelivery, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodeservicedispute-j24` | go_exported | `func DecodeServiceDispute(b []byte) (ServiceDispute, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodeserviceexecution-j24` | go_exported | `func DecodeServiceExecution(b []byte) (ServiceExecution, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodeserviceoffer-j24` | go_exported | `func DecodeServiceOffer(b []byte) (ServiceOffer, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodeserviceprogress-j24` | go_exported | `func DecodeServiceProgress(b []byte) (ServiceProgress, error)` | new | `modules/layerxpay/types/records_service.go` (planned) |
+| `interface.2.go-layerxpay-decodestreamrecord-j24` | go_exported | `func DecodeStreamRecord(b []byte) (StreamRecord, error)` | new | `modules/layerxpay/types/records_stream.go` (planned) |
+| `interface.2.go-layerxpay-decodestreamresult-j24` | go_exported | `func DecodeStreamResult(b []byte) (StreamResult, error)` | new | `modules/layerxpay/types/records_stream.go` (planned) |
+
+Capabilities verified against this section: 2.21.5, 2.21.6, 2.21.7, 2.23.3, 2.24.5, 2.25.4, 2.26.5, 2.28.8.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| escrowOpen, escrowCapture, escrowPartialCapture, escrowRelease, escrowTimeout | write | 60000 each, + 30/byte |
-| escrowDisputeOpen | write | 30000, + 30/byte |
-| escrowDisputeResolve | write | 80000, + 30/byte |
-| budgetCreate, budgetCreateNative | write | 50000 each, + 30/byte |
-| budgetFund, budgetFundNative | write | 40000 each, + 30/byte |
-| budgetAmend, budgetDelegateAdd, budgetDelegateRemove | write | 30000 each, + 30/byte |
-| budgetSpend, budgetClose, budgetDefund, budgetRevoke | write | 50000 each, + 30/byte |
-| budgetPull | heavy | 58000, + 30/byte (callable once its kernel activity type exists, A.2) |
-| budgetDelegateSpend | write | 60000, + 30/byte (callable once its kernel activity type exists, A.2) |
-| streamOpen, streamTopUp | write | 50000 each, + 30/byte |
-| streamMeter | heavy | 38000, + 30/byte |
-| streamSettle | write | 60000, + 30/byte |
-| streamPause, streamResume | write | 30000 each, + 30/byte |
-| streamClose | write | 80000, + 30/byte |
-| serviceOfferPublish, serviceOfferWithdraw, serviceAgreementPropose, serviceProgressReport, serviceAccept, serviceReject | write | 30000 each, + 30/byte |
-| serviceAgreementAccept, serviceCommitTask, serviceCommitAbandon | write | 40000 each, + 30/byte |
-| serviceToolExecAttest | heavy | 38000, + 30/byte |
-| serviceDeliver | write | 50000, + 30/byte (the per-byte term covers deliverables 2..16) |
-| serviceDisputeOpen | heavy | 50000, + 30/byte (service plus escrow dispute open, A.6) |
-| serviceDisputeResolve | heavy | 100000, + 30/byte (service plus escrow settlement, A.6) |
-| every B view | read | 1000, + 3/byte |
+| 2.245.1 | 2245.1 | `modules/layerxpay/types/records_escrow_test.go::TestDecodeEscrowRecordLayout (planned)` |
+| 2.245.2 | 2245.2 | `modules/layerxpay/types/records_escrow_test.go::TestDecodeBudgetRecordLayout (planned)` |
+| 2.246.1 | 2246.1 | `modules/layerxpay/types/records_stream_test.go::TestDecodeStreamRecordLayout (planned)` |
+| 2.246.2 | 2246.2 | `modules/layerxpay/types/records_stream_test.go::TestDecodeStreamResultLayout (planned)` |
+| 2.247.1 | 2247.1 | `modules/layerxpay/types/records_service_test.go::TestDecodeServiceFixedRecords (planned)` |
+| 2.247.2 | 2247.2 | `modules/layerxpay/types/records_service_test.go::TestDecodeServiceVariableRecords (planned)` |
+| 2.256.1 | 2256.1 | `modules/layerxpay/keeper/escrow_views_test.go::TestEscrowViewsReadKernelRecord (planned)` |
+| 2.256.2 | 2256.2 | `modules/layerxpay/keeper/escrow_views_test.go::TestEscrowViewsUnknownIDEmpty (planned)` |
+| 2.261.1 | 2261.1 | `modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord (planned)` |
+| 2.265.1 | 2265.1 | `modules/layerxpay/keeper/stream_views_test.go::TestStreamAccruedAtBlockOpen (planned)` |
+| 2.265.2 | 2265.2 | `modules/layerxpay/keeper/stream_views_test.go::TestStreamRecordAndResultViews (planned)` |
+| 2.271.1 | 2271.1 | `modules/layerxpay/keeper/service_views_test.go::TestServiceViewsReadKernelRecords (planned)` |
+| 2.271.2 | 2271.2 | `modules/layerxpay/keeper/service_views_test.go::TestServiceViewsUnknownEmpty (planned)` |
+| 2.283.1 | 2283.1 | `precompiles/layerxpay/service_views_test.go::TestPrecompileServiceViews (planned)` |
+| 2.283.2 | 2283.2 | `precompiles/layerxpay/service_views_test.go::TestPrecompileServiceViewsUngatedWhenPaused (planned)` |
 
-## E. Parity vectors
-| method | path checked with ls | what it asserts |
-|---|---|---|
-| escrowOpen | tests/modules/test_escrow_open.c | open, custody staging, refusals |
-| escrowCapture, escrowPartialCapture | tests/modules/test_escrow_capture.c | capture authority, exceeds-hold, expiry |
-| escrowRelease, escrowTimeout | tests/modules/test_escrow_timeout.c; tests/daemon/lxp_test_epoch_escrow_timeout.c | release, timeout, epoch sweep |
-| escrowDisputeOpen, escrowDisputeResolve | tests/modules/test_escrow_dispute.c | window, arbiter, bps split |
-| escrow all | tests/modules/test_escrow_invariants.c; tests/daemon/lxp_test_escrow_replay_client.c; tests/modules/paxeer_x_escrow_replay_binding.py | invariants, replay binding |
-| budget create..close | tests/modules/test_budget_create.c; tests/daemon/lxp_test_budget_lifecycle.c; tests/modules/paxeer_x_budget_lifecycle.py | lifecycle through module_execute |
-| budgetSpend | tests/modules/test_budget_spend.c | allowance, funds, expiry |
-| budgetClose, budgetDefund, budgetRevoke | tests/modules/test_budget_close.c | drain, limit lowering, stale revocation |
-| budgetDelegateAdd/Remove | tests/modules/test_budget_delegate.c | delegate set, library pull (not wired) |
-| budgetPull, budgetDelegateSpend | tests/modules/test_budget_delegate.c (library calls only) | an execute-level vector through the new activity types is added with those activity types |
-| budget maintenance | tests/modules/test_budget_period.c; tests/daemon/lxp_test_epoch_budget_rollback.c | rollover |
-| streamOpen, streamTopUp | tests/modules/test_stream_open.c | open validation, funding |
-| streamMeter | tests/modules/test_stream_meter.c | meter authority, regression, cap |
-| streamSettle | tests/modules/test_stream_settle.c | settle, underfunded |
-| streamPause, streamResume, streamClose | tests/modules/test_stream_lifecycle.c | lifecycle, close refund |
-| stream accrual | tests/modules/test_stream_accrue.c | time accrual and carry |
-| serviceOfferPublish/Withdraw, AgreementPropose/Accept | tests/modules/test_service_offer.c | offer and agreement state |
-| serviceCommitTask/Abandon, ProgressReport | tests/modules/test_service_commit.c | commitment, progress high-water |
-| serviceToolExecAttest | tests/modules/test_service_attest.c | attestor signature and grant |
-| serviceDeliver | tests/modules/test_service_deliver.c | deliverable match, DA |
-| serviceAccept, serviceReject, default outcome | tests/modules/test_service_acceptance.c; tests/daemon/lxp_test_epoch_service_acceptance.c | outcomes, epoch default |
-| serviceDisputeOpen/Resolve | tests/modules/test_service_dispute.c | disputant, window |
-| draw (reference only, A.5) | tests/ledger/test_receive.c; tests/daemon/lxp_test_grant_issuance.c | grant verify, draw accounting |
-| serviceDisputeOpen, serviceDisputeResolve (arbiter and escrow settlement) | tests/modules/test_service_dispute.c; tests/modules/test_escrow_dispute.c | rewritten and new vectors listed in A.6 |
-| 0x0906 through the stream keeper | tests/modules/test_stream_open.c; tests/modules/test_stream_settle.c; tests/modules/test_stream_lifecycle.c | kernel side unchanged; 0x0906 mapping vectors belong to agent-functions.md |
-| keyed methods (idempotency store) | tests/state/lxp_test_idempotency.c | an expiry vector is added with the idempotency retention change (F) |
-| all 0x0002xxxx–0x0005xxxx except 0x00030008/09 | tests/test_replay_crossarch.c:9-26; tests/qualification/lxp_qual_replay.c:38-45; tests/vectors/replay_corpus.lxb; tests/vectors/qualification_replay_10m.digest | cross-arch replay identity |
-| budgetDefund, budgetRevoke | to add: focused execute tests and replay cases for 0x00030008 and 0x00030009 in tests/test_replay_crossarch.c and tests/qualification/lxp_qual_replay.c, then re-targeted through the shim | DEFUND and REVOKE replay identity |
+## events
 
-## F. Internal (not user methods)
-| item | rule | kernel site |
+One 0x101B log per successful write, packed from the call arguments and the post-call kernel record (decision.234). The event table is under [layerxpay-0x101b](#layerxpay-0x101b).
+
+Contract context `2.layerxpay-0x101b-events`:
+
+| Aspect | Rule |
+|---|---|
+| Interface | The 38 events of precompiles/layerxpay/abi.json logged by 0x101B writes |
+| Storage | Events carry no state; they are packed from call arguments and the kernel record read back after HostExecute (decision.234) |
+| Errors | A write that reverts emits no event |
+| Events | Escrow, budget, stream and service lifecycle events; StreamRateUpdated is logged at 0x0906 and at 0x101B through EmitStreamRateUpdated (decision.237) |
+| Gas | Log gas is part of the methodGas row of the emitting write (precompiles/layerxpay/gas.go:18-76) |
+| Activation | Served from the height where MergeUpgrade is done, gated by mergePrecompileGate (node/upgrades.go:521) on the layerxpay module (node/upgrades.go:526) |
+| Invariants | Indexed ids equal the call arguments and amounts equal the post-call kernel record; topic0 equals keccak256 of the ABI event signature |
+| Pause | A paused write emits nothing; exit-path writes emit as usual |
+
+Capabilities verified against this section: 2.28.3.
+
+| Acceptance | Requirement | Test |
 |---|---|---|
-| escrow epoch | expired active holds timed out (cap 24), gas = count | lx_escrow_epoch_begin lx_escrow_timeout.c:212 |
-| escrow maintenance | one expired hold per call | lx_escrow_batch_maintenance lx_escrow_timeout.c:300; registered src/protocol/lxp_kernel.c:5545 |
-| budget epoch / maintenance | rollover of in-memory store / one kv budget per call | lx_budget_epoch_begin lx_budget_period.c:57; lx_budget_batch_maintenance :110; lxp_kernel.c:5546 |
-| stream epoch | gas 1 only, no time settlement | module_epoch lx_stream_open.c:179 |
-| service epoch / maintenance | apply default outcome to DELIVERED agreements past acceptanceWindowEnd | lx_service_epoch_begin lx_service_acceptance.c:166; lx_service_batch_maintenance :176; lxp_kernel.c:5547 |
-| module enable | each module registered behind LXP_GENESIS_MODULE_GATE_ENABLE_FLAG, the only kernel enable switch | src/protocol/lxp_genesis.c:55-62 |
-| pause | the precompile checks the governance pause scope for the method's module (ESCROW 2, BUDGET 3, STREAM 4, SERVICE 5) before the kernel call and returns LXP_PAUSED_SCOPE through D6; the exit set skips the check as the kernel's cancellation_or_exit_path does: escrowRelease, escrowTimeout, budgetClose, budgetDefund, budgetRevoke, streamPause, streamClose, serviceOfferWithdraw, serviceCommitAbandon; kernel-internal: asset paused (escrow open lx_escrow_open.c:17; stream LXP_ASSET_PAUSED lx_stream_execution.h:27), runtime missing → LXP_MODULE_DISABLED (lx_escrow_module.c:380); the pause store is the one the address table names for layerxgov | lxp_pause_scope_check src/modules/governance/lxp_emergency.c:139-161 (exit bypass :147, module and scope checks :148-159); LXP_ERR_PAUSED_SCOPE include/layerx/lxp_result.h:140 |
-| idempotency retention | idempotency entries carry an expiry: a retention window pruned by global sequence, in C and keeper alike, so the keyed methods here (escrow capture/release/timeout/resolve, streamSettle, streamClose, budget and service sequence-keyed writes) keep admitting new keys; today the store refuses with LXP_ARENA_EXHAUSTED once 8192 entries exist (required change) | src/state/lxp_idempotency.c:107-108 |
-| fees | kernel validate gas payload_length+1 per module (kernel accounting only, not EVM gas); EVM gas = D.2 table; v4 module fee prices fee.module.escrow/budget/stream/service in lxp_fee_compute | lxp_fee_compute src/protocol/lxp_fee.c:185; names :33-39; lx_escrow_module.c:176; lx_budget_module.c:716; lx_stream_open.c:163; lx_service_module.c:61, :373 |
+| 2.278.1 | 2278.1 | `precompiles/layerxpay/events_test.go::TestPayEventTopicsMatchABI (planned)` |
+| 2.278.2 | 2278.2 | `precompiles/layerxpay/events_test.go::TestPayEventEmittedAtPayAddress (planned)` |
+
+## errors
+
+Revert reasons of 0x101B in `LXP_<CODE>` form: kernel names through `LXPCodeName`, the layerxpay codespace codes 4 to 6 (ErrUnboundCaller, ErrFamilyDisabled, ErrKernelGateMismatch) and `LXP_PAUSED_SCOPE` 735 of layerxgov.
+
+Frozen interfaces: 6 (stable 1, new 5).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.err-sdk-layerxpay-4-unbound-caller-j24` | error_code | `ErrUnboundCaller = sdkerrors.Register(ModuleName, 4, "LXP_PAY_UNBOUND_CALLER")` | new | `modules/layerxpay/types/errors.go` (planned) |
+| `interface.2.err-sdk-layerxpay-5-module-disabled-j24` | error_code | `ErrFamilyDisabled = sdkerrors.Register(ModuleName, 5, "LXP_MODULE_DISABLED")` | new | `modules/layerxpay/types/errors.go` (planned) |
+| `interface.2.err-sdk-layerxpay-6-kernel-gate-mismatch-j24` | error_code | `ErrKernelGateMismatch = sdkerrors.Register(ModuleName, 6, "LXP_PAY_KERNEL_GATE_MISMATCH")` | new | `modules/layerxpay/types/errors.go` (planned) |
+| `interface.2.err-sdk-layerxpay-3-invalid-genesis` | error_code | `ErrInvalidGenesis = Register("layerxpay", 3, "invalid genesis")` | stable | `modules/layerxpay/types/params.go:11` |
+| `interface.2.go-layerxpay-payrevertcode-j24` | go_exported | `func PayRevertCode(err error) string` | new | `modules/layerxpay/types/errors.go` (planned) |
+| `interface.2.go-layerxpay-pc-reverterror-j24` | go_exported | `func RevertError(err error) error` | new | `precompiles/layerxpay/errors.go` (planned) |
+
+Capabilities verified against this section: 2.21.2, 2.28.2.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.242.1 | 2242.1 | `modules/layerxpay/types/errors_test.go::TestPayErrorsRegisteredInCodespace (planned)` |
+| 2.242.2 | 2242.2 | `modules/layerxpay/types/errors_test.go::TestPayRevertCodeMapsToRegistry (planned)` |
+| 2.277.1 | 2277.1 | `precompiles/layerxpay/errors_test.go::TestPayRevertFromKernelCode (planned)` |
+| 2.277.2 | 2277.2 | `precompiles/layerxpay/errors_test.go::TestPayRevertFromModuleErrors (planned)` |
+
+## gas
+
+0x101B charges the `methodGas` rows of `precompiles/layerxpay/gas.go:17` through the framework WithGasTable (decision.235): `writeGas(flat)` sets the surcharge to the flat value minus the KV write flat cost (`precompiles/layerxpay/gas.go:77`), views charge the read row. Each row is shown in the method tables.
+
+Capabilities verified against this section: 2.40.5.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.315.1 | 2315.1 | `precompiles/layerxpay/gas_bound_test.go::TestPayChargedGasCoversHostStoreWork (planned)` |
+
+## authority
+
+The pay keeper resolves the acting kernel identity from GetLayerXDid of msg.sender; an unbound caller is refused with ErrUnboundCaller and no ed25519 signature is required (decision.236).
+
+Frozen interfaces: 1 (new 1).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-keeper-authorityfor-j24` | go_exported | `func (k Keeper) AuthorityFor(ctx sdk.Context, caller common.Address) (Caller, error)` | new | `modules/layerxpay/keeper/authority.go` (planned) |
+
+Capabilities verified against this section: 2.22.2.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.250.1 | 2250.1 | `modules/layerxpay/keeper/authority_test.go::TestAuthorityForBoundCaller (planned)` |
+| 2.250.2 | 2250.2 | `modules/layerxpay/keeper/authority_test.go::TestAuthorityForUnboundCallerRefused (planned)` |
+
+## idempotency
+
+Writes whose ABI carries no idempotency key (budgetPull, budgetDelegateSpend, 0x0906 settle and close) and the 0x0906 stream id use sha256 domain-tagged keys derived from the transaction; keys and stream ids are never zero (decision.223).
+
+Frozen interfaces: 2 (new 2).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-deriveidempotencykey-j24` | go_exported | `func DeriveIdempotencyKey(txHash [32]byte, callOrdinal uint32, selector [4]byte) [32]byte` | new | `modules/layerxpay/types/idempotency.go` (planned) |
+| `interface.2.go-layerxpay-derivestreamid-j24` | go_exported | `func DeriveStreamID(txHash [32]byte, callOrdinal uint32, payer [32]byte) [32]byte` | new | `modules/layerxpay/types/idempotency.go` (planned) |
+
+Capabilities verified against this section: 2.21.3.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.243.1 | 2243.1 | `modules/layerxpay/types/idempotency_test.go::TestDeriveIdempotencyKeyDomainSeparated (planned)` |
+| 2.243.2 | 2243.2 | `modules/layerxpay/types/idempotency_test.go::TestDeriveStreamIDNonZeroAndPayerBound (planned)` |
+
+## execution
+
+One kernel activity per pay write through HostExecute on the shared host (decision.221); the ledger effect of a call equals its kernel receipt.
+
+Capabilities verified against this section: 2.22.4.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.252.1 | 2252.1 | `modules/layerxpay/keeper/execute_test.go::TestSubmitCommitsKernelActivity (planned)` |
+| 2.252.2 | 2252.2 | `modules/layerxpay/keeper/execute_test.go::TestSubmitKernelRefusalCarriesRegistryCode (planned)` |
+| 2.252.3 | 2252.3 | `modules/layerxpay/keeper/execute_test.go::TestSubmitReplayReturnsStoredReceipt (planned)` |
+
+## pause
+
+Params.Paused and the layerxgov pause scope refuse every pay write with `LXP_PAUSED_SCOPE` except the exit paths of `modules/layerxgov/types/proposal.go:28-32`; family enable flags are checked against kernel enable records (decision.224, decision.225).
+
+Frozen interfaces: 1 (new 1).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-keeper-checkwrite-j24` | go_exported | `func (k Keeper) CheckWrite(ctx sdk.Context, method string, moduleID uint16) error` | new | `modules/layerxpay/keeper/gate.go` (planned) |
+
+Capabilities verified against this section: 2.22.3.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.251.1 | 2251.1 | `modules/layerxpay/keeper/gate_test.go::TestCheckWritePauseExitPaths (planned)` |
+| 2.251.2 | 2251.2 | `modules/layerxpay/keeper/gate_test.go::TestCheckWriteFamilyDisabled (planned)` |
+| 2.251.3 | 2251.3 | `modules/layerxpay/keeper/gate_test.go::TestCheckWriteViewsUngated (planned)` |
+
+## pay-keeper
+
+The layerxpay keeper over the shared lxphost host, with the agent stream entry points that 0x0906 calls.
+
+Contract context `2.layerxpay-keeper`:
+
+| Aspect | Rule |
+|---|---|
+| Interface | modules/layerxpay keeper, msg server, gRPC query, CLI query and AppModule, with the agent stream entry points used by 0x0906 |
+| Storage | Params in the layerxpay store; kernel records only through the one lxphost.Host built over the shared host store key (decision.221) |
+| Errors | Unbound callers refused with ErrUnboundCaller, disabled families with ErrFamilyDisabled, gate drift with ErrKernelGateMismatch, a non-arbiter dispute resolution with LXP_UNAUTHORIZED_ARBITER (decision.240) |
+| Events | Typed module events are not emitted; precompile logs are packed by the 0x101B and 0x0906 executors |
+| Gas | Kernel work runs on the caller's gas meter through HostExecute |
+| Activation | Constructed in node/app.go at wave 4 with the shared host; genesis order after the kernel host module |
+| Invariants | Genesis export carries params only and a rehearsal keeps kernel state byte-identical; one idempotency key per DID across the pay families |
+| Pause | Params.Paused refuses every write except escrowRelease, escrowTimeout, budgetClose, budgetDefund, budgetRevoke, streamPause, streamClose, serviceOfferWithdraw and serviceCommitAbandon (modules/layerxgov/types/proposal.go:28-32); views always answer |
+
+Frozen interfaces: 5 (new 5).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-keeper-submit-j24` | go_exported | `func (k Keeper) Submit(ctx sdk.Context, caller Caller, activityType uint32, payload []byte, idempotencyKey [32]byte) (lxphost.Receipt, error)` | new | `modules/layerxpay/keeper/execute.go` (planned) |
+| `interface.2.go-layerxpay-keeper-getparams-j24` | go_exported | `func (k Keeper) GetParams(ctx sdk.Context) types.Params` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
+| `interface.2.go-layerxpay-keeper-j24` | go_exported | `type Keeper struct { cdc codec.BinaryCodec; storeKey, hostKey sdk.StoreKey; host *lxphost.Host; evm BindingReader; custody AssetReader; authority string }` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
+| `interface.2.go-layerxpay-keeper-setparams-j24` | go_exported | `func (k Keeper) SetParams(ctx sdk.Context, params types.Params)` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
+| `interface.2.go-layerxpay-newkeeper-j24` | go_exported | `func NewKeeper(cdc codec.BinaryCodec, storeKey, hostKey sdk.StoreKey, host *lxphost.Host, evm BindingReader, custody AssetReader, authority string) Keeper` | new | `modules/layerxpay/keeper/keeper.go` (planned) |
+
+Capabilities verified against this section: 2.22.1.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.249.1 | 2249.1 | `modules/layerxpay/keeper/keeper_test.go::TestPayKeeperParamsRoundTrip (planned)` |
+| 2.249.2 | 2249.2 | `modules/layerxpay/keeper/keeper_test.go::TestPayKeeperRequiresHostAndKeys (planned)` |
+
+## pay-types
+
+modules/layerxpay/types: params, codec, errors, idempotency and stream id derivation, the method to kernel activity table, payload encoders and kernel record decoders.
+
+Contract context `2.layerxpay-types`:
+
+| Aspect | Rule |
+|---|---|
+| Interface | modules/layerxpay/types: proto Params and MsgUpdateParams, codec, codespace errors 4 to 6, idempotency and stream id derivation, the method activity table, payload encoders and kernel record decoders |
+| Storage | The layerxpay module store keeps ParamsKey 0x05 only; kernel KV prefixes of modules/layerxpay/types/keys.go:20-28 are not written by the keeper (decision.221) |
+| Errors | ErrInvalidGenesis code 3 and the new ErrUnboundCaller 4, ErrFamilyDisabled 5 and ErrKernelGateMismatch 6 in codespace layerxpay |
+| Events | None |
+| Gas | No gas of its own; payload lengths feed the kernel validate charge of payload_length+1 |
+| Activation | Linked into the application with the pay keeper at wave 4 |
+| Invariants | Params.Validate stays a no-op and family flags are checked against kernel enable records (decision.224); escrowPartialCapture and escrowTimeout reuse the capture and release payloads (decision.222) |
+| Pause | Params.Paused is the pause flag read by the keeper write gate |
+
+Contract context `2.layerxpay-encoders`:
+
+| Aspect | Rule |
+|---|---|
+| Interface | modules/layerxpay/types payload encoders and payload size constants for the escrow, budget, stream and service kernel activities |
+| Storage | None; encoders produce the kernel activity payloads submitted through the host |
+| Errors | Encoders refuse zero idempotency keys and zero stream ids before any kernel call |
+| Events | None |
+| Gas | Payload lengths feed the kernel validate charge of payload_length+1 |
+| Activation | Linked into the application with the pay keeper at wave 4 |
+| Invariants | Every encoded payload length equals its PayloadBytes constant and decodes in the kernel module of its activity type (decision.222) |
+| Pause | Not pausable |
+
+Frozen interfaces: 93 (stable 92, change 1).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-modulename-j24` | go_exported | `ModuleName                 = "layerxpay"` | stable | `modules/layerxpay/types/keys.go:6` |
+| `interface.2.go-layerxpay-storekey-j24` | go_exported | `StoreKey                   = ModuleName` | stable | `modules/layerxpay/types/keys.go:7` |
+| `interface.2.go-layerxpay-routerkey-j24` | go_exported | `RouterKey                  = ModuleName` | stable | `modules/layerxpay/types/keys.go:8` |
+| `interface.2.go-layerxpay-querierroute-j24` | go_exported | `QuerierRoute               = ModuleName` | stable | `modules/layerxpay/types/keys.go:9` |
+| `interface.2.go-layerxpay-escrowmoduleid-j24` | go_exported | `EscrowModuleID      uint16 = 2` | stable | `modules/layerxpay/types/keys.go:10` |
+| `interface.2.go-layerxpay-budgetmoduleid-j24` | go_exported | `BudgetModuleID      uint16 = 3` | stable | `modules/layerxpay/types/keys.go:11` |
+| `interface.2.go-layerxpay-streammoduleid-j24` | go_exported | `StreamModuleID      uint16 = 4` | stable | `modules/layerxpay/types/keys.go:12` |
+| `interface.2.go-layerxpay-servicemoduleid-j24` | go_exported | `ServiceModuleID     uint16 = 5` | stable | `modules/layerxpay/types/keys.go:13` |
+| `interface.2.go-layerxpay-governancemoduleid-j24` | go_exported | `GovernanceModuleID  uint16 = 7` | stable | `modules/layerxpay/types/keys.go:14` |
+| `interface.2.go-layerxpay-maxkernelrecords-j24` | go_exported | `MaxKernelRecords           = 512` | stable | `modules/layerxpay/types/keys.go:15` |
+| `interface.2.go-layerxpay-maxkernelkeybytes-j24` | go_exported | `MaxKernelKeyBytes          = 128` | stable | `modules/layerxpay/types/keys.go:16` |
+| `interface.2.go-layerxpay-maxkernelvaluebytes-j24` | go_exported | `MaxKernelValueBytes        = 1024` | stable | `modules/layerxpay/types/keys.go:17` |
+| `interface.2.go-layerxpay-kernelkvkey-j24` | go_exported | `func KernelKVKey(moduleID uint16, key []byte) []byte` | stable | `modules/layerxpay/types/keys.go:30` |
+| `interface.2.go-layerxpay-kernelmoduleenablekey-j24` | go_exported | `func KernelModuleEnableKey(moduleID uint16) ([]byte, error)` | stable | `modules/layerxpay/types/keys.go:37` |
+| `interface.2.go-layerxpay-errinvalidgenesis-j24` | go_exported | `var ErrInvalidGenesis = sdkerrors.Register(ModuleName, 3, "invalid genesis")` | stable | `modules/layerxpay/types/params.go:11` |
+| `interface.2.go-layerxpay-params-j24` | go_exported | `type Params struct` | change | `modules/layerxpay/types/params.go:13` |
+| `interface.2.go-layerxpay-defaultparams-j24` | go_exported | `func DefaultParams() Params` | stable | `modules/layerxpay/types/params.go:21` |
+| `interface.2.go-layerxpay-genesisstate-j24` | go_exported | `type GenesisState struct` | stable | `modules/layerxpay/types/params.go:29` |
+| `interface.2.go-layerxpay-defaultgenesis-j24` | go_exported | `func DefaultGenesis() *GenesisState` | stable | `modules/layerxpay/types/params.go:34` |
+| `interface.2.go-layerxpay-genesisstate-validate-j24` | go_exported | `func (g GenesisState) Validate() error` | stable | `modules/layerxpay/types/params.go:38` |
+| `interface.2.go-layerxpay-budgetcreatepayloadbytes-j24` | go_exported | `BudgetCreatePayloadBytes        = 211` | stable | `modules/layerxpay/types/payload_budget.go:12` |
+| `interface.2.go-layerxpay-budgetcreatenativepayloadbytes-j24` | go_exported | `BudgetCreateNativePayloadBytes  = 251` | stable | `modules/layerxpay/types/payload_budget.go:13` |
+| `interface.2.go-layerxpay-budgetfundpayloadbytes-j24` | go_exported | `BudgetFundPayloadBytes          = 50` | stable | `modules/layerxpay/types/payload_budget.go:14` |
+| `interface.2.go-layerxpay-budgetfundnativepayloadbytes-j24` | go_exported | `BudgetFundNativePayloadBytes    = 58` | stable | `modules/layerxpay/types/payload_budget.go:15` |
+| `interface.2.go-layerxpay-budgetamendpayloadbytes-j24` | go_exported | `BudgetAmendPayloadBytes         = 75` | stable | `modules/layerxpay/types/payload_budget.go:16` |
+| `interface.2.go-layerxpay-budgetdelegatepayloadbytes-j24` | go_exported | `BudgetDelegatePayloadBytes      = 66` | stable | `modules/layerxpay/types/payload_budget.go:17` |
+| `interface.2.go-layerxpay-budgetspendpayloadbytes-j24` | go_exported | `BudgetSpendPayloadBytes         = 82` | stable | `modules/layerxpay/types/payload_budget.go:18` |
+| `interface.2.go-layerxpay-budgetclosepayloadbytes-j24` | go_exported | `BudgetClosePayloadBytes         = 42` | stable | `modules/layerxpay/types/payload_budget.go:19` |
+| `interface.2.go-layerxpay-budgetdefundpayloadbytes-j24` | go_exported | `BudgetDefundPayloadBytes        = 50` | stable | `modules/layerxpay/types/payload_budget.go:20` |
+| `interface.2.go-layerxpay-budgetrevokepayloadbytes-j24` | go_exported | `BudgetRevokePayloadBytes        = 42` | stable | `modules/layerxpay/types/payload_budget.go:21` |
+| `interface.2.go-layerxpay-budgetdelegatespendpayloadbytes-j24` | go_exported | `BudgetDelegateSpendPayloadBytes = 114` | stable | `modules/layerxpay/types/payload_budget.go:22` |
+| `interface.2.go-layerxpay-payergrantbytes-j24` | go_exported | `PayerGrantBytes                 = 346` | stable | `modules/layerxpay/types/payload_budget.go:23` |
+| `interface.2.go-layerxpay-budgetpullpayloadbytes-j24` | go_exported | `BudgetPullPayloadBytes          = BudgetDelegateSpendPayloadBytes + PayerGrantBytes` | stable | `modules/layerxpay/types/payload_budget.go:24` |
+| `interface.2.go-layerxpay-encodebudgetcreate-j24` | go_exported | `func EncodeBudgetCreate(budgetID, budgetAccount, assetID, purposeHash [32]byte, perPeriodLimit, carryCap, amount codec.U128, periodLength, periodStart, expiry, revocationSequence uint64, rolloverPolicy uint8) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:35` |
+| `interface.2.go-layerxpay-encodebudgetcreatenative-j24` | go_exported | `func EncodeBudgetCreateNative(budgetID, budgetAccount, assetID, purposeHash [32]byte, perPeriodLimit, carryCap, amount codec.U128, periodLength, periodStart, expiry, revocationSequence uint64, rolloverPolicy uint8, sourceAccount [32]byte, sourceSequence uint64) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:44` |
+| `interface.2.go-layerxpay-encodebudgetfund-j24` | go_exported | `func EncodeBudgetFund(budgetID [32]byte, amount codec.U128) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:58` |
+| `interface.2.go-layerxpay-encodebudgetfundnative-j24` | go_exported | `func EncodeBudgetFundNative(budgetID [32]byte, amount codec.U128, sourceSequence uint64) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:65` |
+| `interface.2.go-layerxpay-encodebudgetamend-j24` | go_exported | `func EncodeBudgetAmend(budgetID [32]byte, perPeriodLimit, carryCap codec.U128, expiry uint64, rolloverPolicy uint8) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:77` |
+| `interface.2.go-layerxpay-encodebudgetdelegate-j24` | go_exported | `func EncodeBudgetDelegate(budgetID, delegate [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:89` |
+| `interface.2.go-layerxpay-encodebudgetspend-j24` | go_exported | `func EncodeBudgetSpend(budgetID, recipient [32]byte, amount codec.U128) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:99` |
+| `interface.2.go-layerxpay-encodebudgetclose-j24` | go_exported | `func EncodeBudgetClose(budgetID [32]byte, revocationSequence uint64) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:108` |
+| `interface.2.go-layerxpay-encodebudgetdefund-j24` | go_exported | `func EncodeBudgetDefund(budgetID [32]byte, amount codec.U128) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:112` |
+| `interface.2.go-layerxpay-encodebudgetrevoke-j24` | go_exported | `func EncodeBudgetRevoke(budgetID [32]byte, revocationSequence uint64) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:119` |
+| `interface.2.go-layerxpay-encodebudgetdelegatespend-j24` | go_exported | `func EncodeBudgetDelegateSpend(budgetID, recipient [32]byte, amount codec.U128, idempotencyKey [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:123` |
+| `interface.2.go-layerxpay-encodebudgetpull-j24` | go_exported | `func EncodeBudgetPull(budgetID, recipient [32]byte, amount codec.U128, idempotencyKey [32]byte, payerGrant []byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_budget.go:133` |
+| `interface.2.go-layerxpay-escrowopenpayloadbytes-j24` | go_exported | `EscrowOpenPayloadBytes           = 288` | stable | `modules/layerxpay/types/payload_escrow.go:10` |
+| `interface.2.go-layerxpay-escrowcapturepayloadbytes-j24` | go_exported | `EscrowCapturePayloadBytes        = 80` | stable | `modules/layerxpay/types/payload_escrow.go:11` |
+| `interface.2.go-layerxpay-escrowreleasepayloadbytes-j24` | go_exported | `EscrowReleasePayloadBytes        = 64` | stable | `modules/layerxpay/types/payload_escrow.go:12` |
+| `interface.2.go-layerxpay-escrowdisputeopenpayloadbytes-j24` | go_exported | `EscrowDisputeOpenPayloadBytes    = 32` | stable | `modules/layerxpay/types/payload_escrow.go:13` |
+| `interface.2.go-layerxpay-escrowdisputeresolvepayloadbytes-j24` | go_exported | `EscrowDisputeResolvePayloadBytes = 68` | stable | `modules/layerxpay/types/payload_escrow.go:14` |
+| `interface.2.go-layerxpay-encodeescrowopen-j24` | go_exported | `func EncodeEscrowOpen(escrowID, owner, escrowAccount, beneficiary, arbiter, assetID [32]byte, amount codec.U128, expiryMs, disputeWindowMs uint64, termsHash, agreementReference [32]byte) []byte` | stable | `modules/layerxpay/types/payload_escrow.go:17` |
+| `interface.2.go-layerxpay-encodeescrowcapture-j24` | go_exported | `func EncodeEscrowCapture(escrowID [32]byte, amount codec.U128, idempotencyKey [32]byte) []byte` | stable | `modules/layerxpay/types/payload_escrow.go:34` |
+| `interface.2.go-layerxpay-encodeescrowrelease-j24` | go_exported | `func EncodeEscrowRelease(escrowID, idempotencyKey [32]byte) []byte` | stable | `modules/layerxpay/types/payload_escrow.go:43` |
+| `interface.2.go-layerxpay-encodeescrowdisputeopen-j24` | go_exported | `func EncodeEscrowDisputeOpen(escrowID [32]byte) []byte` | stable | `modules/layerxpay/types/payload_escrow.go:50` |
+| `interface.2.go-layerxpay-encodeescrowdisputeresolve-j24` | go_exported | `func EncodeEscrowDisputeResolve(escrowID [32]byte, beneficiaryBps uint32, idempotencyKey [32]byte) []byte` | stable | `modules/layerxpay/types/payload_escrow.go:56` |
+| `interface.2.go-layerxpay-servicemaxdeliverables-j24` | go_exported | `ServiceMaxDeliverables = 16` | stable | `modules/layerxpay/types/payload_service.go:13` |
+| `interface.2.go-layerxpay-serviceexecutionbytes-j24` | go_exported | `ServiceExecutionBytes  = 416` | stable | `modules/layerxpay/types/payload_service.go:14` |
+| `interface.2.go-layerxpay-servicedeliverable-j24` | go_exported | `type ServiceDeliverable struct` | stable | `modules/layerxpay/types/payload_service.go:25` |
+| `interface.2.go-layerxpay-encodeserviceoffer-j24` | go_exported | `func EncodeServiceOffer(offerID, assetID [32]byte, price codec.U128, termsHash, deliverableSpecHash [32]byte, deliveryDeadline, acceptanceWindow, disputeWindow uint64, defaultOutcome uint8, offerExpiry uint64) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:31` |
+| `interface.2.go-layerxpay-encodeserviceidentifier-j24` | go_exported | `func EncodeServiceIdentifier(identifier [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:50` |
+| `interface.2.go-layerxpay-encodeservicepropose-j24` | go_exported | `func EncodeServicePropose(agreementID, offerID, termsHash, escrowID [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:59` |
+| `interface.2.go-layerxpay-encodeservicecommit-j24` | go_exported | `func EncodeServiceCommit(commitmentID, agreementID, taskHash, escrowID [32]byte, deadline, resourceBound uint64) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:71` |
+| `interface.2.go-layerxpay-encodeserviceabandon-j24` | go_exported | `func EncodeServiceAbandon(commitmentID [32]byte, reason uint16) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:85` |
+| `interface.2.go-layerxpay-encodeserviceprogress-j24` | go_exported | `func EncodeServiceProgress(reportID, commitmentID, noteHash, availabilityReference [32]byte, progressBPS uint32) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:95` |
+| `interface.2.go-layerxpay-encodeservicedeliver-j24` | go_exported | `func EncodeServiceDeliver(deliveryID, agreementID [32]byte, deliverables []ServiceDeliverable) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:108` |
+| `interface.2.go-layerxpay-encodeservicereject-j24` | go_exported | `func EncodeServiceReject(agreementID [32]byte, reason uint16, contestedHashes [][32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:133` |
+| `interface.2.go-layerxpay-encodeservicedisputeopen-j24` | go_exported | `func EncodeServiceDisputeOpen(disputeID, agreementID [32]byte, evidenceHashes [][32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:151` |
+| `interface.2.go-layerxpay-encodeservicedisputeresolve-j24` | go_exported | `func EncodeServiceDisputeResolve(disputeID [32]byte, ruling uint16, providerBPS uint32, escrowResolutionID [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:169` |
+| `interface.2.go-layerxpay-encodeservicetoolexecattest-j24` | go_exported | `func EncodeServiceToolExecAttest(execution []byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_service.go:181` |
+| `interface.2.go-layerxpay-streammaxmeterauthorities-j24` | go_exported | `StreamMaxMeterAuthorities          = 8` | stable | `modules/layerxpay/types/payload_stream.go:12` |
+| `interface.2.go-layerxpay-streamopenpayloadfixedbytes-j24` | go_exported | `StreamOpenPayloadFixedBytes        = 204` | stable | `modules/layerxpay/types/payload_stream.go:13` |
+| `interface.2.go-layerxpay-streamopenpayloadmaxbytes-j24` | go_exported | `StreamOpenPayloadMaxBytes          = StreamOpenPayloadFixedBytes + StreamMaxMeterAuthorities*32` | stable | `modules/layerxpay/types/payload_stream.go:14` |
+| `interface.2.go-layerxpay-streamtopuppayloadbytes-j24` | go_exported | `StreamTopUpPayloadBytes            = 50` | stable | `modules/layerxpay/types/payload_stream.go:15` |
+| `interface.2.go-layerxpay-streammeterpayloadbytes-j24` | go_exported | `StreamMeterPayloadBytes            = 138` | stable | `modules/layerxpay/types/payload_stream.go:16` |
+| `interface.2.go-layerxpay-streamkeyedpayloadbytes-j24` | go_exported | `StreamKeyedPayloadBytes            = 66` | stable | `modules/layerxpay/types/payload_stream.go:17` |
+| `interface.2.go-layerxpay-streamratechangepayloadbytes-j24` | go_exported | `StreamRateChangePayloadBytes       = 82` | stable | `modules/layerxpay/types/payload_stream.go:18` |
+| `interface.2.go-layerxpay-streamidpayloadbytes-j24` | go_exported | `StreamIDPayloadBytes               = 34` | stable | `modules/layerxpay/types/payload_stream.go:19` |
+| `interface.2.go-layerxpay-streammodetime-j24` | go_exported | `StreamModeTime               uint8 = 1` | stable | `modules/layerxpay/types/payload_stream.go:20` |
+| `interface.2.go-layerxpay-streammodemetered-j24` | go_exported | `StreamModeMetered            uint8 = 2` | stable | `modules/layerxpay/types/payload_stream.go:21` |
+| `interface.2.go-layerxpay-streamopen-j24` | go_exported | `type StreamOpen struct` | stable | `modules/layerxpay/types/payload_stream.go:28` |
+| `interface.2.go-layerxpay-encodestreamopen-j24` | go_exported | `func EncodeStreamOpen(open StreamOpen) ([]byte, error)` | stable | `modules/layerxpay/types/payload_stream.go:43` |
+| `interface.2.go-layerxpay-encodestreamtopup-j24` | go_exported | `func EncodeStreamTopUp(streamID [32]byte, amount codec.U128) ([]byte, error)` | stable | `modules/layerxpay/types/payload_stream.go:69` |
+| `interface.2.go-layerxpay-encodestreammeter-j24` | go_exported | `func EncodeStreamMeter(streamID [32]byte, cumulativeReading uint64, authorityKey [32]byte, signature [64]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_stream.go:80` |
+| `interface.2.go-layerxpay-encodestreamkeyed-j24` | go_exported | `func EncodeStreamKeyed(streamID, idempotencyKey [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_stream.go:92` |
+| `interface.2.go-layerxpay-encodestreamid-j24` | go_exported | `func EncodeStreamID(streamID [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_stream.go:102` |
+| `interface.2.go-layerxpay-encodestreamratechange-j24` | go_exported | `func EncodeStreamRateChange(streamID [32]byte, newRate codec.U128, idempotencyKey [32]byte) ([]byte, error)` | stable | `modules/layerxpay/types/payload_stream.go:111` |
+| `interface.2.key-layerxpay-paramskey-j24` | storage_key | `ParamsKey          = []byte{0x05}` | stable | `modules/layerxpay/types/keys.go:21` |
+| `interface.2.key-layerxpay-kernelkvprefix-j24` | storage_key | `KernelKVPrefix     = []byte{0x01}` | stable | `modules/layerxpay/types/keys.go:22` |
+| `interface.2.key-layerxpay-escrowkvprefix-j24` | storage_key | `EscrowKVPrefix     = []byte{0x01, 0x00, 0x02}` | stable | `modules/layerxpay/types/keys.go:23` |
+| `interface.2.key-layerxpay-budgetkvprefix-j24` | storage_key | `BudgetKVPrefix     = []byte{0x01, 0x00, 0x03}` | stable | `modules/layerxpay/types/keys.go:24` |
+| `interface.2.key-layerxpay-streamkvprefix-j24` | storage_key | `StreamKVPrefix     = []byte{0x01, 0x00, 0x04}` | stable | `modules/layerxpay/types/keys.go:25` |
+| `interface.2.key-layerxpay-servicekvprefix-j24` | storage_key | `ServiceKVPrefix    = []byte{0x01, 0x00, 0x05}` | stable | `modules/layerxpay/types/keys.go:26` |
+| `interface.2.key-layerxpay-governancekvprefix-j24` | storage_key | `GovernanceKVPrefix = []byte{0x01, 0x00, 0x07}` | stable | `modules/layerxpay/types/keys.go:27` |
+
+## pay-genesis
+
+Genesis of layerxpay: Params only in the module, kernel records stay in the host store.
+
+Frozen interfaces: 3 (new 3).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.go-layerxpay-keeper-exportgenesis-j24` | go_exported | `func (k Keeper) ExportGenesis(ctx sdk.Context) *types.GenesisState` | new | `modules/layerxpay/keeper/genesis.go` (planned) |
+| `interface.2.go-layerxpay-keeper-initgenesis-j24` | go_exported | `func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error` | new | `modules/layerxpay/keeper/genesis.go` (planned) |
+| `interface.2.go-layerxpay-appmodule-j24` | go_exported | `func NewAppModule(k keeper.Keeper) AppModule` | new | `modules/layerxpay/module.go` (planned) |
+
+## genesis
+
+Genesis import and export of layerxpay through the application, with the rehearsal that keeps kernel state byte-identical.
+
+Capabilities verified against this section: 2.22.5, 2.27.3, 2.38.6, 2.40.9.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.253.1 | 2253.1 | `modules/layerxpay/keeper/genesis_test.go::TestPayGenesisRoundTrip (planned)` |
+| 2.253.2 | 2253.2 | `modules/layerxpay/keeper/genesis_test.go::TestPayGenesisRefusesGateDrift (planned)` |
+| 2.274.1 | 2274.1 | `modules/layerxpay/module_test.go::TestPayAppModuleGenesisAndServices (planned)` |
+| 2.308.1 | 2308.1 | `modules/layerxpay/integration/genesis_test.go::TestAppExportsPayGenesisWithSharedHost (planned)` |
+| 2.319.1 | 2319.1 | `modules/layerxpay/keeper/genesis_rehearsal_test.go::TestPayGenesisRehearsalKeepsKernelState (planned)` |
+
+## queries
+
+The layerxpay Params gRPC query, its REST route and the params CLI command; reads of kernel records go through the 0x101B views.
+
+Frozen interfaces: 5 (new 5).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.cli-layerxpay-query-params-j24` | cli_command | `query layerxpay params` | new | `modules/layerxpay/client/cli/query.go` (planned) |
+| `interface.2.go-layerxpay-queryserver-j24` | go_exported | `func (k Keeper) Params(c context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error)` | new | `modules/layerxpay/keeper/grpc_query.go` (planned) |
+| `interface.2.qry-layerxpay-params-j24` | grpc_query | `rpc Params(QueryParamsRequest) returns (QueryParamsResponse) GET /paxprotocol/paxchain/layerxpay/params` | new | `api/layerxpay/query.proto` (planned) |
+| `interface.2.proto-layerxpay-queryparamsrequest-j24` | proto_message | `message QueryParamsRequest {}` | new | `api/layerxpay/query.proto` (planned) |
+| `interface.2.proto-layerxpay-queryparamsresponse-j24` | proto_message | `message QueryParamsResponse { Params params = 1; }` | new | `api/layerxpay/query.proto` (planned) |
+
+Capabilities verified against this section: 2.21.8, 2.27.2, 2.27.4.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.248.1 | 2248.1 | `modules/layerxpay/types/query_test.go::TestPayQueryParamsResponseRoundTrip (planned)` |
+| 2.273.1 | 2273.1 | `modules/layerxpay/keeper/grpc_query_test.go::TestPayQueryParams (planned)` |
+| 2.275.1 | 2275.1 | `modules/layerxpay/client/cli/query_test.go::TestPayQueryParamsCmd (planned)` |
+
+## msg-layerxpay-updateparams
+
+MsgUpdateParams of layerxpay, accepted only from the governance module account.
+
+| Aspect | Rule |
+|---|---|
+| Authority | Governance module account only; any other authority is refused. |
+
+Frozen interfaces: 6 (new 6).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.msg-layerxpay-updateparams` | cosmos_msg | `paxprotocol.paxchain.layerxpay.Msg/UpdateParams: rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse)` | new | `api/layerxpay/tx.proto` (planned) |
+| `interface.2.go-layerxpay-msgserver-j24` | go_exported | `func NewMsgServerImpl(k Keeper) types.MsgServer` | new | `modules/layerxpay/keeper/msg_server.go` (planned) |
+| `interface.2.go-layerxpay-modulecdc-j24` | go_exported | `var ModuleCdc = codec.NewAminoCodec(amino)` | new | `modules/layerxpay/types/codec.go` (planned) |
+| `interface.2.go-layerxpay-registercodec-j24` | go_exported | `func RegisterCodec(cdc *codec.LegacyAmino)` | new | `modules/layerxpay/types/codec.go` (planned) |
+| `interface.2.go-layerxpay-registerinterfaces-j24` | go_exported | `func RegisterInterfaces(registry cdctypes.InterfaceRegistry)` | new | `modules/layerxpay/types/codec.go` (planned) |
+| `interface.2.go-layerxpay-msgupdateparams-validatebasic-j24` | go_exported | `func (m MsgUpdateParams) ValidateBasic() error` | new | `modules/layerxpay/types/msgs.go` (planned) |
+
+Capabilities verified against this section: 2.21.1, 2.27.1, 2.38.4.
+
+| Acceptance | Requirement | Test |
+|---|---|---|
+| 2.241.1 | 2241.1 | `modules/layerxpay/types/msgs_test.go::TestPayMsgUpdateParamsValidateBasic (planned)` |
+| 2.241.2 | 2241.2 | `modules/layerxpay/types/msgs_test.go::TestPayCodecRegistersMsgUpdateParams (planned)` |
+| 2.272.1 | 2272.1 | `modules/layerxpay/keeper/msg_server_test.go::TestPayMsgUpdateParamsAuthority (planned)` |
+| 2.272.2 | 2272.2 | `modules/layerxpay/keeper/msg_server_test.go::TestPayMsgUpdateParamsKernelGate (planned)` |
+| 2.306.1 | 2306.1 | `modules/layerxpay/integration/gov_test.go::TestPayParamsThroughLayerXProposal (planned)` |
+
+## proto-layerxpay-params
+
+Freezes `message paxprotocol.paxchain.layerxpay.Params { bool paused = 1; bool escrow_enabled = 2; bool budget_enabled = 3; bool stream_enabled = 4; bool service_enabled = 5; }` (proto_message, new).
+
+Frozen interfaces: 1 (new 1).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.proto-layerxpay-params` | proto_message | `message paxprotocol.paxchain.layerxpay.Params { bool paused = 1; bool escrow_enabled = 2; bool budget_enabled = 3; bool stream_enabled = 4; bool service_enabled = 5; }` | new | `api/layerxpay/tx.proto` (planned) |
+
+## proto-layerxpay-msgupdateparams
+
+Freezes `message paxprotocol.paxchain.layerxpay.MsgUpdateParams { string authority = 1; Params params = 2; }` (proto_message, new).
+
+Frozen interfaces: 1 (new 1).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.proto-layerxpay-msgupdateparams` | proto_message | `message paxprotocol.paxchain.layerxpay.MsgUpdateParams { string authority = 1; Params params = 2; }` | new | `api/layerxpay/tx.proto` (planned) |
+
+## proto-layerxpay-msgupdateparamsresponse
+
+Freezes `message paxprotocol.paxchain.layerxpay.MsgUpdateParamsResponse { }` (proto_message, new).
+
+Frozen interfaces: 1 (new 1).
+
+**Other interfaces**
+
+| Interface block | Kind | Signature | Status | Defined at |
+|---|---|---|---|---|
+| `interface.2.proto-layerxpay-msgupdateparamsresponse` | proto_message | `message paxprotocol.paxchain.layerxpay.MsgUpdateParamsResponse { }` | new | `api/layerxpay/tx.proto` (planned) |
+
+## decisions
+
+Rulings of the merged specification that this contract applies.
+
+| Decision | Title | Value |
+|---|---|---|
+| 221 | The pay keeper runs on the shared kernel host; the layerxpay store keeps params only | The layerxpay keeper takes the one lxphost.Host the application builds over the shared host store key (decision.201) and reads and writes kernel records only through it; the layerxpay module store keeps ParamsKey 0x05 and KernelKVPrefix with the four family prefixes is not written by the keeper. |
+| 222 | escrowPartialCapture and escrowTimeout reuse the capture and release payloads | escrowPartialCapture submits ordinal 3 with the 80-byte capture payload and escrowTimeout submits ordinal 5 with the 64-byte release payload; no new payload encoder is added. |
+| 223 | Idempotency keys and 0x0906 stream ids are derived from the transaction | Writes whose ABI carries no idempotency key (budgetPull, budgetDelegateSpend, 0x0906 settle and close) and the 0x0906 stream id use sha256 domain-tagged digests of (tx hash, call ordinal, selector or payer), never zero. |
+| 224 | layerxpay Params.Validate stays a no-op; family flags are checked against kernel enable records | Params.Validate keeps accepting every combination; genesis import, MsgUpdateParams and every write refuse a family flag set true whose kernel module-enable record is absent with ErrKernelGateMismatch. |
+| 225 | Pause lives in module Params and the layerxgov pause scope | layerxpay and layerxagent each carry Params.Paused; writes call CheckPauseScope with their module name and method, the pay exit paths stay as listed and layerxagent gets the scope with cancel as its only exit; a paused scheduler runs no job and keeps them due. |
+| 234 | 0x101B logs are packed from call arguments and post-call kernel records | Each 0x101B write emits its event after HostExecute commits, taking indexed ids from the call arguments and amounts from the kernel record read back through the host. |
+| 235 | 0x101B charges the gas table through WithGasTable | The 0x101B precompile is built WithGasTable(methodGas) so the framework charges the methodGas rows; gas.go RequiredGas stays as the estimator used by tests. |
+| 236 | Kernel authority comes from the caller's 0x1004 binding, with no signature | The pay keeper resolves the acting kernel identity from GetLayerXDid of msg.sender; an unbound caller is refused with ErrUnboundCaller and no ed25519 signature is carried in the call. |
+| 237 | The rate change is a kernel activity; StreamRateUpdated is logged at both addresses | 0x0906 updateRate submits LX_STREAM_RATE_CHANGE 0x00040008 through the pay keeper and emits StreamRateUpdated at 0x0906 and, through EmitStreamRateUpdated, at 0x101B, which has no rate method of its own. |
+| 238 | 0x0906 accepts the kernel stream authority | settle is accepted from payer or recipient and close from the payer only, as the kernel enforces. |
+| 240 | The service dispute arbiter check runs in the pay keeper until the kernel carries it | The pay keeper refuses serviceDisputeResolve from a caller other than the escrow arbiter with LXP_UNAUTHORIZED_ARBITER before HostExecute; the kernel-side rule is requested from domain 1. |
