@@ -192,6 +192,32 @@ pub struct SequencerBlock {
     pub transactions: Vec<Vec<u8>>,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct StorageProof {
+    pub key: [u8; 32],
+    pub value: [u8; 32],
+    pub proof: Vec<Vec<u8>>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AccountProof {
+    pub address: [u8; 20],
+    pub balance: [u8; 32],
+    pub nonce: u64,
+    pub code_hash: [u8; 32],
+    pub storage_hash: [u8; 32],
+    pub account_proof: Vec<Vec<u8>>,
+    pub storage: Vec<StorageProof>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct HistoryPage {
+    pub items: Vec<Value>,
+    pub next_cursor: Option<String>,
+    pub indexed_height: u64,
+    pub chain_height: u64,
+}
+
 /// A JSON-RPC 2.0 client for the sequencer methods.
 #[derive(Debug)]
 pub struct SequencerEndpoint {
@@ -260,6 +286,37 @@ impl SequencerEndpoint {
     pub fn balance(&self, address: &[u8; 20]) -> Result<[u8; 32], SequencerError> {
         let result = self.call("eth_getBalance", &json!([hex(address), "pending"]))?;
         quantity_u256(&result).ok_or(SequencerError::Malformed)
+    }
+
+    pub fn account_proof(
+        &self,
+        address: &[u8; 20],
+        slots: &[[u8; 32]],
+        height: u64,
+    ) -> Result<AccountProof, SequencerError> {
+        let slots: Vec<_> = slots.iter().map(|slot| hex(slot)).collect();
+        let result = self.call(
+            "eth_getProof",
+            &json!([hex(address), slots, format!("{height:#x}")]),
+        )?;
+        let proof = decode_account_proof(&result).ok_or(SequencerError::Malformed)?;
+        if proof.address != *address {
+            return Err(SequencerError::Malformed);
+        }
+        Ok(proof)
+    }
+
+    pub fn history(
+        &self,
+        account: &str,
+        cursor: Option<&str>,
+        limit: u64,
+    ) -> Result<HistoryPage, SequencerError> {
+        if cursor.is_some_and(|cursor| !history_cursor(cursor)) {
+            return Err(SequencerError::Endpoint);
+        }
+        let result = self.call("px_getHistory", &json!([account, cursor, limit]))?;
+        decode_history_page(&result).ok_or(SequencerError::Malformed)
     }
 
     /// Next nonce of `address` from the sequencer's pending nonce map.
@@ -563,6 +620,63 @@ fn word_u64(word: &[u8]) -> Option<u64> {
         return None;
     }
     Some(u64::from_be_bytes(low.try_into().ok()?))
+}
+
+fn proof_nodes(value: &Value) -> Option<Vec<Vec<u8>>> {
+    value
+        .as_array()?
+        .iter()
+        .map(|node| bytes(node.as_str()?))
+        .collect()
+}
+
+fn decode_storage_proof(value: &Value) -> Option<StorageProof> {
+    let fields = Fields(value.as_object()?);
+    Some(StorageProof {
+        key: fields.fixed("key")?,
+        value: quantity_u256(fields.0.get("value")?)?,
+        proof: proof_nodes(fields.0.get("proof")?)?,
+    })
+}
+
+fn decode_account_proof(value: &Value) -> Option<AccountProof> {
+    let fields = Fields(value.as_object()?);
+    Some(AccountProof {
+        address: fields.fixed("address")?,
+        balance: quantity_u256(fields.0.get("balance")?)?,
+        nonce: fields.u64("nonce")?,
+        code_hash: fields.fixed("codeHash")?,
+        storage_hash: fields.fixed("storageHash")?,
+        account_proof: proof_nodes(fields.0.get("accountProof")?)?,
+        storage: fields
+            .0
+            .get("storageProof")?
+            .as_array()?
+            .iter()
+            .map(decode_storage_proof)
+            .collect::<Option<_>>()?,
+    })
+}
+
+fn history_cursor(cursor: &str) -> bool {
+    cursor.len() == 32
+        && cursor
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+}
+
+fn decode_history_page(value: &Value) -> Option<HistoryPage> {
+    let next_cursor = match value.get("next_cursor")? {
+        Value::Null => None,
+        Value::String(cursor) if history_cursor(cursor) => Some(cursor.clone()),
+        _ => return None,
+    };
+    Some(HistoryPage {
+        items: value.get("items")?.as_array()?.clone(),
+        next_cursor,
+        indexed_height: value.get("indexedHeight")?.as_u64()?,
+        chain_height: value.get("chainHeight")?.as_u64()?,
+    })
 }
 
 fn decode_receipt_key(value: &Value) -> Option<ReceiptKeyEntry> {
