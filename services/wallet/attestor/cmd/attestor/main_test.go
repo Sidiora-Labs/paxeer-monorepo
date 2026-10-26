@@ -615,6 +615,33 @@ func programTransfer(t *testing.T, key [32]byte, sequence uint64, amount int64) 
 	}}
 }
 
+func ParseKernelPolicy(t *testing.T, path string) *lx.Document {
+	t.Helper()
+	doc, err := lx.LoadFile(path)
+	if err != nil {
+		t.Fatalf("load shipped kernel policy %s: %v", path, err)
+	}
+	return doc
+}
+
+func TestShippedKernelPolicyAdmitsOnlyAssetSend(t *testing.T) {
+	doc := ParseKernelPolicy(t, filepath.Join("..", "..", "..", "deploy", "attestor-kernel-policy.json"))
+	modules := doc.Defaults.Modules
+	operations := modules["asset"]
+	if len(modules) != 1 || len(operations) != 1 || operations[0] != 5 || operations[0] != lx.OpAssetTransfer.Ordinal() {
+		t.Fatalf("shipped kernel policy must admit only asset operation 5 (OpAssetTransfer), got %v", modules)
+	}
+	if len(doc.Accounts) != 0 {
+		t.Fatalf("shipped kernel policy must not override the asset-send defaults: %v", doc.Accounts)
+	}
+	if cap := doc.Defaults.Caps[lx.AssetNative]; cap != (lx.Cap{PerOperation: "1000000000000000000", Daily: "10000000000000000000"}) {
+		t.Fatalf("shipped native spend caps changed: %+v", cap)
+	}
+	if grant := doc.Defaults.Grants[lx.AssetNative]; grant != (lx.GrantCap{PerGrant: "100000000000000000", Daily: "1000000000000000000"}) {
+		t.Fatalf("shipped native grant caps changed: %+v", grant)
+	}
+}
+
 func TestPoliciesKeepKernelSpendsInTheNodeStore(t *testing.T) {
 	dir := t.TempDir()
 	keyFile := filepath.Join(dir, "store.key")
