@@ -311,7 +311,9 @@ func runLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		return nil
 	})
 	// Print final statistics
-	logger.LogFinalStats()
+	if _, reportErr := logger.LogFinalStats(); reportErr != nil {
+		return reportErr
+	}
 	if settings.RampUp && ramper != nil {
 		ramper.LogFinalStats()
 	}
