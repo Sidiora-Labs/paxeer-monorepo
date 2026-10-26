@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import { backendConfigurationProblems, browserImageOrigins } from './src/core/backend-origins';
-import { allowedDevOrigins, TRANSPILE_PACKAGES } from './src/core/next-build-config';
+import { allowedDevOrigins, backendRewrites, TRANSPILE_PACKAGES } from './src/core/next-build-config';
 
 // Run `ANALYZE=true pnpm --filter @sidiora/web build` to emit treemap reports
 // (.next/analyze/*.html) for per-route JS budgeting. No-op for normal builds.
@@ -39,74 +39,8 @@ function backendImageHosts(): Array<{ protocol: 'https' | 'http'; hostname: stri
   return out;
 }
 
-/**
- * Same-origin backend paths. The wallet identity session requires the identity
- * origin to equal the page origin (core/wallet-sdk/auth.ts), and the network
- * authority / preflight / private snapshot reads are same-origin by contract,
- * so the web server proxies these paths to the private Railway services.
- *
- * Upstreams are server-side only (never NEXT_PUBLIC_) and are read when the
- * build writes routes-manifest.json, so they must be set as build args.
- * Next's external-rewrite proxy sets Host to the upstream, adds
- * X-Forwarded-Host = the public web host, and passes the edge's
- * X-Forwarded-Proto / X-Forwarded-For / Origin through unchanged.
- *
- * WebSocket upgrades are proxied by the same rewrite in the standalone server
- * (router-server upgradeHandler -> proxyRequest(ws: true)), but the public
- * market stream is opened directly on NEXT_PUBLIC_STREAM_ORIGIN; only the
- * private stream uses NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN.
- *
- * Path ownership on the web origin follows the production topology
- * (deploy/production/topology/topology.py): `/v2/auth/*` and
- * `/v2/stream/tickets` -> media/gateway; `/v2/snapshots` -> core/api REST
- * (API_ROLE=rest); `/v2/stream` and `/v2/stream/sse` -> core/api sockets
- * (API_ROLE=sockets). The gateway's own `/v2/stream` (the social chat socket)
- * is never addressed through the web origin: the chat client opens it on the
- * absolute gateway host (NEXT_PUBLIC_GATEWAY_URL + NEXT_PUBLIC_SOCIAL_WS_PATH),
- * so `/v2/stream` here is unambiguously the market/private data stream.
- */
-function upstream(value: string | undefined, fallback: string): string {
-  return (value || fallback).replace(/\/+$/, '');
-}
-
-async function backendRewrites() {
-  // A local `next dev` without upstreams keeps these paths unrouted (404)
-  // instead of proxying to Railway-private hosts it cannot resolve.
-  if (process.env.NODE_ENV !== 'production' && !process.env.WEB_GATEWAY_UPSTREAM && !process.env.WEB_API_UPSTREAM) return { beforeFiles: [], afterFiles: [], fallback: [] };
-  const gateway = upstream(process.env.WEB_GATEWAY_UPSTREAM, 'http://gateway.railway.internal:8080');
-  const api = upstream(process.env.WEB_API_UPSTREAM, 'http://api.railway.internal:8080');
-  const sockets = upstream(process.env.WEB_SOCKETS_UPSTREAM, 'http://api-sockets.railway.internal:8080');
-  const charts = upstream(process.env.WEB_CHARTS_UPSTREAM, 'http://charts.railway.internal:8080');
-  return {
-    beforeFiles: [
-      // Identity (media/gateway): challenges, sessions, `sessions:refresh`, and stream tickets.
-      { source: '/v2/auth/:path*', destination: `${gateway}/v2/auth/:path*` },
-      { source: '/v2/stream/tickets', destination: `${gateway}/v2/stream/tickets` },
-      // Control plane (media/gateway connected runtime, security/control): public GET
-      // /v2/control/caps/{capability} read by security/control/cap-admission.ts on the
-      // web origin before token creation, plus the authenticated POST operations.
-      { source: '/v2/control/:path*', destination: `${gateway}/v2/control/:path*` },
-      // core/api REST (API_ROLE=rest): runtime authority, preflight and topic snapshots.
-      { source: '/v2/network/authority', destination: `${api}/v2/network/authority` },
-      { source: '/v2/preflight/:path*', destination: `${api}/v2/preflight/:path*` },
-      { source: '/v2/snapshots', destination: `${api}/v2/snapshots` },
-      // core/api sockets (API_ROLE=sockets): the only role that registers GET /v2/stream and /v2/stream/sse.
-      { source: '/v2/stream', destination: `${sockets}/v2/stream` },
-      { source: '/v2/stream/sse', destination: `${sockets}/v2/stream/sse` },
-      // core/trading-charts (no public charts domain): the versioned UDF documents
-      // (RegisterProductionUDF). Live candles are core/api `/v2/stream` topics.
-      { source: '/v2/udf/config', destination: `${charts}/v2/udf/config` },
-      { source: '/v2/udf/symbols', destination: `${charts}/v2/udf/symbols` },
-      { source: '/v2/udf/history', destination: `${charts}/v2/udf/history` },
-      { source: '/v2/udf/time', destination: `${charts}/v2/udf/time` },
-    ],
-    afterFiles: [],
-    fallback: [],
-  };
-}
-
 const nextConfig: NextConfig = {
-  rewrites: backendRewrites,
+  rewrites: () => backendRewrites(process.env),
   // Builds can target a separate directory so `next build` never clobbers the running dev server's .next.
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
   allowedDevOrigins: allowedDevOrigins(process.env),
