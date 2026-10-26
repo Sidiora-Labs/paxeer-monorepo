@@ -14,7 +14,9 @@ use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_crypto::payments::{Grant, Payment};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite};
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::leaf_hash;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::{receipt_digest, Domain};
 use serde_json::{json, Value};
@@ -269,7 +271,18 @@ fn configure_with(
     let mut config = read_json(&fixtures().join("config/valid.json"))?;
     config["data_dir"] = json!(scratch.join("data"));
     config["gateway"]["endpoint"] = json!(format!("http://{}/rpc", gateway.address));
-    config["gateway"]["sequencer_public_key"] = json!(text(buyer, "/sequencerPublicKey")?);
+    let gateway_config = config["gateway"].as_object_mut().ok_or("gateway object")?;
+    gateway_config.remove("sequencer_id");
+    gateway_config.remove("sequencer_public_key");
+    gateway_config.insert(
+        "receipt_keys".to_owned(),
+        json!([{
+            "key_id": hex(&receipt_key_id()),
+            "public_key": text(buyer, "/sequencerPublicKey")?,
+            "first_height": 0,
+            "last_height": u64::MAX,
+        }]),
+    );
     if let Some(payment) = payment {
         config["payment"] = payment;
     }
@@ -304,9 +317,21 @@ impl Harness {
     /// Starts the sidecar against `gateway` with `payment` as the
     /// configuration's `payment` object.
     fn launch(name: &str, gateway: Gateway, payment: Option<Value>) -> Outcome<Self> {
+        Self::launch_with_receipt_keys(name, gateway, payment, None)
+    }
+
+    fn launch_with_receipt_keys(
+        name: &str,
+        gateway: Gateway,
+        payment: Option<Value>,
+        receipt_keys: Option<Vec<SequencerAuthorization>>,
+    ) -> Outcome<Self> {
         let scratch = scratch_dir(name)?;
         let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
-        let config = configure_with(&scratch, &gateway, &buyer, payment)?;
+        let mut config = configure_with(&scratch, &gateway, &buyer, payment)?;
+        if let Some(keys) = receipt_keys {
+            config.gateway.receipt_keys = keys;
+        }
         let receiver = receiver_key(&scratch)?;
         let gate = Arc::new(PaymentGate::new(
             &config,
@@ -1031,6 +1056,83 @@ fn the_configured_payer_is_offered_and_drawn_from() -> Outcome {
 }
 
 #[test]
+fn a_receipt_outside_every_configured_key_window_is_refused() -> Outcome {
+    let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
+    let sid = accepted("SID")?;
+    let receiver = receiver_secret()?;
+    let payee = receiver_did(&receiver.verifying_key().to_bytes());
+    let key = test_key("sequencer");
+    let activity_id = labelled("x-websearch-test/activity/", "outside-key-windows");
+    let receipt = signed_receipt(
+        &Movement {
+            label: "outside-key-windows",
+            operation: 5,
+            activity_id,
+            asset: &sid,
+            amount: sid.price,
+            from: account_id(&wallet_account(text(&buyer, "/payerDid")?, &sid)).ok_or("payer")?,
+            to: account_id(&wallet_account(&payee, &sid)).ok_or("payee")?,
+            fee: RECORDED_FEE,
+        },
+        &key,
+    )?;
+    let covering = [SequencerAuthorization::new(
+        receipt_key_id(),
+        key.verifying_key().to_bytes(),
+        9,
+        9,
+    )];
+    let verified = wire(verify_sequencer_signature(
+        &receipt,
+        ReceiptKeys::HeightRanges(&covering),
+    ))?;
+    let facts = verified.protocol().ok_or("protocol receipt")?;
+    assert_eq!(facts.activity_id(), activity_id);
+    assert_eq!(&facts.batch_id()[24..], &9_u64.to_be_bytes());
+    let windows = vec![
+        SequencerAuthorization::new(receipt_key_id(), key.verifying_key().to_bytes(), 0, 8),
+        SequencerAuthorization::new(
+            labelled("x-websearch-test/receipt-key/", "next"),
+            test_key("next").verifying_key().to_bytes(),
+            10,
+            20,
+        ),
+    ];
+    let rules = [json!({
+        "method": "lx_getReceipt", "params": [hex(&activity_id)],
+        "result": completed(&activity_id, &receipt),
+    })];
+    let harness = Harness::launch_with_receipt_keys(
+        "outside-key-windows",
+        Gateway::serve_rules(&rules)?,
+        None,
+        Some(windows),
+    )?;
+    let reply = harness.exact(
+        "/fetch?url=outside-key-windows",
+        "SID",
+        &exact_payment(&receipt)?,
+    )?;
+    assert_refused(&reply, "receipt_unverified");
+    assert_eq!(
+        reply.decoded(PAYMENT_RESPONSE)?.get("success"),
+        Some(&json!(false))
+    );
+    assert_eq!(harness.served(), 0);
+    assert_eq!(harness.gateway.calls("lx_sendActivity"), 0);
+    assert_eq!(harness.gateway.calls("lx_getReceipt"), 0);
+    assert_eq!(
+        std::fs::read_dir(harness.scratch.join("data/payments/receipts"))?.count(),
+        0
+    );
+    assert_eq!(
+        std::fs::read_dir(harness.scratch.join("data/payments/deliveries"))?.count(),
+        0
+    );
+    Ok(())
+}
+
+#[test]
 fn a_draw_charged_above_the_configured_fee_limit_is_refused() -> Outcome {
     const LIMIT: u128 = 5;
     let buyer = read_json(&fixtures().join("gateway/buyer.json"))?;
@@ -1196,7 +1298,16 @@ fn receiver_public_key() -> Outcome<[u8; 32]> {
 }
 
 fn accepted(currency: &str) -> Outcome<AcceptedAsset> {
-    let config = Config::parse(&read_json(&fixtures().join("config/valid.json"))?.to_string())?;
+    let mut value = read_json(&fixtures().join("config/valid.json"))?;
+    value["gateway"] = json!({
+        "endpoint": "http://127.0.0.1:8547/rpc",
+        "receipt_keys": [{
+            "key_id": hex(&receipt_key_id()),
+            "public_key": hex(&test_key("sequencer").verifying_key().to_bytes()),
+            "first_height": 0, "last_height": u64::MAX,
+        }],
+    });
+    let config = Config::parse(&value.to_string())?;
     let assets = AcceptedAssets::new(&config.assets).map_err(|error| fail(format!("{error:?}")))?;
     assets
         .all()
@@ -1214,6 +1325,10 @@ fn wire<T, E: std::fmt::Debug>(result: Result<T, E>) -> Outcome<T> {
 /// their public halves and signatures reach the fixtures.
 fn test_key(label: &str) -> SigningKey {
     SigningKey::from_bytes(&labelled("x-websearch-test/key/", label))
+}
+
+fn receipt_key_id() -> [u8; 32] {
+    labelled("x-websearch-test/receipt-key/", "sequencer")
 }
 
 /// One asset movement a recorded receipt attests.
@@ -1250,7 +1365,9 @@ fn encode_receipt(movement: &Movement<'_>, signature: Option<[u8; 64]>) -> Outco
     wire(encoder.i32(0))?;
     wire(encoder.sequence_length(0, 512))?;
     wire(encoder.u128(movement.fee))?;
-    wire(encoder.bytes(&root("batch"), 32))?;
+    let mut batch = [0; 32];
+    batch[24..].copy_from_slice(&9_u64.to_be_bytes());
+    wire(encoder.bytes(&batch, 32))?;
     wire(encoder.u16(1))?;
     wire(encoder.u32(1))?;
     wire(encoder.u32(1))?;
@@ -1266,7 +1383,7 @@ fn encode_receipt(movement: &Movement<'_>, signature: Option<[u8; 64]>) -> Outco
     wire(encoder.u128(amount * 2))?;
     wire(encoder.bytes(&root("transfer-set"), 32))?;
     wire(encoder.bytes(&root("authorization"), 32))?;
-    wire(encoder.bytes(&root("context"), 32))?;
+    wire(encoder.bytes(&receipt_key_id(), 32))?;
     wire(encoder.u64(1_000))?;
     wire(encoder.u8(u8::from(signature.is_some())))?;
     if let Some(signature) = signature {
