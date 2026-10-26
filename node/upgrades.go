@@ -25,6 +25,7 @@ import (
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	appparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	feetokenprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
 	verifyprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
@@ -109,7 +110,7 @@ const V610Upgrade = "v6.10"
 // Like the activation plan it carries no entry in the embedded tag list. Every
 // gate reads this constant, so the activation rehearsal can rename the plan in
 // one place.
-const MergeUpgrade = "v7.0"
+const MergeUpgrade = pcommon.MergeUpgrade
 
 // The governance voting periods the v6.10 plan writes. Every other governance
 // parameter, the deposit and the tally parameters among them, is left as the
