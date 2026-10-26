@@ -410,6 +410,64 @@ fn bound_address_reads_the_addr_precompile_and_decodes_the_unbound_revert() {
 }
 
 #[test]
+fn chain_id_reads_eth_chain_id_and_refuses_a_non_quantity() {
+    let results = [
+        json!("0x7d"),
+        json!("0xffffffffffffffff"),
+        json!(125),
+        json!("125"),
+        json!("0x"),
+        json!("0x07d"),
+        json!("0x10000000000000000"),
+    ];
+    let (url, server) = serve(
+        results
+            .iter()
+            .map(|result| ("eth_chainId", Some(format!(r#""result":{result}"#))))
+            .collect(),
+    );
+    let endpoint = endpoint(&url);
+    assert_eq!(endpoint.chain_id(), Ok(125));
+    assert_eq!(endpoint.chain_id(), Ok(u64::MAX));
+    for _ in &results[2..] {
+        assert_eq!(endpoint.chain_id(), Err(SequencerError::Malformed));
+    }
+    assert_eq!(server.join().must(), vec![json!([]); results.len()]);
+}
+
+#[test]
+fn balance_reads_the_pending_tag_and_decodes_a_256_bit_quantity() {
+    let (url, server) = serve(vec![
+        (
+            "eth_getBalance",
+            Some(
+                r#""result":"0xf123456789abcdef00112233445566778899aabbccddeefffedcba9876543210""#
+                    .to_owned(),
+            ),
+        ),
+        ("eth_getBalance", Some(r#""result":"0x123""#.to_owned())),
+        ("eth_getBalance", Some(r#""result":"0x0""#.to_owned())),
+    ]);
+    let endpoint = endpoint(&url);
+    assert_eq!(
+        endpoint.balance(&from()),
+        Ok([
+            0xf1, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xfe, 0xdc, 0xba, 0x98,
+            0x76, 0x54, 0x32, 0x10,
+        ])
+    );
+    let mut small_balance = [0_u8; 32];
+    small_balance[30..].copy_from_slice(&[0x01, 0x23]);
+    assert_eq!(endpoint.balance(&from()), Ok(small_balance));
+    assert_eq!(endpoint.balance(&from()), Ok([0; 32]));
+    assert_eq!(
+        server.join().must(),
+        vec![json!(["0x11223344556677889900aabbccddeeff00112233", "pending"]); 3]
+    );
+}
+
+#[test]
 fn pending_reads_and_send_use_the_pending_tag_and_exact_params() {
     let (url, server) = serve(vec![
         (

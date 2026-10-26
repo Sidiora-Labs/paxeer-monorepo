@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 #[path = "../../../tests/support/rustc.rs"]
 mod rustc;
 
+use layerx_types::rung::Rung;
 use layerx_types::verify::{Projection, VerificationLevel};
 
 fn dependency_rlib() -> (PathBuf, PathBuf) {
@@ -79,6 +80,32 @@ fn verification_levels_form_the_declared_order() {
     }
     assert_eq!(VerificationLevel::UNVERIFIED.wire_rank(), 0);
     assert_eq!(VerificationLevel::SETTLEMENT_ANCHORED.wire_rank(), 5);
+}
+
+#[test]
+fn verification_level_maps_onto_rungs_by_decision() {
+    let cases = [
+        (VerificationLevel::UNVERIFIED, Rung::Submitted, 0),
+        (VerificationLevel::SEQUENCER_SIGNED, Rung::Submitted, 1),
+        (VerificationLevel::BATCH_INCLUDED, Rung::Receipted, 2),
+        (VerificationLevel::STATE_PROVEN, Rung::Receipted, 3),
+        (VerificationLevel::CHECKPOINT_FINALISED, Rung::Committed, 4),
+    ];
+    for (level, rung, rank) in cases {
+        assert_eq!(level.rung(), Some(rung), "{level:?}");
+        assert_eq!(level.wire_rank(), rank);
+    }
+}
+
+#[test]
+fn settlement_anchored_level_has_no_rung() {
+    const RUNG: Option<Rung> = VerificationLevel::SETTLEMENT_ANCHORED.rung();
+    assert_eq!(RUNG, None);
+    assert_eq!(VerificationLevel::SETTLEMENT_ANCHORED.wire_rank(), 5);
+    assert_eq!(
+        VerificationLevel::SETTLEMENT_ANCHORED.compare(VerificationLevel::CHECKPOINT_FINALISED),
+        std::cmp::Ordering::Greater,
+    );
 }
 
 #[test]
