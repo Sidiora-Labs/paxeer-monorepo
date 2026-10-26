@@ -29,9 +29,18 @@ var (
 	_ = abi.ConvertType
 )
 
+// IRouterPermitParams is an auto generated low-level Go binding around an user-defined struct.
+type IRouterPermitParams struct {
+	Value    *big.Int
+	Deadline *big.Int
+	V        uint8
+	R        [32]byte
+	S        [32]byte
+}
+
 // RouterMetaData contains all meta data concerning the Router contract.
 var RouterMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DeadlineExpired\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientBalance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"MissingRole\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"MulticallFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PoolNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrancyGuardReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFromFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughActiveProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnauthorizedUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAmount\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"usdlIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokensOut\",\"type\":\"uint256\"}],\"name\":\"Buy\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"version\",\"type\":\"uint64\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"}],\"name\":\"MarketCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"previousAdminRole\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"newAdminRole\",\"type\":\"bytes32\"}],\"name\":\"RoleAdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleGranted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleRevoked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"seller\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokensIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"usdlOut\",\"type\":\"uint256\"}],\"name\":\"Sell\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"DEFAULT_ADMIN_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"usdlAmountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minTokensOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"}],\"name\":\"buy\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"uint8\",\"name\":\"feeStrategy\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"}],\"name\":\"createMarket\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"poolAddr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"factory\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"getRoleAdmin\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"grantRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"hasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_factory\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_poolRegistry\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_protocolConfig\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_usdlAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_admin\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"data\",\"type\":\"bytes[]\"}],\"name\":\"multicall\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"results\",\"type\":\"bytes[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"poolRegistry\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"protocolConfig\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"callerConfirmation\",\"type\":\"address\"}],\"name\":\"renounceRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"revokeRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenAmountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minUsdlOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"}],\"name\":\"sell\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"upgradeToAndCall\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"usdlAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"DeadlineExpired\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientBalance\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRoleAccount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LastDefaultAdmin\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"MissingRole\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"reason\",\"type\":\"bytes\"}],\"name\":\"MulticallFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NonPayableUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"PoolNotFound\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrancyGuardReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"SameToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFromFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughActiveProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnauthorizedUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpgradeInitializationFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAmount\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"buyer\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"usdlIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokensOut\",\"type\":\"uint256\"}],\"name\":\"Buy\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"version\",\"type\":\"uint64\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"token\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"creator\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"}],\"name\":\"MarketCreated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"tokenIn\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"tokenOut\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"intermediateUsdl\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"name\":\"MultihopSwap\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"previousAdminRole\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"newAdminRole\",\"type\":\"bytes32\"}],\"name\":\"RoleAdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleGranted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleRevoked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"seller\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"tokensIn\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"usdlOut\",\"type\":\"uint256\"}],\"name\":\"Sell\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"DEFAULT_ADMIN_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"usdlAmountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minTokensOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"}],\"name\":\"buy\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"usdlAmountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minTokensOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIRouter.PermitParams\",\"name\":\"permit\",\"type\":\"tuple\"}],\"name\":\"buyWithPermit\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"uint8\",\"name\":\"feeStrategy\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"}],\"name\":\"createMarket\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"poolAddr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"string\",\"name\":\"name\",\"type\":\"string\"},{\"internalType\":\"string\",\"name\":\"symbol\",\"type\":\"string\"},{\"internalType\":\"uint8\",\"name\":\"feeStrategy\",\"type\":\"uint8\"},{\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIRouter.PermitParams\",\"name\":\"permit\",\"type\":\"tuple\"}],\"name\":\"createMarketWithPermit\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"tokenAddr\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"poolAddr\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"nftId\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"factory\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"getRoleAdmin\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"grantRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"hasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_factory\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_poolRegistry\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_protocolConfig\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_usdlAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_admin\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"data\",\"type\":\"bytes[]\"}],\"name\":\"multicall\",\"outputs\":[{\"internalType\":\"bytes[]\",\"name\":\"results\",\"type\":\"bytes[]\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"poolRegistry\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"protocolConfig\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"registeredDefaultAdminCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"callerConfirmation\",\"type\":\"address\"}],\"name\":\"renounceRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"revokeRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenAmountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minUsdlOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"}],\"name\":\"sell\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"tokenAmountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minUsdlOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIRouter.PermitParams\",\"name\":\"permit\",\"type\":\"tuple\"}],\"name\":\"sellWithPermit\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"tokenIn\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"tokenOut\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minAmountOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"}],\"name\":\"swapTokenForToken\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"intermediateUsdl\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"tokenIn\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"tokenOut\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amountIn\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"minAmountOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"components\":[{\"internalType\":\"uint256\",\"name\":\"value\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"deadline\",\"type\":\"uint256\"},{\"internalType\":\"uint8\",\"name\":\"v\",\"type\":\"uint8\"},{\"internalType\":\"bytes32\",\"name\":\"r\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"s\",\"type\":\"bytes32\"}],\"internalType\":\"structIRouter.PermitParams\",\"name\":\"permit\",\"type\":\"tuple\"}],\"name\":\"swapTokenForTokenWithPermit\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amountOut\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"intermediateUsdl\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"upgradeToAndCall\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"usdlAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // RouterABI is the input ABI used to generate the binding from.
@@ -397,6 +406,37 @@ func (_Router *RouterCallerSession) ProxiableUUID() ([32]byte, error) {
 	return _Router.Contract.ProxiableUUID(&_Router.CallOpts)
 }
 
+// RegisteredDefaultAdminCount is a free data retrieval call binding the contract method 0xc0cb71b6.
+//
+// Solidity: function registeredDefaultAdminCount() view returns(uint256)
+func (_Router *RouterCaller) RegisteredDefaultAdminCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _Router.contract.Call(opts, &out, "registeredDefaultAdminCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// RegisteredDefaultAdminCount is a free data retrieval call binding the contract method 0xc0cb71b6.
+//
+// Solidity: function registeredDefaultAdminCount() view returns(uint256)
+func (_Router *RouterSession) RegisteredDefaultAdminCount() (*big.Int, error) {
+	return _Router.Contract.RegisteredDefaultAdminCount(&_Router.CallOpts)
+}
+
+// RegisteredDefaultAdminCount is a free data retrieval call binding the contract method 0xc0cb71b6.
+//
+// Solidity: function registeredDefaultAdminCount() view returns(uint256)
+func (_Router *RouterCallerSession) RegisteredDefaultAdminCount() (*big.Int, error) {
+	return _Router.Contract.RegisteredDefaultAdminCount(&_Router.CallOpts)
+}
+
 // UsdlAddress is a free data retrieval call binding the contract method 0x2e10f976.
 //
 // Solidity: function usdlAddress() view returns(address)
@@ -449,6 +489,27 @@ func (_Router *RouterTransactorSession) Buy(pool common.Address, usdlAmountIn *b
 	return _Router.Contract.Buy(&_Router.TransactOpts, pool, usdlAmountIn, minTokensOut, deadline)
 }
 
+// BuyWithPermit is a paid mutator transaction binding the contract method 0xffafb569.
+//
+// Solidity: function buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut)
+func (_Router *RouterTransactor) BuyWithPermit(opts *bind.TransactOpts, pool common.Address, usdlAmountIn *big.Int, minTokensOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.contract.Transact(opts, "buyWithPermit", pool, usdlAmountIn, minTokensOut, deadline, permit)
+}
+
+// BuyWithPermit is a paid mutator transaction binding the contract method 0xffafb569.
+//
+// Solidity: function buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut)
+func (_Router *RouterSession) BuyWithPermit(pool common.Address, usdlAmountIn *big.Int, minTokensOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.BuyWithPermit(&_Router.TransactOpts, pool, usdlAmountIn, minTokensOut, deadline, permit)
+}
+
+// BuyWithPermit is a paid mutator transaction binding the contract method 0xffafb569.
+//
+// Solidity: function buyWithPermit(address pool, uint256 usdlAmountIn, uint256 minTokensOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut)
+func (_Router *RouterTransactorSession) BuyWithPermit(pool common.Address, usdlAmountIn *big.Int, minTokensOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.BuyWithPermit(&_Router.TransactOpts, pool, usdlAmountIn, minTokensOut, deadline, permit)
+}
+
 // CreateMarket is a paid mutator transaction binding the contract method 0x57c0d7fd.
 //
 // Solidity: function createMarket(string name, string symbol, uint8 feeStrategy, address optical) returns(address tokenAddr, address poolAddr, uint256 nftId)
@@ -468,6 +529,27 @@ func (_Router *RouterSession) CreateMarket(name string, symbol string, feeStrate
 // Solidity: function createMarket(string name, string symbol, uint8 feeStrategy, address optical) returns(address tokenAddr, address poolAddr, uint256 nftId)
 func (_Router *RouterTransactorSession) CreateMarket(name string, symbol string, feeStrategy uint8, optical common.Address) (*types.Transaction, error) {
 	return _Router.Contract.CreateMarket(&_Router.TransactOpts, name, symbol, feeStrategy, optical)
+}
+
+// CreateMarketWithPermit is a paid mutator transaction binding the contract method 0xdc614295.
+//
+// Solidity: function createMarketWithPermit(string name, string symbol, uint8 feeStrategy, address optical, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(address tokenAddr, address poolAddr, uint256 nftId)
+func (_Router *RouterTransactor) CreateMarketWithPermit(opts *bind.TransactOpts, name string, symbol string, feeStrategy uint8, optical common.Address, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.contract.Transact(opts, "createMarketWithPermit", name, symbol, feeStrategy, optical, permit)
+}
+
+// CreateMarketWithPermit is a paid mutator transaction binding the contract method 0xdc614295.
+//
+// Solidity: function createMarketWithPermit(string name, string symbol, uint8 feeStrategy, address optical, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(address tokenAddr, address poolAddr, uint256 nftId)
+func (_Router *RouterSession) CreateMarketWithPermit(name string, symbol string, feeStrategy uint8, optical common.Address, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.CreateMarketWithPermit(&_Router.TransactOpts, name, symbol, feeStrategy, optical, permit)
+}
+
+// CreateMarketWithPermit is a paid mutator transaction binding the contract method 0xdc614295.
+//
+// Solidity: function createMarketWithPermit(string name, string symbol, uint8 feeStrategy, address optical, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(address tokenAddr, address poolAddr, uint256 nftId)
+func (_Router *RouterTransactorSession) CreateMarketWithPermit(name string, symbol string, feeStrategy uint8, optical common.Address, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.CreateMarketWithPermit(&_Router.TransactOpts, name, symbol, feeStrategy, optical, permit)
 }
 
 // GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
@@ -594,6 +676,69 @@ func (_Router *RouterSession) Sell(pool common.Address, tokenAmountIn *big.Int, 
 // Solidity: function sell(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline) returns(uint256 amountOut)
 func (_Router *RouterTransactorSession) Sell(pool common.Address, tokenAmountIn *big.Int, minUsdlOut *big.Int, deadline *big.Int) (*types.Transaction, error) {
 	return _Router.Contract.Sell(&_Router.TransactOpts, pool, tokenAmountIn, minUsdlOut, deadline)
+}
+
+// SellWithPermit is a paid mutator transaction binding the contract method 0x3aa73d77.
+//
+// Solidity: function sellWithPermit(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut)
+func (_Router *RouterTransactor) SellWithPermit(opts *bind.TransactOpts, pool common.Address, tokenAmountIn *big.Int, minUsdlOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.contract.Transact(opts, "sellWithPermit", pool, tokenAmountIn, minUsdlOut, deadline, permit)
+}
+
+// SellWithPermit is a paid mutator transaction binding the contract method 0x3aa73d77.
+//
+// Solidity: function sellWithPermit(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut)
+func (_Router *RouterSession) SellWithPermit(pool common.Address, tokenAmountIn *big.Int, minUsdlOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.SellWithPermit(&_Router.TransactOpts, pool, tokenAmountIn, minUsdlOut, deadline, permit)
+}
+
+// SellWithPermit is a paid mutator transaction binding the contract method 0x3aa73d77.
+//
+// Solidity: function sellWithPermit(address pool, uint256 tokenAmountIn, uint256 minUsdlOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut)
+func (_Router *RouterTransactorSession) SellWithPermit(pool common.Address, tokenAmountIn *big.Int, minUsdlOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.SellWithPermit(&_Router.TransactOpts, pool, tokenAmountIn, minUsdlOut, deadline, permit)
+}
+
+// SwapTokenForToken is a paid mutator transaction binding the contract method 0x8ef5184b.
+//
+// Solidity: function swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) returns(uint256 amountOut, uint256 intermediateUsdl)
+func (_Router *RouterTransactor) SwapTokenForToken(opts *bind.TransactOpts, tokenIn common.Address, tokenOut common.Address, amountIn *big.Int, minAmountOut *big.Int, deadline *big.Int) (*types.Transaction, error) {
+	return _Router.contract.Transact(opts, "swapTokenForToken", tokenIn, tokenOut, amountIn, minAmountOut, deadline)
+}
+
+// SwapTokenForToken is a paid mutator transaction binding the contract method 0x8ef5184b.
+//
+// Solidity: function swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) returns(uint256 amountOut, uint256 intermediateUsdl)
+func (_Router *RouterSession) SwapTokenForToken(tokenIn common.Address, tokenOut common.Address, amountIn *big.Int, minAmountOut *big.Int, deadline *big.Int) (*types.Transaction, error) {
+	return _Router.Contract.SwapTokenForToken(&_Router.TransactOpts, tokenIn, tokenOut, amountIn, minAmountOut, deadline)
+}
+
+// SwapTokenForToken is a paid mutator transaction binding the contract method 0x8ef5184b.
+//
+// Solidity: function swapTokenForToken(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline) returns(uint256 amountOut, uint256 intermediateUsdl)
+func (_Router *RouterTransactorSession) SwapTokenForToken(tokenIn common.Address, tokenOut common.Address, amountIn *big.Int, minAmountOut *big.Int, deadline *big.Int) (*types.Transaction, error) {
+	return _Router.Contract.SwapTokenForToken(&_Router.TransactOpts, tokenIn, tokenOut, amountIn, minAmountOut, deadline)
+}
+
+// SwapTokenForTokenWithPermit is a paid mutator transaction binding the contract method 0x1894fbf8.
+//
+// Solidity: function swapTokenForTokenWithPermit(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut, uint256 intermediateUsdl)
+func (_Router *RouterTransactor) SwapTokenForTokenWithPermit(opts *bind.TransactOpts, tokenIn common.Address, tokenOut common.Address, amountIn *big.Int, minAmountOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.contract.Transact(opts, "swapTokenForTokenWithPermit", tokenIn, tokenOut, amountIn, minAmountOut, deadline, permit)
+}
+
+// SwapTokenForTokenWithPermit is a paid mutator transaction binding the contract method 0x1894fbf8.
+//
+// Solidity: function swapTokenForTokenWithPermit(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut, uint256 intermediateUsdl)
+func (_Router *RouterSession) SwapTokenForTokenWithPermit(tokenIn common.Address, tokenOut common.Address, amountIn *big.Int, minAmountOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.SwapTokenForTokenWithPermit(&_Router.TransactOpts, tokenIn, tokenOut, amountIn, minAmountOut, deadline, permit)
+}
+
+// SwapTokenForTokenWithPermit is a paid mutator transaction binding the contract method 0x1894fbf8.
+//
+// Solidity: function swapTokenForTokenWithPermit(address tokenIn, address tokenOut, uint256 amountIn, uint256 minAmountOut, uint256 deadline, (uint256,uint256,uint8,bytes32,bytes32) permit) returns(uint256 amountOut, uint256 intermediateUsdl)
+func (_Router *RouterTransactorSession) SwapTokenForTokenWithPermit(tokenIn common.Address, tokenOut common.Address, amountIn *big.Int, minAmountOut *big.Int, deadline *big.Int, permit IRouterPermitParams) (*types.Transaction, error) {
+	return _Router.Contract.SwapTokenForTokenWithPermit(&_Router.TransactOpts, tokenIn, tokenOut, amountIn, minAmountOut, deadline, permit)
 }
 
 // UpgradeToAndCall is a paid mutator transaction binding the contract method 0x4f1ef286.
@@ -1063,6 +1208,171 @@ func (_Router *RouterFilterer) WatchMarketCreated(opts *bind.WatchOpts, sink cha
 func (_Router *RouterFilterer) ParseMarketCreated(log types.Log) (*RouterMarketCreated, error) {
 	event := new(RouterMarketCreated)
 	if err := _Router.contract.UnpackLog(event, "MarketCreated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// RouterMultihopSwapIterator is returned from FilterMultihopSwap and is used to iterate over the raw logs and unpacked data for MultihopSwap events raised by the Router contract.
+type RouterMultihopSwapIterator struct {
+	Event *RouterMultihopSwap // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *RouterMultihopSwapIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(RouterMultihopSwap)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(RouterMultihopSwap)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *RouterMultihopSwapIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *RouterMultihopSwapIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// RouterMultihopSwap represents a MultihopSwap event raised by the Router contract.
+type RouterMultihopSwap struct {
+	Sender           common.Address
+	TokenIn          common.Address
+	TokenOut         common.Address
+	AmountIn         *big.Int
+	IntermediateUsdl *big.Int
+	AmountOut        *big.Int
+	Raw              types.Log // Blockchain specific contextual infos
+}
+
+// FilterMultihopSwap is a free log retrieval operation binding the contract event 0xef2dce1faa347130cf25c6d059af1f6f181983e69a2fadd79ed8751a532d3d96.
+//
+// Solidity: event MultihopSwap(address indexed sender, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 intermediateUsdl, uint256 amountOut)
+func (_Router *RouterFilterer) FilterMultihopSwap(opts *bind.FilterOpts, sender []common.Address, tokenIn []common.Address, tokenOut []common.Address) (*RouterMultihopSwapIterator, error) {
+
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+	var tokenInRule []interface{}
+	for _, tokenInItem := range tokenIn {
+		tokenInRule = append(tokenInRule, tokenInItem)
+	}
+	var tokenOutRule []interface{}
+	for _, tokenOutItem := range tokenOut {
+		tokenOutRule = append(tokenOutRule, tokenOutItem)
+	}
+
+	logs, sub, err := _Router.contract.FilterLogs(opts, "MultihopSwap", senderRule, tokenInRule, tokenOutRule)
+	if err != nil {
+		return nil, err
+	}
+	return &RouterMultihopSwapIterator{contract: _Router.contract, event: "MultihopSwap", logs: logs, sub: sub}, nil
+}
+
+// WatchMultihopSwap is a free log subscription operation binding the contract event 0xef2dce1faa347130cf25c6d059af1f6f181983e69a2fadd79ed8751a532d3d96.
+//
+// Solidity: event MultihopSwap(address indexed sender, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 intermediateUsdl, uint256 amountOut)
+func (_Router *RouterFilterer) WatchMultihopSwap(opts *bind.WatchOpts, sink chan<- *RouterMultihopSwap, sender []common.Address, tokenIn []common.Address, tokenOut []common.Address) (event.Subscription, error) {
+
+	var senderRule []interface{}
+	for _, senderItem := range sender {
+		senderRule = append(senderRule, senderItem)
+	}
+	var tokenInRule []interface{}
+	for _, tokenInItem := range tokenIn {
+		tokenInRule = append(tokenInRule, tokenInItem)
+	}
+	var tokenOutRule []interface{}
+	for _, tokenOutItem := range tokenOut {
+		tokenOutRule = append(tokenOutRule, tokenOutItem)
+	}
+
+	logs, sub, err := _Router.contract.WatchLogs(opts, "MultihopSwap", senderRule, tokenInRule, tokenOutRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(RouterMultihopSwap)
+				if err := _Router.contract.UnpackLog(event, "MultihopSwap", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMultihopSwap is a log parse operation binding the contract event 0xef2dce1faa347130cf25c6d059af1f6f181983e69a2fadd79ed8751a532d3d96.
+//
+// Solidity: event MultihopSwap(address indexed sender, address indexed tokenIn, address indexed tokenOut, uint256 amountIn, uint256 intermediateUsdl, uint256 amountOut)
+func (_Router *RouterFilterer) ParseMultihopSwap(log types.Log) (*RouterMultihopSwap, error) {
+	event := new(RouterMultihopSwap)
+	if err := _Router.contract.UnpackLog(event, "MultihopSwap", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
