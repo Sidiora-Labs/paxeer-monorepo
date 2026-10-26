@@ -26,6 +26,7 @@ func GetQueryCmd() *cobra.Command {
 	cmd.AddCommand(
 		GetParams(),
 		GetCmdDenomAuthorityMetadata(),
+		GetCmdDenomPaused(),
 		GetCmdDenomsFromCreator(),
 	)
 
@@ -73,6 +74,34 @@ func GetCmdDenomAuthorityMetadata() *cobra.Command {
 			queryClient := types.NewQueryClient(clientCtx)
 
 			res, err := queryClient.DenomAuthorityMetadata(cmd.Context(), &types.QueryDenomAuthorityMetadataRequest{
+				Denom: args[0],
+			})
+			if err != nil {
+				return err
+			}
+
+			return clientCtx.PrintProto(res)
+		},
+	}
+
+	flags.AddQueryFlagsToCmd(cmd)
+
+	return cmd
+}
+
+func GetCmdDenomPaused() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "denom-paused [denom]",
+		Short: "Get the pause status and issuer DID for a specific denom",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientQueryContext(cmd)
+			if err != nil {
+				return err
+			}
+			queryClient := types.NewQueryClient(clientCtx)
+
+			res, err := queryClient.DenomPaused(cmd.Context(), &types.QueryDenomPausedRequest{
 				Denom: args[0],
 			})
 			if err != nil {

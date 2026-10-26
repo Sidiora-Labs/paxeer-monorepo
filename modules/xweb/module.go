@@ -92,7 +92,9 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
 }
 
-func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
+func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {
+	ir.RegisterRoute(types.ModuleName, "program-counters", keeper.ProgramCountersInvariant(am.keeper))
+}
 
 func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawMessage) []abci.ValidatorUpdate {
 	var genesis types.GenesisState
