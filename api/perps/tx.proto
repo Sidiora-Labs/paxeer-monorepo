@@ -1,0 +1,24 @@
+syntax = "proto3";
+package paxprotocol.paxchain.perps;
+import "gogoproto/gogo.proto";
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types";
+service Msg {
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+  rpc SetMarket(MsgSetMarket) returns (MsgSetMarketResponse);
+  rpc SetPaused(MsgSetPaused) returns (MsgSetPausedResponse);
+}
+message MsgUpdateParams {
+  string authority = 1;
+  bytes params = 2 [(gogoproto.customtype) = "Params", (gogoproto.nullable) = false];
+}
+message MsgUpdateParamsResponse {}
+message MsgSetMarket {
+  string authority = 1;
+  bytes market = 2 [(gogoproto.customtype) = "Market", (gogoproto.nullable) = false];
+}
+message MsgSetMarketResponse {}
+message MsgSetPaused {
+  string authority = 1;
+  bool paused = 2;
+}
+message MsgSetPausedResponse {}
