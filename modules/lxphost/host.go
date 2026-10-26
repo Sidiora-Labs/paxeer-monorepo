@@ -30,6 +30,7 @@ typedef struct lxphost_node {
     lxp_identity_store identities;
     lxp_fee_params fees;
     lxp_authority_resolved authority;
+    bool authority_bound;
     lxp_kernel_execution execution;
     lxp_receipt receipt;
     lxp_arena arena;
@@ -237,13 +238,25 @@ static int32_t lxphost_envelope_preimage(const lxphost_envelope *envelope,
 
 static void lxphost_authority_write(lxphost_node *node, const uint8_t actor[32],
                                     const uint8_t principal[32],
-                                    const uint8_t verified_key[32])
+                                    const uint8_t verified_key[32], bool bound)
 {
     (void)memset(&node->authority, 0, sizeof(node->authority));
     (void)memcpy(node->authority.actor, actor, 32U);
     (void)memcpy(node->authority.principal, principal, 32U);
     (void)memcpy(node->authority.verified_key, verified_key, 32U);
     node->authority.kind = LXP_AUTHORITY_OWNER;
+    node->authority_bound = bound;
+}
+
+static int32_t lxphost_activity_module(const lxphost_node *node,
+                                       uint16_t *module_id)
+{
+    const lxp_module_registration *registration;
+    int32_t status = lxp_kernel_module_for_activity(
+        &node->kernel, node->envelope.activity.activity_type,
+        node->kernel.epoch, &registration);
+    if (status == LXP_OK) *module_id = registration->module_id;
+    return status;
 }
 
 static int32_t lxphost_load_kv(lxphost_node *node, uint16_t module_id,
@@ -586,6 +599,20 @@ func lxphost_outcome_read(node *C.lxphost_node, outcome *lxphost_outcome) error 
 	return result(C.lxphost_outcome_read(node, outcome))
 }
 
+func lxphost_activity_module(node *C.lxphost_node) (uint16, error) {
+	var module C.uint16_t
+	err := result(C.lxphost_activity_module(node, &module))
+	return uint16(module), err
+}
+
+func lxphost_authority_write(node *C.lxphost_node, authority KernelAuthority) {
+	C.lxphost_authority_write(node, bytes32(&authority.Actor), bytes32(&authority.Principal), bytes32(&authority.VerifiedKey), C.bool(authority.Bound))
+}
+
+func authority_bound(node *C.lxphost_node) bool {
+	return node != nil && bool(node.authority_bound)
+}
+
 const (
 	codeNonCanonical   = Code(C.LXP_ERR_NON_CANONICAL)
 	codeSequenceReused = Code(C.LXP_ERR_SEQUENCE_REUSED)
@@ -628,11 +655,13 @@ type Activity struct {
 	NotBefore       uint64
 	NotAfter        uint64
 	IdempotencyKey  [32]byte
+	FeeLimit        [16]byte
 	Payload         []byte
 	Signature       []byte
 }
 
 type KernelAuthority struct {
+	Bound       bool
 	Actor       [32]byte
 	Principal   [32]byte
 	VerifiedKey [32]byte
@@ -785,11 +814,16 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err := writeEnvelope(C.lxphost_node_envelope(h.node), h.cfg.NetworkID, activity); err != nil {
 		return Receipt{}, err
 	}
-	C.lxphost_authority_write(h.node, bytes32(&authority.Actor), bytes32(&authority.Principal), bytes32(&authority.VerifiedKey))
-	if err := branch.load(h); err != nil {
+	module, err := lxphost_activity_module(h.node)
+	if err != nil {
 		return Receipt{}, err
 	}
-	loadedBlobs, err := h.loadBlobs(branch.store)
+	modules := activityModules(module)
+	lxphost_authority_write(h.node, authority)
+	if err := branch.load(h, modules); err != nil {
+		return Receipt{}, err
+	}
+	loadedBlobs, err := h.loadBlobs(branch.store, modules)
 	if err != nil {
 		return Receipt{}, err
 	}
@@ -884,11 +918,31 @@ func DIDID(did []byte) ([32]byte, error) {
 }
 
 func writeEnvelope(envelope *C.lxphost_envelope, networkID uint32, a Activity) error {
-	return result(C.lxphost_envelope_write(envelope, C.uint16_t(a.ProtocolVersion), C.uint32_t(networkID),
+	if err := result(C.lxphost_envelope_write(envelope, C.uint16_t(a.ProtocolVersion), C.uint32_t(networkID),
 		C.uint32_t(a.Type), bytesPtr(a.ActorDID), C.size_t(len(a.ActorDID)), bytes32(&a.AuthorityKey),
 		C.uint64_t(a.AccountSequence), C.uint64_t(a.NotBefore), C.uint64_t(a.NotAfter),
 		bytes32(&a.IdempotencyKey), bytesPtr(a.Payload), C.size_t(len(a.Payload)),
-		bytesPtr(a.Signature), C.size_t(len(a.Signature))))
+		bytesPtr(a.Signature), C.size_t(len(a.Signature)))); err != nil {
+		return err
+	}
+	envelope.activity.fee_limit.hi = C.uint64_t(binary.BigEndian.Uint64(a.FeeLimit[:8]))
+	envelope.activity.fee_limit.lo = C.uint64_t(binary.BigEndian.Uint64(a.FeeLimit[8:]))
+	return nil
+}
+
+func activityModules(module uint16) []uint16 {
+	modules := []uint16{C.LXP_MODULE_ASSET, C.LXP_MODULE_GOVERNANCE}
+	if module != C.LXP_MODULE_ASSET && module != C.LXP_MODULE_GOVERNANCE {
+		modules = append(modules, module)
+		sort.Slice(modules, func(i, j int) bool { return modules[i] < modules[j] })
+	}
+	return modules
+}
+
+func (h *Host) authorityBound() bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return authority_bound(h.node)
 }
 
 func (h *Host) bindActor() ([32]byte, error) {
@@ -933,25 +987,27 @@ func (h *Host) moduleKV() ([]kvEntry, error) {
 	return entries, nil
 }
 
-func (h *Host) loadBlobs(store sdk.KVStore) (map[string][]byte, error) {
+func (h *Host) loadBlobs(store sdk.KVStore, modules []uint16) (map[string][]byte, error) {
 	loaded := map[string][]byte{}
-	iterator := sdk.KVStorePrefixIterator(store, []byte{blobPrefix})
-	for ; iterator.Valid(); iterator.Next() {
-		key := append([]byte(nil), iterator.Key()...)
-		if len(key) != 35 {
-			iterator.Close()
+	for _, module := range modules {
+		iterator := sdk.KVStorePrefixIterator(store, blobKey(module, nil))
+		for ; iterator.Valid(); iterator.Next() {
+			key := append([]byte(nil), iterator.Key()...)
+			if len(key) != 35 {
+				iterator.Close()
+				return nil, codeFatalInvariant
+			}
+			value := append([]byte(nil), iterator.Value()...)
+			if err := result(C.lxphost_load_blob(h.node, C.uint16_t(module),
+				bytesPtr(key[3:]), bytesPtr(value), C.size_t(len(value)))); err != nil {
+				iterator.Close()
+				return nil, err
+			}
+			loaded[string(key)] = value
+		}
+		if err := iterator.Close(); err != nil {
 			return nil, codeFatalInvariant
 		}
-		value := append([]byte(nil), iterator.Value()...)
-		if err := result(C.lxphost_load_blob(h.node, C.uint16_t(binary.BigEndian.Uint16(key[1:3])),
-			bytesPtr(key[3:]), bytesPtr(value), C.size_t(len(value)))); err != nil {
-			iterator.Close()
-			return nil, err
-		}
-		loaded[string(key)] = value
-	}
-	if err := iterator.Close(); err != nil {
-		return nil, codeFatalInvariant
 	}
 	return loaded, nil
 }

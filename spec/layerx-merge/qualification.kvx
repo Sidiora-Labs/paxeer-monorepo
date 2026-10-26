@@ -277,3 +277,35 @@ symbol = "fmt"
 observed = "The verify_cmd of 4.21.2 passed at 25dde4bf7 and `cg spec done 4.21.2` refused the result (log /out/logs/verify-1.log) with `fmt — not defined in the graph`: fmt is a Makefile target, which the graph does not index."
 assumption = "The target leaves the symbol list and the test function stays; the result at 25dde4bf7 is re-qualified unchanged."
 severity = "note"
+
+[finding.1.14.3]
+task = "1.14.3"
+file = "include/layerx/programs.h:176"
+symbol = "LX_PROGRAMS_FEE_GOVERNANCE"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 1.14.3` refused it (log /out/logs/verify-1.log) with `LX_PROGRAMS_FEE_GOVERNANCE — not defined in the graph`; the name is an enumerator of an untouched header that do_1 only removes from the type lists in src/modules/programs/registration.c."
+assumption = "The enumerator leaves the symbol list; the two fees.c functions and the two test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.1.3.2]
+task = "1.3.2"
+file = "include/layerx/lxp_result.h:29"
+symbol = "LXP_ERR_CONTEXT_MISMATCH"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 1.3.2` refused it (log /out/logs/verify-1.log) with `LXP_ERR_CONTEXT_MISMATCH — not defined in the graph`; the name is an X-macro enumerator of LXP_RESULT_CODE_LIST that the graph never indexes (finding.1.1.1)."
+assumption = "The result code leaves the symbol list; lxp_kernel_claim_writer, lxp_state_writer_assert_owner and the two test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.10.2.5]
+task = "10.2.5"
+file = "services/human/crates/layerx-human-service/src/activity/detail.rs"
+symbol = "Rung::Committed"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 10.2.5` refused it (log /out/logs/verify-1.log) with `Rung::Committed — not defined in the graph`; the variant is declared outside the touched files and the task only passes it as an argument (do_5)."
+assumption = "The variant leaves the symbol list; FinalityReference::new and EntryDetail::assemble stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.7.13.2]
+task = "7.13.2"
+file = "rpc/config/config.go:93"
+symbol = "CheckTxTimeout"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 7.13.2` refused it (log /out/logs/verify-1.log) with `CheckTxTimeout — not defined in the graph` and `flagCheckTxTimeout — not defined in the graph`; do_1 and do_2 delete both declarations."
+assumption = "Both deleted names leave the symbol list, TestReadConfigIgnoresChecktxTimeout stays, and the parked result is re-qualified against this document."
+severity = "note"
