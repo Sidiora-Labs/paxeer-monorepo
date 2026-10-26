@@ -428,7 +428,7 @@ func mergeStoreUpgrades() storetypes.StoreUpgrades {
 // module migrations with the sequencer taken as present, so the migrations
 // never initialise it from its default genesis, and writes no account state.
 // A plan whose info is not a valid sequencer genesis, carries no leader list,
-// carries a lastSeq other than 0 or pins no receipt key for H_act is refused,
+// carries a lastSeq other than 0 or pins no receipt key for H_act+1 is refused,
 // and the block that would apply it stops.
 func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	sequencer := app.mm.Modules[seqtypes.ModuleName]
@@ -457,11 +457,11 @@ func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM
 		return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries lastSeq %d, want 0", MergeUpgrade, state.LastSeq)
 	}
 	for _, key := range state.ReceiptKeys {
-		if key.Covers(uint64(ctx.BlockHeight())) { //nolint:gosec // block heights are positive
+		if key.Covers(uint64(ctx.BlockHeight()) + 1) { //nolint:gosec // block heights are positive
 			return newVM, nil
 		}
 	}
-	return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for height %d", MergeUpgrade, ctx.BlockHeight())
+	return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for first sequenced height %d", MergeUpgrade, uint64(ctx.BlockHeight())+1) //nolint:gosec // block heights are positive
 }
 
 // sequencerPinnedLeader is the gate of the leader pin and of the
