@@ -9,6 +9,7 @@
       "sponsored_batch",
       "eip7702_authorization",
       "lx_activity",
+      "lx_send_authorization",
       "lx_bind",
       "lx_grant"
     ],

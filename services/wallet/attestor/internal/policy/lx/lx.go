@@ -592,7 +592,7 @@ func New(engine *policy.Policy, doc *Document, chain *Chain) (*Evaluator, error)
 		return nil, errors.New("kernel evaluator needs an engine, a kernel policy and a chain reader")
 	}
 	e := &Evaluator{engine: engine, doc: doc, chain: chain}
-	if err := engine.RegisterKernel(e.inspectActivity, e.inspectBind, e.inspectGrant); err != nil {
+	if err := engine.RegisterKernel(e.inspectActivity, e.inspectBind, e.inspectGrant, e.inspectSendAuthorization); err != nil {
 		return nil, err
 	}
 	return e, nil
@@ -664,7 +664,10 @@ func (e *Evaluator) EvaluateSendAuthorization(account common.Address, req *SendA
 		ledger:    ledger,
 		authorize: true,
 	}
-	decision := e.engine.Evaluate(account.Hex(), policy.Request{Kind: policy.KindLXActivity, View: call}, ledger)
+	decision := e.engine.Evaluate(account.Hex(), policy.Request{Kind: policy.KindLXSendAuth, View: call}, ledger)
+	if decision.Code == policy.CodeKindNotAllowed {
+		return denied(policy.CodeUnknownKind, "send authorization kind %q is not enabled for this account", policy.KindLXSendAuth)
+	}
 	if !decision.Allowed {
 		return decision
 	}
@@ -829,6 +832,14 @@ func classifyDecodeError(envelope []byte, err error) error {
 	return refuse(policy.CodeDecodeError, "kernel activity envelope: %v", err)
 }
 
+func (e *Evaluator) inspectSendAuthorization(ctx policy.Context, view any) (policy.Inspection, error) {
+	call, ok := view.(*activityCall)
+	if !ok || call == nil || !call.authorize {
+		return policy.Inspection{}, refuse(policy.CodeMissingField, "kernel send authorization request is missing")
+	}
+	return e.inspectActivityCall(ctx, call)
+}
+
 func (e *Evaluator) inspectActivity(ctx policy.Context, view any) (policy.Inspection, error) {
 	if review, ok := view.(*activityReviewCall); ok {
 		if review == nil {
@@ -840,6 +851,13 @@ func (e *Evaluator) inspectActivity(ctx policy.Context, view any) (policy.Inspec
 	}
 	call, ok := view.(*activityCall)
 	if !ok || call == nil || call.req == nil {
+		return policy.Inspection{}, refuse(policy.CodeMissingField, "kernel activity request is missing")
+	}
+	return e.inspectActivityCall(ctx, call)
+}
+
+func (e *Evaluator) inspectActivityCall(ctx policy.Context, call *activityCall) (policy.Inspection, error) {
+	if call.req == nil {
 		return policy.Inspection{}, refuse(policy.CodeMissingField, "kernel activity request is missing")
 	}
 	req := call.req
