@@ -1,7 +1,6 @@
 package types
 
 import (
-	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
 
@@ -39,11 +38,8 @@ func (gs GenesisState) Validate() error {
 			return err
 		}
 
-		if denom.AuthorityMetadata.Admin != "" {
-			_, err = sdk.AccAddressFromBech32(denom.AuthorityMetadata.Admin)
-			if err != nil {
-				return sdkerrors.Wrapf(ErrInvalidAuthorityMetadata, "Invalid admin address (%s)", err)
-			}
+		if err := denom.AuthorityMetadata.Validate(); err != nil {
+			return sdkerrors.Wrapf(ErrInvalidAuthorityMetadata, "denom %s: %s", denom.GetDenom(), err)
 		}
 	}
 
