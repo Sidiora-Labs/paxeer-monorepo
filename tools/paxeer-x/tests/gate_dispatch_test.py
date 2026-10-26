@@ -35,8 +35,7 @@ class GateDispatchTest(unittest.TestCase):
         (self.tools / 'gates').mkdir(parents=True)
         for name in ('candidate.py', 'verify-task.sh', 'release.sh'):
             shutil.copy2(TOOLS / name, self.tools / name)
-        self.spec = self.repo / 'spec/paxeer-x/spec.kvx'
-        self.spec.parent.mkdir(parents=True)
+        self.spec = self.tools / 'gates/registry.kvx'
         self.spec.write_text('[meta]\nstatus = "active"\n\n' + SERVICES + ''.join(
             '[task.%s]\ntitle = "task %s"\nstatus = "pending"\nreqs = %s\n\n' % (task, task, json.dumps(reqs))
             for task, reqs in TASKS.items()))

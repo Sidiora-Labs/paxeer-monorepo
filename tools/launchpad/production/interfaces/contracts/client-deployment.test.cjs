@@ -3,7 +3,10 @@ const test=require('node:test'),assert=require('node:assert/strict'),fs=require(
 const {deriveDeployment,renderHelper,checkClient}=require('./client-deployment.cjs');
 const clientRoot=path.resolve(__dirname,'../../../../../apps/launchpad/web/src');
 const helper=require(path.join(clientRoot,'core/network/deployment.ts'));
-const data=deriveDeployment(process.env.CONTRACT_SOURCE_ROOT);
+const defaultRoot=path.resolve(__dirname,'../../../../../contracts/launchpad');
+const data=deriveDeployment(process.env.CONTRACT_SOURCE_ROOT||defaultRoot);
+function deriveDeploymentDefaultsToRepositoryContracts(){const old=process.env.CONTRACT_SOURCE_ROOT;try{delete process.env.CONTRACT_SOURCE_ROOT;const deployment=deriveDeployment(defaultRoot);assert.equal(deployment.chainId,125);assert.equal(deployment.router,'0x78FB06f525cD964388f2305A489035263E31C6e4');}finally{if(old===undefined)delete process.env.CONTRACT_SOURCE_ROOT;else process.env.CONTRACT_SOURCE_ROOT=old;}}
+test(deriveDeploymentDefaultsToRepositoryContracts);
 test('helper bytes and all identity fields derive from reviewed manifest',()=>{assert.equal(fs.readFileSync(path.join(clientRoot,'core/network/deployment.ts'),'utf8'),renderHelper(data));assert.deepEqual(helper.CORE_DEPLOYMENT,data);assert.equal(data.chainId,125);});
 test('accepted router alone can receive approval, with case-insensitive identity',()=>{assert.equal(helper.isActiveApprovalSpender(data.router),true);assert.equal(helper.isActiveApprovalSpender('0x'+data.router.slice(2).toUpperCase()),true);helper.assertActiveApprovalSpender(data.router);});
 test('stale router, optional spender, other role and malformed spender reject',()=>{for(const value of ['0xCC7298801112682e10ee14b8a520309caD80336d','0x16bC4aB280c67977639591615d2a52273cDf5f6E',data.feesRouter,'0x'+'0'.repeat(40),'not an address','',undefined]){assert.equal(helper.isActiveApprovalSpender(value),false);assert.throws(()=>helper.assertActiveApprovalSpender(value),/no verified active deployment/);}});

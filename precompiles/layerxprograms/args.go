@@ -8,11 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 )
 
-type TransferLeg struct {
-	From, Asset, To [32]byte
-	Amount          *big.Int
-}
-
 func decodeLegs(arg interface{}) ([]TransferLeg, error) {
 	legs, ok := arg.([]struct {
 		From   [32]byte `json:"from"`
