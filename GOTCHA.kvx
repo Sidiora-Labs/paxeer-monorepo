@@ -8825,3 +8825,99 @@ area = "tooling"
 symptom = "verify_cmd fails with `No module named pytest` after the task's unittest or build passed"
 cause = "the base python of the build environment carries pip only; pytest-based verify_cmds assume pytest is installed"
 do = "install pytest once before the gates when build_cmd or verify_cmd mentions pytest, record the install in the run log, and re-qualify the result"
+
+[gotcha.1850]
+area = "tooling"
+symptom = "cg spec done refuses a task with `not defined in the graph` although the symbol is declared in a touched file and the verify_cmd passed"
+cause = "the gate resolves only the symbol kinds its extractors emit; an interface method, a struct field, a module-level binding, a Solidity interface or constant, an exported object key, a named function expression or a shell function outside the extraction version is invisible, and a Rust type can tie with its own impl block"
+do = "check the symbol's kind and language against the gate's extraction version before touching the work; keep the symbol list naming declared symbols and re-qualify the unchanged result once the gate indexes that kind"
+
+[gotcha.1851]
+area = "spec"
+symptom = "a Go symbol qualified by an import alias (alias.Name) is never found by the gate even when the bare name resolves"
+cause = "the code graph stores a whole-module import without its alias, so the qualifier matches no file path, receiver or parent"
+do = "list the bare symbol, or a receiver- or path-qualified form, in symbols; never an import alias"
+
+[gotcha.1852]
+area = "spec"
+symptom = "a task's own kvx reader rejects spec.kvx with `invalid value` at a line the gate reads without complaint"
+cause = "the gate's reader keeps every byte between the quotes of a value, so a backslash escape such as \0 is plain text to it while a JSON-based reader refuses it"
+do = "treat the gate's reader as the reference for kvx strings; make a new reader accept everything the gate accepts before pointing its verify_cmd at spec.kvx"
+
+[gotcha.1853]
+area = "build"
+symptom = "`pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json` aborts with `FATAL ERROR: Ineffective mark-compacts near heap limit` after about two minutes"
+cause = "Node's default old-space cap of about 2 GB is below what the type check of apps/launchpad/web allocates, so every unconfigured machine fails it regardless of the change under test"
+do = "run the gates with NODE_OPTIONS=--max-old-space-size sized to the machine (three quarters of its memory, at least 6 GB) and judge the work only after the check has memory to finish"
+
+[gotcha.1854]
+area = "build"
+symptom = "a type check in apps/web, apps/wallet or a services/platform/middleware package fails with `Cannot find module '@noble/hashes/sha3.js'`, an implicit-any error inside services/agent/sdk/typescript/src, or `tsc: not found` after `npm error 404 @sidiora/layerx-sdk`"
+cause = "the repository root is an npm workspace whose members include the agent SDK; apps import the SDK sources by relative path and the middleware packages import `@sidiora/layerx-sdk`, whose exports point at an untracked dist/, so a tree without the root install and the SDK build cannot resolve them"
+do = "run `npm ci` at the repository root, then `npm run build --workspace services/agent/sdk/typescript`, before any package-level type check; a per-package install inside a workspace member reaches the registry for the SDK and fails"
+
+[gotcha.1855]
+area = "build"
+symptom = "`pnpm install --frozen-lockfile` inside apps/launchpad/web, apps/launchpad/mobile, sdk/launchpad/packages/sdk or sdk/wallet fails with ERR_PNPM_NO_LOCKFILE, and a type check or vitest run there reports `Cannot find module '@kindle/sdk'`, `'@kindle/sdk-v2/types'`, `'stats-sdk'` or `'./validators-v1.gen.js'` even after an install"
+cause = "the lockfile lives at the pnpm workspace root named by pnpm-workspace.yaml (apps/launchpad for web, mobile and sdk/launchpad/packages/*; services/wallet for gateway, demo and sdk/wallet), and the members whose package exports point at an untracked dist/ (@kindle/sdk-v2, @kindle/sdk, stats-sdk, @kindle/production-contracts) ship no build output; @kindle/sdk depends on @kindle/sdk-v2 and generates src/validators-v1.gen.js in its build"
+do = "install at the workspace root, then build the dist-exporting members the package depends on in dependency order (sdk-v2 before sdk) before running the member's type check or tests"
+
+[gotcha.1856]
+area = "spec"
+symptom = "a test that opens a tracked repository file through a relative path fails with `no such file or directory`, and the failing path begins with exactly the `..` segments the task step prescribed"
+cause = "go test runs each test binary with the package directory as its working directory, so a relative path counts from the package, not from the module root or the repository root; a step written against the module root is one segment short"
+do = "count parent segments from the package directory the test runs in (sdk/launchpad/protocol/catalog needs four to reach the repository root) and resolve the path with ls from that directory before writing the step"
+
+[gotcha.1857]
+area = "spec"
+symptom = "a parity test between a Go name table and the kernel's lxp_result_name fails for every value outside the registry, Go answering LXP_UNKNOWN_RESULT and the kernel LXP_ERR_UNKNOWN"
+cause = "the step quoted the kernel's fallback string from memory; the default branch of lxp_result_name returns \"LXP_ERR_UNKNOWN\" and the registry defines no LXP_UNKNOWN_RESULT row"
+do = "read the default branch of the C function a step quotes before writing the literal, and name the function rather than repeating its string"
+
+[gotcha.1858]
+area = "spec"
+symptom = "cg spec done refuses a result whose verify_cmd passed with `symbol X — not defined in the graph`"
+cause = "the symbols list names something the graph never holds: a name the task deletes, an imported package's function or type, a Makefile variable, an X-macro enumerator or a C struct field"
+do = "list only declarations the finished tree contains in its own source (functions, methods, types, Go consts and vars, Rust items and fields) plus the task's tests, and check each against the tree before writing the task"
+
+[gotcha.1859]
+area = "tooling"
+symptom = "a symbol the tree declares is refused as not defined in the graph"
+cause = "the graph index covered only spec/ and the touched directories; a symbol the task uses or extends is declared elsewhere"
+do = "index the directories declaring every listed symbol before cg spec done, found by grepping the final name segment outside docs and data files; a gate over a partial graph judges the index, not the work"
+
+[gotcha.1860]
+area = "tooling"
+symptom = "a deleted touched path is refused as `no matching change` although the tree no longer has the file"
+cause = "the graph snapshot was first taken after the prepared result was already applied, so no snapshot ever held the file"
+do = "take the first snapshot on the base tree before applying a prepared result, so the deletion appears in the worktree diff"
+
+[gotcha.1861]
+area = "spec"
+symptom = "a Go test package fails with `requires PERPS_DATA_TEST_DATABASE_URL` wherever no PostgreSQL runs"
+cause = "the verify_cmd depends on a database the test code demands through an environment variable the task never declares"
+do = "read the test package's setup for required services before writing verify_cmd, and declare them so the environment can supply them or the task is held"
+
+[gotcha.1862]
+area = "spec"
+symptom = "a task that regenerates a gRPC QueryServer interface fails its own build_cmd on every attempt with a keeper not implementing the interface"
+cause = "the package asserts `var _ types.QueryServer = Keeper{}` at compile time, and the new method was assigned to a later task"
+do = "when a task widens an interface, give the same task every compile-time implementer of it, and leave the dependent task its tests only"
+
+[gotcha.1863]
+area = "spec"
+symptom = "a symbol check passes on a name the task deletes, and the ✓ line names a file outside the touched paths"
+cause = "an unqualified symbol lookup takes the first declaration of that name in the tree, and the Python and TypeScript SDKs under services/agent/sdk declare the same names (PX_METHODS, PxAnchorHead)"
+do = "read the path on every ✓ line of the graph check; a check that passed on another package's declaration proves nothing about the touched file, so name only symbols unique to the touched package"
+
+[gotcha.1864]
+area = "tooling"
+symptom = "cg init exits 139 within a second on a tree that vendors C++ sources, before any symbol is written"
+cause = "the systems-language extractor handed null tree-sitter nodes to ts_node_child_by_field_name: a C++ declarator with no function_declarator (abstract and operator declarators in programs/vendor/binaryen-sys) left is_c_parameter's declarator null, and tree-sitter dereferences the node's subtree"
+do = "build cg at f93cce7254edb1fd7fbdd0b1cde2901c29e46ec8 or later, where field() and named() in src/ast_systems.c answer null for a null node; on an older cg keep vendored C++ trees out of the index scope, since they declare nothing a task names"
+
+[gotcha.1865]
+area = "spec"
+symptom = "cg spec done refuses a result with `<name> — not defined in the graph` for a name the touched file plainly declares: an enumerator, a shell variable, or an Elixir module or test"
+cause = "the graph indexes C functions, types, enums (the type, not its enumerators) and #define macros; it indexes nothing in shell scripts or Elixir sources, and an ExUnit `test \"name\"` is a string, not a declaration"
+do = "name enumerators (named or anonymous enum, X-macro lists included), shell variables and Elixir modules or tests in do_* text only; a task whose touched files are only .sh, .exs or .json carries symbols = [] and is proven by its verify_cmd alone"
