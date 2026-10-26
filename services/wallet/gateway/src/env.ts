@@ -153,22 +153,10 @@ export const EnvSchema = z
     // -- Agent durable actions (high-level intent orchestrator) ---------------
     //
     // The agent-actions lane turns a one-shot signing request into a durable,
-    // server-driven, idempotent operation: one POST (e.g. layerx/deposit) whose
-    // approve → confirm → deposit → confirm → verify sequence is owned by the
+    // server-driven, idempotent operation: one POST (allowance-and-call) whose
+    // approve → confirm → call → confirm sequence is owned by the
     // wallet, survives a client disconnect, and is polled via GET
     // /v1/agent/actions/:id. Every knob below is safe to leave at its default.
-
-    // LayerX custody vault (depositUSDL target + approve spender). Required only
-    // for the /v1/agent/actions/layerx/deposit route; unset → that route 503s.
-    LAYERX_VAULT_ADDRESS: z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'LAYERX_VAULT_ADDRESS must be a 20-byte hex address')
-      .optional(),
-    LAYERX_USDL_ADDRESS: z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'LAYERX_USDL_ADDRESS must be a 20-byte hex address')
-      .default('0x7c69c84daAEe90B21eeCABDb8f0387897E9B7B37'),
-    LAYERX_USDL_DECIMALS: z.coerce.number().int().nonnegative().default(6),
 
     // Read-only connection to the LayerX sequencer Postgres (whitelisted). Used
     // to (a) authoritatively verify a deposit credited (deposits.deposit_tx =
