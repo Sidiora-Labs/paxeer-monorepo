@@ -157,6 +157,21 @@ func (env *Environment) GetConsensusState(ctx context.Context) (*coretypes.Resul
 // If no height is provided, it will fetch the latest consensus params.
 // More: https://docs.tendermint.com/master/rpc/#/Info/consensus_params
 func (env *Environment) ConsensusParams(ctx context.Context, req *coretypes.RequestConsensusParams) (*coretypes.ResultConsensusParams, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		height, err := env.autobahnCheckAndGetHeight(ctx, (*int64)(req.Height))
+		if err != nil {
+			return nil, err
+		}
+
+		consensusParams := *env.GenDoc.ConsensusParams
+		consensusParams.Synchrony = consensusParams.Synchrony.SynchronyParamsOrDefaults()
+		consensusParams.Timeout = consensusParams.Timeout.TimeoutParamsOrDefaults()
+
+		return &coretypes.ResultConsensusParams{
+			BlockHeight:     height,
+			ConsensusParams: consensusParams}, nil
+	}
+
 	// The latest consensus params that we know is the consensus params after
 	// the last block.
 	height, err := env.getHeight(env.latestUncommittedHeight(), (*int64)(req.Height))

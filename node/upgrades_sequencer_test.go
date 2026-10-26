@@ -165,9 +165,9 @@ func TestUpgradesSequencerGenesisAtActivation(t *testing.T) {
 			"last_seq":      5,
 			"last_seq_hash": bytes.Repeat([]byte{0x77}, seqtypes.HashLength),
 		}), true},
-		{"no receipt key for H_act", mergePlanInfo(t, map[string]any{
+		{"no receipt key for H_act+1", mergePlanInfo(t, map[string]any{
 			"leaders":      [][]byte{mergePrimary[:]},
-			"receipt_keys": seqkeeper.ReceiptKeys{mergeReceiptKey(uint64(mergeHeight) + 1)},
+			"receipt_keys": seqkeeper.ReceiptKeys{mergeReceiptKey(uint64(mergeHeight) + 2)},
 		}), true},
 		{"zero leader", mergePlanInfo(t, map[string]any{
 			"leaders":      [][]byte{make([]byte, 32)},
@@ -203,6 +203,56 @@ func TestUpgradesSequencerGenesisAtActivation(t *testing.T) {
 
 	exported := a.mm.Modules[seqtypes.ModuleName].ExportGenesis(ctx, a.appCodec)
 	require.JSONEq(t, info, string(exported))
+}
+
+func TestMergePlanRequiresKeyForFirstSequencedHeight(t *testing.T) {
+	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
+	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
+	rewindBeforeMerge(t, a, ctx)
+
+	key := mergeReceiptKey(uint64(mergeHeight) + 1)
+	key.LastHeight = key.FirstHeight
+	info := mergePlanInfo(t, map[string]any{
+		"leaders":      [][]byte{mergePrimary[:], mergeStandby[:]},
+		"receipt_keys": seqkeeper.ReceiptKeys{key},
+	})
+	a.UpgradeKeeper.ApplyUpgrade(ctx, upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: info})
+
+	require.Equal(t, mergeHeight, a.UpgradeKeeper.GetDoneHeight(ctx, MergeUpgrade))
+	require.False(t, a.Sequenced(ctx, mergeHeight))
+	require.True(t, a.Sequenced(ctx, mergeHeight+1))
+	state, err := a.SequencerKeeper.ExportGenesis(ctx)
+	require.NoError(t, err)
+	require.Len(t, state.ReceiptKeys, 1)
+	require.False(t, state.ReceiptKeys[0].Covers(uint64(mergeHeight)))
+	require.True(t, state.ReceiptKeys[0].Covers(uint64(mergeHeight)+1))
+	require.Equal(t, seqkeeper.ReceiptKeys{key}, seqkeeper.GetReceiptKeys(ctx, a.GetSubspace(seqtypes.ModuleName)))
+}
+
+func TestMergePlanRefusesKeyCoveringOnlyActivationHeight(t *testing.T) {
+	testWrapper := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), true)
+	a, ctx := testWrapper.App, testWrapper.Ctx.WithBlockHeight(mergeHeight)
+	rewindBeforeMerge(t, a, ctx)
+	versions := a.UpgradeKeeper.GetModuleVersionMap(ctx)
+
+	key := mergeReceiptKey(uint64(mergeHeight))
+	key.LastHeight = uint64(mergeHeight)
+	info := mergePlanInfo(t, map[string]any{
+		"leaders":      [][]byte{mergePrimary[:], mergeStandby[:]},
+		"receipt_keys": seqkeeper.ReceiptKeys{key},
+	})
+	plan := upgradetypes.Plan{Name: MergeUpgrade, Height: mergeHeight, Info: info}
+	cacheCtx, _ := ctx.CacheContext()
+	_, err := a.mergeUpgradePlan(cacheCtx, plan, versions)
+	require.ErrorIs(t, err, seqtypes.ErrInvalidGenesis)
+	require.EqualError(t, err, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for first sequenced height %d", MergeUpgrade, mergeHeight+1).Error())
+	require.Zero(t, a.UpgradeKeeper.GetDoneHeight(cacheCtx, MergeUpgrade))
+	require.False(t, a.Sequenced(cacheCtx, mergeHeight+1))
+	state, err := a.SequencerKeeper.ExportGenesis(cacheCtx)
+	require.NoError(t, err)
+	require.Len(t, state.ReceiptKeys, 1)
+	require.True(t, state.ReceiptKeys[0].Covers(uint64(mergeHeight)))
+	require.False(t, state.ReceiptKeys[0].Covers(uint64(mergeHeight)+1))
 }
 
 func TestUpgradesSequencerSwitchAtActivation(t *testing.T) {
