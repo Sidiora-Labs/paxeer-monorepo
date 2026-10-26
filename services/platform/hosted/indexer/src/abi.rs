@@ -19,7 +19,7 @@ use crate::codec::{be_decimal, be_signed_decimal, hex, hex0x, is_zero, unhex_fix
 use crate::IndexError;
 
 /// The native precompile addresses by ABI directory name.
-pub const KNOWN_PRECOMPILES: [(&str, u16); 19] = [
+pub const KNOWN_PRECOMPILES: [(&str, u16); 23] = [
     ("bank", 0x1001),
     ("wasmd", 0x1002),
     ("json", 0x1003),
@@ -39,6 +39,10 @@ pub const KNOWN_PRECOMPILES: [(&str, u16); 19] = [
     ("layerxexchange", 0x1015),
     ("layerxbridge", 0x1016),
     ("launchpad", 0x1017),
+    ("feetoken", 0x1018),
+    ("xweb", 0x1019),
+    ("layerxpay", 0x101B),
+    ("layerxprograms", 0x101D),
 ];
 
 /// The 20-byte address of a native precompile numbered `number`.
@@ -695,6 +699,28 @@ mod tests {
             .iter()
             .find(|abi| abi.contract == "launchpad")
             .unwrap_or_else(|| panic!("launchpad ABI not loaded"))
+    }
+
+    #[test]
+    fn merged_construct_precompiles_are_known() {
+        let registry = repository_precompiles();
+        for (contract, number) in [
+            ("feetoken", 0x1018),
+            ("xweb", 0x1019),
+            ("layerxpay", 0x101B),
+            ("layerxprograms", 0x101D),
+        ] {
+            let abi = registry
+                .abis()
+                .iter()
+                .find(|abi| abi.contract == contract)
+                .unwrap_or_else(|| panic!("{contract} ABI not loaded"));
+            assert_eq!(
+                abi.address,
+                Some(precompile_address(number)),
+                "{contract} has the wrong precompile address"
+            );
+        }
     }
 
     #[test]
