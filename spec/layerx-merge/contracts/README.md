@@ -12,7 +12,8 @@ One line per normative contract file of this version; the label is how the contr
 
 | Label | File | What it freezes |
 |---|---|---|
-| address-table.md | [address-table.md](address-table.md) | precompile and agent-function address table, per-address methods, selectors, events and errors with status, activation gates, LXP_ error registry, the superseded table's promises not served at the source revision, and the domain-6 surfaces (Solidity, proto, Msg, CLI, config, formats) whose interfaces name it |
+| address-table.md | [address-table.md](address-table.md) | normative precompile address table, method selectors, LXP_ error-code registry (D6) and activation gates in the layout parsed by services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests; sections (a), (a2), (b), (c) change only by amendment |
+| address-inventory.md | [address-inventory.md](address-inventory.md) | generated inventory of precompile and agent-function address table, per-address methods, selectors, events and errors with status, activation gates, LXP_ error registry, the superseded table's promises not served at the source revision, and the domain-6 surfaces (Solidity, proto, Msg, CLI, config, formats) whose interfaces name it |
 | ledger-auth.md | [ledger-auth.md](ledger-auth.md) | layerxledger 0x101A and layerxauth 0x101C ABI with selectors, authority, effects, errors, events, gas, activation, invariants and pause |
 | pay.md | [pay.md](pay.md) | layerxpay 0x101B escrow, budget, stream and service ABI |
 | programs.md | [programs.md](programs.md) | layerxprograms 0x101D ABI, views, events and the programs runtime surface |
