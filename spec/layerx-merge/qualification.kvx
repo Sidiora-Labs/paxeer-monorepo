@@ -309,3 +309,43 @@ symbol = "CheckTxTimeout"
 observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 7.13.2` refused it (log /out/logs/verify-1.log) with `CheckTxTimeout — not defined in the graph` and `flagCheckTxTimeout — not defined in the graph`; do_1 and do_2 delete both declarations."
 assumption = "Both deleted names leave the symbol list, TestReadConfigIgnoresChecktxTimeout stays, and the parked result is re-qualified against this document."
 severity = "note"
+
+[finding.6.28.1]
+task = "6.28.1"
+file = "modules/layerxgov/types/proposal.go:55-70"
+symbol = "init"
+observed = "The eighth attempt built at 535b9577a (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): the gov amino codec panics with `TypeInfo already exists` because modules/layerxbridge/types/proposal.go:26-31 already registers the six layerxbridge messages, so the registration do_1 asked for cannot be added."
+assumption = "The task becomes a test-only proof that a LayerXProposal carrying each bridge message marshals to amino JSON; proposal.go stays unchanged, req.6271 and the interface note describe the registry as it is, and the parked result is continued against this document."
+severity = "note"
+
+[finding.14.41.1]
+task = "14.41.1"
+file = "apps/bridge/vitest.config.ts:1"
+symbol = "svgr"
+observed = "Attempts a8 of 14.41.1 (3dd803148) and a9 of 14.41.2 (958b17ac6) exited 2 from `pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json` (log /out/logs/build-1.log) on errors the tasks do not own: vite-plugin-svgr 2.4.0 types against vite 4 while vitest 4.0.15 types against vite 7 (TS2769), BigInt literals under the es2017 target, the missing .next/types directory and duplicate OpenTelemetry type packages; the same command fails on an unchanged main."
+assumption = "Both tasks build with `vitest list` of their own spec file, 14.41.1 removes the unused svgr plugin (do_5), and the es2017 target, .next/types and OpenTelemetry duplicates stay for the wave-level typecheck gate of apps/bridge; the parked results are re-qualified against this document."
+severity = "note"
+
+[finding.16.7.1]
+task = "16.7.1"
+file = "tools/bringup/docs-names.sh:27-35"
+symbol = "spec"
+observed = "The fourth attempt built at 7787de9cd (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): the script reads [contract_context.108.decision.public_names] and the derivation_message of [contract_context.108.decision], which spec/layerx-merge/spec.kvx did not carry; they existed only in the retired spec/paxeer-x/spec.kvx (1c92186f7^)."
+assumption = "spec/layerx-merge/spec.kvx carries both sections after decision.1602 with the router, the sixteen RPC names, the dashboard, API, webhooks and ramp names and the derivation message; do_1 names them, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.9.32.1]
+task = "9.32.1"
+file = "services/agent/crates/layerx-sdk/src/wallet.rs:232-235"
+symbol = "send_activity"
+observed = "The eighth attempt (bec07e75b) never reached its build: do_3 removed RpcClient::send_activity and do_4 changed get_identity_sequence while wallet.rs:232-235 and wallet.rs:293, which the task may not touch, still call both, so the crate cannot compile until task 9.32.2 (wave 3) rewrites Wallet::execute."
+assumption = "9.32.1 adds send_raw_transaction beside send_activity, touches wallet.rs only to consume the pending nonce in Wallet::prepare (do_6), and 9.32.2 removes send_activity with its lx_sendActivity call (do_7); the parked result is continued against this document."
+severity = "note"
+
+[finding.11.14.1]
+task = "11.14.1"
+file = "services/interop/crates/layerx-x402/src/model.rs:447-478"
+symbol = "SettlementResponse::validate_wire"
+observed = "The seventh attempt built at 4d9233c99 (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): validate_wire never reads extensions, so a committed_without_proof case that carries the txHash as transaction validates like receipted_settlement; the only refusal the function can give for a success body is EvidenceMissing on an empty transaction (model.rs:461-463)."
+assumption = "committed_without_proof is the success-with-empty-transaction case decided on /transaction, req.11005, acceptance.11.5.1 and acceptance.11.5.2 say so, and the parked result is continued against this document."
+severity = "note"
