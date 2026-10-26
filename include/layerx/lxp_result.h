@@ -165,6 +165,7 @@ LXP_RESULT_CODE_LIST(LXP_DECLARE_RESULT)
 
 const char *lxp_result_name(lxp_result result);
 lxp_result_domain_id lxp_result_domain(lxp_result result);
+bool lxp_result_is_registered(lxp_result result);
 bool lxp_result_is_fatal(lxp_result result);
 
 #endif

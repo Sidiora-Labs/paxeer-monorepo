@@ -13,6 +13,9 @@ const char *lxp_result_name(lxp_result result)
 
 lxp_result_domain_id lxp_result_domain(lxp_result result)
 {
+    if (!lxp_result_is_registered(result)) {
+        return LXP_RESULT_DOMAIN_UNKNOWN;
+    }
     if (result == LXP_OK) {
         return LXP_RESULT_DOMAIN_SUCCESS;
     }
@@ -50,6 +53,17 @@ lxp_result_domain_id lxp_result_domain(lxp_result result)
         return LXP_RESULT_DOMAIN_CODEC;
     }
     return LXP_RESULT_DOMAIN_UNKNOWN;
+}
+
+bool lxp_result_is_registered(lxp_result result)
+{
+    switch (result) {
+#define LXP_RESULT_REGISTERED_CASE(name, value) case name: return true;
+        LXP_RESULT_CODE_LIST(LXP_RESULT_REGISTERED_CASE)
+#undef LXP_RESULT_REGISTERED_CASE
+        default:
+            return false;
+    }
 }
 
 bool lxp_result_is_fatal(lxp_result result)
