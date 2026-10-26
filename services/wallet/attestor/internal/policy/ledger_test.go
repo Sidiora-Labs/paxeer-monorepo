@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -56,6 +57,86 @@ func TestSpendLedgerCapsHoldAcrossRestart(t *testing.T) {
 	}
 	h.now = h.now.Add(SpendWindow)
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, to, pax(10), nil), restarted.ForRequest("key/third")), CodeAllowed)
+}
+
+func TestReadOnlyLedgerRecordsNothing(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		spent    int64
+		requests int
+		amount   int64
+		code     string
+	}{
+		{name: "allowed", spent: 5, requests: 1, amount: 4, code: CodeAllowed},
+		{name: "daily cap", spent: 10, requests: 1, amount: 6, code: CodeDailyCap},
+		{name: "transaction cap", spent: 5, requests: 1, amount: 11, code: CodeValueCap},
+		{name: "rate limit", spent: 5, requests: 3, amount: 4, code: CodeRateLimited},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newHarness(t)
+			st := openLedgerStore(t, t.TempDir())
+			defer st.Close()
+			ledger, err := NewSpendLedger(st, func() time.Time { return h.now })
+			if err != nil {
+				t.Fatal(err)
+			}
+			account := AccountKey(testAccount)
+			if err := ledger.RecordSpend(account, AssetNative, pax(tc.spent), h.now); err != nil {
+				t.Fatal(err)
+			}
+			for i := 0; i < tc.requests; i++ {
+				if err := ledger.RecordRequest(account, h.now); err != nil {
+					t.Fatal(err)
+				}
+			}
+			readOnly := ReadOnlyLedger(ledger)
+			now, err := readOnly.Now()
+			if err != nil || !now.Equal(h.now) {
+				t.Fatalf("read-only clock %v (%v), want %v", now, err, h.now)
+			}
+			assertTotals := func(l Ledger, wantSpent int64, wantRequests int) {
+				t.Helper()
+				spent, err := l.Spent(account, AssetNative, h.now.Add(-SpendWindow))
+				if err != nil || spent == nil || spent.Cmp(pax(wantSpent)) != 0 {
+					t.Fatalf("spent %v (%v), want %v", spent, err, pax(wantSpent))
+				}
+				requests, err := l.Requests(account, h.now.Add(-RateWindow))
+				if err != nil || requests != wantRequests {
+					t.Fatalf("requests %d (%v), want %d", requests, err, wantRequests)
+				}
+			}
+			assertTotals(readOnly, tc.spent, tc.requests)
+			if err := readOnly.RecordSpend(account, AssetNative, pax(1), h.now); err != nil {
+				t.Fatal(err)
+			}
+			if err := readOnly.RecordRequest(account, h.now); err != nil {
+				t.Fatal(err)
+			}
+			assertTotals(ledger, tc.spent, tc.requests)
+			req := h.tx(t, common.HexToAddress(friend), pax(tc.amount), nil)
+			review := h.policy.Evaluate(testAccount, req, readOnly)
+			expect(t, review, tc.code)
+			assertTotals(ledger, tc.spent, tc.requests)
+			repeated := h.policy.Evaluate(testAccount, req, readOnly)
+			if !reflect.DeepEqual(repeated, review) {
+				t.Fatalf("repeated review %+v differs from first review %+v", repeated, review)
+			}
+			assertTotals(ledger, tc.spent, tc.requests)
+			sign := h.policy.Evaluate(testAccount, req, ledger)
+			if !reflect.DeepEqual(review, sign) {
+				t.Fatalf("review decision %+v differs from sign decision %+v", review, sign)
+			}
+			wantSpent, wantRequests := tc.spent, tc.requests
+			if sign.Allowed {
+				wantSpent += tc.amount
+			}
+			if sign.Code != CodeRateLimited {
+				wantRequests++
+			}
+			assertTotals(ledger, wantSpent, wantRequests)
+			assertTotals(readOnly, wantSpent, wantRequests)
+		})
+	}
 }
 
 func TestSpendLedgerCountsAnnouncedRequestsOnce(t *testing.T) {
