@@ -29,6 +29,15 @@ func (k Keeper) GetPrice(ctx sdk.Context, marketId uint64) (Price, error) {
 	return Price{}, types.ErrUnknownMarket.Wrapf("market id %d", marketId)
 }
 
+func (k Keeper) MarketSymbol(ctx sdk.Context, marketId uint64) (string, bool, error) {
+	for _, market := range k.GetParams(ctx).Markets {
+		if market.ID == marketId {
+			return market.Symbol, market.Enabled, nil
+		}
+	}
+	return "", false, types.ErrUnknownMarket.Wrapf("market id %d", marketId)
+}
+
 // GetPriceBySymbol returns the Price of the market with that case-sensitive
 // symbol, or ErrUnknownMarket when no listed market carries it.
 func (k Keeper) GetPriceBySymbol(ctx sdk.Context, symbol string) (Price, error) {
