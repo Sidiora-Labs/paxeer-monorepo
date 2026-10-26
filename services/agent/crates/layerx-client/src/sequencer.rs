@@ -91,6 +91,15 @@ pub struct SequencerLog {
     pub log_index: u64,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct TransactionReceipt {
+    pub status: bool,
+    pub block_number: u64,
+    pub transaction_index: u64,
+    pub gas_used: u64,
+    pub logs: Vec<SequencerLog>,
+}
+
 /// The execution fields of a receipted or committed transaction.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExecutedReceipt {
@@ -430,6 +439,19 @@ impl SequencerEndpoint {
             return Err(SequencerError::Malformed);
         }
         Ok(Some(receipt))
+    }
+
+    pub fn transaction_receipt(
+        &self,
+        hash: &[u8; 32],
+    ) -> Result<Option<TransactionReceipt>, SequencerError> {
+        let result = self.call("eth_getTransactionReceipt", &json!([hex(hash)]))?;
+        if result.is_null() {
+            return Ok(None);
+        }
+        decode_transaction_receipt(&result)
+            .map(Some)
+            .ok_or(SequencerError::Malformed)
     }
 
     /// The pinned `ReceiptKeys` list served by the router.
@@ -796,6 +818,10 @@ fn executed(fields: &Fields<'_>) -> Option<ExecutedReceipt> {
 
 fn decode_log(value: &Value) -> Option<SequencerLog> {
     let fields = Fields::exact(value, &["address", "topics", "data", "logIndex"])?;
+    decode_log_fields(&fields)
+}
+
+fn decode_log_fields(fields: &Fields<'_>) -> Option<SequencerLog> {
     let topics = fields.0.get("topics")?.as_array()?;
     if topics.len() > MAX_LOG_TOPICS {
         return None;
@@ -805,6 +831,28 @@ fn decode_log(value: &Value) -> Option<SequencerLog> {
         topics: topics.iter().map(fixed).collect::<Option<_>>()?,
         data: fields.bytes("data")?,
         log_index: fields.u64("logIndex")?,
+    })
+}
+
+fn decode_transaction_receipt(value: &Value) -> Option<TransactionReceipt> {
+    let fields = Fields(value.as_object()?);
+    let status = match fields.u64("status")? {
+        0 => false,
+        1 => true,
+        _ => return None,
+    };
+    Some(TransactionReceipt {
+        status,
+        block_number: fields.u64("blockNumber")?,
+        transaction_index: fields.u64("transactionIndex")?,
+        gas_used: fields.u64("gasUsed")?,
+        logs: fields
+            .0
+            .get("logs")?
+            .as_array()?
+            .iter()
+            .map(|log| decode_log_fields(&Fields(log.as_object()?)))
+            .collect::<Option<_>>()?,
     })
 }
 

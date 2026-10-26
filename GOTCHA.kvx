@@ -8897,3 +8897,9 @@ area = "spec"
 symptom = "a Go test package fails with `requires PERPS_DATA_TEST_DATABASE_URL` wherever no PostgreSQL runs"
 cause = "the verify_cmd depends on a database the test code demands through an environment variable the task never declares"
 do = "read the test package's setup for required services before writing verify_cmd, and declare them so the environment can supply them or the task is held"
+
+[gotcha.1862]
+area = "spec"
+symptom = "a task that regenerates a gRPC QueryServer interface fails its own build_cmd on every attempt with a keeper not implementing the interface"
+cause = "the package asserts `var _ types.QueryServer = Keeper{}` at compile time, and the new method was assigned to a later task"
+do = "when a task widens an interface, give the same task every compile-time implementer of it, and leave the dependent task its tests only"

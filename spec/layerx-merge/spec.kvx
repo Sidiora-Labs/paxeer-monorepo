@@ -120915,8 +120915,9 @@ do_1 = "Add rpc DenomPaused with option (google.api.http).get = \"/pax-protocol/
 do_2 = "Add messages QueryDenomPausedRequest { string denom = 1; } and QueryDenomPausedResponse { bool paused = 1; string issuer_did = 2; } after QueryDenomAllowListResponse (api/tokenfactory/query.proto:104-107)."
 do_3 = "Regenerate modules/tokenfactory/types/query.pb.go and modules/tokenfactory/types/query.pb.gw.go from api/tokenfactory/query.proto:1-107 so the QueryServer interface gains DenomPaused."
 do_4 = "Create modules/tokenfactory/types/query_denom_paused_test.go (planned) with TestQueryDenomPausedWireShape."
-symbols = ["QueryDenomPausedRequest", "QueryDenomPausedResponse", "TestQueryDenomPausedWireShape"]
-touches = ["api/tokenfactory/query.proto", "modules/tokenfactory/types/query.pb.go", "modules/tokenfactory/types/query.pb.gw.go", "modules/tokenfactory/types/query_denom_paused_test.go"]
+do_5 = "Add `func (k Keeper) DenomPaused(c context.Context, req *types.QueryDenomPausedRequest) (*types.QueryDenomPausedResponse, error)` after DenomAllowList at modules/tokenfactory/keeper/grpc_query.go:64-79, because `var _ types.QueryServer = Keeper{}` (modules/tokenfactory/keeper/grpc_query.go:13) stops the module building once the regenerated QueryServer gains the method: refuse a nil request and an empty denom with status.Error(codes.InvalidArgument, ...) as at modules/tokenfactory/keeper/grpc_query.go:44-50, return status.Errorf(codes.NotFound, ...) when GetAuthorityMetadata (modules/tokenfactory/keeper/admins.go:11) fails, else fill Paused from k.IsDenomPaused (modules/tokenfactory/keeper/pause.go:12) and IssuerDid from the metadata."
+symbols = ["QueryDenomPausedRequest", "QueryDenomPausedResponse", "Keeper.DenomPaused", "TestQueryDenomPausedWireShape"]
+touches = ["api/tokenfactory/query.proto", "modules/tokenfactory/types/query.pb.go", "modules/tokenfactory/types/query.pb.gw.go", "modules/tokenfactory/types/query_denom_paused_test.go", "modules/tokenfactory/keeper/grpc_query.go"]
 tests = ["modules/tokenfactory/types/query_denom_paused_test.go::TestQueryDenomPausedWireShape"]
 planned_paths = ["modules/tokenfactory/types/query_denom_paused_test.go"]
 build_cmd = "go build ./modules/tokenfactory/..."
@@ -120942,12 +120943,12 @@ requires = ["6.23.1", "6.0.1"]
 reqs = ["6255.1", "6255.2"]
 capabilities = ["6.23.2"]
 interfaces = ["interface.6.qry-tokenfactory-denompaused-j35"]
-do_1 = "Add `func (k Keeper) DenomPaused(c context.Context, req *types.QueryDenomPausedRequest) (*types.QueryDenomPausedResponse, error)` after DenomAllowList at modules/tokenfactory/keeper/grpc_query.go:64-79."
-do_2 = "Refuse a nil request and empty denom with status.Error(codes.InvalidArgument, ...) as at modules/tokenfactory/keeper/grpc_query.go:44-50."
-do_3 = "Return status.Errorf(codes.NotFound, ...) when GetAuthorityMetadata (modules/tokenfactory/keeper/admins.go:11) fails, else fill Paused from k.IsDenomPaused and IssuerDid from the metadata."
+do_1 = "Keep the DenomPaused method that 6.23.1 added after DenomAllowList at modules/tokenfactory/keeper/grpc_query.go:64-79 as the server; this task adds no production code."
+do_2 = "Cover the nil request and the empty denom, which the method refuses with codes.InvalidArgument, in TestQueryDenomPausedRejectsEmptyDenom."
+do_3 = "Cover codes.NotFound for a denom without authority metadata and the Paused and IssuerDid values of a known denom in TestQueryDenomPausedReportsState."
 do_4 = "Create modules/tokenfactory/keeper/grpc_denom_paused_test.go (planned) with TestQueryDenomPausedReportsState and TestQueryDenomPausedRejectsEmptyDenom."
 symbols = ["DenomPaused", "TestQueryDenomPausedReportsState", "TestQueryDenomPausedRejectsEmptyDenom"]
-touches = ["modules/tokenfactory/keeper/grpc_query.go", "modules/tokenfactory/keeper/grpc_denom_paused_test.go"]
+touches = ["modules/tokenfactory/keeper/grpc_denom_paused_test.go"]
 tests = ["modules/tokenfactory/keeper/grpc_denom_paused_test.go::TestQueryDenomPausedReportsState", "modules/tokenfactory/keeper/grpc_denom_paused_test.go::TestQueryDenomPausedRejectsEmptyDenom"]
 planned_paths = ["modules/tokenfactory/keeper/grpc_denom_paused_test.go"]
 build_cmd = "go build ./modules/tokenfactory/..."
