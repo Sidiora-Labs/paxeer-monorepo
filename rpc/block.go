@@ -198,12 +198,6 @@ func (a *BlockAPI) getBlockByHash(ctx context.Context, blockHash common.Hash, fu
 		return nil, nil
 	}
 
-	// Validate EVM block height for pacific-1 chain
-	sdkCtx := a.ctxProvider(LatestCtxHeight)
-	if err := ValidateEVMBlockHeight(sdkCtx.ChainID(), block.Block.Height); err != nil {
-		return nil, err
-	}
-
 	return a.encodeBlock(ctx, block, fullTx, includeSyntheticTxs, excludeUntraceable)
 }
 
@@ -228,14 +222,6 @@ func (a *BlockAPI) getBlockByNumber(
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
 		return nil, err
-	}
-
-	// Validate EVM block height for pacific-1 chain
-	if numberPtr != nil {
-		sdkCtx := a.ctxProvider(LatestCtxHeight)
-		if err := ValidateEVMBlockHeight(sdkCtx.ChainID(), *numberPtr); err != nil {
-			return nil, err
-		}
 	}
 
 	// Ethereum JSON-RPC: non-existent / future numeric block => null, not an error.

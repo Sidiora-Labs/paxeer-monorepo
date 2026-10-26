@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
@@ -96,7 +95,12 @@ func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvid
 					continue
 				}
 				gasLimit := cp.Block.MaxGas
-				ethHeader, err := encodeTmHeader(tmClient, eventHeader, baseFeePerGas, gasLimit)
+				execution, err := logFetcher.loadHeadExecution(eventHeader.Header.Height)
+				if err != nil {
+					fmt.Printf("dropping newHeads event at height %d: %v\n", eventHeader.Header.Height, err)
+					continue
+				}
+				ethHeader, err := encodeTmHeader(tmClient, eventHeader, baseFeePerGas, gasLimit, execution)
 				if err != nil {
 					fmt.Printf("dropping newHeads event at height %d: %v\n", eventHeader.Header.Height, err)
 					continue
@@ -130,7 +134,12 @@ func (a *SubscriptionAPI) runNewHeadsFromNotifier(notifier *BlockHeaderNotifier,
 			continue
 		}
 		gasLimit := cp.Block.MaxGas
-		ethHeader, err := encodeCommittedHead(a.tmClient, evt, baseFeePerGas, gasLimit)
+		execution, err := a.logFetcher.loadHeadExecution(evt.header.Height)
+		if err != nil {
+			fmt.Printf("dropping newHeads event at height %d: %v\n", evt.header.Height, err)
+			continue
+		}
+		ethHeader, err := encodeCommittedHead(a.tmClient, evt, baseFeePerGas, gasLimit, execution)
 		if err != nil {
 			fmt.Printf("dropping invalid newHeads event at height %d: %v\n", evt.header.Height, err)
 			continue
@@ -428,8 +437,8 @@ func (s *SubscriptionManager) Unsubscribe(ctx context.Context, id SubscriberID) 
 // encodeCommittedHead encodes the committed Autobahn head H with receiptsRoot
 // set to the Comet results root of block H, the value header H+1 commits as
 // LastResultsHash. A head whose results are unreadable is refused.
-func encodeCommittedHead(tmClient client.LocalClient, evt blockHeaderEvent, baseFee *big.Int, gasLimit int64) (map[string]interface{}, error) {
-	ethHeader, err := encodeCommittedBlock(evt, baseFee, gasLimit)
+func encodeCommittedHead(tmClient client.LocalClient, evt blockHeaderEvent, baseFee *big.Int, gasLimit int64, execution headExecution) (map[string]interface{}, error) {
+	ethHeader, err := encodeCommittedBlock(evt, baseFee, gasLimit, execution)
 	if err != nil {
 		return nil, err
 	}
@@ -447,7 +456,7 @@ func encodeCommittedHead(tmClient client.LocalClient, evt blockHeaderEvent, base
 // finalize response's app hash. A head missing any of them is refused rather
 // than published with zero roots. encodeCommittedHead replaces receiptsRoot
 // with the results root of the head's own block.
-func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64) (map[string]interface{}, error) {
+func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64, execution headExecution) (map[string]interface{}, error) {
 	if evt.header == nil || evt.response == nil {
 		return nil, errors.New("committed head is missing header or finalize response")
 	}
@@ -464,13 +473,17 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 	if len(header.ProposerAddress) != common.AddressLength {
 		return nil, fmt.Errorf("committed Autobahn head %d has a %d-byte proposer address", header.Height, len(header.ProposerAddress))
 	}
+	txsRoot := common.BytesToHash(header.DataHash)
+	if execution.txCount == 0 {
+		txsRoot = ethtypes.EmptyTxsHash
+	}
 	return encodeHead(header.Height, header.Time, common.BytesToAddress(header.ProposerAddress), headRoots{
 		hash:     common.BytesToHash(evt.hash),
 		parent:   common.BytesToHash(header.LastBlockId.Hash),
-		txs:      common.BytesToHash(header.DataHash),
+		txs:      txsRoot,
 		receipts: common.BytesToHash(header.LastResultsHash),
 		state:    common.BytesToHash(evt.response.AppHash),
-	}, evt.response.TxResults, baseFee, gasLimit)
+	}, execution.gasUsed, execution.bloom, baseFee, gasLimit)
 }
 
 // encodeTmHeader encodes the consensus head H with receiptsRoot set to the
@@ -481,18 +494,80 @@ func encodeTmHeader(
 	header tmtypes.EventDataNewBlockHeader,
 	baseFee *big.Int,
 	gasLimit int64,
+	execution headExecution,
 ) (map[string]interface{}, error) {
 	receiptsRoot, err := readBlockResultsRoot(tmClient, header.Header.Height)
 	if err != nil {
 		return nil, err
 	}
+	txsRoot := common.BytesToHash(header.Header.DataHash)
+	if execution.txCount == 0 {
+		txsRoot = ethtypes.EmptyTxsHash
+	}
 	return encodeHead(header.Header.Height, header.Header.Time, common.HexToAddress(header.Header.ProposerAddress.String()), headRoots{
 		hash:     common.HexToHash(header.Header.Hash().String()),
 		parent:   common.HexToHash(header.Header.LastBlockID.Hash.String()),
-		txs:      common.HexToHash(header.Header.DataHash.String()),
+		txs:      txsRoot,
 		receipts: receiptsRoot,
 		state:    common.HexToHash(header.Header.AppHash.String()),
-	}, header.ResultFinalizeBlock.TxResults, baseFee, gasLimit)
+	}, execution.gasUsed, execution.bloom, baseFee, gasLimit)
+}
+
+type headExecution struct {
+	gasUsed uint64
+	bloom   ethtypes.Bloom
+	txCount int
+}
+
+func (f *LogFetcher) loadHeadExecution(height int64) (headExecution, error) {
+	if f == nil || f.tmClient == nil {
+		return headExecution{}, errors.New("new head receipts require a consensus client")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), currentHeaderLookupTimeout)
+	defer cancel()
+	block, err := f.tmClient.Block(ctx, &height)
+	if err != nil {
+		return headExecution{}, fmt.Errorf("load new head block %d: %w", height, err)
+	}
+	if block == nil || block.Block == nil || block.Block.Height != height {
+		return headExecution{}, fmt.Errorf("new head block %d is unavailable", height)
+	}
+	return f.headExecution(block)
+}
+
+func (f *LogFetcher) headExecution(block *coretypes.ResultBlock) (headExecution, error) {
+	var execution headExecution
+	if err := validateBlockExecutionReceipts(f.k, f.ctxProvider, f.txConfigProvider, block, false, f.cacheCreationMutex, f.globalBlockCache); err != nil {
+		return execution, err
+	}
+	msgs := filterTransactions(f.k, f.ctxProvider, f.txConfigProvider, block, false, false, f.cacheCreationMutex, f.globalBlockCache)
+	logs := &ethtypes.Receipt{}
+	for _, msg := range msgs {
+		tx, _ := msg.msg.(*evmtypes.MsgEVMTransaction).AsTransaction()
+		receipt, err := getOrSetCachedReceiptErr(f.cacheCreationMutex, f.globalBlockCache, f.ctxProvider(LatestCtxHeight), f.k, block, tx.Hash())
+		if err != nil {
+			return headExecution{}, fmt.Errorf("load block %d transaction %d receipt: %w", block.Block.Height, msg.index, err)
+		}
+		if receipt == nil {
+			return headExecution{}, fmt.Errorf("block %d transaction %d receipt lookup returned nil", block.Block.Height, msg.index)
+		}
+		if err := addBlockGasUsed(&execution.gasUsed, receipt.GasUsed); err != nil {
+			return headExecution{}, fmt.Errorf("block %d transaction %d: %w", block.Block.Height, msg.index, err)
+		}
+		for _, log := range receipt.Logs {
+			if log == nil {
+				return headExecution{}, fmt.Errorf("block %d transaction %d contains a nil log", block.Block.Height, msg.index)
+			}
+			ethLog := &ethtypes.Log{Address: common.HexToAddress(log.Address)}
+			for _, topic := range log.Topics {
+				ethLog.Topics = append(ethLog.Topics, common.HexToHash(topic))
+			}
+			logs.Logs = append(logs.Logs, ethLog)
+		}
+		execution.txCount++
+	}
+	execution.bloom = ethtypes.CreateBloom(logs)
+	return execution, nil
 }
 
 // readBlockResultsRoot reads block height's results through the consensus
@@ -521,7 +596,7 @@ type headRoots struct {
 	hash, parent, txs, receipts, state common.Hash
 }
 
-func encodeHead(height int64, timestamp time.Time, miner common.Address, roots headRoots, txResults []*abci.ExecTxResult, baseFee *big.Int, gasLimit int64) (map[string]interface{}, error) {
+func encodeHead(height int64, timestamp time.Time, miner common.Address, roots headRoots, gasUsed uint64, bloom ethtypes.Bloom, baseFee *big.Int, gasLimit int64) (map[string]interface{}, error) {
 	if height <= 0 {
 		return nil, fmt.Errorf("new head has invalid height %d", height)
 	}
@@ -535,39 +610,24 @@ func encodeHead(height int64, timestamp time.Time, miner common.Address, roots h
 	if err != nil {
 		return nil, err
 	}
-	gasWanted := uint64(0)
-	for _, txRes := range txResults {
-		if txRes == nil || txRes.GasUsed < 0 {
-			return nil, errors.New("new head contains invalid transaction gas usage")
-		}
-		gasUsed := uint64(txRes.GasUsed)
-		if math.MaxUint64-gasWanted < gasUsed {
-			return nil, errors.New("new head transaction gas usage overflows uint64")
-		}
-		gasWanted += gasUsed
-	}
 	result := map[string]interface{}{
-		"difficulty":            (*hexutil.Big)(utils.Big0), // inapplicable to Pax
-		"extraData":             hexutil.Bytes{},            // inapplicable to Pax
-		"gasLimit":              encodedGasLimit,
-		"gasUsed":               hexutil.Uint64(gasWanted),
-		"logsBloom":             ethtypes.Bloom{}, // inapplicable to Pax
-		"miner":                 miner,
-		"nonce":                 ethtypes.BlockNonce{}, // inapplicable to Pax
-		"number":                (*hexutil.Big)(big.NewInt(height)),
-		"parentHash":            roots.parent,
-		"receiptsRoot":          roots.receipts,
-		"sha3Uncles":            common.Hash{}, // inapplicable to Pax
-		"stateRoot":             roots.state,
-		"timestamp":             hexutil.Uint64(timestamp.Unix()), //nolint:gosec
-		"transactionsRoot":      roots.txs,
-		"mixHash":               common.Hash{},     // inapplicable to Pax
-		"excessBlobGas":         hexutil.Uint64(0), // inapplicable to Pax
-		"parentBeaconBlockRoot": common.Hash{},     // inapplicable to Pax
-		"hash":                  roots.hash,
-		"baseFeePerGas":         (*hexutil.Big)(baseFee),
-		"withdrawalsRoot":       common.Hash{},     // inapplicable to Pax
-		"blobGasUsed":           hexutil.Uint64(0), // inapplicable to Pax
+		"difficulty":       (*hexutil.Big)(utils.Big0), // inapplicable to Pax
+		"extraData":        hexutil.Bytes{},            // inapplicable to Pax
+		"gasLimit":         encodedGasLimit,
+		"gasUsed":          hexutil.Uint64(gasUsed),
+		"logsBloom":        bloom,
+		"miner":            miner,
+		"nonce":            ethtypes.BlockNonce{}, // inapplicable to Pax
+		"number":           (*hexutil.Big)(big.NewInt(height)),
+		"parentHash":       roots.parent,
+		"receiptsRoot":     roots.receipts,
+		"sha3Uncles":       ethtypes.EmptyUncleHash, // inapplicable to Pax
+		"stateRoot":        roots.state,
+		"timestamp":        hexutil.Uint64(timestamp.Unix()), //nolint:gosec
+		"transactionsRoot": roots.txs,
+		"mixHash":          common.Hash{}, // inapplicable to Pax
+		"hash":             roots.hash,
+		"baseFeePerGas":    (*hexutil.Big)(baseFee),
 	}
 	return result, nil
 }
