@@ -2760,7 +2760,15 @@ func (cs *State) calculatePrevoteMessageDelayMetrics() {
 
 //---------------------------------------------------------
 
+func (cs *State) sequencerTimeouts() bool {
+	rs := cs.roundState.CopyInternal()
+	return cs.config.Sequencer.Enable && rs.LeaderPin.Applies(rs.Height)
+}
+
 func (cs *State) proposeTimeout(round int32) time.Duration {
+	if cs.sequencerTimeouts() {
+		return cs.config.Sequencer.ProposeTimeout(round)
+	}
 	tp := cs.state.ConsensusParams.Timeout.TimeoutParamsOrDefaults()
 	p := tp.Propose
 	if cs.config.UnsafeProposeTimeoutOverride != 0 {
@@ -2776,6 +2784,9 @@ func (cs *State) proposeTimeout(round int32) time.Duration {
 }
 
 func (cs *State) voteTimeout(round int32) time.Duration {
+	if cs.sequencerTimeouts() {
+		return cs.config.Sequencer.TimeoutVote
+	}
 	tp := cs.state.ConsensusParams.Timeout.TimeoutParamsOrDefaults()
 	v := tp.Vote
 	if cs.config.UnsafeVoteTimeoutOverride != 0 {
@@ -2789,6 +2800,9 @@ func (cs *State) voteTimeout(round int32) time.Duration {
 }
 
 func (cs *State) commitTime(t time.Time) time.Time {
+	if cs.sequencerTimeouts() {
+		return t.Add(cs.config.Sequencer.TimeoutCommit)
+	}
 	c := cs.state.ConsensusParams.Timeout.Commit
 	if cs.config.UnsafeCommitTimeoutOverride != 0 {
 		c = cs.config.UnsafeCommitTimeoutOverride

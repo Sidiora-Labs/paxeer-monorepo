@@ -88,7 +88,11 @@ func (s *sequential) deliver(tx sdk.Tx, txBytes []byte, checksum [32]byte, txInd
 			err = sdkerrors.Wrapf(sdkerrors.ErrPanic, "recovered: %v", r)
 		}
 	}()
-	ctx, branch := s.host.CacheTxContext(s.open.ctx.WithTxIndex(txIndex), checksum)
+	ctx, err := SetTxPosition(s.open.ctx, txIndex)
+	if err != nil {
+		return abci.ResponseDeliverTx{}, nil, err
+	}
+	ctx, branch = s.host.CacheTxContext(ctx, checksum)
 	res = s.host.DeliverTx(ctx, abci.RequestDeliverTxV2{Tx: txBytes}, tx, checksum)
 	return res, branch, nil
 }
