@@ -32,3 +32,22 @@ def test_makefile_modules_match_go_work():
 
     assert len(modules) == len(set(modules)), 'MODULES must not contain duplicates'
     assert set(modules) == workspace_modules - excluded
+
+
+def test_fmt_target_does_not_mask_goimports_failure():
+    root = Path(__file__).resolve().parents[4]
+    result = subprocess.run(
+        ['make', '-C', 'services/launchpad', '-n', 'fmt'],
+        cwd=root,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    recipe_lines = result.stdout.splitlines()
+    assert all('|| true' not in line for line in recipe_lines)
+    goimports_lines = [line.strip() for line in recipe_lines if 'goimports -w' in line]
+    assert len(goimports_lines) == 1, 'fmt must invoke goimports once'
+    assert re.fullmatch(
+        r'if command -v goimports >/dev/null; then goimports -w .+; fi',
+        goimports_lines[0],
+    ), 'goimports must run inside the command -v guard'
