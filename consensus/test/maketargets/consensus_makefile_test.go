@@ -90,3 +90,39 @@ func TestMakeInstallQuotesBuildTags(t *testing.T) {
 	}
 	t.Fatalf("make install dry run did not print a go install command:\n%s", output)
 }
+
+func TestMakeFormatUsesModuleLocalPrefix(t *testing.T) {
+	output, err := makeDryRun(t, "format")
+	if err != nil {
+		t.Fatalf("make format dry run failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "find . -name '*.go' -type f -not -path \"*.git*\" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s\n") {
+		t.Errorf("make format dry run did not preserve the gofmt command:\n%s", output)
+	}
+	for line := range strings.SplitSeq(output, "\n") {
+		if !strings.Contains(line, "| xargs goimports ") {
+			continue
+		}
+		if !strings.Contains(line, "-not -name '*.pb.go' -not -name '*pb_test.go'") {
+			t.Errorf("goimports command did not preserve generated protobuf exclusions:\n%s", line)
+		}
+		fields := strings.Fields(line)
+		localFlags := 0
+		for i, field := range fields {
+			if field == "-local" {
+				localFlags++
+				if i+1 >= len(fields) || fields[i+1] != "github.com/Sidiora-Labs/Paxeer-X-Network" {
+					t.Errorf("goimports command does not use the fork module local prefix:\n%s", line)
+				}
+			} else if strings.HasPrefix(field, "-local=") {
+				localFlags++
+				t.Errorf("goimports command must use -local github.com/Sidiora-Labs/Paxeer-X-Network:\n%s", line)
+			}
+		}
+		if localFlags != 1 {
+			t.Errorf("goimports command has %d -local flags, want exactly one:\n%s", localFlags, line)
+		}
+		return
+	}
+	t.Fatalf("make format dry run did not print a goimports command:\n%s", output)
+}

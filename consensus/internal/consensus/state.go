@@ -1078,7 +1078,9 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 	// Wait for txs to be available in the mempool
 	// before we enterPropose in round 0. If the last block changed the app hash,
 	// we may need an empty "proof" block, and enterPropose immediately.
-	waitForTxs := cs.config.WaitForTxs() && round == 0 && !cs.needProofBlock(height)
+	// At pinned heights, enterPropose immediately because sequenced transactions
+	// never enter the consensus mempool.
+	waitForTxs := cs.waitForTxs(height, round)
 	if waitForTxs {
 		if cs.config.CreateEmptyBlocksInterval > 0 {
 			cs.scheduleTimeout(cs.config.CreateEmptyBlocksInterval, height, round,
@@ -1089,6 +1091,10 @@ func (cs *State) enterNewRound(ctx context.Context, height int64, round int32, e
 
 	span.End()
 	cs.enterPropose(ctx, height, round, "enterNewRound")
+}
+
+func (cs *State) waitForTxs(height int64, round int32) bool {
+	return cs.config.WaitForTxs() && round == 0 && !cs.needProofBlock(height) && !cs.roundState.CopyInternal().LeaderPin.Applies(height)
 }
 
 // needProofBlock returns true on the first height (so the genesis app hash is signed right away)

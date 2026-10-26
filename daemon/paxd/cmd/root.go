@@ -221,7 +221,10 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
-func addModuleInitFlags(_ *cobra.Command) {}
+func addModuleInitFlags(startCmd *cobra.Command) {
+	wasm.AddModuleInitFlags(startCmd)
+	sequencer.AddStartFlags(startCmd)
+}
 
 // newApp creates a new Cosmos SDK app
 func newApp(
