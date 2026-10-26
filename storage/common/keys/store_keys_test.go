@@ -137,3 +137,46 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 	}
 	require.Len(t, seen, 5)
 }
+
+func TestLayerXAgentStoreKeyMatchesAgentKeeper(t *testing.T) {
+	require.Equal(t, "layerxagent", LayerXAgentStoreKey)
+
+	for _, key := range []string{
+		AuthStoreKey,
+		AuthzStoreKey,
+		BankStoreKey,
+		StakingStoreKey,
+		MintStoreKey,
+		DistributionStoreKey,
+		SlashingStoreKey,
+		GovStoreKey,
+		ParamsStoreKey,
+		IBCStoreKey,
+		UpgradeStoreKey,
+		FeegrantStoreKey,
+		EvidenceStoreKey,
+		IBCTransferStoreKey,
+		CapabilityStoreKey,
+		OracleStoreKey,
+		EVMStoreKey,
+		WasmStoreKey,
+		EpochStoreKey,
+		TokenfactoryStoreKey,
+		LayerXCustodyStoreKey,
+		LayerXAnchorStoreKey,
+		LayerXExchangeStoreKey,
+		LayerXBridgeStoreKey,
+		LaunchpadStoreKey,
+		PerpsStoreKey,
+		SpotStoreKey,
+		PriceFeedStoreKey,
+		XWebStoreKey,
+		LayerXLedgerStoreKey,
+		LayerXAuthStoreKey,
+		LayerXPayStoreKey,
+		LayerXProgramsStoreKey,
+		SequencerStoreKey,
+	} {
+		require.NotEqual(t, key, LayerXAgentStoreKey, "agent store key must be distinct from %q", key)
+	}
+}
