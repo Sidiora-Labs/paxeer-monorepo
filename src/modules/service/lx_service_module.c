@@ -316,10 +316,20 @@ static lxp_result execute_dispute_open(
     lxp_module_ctx *ctx, const lxp_authority_resolved *authority,
     const lx_service_dispute_open_payload *payload)
 {
+    const lx_service_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_service_dispute_request request;
+    lx_service_agreement agreement;
     lx_service_dispute dispute;
     lxp_result status;
+    if (runtime == NULL || runtime->read_escrow_link == NULL)
+        return LXP_ERR_MODULE_DISABLED;
     (void)memset(&request, 0, sizeof(request));
+    status = lx_service_agreement_lookup(ctx, payload->agreement_id,
+                                         &agreement);
+    if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
+    status = runtime->read_escrow_link(runtime->user, agreement.escrow_id,
+                                      &request.escrow_link);
+    if (status != LXP_OK) return status;
     request.authority = authority;
     (void)memcpy(request.dispute.dispute_id, payload->dispute_id, 32U);
     (void)memcpy(request.dispute.activity_id, lxp_ctx_activity_id(ctx), 32U);
@@ -340,10 +350,22 @@ static lxp_result execute_dispute_resolve(
     lxp_module_ctx *ctx, const lxp_authority_resolved *authority,
     const lx_service_dispute_resolve_payload *payload)
 {
+    const lx_service_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_service_dispute_request request;
+    lx_service_agreement agreement;
     lx_service_dispute dispute;
     lxp_result status;
+    if (runtime == NULL || runtime->read_escrow_link == NULL)
+        return LXP_ERR_MODULE_DISABLED;
     (void)memset(&request, 0, sizeof(request));
+    status = lx_service_dispute_lookup(ctx, payload->dispute_id, &dispute);
+    if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
+    status = lx_service_agreement_lookup(ctx, dispute.agreement_id,
+                                         &agreement);
+    if (status != LXP_OK) return LXP_ERR_UNAUTHORIZED_DISPUTANT;
+    status = runtime->read_escrow_link(runtime->user, agreement.escrow_id,
+                                      &request.escrow_link);
+    if (status != LXP_OK) return status;
     request.authority = authority;
     (void)memcpy(request.dispute.dispute_id, payload->dispute_id, 32U);
     request.dispute.ruling = payload->ruling;
