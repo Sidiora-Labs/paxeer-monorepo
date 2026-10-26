@@ -252,13 +252,23 @@ func (gs GenesisState) Validate() error {
 	if err := gs.Params.Validate(); err != nil {
 		return err
 	}
-	feeTokens := map[string]bool{}
-	for _, entry := range gs.ProtocolFees {
-		if sdk.ValidateDenom(entry.Token) != nil || feeTokens[entry.Token] || entry.Amount.IsNil() ||
-			entry.Amount.IsNegative() || entry.Amount.BigInt().Cmp(MaxUint256()) > 0 {
-			return fmt.Errorf("%w: protocol fees %s", ErrInvalidGenesis, entry.Token)
-		}
-		feeTokens[entry.Token] = true
+	if len(gs.AirdropEpochs) != 0 {
+		return fmt.Errorf("%w: airdrop_epochs is no longer supported", ErrInvalidGenesis)
+	}
+	if len(gs.AirdropClaims) != 0 {
+		return fmt.Errorf("%w: airdrop_claims is no longer supported", ErrInvalidGenesis)
+	}
+	if len(gs.ProtocolFees) != 0 {
+		return fmt.Errorf("%w: protocol_fees is no longer supported", ErrInvalidGenesis)
+	}
+	if len(gs.AirdropBases) != 0 {
+		return fmt.Errorf("%w: airdrop_bases is no longer supported", ErrInvalidGenesis)
+	}
+	if len(gs.HoldingHistories) != 0 {
+		return fmt.Errorf("%w: holding_histories is no longer supported", ErrInvalidGenesis)
+	}
+	if len(gs.HoldingCheckpoints) != 0 {
+		return fmt.Errorf("%w: holding_checkpoints is no longer supported", ErrInvalidGenesis)
 	}
 	denoms := map[string]Market{}
 	indexes := map[uint64]bool{}
@@ -276,56 +286,6 @@ func (gs GenesisState) Validate() error {
 		if !indexes[i] {
 			return fmt.Errorf("%w: market indexes must be 1..%d", ErrInvalidGenesis, len(gs.Markets))
 		}
-	}
-	amounts := map[string]sdk.Int{}
-	for _, epoch := range gs.AirdropEpochs {
-		amounts[fmt.Sprintf("%s/%d", epoch.Denom, epoch.Epoch)] = epoch.Amount
-		market, ok := denoms[epoch.Denom]
-		if !ok || epoch.Epoch == 0 || epoch.Epoch > market.AirdropEpoch || epoch.Amount.IsNil() || epoch.Amount.IsNegative() {
-			return fmt.Errorf("%w: airdrop epoch %s/%d", ErrInvalidGenesis, epoch.Denom, epoch.Epoch)
-		}
-	}
-	for _, claim := range gs.AirdropClaims {
-		market, ok := denoms[claim.Denom]
-		if _, err := sdk.AccAddressFromBech32(claim.Holder); !ok || err != nil || claim.Epoch == 0 || claim.Epoch > market.AirdropEpoch {
-			return fmt.Errorf("%w: airdrop claim %s/%s/%d", ErrInvalidGenesis, claim.Denom, claim.Holder, claim.Epoch)
-		}
-	}
-	histories := map[string]HoldingHistory{}
-	for _, history := range gs.HoldingHistories {
-		market, ok := denoms[history.Denom]
-		if _, dup := histories[history.Denom]; !ok || dup || history.FirstEpoch == 0 ||
-			history.FirstEpoch > history.CurrentEpoch || history.CurrentEpoch > market.AirdropEpoch {
-			return fmt.Errorf("%w: holding history %s", ErrInvalidGenesis, history.Denom)
-		}
-		histories[history.Denom] = history
-	}
-	type holderKey struct{ denom, holder string }
-	last := map[holderKey]HoldingCheckpoint{}
-	for _, checkpoint := range gs.HoldingCheckpoints {
-		history, ok := histories[checkpoint.Denom]
-		key := holderKey{checkpoint.Denom, checkpoint.Holder}
-		previous, seen := last[key]
-		_, err := sdk.AccAddressFromBech32(checkpoint.Holder)
-		if !ok || err != nil || checkpoint.Epoch > history.CurrentEpoch || checkpoint.Balance.IsNil() ||
-			checkpoint.Balance.IsNegative() || (!seen && checkpoint.Index != 0) ||
-			(seen && (checkpoint.Index != previous.Index+1 || checkpoint.Epoch <= previous.Epoch)) {
-			return fmt.Errorf("%w: holding checkpoint %s/%s/%d", ErrInvalidGenesis, checkpoint.Denom, checkpoint.Holder,
-				checkpoint.Index)
-		}
-		last[key] = checkpoint
-	}
-	bases := map[string]bool{}
-	for _, basis := range gs.AirdropBases {
-		id := fmt.Sprintf("%s/%d", basis.Denom, basis.Epoch)
-		amount, funded := amounts[id]
-		history, ok := histories[basis.Denom]
-		if !ok || !funded || bases[id] || basis.Epoch < history.FirstEpoch || basis.Epoch > history.CurrentEpoch ||
-			basis.Supply.IsNil() || !basis.Supply.IsPositive() || !canonicalAddress(basis.PayoutToken) ||
-			basis.Height < 0 || basis.Paid.IsNil() || basis.Paid.IsNegative() || basis.Paid.GT(amount) {
-			return fmt.Errorf("%w: airdrop basis %s", ErrInvalidGenesis, id)
-		}
-		bases[id] = true
 	}
 	return gs.validateContracts()
 }

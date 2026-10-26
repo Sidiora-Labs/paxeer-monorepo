@@ -95,6 +95,37 @@ func contractGenesis() types.GenesisState {
 	return gs
 }
 
+func TestGenesisRefusesGenerationOneState(t *testing.T) {
+	require.NoError(t, types.DefaultGenesis().Validate())
+	cases := []struct {
+		field string
+		entry string
+	}{
+		{"airdrop_epochs", `{"denom":"legacy","epoch":1,"amount":"10"}`},
+		{"airdrop_claims", `{"denom":"legacy","holder":"` + sdk.AccAddress(common.HexToAddress(holder).Bytes()).String() + `","epoch":1}`},
+		{"protocol_fees", `{"token":"legacy","amount":"10"}`},
+		{"airdrop_bases", `{"denom":"legacy","epoch":1,"supply":"100","payout_token":"` + usdl + `","height":1,"paid":"0"}`},
+		{"holding_histories", `{"denom":"legacy","first_epoch":1,"current_epoch":1}`},
+		{"holding_checkpoints", `{"denom":"legacy","holder":"` + sdk.AccAddress(common.HexToAddress(holder).Bytes()).String() + `","index":0,"epoch":1,"balance":"100"}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.field, func(t *testing.T) {
+			for _, empty := range []string{"[]", "null"} {
+				gs := contractGenesis()
+				require.NoError(t, json.Unmarshal([]byte(`{"`+tc.field+`":`+empty+`}`), &gs))
+				require.NoError(t, gs.Validate())
+			}
+			for _, entry := range []string{"{}", tc.entry} {
+				gs := contractGenesis()
+				require.NoError(t, json.Unmarshal([]byte(`{"`+tc.field+`":[`+entry+`]}`), &gs))
+				err := gs.Validate()
+				require.ErrorIs(t, err, types.ErrInvalidGenesis)
+				require.Contains(t, err.Error(), tc.field)
+			}
+		})
+	}
+}
+
 func TestGenesisValidate(t *testing.T) {
 	require.NoError(t, types.DefaultGenesis().Validate())
 
