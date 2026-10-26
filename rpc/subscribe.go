@@ -547,27 +547,23 @@ func encodeHead(height int64, timestamp time.Time, miner common.Address, roots h
 		gasWanted += gasUsed
 	}
 	result := map[string]interface{}{
-		"difficulty":            (*hexutil.Big)(utils.Big0), // inapplicable to Pax
-		"extraData":             hexutil.Bytes{},            // inapplicable to Pax
-		"gasLimit":              encodedGasLimit,
-		"gasUsed":               hexutil.Uint64(gasWanted),
-		"logsBloom":             ethtypes.Bloom{}, // inapplicable to Pax
-		"miner":                 miner,
-		"nonce":                 ethtypes.BlockNonce{}, // inapplicable to Pax
-		"number":                (*hexutil.Big)(big.NewInt(height)),
-		"parentHash":            roots.parent,
-		"receiptsRoot":          roots.receipts,
-		"sha3Uncles":            common.Hash{}, // inapplicable to Pax
-		"stateRoot":             roots.state,
-		"timestamp":             hexutil.Uint64(timestamp.Unix()), //nolint:gosec
-		"transactionsRoot":      roots.txs,
-		"mixHash":               common.Hash{},     // inapplicable to Pax
-		"excessBlobGas":         hexutil.Uint64(0), // inapplicable to Pax
-		"parentBeaconBlockRoot": common.Hash{},     // inapplicable to Pax
-		"hash":                  roots.hash,
-		"baseFeePerGas":         (*hexutil.Big)(baseFee),
-		"withdrawalsRoot":       common.Hash{},     // inapplicable to Pax
-		"blobGasUsed":           hexutil.Uint64(0), // inapplicable to Pax
+		"difficulty":       (*hexutil.Big)(utils.Big0), // inapplicable to Pax
+		"extraData":        hexutil.Bytes{},            // inapplicable to Pax
+		"gasLimit":         encodedGasLimit,
+		"gasUsed":          hexutil.Uint64(gasWanted),
+		"logsBloom":        ethtypes.Bloom{}, // inapplicable to Pax
+		"miner":            miner,
+		"nonce":            ethtypes.BlockNonce{}, // inapplicable to Pax
+		"number":           (*hexutil.Big)(big.NewInt(height)),
+		"parentHash":       roots.parent,
+		"receiptsRoot":     roots.receipts,
+		"sha3Uncles":       ethtypes.EmptyUncleHash, // inapplicable to Pax
+		"stateRoot":        roots.state,
+		"timestamp":        hexutil.Uint64(timestamp.Unix()), //nolint:gosec
+		"transactionsRoot": roots.txs,
+		"mixHash":          common.Hash{}, // inapplicable to Pax
+		"hash":             roots.hash,
+		"baseFeePerGas":    (*hexutil.Big)(baseFee),
 	}
 	return result, nil
 }

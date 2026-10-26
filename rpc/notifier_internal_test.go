@@ -1,19 +1,34 @@
 package evmrpc
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/example/kvstore"
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	rpclocal "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client/local"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
+	rpctest "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/test"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
+	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	authtx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 )
+
+const EmptyUncleHash = "0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347"
 
 func TestBlockHeaderNotifier_DeliversEvent(t *testing.T) {
 	n := NewBlockHeaderNotifier(4)
@@ -204,27 +219,23 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 	require.NoError(t, json.Unmarshal(enc, &got))
 	zero := common.Hash{}.Hex()
 	require.Equal(t, map[string]any{
-		"hash":                  hash.Hex(),
-		"parentHash":            parentHash.Hex(),
-		"transactionsRoot":      dataHash.Hex(),
-		"receiptsRoot":          resultsHash.Hex(),
-		"stateRoot":             appHash.Hex(),
-		"number":                "0x3039",
-		"miner":                 proposer.Hex(),
-		"timestamp":             "0x6553f100",
-		"gasUsed":               "0x1d8a8",
-		"gasLimit":              "0x989680",
-		"baseFeePerGas":         "0x2a",
-		"difficulty":            "0x0",
-		"extraData":             "0x",
-		"logsBloom":             hexutil.Encode(make([]byte, 256)),
-		"nonce":                 "0x0000000000000000",
-		"sha3Uncles":            zero,
-		"mixHash":               zero,
-		"excessBlobGas":         "0x0",
-		"parentBeaconBlockRoot": zero,
-		"withdrawalsRoot":       zero,
-		"blobGasUsed":           "0x0",
+		"hash":             hash.Hex(),
+		"parentHash":       parentHash.Hex(),
+		"transactionsRoot": dataHash.Hex(),
+		"receiptsRoot":     resultsHash.Hex(),
+		"stateRoot":        appHash.Hex(),
+		"number":           "0x3039",
+		"miner":            proposer.Hex(),
+		"timestamp":        "0x6553f100",
+		"gasUsed":          "0x1d8a8",
+		"gasLimit":         "0x989680",
+		"baseFeePerGas":    "0x2a",
+		"difficulty":       "0x0",
+		"extraData":        "0x",
+		"logsBloom":        hexutil.Encode(make([]byte, 256)),
+		"nonce":            "0x0000000000000000",
+		"sha3Uncles":       EmptyUncleHash,
+		"mixHash":          zero,
 	}, got)
 
 	// A head missing any root is refused, never published with a zero root.
@@ -249,6 +260,87 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000)
 	require.Nil(t, out)
 	require.EqualError(t, err, "committed Autobahn head 12345 has a 31-byte block hash")
+}
+
+func TestNewHeadsKeySetMatchesBlockHeader(t *testing.T) {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+	defer cancel()
+	conf, err := rpctest.CreateConfig(t, t.Name())
+	require.NoError(t, err)
+	kv := kvstore.NewApplication()
+	nodeService, closer, err := rpctest.StartTendermint(ctx, conf, kv, rpctest.SuppressStdout)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, closer(context.Background()))
+		require.NoError(t, kv.Close())
+	})
+	nodeWithEnv, ok := nodeService.(rpclocal.NodeService)
+	require.True(t, ok)
+	tm, err := rpclocal.New(nodeWithEnv)
+	require.NoError(t, err)
+	for {
+		status, err := tm.Status(ctx)
+		require.NoError(t, err)
+		if status.SyncInfo.LatestBlockHeight >= 1 {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+
+	block := &coretypes.ResultBlock{
+		BlockID: tmtypes.BlockID{Hash: common.HexToHash("0x11").Bytes()},
+		Block: &tmtypes.Block{
+			Header: tmtypes.Header{
+				Height:          1,
+				Time:            time.Unix(1_700_000_000, 0).UTC(),
+				LastBlockID:     tmtypes.BlockID{Hash: common.HexToHash("0x22").Bytes()},
+				DataHash:        ethtypes.EmptyTxsHash.Bytes(),
+				LastResultsHash: common.HexToHash("0x33").Bytes(),
+				AppHash:         common.HexToHash("0x44").Bytes(),
+				ProposerAddress: common.HexToAddress("0x55").Bytes(),
+			},
+			LastCommit: &tmtypes.Commit{},
+		},
+	}
+	const gasLimit = 10_000_000
+	baseFee := evmtypes.DefaultMinFeePerGas.TruncateInt().BigInt()
+	head, err := encodeCommittedHead(tm, blockHeaderEvent{
+		hash:     block.BlockID.Hash,
+		header:   block.Block.Header.ToProto(),
+		response: &abci.ResponseFinalizeBlock{AppHash: block.Block.AppHash},
+	}, baseFee, gasLimit)
+	require.NoError(t, err)
+	headKeys := make(map[string]struct{}, len(head))
+	for key := range head {
+		headKeys[key] = struct{}{}
+	}
+
+	sdkCtx := sdk.Context{}.WithBlockHeight(1).WithConsensusParams(&tmproto.ConsensusParams{
+		Block: &tmproto.BlockParams{MaxGas: gasLimit},
+	})
+	txConfig := authtx.NewTxConfig(codec.NewProtoCodec(codectypes.NewInterfaceRegistry()), authtx.DefaultSignModes)
+	api := NewBlockAPI(tm, &evmkeeper.Keeper{}, func(int64) sdk.Context { return sdkCtx },
+		func(int64) client.TxConfig { return txConfig }, ConnectionTypeHTTP, nil, NewBlockCache(1), &sync.Mutex{})
+	for _, fullTx := range []bool{false, true} {
+		t.Run(map[bool]string{false: "hashes", true: "fullTransactions"}[fullTx], func(t *testing.T) {
+			// encodeBlock completes EncodeTmBlock with the same-block receiptsRoot.
+			encoded, err := api.encodeBlock(ctx, block, fullTx, false, false)
+			require.NoError(t, err)
+			blockKeys := make(map[string]struct{}, len(encoded))
+			for key := range encoded {
+				switch key {
+				case "transactions", "uncles", "size", "totalDifficulty":
+					continue
+				}
+				blockKeys[key] = struct{}{}
+			}
+			require.Equal(t, blockKeys, headKeys)
+		})
+	}
 }
 
 func TestEncodeCommittedBlock_ZeroGasLimit(t *testing.T) {
