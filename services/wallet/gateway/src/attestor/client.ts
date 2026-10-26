@@ -627,6 +627,34 @@ export class AttestorClient {
     return { ...first, participants: members.map(member => member.nodeId), audit: answers.map(answer => ({node_id:answer.node_id,audit_sequence:answer.audit_sequence})) };
   }
 
+  async reviewEvmTransaction(input: { keyId: string; sessionId: string; transaction: string; owner: string; token: string }): Promise<EvmReviewResult> {
+    const key = requireInventoryKey(input.keyId, 'sign', input.owner);
+    if (key.curve !== 'secp256k1') throw new AttestorKeyError('key_curve_mismatch', 'EVM review requires a secp256k1 key');
+    const sequence = await publishCustodyAuthority(this, 3);
+    let members: QuorumMember[];
+    try {
+      members = selectQuorum(this.nodes.filter(node => node.nodeId !== null && this.authorityAcks.get(node.nodeId) === sequence), this.opts.quorum);
+    } catch {
+      throw new AttestorQuorumError('quorum_unavailable', 'the EVM review quorum is unavailable');
+    }
+    const body = JSON.stringify({ session_id: input.sessionId, key_id: input.keyId, transaction: input.transaction });
+    const headers = authorisationHeaders({ scheme: 'supabase_jwt', token: input.token });
+    const settled = await Promise.allSettled(members.map(member => this.post(member, '/v1/evm/review', body,
+      { ...headers, 'X-Custody-Sequence': sequence }, value => parseEvmReview(value, member.nodeId))));
+    const refusal = firstRefusal(settled, members, (endpoint, reason) => this.markDown(endpoint, reason));
+    if (refusal) throw refusal;
+    const answers = settled.map(answer => (answer as PromiseFulfilledResult<EvmReviewWire>).value);
+    const first = answers[0]!;
+    const semantic = (answer: EvmReviewWire) => JSON.stringify({ key_id: answer.key_id, to: answer.to, value: answer.value,
+      data: answer.data, method: answer.method, destination: answer.destination, signing_hash: answer.signing_hash, chain_id: answer.chain_id });
+    if (first.key_id !== input.keyId || answers.some(answer => semantic(answer) !== semantic(first))) {
+      throw new AttestorSessionError('evm_review_disagreement', 'transaction disclosure or signing hash differs across the quorum');
+    }
+    return { to: first.to, value: first.value, data: first.data, method: first.method, destination: first.destination,
+      signing_hash: first.signing_hash, chain_id: first.chain_id, participants: members.map(member => member.nodeId),
+      audit: answers.map(answer => ({ node_id: answer.node_id, audit_sequence: answer.audit_sequence })) };
+  }
+
   async sign(input: SignInput): Promise<SignResult> {
     requireInventoryKey(input.keyId, 'sign');
     const authoritySequence = await publishCustodyAuthority(this, 3);
@@ -1151,6 +1179,36 @@ export interface LxReviewWire {
   not_after: string; epoch: number; audit_sequence: number;
 }
 export interface LxReviewResult extends LxReviewWire { participants: string[]; audit: NodeAudit[]; }
+export interface EvmReviewResult {
+  to: string;
+  value: string;
+  data: string;
+  method: string;
+  destination: string;
+  signing_hash: string;
+  chain_id: number;
+  participants: string[];
+  audit: NodeAudit[];
+}
+interface EvmReviewWire extends Omit<EvmReviewResult, 'participants' | 'audit'> {
+  node_id: string;
+  key_id: string;
+  audit_sequence: number;
+}
+function parseEvmReview(value: unknown, nodeId: string): EvmReviewWire {
+  const answer = value as EvmReviewWire | null;
+  if (!answer || typeof answer !== 'object' || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
+    || typeof answer.to !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(answer.to)
+    || typeof answer.value !== 'string' || !/^(0|[1-9][0-9]{0,77})$/.test(answer.value) || BigInt(answer.value) >= (1n << 256n)
+    || typeof answer.data !== 'string' || !/^0x(?:[0-9a-fA-F]{2})*$/.test(answer.data) || answer.data.length > 2_097_154
+    || typeof answer.method !== 'string' || !answer.method || typeof answer.destination !== 'string'
+    || typeof answer.signing_hash !== 'string' || !/^0x[0-9a-fA-F]{64}$/.test(answer.signing_hash)
+    || !Number.isSafeInteger(answer.chain_id) || answer.chain_id <= 0
+    || !Number.isSafeInteger(answer.audit_sequence) || answer.audit_sequence < 1) {
+    throw new AttestorSessionError('evm_review_invalid', 'invalid authenticated EVM review evidence');
+  }
+  return answer;
+}
 function parseLxReview(value: unknown, nodeId: string): LxReviewWire {
   const answer = value as LxReviewWire | null;
   if (!answer || typeof answer !== 'object' || !['lx_activity','lx_send_authorization'].includes(answer.kind) || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
