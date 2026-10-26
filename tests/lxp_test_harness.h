@@ -10,6 +10,8 @@ typedef int (*lxp_test_function)(void);
 
 int lxp_test_register(const char *name, lxp_test_function function);
 int lxp_test_run_all(int list_only);
+int lxp_test_run_one(const char *name);
+int lxp_test_main(int argc, char **argv);
 int lxp_test_assert_u64_eq(uint64_t expected, uint64_t produced,
                            const char *file, int line);
 int lxp_test_assert_bytes_eq(const void *expected, const void *produced,
