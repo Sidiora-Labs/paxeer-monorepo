@@ -271,13 +271,15 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 
 	if filter.BlockHash != nil {
 		go func() {
+			subCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			var err error
 			defer recoverAndLog()
 			defer wpMetrics.RecordSubscriptionEnd()
-			logs, _, err := a.logFetcher.GetLogsByFilters(ctx, *filter, 0)
+			logs, _, err := a.logFetcher.GetLogsByFilters(subCtx, *filter, 0)
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
-				_ = notifier.Notify(rpcSub.ID, err)
+				logger.Warn("Ending logs subscription after fetch failure", "subscription", rpcSub.ID, "err", err)
 				return
 			}
 			for _, log := range logs {
@@ -296,6 +298,8 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	}
 
 	go func() {
+		subCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		var err error
 		defer recoverAndLog()
 		defer wpMetrics.RecordSubscriptionEnd()
@@ -303,10 +307,10 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 		for {
 			var logs []*ethtypes.Log
 			var lastToHeight int64
-			logs, lastToHeight, err = a.logFetcher.GetLogsByFilters(ctx, *filter, begin)
+			logs, lastToHeight, err = a.logFetcher.GetLogsByFilters(subCtx, *filter, begin)
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
-				_ = notifier.Notify(rpcSub.ID, err)
+				logger.Warn("Ending logs subscription after fetch failure", "subscription", rpcSub.ID, "err", err)
 				return
 			}
 			for _, log := range logs {
@@ -322,7 +326,7 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 			timer := time.NewTimer(SleepInterval)
 			select {
 			case <-timer.C:
-			case <-ctx.Done():
+			case <-rpcSub.Err():
 				timer.Stop()
 				return
 			}
