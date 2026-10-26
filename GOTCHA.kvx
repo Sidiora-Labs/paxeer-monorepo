@@ -8921,3 +8921,9 @@ area = "spec"
 symptom = "cg spec done refuses a result with `<name> — not defined in the graph` for a name the touched file plainly declares: an enumerator, a shell variable, or an Elixir module or test"
 cause = "the graph indexes C functions, types, enums (the type, not its enumerators) and #define macros; it indexes nothing in shell scripts or Elixir sources, and an ExUnit `test \"name\"` is a string, not a declaration"
 do = "name enumerators (named or anonymous enum, X-macro lists included), shell variables and Elixir modules or tests in do_* text only; a task whose touched files are only .sh, .exs or .json carries symbols = [] and is proven by its verify_cmd alone"
+
+[gotcha.1866]
+area = "tooling"
+symptom = "cg spec done refuses a deleted touched path as `no matching change` although the tree no longer has the file and the commit records the deletion"
+cause = "cg spec done credits a deleted touched path only from a commit carrying the task's tag that exists before the check runs or from a snapshot taken before the deletion; the worktree diff alone never shows a deleted file"
+do = "keep the deleted path in touches, and put the tagged commit on the branch or take the snapshot of the base tree before cg spec done runs (gotcha.1860)"
