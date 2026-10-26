@@ -8903,3 +8903,15 @@ area = "spec"
 symptom = "a task that regenerates a gRPC QueryServer interface fails its own build_cmd on every attempt with a keeper not implementing the interface"
 cause = "the package asserts `var _ types.QueryServer = Keeper{}` at compile time, and the new method was assigned to a later task"
 do = "when a task widens an interface, give the same task every compile-time implementer of it, and leave the dependent task its tests only"
+
+[gotcha.1863]
+area = "spec"
+symptom = "a symbol check passes on a name the task deletes, and the ✓ line names a file outside the touched paths"
+cause = "an unqualified symbol lookup takes the first declaration of that name in the tree, and the Python and TypeScript SDKs under services/agent/sdk declare the same names (PX_METHODS, PxAnchorHead)"
+do = "read the path on every ✓ line of the graph check; a check that passed on another package's declaration proves nothing about the touched file, so name only symbols unique to the touched package"
+
+[gotcha.1864]
+area = "tooling"
+symptom = "cg init exits 139 within a second on a tree that vendors C++ sources, before any symbol is written"
+cause = "the systems-language extractor handed null tree-sitter nodes to ts_node_child_by_field_name: a C++ declarator with no function_declarator (abstract and operator declarators in programs/vendor/binaryen-sys) left is_c_parameter's declarator null, and tree-sitter dereferences the node's subtree"
+do = "build cg at f93cce7254edb1fd7fbdd0b1cde2901c29e46ec8 or later, where field() and named() in src/ast_systems.c answer null for a null node; on an older cg keep vendored C++ trees out of the index scope, since they declare nothing a task names"
