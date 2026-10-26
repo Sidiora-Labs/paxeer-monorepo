@@ -5,7 +5,7 @@ require('@openzeppelin/hardhat-upgrades');
 /** @type import('hardhat/config').HardhatUserConfig */
 module.exports = {
   solidity: {
-    version: "0.8.28",
+    version: "0.8.27",
     settings: {
       evmVersion: "prague",
       optimizer: {
