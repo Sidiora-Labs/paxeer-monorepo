@@ -186,6 +186,22 @@ func (env *Environment) BlockByHash(ctx context.Context, req *coretypes.RequestB
 // If no height is provided, it will fetch the latest header.
 // More: https://docs.tendermint.com/master/rpc/#/Info/header
 func (env *Environment) Header(ctx context.Context, req *coretypes.RequestBlockInfo) (*coretypes.ResultHeader, error) {
+	if giga, ok := env.gigaRouter().Get(); ok {
+		height, err := env.autobahnCheckAndGetHeight(ctx, (*int64)(req.Height))
+		if err != nil {
+			return nil, err
+		}
+		gbn, ok := utils.SafeCast[atypes.GlobalBlockNumber](height)
+		if !ok {
+			return nil, fmt.Errorf("invalid height %d", height)
+		}
+		block, err := giga.BlockByNumber(ctx, gbn)
+		if err != nil {
+			return nil, err
+		}
+		return &coretypes.ResultHeader{Header: &block.Block.Header}, nil
+	}
+
 	height, err := env.getHeight(env.BlockStore.Height(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
