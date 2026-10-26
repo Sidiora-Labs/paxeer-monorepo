@@ -8790,3 +8790,8 @@ detail = "Format only the files whose main revision is already clean (rustfmt --
 area = "services/platform/hosted/gateway"
 summary = "The gateway binary cannot answer JSON-RPC in a test without a reachable TLS Redis"
 detail = "Config construction requires LAYERX_GATEWAY_REDIS_URL with username and password files, so integration tests that post JSON-RPC to the real binary start a redis-server with tls-port and an openssl localhost certificate, as tests/paxeer_failover.rs and tests/unified_service_paths.rs do."
+
+[gotcha.1844]
+area = "spec/layerx-merge/contracts"
+summary = "Regenerating a specification document can overwrite a file that code parses at build time"
+detail = "services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests read contracts/address-table.md sections (a), (a2), (b) and (c) by heading text and column count; a generated inventory written under the same name made cargo build exit 101 for every crate depending on layerx-types and every cgo-linked Go package. Before replacing a contract file, grep the code for its path and keep generated inventories under their own names."
