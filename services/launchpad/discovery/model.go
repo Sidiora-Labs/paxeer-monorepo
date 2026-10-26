@@ -122,6 +122,7 @@ func sameSource(a, b SourceRef) bool {
 
 type Squad struct {
 	ID, OwnerAccountID, Name, Policy string
+	Description, Visibility          string
 	Revision                         uint64
 }
 type Membership struct {
@@ -136,6 +137,7 @@ func (m Membership) CanPublish() bool {
 
 type Invitation struct {
 	SquadID, AccountID string
+	Status             string
 	TokenHash          [32]byte
 	ExpiresAt          time.Time
 	Consumed           bool
@@ -364,6 +366,9 @@ func (s Squad) Validate() error {
 		return ErrInvalid
 	}
 	if s.Policy != "invite" && s.Policy != "request" {
+		return ErrInvalid
+	}
+	if (s.Visibility != "public" && s.Visibility != "private") || len(s.Description) > 280 || !utf8.ValidString(s.Description) {
 		return ErrInvalid
 	}
 	return nil

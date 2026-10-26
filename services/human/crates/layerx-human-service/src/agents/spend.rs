@@ -2,7 +2,7 @@
 
 use std::fmt::{Display, Formatter};
 
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 
 use crate::store::PrincipalId;
 
@@ -73,7 +73,7 @@ pub struct AgentSpendView {
     limit: u128,
     remaining: u128,
     receipt_count: usize,
-    verification_level: VerificationLevel,
+    verification_level: Rung,
     observed_head_sequence: u64,
     reconciliation: SpendReconciliationStatus,
     reconciliation_copy_key: Option<&'static str>,
@@ -123,7 +123,7 @@ impl AgentSpendView {
     }
 
     #[must_use]
-    pub const fn verification_level(&self) -> VerificationLevel {
+    pub const fn verification_level(&self) -> Rung {
         self.verification_level
     }
 

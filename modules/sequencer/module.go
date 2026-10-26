@@ -37,10 +37,11 @@ var (
 // activation: it pins only the ReceiptKeys param. An absent lastSeqHash is
 // the zero hash.
 type genesisState struct {
-	Leaders     [][]byte           `json:"leaders,omitempty"`
-	ReceiptKeys keeper.ReceiptKeys `json:"receipt_keys"`
-	LastSeq     uint64             `json:"last_seq,omitempty"`
-	LastSeqHash []byte             `json:"last_seq_hash,omitempty"`
+	Leaders          [][]byte           `json:"leaders,omitempty"`
+	ReceiptKeys      keeper.ReceiptKeys `json:"receipt_keys"`
+	LastSeq          uint64             `json:"last_seq,omitempty"`
+	LastSeqHash      []byte             `json:"last_seq_hash,omitempty"`
+	ActivationHeight uint64             `json:"activation_height,omitempty"`
 }
 
 // decodeGenesis decodes bz and returns the receipt key list for the param and,
@@ -54,6 +55,9 @@ func decodeGenesis(bz json.RawMessage) (keeper.ReceiptKeys, *types.GenesisState,
 		return nil, nil, err
 	}
 	if len(genesis.Leaders) == 0 {
+		if genesis.ActivationHeight != 0 {
+			return nil, nil, types.ErrInvalidGenesis.Wrapf("activation height %d with no leader list", genesis.ActivationHeight)
+		}
 		if genesis.LastSeq != 0 || len(genesis.LastSeqHash) != 0 {
 			return nil, nil, types.ErrInvalidGenesis.Wrapf("lastSeq %d or lastSeqHash %X with no leader list", genesis.LastSeq, genesis.LastSeqHash)
 		}
@@ -63,9 +67,10 @@ func decodeGenesis(bz json.RawMessage) (keeper.ReceiptKeys, *types.GenesisState,
 		return nil, nil, types.ErrInvalidGenesis.Wrapf("lastSeqHash is %d bytes, want %d", len(genesis.LastSeqHash), types.HashLength)
 	}
 	state := types.GenesisState{
-		Leaders:     make([][32]byte, len(genesis.Leaders)),
-		ReceiptKeys: make([]types.ReceiptKey, len(genesis.ReceiptKeys)),
-		LastSeq:     genesis.LastSeq,
+		Leaders:          make([][32]byte, len(genesis.Leaders)),
+		ReceiptKeys:      make([]types.ReceiptKey, len(genesis.ReceiptKeys)),
+		LastSeq:          genesis.LastSeq,
+		ActivationHeight: genesis.ActivationHeight,
 	}
 	copy(state.LastSeqHash[:], genesis.LastSeqHash)
 	for i, leader := range genesis.Leaders {
@@ -165,6 +170,9 @@ func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, gs json.RawM
 		if err := am.keeper.InitGenesis(ctx, *state); err != nil {
 			panic(err)
 		}
+		if err := keeper.SetLeadersParam(ctx, am.paramSpace, state.Leaders); err != nil {
+			panic(err)
+		}
 	}
 	if err := keeper.InitReceiptKeys(ctx, am.paramSpace, keys); err != nil {
 		panic(err)
@@ -184,7 +192,7 @@ func (am AppModule) ExportGenesis(ctx sdk.Context, _ codec.JSONCodec) json.RawMe
 	if keys == nil {
 		keys = keeper.ReceiptKeys{}
 	}
-	genesis := genesisState{ReceiptKeys: keys, LastSeq: state.LastSeq}
+	genesis := genesisState{ReceiptKeys: keys, LastSeq: state.LastSeq, ActivationHeight: state.ActivationHeight}
 	if state.LastSeqHash != ([types.HashLength]byte{}) {
 		genesis.LastSeqHash = bytes.Clone(state.LastSeqHash[:])
 	}
@@ -209,33 +217,47 @@ func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-
 
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// NewParamChangeProposalHandler wraps the params proposal handler next so a
-// change to the sequencer ReceiptKeys reaches the store only when the new list
-// keeps every height at or below the current block pinned as before; the
-// accepted list is written to the keeper store with the param, so the batch
-// signature check and the param hold one key set. Any other change passes
-// through to next unchanged.
+// NewParamChangeProposalHandler wraps the params proposal handler next so
+// changes to sequencer Leaders and ReceiptKeys reach the keeper store with
+// their params. Receipt key rotations must keep every height at or below the
+// current block pinned as before. Any other change passes to next unchanged.
 func NewParamChangeProposalHandler(k keeper.Keeper, paramSpace paramtypes.Subspace, next govtypes.Handler) govtypes.Handler {
 	return func(ctx sdk.Context, content govtypes.Content) error {
 		p, ok := content.(*proposal.ParameterChangeProposal)
-		if !ok || !changesReceiptKeys(p) {
+		if !ok || (!changesReceiptKeys(p) && !changesLeaders(p)) {
 			return next(ctx, content)
 		}
 		cacheCtx, write := ctx.CacheContext()
 		if err := next(cacheCtx, content); err != nil {
 			return err
 		}
-		current := keeper.GetReceiptKeys(ctx, paramSpace)
-		rotated := keeper.GetReceiptKeys(cacheCtx, paramSpace)
-		if err := keeper.ValidateRotation(current, rotated, ctx.BlockHeight()); err != nil {
-			return err
+		if changesReceiptKeys(p) {
+			current := keeper.GetReceiptKeys(ctx, paramSpace)
+			rotated := keeper.GetReceiptKeys(cacheCtx, paramSpace)
+			if err := keeper.ValidateRotation(current, rotated, ctx.BlockHeight()); err != nil {
+				return err
+			}
+			if err := k.SetReceiptKeys(cacheCtx, rotated); err != nil {
+				return err
+			}
 		}
-		if err := k.SetReceiptKeys(cacheCtx, rotated); err != nil {
-			return err
+		if changesLeaders(p) {
+			if err := k.SetLeaders(cacheCtx, keeper.GetLeadersParam(cacheCtx, paramSpace)); err != nil {
+				return err
+			}
 		}
 		write()
 		return nil
 	}
+}
+
+func changesLeaders(p *proposal.ParameterChangeProposal) bool {
+	for _, c := range p.Changes {
+		if c.Subspace == types.ModuleName && c.Key == string(keeper.KeyLeaders) {
+			return true
+		}
+	}
+	return false
 }
 
 func changesReceiptKeys(p *proposal.ParameterChangeProposal) bool {

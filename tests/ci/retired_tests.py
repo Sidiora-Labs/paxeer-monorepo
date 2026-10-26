@@ -17,8 +17,9 @@ def assert_paths_absent(paths, root=REPO_ROOT):
         raise AssertionError("Retired paths still exist:\n" + "\n".join(present))
 
 
-def assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT):
+def assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT, exclude=()):
     root = Path(root).resolve()
+    excluded_roots = [(root / path).resolve() for path in exclude]
     patterns = [
         (symbol, re.compile(
             r"(?<![A-Za-z0-9_])" + re.escape(symbol) + r"(?![A-Za-z0-9_])"
@@ -37,6 +38,10 @@ def assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT):
 
     references = []
     for path in sorted(files):
+        if any(
+            path.resolve().is_relative_to(excluded) for excluded in excluded_roots
+        ):
+            continue
         if (
             path.suffix not in SOURCE_SUFFIXES
             or path.resolve() == Path(__file__).resolve()

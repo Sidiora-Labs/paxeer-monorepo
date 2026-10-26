@@ -21,12 +21,12 @@ import (
 
 // Replication wire format. The primary sends a group as u32be count ‖ count WAL frames, each
 // u32be crc32c(entry) ‖ u32be len(entry) ‖ entry exactly as the WAL writes it. The standby answers
-// every group with one Ack: u8 status ‖ u64be lastSeq ‖ u64be gapFrom ‖ u64be gapTo.
+// every group with one Ack: u8 status ‖ u64be lastSeq ‖ u64be gapFrom ‖ u64be gapTo ‖ u64be epoch.
 const (
 	maxGroupFrames  = 1 << 20
 	maxGroupBytes   = 256 << 20
 	frameHeaderSize = 8
-	ackSize         = 25
+	ackSize         = 33
 )
 
 var frameCRC = crc32.MakeTable(crc32.Castagnoli)
@@ -38,6 +38,8 @@ var (
 	// ErrStandbyRefused is returned by Release when the standby answered with a refusal; no receipt
 	// of the group may be released.
 	ErrStandbyRefused = errors.New("sequencer: standby refused the group")
+	// ErrFenced is returned when the standby holds a later lease than this primary.
+	ErrFenced = errors.New("sequencer: a later lease fences this primary")
 	// ErrGroupTooLarge marks a replication group over maxGroupFrames frames or maxGroupBytes bytes.
 	ErrGroupTooLarge = errors.New("sequencer: replication group too large")
 	// ErrSharedKey is returned by NewStandby when the standby would sign with a primary key.
@@ -71,6 +73,8 @@ type Ack struct {
 	// a fresh link, zero when there were none.
 	GapFrom uint64
 	GapTo   uint64
+	// Epoch is the held lease epoch when the standby refuses a group after taking leadership.
+	Epoch uint64
 }
 
 func (a Ack) encode() [ackSize]byte {
@@ -79,6 +83,7 @@ func (a Ack) encode() [ackSize]byte {
 	binary.BigEndian.PutUint64(b[1:9], a.LastSeq)
 	binary.BigEndian.PutUint64(b[9:17], a.GapFrom)
 	binary.BigEndian.PutUint64(b[17:25], a.GapTo)
+	binary.BigEndian.PutUint64(b[25:33], a.Epoch)
 	return b
 }
 
@@ -88,6 +93,7 @@ func decodeAck(b [ackSize]byte) (Ack, error) {
 		LastSeq: binary.BigEndian.Uint64(b[1:9]),
 		GapFrom: binary.BigEndian.Uint64(b[9:17]),
 		GapTo:   binary.BigEndian.Uint64(b[17:25]),
+		Epoch:   binary.BigEndian.Uint64(b[25:33]),
 	}
 	switch a.Status {
 	case AckOK, AckGap, AckRefused:
@@ -169,6 +175,7 @@ type ReplicatorConfig struct {
 	// ReplicationTimeout bounds dialling, sending a group and reading the standby's ack, gap
 	// refill included. It is set at activation rehearsal; there is no default.
 	ReplicationTimeout time.Duration
+	OnWALSync          func(time.Duration)
 }
 
 // Replicator makes groups of WAL records durable on the primary and the standby before their
@@ -176,12 +183,14 @@ type ReplicatorConfig struct {
 type Replicator struct {
 	// ponytail: one Release at a time keeps the wire in WAL order; pipeline groups if one fsync
 	// plus one round trip per group caps throughput.
-	mu       sync.Mutex
-	wal      *wal.WAL
-	dial     func(ctx context.Context) (net.Conn, error)
-	timeout  time.Duration
-	conn     net.Conn
-	retained []retainedFrame
+	mu        sync.Mutex
+	wal       *wal.WAL
+	dial      func(ctx context.Context) (net.Conn, error)
+	timeout   time.Duration
+	onWALSync func(time.Duration)
+	conn      net.Conn
+	retained  []retainedFrame
+	epoch     uint64
 }
 
 // retainedFrame is a record kept until the standby acknowledges a later COMMITTED; the retained
@@ -203,12 +212,12 @@ func NewReplicator(cfg ReplicatorConfig) (*Replicator, error) {
 	if cfg.ReplicationTimeout <= 0 {
 		return nil, fmt.Errorf("sequencer: replication timeout %s must be positive", cfg.ReplicationTimeout)
 	}
-	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, timeout: cfg.ReplicationTimeout}, nil
+	return &Replicator{wal: cfg.WAL, dial: cfg.Dial, timeout: cfg.ReplicationTimeout, onWALSync: cfg.OnWALSync}, nil
 }
 
 // Release appends entries to the local WAL, waits for the group fsync that covers them, streams
 // them to the standby and waits for its ack. The receipts of the ACCEPT entries may be returned
-// only when Release returns nil; on ErrNoAck or ErrStandbyRefused the send fails and no receipt
+// only when Release returns nil; on ErrNoAck, ErrStandbyRefused or ErrFenced the send fails and no receipt
 // is issued. Records the standby has not acknowledged are resent on every fresh link and when it
 // requests a gap.
 func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, error) {
@@ -242,12 +251,18 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 			rf.seq = v.Seq
 		case *wal.Committed:
 			rf.committed = true
+		case *wal.Lease:
+			r.epoch = v.Epoch
 		}
 		r.retained = append(r.retained, rf)
 		pending = append(pending, p)
 	}
+	syncStart := time.Now()
 	if _, err := r.wal.GroupSync(); err != nil {
 		return Ack{}, err
+	}
+	if r.onWALSync != nil {
+		r.onWALSync(time.Since(syncStart))
 	}
 	for _, p := range pending {
 		if err := p.Wait(ctx); err != nil {
@@ -260,6 +275,13 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 	}
 	r.pruneRetained()
 	return ack, nil
+}
+
+// Epoch returns the last lease epoch released by this primary.
+func (r *Replicator) Epoch() uint64 {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.epoch
 }
 
 // replicate sends frames, the tail of the retained window, all within the replication timeout.
@@ -295,6 +317,9 @@ func (r *Replicator) replicate(ctx context.Context, frames []wal.Frame, maxSeq u
 	case AckGap:
 		return Ack{}, fmt.Errorf("%w: standby still misses seqs %d..%d after the retained window", ErrNoAck, ack.GapFrom, ack.GapTo)
 	default:
+		if ack.Status == AckRefused && ack.Epoch > r.epoch {
+			return Ack{}, fmt.Errorf("%w: standby holds epoch %d, primary epoch %d", ErrFenced, ack.Epoch, r.epoch)
+		}
 		return Ack{}, fmt.Errorf("%w: standby holds seq %d", ErrStandbyRefused, ack.LastSeq)
 	}
 }
@@ -487,6 +512,7 @@ type Standby struct {
 	receiptKey   ed25519.PrivateKey
 	cur          standbyCursor
 	failed       error
+	leader       bool
 }
 
 // NewStandby checks that the standby holds its own consensus and receipt keys, then replays the
@@ -537,8 +563,12 @@ func NewStandby(ctx context.Context, cfg StandbyConfig) (*Standby, error) {
 		receiptKey:   cfg.ReceiptKey,
 		cur:          cur,
 	}
-	if _, err := cfg.WAL.Replay(standbyReplay{s}); err != nil {
+	res, err := cfg.WAL.Replay(standbyReplay{s})
+	if err != nil {
 		return nil, fmt.Errorf("sequencer: standby wal replay: %w", err)
+	}
+	if res.Lease != nil {
+		s.cur.leaseEpoch = res.Lease.Epoch
 	}
 	return s, nil
 }
@@ -568,6 +598,25 @@ func (s *Standby) LastSeq() uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.cur.lastSeq
+}
+
+// TakeLease durably takes a later lease and fences further replication from the primary.
+func (s *Standby) TakeLease(l *wal.Lease) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if l.Epoch <= s.cur.leaseEpoch {
+		return fmt.Errorf("%w: epoch %d, held %d", ErrStaleLease, l.Epoch, s.cur.leaseEpoch)
+	}
+	if s.failed != nil {
+		return s.failed
+	}
+	if err := s.persist([]wal.Entry{l}); err != nil {
+		s.failed = err
+		return err
+	}
+	s.cur.advance(l)
+	s.leader = true
+	return nil
 }
 
 // Err returns the failure that stopped the standby, nil while it acknowledges.
@@ -616,6 +665,9 @@ func (s *Standby) serveConn(conn net.Conn) {
 func (s *Standby) receive(entries []wal.Entry) Ack {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.leader {
+		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq, Epoch: s.cur.leaseEpoch}
+	}
 	if s.failed != nil {
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
