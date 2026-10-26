@@ -41,15 +41,18 @@ import (
 )
 
 const (
-	RequestMethod      = "request"
-	FulfilMethod       = "fulfil"
-	RefundMethod       = "refund"
-	GetRequestMethod   = "getRequest"
-	GetResultMethod    = "getResult"
-	GetAttestorsMethod = "getAttestors"
-	ThresholdMethod    = "threshold"
-	FeeMethod          = "fee"
-	GetParamsMethod    = "getParams"
+	RequestMethod            = "request"
+	FulfilMethod             = "fulfil"
+	FulfilProgramMethod      = "fulfilProgram"
+	RefundMethod             = "refund"
+	GetRequestMethod         = "getRequest"
+	GetResultMethod          = "getResult"
+	GetAttestorsMethod       = "getAttestors"
+	ThresholdMethod          = "threshold"
+	FeeMethod                = "fee"
+	GetParamsMethod          = "getParams"
+	GetProgramResultMethod   = "getProgramResult"
+	GetKernelNetworkIdMethod = "getKernelNetworkId"
 
 	CallbackMethod    = "onXWebResponse"
 	CallbackSignature = "onXWebResponse(uint64,bytes32,uint32,bytes)"
