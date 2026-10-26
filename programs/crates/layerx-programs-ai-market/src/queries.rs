@@ -34,7 +34,7 @@ const CURSOR_TAG_BYTES: usize = 32;
 pub const CURSOR_TOKEN_BYTES: usize = 2 * (CURSOR_PAYLOAD_BYTES + CURSOR_TAG_BYTES);
 /// Content-identity prefix through `roster_digest` with epoch and roster present.
 const BINDING_PREFIX_MAX_BYTES: usize = 2 + 3 * 32 + 8 + 8 + 32 + 32 + 8 + 32 + 9 + 8 + 32 + 33;
-pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 32 + 33 + 1 + 8 + 8;
+pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 3 * 32 + 1 + 8 + 8;
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
@@ -167,7 +167,7 @@ pub struct ReadProof {
     pub native_state_root: Digest32,
     pub observed_sequence: u64,
     pub execution_height: u64,
-    pub batch_id: Digest32,
+    pub block_hash: Digest32,
 }
 
 /// Facts of one complete capture: every chunk proved the same root and state identity.
@@ -270,12 +270,14 @@ impl<'a> StateCapture<'a> {
     }
 }
 
-/// Finality evidence supplied by the native checkpoint verifier for one root.
+/// Finality evidence supplied by the native block-commit verifier for one root.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FinalityEvidence {
     pub native_state_root: Digest32,
-    pub checkpoint: Digest32,
-    pub settlement: Presence<Digest32>,
+    pub block_height: u64,
+    pub block_hash: Digest32,
+    pub app_hash: Digest32,
+    pub store_proof_digest: Digest32,
     pub rank: u8,
 }
 
@@ -295,8 +297,10 @@ pub struct SnapshotBinding {
     pub config: Version,
     pub policy: PolicyDigest,
     pub roster: Presence<RosterDigest>,
-    pub checkpoint: Digest32,
-    pub settlement: Presence<Digest32>,
+    pub block_height: u64,
+    pub block_hash: Digest32,
+    pub app_hash: Digest32,
+    pub store_proof_digest: Digest32,
     pub rank: u8,
     pub publication_time_ms: u64,
 }
@@ -305,7 +309,7 @@ pub struct SnapshotBinding {
 ///
 /// # Errors
 /// `BindingMismatch` when the evidence names another root or the state differs from the
-/// capture, `NON_CANONICAL` for a rank above 4, and header refusals of [`read_header`].
+/// capture, `NON_CANONICAL` for a zero block or app hash, and header refusals of [`read_header`].
 pub fn bind_snapshot(
     state_bytes: &[u8],
     facts: &CaptureFacts,
@@ -319,7 +323,7 @@ pub fn bind_snapshot(
     {
         return Err(QueryError::BindingMismatch);
     }
-    if finality.rank > FINALIZED_RANK {
+    if finality.block_hash.bytes() == [0; 32] || finality.app_hash.bytes() == [0; 32] {
         return Err(NON_CANONICAL.into());
     }
     Ok(SnapshotBinding {
@@ -328,7 +332,7 @@ pub fn bind_snapshot(
         market: header.market,
         observed_sequence: facts.proof.observed_sequence,
         execution_height: facts.proof.execution_height,
-        batch_id: facts.proof.batch_id,
+        batch_id: facts.proof.block_hash,
         native_state_root: facts.proof.native_state_root,
         revision: header.revision,
         state_digest: header.digest,
@@ -336,9 +340,11 @@ pub fn bind_snapshot(
         config: header.config,
         policy: policy_digest(state_bytes)?,
         roster: header.roster,
-        checkpoint: finality.checkpoint,
-        settlement: finality.settlement,
-        rank: finality.rank,
+        block_height: finality.block_height,
+        block_hash: finality.block_hash,
+        app_hash: finality.app_hash,
+        store_proof_digest: finality.store_proof_digest,
+        rank: FINALIZED_RANK,
         publication_time_ms,
     })
 }
@@ -370,14 +376,16 @@ impl SnapshotBinding {
         }
         let mut w = Writer::new(out);
         self.write_prefix(&mut w)?;
-        w.put(self.checkpoint.as_bytes())?;
-        w.presence(&self.settlement, |w, s| w.put(s.as_bytes()))?;
+        w.u64(self.block_height)?;
+        w.put(self.block_hash.as_bytes())?;
+        w.put(self.app_hash.as_bytes())?;
+        w.put(self.store_proof_digest.as_bytes())?;
         w.u8(self.rank)?;
         w.u64(self.publication_time_ms)?;
         w.put(&[0; 8])?;
         Ok(w.len())
     }
-    /// Content identity; excludes checkpoint/settlement evidence, rank and publication time.
+    /// Content identity; excludes block-commit evidence, rank and publication time.
     ///
     /// # Errors
     /// Propagates prefix encoding failures.

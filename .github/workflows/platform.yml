@@ -591,7 +591,7 @@ jobs:
       LAYERX_RELEASE_DISTRIBUTION: https://crates.io
       LAYERX_RELEASE_PACKAGES: >-
         layerx-agent-api layerx-client layerx-crypto layerx-mirror layerx-programs-runtime
-        layerx-proof layerx-sdk layerx-types layerx-wire
+        layerx-proof layerx-sdk layerx-types
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
       LAYERX_RELEASE_OUTPUT: build/release/crates-io
     steps:

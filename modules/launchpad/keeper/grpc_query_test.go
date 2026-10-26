@@ -38,7 +38,9 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			name: "Params",
 			call: func(t *testing.T, goCtx context.Context) error {
 				response, err := client.Params(goCtx, &types.QueryParamsRequest{})
-				require.Nil(t, response)
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, querier.GetParams(ctx), response.Params)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -281,8 +283,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
-			require.Equal(t, codes.Unimplemented, status.Code(err))
-			require.Equal(t, "method "+tc.name+" not implemented", status.Convert(err).Message())
+			if tc.name == "Params" {
+				require.NoError(t, err)
+			} else {
+				require.Equal(t, codes.Unimplemented, status.Code(err))
+				require.Equal(t, "method "+tc.name+" not implemented", status.Convert(err).Message())
+			}
 
 			err = tc.nilRequest(t, sdk.WrapSDKContext(ctx))
 			require.Equal(t, codes.InvalidArgument, status.Code(err))

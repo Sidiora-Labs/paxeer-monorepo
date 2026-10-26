@@ -214,6 +214,11 @@ func makeNode(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create router: %w", err)
 	}
+	if gigaEnabled {
+		if giga, ok := router.Giga().Get(); ok {
+			giga.SetEventBus(eventBus)
+		}
+	}
 	node.router = router
 	node.rpcEnv.Router = router
 

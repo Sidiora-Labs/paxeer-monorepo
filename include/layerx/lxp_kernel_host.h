@@ -6,5 +6,6 @@
 lxp_result lxp_kernel_module_kv_load(lxp_kernel *kernel,
                                      const lxp_module_kv_entry *rows,
                                      size_t count);
+lxp_result lxp_kernel_claim_writer(lxp_kernel *kernel);
 
 #endif

@@ -46,6 +46,7 @@ type SendAPI struct {
 type SendConfig struct {
 	slow           bool
 	keyringEnabled bool
+	syncTimeout    time.Duration
 	// Sequencer, set only on the sequencer, receives every raw transaction in place of the mempool.
 	Sequencer SequencerAccepter
 	// SequencerURL, set on every other node, is the EVM RPC endpoint raw transactions are forwarded to.

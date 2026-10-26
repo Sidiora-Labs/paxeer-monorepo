@@ -21,8 +21,11 @@ import urllib.request
 sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
+from candidate import SERVICE_CATALOGUE
+
 FIXTURE = Path(__file__).resolve().parent / "xweb_fixture.py"
-SPEC = ROOT / "spec/paxeer-x/spec.kvx"
+SPEC = ROOT / SERVICE_CATALOGUE
 CANDIDATE = ROOT / "tools/paxeer-x/candidate.py"
 UNKNOWN = "unknown"
 ATTACHMENT_FIELDS = (
