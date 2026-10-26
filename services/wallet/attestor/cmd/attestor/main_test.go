@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
@@ -25,14 +26,17 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/backup"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/health"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/server"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
 )
@@ -332,6 +336,193 @@ func TestRunSeparatesOperatorAndGatewayAuthority(t *testing.T) {
 	}
 }
 
+func runMetricsDaemon(t *testing.T) (string, *http.Client, *http.Client) {
+	t.Helper()
+	dir := t.TempDir()
+	gateway, gatewayCA, _ := makeCert(t, dir, "gateway-ca", nil, true)
+	operator, operatorCA, _ := makeCert(t, dir, "operator-ca", nil, true)
+	node, nodeCert, nodeKey := makeCert(t, dir, "node-1", gateway, false)
+	_, gatewayCert, gatewayKey := makeCert(t, dir, "gateway-client", gateway, false)
+	_, operatorCert, operatorKey := makeCert(t, dir, "operator-client", operator, false)
+	keyFile := filepath.Join(dir, "store.key")
+	if err := os.WriteFile(keyFile, []byte(hex.EncodeToString(make([]byte, 31))+"06"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	producer, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicDER, err := x509.MarshalPKIXPublicKey(&producer.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicFile := filepath.Join(dir, "producer.pem")
+	writePEM(t, publicFile, "PUBLIC KEY", publicDER)
+	selfPin := transport.SPKIHash(node.cert)
+	members := []server.InventoryMember{{ID: "node-1", Pin: hex.EncodeToString(selfPin[:])}}
+	var peers, pins []string
+	for n := 2; n <= 5; n++ {
+		id := "node-" + strconv.Itoa(n)
+		peer, _, _ := makeCert(t, dir, id, gateway, false)
+		pin := transport.SPKIHash(peer.cert)
+		encoded := hex.EncodeToString(pin[:])
+		members = append(members, server.InventoryMember{ID: id, Pin: encoded})
+		peers = append(peers, id+"="+freeAddr(t))
+		pins = append(pins, id+"="+encoded)
+	}
+	now := time.Now().Unix()
+	inventory := server.WalletInventory{
+		SignedClaims: agent.SignedClaims{
+			Version: 1, Issuer: "metrics-test", Audience: agent.InventoryAudience,
+			Tenant: "metrics-test", Sequence: "1", IssuedAt: now - 1, ExpiresAt: now + 3600,
+		},
+		Protocol: "wallet", Threshold: 3, Members: members,
+	}
+	header, err := json.Marshal(map[string]string{"alg": "ES256", "typ": agent.InventoryAudience + "+jwt"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	payload, err := json.Marshal(inventory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	input := base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload)
+	digest := sha256.Sum256([]byte(input))
+	r, s, err := ecdsa.Sign(rand.Reader, producer, digest[:])
+	if err != nil {
+		t.Fatal(err)
+	}
+	signature := make([]byte, 64)
+	r.FillBytes(signature[:32])
+	s.FillBytes(signature[32:])
+	inventoryFile := filepath.Join(dir, "inventory.jwt")
+	if err := os.WriteFile(inventoryFile, []byte(input+"."+base64.RawURLEncoding.EncodeToString(signature)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	env := map[string]string{
+		config.EnvNodeID: "node-1", config.EnvListenAddr: "127.0.0.1:0", config.EnvPeerListenAddr: "127.0.0.1:0",
+		config.EnvPeers: strings.Join(peers, ","), config.EnvPeerPins: strings.Join(pins, ","),
+		config.EnvNodeKeyFile: keyFile, config.EnvDataDir: filepath.Join(dir, "data"), config.EnvChainID: "125",
+		config.EnvTLSCertFile: nodeCert, config.EnvTLSKeyFile: nodeKey,
+		config.EnvTLSCAFile: gatewayCA, config.EnvOperatorCAFile: operatorCA,
+		config.EnvActivityTypes: "0x10005", config.EnvAuthorityPublicKey: publicFile,
+		config.EnvAuthorityIssuer: "metrics-test", config.EnvAuthorityTenant: "metrics-test",
+		config.EnvInventoryPublicKey: publicFile, config.EnvInventoryFile: inventoryFile,
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer func() {
+		if t.Failed() {
+			cancel()
+		}
+	}()
+	readyCh := make(chan listening, 1)
+	done := make(chan error, 1)
+	go func() { done <- run(ctx, func(k string) string { return env[k] }, func(l listening) { readyCh <- l }) }()
+	var addrs listening
+	select {
+	case addrs = <-readyCh:
+	case err := <-done:
+		t.Fatalf("run exited early: %v", err)
+	case <-time.After(30 * time.Second):
+		t.Fatal("daemon did not start")
+	}
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Errorf("run returned %v after termination", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("daemon did not stop")
+		}
+	})
+	roots := x509.NewCertPool()
+	roots.AddCert(gateway.cert)
+	clientFor := func(certPath, keyPath string) *http.Client {
+		pair, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		client := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS13, Certificates: []tls.Certificate{pair}, RootCAs: roots,
+		}}}
+		t.Cleanup(client.CloseIdleConnections)
+		return client
+	}
+	return "https://" + addrs.API + server.PathMetrics, clientFor(operatorCert, operatorKey), clientFor(gatewayCert, gatewayKey)
+}
+
+func TestRunServesMetricsToTheOperator(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	if _, err := NewMetrics(registry); err != nil {
+		t.Fatal(err)
+	}
+	descriptors := make(chan *prometheus.Desc)
+	go func() {
+		registry.Describe(descriptors)
+		close(descriptors)
+	}()
+	registered := make(map[string]bool)
+	for desc := range descriptors {
+		for _, name := range []string{
+			"attestor_sessions_started_total", "attestor_sessions_completed_total", "attestor_refusals_total",
+			"attestor_signing_latency_seconds", "attestor_peer_rtt_seconds",
+		} {
+			if strings.Contains(desc.String(), `fqName: "`+name+`"`) {
+				registered[name] = true
+			}
+		}
+	}
+	if len(registered) != 5 {
+		t.Fatalf("registered metric families = %v, want all five attestor families", registered)
+	}
+	url, operator, gateway := runMetricsDaemon(t)
+	resp, err := gateway.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("gateway metrics status = %d", resp.StatusCode)
+	}
+	resp, err = operator.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusOK || !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/plain") {
+		t.Fatalf("operator metrics: status %d, headers %v, body %s", resp.StatusCode, resp.Header, body)
+	}
+	if !strings.Contains(string(body), `attestor_refusals_total{reason="operator_required"} 1`) {
+		t.Fatalf("daemon metrics lack the actual gateway refusal: %s", body)
+	}
+}
+
+func TestRunRefusesMetricsToTheGateway(t *testing.T) {
+	url, _, gateway := runMetricsDaemon(t)
+	resp, err := gateway.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusForbidden || body.Error.Code != "operator_required" {
+		t.Fatalf("gateway metrics: status %d, error %q", resp.StatusCode, body.Error.Code)
+	}
+}
+
 func TestRunRefusesKernelPolicyWithoutChainReader(t *testing.T) {
 	dir := t.TempDir()
 	ca, caPath, _ := makeCert(t, dir, "ca", nil, true)
@@ -613,6 +804,33 @@ func programTransfer(t *testing.T, key [32]byte, sequence uint64, amount int64) 
 		Account: effect.Account, Module: "programs", Operation: a.Type.Ordinal(), Amounts: effect.Amounts,
 		Destinations: effect.Destinations, Sequence: sequence, NotBefore: a.NotBefore, NotAfter: a.NotAfter,
 	}}
+}
+
+func ParseKernelPolicy(t *testing.T, path string) *lx.Document {
+	t.Helper()
+	doc, err := lx.LoadFile(path)
+	if err != nil {
+		t.Fatalf("load shipped kernel policy %s: %v", path, err)
+	}
+	return doc
+}
+
+func TestShippedKernelPolicyAdmitsOnlyAssetSend(t *testing.T) {
+	doc := ParseKernelPolicy(t, filepath.Join("..", "..", "..", "deploy", "attestor-kernel-policy.json"))
+	modules := doc.Defaults.Modules
+	operations := modules["asset"]
+	if len(modules) != 1 || len(operations) != 1 || operations[0] != 5 || operations[0] != lx.OpAssetTransfer.Ordinal() {
+		t.Fatalf("shipped kernel policy must admit only asset operation 5 (OpAssetTransfer), got %v", modules)
+	}
+	if len(doc.Accounts) != 0 {
+		t.Fatalf("shipped kernel policy must not override the asset-send defaults: %v", doc.Accounts)
+	}
+	if cap := doc.Defaults.Caps[lx.AssetNative]; cap != (lx.Cap{PerOperation: "1000000000000000000", Daily: "10000000000000000000"}) {
+		t.Fatalf("shipped native spend caps changed: %+v", cap)
+	}
+	if grant := doc.Defaults.Grants[lx.AssetNative]; grant != (lx.GrantCap{PerGrant: "100000000000000000", Daily: "1000000000000000000"}) {
+		t.Fatalf("shipped native grant caps changed: %+v", grant)
+	}
 }
 
 func TestPoliciesKeepKernelSpendsInTheNodeStore(t *testing.T) {

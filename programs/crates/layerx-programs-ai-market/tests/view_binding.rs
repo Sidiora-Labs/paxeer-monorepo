@@ -12,8 +12,8 @@ use layerx_programs_ai_market::{
         read_header, read_state_chunk, select_page, Availability, CaptureFacts, CursorKey,
         CursorScope, FinalityEvidence, KindFilter, ParticipantKind, ParticipantRow, QueryError,
         ReadProof, RewardField, ScoreField, ScoreStatus, StateCapture, BINDING_MAX_BYTES,
-        CURSOR_LIFETIME_MS, CURSOR_MAX_BYTES, CURSOR_TOKEN_BYTES, FULL_CAPTURE_CHUNKS,
-        PAGE_MAX_BYTES, PAGE_MAX_ROWS,
+        CURSOR_LIFETIME_MS, CURSOR_MAX_BYTES, CURSOR_TOKEN_BYTES, FINALIZED_RANK,
+        FULL_CAPTURE_CHUNKS, PAGE_MAX_BYTES, PAGE_MAX_ROWS,
     },
     registry::{derive_rewards_account, F01_SECTION_CAP},
     registry_ops::{self, Outcome},
@@ -249,7 +249,7 @@ fn proof(root: u8) -> Checked<ReadProof> {
         native_state_root: digest(root)?,
         observed_sequence: 77,
         execution_height: 1010,
-        batch_id: digest(0xBB)?,
+        block_hash: digest(0xBB)?,
     })
 }
 
@@ -329,61 +329,123 @@ fn header_reports_exact_state_identity_and_explicit_absence() -> Checked {
 }
 
 #[test]
-fn a02_finality_requires_rank4_evidence_bound_to_the_same_root() -> Checked {
+fn a02_v2_finality_binds_block_commit_of_the_same_root() -> Checked {
     let s = market_with_workers(2)?;
     let (bytes, facts) = capture(&s, 0xA1)?;
     assert_eq!(bytes, s);
-    let unfinalized = FinalityEvidence {
+    let finality = FinalityEvidence {
         native_state_root: digest(0xA1)?,
-        checkpoint: digest(0xC1)?,
-        settlement: Presence::Absent,
+        block_height: 1010,
+        block_hash: facts.proof.block_hash,
+        app_hash: digest(0xC1)?,
+        store_proof_digest: digest(0xD1)?,
         rank: 2,
     };
-    let sequenced = bind_snapshot(&bytes, &facts, &unfinalized, 5_000)?;
-    assert_eq!(
-        sequenced.require_finalized(),
-        Err(QueryError::FinalityUnavailable)
-    );
-    let other_root = FinalityEvidence {
-        native_state_root: digest(0xB2)?,
-        checkpoint: digest(0xC2)?,
-        settlement: Presence::Absent,
-        rank: 4,
-    };
-    assert_eq!(
-        bind_snapshot(&bytes, &facts, &other_root, 5_000),
-        Err(QueryError::BindingMismatch)
-    );
-    let finalized = FinalityEvidence {
-        native_state_root: digest(0xA1)?,
-        checkpoint: digest(0xC3)?,
-        settlement: Presence::Present(digest(0xD3)?),
-        rank: 4,
-    };
-    let published = bind_snapshot(&bytes, &facts, &finalized, 9_000)?;
+    let published = bind_snapshot(&bytes, &facts, &finality, 9_000)?;
+    assert_eq!(published.native_state_root, finality.native_state_root);
+    assert_eq!(published.block_height, finality.block_height);
+    assert_eq!(published.block_hash, finality.block_hash);
+    assert_eq!(published.app_hash, finality.app_hash);
+    assert_eq!(published.store_proof_digest, finality.store_proof_digest);
+    assert_eq!(published.batch_id, facts.proof.block_hash);
+    assert_eq!(published.rank, FINALIZED_RANK);
     assert_eq!(published.require_finalized(), Ok(()));
-    assert_eq!(published.snapshot_id()?, sequenced.snapshot_id()?);
-    let mut weak = [0u8; BINDING_MAX_BYTES];
-    let mut strong = [0u8; BINDING_MAX_BYTES];
-    let weak_len = sequenced.encode(&mut weak)?;
-    let strong_len = published.encode(&mut strong)?;
-    assert_eq!(strong_len, weak_len + 32);
-    assert_eq!(&weak[..ABSENT_PREFIX_BYTES], &strong[..ABSENT_PREFIX_BYTES]);
+    assert_eq!(published.publication_time_ms, 9_000);
+    assert_eq!(published.revision, facts.revision);
     assert_eq!(published.epoch, Presence::Absent);
     assert_eq!(published.state_digest, codec::state_digest(&s)?);
     assert_eq!(published.policy, policy_id()?);
-    let bad_rank = FinalityEvidence {
-        rank: 5,
-        ..finalized
+    for rank in [0, FINALIZED_RANK, FINALIZED_RANK + 1, u8::MAX] {
+        let evidence = FinalityEvidence { rank, ..finality };
+        let binding = bind_snapshot(&bytes, &facts, &evidence, 9_000)?;
+        assert_eq!(binding, published);
+    }
+
+    let rebound = bind_snapshot(
+        &bytes,
+        &facts,
+        &FinalityEvidence {
+            block_height: 1011,
+            block_hash: digest(0xB2)?,
+            app_hash: digest(0xC2)?,
+            store_proof_digest: digest(0xD2)?,
+            ..finality
+        },
+        10_000,
+    )?;
+    assert_eq!(published.snapshot_id()?, rebound.snapshot_id()?);
+    let mut encoded = [0u8; BINDING_MAX_BYTES];
+    let n = published.encode(&mut encoded)?;
+    let mut expected = finality.block_height.to_be_bytes().to_vec();
+    expected.extend_from_slice(finality.block_hash.as_bytes());
+    expected.extend_from_slice(finality.app_hash.as_bytes());
+    expected.extend_from_slice(finality.store_proof_digest.as_bytes());
+    expected.push(FINALIZED_RANK);
+    expected.extend_from_slice(&9_000u64.to_be_bytes());
+    expected.extend_from_slice(&[0; 8]);
+    assert_eq!(n, ABSENT_PREFIX_BYTES + expected.len());
+    assert_eq!(&encoded[ABSENT_PREFIX_BYTES..n], expected.as_slice());
+    let mut updated = [0u8; BINDING_MAX_BYTES];
+    let updated_len = rebound.encode(&mut updated)?;
+    assert_eq!(n, updated_len);
+    assert_eq!(
+        &encoded[..ABSENT_PREFIX_BYTES],
+        &updated[..ABSENT_PREFIX_BYTES]
+    );
+    assert_ne!(&encoded[..n], &updated[..updated_len]);
+    assert_eq!(s, bytes);
+    Ok(())
+}
+
+#[test]
+fn a02_v2_refuses_evidence_for_another_root_or_empty_commit() -> Checked {
+    let s = market_with_workers(2)?;
+    let (bytes, facts) = capture(&s, 0xA1)?;
+    let bind_commit = |native_state_root, block_hash, app_hash| {
+        let evidence = FinalityEvidence {
+            native_state_root,
+            block_height: 1010,
+            block_hash: Digest32::new(block_hash)?,
+            app_hash: Digest32::new(app_hash)?,
+            store_proof_digest: Digest32::new([0xD1; 32])?,
+            rank: FINALIZED_RANK,
+        };
+        bind_snapshot(&bytes, &facts, &evidence, 9_000)
     };
     assert_eq!(
-        bind_snapshot(&bytes, &facts, &bad_rank, 9_000),
-        Err(QueryError::Application(NON_CANONICAL))
+        bind_commit(digest(0xB2)?, [0xBB; 32], [0xC1; 32]),
+        Err(QueryError::BindingMismatch)
     );
+    for (block_hash, app_hash) in [
+        ([0; 32], [0xC1; 32]),
+        ([0xBB; 32], [0; 32]),
+        ([0; 32], [0; 32]),
+    ] {
+        assert_eq!(
+            bind_commit(digest(0xA1)?, block_hash, app_hash),
+            Err(QueryError::Application(NON_CANONICAL))
+        );
+    }
+    let published = bind_commit(digest(0xA1)?, [0xBB; 32], [0xC1; 32])?;
+    assert_eq!(published.require_finalized(), Ok(()));
+    let finality = FinalityEvidence {
+        native_state_root: digest(0xA1)?,
+        block_height: 1010,
+        block_hash: facts.proof.block_hash,
+        app_hash: digest(0xC1)?,
+        store_proof_digest: digest(0xD1)?,
+        rank: FINALIZED_RANK,
+    };
     let mut stale = facts;
     stale.revision += 1;
     assert_eq!(
-        bind_snapshot(&bytes, &stale, &finalized, 9_000),
+        bind_snapshot(&bytes, &stale, &finality, 9_000),
+        Err(QueryError::BindingMismatch)
+    );
+    let mut stale = facts;
+    stale.digest = StateDigest::new([0xE1; 32])?;
+    assert_eq!(
+        bind_snapshot(&bytes, &stale, &finality, 9_000),
         Err(QueryError::BindingMismatch)
     );
     Ok(())

@@ -136,6 +136,9 @@ func initRootCmd(
 		genutilcli.ValidateGenesisCmd(app.ModuleBasics),
 		AddGenesisAccountCmd(app.DefaultNodeHome),
 		AddGenesisWasmMsgCmd(app.DefaultNodeHome),
+		SequencerCmd(),
+		AddGenesisReceiptKeyCmd(app.DefaultNodeHome),
+		AddGenesisSequencerLeaderCmd(app.DefaultNodeHome),
 		tmcli.NewCompletionCmd(rootCmd, true),
 		debugCmd,
 		config.Cmd(),
@@ -221,7 +224,10 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
-func addModuleInitFlags(_ *cobra.Command) {}
+func addModuleInitFlags(startCmd *cobra.Command) {
+	wasm.AddModuleInitFlags(startCmd)
+	sequencer.AddStartFlags(startCmd)
+}
 
 // newApp creates a new Cosmos SDK app
 func newApp(

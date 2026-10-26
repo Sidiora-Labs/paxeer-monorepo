@@ -55,6 +55,7 @@ const (
 	ClassTimeout          = "timeout"
 	ClassTransport        = "transport_error"
 	ClassSignatureInvalid = "signature_invalid"
+	KindLXSendAuth        = server.KindLXSendAuth
 )
 
 type endpoint struct {
@@ -530,22 +531,28 @@ func (lt *loadTester) kernelRequest(seq uint64) (server.SignRequest, func(server
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
-	program := sha256.Sum256([]byte("attestor load test program"))
-	value := make([]byte, 16)
-	value[15] = 1
-	payload := append(append([]byte{}, program[:]...), 0, 1)
-	payload = append(append(append(append(payload, from[:]...), make([]byte, 32)...), to[:]...), value...)
 	now := uint64(time.Now().Unix())
+	idempotency := sha256.Sum256([]byte("attestor load test " + lt.runID + " " + strconv.FormatUint(seq, 10)))
+	send := &lxwire.Send{
+		From: from, To: to, Amount: lxwire.Uint128{Lo: 1}, SourceSequence: seq,
+		IdempotencyKey: idempotency, ExpiresAt: now + 600,
+		AuthorizationKind: lxwire.OwnerAuthorization, Controller: from, PublicKey: lt.edPublic,
+		NetworkID: uint32(lt.cfg.chainID), ProtocolVersion: lxwire.MaxProtocolVersion,
+	}
+	payload, err := send.Encode()
+	if err != nil {
+		return server.SignRequest{}, nil, err
+	}
 	a := &lxwire.Activity{
 		ProtocolVersion: lxwire.MaxProtocolVersion,
 		NetworkID:       uint32(lt.cfg.chainID),
-		Type:            lx.OpProgramCall,
+		Type:            lx.OpAssetTransfer,
 		ActorDID:        []byte(did),
 		Authority:       append([]byte{}, lt.edPublic[:]...),
 		AccountSequence: seq,
 		NotBefore:       now - 60,
 		NotAfter:        now + 600,
-		IdempotencyKey:  sha256.Sum256([]byte("attestor load test " + lt.runID + " " + strconv.FormatUint(seq, 10))),
+		IdempotencyKey:  idempotency,
 		FeeLimit:        lxwire.Uint128{Lo: 1000},
 		PayloadHash:     lxwire.PayloadHash(payload),
 		Payload:         payload,
@@ -554,11 +561,11 @@ func (lt *loadTester) kernelRequest(seq uint64) (server.SignRequest, func(server
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
-	pre, err := lxwire.SignaturePreimage(a)
+	pre, err := send.AuthorizationDigest()
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
-	effect, err := lx.DecodeEffect(a)
+	_, effect, err := lx.DecodeSendAuthorization(a)
 	if err != nil {
 		return server.SignRequest{}, nil, err
 	}
@@ -580,7 +587,7 @@ func (lt *loadTester) kernelRequest(seq uint64) (server.SignRequest, func(server
 		sig, err := hex.DecodeString(r.Signature)
 		return err == nil && r.SignedBytes == hex.EncodeToString(pre[:]) && ed25519.Verify(pub, pre[:], sig)
 	}
-	return server.SignRequest{SessionID: session, KeyID: lt.edKey, Kind: server.KindLXActivity, Activity: hex.EncodeToString(unsigned), Disclosure: disclosure, Approval: approval}, verify, nil
+	return server.SignRequest{SessionID: session, KeyID: lt.edKey, Kind: KindLXSendAuth, Activity: hex.EncodeToString(unsigned), Disclosure: disclosure, Approval: approval}, verify, nil
 }
 
 func (lt *loadTester) sessionID(seq uint64) string {

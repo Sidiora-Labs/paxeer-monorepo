@@ -3,6 +3,22 @@
 #include <stdlib.h>
 #include <string.h>
 
+lxp_result lxp_kernel_claim_writer(lxp_kernel *kernel)
+{
+    lxp_result status = LXP_OK;
+
+    if (kernel == NULL || kernel->state == NULL || kernel->journal == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    if (pthread_mutex_lock(&kernel->state->lock) != 0) return LXP_ERR_IO;
+    if (kernel->journal->open)
+        status = LXP_ERR_CONTEXT_MISMATCH;
+    else
+        kernel->state->writer = pthread_self();
+    if (pthread_mutex_unlock(&kernel->state->lock) != 0)
+        return LXP_FATAL_INVARIANT;
+    return status;
+}
+
 static int kv_order(const void *left_row, const void *right_row)
 {
     const lxp_module_kv_entry *left = left_row;

@@ -502,7 +502,7 @@ func readAmount(amount C.struct_lxp_u128) sdk.Int {
 	return sdk.NewIntFromBigInt(value)
 }
 
-func (h *Host) withRead(ctx sdk.Context, read func(*C.lxphost_read_state) error) (err error) {
+func (h *Host) withRead(ctx sdk.Context, modules []uint16, read func(*C.lxphost_read_state) error) (err error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if h.node == nil {
@@ -528,33 +528,24 @@ func (h *Host) withRead(ctx sdk.Context, read func(*C.lxphost_read_state) error)
 			err = releaseErr
 		}
 	}()
-	if err := loadReadState(branch.store, state); err != nil {
+	if err := loadReadState(branch.store, state, modules); err != nil {
 		return err
 	}
 	return read(state)
 }
 
-func loadReadState(store sdk.KVStore, state *C.lxphost_read_state) error {
-	for _, prefix := range []byte{moduleKVPrefix, idempotencyPrefix} {
-		iterator := sdk.KVStorePrefixIterator(store, []byte{prefix})
+func loadReadState(store sdk.KVStore, state *C.lxphost_read_state, modules []uint16) error {
+	for _, module := range modules {
+		iterator := sdk.KVStorePrefixIterator(store, moduleKVKey(module, nil))
 		var err error
 		for ; iterator.Valid(); iterator.Next() {
 			key, value := iterator.Key(), iterator.Value()
-			if prefix == moduleKVPrefix {
-				if len(key) < 4 {
-					err = codeFatalInvariant
-					break
-				}
-				err = result(C.lxphost_read_kv(state, C.uint16_t(binary.BigEndian.Uint16(key[1:3])),
-					bytesPtr(key[3:]), C.size_t(len(key)-3), bytesPtr(value), C.size_t(len(value))))
-			} else {
-				if len(key) != 33 {
-					err = codeFatalInvariant
-					break
-				}
-				err = result(C.lxphost_read_replay_load(state, bytesPtr(key[1:]),
-					bytesPtr(value), C.size_t(len(value))))
+			if len(key) < 4 {
+				err = codeFatalInvariant
+				break
 			}
+			err = result(C.lxphost_read_kv(state, C.uint16_t(module),
+				bytesPtr(key[3:]), C.size_t(len(key)-3), bytesPtr(value), C.size_t(len(value))))
 			if err != nil {
 				break
 			}
@@ -572,7 +563,7 @@ func loadReadState(store sdk.KVStore, state *C.lxphost_read_state) error {
 
 func (h *Host) ReadAsset(ctx sdk.Context, id [32]byte) (AssetRecord, error) {
 	var out AssetRecord
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET}, func(state *C.lxphost_read_state) error {
 		var record C.lx_asset_record
 		if err := result(C.lxphost_read_asset(state, bytes32(&id), &record)); err != nil {
 			return err
@@ -605,7 +596,7 @@ func (h *Host) ReadAsset(ctx sdk.Context, id [32]byte) (AssetRecord, error) {
 
 func (h *Host) ReadBalance(ctx sdk.Context, accountID, assetID [32]byte) (sdk.Int, error) {
 	out := sdk.ZeroInt()
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET}, func(state *C.lxphost_read_state) error {
 		var amount C.struct_lxp_u128
 		if err := result(C.lx_asset_balance_get(state.store.accounts, bytes32(&accountID), bytes32(&assetID), &amount)); err != nil {
 			return err
@@ -621,7 +612,7 @@ func (h *Host) ReadBalance(ctx sdk.Context, accountID, assetID [32]byte) (sdk.In
 
 func (h *Host) ReadTotalUnits(ctx sdk.Context, assetID [32]byte) (sdk.Int, error) {
 	out := sdk.ZeroInt()
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET}, func(state *C.lxphost_read_state) error {
 		var amount C.struct_lxp_u128
 		if err := result(C.lxphost_read_total(state, bytes32(&assetID), &amount)); err != nil {
 			return err
@@ -637,7 +628,7 @@ func (h *Host) ReadTotalUnits(ctx sdk.Context, assetID [32]byte) (sdk.Int, error
 
 func (h *Host) ReadAccountOwner(ctx sdk.Context, accountID [32]byte) ([32]byte, error) {
 	var owner [32]byte
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, nil, func(state *C.lxphost_read_state) error {
 		return result(C.lxphost_read_owner(state, bytes32(&accountID), bytes32(&owner)))
 	})
 	if err != nil {
@@ -648,7 +639,7 @@ func (h *Host) ReadAccountOwner(ctx sdk.Context, accountID [32]byte) ([32]byte, 
 
 func (h *Host) ReadAccount(ctx sdk.Context, name string, accountID [32]byte) (AccountRecord, error) {
 	var out AccountRecord
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, nil, func(state *C.lxphost_read_state) error {
 		var account C.lx_account
 		nameBytes := []byte(name)
 		if err := result(C.lxphost_read_account(state, bytesPtr(nameBytes), C.size_t(len(nameBytes)), bytes32(&accountID), &account)); err != nil {
@@ -681,7 +672,7 @@ func (h *Host) ReadAccount(ctx sdk.Context, name string, accountID [32]byte) (Ac
 
 func (h *Host) ReadSessionKey(ctx sdk.Context, grantID [32]byte) ([]byte, error) {
 	var summary [209]byte
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_GOVERNANCE}, func(state *C.lxphost_read_state) error {
 		return result(C.lxp_governance_session_key_read(&state.kernel, bytes32(&grantID), bytesPtr(summary[:])))
 	})
 	if err != nil {
@@ -692,7 +683,7 @@ func (h *Host) ReadSessionKey(ctx sdk.Context, grantID [32]byte) ([]byte, error)
 
 func (h *Host) ReadGrant(ctx sdk.Context, grantID [32]byte) (AuthorityGrant, error) {
 	var out AuthorityGrant
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_GOVERNANCE}, func(state *C.lxphost_read_state) error {
 		var grant C.lxp_authority_grant
 		if err := result(C.lxp_authority_grant_load(&state.kernel, bytes32(&grantID), &grant)); err != nil {
 			return err
@@ -734,7 +725,7 @@ func (h *Host) ReadGrant(ctx sdk.Context, grantID [32]byte) (AuthorityGrant, err
 
 func (h *Host) ReadIsLive(ctx sdk.Context, grantID [32]byte, atSequence uint64) (bool, error) {
 	live := false
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_GOVERNANCE}, func(state *C.lxphost_read_state) error {
 		var grant C.lxp_authority_grant
 		if err := result(C.lxp_authority_grant_load(&state.kernel, bytes32(&grantID), &grant)); err != nil {
 			return err
@@ -762,7 +753,7 @@ func (h *Host) ReadIsLive(ctx sdk.Context, grantID [32]byte, atSequence uint64) 
 
 func (h *Host) ReadCapabilityScope(ctx sdk.Context, grantID [32]byte) (AuthorityScope, error) {
 	var out AuthorityScope
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_GOVERNANCE}, func(state *C.lxphost_read_state) error {
 		var grant C.lxp_authority_grant
 		if err := result(C.lxp_authority_grant_load(&state.kernel, bytes32(&grantID), &grant)); err != nil {
 			return err
@@ -780,7 +771,7 @@ func (h *Host) ReadCapabilityScope(ctx sdk.Context, grantID [32]byte) (Authority
 // It does not authenticate a signature or validate a concrete activity type.
 func (h *Host) ReadCheckActivity(ctx sdk.Context, actorDID []byte, grantID [32]byte, payloadHash [32]byte) (AuthorityState, error) {
 	var out AuthorityState
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_GOVERNANCE}, func(state *C.lxphost_read_state) error {
 		timestamp := ctx.BlockTime().UnixMilli()
 		if timestamp < 0 {
 			return codeNonCanonical
@@ -807,7 +798,7 @@ func (h *Host) ReadCheckActivity(ctx sdk.Context, actorDID []byte, grantID [32]b
 
 func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityState, error) {
 	var out IdentityState
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_GOVERNANCE}, func(state *C.lxphost_read_state) error {
 		var identity C.struct_lxp_identity
 		var grant C.lxp_authority_grant
 		var authority C.struct_lxp_authority_resolved
@@ -856,7 +847,7 @@ func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityStat
 
 func (h *Host) ReadPayerGrant(ctx sdk.Context, grantID [32]byte) (PayerGrantState, error) {
 	var out PayerGrantState
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET}, func(state *C.lxphost_read_state) error {
 		var grant C.lxp_grant_state
 		if err := result(C.lx_asset_payer_grant_read(&state.kernel, bytes32(&grantID), &grant)); err != nil {
 			return err
@@ -888,7 +879,28 @@ func (h *Host) ReadPayerGrant(ctx sdk.Context, grantID [32]byte) (PayerGrantStat
 
 func (h *Host) ReadIdempotentReceipt(ctx sdk.Context, actorDID []byte, key [32]byte) (Receipt, error) {
 	var out Receipt
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, nil, func(state *C.lxphost_read_state) error {
+		iterator := sdk.KVStorePrefixIterator(ctx.KVStore(h.cfg.StoreKey), []byte{idempotencyPrefix})
+		var err error
+		for ; iterator.Valid(); iterator.Next() {
+			key, value := iterator.Key(), iterator.Value()
+			if len(key) != 33 {
+				err = codeFatalInvariant
+				break
+			}
+			err = result(C.lxphost_read_replay_load(state, bytesPtr(key[1:]),
+				bytesPtr(value), C.size_t(len(value))))
+			if err != nil {
+				break
+			}
+		}
+		closeErr := iterator.Close()
+		if err != nil {
+			return err
+		}
+		if closeErr != nil {
+			return codeFatalInvariant
+		}
 		var receipt C.struct_lxp_receipt
 		var encoded *C.uint8_t
 		var length C.size_t
@@ -944,7 +956,7 @@ func (h *Host) ReadIdentitySequence(ctx sdk.Context, actorDID []byte) (uint64, e
 
 func (h *Host) ReadStreamAccrued(ctx sdk.Context, streamID [32]byte, atBlock uint64) (sdk.Int, error) {
 	out := sdk.ZeroInt()
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_STREAM}, func(state *C.lxphost_read_state) error {
 		var amount C.struct_lxp_u128
 		if err := result(C.lxphost_read_stream_accrued(state, bytes32(&streamID), C.uint64_t(atBlock), &amount)); err != nil {
 			return err
@@ -960,7 +972,7 @@ func (h *Host) ReadStreamAccrued(ctx sdk.Context, streamID [32]byte, atBlock uin
 
 func (h *Host) readRecord(ctx sdk.Context, module uint16, key []byte) ([]byte, error) {
 	var out []byte
-	err := h.withRead(ctx, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{module}, func(state *C.lxphost_read_state) error {
 		var encoded *C.uint8_t
 		var length C.size_t
 		if err := result(C.lxphost_read_record(state, C.uint16_t(module), bytesPtr(key), C.size_t(len(key)), &encoded, &length)); err != nil {

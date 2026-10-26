@@ -34,6 +34,8 @@ type SubscriptionAPI struct {
 	logFetcher          *LogFetcher
 	newHeadListenersMtx *sync.RWMutex
 	newHeadListeners    map[rpc.ID]chan map[string]interface{}
+	logSubscriptionsMtx sync.Mutex
+	logSubscriptions    map[rpc.ID]*rpc.Subscription
 	connectionType      ConnectionType
 	// receiptLogs, set by the sequencer's WebSocket server, feeds logs
 	// subscriptions from the logs of receipted transactions.
@@ -43,6 +45,7 @@ type SubscriptionAPI struct {
 type SubscriptionConfig struct {
 	subscriptionCapacity int
 	newHeadLimit         uint64
+	logLimit             uint64
 }
 
 func NewSubscriptionAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider func(int64) sdk.Context, logFetcher *LogFetcher, subscriptionConfig *SubscriptionConfig, filterConfig *FilterConfig, connectionType ConnectionType, blockHeaderNotifier *BlockHeaderNotifier) (*SubscriptionAPI, error) {
@@ -263,7 +266,24 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 		filter = unboundedFilter
 	}
 
+	a.logSubscriptionsMtx.Lock()
+	for id, sub := range a.logSubscriptions {
+		select {
+		case <-sub.Err():
+			delete(a.logSubscriptions, id)
+		default:
+		}
+	}
+	if a.subscriptonConfig != nil && a.subscriptonConfig.logLimit > 0 && uint64(len(a.logSubscriptions)) >= a.subscriptonConfig.logLimit {
+		a.logSubscriptionsMtx.Unlock()
+		return nil, errors.New("no new subscription can be created")
+	}
 	rpcSub := notifier.CreateSubscription()
+	if a.logSubscriptions == nil {
+		a.logSubscriptions = make(map[rpc.ID]*rpc.Subscription)
+	}
+	a.logSubscriptions[rpcSub.ID] = rpcSub
+	a.logSubscriptionsMtx.Unlock()
 
 	// Track subscription metrics
 	wpMetrics := GetGlobalMetrics()
@@ -271,13 +291,16 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 
 	if filter.BlockHash != nil {
 		go func() {
+			subCtx, cancel := context.WithCancel(context.Background())
+			defer cancel()
 			var err error
 			defer recoverAndLog()
+			defer a.removeLogSubscription(rpcSub.ID)
 			defer wpMetrics.RecordSubscriptionEnd()
-			logs, _, err := a.logFetcher.GetLogsByFilters(ctx, *filter, 0)
+			logs, _, err := a.logFetcher.GetLogsByFilters(subCtx, *filter, 0)
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
-				_ = notifier.Notify(rpcSub.ID, err)
+				logger.Warn("Ending logs subscription after fetch failure", "subscription", rpcSub.ID, "err", err)
 				return
 			}
 			for _, log := range logs {
@@ -296,17 +319,20 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	}
 
 	go func() {
+		subCtx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 		var err error
 		defer recoverAndLog()
+		defer a.removeLogSubscription(rpcSub.ID)
 		defer wpMetrics.RecordSubscriptionEnd()
 		begin := int64(0)
 		for {
 			var logs []*ethtypes.Log
 			var lastToHeight int64
-			logs, lastToHeight, err = a.logFetcher.GetLogsByFilters(ctx, *filter, begin)
+			logs, lastToHeight, err = a.logFetcher.GetLogsByFilters(subCtx, *filter, begin)
 			if err != nil {
 				wpMetrics.RecordSubscriptionError()
-				_ = notifier.Notify(rpcSub.ID, err)
+				logger.Warn("Ending logs subscription after fetch failure", "subscription", rpcSub.ID, "err", err)
 				return
 			}
 			for _, log := range logs {
@@ -322,7 +348,7 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 			timer := time.NewTimer(SleepInterval)
 			select {
 			case <-timer.C:
-			case <-ctx.Done():
+			case <-rpcSub.Err():
 				timer.Stop()
 				return
 			}
@@ -330,6 +356,12 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 	}()
 
 	return rpcSub, nil
+}
+
+func (a *SubscriptionAPI) removeLogSubscription(id rpc.ID) {
+	a.logSubscriptionsMtx.Lock()
+	defer a.logSubscriptionsMtx.Unlock()
+	delete(a.logSubscriptions, id)
 }
 
 // notifyReceiptedLogs notifies the logs queued for listener, each once, at
@@ -340,6 +372,7 @@ func (a *SubscriptionAPI) Logs(ctx context.Context, filter *filters.FilterCriter
 // the open height passes its toBlock.
 func (a *SubscriptionAPI) notifyReceiptedLogs(notifier *rpc.Notifier, sub *rpc.Subscription, listener *receiptLogListener, wpMetrics *WorkerPoolMetrics) {
 	defer recoverAndLog()
+	defer a.removeLogSubscription(sub.ID)
 	defer wpMetrics.RecordSubscriptionEnd()
 	defer a.receiptLogs.removeLogListener(listener)
 	for {
@@ -453,7 +486,7 @@ func encodeCommittedHead(tmClient client.LocalClient, evt blockHeaderEvent, base
 // encodeCommittedBlock encodes the committed Autobahn head as an Ethereum
 // newHeads payload: parentHash from the last block id, transactionsRoot from
 // the data hash, receiptsRoot from the last results hash and stateRoot from the
-// finalize response's app hash. A head missing any of them is refused rather
+// header's app hash. A head missing any of them is refused rather
 // than published with zero roots. encodeCommittedHead replaces receiptsRoot
 // with the results root of the head's own block.
 func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64, execution headExecution) (map[string]interface{}, error) {
@@ -464,7 +497,7 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 	if len(header.LastBlockId.Hash) != common.HashLength || len(header.DataHash) != common.HashLength || len(header.LastResultsHash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d lacks canonical parent, transaction, and receipt roots", header.Height)
 	}
-	if len(evt.response.AppHash) != common.HashLength {
+	if len(header.AppHash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d lacks a state root", header.Height)
 	}
 	if len(evt.hash) != common.HashLength {
@@ -482,7 +515,7 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 		parent:   common.BytesToHash(header.LastBlockId.Hash),
 		txs:      txsRoot,
 		receipts: common.BytesToHash(header.LastResultsHash),
-		state:    common.BytesToHash(evt.response.AppHash),
+		state:    common.BytesToHash(header.AppHash),
 	}, execution.gasUsed, execution.bloom, baseFee, gasLimit)
 }
 

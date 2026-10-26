@@ -108,6 +108,32 @@ fn v2_receipt_verifies_offline() {
 }
 
 #[test]
+fn a_v2_proof_without_raw_transaction_still_verifies() {
+    let keys = published_keys(900);
+    let verified = PortableReceiptV2::verify_json(V2_RECEIPT_JSON.as_bytes(), &keys)
+        .unwrap_or_else(|error| panic!("existing v2 proof verifies: {error:?}"));
+    assert_eq!(verified.raw_transaction(), None);
+    assert_eq!(verified.signed_receipt(), v2_signed_bytes().as_slice());
+    assert_eq!(verified.receipt_digest(), V2_DIGEST);
+    assert_eq!(verified.receipt_key(), &keys[1]);
+    assert_eq!(verified.activity_id(), [3; 32]);
+    assert_eq!(verified.global_sequence(), 7);
+    assert_eq!(verified.result_code(), 0);
+    assert_eq!(verified.height(), 950);
+    assert_eq!(verified.inclusion_height(), 951);
+    assert_eq!(
+        verify_portable_json(V2_RECEIPT_JSON.as_bytes(), None, &keys),
+        Ok(PortableVerified::V2(verified))
+    );
+    let exported = PortableReceiptV2::export(&v2_signed_bytes(), &keys[1], 951)
+        .unwrap_or_else(|error| panic!("existing v2 proof exports: {error:?}"));
+    assert_eq!(exported.to_json(), Ok(V2_RECEIPT_JSON.as_bytes().to_vec()));
+    let json: serde_json::Value = serde_json::from_slice(&exported.to_json().unwrap())
+        .unwrap_or_else(|error| panic!("exported v2 JSON parses: {error:?}"));
+    assert!(json.get("rawTransaction").is_none());
+}
+
+#[test]
 fn v2_key_outside_height_window_is_refused() {
     let keys = published_keys(951);
     assert_eq!(

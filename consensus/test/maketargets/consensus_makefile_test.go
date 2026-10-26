@@ -126,3 +126,27 @@ func TestMakeFormatUsesModuleLocalPrefix(t *testing.T) {
 	}
 	t.Fatalf("make format dry run did not print a goimports command:\n%s", output)
 }
+
+func TestMakeRetiredContractTestTargets(t *testing.T) {
+	for _, target := range []string{"lint", "build-contract-tests-hooks", "contract-tests"} {
+		t.Run(target, func(t *testing.T) {
+			output, err := makeDryRun(t, target)
+			if err == nil {
+				t.Fatalf("make %s dry run succeeded for a retired target:\n%s", target, output)
+			}
+			if exitErr, ok := err.(*exec.ExitError); !ok || exitErr.ExitCode() == 0 {
+				t.Fatalf("make %s did not exit with a non-zero status: %v\n%s", target, err, output)
+			}
+			if !strings.Contains(output, "No rule to make target '"+target+"'") {
+				t.Errorf("make %s did not report a missing target:\n%s", target, output)
+			}
+		})
+	}
+	output, err := makeDryRun(t, "build")
+	if err != nil {
+		t.Fatalf("make build dry run failed: %v\n%s", err, output)
+	}
+	if !strings.Contains(output, "go build ") {
+		t.Errorf("make build dry run did not print a go build command:\n%s", output)
+	}
+}

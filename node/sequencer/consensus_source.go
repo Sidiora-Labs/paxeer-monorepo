@@ -11,6 +11,7 @@ import (
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
@@ -22,20 +23,40 @@ var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)
 // ConsensusSource is the consensus SequencerSource over an executor: it seals the open layer,
 // signs its MsgSequenceBatch with the pinned receipt key and seals it as tx 0 through SealBatch.
 type ConsensusSource struct {
-	app     *app.App
-	exec    Executor
-	key     *ReceiptKey
-	mu      sync.Mutex
-	pending *Batch
-	sealed  *SealedLayer
+	app      *app.App
+	exec     Executor
+	key      *ReceiptKey
+	repl     *Replicator
+	mu       sync.Mutex
+	pending  *Batch
+	prepared *SealedLayer
+	sealed   *SealedLayer
+}
+
+type ConsensusSourceOption func(*ConsensusSource) error
+
+func WithConsensusReplicator(repl *Replicator) ConsensusSourceOption {
+	return func(s *ConsensusSource) error {
+		if repl == nil {
+			return errors.New("sequencer: consensus source needs a replicator")
+		}
+		s.repl = repl
+		return nil
+	}
 }
 
 // NewConsensusSource builds the consensus source over exec on a, signing tx 0 with key.
-func NewConsensusSource(a *app.App, exec Executor, key *ReceiptKey) (*ConsensusSource, error) {
+func NewConsensusSource(a *app.App, exec Executor, key *ReceiptKey, opts ...ConsensusSourceOption) (*ConsensusSource, error) {
 	if a == nil || exec == nil || key == nil {
 		return nil, errors.New("sequencer: consensus source needs an app, executor and receipt key")
 	}
-	return &ConsensusSource{app: a, exec: exec, key: key}, nil
+	s := &ConsensusSource{app: a, exec: exec, key: key}
+	for _, opt := range opts {
+		if err := opt(s); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
 }
 
 // Sequenced reports whether the block at height is sequenced, read from the committed state
@@ -77,41 +98,57 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 	} else if batch.Height != height {
 		return tmtypes.SealedBlock{}, fmt.Errorf("%w: got %d, want %d", ErrSealHeight, height, batch.Height)
 	}
-	typed := make([]sdk.Tx, len(batch.Txs))
-	decode := s.app.GetTxConfig().TxDecoder()
-	for i, tx := range batch.Txs {
-		if typed[i], err = decode(tx); err != nil {
-			return tmtypes.SealedBlock{}, fmt.Errorf("%w: seq %d: %v", ErrUndecodableTx, batch.FromSeq+uint64(i), err) //nolint:gosec // i indexes the batch
+	if s.prepared == nil {
+		typed := make([]sdk.Tx, len(batch.Txs))
+		decode := s.app.GetTxConfig().TxDecoder()
+		for i, tx := range batch.Txs {
+			if typed[i], err = decode(tx); err != nil {
+				return tmtypes.SealedBlock{}, fmt.Errorf("%w: seq %d: %v", ErrUndecodableTx, batch.FromSeq+uint64(i), err) //nolint:gosec // i indexes the batch
+			}
 		}
+		fields := BatchFields(batch)
+		txRoot := s.app.SequencedTxRoot(batch.Txs, typed)
+		msg := seqtypes.MsgSequenceBatch{
+			Height:      fields.Height,
+			FromSeq:     fields.FromSeq,
+			ToSeq:       fields.ToSeq,
+			PrevSeqHash: fields.PrevSeqHash[:],
+			LastSeqHash: fields.LastSeqHash[:],
+			TxRoot:      txRoot[:],
+			KeyId:       keyID[:],
+		}
+		digest, err := msg.SignBytes(batch.Ctx.ChainID())
+		if err != nil {
+			return tmtypes.SealedBlock{}, err
+		}
+		msg.Sig = ed25519.Sign(s.key.private, digest[:])
+		sealed, _, err := SealBatch(s.app, batch, msg)
+		if err != nil {
+			return tmtypes.SealedBlock{}, err
+		}
+		s.prepared = sealed
 	}
-	fields := BatchFields(batch)
-	txRoot := s.app.SequencedTxRoot(batch.Txs, typed)
-	msg := seqtypes.MsgSequenceBatch{
-		Height:      fields.Height,
-		FromSeq:     fields.FromSeq,
-		ToSeq:       fields.ToSeq,
-		PrevSeqHash: fields.PrevSeqHash[:],
-		LastSeqHash: fields.LastSeqHash[:],
-		TxRoot:      txRoot[:],
-		KeyId:       keyID[:],
-	}
-	digest, err := msg.SignBytes(batch.Ctx.ChainID())
-	if err != nil {
-		return tmtypes.SealedBlock{}, err
-	}
-	msg.Sig = ed25519.Sign(s.key.private, digest[:])
-	sealed, tx0, err := SealBatch(s.app, batch, msg)
-	if err != nil {
-		return tmtypes.SealedBlock{}, err
+	sealed := s.prepared
+	if s.repl != nil {
+		fields := sealed.Batch
+		if _, err := s.repl.Release(ctx, &wal.Seal{
+			Height:      fields.Height,
+			FromSeq:     fields.FromSeq,
+			ToSeq:       fields.ToSeq,
+			LastSeqHash: fields.LastSeqHash,
+		}); err != nil {
+			return tmtypes.SealedBlock{}, err
+		}
 	}
 	s.sealed = sealed
 	s.pending = nil
+	s.prepared = nil
 	txs := make(tmtypes.Txs, len(batch.Txs))
 	for i, tx := range batch.Txs {
 		txs[i] = tx
 	}
 	return tmtypes.SealedBlock{
-		Batch:    tx0,
+		Batch:    sealed.Txs[0],
 		Txs:      txs,
 		OpenTime: time.UnixMilli(batch.TimestampMs).UTC(),
 	}, nil

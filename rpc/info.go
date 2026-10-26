@@ -52,7 +52,7 @@ type FeeHistoryResult struct {
 func (i *InfoAPI) BlockNumber(ctx context.Context) (result hexutil.Uint64, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_BlockNumber", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_blockNumber", i.connectionType, startTime, returnErr, recover())
 	}()
 	height, err := i.latestHeight(ctx)
 	if err != nil {
@@ -67,14 +67,14 @@ func (i *InfoAPI) BlockNumber(ctx context.Context) (result hexutil.Uint64, retur
 //nolint:revive
 func (i *InfoAPI) ChainId(ctx context.Context) *hexutil.Big {
 	startTime := time.Now()
-	defer recordMetrics(ctx, "eth_ChainId", i.connectionType, startTime)
+	defer recordMetrics(ctx, "eth_chainId", i.connectionType, startTime)
 	return (*hexutil.Big)(i.keeper.ChainID(i.ctxProvider(LatestCtxHeight)))
 }
 
 func (i *InfoAPI) Coinbase(ctx context.Context) (addr common.Address, err error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_Coinbase", i.connectionType, startTime, err, recover())
+		recordMetricsWithError(ctx, "eth_coinbase", i.connectionType, startTime, err, recover())
 	}()
 	return i.keeper.GetFeeCollectorAddress(i.ctxProvider(LatestCtxHeight))
 }
@@ -82,7 +82,7 @@ func (i *InfoAPI) Coinbase(ctx context.Context) (addr common.Address, err error)
 func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_Accounts", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_accounts", i.connectionType, startTime, returnErr, recover())
 	}()
 	if !i.keyringEnabled {
 		return nil, &ErrEVMNotSupported{Msg: "eth_accounts is disabled; use an external wallet"}
@@ -100,7 +100,7 @@ func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, return
 func (i *InfoAPI) GasPrice(ctx context.Context) (result *hexutil.Big, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_GasPrice", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_gasPrice", i.connectionType, startTime, returnErr, recover())
 	}()
 	baseFee, _, err := i.pendingBaseFee()
 	if err != nil {
@@ -336,7 +336,7 @@ func (i *InfoAPI) MaxPriorityFeePerGas(ctx context.Context) (fee *hexutil.Big, r
 func (i *InfoAPI) BlobBaseFee(ctx context.Context) (result *hexutil.Big, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_BlobBaseFee", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_blobBaseFee", i.connectionType, startTime, returnErr, recover())
 	}()
 	return nil, &ErrEVMNotSupported{Msg: "blobs not supported on this chain"}
 }
@@ -353,7 +353,7 @@ type SyncingResult struct {
 func (i *InfoAPI) Syncing(ctx context.Context) (result any, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_Syncing", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_syncing", i.connectionType, startTime, returnErr, recover())
 	}()
 	status, err := i.tmClient.Status(ctx)
 	if err != nil {
