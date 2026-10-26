@@ -1269,7 +1269,16 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2",
+ "tungstenite",
  "ureq",
+]
+
+[[package]]
+name = "layerx-committed-proof"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "sha2",
 ]
 
 [[package]]
@@ -1555,6 +1564,7 @@ name = "layerx-x402"
 version = "0.1.0"
 dependencies = [
  "base64",
+ "layerx-committed-proof",
  "layerx-interop-gateway",
  "layerx-proof",
  "serde",
