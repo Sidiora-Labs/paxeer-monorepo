@@ -9,7 +9,7 @@
 [meta]
 name        = "attestor-api"
 version     = "1"
-transport   = "https with mutual TLS 1.3; client certificates chain to the operator CA"
+transport   = "https with mutual TLS 1.3; client certificates chain to the gateway or operator CA as required by the operation"
 encoding    = "application/json; unknown request fields are refused; binary values are lowercase hex without prefix unless noted"
 threshold   = "three signers of five participants"
 error_shape = "{\"error\": {\"category\": string, \"code\": string, \"message\": string, \"policy_code\": string optional}}"
@@ -38,7 +38,7 @@ audit_sequence = "uint64: this node's audit record for the operation"
 [op.keys.generate]
 method       = "POST"
 path         = "/v1/keys/generate"
-auth         = "operator certificate"
+auth         = "gateway certificate"
 participants = "all configured participants"
 summary      = "Distributed key generation (CGGMP with auxiliary refresh for secp256k1, FROST for ed25519)."
 response     = "key_response"
@@ -123,6 +123,25 @@ errors       = ["operator_required", "session_bad_request", "key_not_found", "ke
 session_id = "string"
 key_id = "string"
 
+[op.keys.public_wallet]
+method       = "POST"
+path         = "/v1/keys/public-wallet"
+auth         = "gateway certificate"
+credentials  = "Authorization: Bearer <original human owner assertion>; agent headers are refused"
+participants = "local; resolves the owner's wallet from this node's held keys and approved inventory"
+summary      = "Resolves the unique held secp256k1 wallet paired with the authenticated owner's ed25519 identity, validates the common account binding and records an audit entry without returning shares."
+response     = "object: node_id, key_id, public_key, owner, wallet_key_id, wallet_public_key, wallet_epoch, address, audit_sequence"
+errors       = ["operator_required", "session_bad_request", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_invalid_share", "store_failed", "store_audit_failed"]
+
+[op.authority]
+method       = "POST"
+path         = "/v1/authority"
+auth         = "gateway certificate"
+participants = "local; each node independently admits the signed custody authority snapshot"
+summary      = "Admits the signed authority token from the request's token field, persists its sequence and records a custody.authority audit entry."
+response     = "object: node_id string, sequence string"
+errors       = ["operator_required", "session_bad_request", "token_unavailable", "agent_invalid", "store_audit_failed"]
+
 [type.describe_response]
 ceremony_id = "string optional: durable operator-authorized import ceremony"
 import_session_id = "string optional: original durable import session"
@@ -146,7 +165,7 @@ audit_sequence = "uint64: this node's keys.describe audit record"
 [op.sign]
 method       = "POST"
 path         = "/v1/sign"
-auth         = "client certificate plus Authorization: Bearer <identity token> or the agent headers X-Agent-Key, X-Agent-Nonce, X-Agent-Expiry, X-Agent-Signature"
+auth         = "gateway certificate plus Authorization: Bearer <identity token> or the agent headers X-Agent-Key, X-Agent-Nonce, X-Agent-Expiry, X-Agent-Signature"
 participants = "the listed signers; every signer receives the identical body"
 summary      = "Verifies the credential, decodes the payload, evaluates the account policy, appends the audit record and runs one signing session."
 kinds        = ["evm_tx", "eip712", "personal_message", "eth_sign_digest", "lx_activity", "lx_bind", "lx_grant", "lx_send_authorization"]
@@ -177,6 +196,26 @@ lx_activity      = "ed25519; signs the 32-byte activity signature preimage"
 lx_bind          = "ed25519; signs the LX:PAXEER-BIND:v1 message bytes; the binding chain must be the node chain"
 lx_grant         = "ed25519; signs the 32-byte grant preimage with the key as the grant public key"
 lx_send_authorization = "ed25519; signs the 32-byte owner authorization digest of the asset send in activity under the lx_activity policy and authority rules, checking the account caps without counting; the amount counts once when the completed send is signed as lx_activity"
+
+[op.sign.native]
+method       = "POST"
+path         = "/v2/sign/native"
+auth         = "gateway certificate"
+credentials  = "Authorization: Bearer <original owner assertion>; agent headers are refused"
+participants = "the listed signers; at least three holders including the receiving node receive the identical body"
+summary      = "Signs profile 2 native preparation, send purpose or local grant consent with the stored ed25519 owner key after canonical record, owner, inventory, policy and durable replay checks."
+response     = "object: profile uint8 (2), node_id, key_id, operation, signed_bytes hex digest, signature hex ed25519 signature, audit_sequence uint64"
+errors       = ["operator_required", "session_bad_request", "session_unsupported_kind", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_curve_mismatch", "key_invalid_share", "quorum_too_few_signers", "quorum_not_member", "quorum_self_missing", "policy_denied", "session_open_failed", "session_failed", "session_timeout", "store_failed", "store_audit_failed"]
+
+[op.lx.review]
+method       = "POST"
+path         = "/v1/lx/review"
+auth         = "gateway certificate"
+credentials  = "Authorization: Bearer <original owner assertion>; agent headers are refused"
+participants = "local; independently decodes the unsigned activity and evaluates account policy without signing"
+summary      = "Returns the decoded lx_activity or lx_send_authorization disclosure and signing preimage for the held ed25519 owner key; review does not grant signing approval."
+response     = "object: kind, node_id, key_id, public_key, activity, signing_preimage, network_id, protocol_version, disclosure, not_after, epoch, audit_sequence"
+errors       = ["operator_required", "session_bad_request", "session_unsupported_kind", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_curve_mismatch", "key_invalid_share", "policy_denied", "store_failed", "store_audit_failed"]
 
 [op.sign.operator_verification]
 method       = "POST"
