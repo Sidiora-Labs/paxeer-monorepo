@@ -46,30 +46,13 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 	return encoded
 }
 
-// ValidateGenesis checks the params and refuses a feed key repeated for an
-// operator or a feed account registered to two operators.
+// ValidateGenesis checks the decoded state with the keeper's genesis checks.
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
 	var genesis types.GenesisState
 	if err := json.Unmarshal(bz, &genesis); err != nil {
 		return types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err)
 	}
-	if err := genesis.Params.Validate(); err != nil {
-		return err
-	}
-	operators := make(map[string]struct{}, len(genesis.FeedKeys))
-	feedAccounts := make(map[string]struct{}, len(genesis.FeedKeys))
-	for _, entry := range genesis.FeedKeys {
-		operator := entry.Operator.String()
-		if _, seen := operators[operator]; seen {
-			return types.ErrInvalidGenesis.Wrapf("duplicate feed key for operator %s", operator)
-		}
-		operators[operator] = struct{}{}
-		if _, seen := feedAccounts[entry.FeedKey.FeedAccount]; seen {
-			return types.ErrInvalidGenesis.Wrapf("duplicate feed account %s", entry.FeedKey.FeedAccount)
-		}
-		feedAccounts[entry.FeedKey.FeedAccount] = struct{}{}
-	}
-	return nil
+	return keeper.ValidateGenesis(genesis)
 }
 
 func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, genesisCh <-chan json.RawMessage) error {
@@ -143,8 +126,8 @@ func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-
 
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// MidBlock aggregates the block's observations after every transaction and
-// before the end block.
+// MidBlock aggregates observations once per block after the block's
+// transactions and before the end block.
 func (am AppModule) MidBlock(ctx sdk.Context, _ int64) {
 	MidBlocker(ctx, am.keeper)
 }
