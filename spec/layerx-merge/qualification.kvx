@@ -349,3 +349,43 @@ symbol = "SettlementResponse::validate_wire"
 observed = "The seventh attempt built at 4d9233c99 (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): validate_wire never reads extensions, so a committed_without_proof case that carries the txHash as transaction validates like receipted_settlement; the only refusal the function can give for a success body is EvidenceMissing on an empty transaction (model.rs:461-463)."
 assumption = "committed_without_proof is the success-with-empty-transaction case decided on /transaction, req.11005, acceptance.11.5.1 and acceptance.11.5.2 say so, and the parked result is continued against this document."
 severity = "note"
+
+[finding.1.1.2]
+task = "1.1.2"
+file = "include/layerx/lxp_result.h:22"
+symbol = "LXP_RESULT_DOMAIN_UNKNOWN"
+observed = "The first attempt passed its verify_cmd at 6a284f5a1 and `cg spec done 1.1.2` refused it (log /out/logs/verify-1.log) with `LXP_RESULT_DOMAIN_UNKNOWN — not defined in the graph`; the name is an enumerator of lxp_result_domain, and the graph indexes the enum type, not its enumerators (gotcha.1865)."
+assumption = "The enumerator leaves the symbol list; lxp_result_is_registered, lxp_result_domain and the two test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.1.16.3]
+task = "1.16.3"
+file = "include/layerx/lxp_kernel.h:18"
+symbol = "LXP_KERNEL_MAX_MODULE_KV"
+observed = "The first attempt passed its verify_cmd at f6bc29316 and `cg spec done 1.16.3` refused it (log /out/logs/verify-1.log) with `LXP_KERNEL_MAX_MODULE_KV — not defined in the graph` and `LXP_MODULE_MAX_STAGED_WRITES — not defined in the graph`; both are enumerators of the kernel bounds enum (lxp_kernel.h:18, :21), which the graph does not index (gotcha.1865)."
+assumption = "Both enumerators leave the symbol list, module_kv_bound_raised and staged_writes_bound_raised stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.1.20.2]
+task = "1.20.2"
+file = "include/layerx/lxp_result.h:143"
+symbol = "LXP_ERR_UNAUTHORIZED_ARBITER"
+observed = "The first attempt passed its verify_cmd at 9ead3a480 and `cg spec done 1.20.2` refused it (log /out/logs/verify-1.log) with `LXP_ERR_UNAUTHORIZED_ARBITER — not defined in the graph`; the name is an X-macro enumerator of LXP_RESULT_CODE_LIST (finding.1.1.1)."
+assumption = "The result code leaves the symbol list; the two execute functions and the three test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.14.22.1]
+task = "14.22.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs:1"
+symbol = "committed_vectors_drive_verify"
+observed = "The third attempt passed its verify_cmd at ffe462f43 and `cg spec done 14.22.1` refused it (log /out/logs/verify-1.log) with `SequencerReceipt.verify — not defined in the graph` and `committed_vectors_drive_verify — not defined in the graph`; the graph indexes no Elixir source, SequencerReceipt.verify lives in a file the task does not touch, and the second name is the string of an ExUnit test (gotcha.1865)."
+assumption = "The task carries symbols = [] and is proven by its verify_cmd alone; the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.16.25.2]
+task = "16.25.2"
+file = "tools/benchmark/benchmark-compare.sh:33-37"
+symbol = "BASE_DIR"
+observed = "The first attempt passed its verify_cmd at efd16caf6 and `cg spec done 16.25.2` refused it (log /out/logs/verify-1.log) with `BASE_DIR`, `MAX_REGRESSION_PCT` and `RESULTS_ONLY — not defined in the graph`; the three are shell variables, and the graph indexes nothing in shell scripts (gotcha.1865)."
+assumption = "The three variables leave the symbol list, the two pytest functions of tools/benchmark/test_benchmark_compare.py stay, and the parked result is re-qualified against this document."
+severity = "note"
