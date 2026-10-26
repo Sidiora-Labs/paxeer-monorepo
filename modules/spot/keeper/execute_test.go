@@ -10,6 +10,7 @@ import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
@@ -57,6 +58,56 @@ func TestEndBlockFillsLimitOrder(t *testing.T) {
 	require.Equal(t, common.LeftPadBytes(limitPrice(500).BigInt().Bytes(), 32), logs[0].Data)
 	require.Equal(t, uint64(e.ctx.BlockHeight()), logs[0].BlockNumber)
 	require.False(t, e.ctx.KVStore(e.key).Has(limitKey(types.FillBackoffPrefix, limitID(id))))
+}
+
+func writePricingValue(t *testing.T, ctx sdk.Context, key sdk.StoreKey, storageKey []byte, value interface{}) {
+	t.Helper()
+	encoded, err := json.Marshal(value)
+	require.NoError(t, err)
+	ctx.KVStore(key).Set(storageKey, encoded)
+}
+
+func TestEndBlockSkipsUnpricedToken(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		marketID uint64
+		wantErr  error
+	}{
+		{"invalid oracle", 0, types.ErrInvalidOracle},
+		{"unknown market", uint64(len(pricefeedtypes.Markets)), pricefeedtypes.ErrUnknownMarket},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newLimitEnv(t)
+			e.price(limitPrice(600))
+			id := e.place(types.OrderTypeLimitBuy, 100_000_000, 500, 0)
+			before := e.balance(e.token, e.user)
+			e.price(limitPrice(500))
+			params, err := e.k.GetParams(e.ctx)
+			require.NoError(t, err)
+			unpriced := params.Tokens[1]
+			unpriced.Address = limitAddress("unpriced token")
+			unpriced.MarketID = tc.marketID
+			params.Tokens = append([]types.TokenParams{unpriced}, params.Tokens...)
+			writePricingValue(t, e.ctx, e.key, types.ParamsKey, params)
+			require.ErrorIs(t, e.k.RecordSample(e.ctx, unpriced.Address), tc.wantErr)
+
+			work, err := e.k.ExecuteResting(e.ctx)
+			require.NoError(t, err)
+			require.Equal(t, uint64(1), work.Samples)
+			require.Equal(t, uint64(1), work.Filled)
+			require.Equal(t, types.OrderStatusExecuted, e.order(id).Status)
+			require.Equal(t, "199800000", e.balance(e.token, e.user).Sub(before).String())
+			var ring types.TwapRing
+			require.NoError(t, json.Unmarshal(e.ctx.KVStore(e.key).Get(limitKey(types.TwapRingPrefix, e.token.Bytes())), &ring))
+			require.Equal(t, uint32(1), ring.Count)
+			var sample types.TwapSample
+			require.NoError(t, json.Unmarshal(e.ctx.KVStore(e.key).Get(limitKey(types.TwapSamplePrefix, e.token.Bytes(), make([]byte, 4))), &sample))
+			require.Equal(t, e.token, sample.Token)
+			require.Equal(t, uint64(e.ctx.BlockTime().Unix()), sample.Time)
+			require.Equal(t, limitPrice(500), sample.Index)
+			require.False(t, e.ctx.KVStore(e.key).Has(limitKey(types.TwapRingPrefix, unpriced.Address.Bytes())))
+		})
+	}
 }
 
 func TestEndBlockOrder(t *testing.T) {

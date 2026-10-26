@@ -22,7 +22,7 @@ const DESTROY_RECEIPT_DOMAIN: &[u8] = b"LayerX/programs/sandbox/destroy/v1\0";
 const SWEEP_STATE_DOMAIN: &[u8] = b"LayerX/programs/sandbox/expiry-queue/v1\0";
 const TERMINAL_EVENT: u16 = 0x090a;
 const TERMINAL_EVENT_BYTES: usize = 352;
-pub const MAX_SWEEP_LEASES_PER_BATCH: u32 = 6;
+pub const MAX_SWEEP_LEASES_PER_BATCH: u32 = 128;
 pub const MAX_EXPIRY_QUEUE_ENTRIES: usize = 4096;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -837,11 +837,11 @@ mod source_cases {
                 .unwrap_or_else(|error| panic!("schedule: {error:?}"));
         }
         let first = queue
-            .due(19, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(19, 6)
             .unwrap_or_else(|error| panic!("page: {error:?}"));
         assert!(first.leases().is_empty());
         let first = queue
-            .due(20, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(20, 6)
             .unwrap_or_else(|error| panic!("page: {error:?}"));
         assert_eq!(first.leases().len(), 6);
         assert_eq!(first.remaining_due(), 8);
@@ -860,7 +860,7 @@ mod source_cases {
                 .unwrap_or_else(|error| panic!("first batch: {error:?}"));
         }
         let second = queue
-            .due(21, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(21, 6)
             .unwrap_or_else(|error| panic!("second page: {error:?}"));
         assert_eq!(second.leases().len(), 6);
         assert_eq!(second.remaining_due(), 2);
@@ -871,10 +871,31 @@ mod source_cases {
                 .unwrap_or_else(|error| panic!("second batch: {error:?}"));
         }
         let third = queue
-            .due(22, MAX_SWEEP_LEASES_PER_BATCH)
+            .due(22, 6)
             .unwrap_or_else(|error| panic!("third page: {error:?}"));
         assert_eq!(third.leases().len(), 2);
         assert_eq!(third.remaining_due(), 0);
+    }
+
+    #[test]
+    fn due_admits_kernel_bound_of_128_and_refuses_129() {
+        let at = 20;
+        let mut queue = ExpiryQueue::new();
+        for id in 1..=129 {
+            queue
+                .schedule(&lease(id, at))
+                .unwrap_or_else(|error| panic!("schedule: {error:?}"));
+        }
+
+        assert_eq!(MAX_SWEEP_LEASES_PER_BATCH, 128);
+        let page = queue
+            .due(at, 128)
+            .unwrap_or_else(|error| panic!("page: {error:?}"));
+        assert_eq!(page.boundary(), at);
+        let expected: Vec<_> = (1..=128).map(|id| lease(id, at).id()).collect();
+        assert_eq!(page.leases(), expected.as_slice());
+        assert_eq!(page.remaining_due(), 1);
+        assert_eq!(queue.due(at, 129), Err(ExpiryRefusal::InvalidLimit));
     }
 
     #[test]

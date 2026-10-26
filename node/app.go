@@ -591,7 +591,11 @@ type App struct {
 	GigaOCCEnabled bool
 
 	// openBlock is the sequencer executor's open block; nil in full-node mode.
-	openBlock OpenBlock
+	openBlock        OpenBlock
+	sequencerSource  tmtypes.SequencerSource
+	sequencerRPC     evmrpc.SequencerOption
+	sequencerReceipt evmrpc.SequencerReceiptOption
+	commitListener   func(height int64, appHash []byte)
 }
 
 type AppOption func(*App)
@@ -3048,6 +3052,23 @@ type OpenBlock interface {
 // before the node serves ante or RPC reads.
 func (app *App) SetOpenBlock(ob OpenBlock) {
 	app.openBlock = ob
+}
+
+func (app *App) SetSequencerSource(src tmtypes.SequencerSource) {
+	app.sequencerSource = src
+}
+
+func (app *App) SequencerSource() tmtypes.SequencerSource {
+	return app.sequencerSource
+}
+
+func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.SequencerReceiptOption) {
+	app.sequencerRPC = opt
+	app.sequencerReceipt = rcpt
+}
+
+func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) {
+	app.commitListener = fn
 }
 
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block

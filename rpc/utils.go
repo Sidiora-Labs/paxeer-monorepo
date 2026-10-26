@@ -70,9 +70,6 @@ type PendingTx struct {
 	Result  *abci.ExecTxResult
 }
 
-// EVM launch block heights for different chains
-const Pacific1EVMLaunchHeight int64 = 79123881
-
 // ErrBlockNotFoundByHash is returned when no block exists for the given hash (e.g. empty or unknown hash).
 // Ethereum-compatible RPCs should return result: null for this case instead of an error.
 var ErrBlockNotFoundByHash = errors.New("block not found by hash")
@@ -248,18 +245,6 @@ func waitForRPCRetry(ctx context.Context, delay time.Duration) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	}
-}
-
-// ValidateEVMBlockHeight checks if the requested block height is valid for EVM queries
-func ValidateEVMBlockHeight(chainID string, blockHeight int64) error {
-	// Only validate for pacific-1 chain
-	if chainID != "pacific-1" {
-		return nil
-	}
-	if blockHeight < Pacific1EVMLaunchHeight {
-		return fmt.Errorf("EVM is only supported from block %d onwards", Pacific1EVMLaunchHeight)
-	}
-	return nil
 }
 
 type indexedMsg struct {

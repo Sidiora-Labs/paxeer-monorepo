@@ -34,3 +34,9 @@ var (
 	ErrDenomPaused                    = sdkerrors.Register(ModuleName, 26, "LXP_ASSET_PAUSED: denom is paused")
 	ErrPauseUnchanged                 = sdkerrors.Register(ModuleName, 27, "LXP_PAUSED_SCOPE: denom pause state unchanged")
 )
+
+var ErrIssuerMismatch = sdkerrors.Register(ModuleName, 28, "LXP_UNAUTHORIZED_DEBIT: caller is not the denom issuer")
+
+var ErrEncodeTokenFactorySetDenomPaused = sdkerrors.Register(ModuleName, 29, "Error while encoding tokenfactory set denom paused msg in wasmd")
+
+var ErrEncodingDenomPaused = sdkerrors.Register(ModuleName, 30, "Error encoding denom paused as JSON")

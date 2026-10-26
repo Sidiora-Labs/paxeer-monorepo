@@ -69,6 +69,7 @@ export const runtimeMessages: readonly (readonly [string, string])[] = [
   ["error.technical.title","Technical details"],
   ["error.technical.machine_code","Code: {machineCode}"],
   ["error.technical.trace","Trace: {traceId}"],
+  ["error.operation.retired","This action is no longer available."],
   ["report.consent.title","Send an error report?"],
   ["report.consent.body","This sends the trace, error code, and screen name. It does not include names, balances, or entered values."],
   ["report.submit","Send report"],

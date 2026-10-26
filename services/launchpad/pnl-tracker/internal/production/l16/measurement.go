@@ -244,6 +244,19 @@ func measurementReadFile(file InventoryMeasurementFile, root string) ([]byte, er
 	return raw, nil
 }
 
+const inventoryFrozenAuthority = "sdk/launchpad/packages/sdk/src/operations.gen.ts"
+
+func requiredInventorySources() []string {
+	return []string{
+		"services/launchpad/pnl-tracker/internal/production/l16/measurement.go",
+		"services/launchpad/pnl-tracker/internal/production/l16/measurement_production_test.go",
+		"services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go",
+		"services/launchpad/pnl-tracker/internal/production/l16/service.go",
+		"services/launchpad/pnl-tracker/internal/production/l16/inventory.go",
+		inventoryFrozenAuthority,
+	}
+}
+
 func validateInventoryMeasurementPlan(worker *LiveTransferWorker, plan InventoryMeasurementPlan) error {
 	if worker == nil || worker.service == nil || worker.identity == nil || worker.service.authority == nil || plan.Version != 1 || !digestHex(plan.InputPlanSHA256) || delivery.Hash(plan.InputPlanRaw) != plan.InputPlanSHA256 || !regexpToken(plan.RunID) || !digestHex(plan.CandidateDigest) || plan.ReleaseDigest != worker.service.release || !digestHex(plan.InterfaceDigest) || !filepath.IsAbs(plan.SourceRoot) || plan.Region == "" || len(plan.Region) > 128 || plan.RequestsPerSecond < 1 || plan.RequestsPerSecond > 800 || plan.Concurrency < 1 || plan.Concurrency > 32 || plan.RequestTimeoutMillis < 1 || plan.RequestTimeoutMillis > 90000 || plan.MaxDurationSeconds < 1 || plan.MaxDurationSeconds > 1800 || plan.MaxArtifactBytes < 1 || plan.MaxArtifactBytes > 32*1024*1024*1024 || plan.MaxHeapAllocBytes == 0 || plan.MaxPoolAcquired < 1 || plan.MaxArchiveRecords < 1 || plan.MaxArchiveRecords > 1000000 || len(plan.SourceFiles) < 2 || len(plan.SourceFiles) > 1000 || len(plan.Cases) < 11 || len(plan.Cases) > 1000 {
 		return errors.New("invalid or missing inventory measurement authority, plan, or isolated budget")
@@ -265,14 +278,14 @@ func validateInventoryMeasurementPlan(worker *LiveTransferWorker, plan Inventory
 			return errors.New("invalid source manifest path")
 		}
 		seenFiles[clean] = true
-		if clean == "launchpad/spec/production-system/integration/contracts/v2/manifest.json" && file.SHA256 != plan.InterfaceDigest {
-			return errors.New("measurement interface digest does not match actual frozen manifest")
+		if clean == inventoryFrozenAuthority && file.SHA256 != plan.InterfaceDigest {
+			return errors.New("measurement interface digest does not match actual frozen catalog")
 		}
 		if _, err = measurementReadFile(file, plan.SourceRoot); err != nil {
 			return err
 		}
 	}
-	for _, name := range []string{"services/launchpad/pnl-tracker/internal/production/l16/measurement.go", "services/launchpad/pnl-tracker/internal/production/l16/measurement_production_test.go", "services/launchpad/pnl-tracker/internal/production/l16/live_transfers.go", "services/launchpad/pnl-tracker/internal/production/l16/service.go", "services/launchpad/pnl-tracker/internal/production/l16/inventory.go", "launchpad/spec/production-system/integration/contracts/v2/manifest.json"} {
+	for _, name := range requiredInventorySources() {
 		if !seenFiles[name] {
 			return errors.New("inventory measurement source binding incomplete")
 		}

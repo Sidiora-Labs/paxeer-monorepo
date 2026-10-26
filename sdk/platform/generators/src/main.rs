@@ -16,9 +16,12 @@ const JVM_GENERATED_PATH: &str =
     "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedContract.java";
 const JVM_CONFORMANCE_PATH: &str = "sdk/platform/conformance/jvm.kvx";
 const RECEIPT_CONTRACT_PATH: &str = "sdk/platform/generators/receipt.kvx";
-const RUST_RECEIPT_GENERATED_PATH: &str = "services/agent/crates/layerx-sdk/src/receipt_generated.rs";
-const TYPESCRIPT_RECEIPT_GENERATED_PATH: &str = "services/agent/sdk/typescript/src/generated/receipt.ts";
-const PYTHON_RECEIPT_GENERATED_PATH: &str = "services/agent/sdk/python/layerx_sdk/generated/receipt.py";
+const RUST_RECEIPT_GENERATED_PATH: &str =
+    "services/agent/crates/layerx-sdk/src/receipt_generated.rs";
+const TYPESCRIPT_RECEIPT_GENERATED_PATH: &str =
+    "services/agent/sdk/typescript/src/generated/receipt.ts";
+const PYTHON_RECEIPT_GENERATED_PATH: &str =
+    "services/agent/sdk/python/layerx_sdk/generated/receipt.py";
 const PYTHON_RECEIPT_STUB_GENERATED_PATH: &str =
     "services/agent/sdk/python/layerx_sdk/generated/receipt.pyi";
 const GO_RECEIPT_GENERATED_PATH: &str = "sdk/platform/go/receipt_generated.go";
@@ -196,9 +199,9 @@ pub struct Pipeline {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct ReceiptContract {
-    programs_module_id: u16,
-    program_outcome_tags: [u32; 4],
-    required_nonzero: Vec<String>,
+    receipt_versions: [u16; 2],
+    receipt_domain: String,
+    sequence_domain: String,
     failure_checks: Vec<String>,
     program_abis: [u16; 5],
 }
@@ -422,53 +425,27 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
     let source =
         fs::read_to_string(&path).map_err(|error| format!("read {}: {error}", path.display()))?;
     let document = layerx_platform_kvx::parse(&source)?;
-    if layerx_platform_kvx::unquote(document.required("receipt", "program_outcome")?)? != "optional"
-    {
-        return Err("receipt.program_outcome must remain optional".to_owned());
-    }
-    let programs_module_id = document
-        .required("receipt", "programs_module_id")?
-        .parse::<u16>()
-        .map_err(|error| format!("receipt.programs_module_id: {error}"))?;
-    if programs_module_id == 0 {
-        return Err("receipt.programs_module_id must be non-zero".to_owned());
-    }
-    let tags =
-        layerx_platform_kvx::string_list(document.required("receipt", "program_outcome_tags")?)?;
-    let program_outcome_tags: [u32; 4] = tags
+    let versions =
+        layerx_platform_kvx::string_list(document.required("receipt", "receipt_versions")?)?;
+    let receipt_versions: [u16; 2] = versions
         .iter()
-        .map(|tag| {
-            u32::from_str_radix(tag, 16)
-                .map_err(|error| format!("receipt program outcome tag {tag}: {error}"))
+        .map(|version| {
+            version
+                .parse::<u16>()
+                .map_err(|error| format!("receipt.receipt_versions: {error}"))
         })
         .collect::<Result<Vec<_>, _>>()?
         .try_into()
-        .map_err(|values: Vec<u32>| {
-            format!(
-                "receipt.program_outcome_tags requires exactly four tags, found {}",
-                values.len()
-            )
-        })?;
-    let required_nonzero =
-        layerx_platform_kvx::string_list(document.required("receipt", "required_nonzero")?)?;
-    let expected_nonzero = [
-        "global-sequence",
-        "module-id",
-        "module-version",
-        "timestamp",
-        "activity-id",
-        "resulting-state-root",
-    ];
-    if required_nonzero
-        != expected_nonzero
-            .into_iter()
-            .map(str::to_owned)
-            .collect::<Vec<_>>()
-    {
-        return Err(format!(
-            "receipt.required_nonzero must be the protocol decoder order: {}",
-            expected_nonzero.join(", ")
-        ));
+        .map_err(|_| "receipt.receipt_versions requires exactly two versions")?;
+    if receipt_versions != [2, 3] {
+        return Err("receipt.receipt_versions must be [2, 3]".to_owned());
+    }
+    let receipt_domain =
+        layerx_platform_kvx::unquote(document.required("receipt", "receipt_domain")?)?;
+    let sequence_domain =
+        layerx_platform_kvx::unquote(document.required("receipt", "sequence_domain")?)?;
+    if receipt_domain.is_empty() || sequence_domain.is_empty() {
+        return Err("receipt domains must be non-empty".to_owned());
     }
     let failure_checks =
         layerx_platform_kvx::string_list(document.required("receipt", "failure_checks")?)?;
@@ -476,15 +453,9 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
     if failure_checks.is_empty() || unique.len() != failure_checks.len() {
         return Err("receipt.failure_checks must be non-empty and unique".to_owned());
     }
-    for required in &required_nonzero {
-        if !failure_checks.contains(required) {
-            return Err(format!(
-                "receipt.failure_checks is missing required invariant {required}"
-            ));
-        }
-    }
-    let program_source = fs::read_to_string(repo_root.join("services/agent/schema/agent-api/programs.kvx"))
-        .map_err(|error| format!("read Programs schema: {error}"))?;
+    let program_source =
+        fs::read_to_string(repo_root.join("services/agent/schema/agent-api/programs.kvx"))
+            .map_err(|error| format!("read Programs schema: {error}"))?;
     let programs = layerx_platform_kvx::parse(&program_source)?;
     let names =
         layerx_platform_kvx::string_list(programs.required("type.ProgramGuestAbi", "variants")?)?;
@@ -573,9 +544,9 @@ fn receipt_contract(repo_root: &Path) -> Result<ReceiptContract, String> {
         }
     }
     Ok(ReceiptContract {
-        programs_module_id,
-        program_outcome_tags,
-        required_nonzero,
+        receipt_versions,
+        receipt_domain,
+        sequence_domain,
         failure_checks,
         program_abis,
     })
@@ -784,21 +755,11 @@ fn render_rust_receipt_contract(contract: &ReceiptContract) -> Result<String, St
     );
     writeln!(
         output,
-        "pub const PROGRAMS_MODULE_ID: u16 = {};",
-        contract.programs_module_id
-    )
-    .map_err(|error| error.to_string())?;
-    writeln!(
-        output,
-        "pub const PROGRAM_OUTCOME_TAGS: [u32; 4] = [0x{:04x}_{:04x}, 0x{:04x}_{:04x}, 0x{:04x}_{:04x}, 0x{:04x}_{:04x}];\n",
-        contract.program_outcome_tags[0] >> 16,
-        contract.program_outcome_tags[0] & 0xffff,
-        contract.program_outcome_tags[1] >> 16,
-        contract.program_outcome_tags[1] & 0xffff,
-        contract.program_outcome_tags[2] >> 16,
-        contract.program_outcome_tags[2] & 0xffff,
-        contract.program_outcome_tags[3] >> 16,
-        contract.program_outcome_tags[3] & 0xffff
+        "pub const RECEIPT_VERSION_V2: u16 = {};\npub const RECEIPT_VERSION_V3: u16 = {};\npub const RECEIPT_DOMAIN: &str = {};\npub const SEQUENCE_DOMAIN: &str = {};\n",
+        contract.receipt_versions[0],
+        contract.receipt_versions[1],
+        quoted(&contract.receipt_domain),
+        quoted(&contract.sequence_domain)
     )
     .map_err(|error| error.to_string())?;
     output
@@ -816,18 +777,7 @@ fn render_rust_receipt_contract(contract: &ReceiptContract) -> Result<String, St
         )
         .map_err(|error| error.to_string())?;
     }
-    output.push_str(
-        "        }\n    }\n}\n\npub const REQUIRED_NONZERO_CHECKS: &[ReceiptFailureCode] = &[\n",
-    );
-    for check in &contract.required_nonzero {
-        writeln!(
-            output,
-            "    ReceiptFailureCode::{},",
-            rust_identifier(check)
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    output.push_str("];\n");
+    output.push_str("        }\n    }\n}\n");
     output.push_str(&render_program_abi_policy(contract, "rust")?);
     Ok(output)
 }
@@ -838,17 +788,11 @@ fn render_typescript_receipt_contract(contract: &ReceiptContract) -> Result<Stri
     );
     writeln!(
         output,
-        "export const PROGRAMS_MODULE_ID = {};",
-        contract.programs_module_id
-    )
-    .map_err(|error| error.to_string())?;
-    writeln!(
-        output,
-        "export const PROGRAM_OUTCOME_TAGS = [0x{:08x}, 0x{:08x}, 0x{:08x}, 0x{:08x}] as const;\n",
-        contract.program_outcome_tags[0],
-        contract.program_outcome_tags[1],
-        contract.program_outcome_tags[2],
-        contract.program_outcome_tags[3]
+        "export const RECEIPT_VERSION_V2 = {};\nexport const RECEIPT_VERSION_V3 = {};\nexport const RECEIPT_DOMAIN = {};\nexport const SEQUENCE_DOMAIN = {};\n",
+        contract.receipt_versions[0],
+        contract.receipt_versions[1],
+        quoted(&contract.receipt_domain),
+        quoted(&contract.sequence_domain)
     )
     .map_err(|error| error.to_string())?;
     output.push_str("export enum ReceiptFailureCode {\n");
@@ -856,13 +800,7 @@ fn render_typescript_receipt_contract(contract: &ReceiptContract) -> Result<Stri
         writeln!(output, "  {} = {},", rust_identifier(check), quoted(check))
             .map_err(|error| error.to_string())?;
     }
-    output.push_str("}\n\nexport const REQUIRED_NONZERO_CHECKS = Object.freeze([\n");
-    for check in &contract.required_nonzero {
-        writeln!(output, "  ReceiptFailureCode::{},", rust_identifier(check))
-            .map_err(|error| error.to_string())?;
-    }
-    output = output.replace("ReceiptFailureCode::", "ReceiptFailureCode.");
-    output.push_str("]);\n");
+    output.push_str("}\n");
     output.push_str(&render_program_abi_policy(contract, "typescript")?);
     Ok(output)
 }
@@ -876,17 +814,16 @@ fn render_python_receipt_contract(
     );
     if stub {
         output.push_str(
-            "\nPROGRAMS_MODULE_ID: int\nPROGRAM_OUTCOME_TAGS: tuple[int, int, int, int]\n\n",
+            "\nRECEIPT_VERSION_V2: int\nRECEIPT_VERSION_V3: int\nRECEIPT_DOMAIN: str\nSEQUENCE_DOMAIN: str\n\n",
         );
     } else {
         writeln!(
             output,
-            "\nPROGRAMS_MODULE_ID = {}\nPROGRAM_OUTCOME_TAGS = ({}, {}, {}, {})\n",
-            contract.programs_module_id,
-            contract.program_outcome_tags[0],
-            contract.program_outcome_tags[1],
-            contract.program_outcome_tags[2],
-            contract.program_outcome_tags[3]
+            "\nRECEIPT_VERSION_V2 = {}\nRECEIPT_VERSION_V3 = {}\nRECEIPT_DOMAIN = {}\nSEQUENCE_DOMAIN = {}\n",
+            contract.receipt_versions[0],
+            contract.receipt_versions[1],
+            quoted(&contract.receipt_domain),
+            quoted(&contract.sequence_domain)
         )
         .map_err(|error| error.to_string())?;
     }
@@ -905,20 +842,6 @@ fn render_python_receipt_contract(
             .map_err(|error| error.to_string())?;
         }
     }
-    if stub {
-        output.push_str("\nREQUIRED_NONZERO_CHECKS: tuple[ReceiptFailureCode, ...]\n");
-    } else {
-        output.push_str("\nREQUIRED_NONZERO_CHECKS = (\n");
-        for check in &contract.required_nonzero {
-            writeln!(
-                output,
-                "    ReceiptFailureCode.{},",
-                screaming_identifier(check)
-            )
-            .map_err(|error| error.to_string())?;
-        }
-        output.push_str(")\n");
-    }
     output.push_str(&render_program_abi_policy(
         contract,
         if stub { "python-stub" } else { "python" },
@@ -932,17 +855,11 @@ fn render_go_receipt_contract(contract: &ReceiptContract) -> Result<String, Stri
     );
     writeln!(
         output,
-        "const ProgramsModuleID uint16 = {}\n",
-        contract.programs_module_id
-    )
-    .map_err(|error| error.to_string())?;
-    writeln!(
-        output,
-        "const (\n\tProgramOutcomeTagV1 uint32 = 0x{:08x}\n\tProgramOutcomeTagV2 uint32 = 0x{:08x}\n\tProgramOutcomeTagV3 uint32 = 0x{:08x}\n\tProgramOutcomeTagV4 uint32 = 0x{:08x}\n)\n",
-        contract.program_outcome_tags[0],
-        contract.program_outcome_tags[1],
-        contract.program_outcome_tags[2],
-        contract.program_outcome_tags[3]
+        "const ReceiptVersionV2 uint16 = {}\nconst ReceiptVersionV3 uint16 = {}\nconst ReceiptDomain = {}\nconst SequenceDomain = {}\n",
+        contract.receipt_versions[0],
+        contract.receipt_versions[1],
+        quoted(&contract.receipt_domain),
+        quoted(&contract.sequence_domain)
     )
     .map_err(|error| error.to_string())?;
     output.push_str("type ReceiptCheck string\n\nconst (\n");
@@ -955,33 +872,22 @@ fn render_go_receipt_contract(contract: &ReceiptContract) -> Result<String, Stri
         )
         .map_err(|error| error.to_string())?;
     }
-    output.push_str(")\n\nvar RequiredNonzeroChecks = [...]ReceiptCheck{\n");
-    for check in &contract.required_nonzero {
-        writeln!(output, "\tReceiptCheck{},", go_receipt_identifier(check))
-            .map_err(|error| error.to_string())?;
-    }
-    output.push_str("}\n");
+    output.push_str(")\n");
     output.push_str(&render_program_abi_policy(contract, "go")?);
     format_go(&output)
 }
 
 fn render_jvm_receipt_contract(contract: &ReceiptContract) -> Result<String, String> {
     let mut output = String::from(
-        "// Code generated from sdk/platform/generators/receipt.kvx. DO NOT EDIT.\n\npackage com.sidiora.layerx.sdk.verify;\n\nimport java.util.List;\n\npublic final class GeneratedReceiptContract {\n    private GeneratedReceiptContract() {}\n",
+        "// Code generated from sdk/platform/generators/receipt.kvx. DO NOT EDIT.\n\npackage com.sidiora.layerx.sdk.verify;\n\npublic final class GeneratedReceiptContract {\n    private GeneratedReceiptContract() {}\n",
     );
     writeln!(
         output,
-        "    public static final int PROGRAMS_MODULE_ID = {};",
-        contract.programs_module_id
-    )
-    .map_err(|error| error.to_string())?;
-    writeln!(
-        output,
-        "    public static final long PROGRAM_OUTCOME_V1 = 0x{:08x}L;\n    public static final long PROGRAM_OUTCOME_V2 = 0x{:08x}L;\n    public static final long PROGRAM_OUTCOME_V3 = 0x{:08x}L;\n    public static final long PROGRAM_OUTCOME_V4 = 0x{:08x}L;\n",
-        contract.program_outcome_tags[0],
-        contract.program_outcome_tags[1],
-        contract.program_outcome_tags[2],
-        contract.program_outcome_tags[3]
+        "    public static final int RECEIPT_VERSION_V2 = {};\n    public static final int RECEIPT_VERSION_V3 = {};\n    public static final String RECEIPT_DOMAIN = {};\n    public static final String SEQUENCE_DOMAIN = {};\n",
+        contract.receipt_versions[0],
+        contract.receipt_versions[1],
+        quoted(&contract.receipt_domain),
+        quoted(&contract.sequence_domain)
     )
     .map_err(|error| error.to_string())?;
     output.push_str("    public enum ReceiptCheck {\n");
@@ -999,22 +905,7 @@ fn render_jvm_receipt_contract(contract: &ReceiptContract) -> Result<String, Str
         )
         .map_err(|error| error.to_string())?;
     }
-    output.push_str("        private final String wire;\n        ReceiptCheck(String wire) { this.wire = wire; }\n        public String wire() { return wire; }\n    }\n\n    public static final List<ReceiptCheck> REQUIRED_NONZERO_CHECKS = List.of(\n");
-    for (index, check) in contract.required_nonzero.iter().enumerate() {
-        writeln!(
-            output,
-            "        ReceiptCheck.{}{}",
-            screaming_identifier(check),
-            if index + 1 == contract.required_nonzero.len() {
-                ");"
-            } else {
-                ","
-            }
-        )
-        .map_err(|error| error.to_string())?;
-    }
-    output.push_str("}\n");
-    output.truncate(output.len() - 2);
+    output.push_str("        private final String wire;\n        ReceiptCheck(String wire) { this.wire = wire; }\n        public String wire() { return wire; }\n    }\n");
     output.push_str(&render_program_abi_policy(contract, "jvm")?);
     output.push_str("}\n");
     Ok(output)
@@ -1026,17 +917,11 @@ fn render_swift_receipt_contract(contract: &ReceiptContract) -> Result<String, S
     );
     writeln!(
         output,
-        "let programsModuleID: UInt16 = {}",
-        contract.programs_module_id
-    )
-    .map_err(|error| error.to_string())?;
-    writeln!(
-        output,
-        "let programOutcomeV1: UInt32 = 0x{:08x}\nlet programOutcomeV2: UInt32 = 0x{:08x}\nlet programOutcomeV3: UInt32 = 0x{:08x}\nlet programOutcomeV4: UInt32 = 0x{:08x}\n",
-        contract.program_outcome_tags[0],
-        contract.program_outcome_tags[1],
-        contract.program_outcome_tags[2],
-        contract.program_outcome_tags[3]
+        "public let receiptVersionV2: UInt16 = {}\npublic let receiptVersionV3: UInt16 = {}\npublic let receiptDomain = {}\npublic let sequenceDomain = {}\n",
+        contract.receipt_versions[0],
+        contract.receipt_versions[1],
+        quoted(&contract.receipt_domain),
+        quoted(&contract.sequence_domain)
     )
     .map_err(|error| error.to_string())?;
     output.push_str("public enum ReceiptCheck: String, Sendable, CaseIterable {\n");
@@ -1049,12 +934,7 @@ fn render_swift_receipt_contract(contract: &ReceiptContract) -> Result<String, S
         )
         .map_err(|error| error.to_string())?;
     }
-    output.push_str("}\n\nlet requiredNonzeroChecks: [ReceiptCheck] = [\n");
-    for check in &contract.required_nonzero {
-        writeln!(output, "    .{},", lower_camel_identifier(check))
-            .map_err(|error| error.to_string())?;
-    }
-    output.push_str("]\n");
+    output.push_str("}\n");
     output.push_str(&render_program_abi_policy(contract, "swift")?);
     Ok(output)
 }
@@ -1070,25 +950,16 @@ fn render_dotnet_receipt_contract(contract: &ReceiptContract) -> Result<String, 
     output.push_str("}\n\npublic static class GeneratedReceiptContract\n{\n");
     writeln!(
         output,
-        "    public const ushort ProgramsModuleId = {};",
-        contract.programs_module_id
+        "    public const ushort ReceiptVersionV2 = {};\n    public const ushort ReceiptVersionV3 = {};\n    public const string ReceiptDomain = {};\n    public const string SequenceDomain = {};\n",
+        contract.receipt_versions[0],
+        contract.receipt_versions[1],
+        quoted(&contract.receipt_domain),
+        quoted(&contract.sequence_domain)
     )
     .map_err(|error| error.to_string())?;
-    writeln!(
-        output,
-        "    public const uint ProgramOutcomeV1 = 0x{:08x};\n    public const uint ProgramOutcomeV2 = 0x{:08x};\n    public const uint ProgramOutcomeV3 = 0x{:08x};\n    public const uint ProgramOutcomeV4 = 0x{:08x};",
-        contract.program_outcome_tags[0],
-        contract.program_outcome_tags[1],
-        contract.program_outcome_tags[2],
-        contract.program_outcome_tags[3]
-    )
-    .map_err(|error| error.to_string())?;
-    output.push_str("    public static readonly ReceiptCheck[] RequiredNonzeroChecks = [\n");
-    for check in &contract.required_nonzero {
-        writeln!(output, "        ReceiptCheck.{},", rust_identifier(check))
-            .map_err(|error| error.to_string())?;
-    }
-    output.push_str("    ];\n\n    public static string MachineCode(this ReceiptCheck check) => check switch\n    {\n");
+    output.push_str(
+        "    public static string MachineCode(this ReceiptCheck check) => check switch\n    {\n",
+    );
     for check in &contract.failure_checks {
         writeln!(
             output,

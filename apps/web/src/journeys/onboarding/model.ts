@@ -1,6 +1,6 @@
 import { copyEntry } from "../../../copy/runtime.ts";
 import type { EvidenceRef, Journey, JourneyStage, JourneyState } from "../../api/index.ts";
-import type { StatusKey } from "../../kit/model";
+import { verificationRung, type StatusKey } from "../../kit/model";
 
 export const ONBOARDING_DECISION_LIMIT = 3;
 export const CREATE_ACCOUNT_DECISIONS = 2;
@@ -54,9 +54,7 @@ export function stagePresentation(stage: JourneyStage): StagePresentation {
 
 function verifiedReceipt(evidence: EvidenceRef): boolean {
   return evidence.class === "layerx-receipt"
-    && (evidence.verification === "receipt-verified"
-      || evidence.verification === "checkpoint-finalised"
-      || evidence.verification === "paxeer-finalised");
+    && verificationRung(evidence.verification) !== "unverified";
 }
 
 export function accountActive(journey: Journey): boolean {

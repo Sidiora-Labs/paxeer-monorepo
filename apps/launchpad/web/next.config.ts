@@ -3,6 +3,7 @@ import type { NextConfig } from 'next';
 import { withSentryConfig } from '@sentry/nextjs';
 import bundleAnalyzer from '@next/bundle-analyzer';
 import { backendConfigurationProblems, browserImageOrigins } from './src/core/backend-origins';
+import { allowedDevOrigins, TRANSPILE_PACKAGES } from './src/core/next-build-config';
 
 // Run `ANALYZE=true pnpm --filter @sidiora/web build` to emit treemap reports
 // (.next/analyze/*.html) for per-route JS budgeting. No-op for normal builds.
@@ -108,9 +109,7 @@ const nextConfig: NextConfig = {
   rewrites: backendRewrites,
   // Builds can target a separate directory so `next build` never clobbers the running dev server's .next.
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
-  // Dev-only: lets the dev server be opened by this box's public IP without
-  // Next blocking its own /_next assets as cross-origin.
-  allowedDevOrigins: ['178.18.246.58', 'localhost', '127.0.0.1'],
+  allowedDevOrigins: allowedDevOrigins(process.env),
   // `standalone` is for the Railway/Docker runtime (`node .next/standalone/
   // server.js`). On Vercel it is unnecessary and its file-tracing follows
   // pnpm's symlinked node_modules to absolute paths that break the deploy
@@ -163,17 +162,7 @@ const nextConfig: NextConfig = {
     imgOptTimeoutInSeconds: 7,
   },
 
-  transpilePackages: [
-    'candles-sdk',
-    'indexer-sdk',
-    'metadata-sdk',
-    'ranking-algo-sdk',
-    'stats-sdk',
-    'users-sdk',
-    'sidiora-launchpad-v3',
-    'paxifyui',
-    'sidiora-ui-tokens',
-  ],
+  transpilePackages: [...TRANSPILE_PACKAGES],
 };
 
 // Wrap with Sentry. Source-map upload only runs when SENTRY_AUTH_TOKEN is set

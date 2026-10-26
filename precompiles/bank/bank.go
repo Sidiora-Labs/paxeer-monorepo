@@ -36,9 +36,9 @@ const (
 	BankAddress = "0x0000000000000000000000000000000000001001"
 )
 
-// v6120Upgrade is the plan from whose height a pointer send over the
+// V6120Upgrade is the plan from whose height a pointer send over the
 // sender's balance returns false instead of reverting.
-const v6120Upgrade = "v6.12.0"
+const V6120Upgrade = "v6.12.0"
 
 // LayerXReceiptEvent is the log the context-hash send overload emits.
 const LayerXReceiptEvent = "LayerXReceipt"
@@ -223,7 +223,7 @@ func (p PrecompileExecutor) v6120Active(ctx sdk.Context) bool {
 	if !ok {
 		return false
 	}
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), v6120Upgrade, ctx.BlockHeight())
+	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), V6120Upgrade, ctx.BlockHeight())
 }
 
 func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method *abi.Method, args []interface{}, value *big.Int, readOnly bool) ([]byte, uint64, error) {

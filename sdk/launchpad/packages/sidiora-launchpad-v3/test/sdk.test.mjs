@@ -1,7 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { decodeFunctionData, encodeFunctionData, zeroAddress } from 'viem';
 import { factoryAbi, routerAbi, quoterAbi, protocolConfigAbi, validateDeployment } from '../dist/index.js';
+import { erc20Abi } from '../dist/abis.js';
+
+function erc20AbiMatchesSidioraErc20() {
+  const sidioraErc20 = JSON.parse(
+    readFileSync(
+      new URL('../../../../../precompiles/launchpad/abi/SidioraERC20.json', import.meta.url),
+      'utf8',
+    ),
+  );
+  const identities = abi => new Set(
+    abi.map(entry =>
+      `${entry.type}:${entry.name ?? ''}(${entry.inputs.map(input => input.type).join(',')})`,
+    ),
+  );
+  assert.deepEqual(identities(erc20Abi), identities(sidioraErc20));
+  assert.deepEqual(erc20Abi, sidioraErc20);
+}
+
+test(erc20AbiMatchesSidioraErc20);
 
 test('current factory creation ABI preserves parameters exactly', () => {
   const args = ['Market', 'MKT', 3, zeroAddress];

@@ -130,32 +130,74 @@ export class KernelClient {
 }
 
 function hex32(value: string, what: string): string {
-  if (!/^[0-9a-fA-F]{64}$/.test(value) || /^0{64}$/.test(value)) throw new RangeError(`${what} must be 32 bytes of hex`);
+  if (!/^[0-9a-fA-F]{64}$/.test(value) || /^0{64}$/.test(value))
+    throw new RangeError(`${what} must be 32 bytes of hex`);
   return value;
 }
 
-
 export interface WalletBudgetCap {
-  readonly id: string; readonly owner: string; readonly asset: string; readonly account: string;
-  readonly source_account: string | null; readonly limit: string; readonly configured_limit: string;
-  readonly spent: string; readonly remaining: string; readonly carry_cap: string; readonly carried: string;
-  readonly period_start: string; readonly period_length: string; readonly expiry: string; readonly revocation_sequence: string;
-  readonly closed: boolean; readonly revoked: boolean;
+  readonly id: string;
+  readonly owner: string;
+  readonly asset: string;
+  readonly account: string;
+  readonly source_account: string | null;
+  readonly limit: string;
+  readonly configured_limit: string;
+  readonly spent: string;
+  readonly remaining: string;
+  readonly carry_cap: string;
+  readonly carried: string;
+  readonly period_start: string;
+  readonly period_length: string;
+  readonly expiry: string;
+  readonly revocation_height: string;
+  readonly closed: boolean;
+  readonly revoked: boolean;
 }
 export interface WalletGrantCap {
-  readonly id: string; readonly owner: string; readonly recipient: string; readonly asset: string;
-  readonly per_draw_maximum: string; readonly allowance: string; readonly drawn_total: string; readonly drawn_this_period: string;
-  readonly recurring: boolean; readonly window_length: string; readonly window_start: string; readonly expiration: string;
-  readonly revocation_sequence: string; readonly revoked_at_sequence: string; readonly revoked: boolean; readonly invoice_settled: boolean;
+  readonly id: string;
+  readonly owner: string;
+  readonly recipient: string;
+  readonly asset: string;
+  readonly per_draw_maximum: string;
+  readonly allowance: string;
+  readonly drawn_total: string;
+  readonly drawn_this_period: string;
+  readonly recurring: boolean;
+  readonly window_length: string;
+  readonly window_start: string;
+  readonly expiration: string;
+  readonly revocation_height: string;
+  readonly revoked_at_height: string;
+  readonly revoked: boolean;
+  readonly invoice_settled: boolean;
 }
 export interface WalletCapsSnapshot {
-  readonly state: 'ready' | 'empty'; readonly did: string; readonly account_id: string; readonly network_id: number;
-  readonly context: { readonly principal: string; readonly session_id: string; readonly address: string; readonly chain_id: number; readonly expires_at: string };
-  readonly observation: { readonly verification: 'state_proven' | 'checkpoint_finalised' | 'settlement_anchored'; readonly state_root: string; readonly sequence: string; readonly observed_head: string; readonly batch: string };
-  readonly budgets: readonly WalletBudgetCap[]; readonly grants: readonly WalletGrantCap[];
+  readonly state: 'ready' | 'empty';
+  readonly did: string;
+  readonly account_id: string;
+  readonly network_id: number;
+  readonly context: {
+    readonly principal: string;
+    readonly session_id: string;
+    readonly address: string;
+    readonly chain_id: number;
+    readonly expires_at: string;
+  };
+  readonly observation: {
+    readonly rung: 'receipted' | 'committed';
+    readonly block_number: string;
+    readonly state_root: string;
+  };
+  readonly budgets: readonly WalletBudgetCap[];
+  readonly grants: readonly WalletGrantCap[];
   readonly history?: WalletCapsHistory;
 }
 export type WalletCapsHistory =
   | { readonly source: 'indexer'; readonly indexed_height: string | null; readonly chain_height: string }
   | { readonly source: 'chain_scan'; readonly floor: string; readonly head: string };
-export type WalletCapsState = { readonly state: 'loading' } | { readonly state: 'unavailable' | 'refused'; readonly reason: string } | WalletCapsSnapshot;
+export type WalletCapsState =
+  | { readonly state: 'loading' }
+  | { readonly state: 'unavailable'; readonly reason: 'consensus_unavailable' }
+  | { readonly state: 'refused'; readonly reason: string }
+  | WalletCapsSnapshot;
