@@ -97,7 +97,8 @@ func (k Keeper) setProgramCommittedCount(ctx sdk.Context, count uint64) {
 }
 
 // FulfilProgram admits the attested answer to a program request, the raw
-// canonical observation. It refuses, in the kernel order: a paused module
+// canonical observation. It refuses, in the kernel order: an inactive program
+// origin (LXP_MODULE_DISABLED), a paused module
 // (LXP_XWEB_PAUSED), an observation that does not decode
 // (LXP_NON_CANONICAL), a network id other than Params.KernelNetworkId
 // (LXP_WRONG_NETWORK), a corrupt pending record (LXP_NON_CANONICAL), no
@@ -110,6 +111,9 @@ func (k Keeper) setProgramCommittedCount(ctx sdk.Context, count uint64) {
 // moves it from the pending to the committed count; a failure of any of
 // these writes nothing.
 func (k Keeper) FulfilProgram(ctx sdk.Context, raw []byte) error {
+	if !k.ProgramOriginActive(ctx) {
+		return ErrProgramModuleDisabled
+	}
 	if k.IsPaused(ctx) {
 		return types.ErrPaused
 	}

@@ -5,14 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -126,25 +124,27 @@ func TestCustodyProposalRefusals(t *testing.T) {
 
 func TestSubmitCustodyProposalFile(t *testing.T) {
 	governance := types.GovernanceAuthority()
-	file := fmt.Sprintf(`{"title":"Custody assets","description":"Map SID","deposit":"1000usei","messages":[
-		{"@type":"/paxprotocol.paxchain.layerxcustody.MsgSetAsset","authority":%q,
-		 "asset":{"asset_id":%q,"denom":"usid","pointer":%q,"enabled":true}}]}`,
-		governance, assetID("SID"), sidPointer)
+	proposal, err := types.NewCustodyProposal("Custody assets", "Map SID",
+		&types.MsgSetAsset{Authority: governance, Asset: types.AssetMapping{
+			AssetId: assetID("SID"), Denom: "usid", Pointer: sidPointer, Enabled: true}})
+	require.NoError(t, err)
 	proposer := sdk.AccAddress(make([]byte, 20))
 	cdc := custodyApp.AppCodec()
 
-	msg, err := cli.NewSubmitCustodyProposalMsg(cdc, []byte(file), proposer)
+	msg, err := govtypes.NewMsgSubmitProposal(proposal, sdk.NewCoins(sdk.NewInt64Coin("usei", 1000)), proposer)
 	require.NoError(t, err)
 	content, ok := msg.GetContent().(*types.CustodyProposal)
 	require.True(t, ok)
 	require.Len(t, content.Messages, 1)
 
+	file, err := cdc.MarshalAsJSON(content)
+	require.NoError(t, err)
 	var unknown map[string]any
 	require.NoError(t, json.Unmarshal([]byte(file), &unknown))
 	unknown["extra"] = true
 	withUnknown, err := json.Marshal(unknown)
 	require.NoError(t, err)
-	_, err = cli.NewSubmitCustodyProposalMsg(cdc, withUnknown, proposer)
+	err = cdc.UnmarshalAsJSON(withUnknown, &types.CustodyProposal{})
 	require.Error(t, err)
 }
 
