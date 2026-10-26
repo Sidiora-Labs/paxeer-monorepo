@@ -6,12 +6,15 @@ import {
   decodeSequencerReceipt,
   JsonRpcClient,
   JsonRpcError,
+  ReceiptTimeoutError,
   readSequencerReceipt,
+  waitForSequencerReceipt,
+  type SequencerRung,
   type TransferRpc,
 } from '../src/index.js';
 
 const recorded = JSON.parse(
-  readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8'),
+  readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
 ) as Record<'submitted' | 'receipted' | 'committed', Record<string, unknown>>;
 const transactionHash = String(recorded.submitted.txHash);
 const foreignHash = `0x${'ff'.repeat(32)}`;
@@ -28,6 +31,10 @@ const answers: Record<string, unknown> = {
   unknown: { ...recorded.submitted, rung: 'final' },
 };
 const requests: { method: string; params: unknown[] }[] = [];
+const sequences = new Map<
+  string,
+  { answers: readonly unknown[]; offset: number; onRequest?: () => void }
+>();
 let base: string;
 const server = createServer(async (req, res) => {
   let body = '';
@@ -35,13 +42,27 @@ const server = createServer(async (req, res) => {
   const request = JSON.parse(body);
   requests.push({ method: request.method, params: request.params });
   const name = req.url?.slice(1) ?? '';
+  const sequence = sequences.get(name);
   res.writeHead(200, { 'content-type': 'application/json' });
-  if (request.method !== 'pax_sequencerReceipt' || request.params?.[0] !== transactionHash ||
-      request.params.length !== 1 || !(name in answers)) {
-    res.end(JSON.stringify({ jsonrpc: '2.0', id: request.id, error: { code: -32602, message: 'invalid receipt request' } }));
+  if (
+    request.method !== 'pax_sequencerReceipt' ||
+    request.params?.[0] !== transactionHash ||
+    request.params.length !== 1 ||
+    (!(name in answers) && !sequence) ||
+    (sequence && sequence.offset >= sequence.answers.length)
+  ) {
+    res.end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: request.id,
+        error: { code: -32602, message: 'invalid receipt request' },
+      })
+    );
     return;
   }
-  res.end(JSON.stringify({ jsonrpc: '2.0', id: request.id, result: answers[name] }));
+  const result = sequence ? sequence.answers[sequence.offset++] : answers[name];
+  sequence?.onRequest?.();
+  res.end(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }));
 });
 
 beforeAll(async () => {
@@ -53,12 +74,20 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((err) => err ? reject(err) : resolve()));
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => (err ? reject(err) : resolve()))
+  );
 });
 
 function receiptRpc(name: string): TransferRpc {
   const client = new JsonRpcClient({ url: `${base}/${name}` });
   return (method, params) => client.call(method, params);
+}
+
+function receiptSequenceRpc(values: readonly unknown[], onRequest?: () => void): TransferRpc {
+  const name = `sequence-${sequences.size}`;
+  sequences.set(name, { answers: values, offset: 0, onRequest });
+  return receiptRpc(name);
 }
 
 async function read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung() {
@@ -70,28 +99,43 @@ async function read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_ea
     expect(decodeSequencerReceipt(answers[rung])).toEqual(answer);
   }
   expect(await readSequencerReceipt(receiptRpc('missing'), transactionHash)).toBeNull();
-  expect(requests.slice(start)).toEqual(Array.from({ length: 4 }, () => ({
-    method: 'pax_sequencerReceipt', params: [transactionHash],
-  })));
+  expect(requests.slice(start)).toEqual(
+    Array.from({ length: 4 }, () => ({
+      method: 'pax_sequencerReceipt',
+      params: [transactionHash],
+    }))
+  );
   const beforeInvalidHash = requests.length;
-  await expect(readSequencerReceipt(receiptRpc('submitted'), 'invalid')).rejects.toThrow('transaction hash');
+  await expect(readSequencerReceipt(receiptRpc('submitted'), 'invalid')).rejects.toThrow(
+    'transaction hash'
+  );
   expect(requests).toHaveLength(beforeInvalidHash);
-  await expect(readSequencerReceipt(receiptRpc('unavailable'), transactionHash)).rejects.toBeInstanceOf(JsonRpcError);
+  await expect(
+    readSequencerReceipt(receiptRpc('unavailable'), transactionHash)
+  ).rejects.toBeInstanceOf(JsonRpcError);
   const largeNonce = { ...recorded.submitted, nonce: '0xffffffffffffffff' };
   expect(decodeSequencerReceipt(largeNonce).nonce).toBe(largeNonce.nonce);
 }
 
 async function decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_hash() {
   for (const rung of ['final', 'instant', '', null, 1, undefined]) {
-    expect(() => decodeSequencerReceipt({ ...recorded.submitted, rung }, transactionHash)).toThrow('rung');
+    expect(() => decodeSequencerReceipt({ ...recorded.submitted, rung }, transactionHash)).toThrow(
+      'rung'
+    );
   }
   expect(() => decodeSequencerReceipt(answers.foreign, transactionHash)).toThrow('asked hash');
-  await expect(readSequencerReceipt(receiptRpc('foreign'), transactionHash)).rejects.toThrow('asked hash');
-  await expect(readSequencerReceipt(receiptRpc('unknown'), transactionHash)).rejects.toThrow('rung');
+  await expect(readSequencerReceipt(receiptRpc('foreign'), transactionHash)).rejects.toThrow(
+    'asked hash'
+  );
+  await expect(readSequencerReceipt(receiptRpc('unknown'), transactionHash)).rejects.toThrow(
+    'rung'
+  );
   for (const rung of ['receipted', 'committed'] as const) {
     for (const field of ['blockNumber', 'blockHash'] as const) {
       for (const invalid of [undefined, null, '', 1]) {
-        expect(() => decodeSequencerReceipt({ ...recorded.committed, rung, [field]: invalid })).toThrow(field);
+        expect(() =>
+          decodeSequencerReceipt({ ...recorded.committed, rung, [field]: invalid })
+        ).toThrow(field);
       }
     }
   }
@@ -106,8 +150,155 @@ async function decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_has
   }
   expect(() => decodeSequencerReceipt(recorded.receipted)).toThrow('blockNumber');
   expect(() => decodeSequencerReceipt({ ...recorded.committed, logs: [null] })).toThrow('log');
-  expect(() => decodeSequencerReceipt({ ...recorded.committed, receipt: '0x1' })).toThrow('receipt');
+  expect(() => decodeSequencerReceipt({ ...recorded.committed, receipt: '0x1' })).toThrow(
+    'receipt'
+  );
 }
 
+async function wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached() {
+  for (const [rung, values, expected] of [
+    ['submitted', [null, answers.submitted, answers.unknown], answers.submitted],
+    ['submitted', [answers.receipted, answers.unknown], answers.receipted],
+    ['submitted', [answers.committed, answers.unknown], answers.committed],
+    ['receipted', [null, answers.submitted, answers.receipted, answers.unknown], answers.receipted],
+    ['receipted', [answers.committed, answers.unknown], answers.committed],
+    [
+      'committed',
+      [null, answers.submitted, answers.receipted, answers.committed, answers.unknown],
+      answers.committed,
+    ],
+  ] as const satisfies readonly (readonly [SequencerRung, readonly unknown[], unknown])[]) {
+    const start = requests.length;
+    const result = await waitForSequencerReceipt(receiptSequenceRpc(values), transactionHash, {
+      rung,
+      attempts: values.length,
+      intervalMs: 0,
+    });
+    expect(result).toEqual(expected);
+    expect(requests.slice(start)).toEqual(
+      Array.from({ length: values.length - 1 }, () => ({
+        method: 'pax_sequencerReceipt',
+        params: [transactionHash],
+      }))
+    );
+  }
+  const start = requests.length;
+  expect(
+    await waitForSequencerReceipt(receiptRpc('committed'), transactionHash, {
+      rung: 'committed',
+    })
+  ).toEqual(answers.committed);
+  expect(requests).toHaveLength(start + 1);
+  await expect(
+    waitForSequencerReceipt(receiptRpc('foreign'), transactionHash, {
+      rung: 'committed',
+      attempts: 3,
+      intervalMs: 0,
+    })
+  ).rejects.toThrow('asked hash');
+  await expect(
+    waitForSequencerReceipt(receiptRpc('unavailable'), transactionHash, {
+      rung: 'committed',
+      attempts: 3,
+      intervalMs: 0,
+    })
+  ).rejects.toBeInstanceOf(JsonRpcError);
+  expect(requests).toHaveLength(start + 3);
+}
+
+async function wait_for_sequencer_receipt_times_out_with_the_last_answer() {
+  for (const values of [
+    [null, answers.submitted, answers.receipted],
+    [answers.receipted, answers.submitted],
+    [answers.submitted, null],
+    [null],
+    [],
+  ]) {
+    const start = requests.length;
+    const error = await waitForSequencerReceipt(receiptSequenceRpc(values), transactionHash, {
+      rung: 'committed',
+      attempts: values.length,
+      intervalMs: 0,
+    }).catch((error: unknown) => error);
+    expect(error).toBeInstanceOf(ReceiptTimeoutError);
+    expect(error).toMatchObject({ name: 'ReceiptTimeoutError', lastAnswer: values.at(-1) ?? null });
+    expect(requests).toHaveLength(start + values.length);
+  }
+  const defaultStart = requests.length;
+  await expect(
+    waitForSequencerReceipt(receiptRpc('missing'), transactionHash, {
+      rung: 'committed',
+      intervalMs: 0,
+    })
+  ).rejects.toMatchObject({ name: 'ReceiptTimeoutError', lastAnswer: null });
+  expect(requests).toHaveLength(defaultStart + 30);
+  const finalStart = requests.length;
+  await expect(
+    waitForSequencerReceipt(receiptRpc('submitted'), transactionHash, {
+      rung: 'committed',
+      attempts: 1,
+      intervalMs: 60_000,
+    })
+  ).rejects.toBeInstanceOf(ReceiptTimeoutError);
+  expect(requests).toHaveLength(finalStart + 1);
+
+  const preAborted = new AbortController();
+  preAborted.abort(new Error('cancelled'));
+  const abortStart = requests.length;
+  await expect(
+    waitForSequencerReceipt(receiptRpc('submitted'), transactionHash, {
+      rung: 'committed',
+      signal: preAborted.signal,
+    })
+  ).rejects.toMatchObject({ name: 'AbortError' });
+  expect(requests).toHaveLength(abortStart);
+
+  for (const phase of ['request', 'interval'] as const) {
+    const controller = new AbortController();
+    const start = requests.length;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    let didAbort = false;
+    const rpc = receiptSequenceRpc([answers.submitted], () => {
+      if (phase === 'request') {
+        didAbort = true;
+        controller.abort();
+      } else {
+        timer = setTimeout(() => {
+          didAbort = true;
+          controller.abort();
+        }, 50);
+      }
+    });
+    try {
+      const pending = waitForSequencerReceipt(rpc, transactionHash, {
+        rung: 'committed',
+        attempts: 3,
+        intervalMs: 60_000,
+        signal: controller.signal,
+      });
+      await expect(
+        Promise.race([
+          pending,
+          new Promise<never>((_, reject) => {
+            watchdog = setTimeout(
+              () => reject(new Error('abort did not stop receipt polling')),
+              1000
+            );
+          }),
+        ])
+      ).rejects.toMatchObject({ name: 'AbortError' });
+      expect(didAbort).toBe(true);
+      expect(requests).toHaveLength(start + 1);
+    } finally {
+      controller.abort();
+      clearTimeout(timer);
+      clearTimeout(watchdog);
+    }
+  }
+}
+
+test(wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached);
+test(wait_for_sequencer_receipt_times_out_with_the_last_answer);
 test(read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung);
 test(decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_hash);
