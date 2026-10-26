@@ -9,7 +9,6 @@ members = [
     "hosted/agent-boundary",
     "hosted/identity",
     "hosted/internal",
-    "hosted/runtime-clock",
     "hosted/paxeer",
     "hosted/gateway",
     "hosted/indexer",

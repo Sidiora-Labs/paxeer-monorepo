@@ -22,6 +22,8 @@ pub enum Verification {
     Unverified,
     /// A sequencer-signed `LayerX` receipt verified.
     ReceiptVerified,
+    /// A sequencer receipt included in a committed chain block.
+    BlockCommitted,
     /// A threshold checkpoint certificate verified.
     CheckpointFinalised,
     /// The settlement reference matched the registered Paxeer anchor.
@@ -35,6 +37,7 @@ impl Verification {
         match self {
             Self::Unverified => "unverified",
             Self::ReceiptVerified => "receipt-verified",
+            Self::BlockCommitted => "block-committed",
             Self::CheckpointFinalised => "checkpoint-finalised",
             Self::PaxeerFinalised => "paxeer-finalised",
         }
@@ -48,6 +51,7 @@ impl Verification {
         match value {
             "unverified" => Ok(Self::Unverified),
             "receipt-verified" => Ok(Self::ReceiptVerified),
+            "block-committed" => Ok(Self::BlockCommitted),
             "checkpoint-finalised" => Ok(Self::CheckpointFinalised),
             "paxeer-finalised" => Ok(Self::PaxeerFinalised),
             _ => Err(WebhookError::InvalidRequest),
@@ -670,4 +674,27 @@ pub fn settled_payment(draft: PaymentDraft<'_>) -> Result<ProtocolEvent, Webhook
         occurred_at: draft.occurred_at,
         facts,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Verification;
+
+    #[test]
+    fn block_committed_orders_between_receipt_and_checkpoint() {
+        let committed = Verification::BlockCommitted;
+        assert_eq!(committed.as_str(), "block-committed");
+        assert!(matches!(
+            Verification::parse(committed.as_str()),
+            Ok(Verification::BlockCommitted)
+        ));
+
+        assert!(Verification::ReceiptVerified < committed);
+        assert!(committed < Verification::CheckpointFinalised);
+        assert!(committed.at_least(Verification::ReceiptVerified));
+        assert!(committed.at_least(committed));
+        assert!(!Verification::ReceiptVerified.at_least(committed));
+        assert!(!committed.at_least(Verification::CheckpointFinalised));
+        assert!(Verification::CheckpointFinalised.at_least(committed));
+    }
 }

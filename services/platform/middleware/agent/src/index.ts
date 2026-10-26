@@ -268,7 +268,7 @@ export class AgentMiddleware {
         && !("variant" in request.preparation && this.#preparationBudgets !== undefined)) {
       throw new PlatformSdkError({ code: "policy-refusal", retry: "never" });
     }
-    if (request.commitment !== undefined && request.commitment.level !== "executed" && this.#commitments === undefined) throw new AgentMiddlewareError("invalid-request");
+    if (request.commitment?.level === "committed" && this.#commitments === undefined) throw new AgentMiddlewareError("invalid-request");
     const amount = protocolAmount(request.amount).toString();
     const mutationKey = idempotencyKey(request.preparation.idempotency_key);
     const requestDigest = await digestSpend(request);
@@ -685,8 +685,8 @@ function sameRefusal(left: AgentRefusal, right: AgentRefusal): boolean {
 function validateSpend(request: AgentSpendRequest): void {
   try { validateDaemonSpend(request); } catch { throw new AgentMiddlewareError("invalid-request"); }
   if (typeof request.tenant !== "string" || request.tenant.length === 0 || request.tenant.length > 255 || request.tenant.includes("\0")) throw new AgentMiddlewareError("invalid-request");
-  if (request.commitment !== undefined && (!/^layerx:[A-Za-z0-9._-]{1,64}$/u.test(request.commitment.network)
-    || !["executed", "batched", "finalised"].includes(request.commitment.level))) throw new AgentMiddlewareError("invalid-request");
+  if (request.commitment !== undefined && (!/^eip155:[0-9]+$/u.test(request.commitment.network)
+    || !["receipted", "committed"].includes(request.commitment.level))) throw new AgentMiddlewareError("invalid-request");
   protocolAmount(request.amount);
   if (!/^[0-9a-f]{64}$/u.test(request.asset) || !/^[0-9a-f]{64}$/u.test(request.recipient)) throw new AgentMiddlewareError("invalid-request");
 }
@@ -844,7 +844,7 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
     const requirements = request.requirements;
     if (requirements.scheme !== "metered" && requirements.scheme !== "subscription") throw new AgentMiddlewareError("invalid-request");
     const commitment = paymentCommitment(requirements.extra);
-    if (commitment !== "executed" && this.config.commitments === undefined) throw new AgentMiddlewareError("invalid-request");
+    if (commitment !== "receipted" && this.config.commitments === undefined) throw new AgentMiddlewareError("invalid-request");
     const amount = protocolAmount(requirements.amount).toString();
     if (!/^[0-9a-f]{64}$/u.test(request.requestDigest) || !/^[0-9a-f]{64}$/u.test(request.idempotencyKey)) throw new AgentMiddlewareError("invalid-request");
     const facts = { amount, asset: requirements.asset, requestDigest: request.requestDigest };

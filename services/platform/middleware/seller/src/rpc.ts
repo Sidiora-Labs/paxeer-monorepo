@@ -1,5 +1,5 @@
 import { type AuthorizedReceiptBatch, type ProtocolSelection, type ReceiptVerification } from "@sidiora/layerx-sdk";
-import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver } from "./index.js";
+import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver } from "./index.js";
 
 export function rpcObject(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid-rpc-object");
@@ -50,9 +50,9 @@ export class PaymentRpc {
     }
     return rpcObject(body["result"]);
   }
-  public async send(canonicalHex: string, commitment: "executed" | "batched" | "finalised"): Promise<Record<string, unknown>> {
+  public async send(canonicalHex: string, commitment: PaymentCommitment): Promise<Record<string, unknown>> {
     rpcHex(canonicalHex);
-    if (canonicalHex.length > 1_048_576 || !["executed", "batched", "finalised"].includes(commitment)) throw new Error("invalid-rpc-submit");
+    if (canonicalHex.length > 1_048_576 || !["receipted", "committed"].includes(commitment)) throw new Error("invalid-rpc-submit");
     return this.call("lx_sendActivity", [canonicalHex, commitment]);
   }
   public receipt(activityId: string): Promise<Record<string, unknown>> { rpcHex(activityId, 32); return this.call("lx_getReceipt", [activityId]); }
