@@ -37,3 +37,43 @@ symbol = "registry_retryable"
 observed = "At revision 4a9dbd740 the build `make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/` exited 2 (log /out/logs/build-1.log): services/agent/crates/layerx-types/build.rs rejected the regenerated address-table.md row `| LXP_ARBITER_REQUIRED | precompiles/common/lxp_errors.go:151 |` as lacking the five registry columns, so cargo build --locked --release -p layerx-programs-sandbox exited 101 and every cgo-linked Go build failed to find -llayerx_programs_sandbox."
 assumption = "The specification rebuild overwrote the machine-readable address table and error registry with a generated inventory; the table returns verbatim at contracts/address-table.md, the inventory lives at contracts/address-inventory.md, and builds proceed on the restored table."
 severity = "blocker"
+
+[finding.11.15.1]
+task = "11.15.1"
+file = "spec/layerx-merge/spec.kvx:146838"
+symbol = "layerx-committed-proof"
+observed = "At revision 863ff07b7 `cg spec done 11.15.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, reporting ✗ symbol layerx-committed-proof — not defined in the graph: the name is a crate, not a declared symbol."
+assumption = "The symbol list names declared code symbols only; the crate is covered by its touched Cargo.toml and src/lib.rs, the --locked metadata build and the lock_lists_every_member_dependency test, so the crate name leaves the symbols list."
+severity = "note"
+
+[finding.16.21.1]
+task = "16.21.1"
+file = "spec/layerx-merge/spec.kvx:165753"
+symbol = "harness.run-one-runs-named-case"
+observed = "At revision f35c55292 `cg spec done 16.21.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after both --run cases passed, reporting ✗ symbol harness.run-one-runs-named-case and ✗ symbol harness.run-one-reports-unknown-case — not defined in the graph: they are case ids registered through lxp_test_register, not C symbols."
+assumption = "The symbol list names the C test functions run_one_runs_named_case and run_one_reports_unknown_case that implement the two cases; the verify_cmd keeps running the cases by id."
+severity = "note"
+
+[finding.10.0.1]
+task = "10.0.1"
+file = "services/human/crates/layerx-human-service/src/frame.rs:1"
+symbol = "frame::Limits"
+observed = "At revision 3e95e95ed `cg spec done 10.0.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, reporting ✗ symbol frame::Limits and ✗ symbol frame::ConnectionGate — not defined in the graph although both are declared in frame.rs; Hyperfide aaeb85312 did not resolve module-qualified names and did not index package-level consts and vars, Rust consts, statics and enum variants or TypeScript bindings, which refused 51 tasks whose verify_cmd had passed."
+assumption = "Hyperfide 3762f1c43 (CG_EXTRACTION_VERSION 4) indexes those kinds and resolves qualified names; the refused results are re-qualified with it and the affected symbol lists stay as written."
+severity = "suspect"
+
+[finding.13.21.9]
+task = "13.21.9"
+file = "precompiles/layerxprograms/args.go:11"
+symbol = "TransferLeg"
+observed = "precompiles/layerxprograms did not compile after tasks 13.21.4 (2d8bf2e07) and 13.21.9 (21a0d91ee) both landed: both wrote `type TransferLeg struct { From, Asset, To [32]byte; Amount *big.Int }`, 13.21.4 in payload_accounts.go as its do_1 specifies and 13.21.9 in args.go beside decodeLegs, which only uses the type; neither task requires the other and 47 later layerxprograms tasks build on the package."
+assumption = "The declaration belongs to 13.21.4; the copy in args.go is removed and 13.21.9's decodeLegs keeps using payload_accounts.go's TransferLeg, so no symbol list changes."
+severity = "blocker"
+
+[finding.1.0.1]
+task = "1.0.1"
+file = "Makefile:1668"
+symbol = "run_one_dispatches_case"
+observed = "At revision ec6d59cc5 `make -C . build/tests/kernel/codec/lxp_test_case_dispatch` exited 2 (log /out/logs/verify-1.log): No rule to make target 'build/tests/kernel/codec/lxp_test_case_dispatch'; the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982), which the other 71 kernel tasks require and 1.0.1 (wave 0, requires []) and 1.0.9 did not."
+assumption = "1.0.1 and 1.0.9 now require 16.2.1; 1.0.1's implementation at ec6d59cc5 is re-qualified unchanged once 16.2.1 is done."
+severity = "blocker"
