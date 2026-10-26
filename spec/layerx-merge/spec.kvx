@@ -3539,6 +3539,17 @@ value = "Service catalogue and qualification ledger readers use spec/layerx-merg
 basis = "scripts/ci/beta-ledger-check.sh:685 and tools/qualification/paxeer_x_release.py:63 read deleted spec trees."
 affects = ["task.16.9.2", "task.16.5.1", "task.16.10.1", "task.16.10.2", "task.16.10.3", "task.16.7.1"]
 
+
+[contract_context.108.decision]
+derivation_message = "The account-derivation message names paxportwallet.com as the signing origin; that name is part of every derived account and is not a served name."
+
+[contract_context.108.decision.public_names]
+title = "Public names the bring-up docs may carry, read by tools/bringup/docs-names.sh"
+router = "api-mainnet-beta.paxeer.network -> the unified router; its RPC endpoint is https://api-mainnet-beta.paxeer.network/rpc."
+rpc = "api1..api16.mainnet-beta.paxeer.network -> the sixteen public RPC nodes, unchanged."
+developers = "dev.paxeer.network -> the dashboard web app; api-dev.paxeer.network -> the dashboard API app; hooks.paxeer.network -> the webhooks app."
+ramp = "ramp.paxeer.network -> the reference ramp app."
+
 [decision.1603]
 title = "Retired daemons leave the container images"
 value = "docker/platform-node, docker/relay-archive and docker/intent-ingester retire; the kernel image drops layerxd, guarantor, handover, archive codec and custody-proof."
@@ -14816,8 +14827,8 @@ title = "Check the issuer pause authority matrix against the kernel asset rules"
 ac_1 = "The tokenfactory pause authority matches src/modules/asset/lx_asset_execution.h:240-243: issuer DID allowed, other DID and unbound issuer refused with LXP_UNAUTHORIZED_DEBIT, repeat refused with LXP_PAUSED_SCOPE, and the bech32 admin refused for an issuer-bound denom."
 
 [req.6271]
-title = "Register the six layerxbridge governance messages in the LayerX proposal amino codec"
-ac_1 = "init (modules/layerxgov/types/proposal.go:55-70) registers bridge MsgRegisterChain, MsgSetAttestors, MsgSetCap, MsgPause, MsgUnpause and MsgRegisterSidioraPair with govtypes.RegisterProposalTypeCodec, which governanceMessage already accepts (modules/layerxgov/types/proposal.go:194-205) but the amino registry omits."
+title = "Prove the LayerX proposal amino codec carries the six layerxbridge governance messages"
+ac_1 = "The gov legacy amino codec holds bridge MsgRegisterChain, MsgSetAttestors, MsgSetCap, MsgPause, MsgUnpause and MsgRegisterSidioraPair through init at modules/layerxbridge/types/proposal.go:26-31, so a LayerXProposal carrying any message governanceMessage accepts (modules/layerxgov/types/proposal.go:194-205) marshals to amino JSON; modules/layerxgov/types/proposal.go:55-70 must not register them again."
 
 [req.6272]
 title = "Route the layerxpay MsgUpdateParams pause through LayerXProposal"
@@ -17992,7 +18003,7 @@ ac_1 = "The v2 example in PORTABILITY.md parses with PortableReceiptV2::from_jso
 
 [req.11005]
 title = "Record x402 sequenced settlement vectors from the recorded payExact receipt"
-ac_1 = "Every case of sequenced-settlement.json (planned) carries the txHash and receiptDigest recorded at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:150."
+ac_1 = "Every case of sequenced-settlement.json (planned) carries the receiptDigest recorded at sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:150, and receipted_settlement and submitted_settlement carry its txHash as transaction."
 ac_2 = "Each case of sequenced-settlement.json (planned) passes or fails SettlementResponse::validate_wire (services/interop/crates/layerx-x402/src/model.rs:447) as its expected verdict states."
 
 [req.11006]
@@ -32988,9 +32999,9 @@ do_3 = "Assert error texts begin LXP_UNAUTHORIZED_DEBIT for code 28 and LXP_PAUS
 symbols = ["TestIssuerPauseAuthorityMatrix"]
 
 [capability.6.28.1]
-title = "Register the six layerxbridge governance messages in the LayerX proposal amino codec"
+title = "Prove the LayerX proposal amino JSON carries the six layerxbridge governance messages"
 reqs = ["6271.1"]
-touches = ["modules/layerxgov/types/proposal.go", "modules/layerxgov/types/amino_bridge_test.go"]
+touches = ["modules/layerxgov/types/amino_bridge_test.go"]
 tests = ["modules/layerxgov/types/amino_bridge_test.go::TestLayerXProposalBridgeAminoJSON"]
 verification_contract = "contracts/layerxgov.md#proposal-codec"
 do_1 = "Add govtypes.RegisterProposalTypeCodec calls for &bridge.MsgRegisterChain{}, &bridge.MsgSetAttestors{}, &bridge.MsgSetCap{}, &bridge.MsgPause{}, &bridge.MsgUnpause{} and &bridge.MsgRegisterSidioraPair{} under the names layerxbridge/<MsgName> in init at modules/layerxgov/types/proposal.go:55-70."
@@ -38474,7 +38485,7 @@ symbols = ["sign_disclosed_call", "sign_disclosed_call_signs_the_eip1559_preimag
 [capability.9.32.1]
 title = "Move RpcClient reads and submission from lx_ methods to eth_ and px_"
 reqs = ["9331.1", "9331.2", "9331.3"]
-touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/tests/rpc_node.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/rpc_node.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/rpc_node.rs::reads_use_only_eth_and_px_methods", "services/agent/crates/layerx-sdk/tests/rpc_node.rs::send_raw_transaction_returns_the_hash_at_the_submitted_rung", "services/agent/crates/layerx-sdk/tests/rpc_node.rs::identity_sequence_reads_the_pending_nonce"]
 verification_contract = "contracts/agent-rust-api.md#sdk"
 do_1 = "RpcClient (services/agent/crates/layerx-sdk/src/rpc.rs:588) calls lx_getAccount, lx_getBalance, lx_getSequence, lx_getReceipt, lx_getBatchHeader and lx_getCheckpoint (services/agent/crates/layerx-sdk/src/rpc.rs:746-749), lx_getBalances (services/agent/crates/layerx-sdk/src/rpc.rs:805), lx_listAssets (services/agent/crates/layerx-sdk/src/rpc.rs:880), lx_estimateFee (services/agent/crates/layerx-sdk/src/rpc.rs:905), lx_getProof (services/agent/crates/layerx-sdk/src/rpc.rs:922) and lx_sendActivity (services/agent/crates/layerx-sdk/src/rpc.rs:937); clients.md O49 (spec/layerx-merge/contracts/clients.md:88) names the replacements."
@@ -38483,7 +38494,7 @@ symbols = ["RpcClient", "send_raw_transaction", "sequencer_receipt", "get_identi
 [capability.9.32.2]
 title = "Build Wallet writes as signed layerxledger EIP-1559 calls"
 reqs = ["9332.1", "9332.2", "9332.3"]
-touches = ["services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs::send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::open_account_encodes_the_open_account_selector", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::submitted_revert_maps_through_the_registry"]
 verification_contract = "contracts/agent-rust-api.md#sdk"
 do_1 = "Wallet (services/agent/crates/layerx-sdk/src/wallet.rs:27) send (services/agent/crates/layerx-sdk/src/wallet.rs:73), open_account, create, mint, burn, issue, revoke, draw and payment build kernel activities and encode them with encode_signed_envelope (services/agent/crates/layerx-sdk/src/wallet.rs:10); clients.md O46 (spec/layerx-merge/contracts/clients.md:85) maps each to a layerxledger method."
@@ -70026,7 +70037,7 @@ qualification = "UNRUN"
 [acceptance.11.5.1]
 feature = "11"
 req = "11005.1"
-scenario = "Given sequenced-settlement.json, when each case is decoded, then its transaction equals the recorded txHash and its receiptDigest equals the recorded receiptDigest."
+scenario = "Given sequenced-settlement.json, when each case is decoded, then its receiptDigest equals the recorded receiptDigest, the transaction of receipted_settlement and submitted_settlement equals the recorded txHash, and the transaction of committed_without_proof is empty."
 contract = "contracts/interop-specs.md#conformance-vectors"
 test = "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs::sequenced_settlement_vectors_carry_the_recorded_receipt (planned)"
 qualification = "UNRUN"
@@ -70034,7 +70045,7 @@ qualification = "UNRUN"
 [acceptance.11.5.2]
 feature = "11"
 req = "11005.2"
-scenario = "Given the three cases, when SettlementResponse::validate_wire runs on each body, then receipted and submitted validate and committed_without_proof is refused."
+scenario = "Given the three cases, when SettlementResponse::validate_wire runs on each body, then receipted and submitted validate and committed_without_proof is refused with EvidenceMissing because it claims success with an empty transaction."
 contract = "contracts/interop-specs.md#conformance-vectors"
 test = "services/interop/crates/layerx-x402/tests/sequenced_vectors.rs::sequenced_settlement_vectors_validate_on_the_wire (planned)"
 qualification = "UNRUN"
@@ -90837,7 +90848,7 @@ do_1 = "Declare bool lxp_result_is_registered(lxp_result result) after lxp_resul
 do_2 = "Implement lxp_result_is_registered in src/protocol/lxp_result.c with the LXP_RESULT_CODE_LIST X-macro switch used by lxp_result_name at src/protocol/lxp_result.c:3-12."
 do_3 = "Return LXP_RESULT_DOMAIN_UNKNOWN from lxp_result_domain (src/protocol/lxp_result.c:14) when lxp_result_is_registered is false, before the range buckets at src/protocol/lxp_result.c:19-50."
 do_4 = "Write tests/codec/lxp_test_result_domain.c (planned) with result_domain_unregistered_unknown and result_is_registered_matches_list."
-symbols = ["lxp_result_is_registered", "lxp_result_domain", "LXP_RESULT_DOMAIN_UNKNOWN", "result_domain_unregistered_unknown", "result_is_registered_matches_list"]
+symbols = ["lxp_result_is_registered", "lxp_result_domain", "result_domain_unregistered_unknown", "result_is_registered_matches_list"]
 touches = ["include/layerx/lxp_result.h", "src/protocol/lxp_result.c", "tests/codec/lxp_test_result_domain.c"]
 tests = ["tests/codec/lxp_test_result_domain.c::result_domain_unregistered_unknown", "tests/codec/lxp_test_result_domain.c::result_is_registered_matches_list"]
 planned_paths = ["tests/codec/lxp_test_result_domain.c"]
@@ -91163,7 +91174,7 @@ do_1 = "Declare lxp_result lxp_kernel_claim_writer(lxp_kernel *kernel) in includ
 do_2 = "Implement it in src/protocol/lxp_kernel_host.c (planned): take kernel->state->lock, refuse an open journal with LXP_ERR_CONTEXT_MISMATCH, set writer to pthread_self as lxp_state_store_init does at src/state/lxp_journal.c:162, release the lock."
 do_3 = "Keep lxp_state_writer_assert_owner (src/state/lxp_journal.c:977-982) as the only writer check; the host thread lock at modules/lxphost/host.go:688 stays the host's responsibility."
 do_4 = "Write tests/codec/lxp_test_kernel_writer.c (planned) with claim_writer_moves_owner and claim_writer_refuses_open_journal using two pthreads."
-symbols = ["lxp_kernel_claim_writer", "lxp_state_writer_assert_owner", "LXP_ERR_CONTEXT_MISMATCH", "claim_writer_moves_owner", "claim_writer_refuses_open_journal"]
+symbols = ["lxp_kernel_claim_writer", "lxp_state_writer_assert_owner", "claim_writer_moves_owner", "claim_writer_refuses_open_journal"]
 touches = ["include/layerx/lxp_kernel_host.h", "src/protocol/lxp_kernel_host.c", "tests/codec/lxp_test_kernel_writer.c"]
 tests = ["tests/codec/lxp_test_kernel_writer.c::claim_writer_moves_owner", "tests/codec/lxp_test_kernel_writer.c::claim_writer_refuses_open_journal"]
 planned_paths = ["include/layerx/lxp_kernel_host.h", "src/protocol/lxp_kernel_host.c", "tests/codec/lxp_test_kernel_writer.c"]
@@ -92335,7 +92346,7 @@ do_1 = "Remove LX_PROGRAMS_FEE_GOVERNANCE from the type lists at src/modules/pro
 do_2 = "Delete the relay dispatch at src/modules/programs/registration.c:95-96, src/modules/programs/registration.c:142-143 and src/modules/programs/registration.c:193-194."
 do_3 = "Keep staging, pending, activation, observation and runtime resolution (src/modules/programs/fees.c:1288, :1355, :1376, :1731, :1828) and the proposal validator the governance module calls (src/modules/governance/lxp_governance.c:131, :240), as decision.106 records."
 do_4 = "Write tests/codec/lxp_test_fee_relay_retired.c (planned) with fee_relay_type_refused and fee_observe_batch_unchanged."
-symbols = ["LX_PROGRAMS_FEE_GOVERNANCE", "lxp_programs_fee_governance_decode", "lxp_programs_fee_governance_observe_batch", "fee_relay_type_refused", "fee_observe_batch_unchanged"]
+symbols = ["lxp_programs_fee_governance_decode", "lxp_programs_fee_governance_observe_batch", "fee_relay_type_refused", "fee_observe_batch_unchanged"]
 touches = ["src/modules/programs/registration.c", "tests/codec/lxp_test_fee_relay_retired.c"]
 tests = ["tests/codec/lxp_test_fee_relay_retired.c::fee_relay_type_refused", "tests/codec/lxp_test_fee_relay_retired.c::fee_observe_batch_unchanged"]
 planned_paths = ["tests/codec/lxp_test_fee_relay_retired.c"]
@@ -92560,7 +92571,7 @@ wiring = ["wiring.J21.1"]
 do_1 = "Raise LXP_KERNEL_MAX_MODULE_KV to 4096 and LXP_MODULE_MAX_STAGED_WRITES to 512 in the enum at include/layerx/lxp_kernel.h:16-22 (stale task 0.153)."
 do_2 = "Keep the bound checks at src/state/lxp_state_root.c:26 and src/state/lxp_snapshot.c:371 using the constants so encodings of states within the old bounds stay byte-identical."
 do_3 = "Write tests/codec/lxp_test_module_bounds.c (planned) with module_kv_bound_raised and staged_writes_bound_raised."
-symbols = ["LXP_KERNEL_MAX_MODULE_KV", "LXP_MODULE_MAX_STAGED_WRITES", "module_kv_bound_raised", "staged_writes_bound_raised"]
+symbols = ["module_kv_bound_raised", "staged_writes_bound_raised"]
 touches = ["include/layerx/lxp_kernel.h", "tests/codec/lxp_test_module_bounds.c"]
 tests = ["tests/codec/lxp_test_module_bounds.c::module_kv_bound_raised", "tests/codec/lxp_test_module_bounds.c::staged_writes_bound_raised"]
 planned_paths = ["tests/codec/lxp_test_module_bounds.c"]
@@ -92954,7 +92965,7 @@ do_2 = "At open and resolve compare the link read by task 1.20.1 with buyer, pro
 do_3 = "Return LXP_ERR_ARBITER_REQUIRED at open for a zero arbiter, because escrow open does not require one (src/modules/escrow/lx_escrow_open.c:8-35)."
 do_4 = "Keep lx_service_effect_audit and the settlement legs unchanged (src/modules/service/lx_service_dispute.c:106-124)."
 do_5 = "Write tests/codec/lxp_test_service_arbiter.c (planned) with the three cases."
-symbols = ["lx_service_dispute_open_execute", "lx_service_dispute_resolve_execute", "LXP_ERR_UNAUTHORIZED_ARBITER", "resolve_requires_linked_arbiter", "open_requires_arbiter_and_link", "dispute_window_rules_kept"]
+symbols = ["lx_service_dispute_open_execute", "lx_service_dispute_resolve_execute", "resolve_requires_linked_arbiter", "open_requires_arbiter_and_link", "dispute_window_rules_kept"]
 touches = ["src/modules/service/lx_service_dispute.c", "tests/codec/lxp_test_service_arbiter.c"]
 tests = ["tests/codec/lxp_test_service_arbiter.c::resolve_requires_linked_arbiter", "tests/codec/lxp_test_service_arbiter.c::open_requires_arbiter_and_link", "tests/codec/lxp_test_service_arbiter.c::dispute_window_rules_kept"]
 planned_paths = ["tests/codec/lxp_test_service_arbiter.c"]
@@ -121425,7 +121436,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.6.28.1]
-title = "Register the six layerxbridge governance messages in the LayerX proposal amino codec"
+title = "Prove the LayerX proposal amino JSON carries the six layerxbridge governance messages"
 status = "pending"
 mode = "BUILD"
 wave = 0
@@ -121433,11 +121444,11 @@ requires = []
 reqs = ["6271.1"]
 capabilities = ["6.28.1"]
 interfaces = ["interface.6.go-layerxgov-proposal-amino-registry-j35"]
-do_1 = "Add govtypes.RegisterProposalTypeCodec calls for &bridge.MsgRegisterChain{}, &bridge.MsgSetAttestors{}, &bridge.MsgSetCap{}, &bridge.MsgPause{}, &bridge.MsgUnpause{} and &bridge.MsgRegisterSidioraPair{} under the names layerxbridge/<MsgName> in init at modules/layerxgov/types/proposal.go:55-70."
-do_2 = "Keep the existing twelve registrations at modules/layerxgov/types/proposal.go:57-69 unchanged so their amino names stay byte-identical."
+do_1 = "Add no registration to modules/layerxgov/types/proposal.go: the six layerxbridge messages are already registered in the shared gov amino codec by init at modules/layerxbridge/types/proposal.go:26-31, and registering them again panics with TypeInfo already exists."
+do_2 = "Keep modules/layerxgov/types/proposal.go and modules/layerxbridge/types/proposal.go unchanged so every amino name stays byte-identical."
 do_3 = "Create modules/layerxgov/types/amino_bridge_test.go (planned) with TestLayerXProposalBridgeAminoJSON marshalling a MsgSubmitProposal through the gov legacy amino codec."
-symbols = ["init", "RegisterProposalTypeCodec", "TestLayerXProposalBridgeAminoJSON"]
-touches = ["modules/layerxgov/types/proposal.go", "modules/layerxgov/types/amino_bridge_test.go"]
+symbols = ["TestLayerXProposalBridgeAminoJSON"]
+touches = ["modules/layerxgov/types/amino_bridge_test.go"]
 tests = ["modules/layerxgov/types/amino_bridge_test.go::TestLayerXProposalBridgeAminoJSON"]
 planned_paths = ["modules/layerxgov/types/amino_bridge_test.go"]
 build_cmd = "go build ./modules/layerxgov/..."
@@ -121445,7 +121456,7 @@ verify_cmd = "go test -count=1 ./modules/layerxgov/types/ -run '^(TestLayerXProp
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-chain-modules"
-rollback = "Revert modules/layerxgov/types/proposal.go; amino registration adds no state."
+rollback = "Delete modules/layerxgov/types/amino_bridge_test.go; the task adds no production code."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -127075,7 +127086,7 @@ do_1 = "Remove CheckTxTimeout from Config (rpc/config/config.go:93) and DefaultC
 do_2 = "Remove flagCheckTxTimeout (rpc/config/config.go:240) and its read at rpc/config/config.go:345-346."
 do_3 = "Remove checktx_timeout from ConfigTemplate at rpc/config/config.go:543."
 do_4 = "Write TestReadConfigIgnoresChecktxTimeout in rpc/config/config_test.go next to rpc/config/config_test.go:206: app options carrying evm.checktx_timeout read without an error and the rendered template has no checktx_timeout key."
-symbols = ["CheckTxTimeout", "flagCheckTxTimeout", "TestReadConfigIgnoresChecktxTimeout"]
+symbols = ["TestReadConfigIgnoresChecktxTimeout"]
 touches = ["rpc/config/config.go", "rpc/config/config_test.go"]
 tests = ["rpc/config/config_test.go::TestReadConfigIgnoresChecktxTimeout"]
 planned_paths = []
@@ -139900,11 +139911,12 @@ capabilities = ["9.32.1"]
 interfaces = ["interface.9.rs-sdk-rpc-rpcclient", "interface.9.rs-sdk-rpcclient-get-identity-sequence-j70", "interface.9.rs-sdk-rpcclient-estimate-fee-j70"]
 do_1 = "RpcClient (services/agent/crates/layerx-sdk/src/rpc.rs:588) calls lx_getAccount, lx_getBalance, lx_getSequence, lx_getReceipt, lx_getBatchHeader and lx_getCheckpoint (services/agent/crates/layerx-sdk/src/rpc.rs:746-749), lx_getBalances (services/agent/crates/layerx-sdk/src/rpc.rs:805), lx_listAssets (services/agent/crates/layerx-sdk/src/rpc.rs:880), lx_estimateFee (services/agent/crates/layerx-sdk/src/rpc.rs:905), lx_getProof (services/agent/crates/layerx-sdk/src/rpc.rs:922) and lx_sendActivity (services/agent/crates/layerx-sdk/src/rpc.rs:937); clients.md O49 (spec/layerx-merge/contracts/clients.md:88) names the replacements."
 do_2 = "Map get_balances to px_getBalances, get_account to px_getAccount, list_assets and list_assets_page to px_listAssets, get_asset to px_listAssets filtered by id, get_node_info to px_getNetwork (spec/layerx-merge/contracts/clients.md:90), get_batch_header to eth_getBlockByNumber (spec/layerx-merge/contracts/clients.md:54) and get_proof to eth_getProof."
-do_3 = "Replace send_activity (services/agent/crates/layerx-sdk/src/rpc.rs:928) with `send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], RpcError>` over eth_sendRawTransaction and add `sequencer_receipt(&self, hash)` over pax_sequencerReceipt (spec/layerx-merge/contracts/clients.md:82); estimate_fee (services/agent/crates/layerx-sdk/src/rpc.rs:901) takes an Eip1559Call and calls eth_estimateGas at pending."
+do_3 = "Add `send_raw_transaction(&self, raw: &[u8]) -> Result<[u8; 32], RpcError>` over eth_sendRawTransaction beside send_activity (services/agent/crates/layerx-sdk/src/rpc.rs:928), which stays until task 9.32.2 moves Wallet::execute (services/agent/crates/layerx-sdk/src/wallet.rs:293) off it, and add `sequencer_receipt(&self, hash)` over pax_sequencerReceipt (spec/layerx-merge/contracts/clients.md:82); estimate_fee (services/agent/crates/layerx-sdk/src/rpc.rs:901) takes an Eip1559Call and calls eth_estimateGas at pending."
 do_4 = "get_identity_sequence (services/agent/crates/layerx-sdk/src/rpc.rs:791) reads eth_getTransactionCount(address, \"pending\") (spec/layerx-merge/contracts/clients.md:83); remove get_checkpoint and get_activity_status, which have no node method."
 do_5 = "Create services/agent/crates/layerx-sdk/tests/rpc_node.rs (planned) with a loopback JSON-RPC listener that records every method name."
+do_6 = "get_identity_sequence now returns the pending nonce, so Wallet::prepare (services/agent/crates/layerx-sdk/src/wallet.rs:232-235) uses that value directly as the sequence in place of `.next_sequence`; change no other line of wallet.rs."
 symbols = ["RpcClient", "send_raw_transaction", "sequencer_receipt", "get_identity_sequence", "reads_use_only_eth_and_px_methods", "send_raw_transaction_returns_the_hash_at_the_submitted_rung", "identity_sequence_reads_the_pending_nonce"]
-touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/tests/rpc_node.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/rpc_node.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/rpc_node.rs::reads_use_only_eth_and_px_methods", "services/agent/crates/layerx-sdk/tests/rpc_node.rs::send_raw_transaction_returns_the_hash_at_the_submitted_rung", "services/agent/crates/layerx-sdk/tests/rpc_node.rs::identity_sequence_reads_the_pending_nonce"]
 planned_paths = ["services/agent/crates/layerx-sdk/tests/rpc_node.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
@@ -139936,8 +139948,9 @@ do_3 = "Sign every call with sign_disclosed_call (task 9.31.3) and submit throug
 do_4 = "Map a refusal from eth_sendRawTransaction or eth_estimateGas and the Error(string) data of a status-0 receipt through Retriability::of_revert_reason (task 9.26.2, services/agent/crates/layerx-types/src/result.rs:105) so the caller receives the registry code and its class."
 do_5 = "Remove the layerx_wire::activity import (services/agent/crates/layerx-sdk/src/wallet.rs:10)."
 do_6 = "Create services/agent/crates/layerx-sdk/tests/wallet_calls.rs (planned) with a loopback JSON-RPC listener and LocalSigner."
+do_7 = "Remove RpcClient::send_activity (services/agent/crates/layerx-sdk/src/rpc.rs:928) and its lx_sendActivity call once Wallet::execute submits through send_raw_transaction."
 symbols = ["Wallet::send", "Wallet::open_account", "Wallet::execute", "send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "open_account_encodes_the_open_account_selector", "submitted_revert_maps_through_the_registry"]
-touches = ["services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs::send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::open_account_encodes_the_open_account_selector", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::submitted_revert_maps_through_the_registry"]
 planned_paths = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
@@ -141528,7 +141541,7 @@ do_2 = "`EntryDetail::assemble` (services/human/crates/layerx-human-service/src/
 do_3 = "Keep the existing caller `EntryDetail::assemble(&entry, actuals, None)` at services/human/crates/layerx-human-service/src/server/production_reads.rs:93 compiling by leaving the argument list unchanged."
 do_4 = "Create services/human/crates/layerx-human-service/tests/detail_rungs.rs (planned) assembling details from entries recorded through the public activity API."
 do_5 = "services/human/crates/layerx-human-service/tests/detail.rs:185 and :259 call `FinalityReference::new` with `Level::CheckpointFinalised`; pass `Rung::Committed` there, and leave the `ReceiptReference::Verified` levels at :162-164 and :239, which are the layerx-agent-api `Level` type, unchanged."
-symbols = ["FinalityReference::new", "EntryDetail::assemble", "Rung::Committed"]
+symbols = ["FinalityReference::new", "EntryDetail::assemble"]
 touches = ["services/human/crates/layerx-human-service/src/activity/detail.rs", "services/human/crates/layerx-human-service/tests/detail_rungs.rs", "services/human/crates/layerx-human-service/tests/detail.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/detail_rungs.rs::receipted_entry_detail_is_not_final", "services/human/crates/layerx-human-service/tests/detail_rungs.rs::committed_entry_detail_is_final", "services/human/crates/layerx-human-service/tests/detail.rs::assembles_every_activity_class_from_verified_receipt_actuals"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/detail_rungs.rs"]
@@ -146679,8 +146692,8 @@ requires = []
 reqs = ["11005.1", "11005.2"]
 capabilities = ["11.14.1"]
 interfaces = ["interface.11.fmt-spec-x402-sequenced-settlement-j47"]
-do_1 = "Create services/interop/specs/conformance/x402/sequenced-settlement.json (planned) with cases receipted_settlement, submitted_settlement and committed_without_proof, each a PAYMENT-RESPONSE body whose transaction is the txHash and whose extensions.layerx carry the signedReceipt and receiptDigest of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:109-150."
-do_2 = "Give each case an expected verdict (accept, pending, refuse) and the field it is decided on, in the shape of the cases of services/interop/specs/conformance/x402/settlement-response.json:1."
+do_1 = "Create services/interop/specs/conformance/x402/sequenced-settlement.json (planned) with three PAYMENT-RESPONSE bodies on network eip155:125 built from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:109-150: receipted_settlement (success true, transaction the txHash, extensions.layerx carrying signedReceipt and receiptDigest), submitted_settlement (success false, errorReason settlement_pending, transaction the txHash, extensions.layerx carrying signedReceipt and receiptDigest) and committed_without_proof (success true, no errorReason, transaction empty, extensions.layerx carrying only receiptDigest)."
+do_2 = "Give each case an expected verdict (accept, pending, refuse) and the field it is decided on (/success, /errorReason, /transaction respectively), in the shape of the cases of services/interop/specs/conformance/x402/settlement-response.json:1; committed_without_proof expects Err(EvidenceMissing) from SettlementResponse::validate_wire (services/interop/crates/layerx-x402/src/model.rs:461-463)."
 do_3 = "Describe the file and its provenance in services/interop/specs/conformance/x402/README.md:1, naming sdk/platform/conformance/fixtures/sequencer-receipt-v1.json as the source and the generator that wrote it."
 do_4 = "Create services/interop/crates/layerx-x402/tests/sequenced_vectors.rs (planned) loading the file and checking each case against `SettlementResponse::validate_wire` (services/interop/crates/layerx-x402/src/model.rs:447)."
 symbols = ["SettlementResponse::validate_wire"]
@@ -158729,7 +158742,7 @@ interfaces = []
 do_1 = "Create services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json (planned) with three cases built from services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/receipt_vectors.json:1 plus an eth_receipt, a batch range, a Comet commit and its validator set: committed-ok, r7-height-below-receipt and r8-commit-height-mismatch."
 do_2 = "Take the commit and validator shape from services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/comet_commit.json:1, which CometCommit.verify reads at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/comet_commit.ex:58-76."
 do_3 = "Create services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs (planned) with committed_vectors_drive_verify, which runs SequencerReceipt.verify/4 (services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:170) with opts eth_receipt, batch, chain_id, commit and validators from each case and asserts {:committed, key, height}, {:error, :r7} and {:error, :r8} in that order."
-symbols = ["committed_vectors_drive_verify", "SequencerReceipt.verify"]
+symbols = []
 touches = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"]
 tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs::committed_vectors_drive_verify"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_x/committed_vectors.json", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs"]
@@ -160476,11 +160489,12 @@ do_1 = "Add \"paths\": {\"@/*\": [\"./src/*\"]} under compilerOptions next to th
 do_2 = "Delete the globalSetup entry at apps/bridge/vitest.config.ts:16 and the setupFiles entry at apps/bridge/vitest.config.ts:17; both name files absent at HEAD."
 do_3 = "Set test.environment to \"node\" in apps/bridge/vitest.config.ts:15-20 and keep the tsconfigPaths plugin at apps/bridge/vitest.config.ts:8-10, which resolves @/ once the paths entry exists, and the include glob at apps/bridge/vitest.config.ts:18."
 do_4 = "Write apps/bridge/src/test/harness.spec.ts (planned) with the two top-level tests resolvesTheSrcAlias and defaultsToTheNodeEnvironment."
+do_5 = "Delete the svgr import at apps/bridge/vitest.config.ts:1 and the svgr plugin entry at apps/bridge/vitest.config.ts:11-13; no file under apps/bridge/src or apps/bridge/next.config.ts imports an .svg, and vite-plugin-svgr 2.4.0 types against vite 4 while vitest 4.0.15 types against vite 7."
 symbols = ["resolvesTheSrcAlias", "defaultsToTheNodeEnvironment"]
 touches = ["apps/bridge/tsconfig.json", "apps/bridge/vitest.config.ts", "apps/bridge/src/test/harness.spec.ts"]
 tests = ["apps/bridge/src/test/harness.spec.ts::resolvesTheSrcAlias", "apps/bridge/src/test/harness.spec.ts::defaultsToTheNodeEnvironment"]
 planned_paths = ["apps/bridge/src/test/harness.spec.ts"]
-build_cmd = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+build_cmd = "pnpm --dir apps/bridge exec vitest list src/test/harness.spec.ts"
 verify_cmd = "pnpm --dir apps/bridge exec vitest run src/test/harness.spec.ts -t '(?:^|\s)(resolvesTheSrcAlias|defaultsToTheNodeEnvironment)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -160512,7 +160526,7 @@ symbols = ["everyImportedPackageIsDeclared", "noDeclaredRuntimeDependencyIsUnuse
 touches = ["apps/bridge/package.json", "apps/bridge/pnpm-lock.yaml", "apps/bridge/src/test/manifest.spec.ts"]
 tests = ["apps/bridge/src/test/manifest.spec.ts::everyImportedPackageIsDeclared", "apps/bridge/src/test/manifest.spec.ts::noDeclaredRuntimeDependencyIsUnused", "apps/bridge/src/test/manifest.spec.ts::declaresTestAndTypecheckScripts"]
 planned_paths = ["apps/bridge/src/test/manifest.spec.ts"]
-build_cmd = "pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json"
+build_cmd = "pnpm --dir apps/bridge exec vitest list src/test/manifest.spec.ts"
 verify_cmd = "pnpm --dir apps/bridge exec vitest run src/test/manifest.spec.ts -t '(?:^|\s)(everyImportedPackageIsDeclared|noDeclaredRuntimeDependencyIsUnused|declaresTestAndTypecheckScripts)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -164620,7 +164634,7 @@ requires = ["16.0.1"]
 reqs = ["16032.1"]
 capabilities = ["16.7.1"]
 interfaces = ["interface.16.cli-bringup-bringup-check-live", "interface.16.cli-bringup-bringup-docs-names"]
-do_1 = "Replace spec=spec/paxeer-x/spec.kvx at tools/bringup/docs-names.sh:6 with spec=spec/layerx-merge/spec.kvx (decision.1602)."
+do_1 = "Replace spec=spec/paxeer-x/spec.kvx at tools/bringup/docs-names.sh:6 with spec=spec/layerx-merge/spec.kvx (decision.1602); the script reads the router, the sixteen RPC names and the other allowed names from [contract_context.108.decision.public_names] and the derivation_message line of [contract_context.108.decision] of that spec."
 do_2 = "Replace the spec/paxeer-x-bringup/spec.kvx reference in the usage text at tools/bringup/check-live.sh:145 with spec/layerx-merge/spec.kvx."
 do_3 = "Create tools/bringup/tests/test_spec_paths.py (planned) with BringupSpecPathsTest.test_docs_names_reads_existing_spec, which runs tools/bringup/docs-names.sh and asserts exit 0, and runs tools/bringup/check-live.sh with no mode and asserts the usage exit 2 with spec/layerx-merge/spec.kvx in its text."
 symbols = ["BringupSpecPathsTest", "test_docs_names_reads_existing_spec"]
@@ -166090,7 +166104,7 @@ do_1 = "Change BASE_DIR=\"/tmp/pax-bench\" at tools/benchmark/benchmark-compare.
 do_2 = "Guard the build, init and run phases (from the Phase 1 banner at tools/benchmark/benchmark-compare.sh:96 up to the results loop at tools/benchmark/benchmark-compare.sh:259) with if [ \"$RESULTS_ONLY\" != true ]."
 do_3 = "Replace the awk block at tools/benchmark/benchmark-compare.sh:272-284 with python3 tools/benchmark/tps_stats.py (planned in task 16.25.1) calls: summarise per label, then compare each later label against the first, recording the worst exit code and exiting with it after the existing pprof hints at tools/benchmark/benchmark-compare.sh:296."
 do_4 = "Write tools/benchmark/test_benchmark_compare.py (planned) with test_results_only_passes_within_threshold and test_results_only_fails_on_regression running the script with RESULTS_ONLY=true and a tmp_path BASE_DIR."
-symbols = ["BASE_DIR", "MAX_REGRESSION_PCT", "RESULTS_ONLY", "test_results_only_passes_within_threshold", "test_results_only_fails_on_regression"]
+symbols = ["test_results_only_passes_within_threshold", "test_results_only_fails_on_regression"]
 touches = ["tools/benchmark/benchmark-compare.sh", "tools/benchmark/test_benchmark_compare.py"]
 tests = ["tools/benchmark/test_benchmark_compare.py::test_results_only_passes_within_threshold", "tools/benchmark/test_benchmark_compare.py::test_results_only_fails_on_regression"]
 planned_paths = ["tools/benchmark/test_benchmark_compare.py"]
