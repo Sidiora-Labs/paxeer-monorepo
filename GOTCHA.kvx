@@ -8945,3 +8945,9 @@ area = "spec"
 symptom = "a task passes its build and verify gate and the verifier still refuses it with `not defined in the graph` for a name in its symbols"
 cause = "the symbol check indexes declarations only (functions, types, Go, Rust, TypeScript and Python declarations, #define macros); an enumerator, an X-macro result code, a Makefile target, a struct field or a type the task consumes but does not define is never in the graph"
 do = "list in symbols only names the task itself declares; move consumed types, enumerators, result codes, Makefile targets and struct fields out of the list before the task is re-qualified"
+
+[gotcha.1870]
+area = "spec"
+symptom = "every open task of one package parks on the same build failure although none of them touches the files the errors name"
+cause = "the tasks share a package-wide typecheck as their per-task build gate, so pre-existing errors elsewhere in the package fail each task's build before its own files are compiled"
+do = "make the per-task build the test runner's list of the task's own spec file (vitest list <spec>) and keep the package typecheck as a wave-level gate"
