@@ -399,6 +399,7 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*App, er
 			app.Close()
 			return nil, err
 		}
+		registerUnservedOperations(router, admission, productionUnservedOperations)
 	}
 	if metrics != nil {
 		router.Handle("/metrics", metrics)

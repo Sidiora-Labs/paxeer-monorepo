@@ -24,6 +24,8 @@ pub struct Violation {
 pub struct SchemaReport {
     pub declarations: usize,
     pub operations: usize,
+    pub retired_operations: Vec<String>,
+    pub retired_variants: BTreeMap<String, Vec<String>>,
     pub golden_vectors: usize,
     pub additions_beyond_baseline: usize,
 }
@@ -370,6 +372,7 @@ struct Scalar {
 
 struct EnumDef {
     variants: Vec<String>,
+    retired_variants: Vec<String>,
 }
 
 struct Field {
@@ -391,6 +394,7 @@ struct Operation {
     request: String,
     response: String,
     idempotency: bool,
+    retired: bool,
     origin: PathBuf,
 }
 
@@ -776,6 +780,7 @@ fn collect_enum(
     file: &SchemaFile,
     name: &str,
     variants_value: &str,
+    entries: &BTreeMap<String, String>,
     model: &mut Model,
     violations: &mut Vec<Violation>,
 ) {
@@ -788,14 +793,71 @@ fn collect_enum(
         ));
         return;
     }
+    let retired_variants = retired_variants(file, name, entries, &variants, violations);
     if name_is_free(model, name) {
-        model.enums.insert(name.to_owned(), EnumDef { variants });
+        model.enums.insert(
+            name.to_owned(),
+            EnumDef {
+                variants,
+                retired_variants,
+            },
+        );
     } else {
         violations.push(violation(
             &file.path,
             "duplicate-declaration",
             format!("{name} is declared more than once"),
         ));
+    }
+}
+
+fn retired_variants(
+    file: &SchemaFile,
+    name: &str,
+    entries: &BTreeMap<String, String>,
+    variants: &[String],
+    violations: &mut Vec<Violation>,
+) -> Vec<String> {
+    let Some(value) = entries.get("retired_variants") else {
+        return Vec::new();
+    };
+    let Some(retired) = parse_list(value) else {
+        violations.push(violation(
+            &file.path,
+            "invalid-retired-variants",
+            format!("type.{name} retired_variants must be a list of strings"),
+        ));
+        return Vec::new();
+    };
+    for variant in &retired {
+        if !variants.contains(variant) {
+            violations.push(violation(
+                &file.path,
+                "retired-variant-not-declared",
+                format!("type.{name} retired variant {variant} must remain in variants"),
+            ));
+        }
+    }
+    retired
+}
+
+fn retired(
+    file: &SchemaFile,
+    section: &str,
+    entries: &BTreeMap<String, String>,
+    violations: &mut Vec<Violation>,
+) -> bool {
+    match entries.get("retired").map(String::as_str) {
+        None => false,
+        Some("\"true\"") => true,
+        Some(other) => {
+            violations.push(violation(
+                &file.path,
+                "invalid-retired-flag",
+                format!("{section} retired must be the quoted string \"true\", not {other}"),
+            ));
+            false
+        }
     }
 }
 
@@ -851,6 +913,7 @@ fn collect_operation(
             false
         }
     };
+    let retired = retired(file, &section, entries, violations);
     if model
         .operations
         .iter()
@@ -870,6 +933,7 @@ fn collect_operation(
         request,
         response,
         idempotency,
+        retired,
         origin: file.path.clone(),
     });
 }
@@ -889,7 +953,7 @@ fn collect_declarations(files: &[SchemaFile], violations: &mut Vec<Violation>) -
                             format!("{section} declares both variants and required"),
                         ));
                     } else {
-                        collect_enum(file, name, variants, &mut model, violations);
+                        collect_enum(file, name, variants, entries, &mut model, violations);
                     }
                 } else if entries.contains_key("required") {
                     collect_record(
@@ -2461,6 +2525,18 @@ pub fn human_api_schema(root: &Path) -> Result<SchemaReport, Vec<Violation>> {
         Ok(SchemaReport {
             declarations: current.len(),
             operations: model.operations.len(),
+            retired_operations: model
+                .operations
+                .iter()
+                .filter(|operation| operation.retired)
+                .map(|operation| operation.name.clone())
+                .collect(),
+            retired_variants: model
+                .enums
+                .iter()
+                .filter(|(_, definition)| !definition.retired_variants.is_empty())
+                .map(|(name, definition)| (name.clone(), definition.retired_variants.clone()))
+                .collect(),
             golden_vectors,
             additions_beyond_baseline: additions,
         })

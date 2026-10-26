@@ -1,17 +1,17 @@
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
-use layerx_proof::receipt::AuthorizedBatch;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_ucp::{
-    ucp_adapter_descriptor, Capability, CheckoutStatus, CheckoutSubmission, MerchantProfile,
-    NegotiatedCapabilities, OrderMetadata, PaymentHandler, PlatformProfile, StoredOrder,
-    UcpAdapter, UcpError, UcpIdempotencyKey, UcpPaymentIntent, UcpPaymentPlane, UcpPlaneResult,
-    UCP_CHECKOUT_SPEC_SHA256,
+    ucp_adapter_descriptor, Capability, CheckoutStatus, CheckoutSubmission, ExecutedUcpPayment,
+    MerchantProfile, NegotiatedCapabilities, OrderMetadata, PaymentHandler, PlatformProfile,
+    StoredOrder, UcpAdapter, UcpError, UcpIdempotencyKey, UCP_CHECKOUT_SPEC_SHA256,
 };
 use sha2::{Digest as _, Sha256};
-use std::collections::{HashMap, HashSet};
 use std::fmt::Write as _;
 
 const UCP_VERSION: &str = "2026-04-08";
@@ -40,75 +40,6 @@ fn registered_gateway(trace: &TraceId) -> GatewayCore {
     gateway
 }
 
-struct TestPaymentPlane {
-    pending_checkouts: HashSet<[u8; 32]>,
-    executed_checkouts: HashMap<[u8; 32], (OrderMetadata, Vec<u8>, AuthorizedBatch)>,
-}
-
-impl TestPaymentPlane {
-    fn new() -> Self {
-        Self {
-            pending_checkouts: HashSet::new(),
-            executed_checkouts: HashMap::new(),
-        }
-    }
-
-    fn mark_pending(&mut self, idempotency_key: [u8; 32]) {
-        self.pending_checkouts.insert(idempotency_key);
-    }
-
-    fn execute_checkout(&mut self, intent: &UcpPaymentIntent, sequencer_seed: [u8; 32]) {
-        let metadata = OrderMetadata {
-            order_id: format!("ord_{}", hex(&intent.idempotency_key[..8])),
-            permalink_url: format!(
-                "https://merchant.example/{}",
-                hex(&intent.idempotency_key[..8])
-            ),
-        };
-
-        let receipt_material = signed_receipt(
-            100,
-            intent.idempotency_key,
-            intent.amount,
-            intent.asset,
-            intent.recipient,
-            sequencer_seed,
-        );
-
-        self.pending_checkouts.remove(&intent.idempotency_key);
-        self.executed_checkouts.insert(
-            intent.idempotency_key,
-            (metadata, receipt_material.0, receipt_material.1),
-        );
-    }
-}
-
-impl UcpPaymentPlane for TestPaymentPlane {
-    fn execute(
-        &mut self,
-        intent: &UcpPaymentIntent,
-        _trace: &TraceId,
-    ) -> Result<UcpPlaneResult, UcpError> {
-        if let Some((metadata, receipt, batch)) =
-            self.executed_checkouts.get(&intent.idempotency_key)
-        {
-            return Ok(UcpPlaneResult::Executed(Box::new(
-                layerx_ucp::ExecutedUcpPayment {
-                    metadata: metadata.clone(),
-                    canonical_receipt: receipt.clone(),
-                    authorised_batch: *batch,
-                },
-            )));
-        }
-
-        if self.pending_checkouts.contains(&intent.idempotency_key) {
-            return Ok(UcpPlaneResult::Pending);
-        }
-
-        Ok(UcpPlaneResult::Pending)
-    }
-}
-
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().fold(String::new(), |mut output, byte| {
         write!(&mut output, "{byte:02x}").unwrap_or_else(|error| panic!("hex encoding: {error}"));
@@ -116,136 +47,122 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
+fn receipt_keys(seed: [u8; 32]) -> [SequencerAuthorization; 1] {
+    [SequencerAuthorization::new(
+        [0x6b; 32],
+        SigningKey::from_bytes(&seed).verifying_key().to_bytes(),
+        1000,
+        1999,
+    )]
+}
+
+fn fixture_bytes(value: &serde_json::Value) -> Vec<u8> {
+    let encoded = value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .unwrap_or_else(|| panic!("missing fixture hex"));
+    assert_eq!(encoded.len() % 2, 0);
+    (0..encoded.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&encoded[index..index + 2], 16)
+                .unwrap_or_else(|error| panic!("fixture hex: {error}"))
+        })
+        .collect()
+}
+
+fn fixture_array<const N: usize>(value: &serde_json::Value) -> [u8; N] {
+    fixture_bytes(value)
+        .try_into()
+        .unwrap_or_else(|_| panic!("expected {N} fixture bytes"))
+}
+
+fn replace_signed_field(unsigned: &mut [u8], before: [u8; 32], after: [u8; 32]) {
+    let offsets: Vec<usize> = unsigned
+        .windows(32)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == before).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1, "one signed field to replace");
+    unsigned[offsets[0]..offsets[0] + 32].copy_from_slice(&after);
+}
+
 fn signed_receipt(
-    sequence: u64,
     idempotency_key: [u8; 32],
     amount: u128,
     asset: [u8; 32],
     recipient: [u8; 32],
     sequencer_seed: [u8; 32],
-) -> (Vec<u8>, AuthorizedBatch) {
-    let activity_id: [u8; 32] = Sha256::digest(
-        [
-            b"layerx-ucp-activity/v1".as_slice(),
-            &sequence.to_be_bytes(),
-            &idempotency_key,
-        ]
-        .concat(),
-    )
-    .into();
-
-    let previous_state_root: [u8; 32] =
-        Sha256::digest([b"before".as_slice(), &activity_id].concat()).into();
-    let resulting_state_root: [u8; 32] =
-        Sha256::digest([b"after".as_slice(), &activity_id].concat()).into();
-    let batch_id: [u8; 32] = Sha256::digest([b"batch".as_slice(), &activity_id].concat()).into();
-
-    let signer = SigningKey::from_bytes(&sequencer_seed);
-    let fields = ReceiptFields {
-        activity_id: &activity_id,
-        sequence,
-        previous_state_root: &previous_state_root,
-        resulting_state_root: &resulting_state_root,
-        batch_id: &batch_id,
-        asset: &asset,
-        amount,
-        recipient: &recipient,
-    };
-    let unsigned = encode_receipt(&fields, None);
-
+) -> SequencerEvidence {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )))
+    .unwrap_or_else(|error| panic!("sequencer fixture: {error}"));
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing cases"))
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .unwrap_or_else(|| panic!("missing pay-exact fixture"));
+    let log = &case["receiptJson"]["logs"][0];
+    let mut topics: Vec<[u8; 32]> = log["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing topics"))
+        .iter()
+        .map(fixture_array)
+        .collect();
+    let signed = fixture_bytes(&case["signedReceipt"]);
+    let mut unsigned = signed[..signed.len() - 69].to_vec();
+    replace_signed_field(&mut unsigned, topics[2], recipient);
+    replace_signed_field(&mut unsigned, topics[3], idempotency_key);
+    topics[2] = recipient;
+    topics[3] = idempotency_key;
+    let mut data = vec![0; 64];
+    data[..32].copy_from_slice(&asset);
+    data[48..].copy_from_slice(&amount.to_be_bytes());
+    replace_signed_field(
+        &mut unsigned,
+        Sha256::digest(fixture_bytes(&log["data"])).into(),
+        Sha256::digest(&data).into(),
+    );
     let mut digest = Sha256::new();
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
-    let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
-
-    let canonical_receipt = encode_receipt(&fields, Some(signature.to_bytes()));
-
-    let authorised_batch = AuthorizedBatch::new(
-        batch_id,
-        asset,
-        previous_state_root,
-        resulting_state_root,
-        signer.verifying_key().to_bytes(),
-    );
-
-    (canonical_receipt, authorised_batch)
-}
-
-struct ReceiptFields<'a> {
-    activity_id: &'a [u8; 32],
-    sequence: u64,
-    previous_state_root: &'a [u8; 32],
-    resulting_state_root: &'a [u8; 32],
-    batch_id: &'a [u8; 32],
-    asset: &'a [u8; 32],
-    amount: u128,
-    recipient: &'a [u8; 32],
-}
-
-fn encode_receipt(fields: &ReceiptFields<'_>, signature: Option<[u8; 64]>) -> Vec<u8> {
-    let ReceiptFields {
-        activity_id,
-        sequence,
-        previous_state_root,
-        resulting_state_root,
-        batch_id,
-        asset,
-        amount,
-        recipient,
-    } = *fields;
-    let sender = [0xa1; 32];
-    let debit_before = 50_000_u128;
-    let credit_before = 10_000_u128;
-
-    let mut bytes = Vec::new();
-    push_u16(&mut bytes, 2);
-    push_u16(&mut bytes, 0x5201);
-    push_u16(&mut bytes, 2);
-    push_bytes(&mut bytes, activity_id);
-    push_u64(&mut bytes, sequence);
-    push_bytes(&mut bytes, previous_state_root);
-    push_bytes(&mut bytes, resulting_state_root);
-    push_bytes(&mut bytes, &[0x81; 32]);
-    bytes.extend_from_slice(&0_i32.to_be_bytes());
-    bytes.extend_from_slice(&0_u32.to_be_bytes());
-    bytes.extend_from_slice(&1_u128.to_be_bytes());
-    push_bytes(&mut bytes, batch_id);
-    push_u16(&mut bytes, 1);
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
-    bytes.extend_from_slice(&1_u32.to_be_bytes());
-    bytes.push(1);
-    push_bytes(&mut bytes, asset);
-    bytes.extend_from_slice(&amount.to_be_bytes());
-    push_bytes(&mut bytes, &sender);
-    bytes.extend_from_slice(&debit_before.to_be_bytes());
-    bytes.extend_from_slice(&(debit_before - amount).to_be_bytes());
-    push_u64(&mut bytes, sequence);
-    push_bytes(&mut bytes, recipient);
-    bytes.extend_from_slice(&credit_before.to_be_bytes());
-    bytes.extend_from_slice(&(credit_before + amount).to_be_bytes());
-    push_bytes(&mut bytes, &[0x91; 32]);
-    push_bytes(&mut bytes, &[0x92; 32]);
-    push_bytes(&mut bytes, &[0x93; 32]);
-    push_u64(&mut bytes, 1_700_000_000 + sequence);
-    bytes.push(u8::from(signature.is_some()));
-    if let Some(signature) = signature {
-        push_bytes(&mut bytes, &signature);
+    digest.update([0]);
+    let signature = SigningKey::from_bytes(&sequencer_seed)
+        .sign(&digest.finalize())
+        .to_bytes();
+    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
+    unsigned.extend_from_slice(&signature);
+    SequencerEvidence {
+        transaction_hash: fixture_array(&case["receiptJson"]["txHash"]),
+        signed_receipt: unsigned,
+        logs: vec![SequencerLog::new(
+            fixture_array(&log["address"]),
+            topics,
+            data,
+            0,
+        )],
+        rung: SettlementRung::Receipted,
     }
-    bytes
 }
 
-fn push_u16(bytes: &mut Vec<u8>, value: u16) {
-    bytes.extend_from_slice(&value.to_be_bytes());
-}
-
-fn push_u64(bytes: &mut Vec<u8>, value: u64) {
-    bytes.extend_from_slice(&value.to_be_bytes());
-}
-
-fn push_bytes(output: &mut Vec<u8>, value: &[u8]) {
-    let length = u32::try_from(value.len()).unwrap_or_else(|_| panic!("receipt field overflow"));
-    output.extend_from_slice(&length.to_be_bytes());
-    output.extend_from_slice(value);
+fn checkout_payment(submission: &CheckoutSubmission, seed: [u8; 32]) -> ExecutedUcpPayment {
+    let key = submission.idempotency_key.gateway_key();
+    ExecutedUcpPayment {
+        metadata: OrderMetadata {
+            order_id: format!("ord_{}", hex(&key[..8])),
+            permalink_url: format!("https://merchant.example/orders/{}", hex(&key[..8])),
+        },
+        evidence: signed_receipt(
+            key,
+            submission.total_minor,
+            submission.layerx_asset,
+            submission.layerx_recipient,
+            seed,
+        ),
+    }
 }
 
 #[test]
@@ -376,25 +293,15 @@ fn checkout_completion_requires_receipt_verification() {
         negotiated,
     };
 
-    let mut plane = TestPaymentPlane::new();
     let sequencer_seed = [0x55; 32];
-    plane.execute_checkout(
-        &UcpPaymentIntent {
-            checkout_id: submission.checkout_id.clone(),
-            currency: submission.currency,
-            amount: submission.total_minor,
-            asset: submission.layerx_asset,
-            recipient: submission.layerx_recipient,
-            idempotency_key: idempotency_key.gateway_key(),
-        },
-        sequencer_seed,
-    );
+    let mut plane = checkout_payment(&submission, sequencer_seed);
 
     let outcome = UcpAdapter::complete_checkout(
         &mut gateway,
         &principal,
         &submission,
         &mut plane,
+        &receipt_keys(sequencer_seed),
         &trace,
         10,
     )
@@ -457,14 +364,15 @@ fn order_state_remains_receipt_backed_or_honestly_pending() {
         negotiated,
     };
 
-    let mut plane = TestPaymentPlane::new();
-    plane.mark_pending(idempotency_key.gateway_key());
+    let mut plane = checkout_payment(&submission, [0x55; 32]);
+    plane.evidence.rung = SettlementRung::Submitted;
 
     let outcome = UcpAdapter::complete_checkout(
         &mut gateway,
         &principal,
         &submission,
         &mut plane,
+        &[],
         &trace,
         20,
     )
@@ -527,8 +435,7 @@ fn order_read_verifies_stored_receipt_on_every_access() {
     };
 
     let sequencer_seed = [0x77; 32];
-    let (receipt, batch) = signed_receipt(
-        105,
+    let evidence = signed_receipt(
         idempotency_key.gateway_key(),
         submission.total_minor,
         asset,
@@ -544,12 +451,14 @@ fn order_read_verifies_stored_receipt_on_every_access() {
     let stored = StoredOrder {
         submission,
         metadata,
-        canonical_receipt: receipt,
-        authorised_batch: batch,
+        transaction_hash: evidence.transaction_hash,
+        signed_receipt: evidence.signed_receipt,
+        logs: evidence.logs,
+        rung: evidence.rung,
     };
 
-    let order =
-        UcpAdapter::read_order(&stored).unwrap_or_else(|error| panic!("order read: {error}"));
+    let order = UcpAdapter::read_order(&stored, &receipt_keys(sequencer_seed))
+        .unwrap_or_else(|error| panic!("order read: {error}"));
 
     assert_eq!(order.id, "ord_read_test");
     assert_eq!(order.checkout_id, "chk_order_read");

@@ -19,6 +19,8 @@ impl std::fmt::Display for PolicyRefusal {
 }
 impl std::error::Error for PolicyRefusal {}
 
+pub const DID_BUDGET_INTERVAL_SECONDS: u64 = 86_400;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DidBudget {
     pub gas_limit: u64,
@@ -170,7 +172,7 @@ impl QuotePolicy {
         now: u64,
     ) -> Result<(), PolicyRefusal> {
         self.did_budget
-            .reserve(did, gas, now / self.config.interval_seconds)
+            .reserve(did, gas, now / DID_BUDGET_INTERVAL_SECONDS)
     }
 
     pub(crate) fn restore_usage(
@@ -274,7 +276,7 @@ impl QuotePolicy {
         next.did_budget.reserve(
             budget.as_str(),
             fees.gas_limit,
-            now / self.config.interval_seconds,
+            now / DID_BUDGET_INTERVAL_SECONDS,
         )?;
         *self = next;
         Ok(())
@@ -495,12 +497,22 @@ mod tests {
             Err(PolicyRefusal::PerAccount)
         );
         assert_eq!(policy.outstanding_pax(), before);
-        assert_eq!(policy.did_budget().used(did.as_str(), 16), 10);
+        assert_eq!(
+            policy
+                .did_budget()
+                .used(did.as_str(), 1000 / DID_BUDGET_INTERVAL_SECONDS),
+            10
+        );
         assert_eq!(
             policy.reserve_for_budget(read, A2, 30, fees(10), u128::MAX, 1000),
             Ok(())
         );
-        assert_eq!(policy.did_budget().used(did.as_str(), 16), 20);
+        assert_eq!(
+            policy
+                .did_budget()
+                .used(did.as_str(), 1000 / DID_BUDGET_INTERVAL_SECONDS),
+            20
+        );
         assert_eq!(policy.used(did.as_str(), 1000), 100);
         assert_eq!(
             policy.reserve_for_budget(read, A1, 1, fees(10), u128::MAX, 1000),
@@ -541,8 +553,18 @@ mod tests {
             Err(PolicyRefusal::InvalidAmount)
         );
         assert_eq!(policy.outstanding_pax(), before);
-        assert_eq!(policy.did_budget().used(own.as_str(), 16), 10);
-        assert_eq!(policy.did_budget().used(other.as_str(), 16), 10);
+        assert_eq!(
+            policy
+                .did_budget()
+                .used(own.as_str(), 1000 / DID_BUDGET_INTERVAL_SECONDS),
+            10
+        );
+        assert_eq!(
+            policy
+                .did_budget()
+                .used(other.as_str(), 1000 / DID_BUDGET_INTERVAL_SECONDS),
+            10
+        );
         assert_eq!(
             policy.reserve(A1, 30, 1, u128::MAX, 1000),
             Ok(()),
@@ -589,7 +611,12 @@ mod tests {
                 Err(crate::QuoteError::Policy(PolicyRefusal::DidUnavailable))
             ));
             assert_eq!(policy.outstanding_pax(), 0);
-            assert_eq!(policy.did_budget().used(did.as_str(), 16), 0);
+            assert_eq!(
+                policy
+                    .did_budget()
+                    .used(did.as_str(), 1000 / DID_BUDGET_INTERVAL_SECONDS),
+                0
+            );
         }
         assert_eq!(
             policy.reserve_for_budget(
@@ -615,7 +642,12 @@ mod tests {
             .map_err(|error| format!("{error:?}"))?;
         assert_eq!(quote.quote.token_amount, crate::quote::word(2_358_855));
         assert_eq!(policy.outstanding_pax(), fees.gas_cost()?);
-        assert_eq!(policy.did_budget().used(did.as_str(), 16), 750_000);
+        assert_eq!(
+            policy
+                .did_budget()
+                .used(did.as_str(), 1000 / DID_BUDGET_INTERVAL_SECONDS),
+            750_000
+        );
         Ok(())
     }
 

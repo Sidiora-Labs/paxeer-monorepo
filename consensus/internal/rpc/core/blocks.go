@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -27,6 +28,44 @@ import (
 // More: https://docs.tendermint.com/master/rpc/#/Info/blockchain
 func (env *Environment) BlockchainInfo(ctx context.Context, req *coretypes.RequestBlockchainInfo) (*coretypes.ResultBlockchainInfo, error) {
 	const limit = 20
+	if giga, ok := env.gigaRouter().Get(); ok {
+		info, err := env.ABCIInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		minHeight, maxHeight, err := filterMinMax(1, info.Response.LastBlockHeight,
+			int64(req.MinHeight), int64(req.MaxHeight), limit)
+		if err != nil {
+			return nil, err
+		}
+		logger.Debug("BlockchainInfo", "maxHeight", maxHeight, "minHeight", minHeight)
+
+		blockMetas := make([]*types.BlockMeta, 0, maxHeight-minHeight+1)
+		for height := maxHeight; height >= minHeight; height-- {
+			gbn, ok := utils.SafeCast[atypes.GlobalBlockNumber](height)
+			if !ok {
+				return nil, fmt.Errorf("invalid height %d", height)
+			}
+			block, err := giga.BlockByNumber(ctx, gbn)
+			if errors.Is(err, coretypes.ErrHeightNotAvailable) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			blockMetas = append(blockMetas, &types.BlockMeta{
+				BlockID:   block.BlockID,
+				BlockSize: block.Block.Size(),
+				Header:    block.Block.Header,
+				NumTxs:    len(block.Block.Data.Txs),
+			})
+		}
+		return &coretypes.ResultBlockchainInfo{
+			LastHeight: info.Response.LastBlockHeight,
+			BlockMetas: blockMetas,
+		}, nil
+	}
+
 	minHeight, maxHeight, err := filterMinMax(
 		env.BlockStore.Base(),
 		env.BlockStore.Height(),
@@ -112,7 +151,7 @@ func (env *Environment) Block(ctx context.Context, req *coretypes.RequestBlockIn
 		return giga.BlockByNumber(ctx, gbn)
 	}
 
-	height, err := env.getHeight(env.BlockStore.Height(), (*int64)(req.Height))
+	height, err := env.getHeight(env.BlockStore.Height(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -127,29 +166,20 @@ func (env *Environment) Block(ctx context.Context, req *coretypes.RequestBlockIn
 }
 
 // autobahnCheckAndGetHeight resolves a caller-supplied height pointer to a
-// concrete int64 and validates it against the current ABCI head. nil (or
-// zero) means "latest". Returns the same error sentinels as env.getHeight
+// concrete int64 and validates it against the retained range and current ABCI
+// head. nil means "latest". Returns the same error sentinels as env.getHeight
 // (ErrZeroOrNegativeHeight, ErrHeightExceedsChainHead, ErrHeightNotAvailable)
 // so downstream consumers like evmrpc — which translate
 // ErrHeightExceedsChainHead-class errors into the Ethereum-spec `null`
 // response for non-existent blocks — see consistent shapes under both
 // consensus engines.
-//
-// TODO(autobahn): wire a real lower bound and pass it as `base` to
-// env.getHeight. We currently pass env.BlockStore.Base() (always 0 under
-// Autobahn), which means any positive height < chain head passes validation
-// here and is rejected one layer down (data.GlobalBlock returns
-// data.ErrPruned, which BlockByNumber maps to ErrHeightNotAvailable). With
-// a real lower bound the rejection happens at this layer instead. The
-// natural source becomes available once storage/ledger_db/block.BlockDB is
-// wired into block execution: switch this and BlockByNumber to read from
-// BlockDB, and source `base` from BlockDB.GetLowestBlockHeight.
 func (env *Environment) autobahnCheckAndGetHeight(ctx context.Context, heightPtr *int64) (int64, error) {
 	info, err := env.ABCIInfo(ctx)
 	if err != nil {
 		return 0, err
 	}
-	return env.getHeight(info.Response.LastBlockHeight, heightPtr)
+	giga := env.gigaRouter().OrPanic("autobahnCheckAndGetHeight requires Autobahn")
+	return env.getHeight(info.Response.LastBlockHeight, giga.EarliestBlockNumber(), heightPtr)
 }
 
 // BlockByHash gets block by hash.
@@ -202,7 +232,7 @@ func (env *Environment) Header(ctx context.Context, req *coretypes.RequestBlockI
 		return &coretypes.ResultHeader{Header: &block.Block.Header}, nil
 	}
 
-	height, err := env.getHeight(env.BlockStore.Height(), (*int64)(req.Height))
+	height, err := env.getHeight(env.BlockStore.Height(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -218,6 +248,20 @@ func (env *Environment) Header(ctx context.Context, req *coretypes.RequestBlockI
 // HeaderByHash gets header by hash.
 // More: https://docs.tendermint.com/master/rpc/#/Info/header_by_hash
 func (env *Environment) HeaderByHash(ctx context.Context, req *coretypes.RequestBlockByHash) (*coretypes.ResultHeader, error) {
+	if giga, ok := env.gigaRouter().Get(); ok {
+		if len(req.Hash) != len(atypes.BlockHeaderHash{}) {
+			return &coretypes.ResultHeader{}, nil
+		}
+		block, err := giga.BlockByHash(ctx, atypes.BlockHeaderHash(req.Hash))
+		if err != nil {
+			return nil, err
+		}
+		if block.Block == nil {
+			return &coretypes.ResultHeader{}, nil
+		}
+		return &coretypes.ResultHeader{Header: &block.Block.Header}, nil
+	}
+
 	blockMeta := env.BlockStore.LoadBlockMetaByHash(req.Hash)
 	if blockMeta == nil {
 		return &coretypes.ResultHeader{}, nil
@@ -234,7 +278,7 @@ func (env *Environment) Commit(ctx context.Context, req *coretypes.RequestBlockI
 		return nil, coretypes.ErrCommitNotAvailable
 	}
 
-	height, err := env.getHeight(env.BlockStore.Height(), (*int64)(req.Height))
+	height, err := env.getHeight(env.BlockStore.Height(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +326,7 @@ func (env *Environment) BlockResults(ctx context.Context, req *coretypes.Request
 	if autobahn {
 		height, err = env.autobahnCheckAndGetHeight(ctx, (*int64)(req.Height))
 	} else {
-		height, err = env.getHeight(env.BlockStore.Height(), (*int64)(req.Height))
+		height, err = env.getHeight(env.BlockStore.Height(), env.BlockStore.Base(), (*int64)(req.Height))
 	}
 	if err != nil {
 		return nil, err
@@ -370,7 +414,23 @@ func (env *Environment) BlockSearch(ctx context.Context, req *coretypes.RequestB
 	pageSize := tmmath.MinInt(perPage, totalCount-skipCount)
 
 	apiResults := make([]*coretypes.ResultBlock, 0, pageSize)
+	giga, autobahn := env.gigaRouter().Get()
 	for i := skipCount; i < skipCount+pageSize; i++ {
+		if autobahn {
+			height, ok := utils.SafeCast[atypes.GlobalBlockNumber](results[i])
+			if !ok {
+				return nil, fmt.Errorf("invalid height %d", results[i])
+			}
+			block, err := giga.BlockByNumber(ctx, height)
+			if errors.Is(err, coretypes.ErrHeightNotAvailable) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			apiResults = append(apiResults, block)
+			continue
+		}
 		block := env.BlockStore.LoadBlock(results[i])
 		if block != nil {
 			blockMeta := env.BlockStore.LoadBlockMeta(block.Height)

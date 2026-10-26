@@ -7,4 +7,10 @@ function isNativeSurface(code) {
   return String(code).toLowerCase() === NATIVE_SURFACE_RUNTIME;
 }
 
-module.exports = { NATIVE_SURFACE_RUNTIME, isNativeSurface };
+async function assertNotNativeSurface(provider, address, key) {
+  if (isNativeSurface(await provider.getCode(address))) {
+    throw new Error(`Native surface ${key}: upgrade through governance MsgUpdateParams`);
+  }
+}
+
+module.exports = { NATIVE_SURFACE_RUNTIME, isNativeSurface, assertNotNativeSurface };

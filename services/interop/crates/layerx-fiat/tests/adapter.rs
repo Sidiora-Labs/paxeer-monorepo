@@ -15,12 +15,14 @@ use layerx_fiat::{
     PlaneFiatOutcome, ProviderEvidence, ProviderVerifier, TokenReference, VerifiedProviderFacts,
 };
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::{interop_gateway_core, GatewayCore};
-use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::AuthorizedBatch;
-use layerx_types::payload::ModuleId;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::sequencer_logs::SequencerLog;
 use sha2::{Digest as _, Sha256};
 
 const PERIOD_START: u64 = 1_700_000_000;
@@ -46,6 +48,7 @@ struct ReceiptFields {
     previous_state_root: [u8; 32],
     resulting_state_root: [u8; 32],
     batch_id: [u8; 32],
+    idempotency_key: [u8; 32],
     asset: [u8; 32],
     amount: u128,
     from: [u8; 32],
@@ -53,8 +56,8 @@ struct ReceiptFields {
 }
 
 struct ReceiptMaterial {
-    canonical_receipt: Vec<u8>,
-    authorised_batch: AuthorizedBatch,
+    evidence: SequencerEvidence,
+    receipt_keys: [SequencerAuthorization; 1],
 }
 
 fn signed_receipt(
@@ -75,36 +78,66 @@ fn signed_receipt(
         .concat(),
     )
     .into();
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&sequence.to_be_bytes());
     let fields = ReceiptFields {
         activity_id,
         sequence,
         previous_state_root: Sha256::digest([b"before".as_slice(), &activity_id].concat()).into(),
         resulting_state_root: Sha256::digest([b"after".as_slice(), &activity_id].concat()).into(),
-        batch_id: Sha256::digest([b"batch".as_slice(), &activity_id].concat()).into(),
+        batch_id,
+        idempotency_key,
         asset,
         amount,
         from,
         to,
     };
     let signer = SigningKey::from_bytes(&seed);
-    let unsigned = encode_receipt(&fields, None);
+    let mut address = [0; 20];
+    address[18..].copy_from_slice(&[0x10, 0x1a]);
+    let mut data = fields.asset.to_vec();
+    data.extend_from_slice(&[0; 16]);
+    data.extend_from_slice(&fields.amount.to_be_bytes());
+    let log = SequencerLog::new(
+        address,
+        vec![
+            hex_bytes::<32>(
+                "c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
+                JOURNEYS_SOURCE,
+            ),
+            fields.from,
+            fields.to,
+            fields.idempotency_key,
+        ],
+        data,
+        0,
+    );
+    let unsigned = encode_receipt(&fields, &log, None);
     let mut digest = Sha256::new();
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     let signature = signer.sign(&<[u8; 32]>::from(digest.finalize()));
     ReceiptMaterial {
-        canonical_receipt: encode_receipt(&fields, Some(signature.to_bytes())),
-        authorised_batch: AuthorizedBatch::new(
-            fields.batch_id,
-            fields.asset,
-            fields.previous_state_root,
-            fields.resulting_state_root,
+        evidence: SequencerEvidence {
+            transaction_hash: activity_id,
+            signed_receipt: encode_receipt(&fields, &log, Some(signature.to_bytes())),
+            logs: vec![log],
+            rung: SettlementRung::Receipted,
+        },
+        receipt_keys: [SequencerAuthorization::new(
+            [0x93; 32],
             signer.verifying_key().to_bytes(),
-        ),
+            sequence,
+            sequence,
+        )],
     }
 }
 
-fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
+fn encode_receipt(
+    fields: &ReceiptFields,
+    log: &SequencerLog,
+    signature: Option<[u8; 64]>,
+) -> Vec<u8> {
     let from_before = 50_000_u128;
     let to_before = 10_000_u128;
     let mut bytes = Vec::new();
@@ -117,10 +150,36 @@ fn encode_receipt(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8
     push_bytes(&mut bytes, &fields.resulting_state_root);
     push_bytes(&mut bytes, &[0x81; 32]);
     bytes.extend_from_slice(&0_i32.to_be_bytes());
-    bytes.extend_from_slice(&0_u32.to_be_bytes());
+    bytes.extend_from_slice(&2_u32.to_be_bytes());
+    let mut summary = Vec::new();
+    for gas in [52_000_u64, 52_000, 1_000_000_000] {
+        push_u64(&mut summary, gas);
+    }
+    summary.extend_from_slice(&0_u32.to_be_bytes());
+    summary.extend_from_slice(&[0; 40]);
+    summary.extend_from_slice(&Sha256::digest(b""));
+    summary.extend_from_slice(&0_u32.to_be_bytes());
+    summary.extend_from_slice(&1_u32.to_be_bytes());
+    summary.push(4);
+    summary.extend_from_slice(b"uhpx");
+    let mut log_body = log.address().to_vec();
+    log_body.push(4);
+    for topic in log.topics() {
+        log_body.extend_from_slice(topic);
+    }
+    log_body.extend_from_slice(&Sha256::digest(log.data()));
+    for (ordinal, kind, body) in [(0, 1, summary), (1, 3, log_body)] {
+        push_u16(&mut bytes, 12);
+        push_u16(&mut bytes, ordinal);
+        push_u16(&mut bytes, 0);
+        bytes.push(kind);
+        bytes.push(0);
+        push_bytes(&mut bytes, &[0; 32]);
+        push_bytes(&mut bytes, &body);
+    }
     bytes.extend_from_slice(&1_u128.to_be_bytes());
     push_bytes(&mut bytes, &fields.batch_id);
-    push_u16(&mut bytes, ModuleId::Asset as u16);
+    push_u16(&mut bytes, 12);
     bytes.extend_from_slice(&1_u32.to_be_bytes());
     bytes.extend_from_slice(&1_u32.to_be_bytes());
     bytes.push(1);
@@ -231,9 +290,14 @@ impl ProviderVerifier for SandboxVerifier {
 
 struct SandboxPlane {
     intent_outcome: Result<FiatPlaneResult, FiatError>,
+    receipt_keys: Vec<SequencerAuthorization>,
 }
 
 impl FiatPlane for SandboxPlane {
+    fn receipt_keys(&self) -> &[SequencerAuthorization] {
+        &self.receipt_keys
+    }
+
     fn execute(
         &mut self,
         _intent: FiatIntent,
@@ -243,8 +307,7 @@ impl FiatPlane for SandboxPlane {
             Ok(FiatPlaneResult::Open(outcome)) => Ok(FiatPlaneResult::Open(*outcome)),
             Ok(FiatPlaneResult::Executed(executed)) => {
                 Ok(FiatPlaneResult::Executed(ExecutedFiatOutcome {
-                    canonical_receipt: executed.canonical_receipt.clone(),
-                    authorised_batch: executed.authorised_batch,
+                    evidence: executed.evidence.clone(),
                 }))
             }
             Err(error) => Err(*error),
@@ -399,12 +462,17 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
         ("pending", _) => Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Pending)),
         ("refused", _) => Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused)),
         ("executed", Some(material)) => Ok(FiatPlaneResult::Executed(ExecutedFiatOutcome {
-            canonical_receipt: material.canonical_receipt.clone(),
-            authorised_batch: material.authorised_batch,
+            evidence: material.evidence.clone(),
         })),
         (other, _) => panic!("{source}: {other} is not a plane outcome"),
     };
-    let mut plane = SandboxPlane { intent_outcome };
+    let mut plane = SandboxPlane {
+        intent_outcome,
+        receipt_keys: material
+            .as_ref()
+            .map(|material| material.receipt_keys.to_vec())
+            .unwrap_or_default(),
+    };
     let mut gateway = registered_gateway(now);
     let principal = principal(field(record, "principal", source));
     let outcome = FiatAdapter::apply(
@@ -431,7 +499,7 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
         let material = material
             .as_ref()
             .unwrap_or_else(|| panic!("{name}: a completed journey carries a receipt"));
-        leaf_hash(&material.canonical_receipt)
+        canonical_receipt_digest(&material.evidence.signed_receipt)
             .unwrap_or_else(|error| panic!("{name}: receipt digest: {error:?}"))
     };
     let expected = match field(expect, "state", source) {

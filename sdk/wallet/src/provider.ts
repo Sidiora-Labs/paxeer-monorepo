@@ -1,4 +1,5 @@
 import { concat, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, parseAbi, recoverAddress, recoverMessageAddress, hashMessage, keccak256, toHex, toRlp } from 'viem';
+import { waitForSequencerReceipt } from './receipt.js';
 import {
   ChainDisconnectedError,
   DisconnectedError,
@@ -20,6 +21,7 @@ import type {
   ProviderListener,
   PublicWallet,
   RequestArguments,
+  SequencerReceiptAnswer,
   SendTxResponse,
   SignCustodyResponse,
   SignDigestResponse,
@@ -68,6 +70,7 @@ const UNSUPPORTED_METHODS = new Set([
 
 const SIGNING_METHODS = new Set([
   'eth_sendTransaction',
+  'paxeer_sendTransactionReceipted',
   'eth_signTypedData_v4',
   'personal_sign',
   'eth_sign',
@@ -189,6 +192,8 @@ export class PaxeerProvider implements Eip1193Provider {
         return this.switchChain(params);
       case 'eth_sendTransaction':
         return this.sendTransaction(params);
+      case 'paxeer_sendTransactionReceipted':
+        return this.paxeer_sendTransactionReceipted(params);
       case 'eth_signTypedData_v4':
         return this.signTypedData(params);
       case 'personal_sign':
@@ -305,6 +310,11 @@ export class PaxeerProvider implements Eip1193Provider {
     const response = await this.gateway<SendTxResponse>('POST', '/v1/wallet/send', { tx: wire, ...(custody ? { custody } : {}) });
     if (!/^0x[0-9a-fA-F]{64}$/.test(response.tx_hash)) throw new InvalidParamsError('tx_hash', 'gateway returned an invalid transaction hash');
     return response.tx_hash;
+  }
+
+  private async paxeer_sendTransactionReceipted(params: readonly unknown[]): Promise<SequencerReceiptAnswer> {
+    const hash = await this.sendTransaction(params);
+    return waitForSequencerReceipt(this.proxy.bind(this), hash, { rung: 'receipted' });
   }
 
   private async signTypedData(params: readonly unknown[]): Promise<Hex> {
