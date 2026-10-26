@@ -218,6 +218,20 @@ func (env *Environment) Header(ctx context.Context, req *coretypes.RequestBlockI
 // HeaderByHash gets header by hash.
 // More: https://docs.tendermint.com/master/rpc/#/Info/header_by_hash
 func (env *Environment) HeaderByHash(ctx context.Context, req *coretypes.RequestBlockByHash) (*coretypes.ResultHeader, error) {
+	if giga, ok := env.gigaRouter().Get(); ok {
+		if len(req.Hash) != len(atypes.BlockHeaderHash{}) {
+			return &coretypes.ResultHeader{}, nil
+		}
+		block, err := giga.BlockByHash(ctx, atypes.BlockHeaderHash(req.Hash))
+		if err != nil {
+			return nil, err
+		}
+		if block.Block == nil {
+			return &coretypes.ResultHeader{}, nil
+		}
+		return &coretypes.ResultHeader{Header: &block.Block.Header}, nil
+	}
+
 	blockMeta := env.BlockStore.LoadBlockMetaByHash(req.Hash)
 	if blockMeta == nil {
 		return &coretypes.ResultHeader{}, nil

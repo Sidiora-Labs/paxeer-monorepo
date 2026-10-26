@@ -60,6 +60,19 @@ func (app *App) BeginBlock(
 	// and before the module begin blockers, so the modules that plan initialises and
 	// the values it writes are live for the rest of the block
 	app.applyNamedUpgrade(ctx)
+	if app.Sequenced(ctx, height) {
+		if votes != nil {
+			if err := app.SequencerKeeper.StoreVotes(ctx, height, votes); err != nil {
+				panic(err)
+			}
+		}
+		// Validators and the executor use the same decided votes for the previous height.
+		var err error
+		votes, err = app.SequencerKeeper.StoredVotes(ctx, height-1)
+		if err != nil {
+			panic(err)
+		}
+	}
 	legacyabci.BeginBlock(ctx, height, votes, byzantineValidators, app.BeginBlockKeepers)
 	return abci.ResponseBeginBlock{
 		Events: sdk.MarkEventsToIndex(ctx.EventManager().ABCIEvents(), app.IndexEvents),
@@ -281,6 +294,18 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 		if n, ok := app.blockHeaderNotifier.Get(); ok {
 			n.PublishStashed()
 		}
+		if app.commitListener != nil {
+			commitListener(app, app.LastBlockHeight(), app.LastCommitID().Hash)
+		}
 	}
 	return res, err
+}
+
+func commitListener(app *App, height int64, appHash []byte) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("panic recovered in commit listener", "height", height, "panic", r)
+		}
+	}()
+	app.commitListener(height, appHash)
 }
