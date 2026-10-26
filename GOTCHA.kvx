@@ -8903,3 +8903,9 @@ area = "spec"
 symptom = "a task that regenerates a gRPC QueryServer interface fails its own build_cmd on every attempt with a keeper not implementing the interface"
 cause = "the package asserts `var _ types.QueryServer = Keeper{}` at compile time, and the new method was assigned to a later task"
 do = "when a task widens an interface, give the same task every compile-time implementer of it, and leave the dependent task its tests only"
+
+[gotcha.1863]
+area = "spec"
+symptom = "a symbol check passes on a name the task deletes, and the ✓ line names a file outside the touched paths"
+cause = "an unqualified symbol lookup takes the first declaration of that name in the tree, and the Python and TypeScript SDKs under services/agent/sdk declare the same names (PX_METHODS, PxAnchorHead)"
+do = "read the path on every ✓ line of the graph check; a check that passed on another package's declaration proves nothing about the touched file, so name only symbols unique to the touched package"
