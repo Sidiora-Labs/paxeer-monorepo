@@ -213,12 +213,10 @@ type chainStatus struct {
 	connected  bool
 }
 
-// ponytail: count(*) scans both tables on every health read; switch to a
-// maintained counter if the tables outgrow the 2 s cache.
 const chainStatusSQL = `SELECT
   (SELECT max(number) FROM perps.blocks),
-  (SELECT count(*) FROM perps.blocks),
-  (SELECT count(*) FROM perps.tx_actions),
+  (SELECT value FROM perps.chain_counters WHERE name = 'blocks'),
+  (SELECT value FROM perps.chain_counters WHERE name = 'tx_actions'),
   COALESCE((SELECT updated_at > now() - make_interval(secs => $1) FROM perps.cursors WHERE name = 'head'), false)`
 
 func (s *Server) status(ctx context.Context) (chainStatus, error) {
