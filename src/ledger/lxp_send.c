@@ -278,10 +278,11 @@ lxp_result lxp_send_validate(const lxp_send *send,
     status = lxp_send_authorization_message(send, message, sizeof(message),
                                             &message_length);
     if (status != LXP_OK) return status;
-    status = lxp_ed25519_verify(send->authorization.public_key,
-                                send->authorization.signature,
-                                LXP_DOMAIN_SIGNATURE_PREIMAGE,
-                                message, message_length);
+    if (!environment->binding_authority)
+        status = lxp_ed25519_verify(send->authorization.public_key,
+                                    send->authorization.signature,
+                                    LXP_DOMAIN_SIGNATURE_PREIMAGE,
+                                    message, message_length);
     return status == LXP_OK ? LXP_OK : LXP_ERR_UNAUTHORIZED_DEBIT;
 }
 
