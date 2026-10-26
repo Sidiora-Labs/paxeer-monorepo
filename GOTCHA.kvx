@@ -8861,3 +8861,9 @@ area = "build"
 symptom = "`pnpm install --frozen-lockfile` inside apps/launchpad/web, apps/launchpad/mobile, sdk/launchpad/packages/sdk or sdk/wallet fails with ERR_PNPM_NO_LOCKFILE, and a type check or vitest run there reports `Cannot find module '@kindle/sdk'`, `'@kindle/sdk-v2/types'`, `'stats-sdk'` or `'./validators-v1.gen.js'` even after an install"
 cause = "the lockfile lives at the pnpm workspace root named by pnpm-workspace.yaml (apps/launchpad for web, mobile and sdk/launchpad/packages/*; services/wallet for gateway, demo and sdk/wallet), and the members whose package exports point at an untracked dist/ (@kindle/sdk-v2, @kindle/sdk, stats-sdk, @kindle/production-contracts) ship no build output; @kindle/sdk depends on @kindle/sdk-v2 and generates src/validators-v1.gen.js in its build"
 do = "install at the workspace root, then build the dist-exporting members the package depends on in dependency order (sdk-v2 before sdk) before running the member's type check or tests"
+
+[gotcha.1856]
+area = "spec"
+symptom = "a test that opens a tracked repository file through a relative path fails with `no such file or directory`, and the failing path begins with exactly the `..` segments the task step prescribed"
+cause = "go test runs each test binary with the package directory as its working directory, so a relative path counts from the package, not from the module root or the repository root; a step written against the module root is one segment short"
+do = "count parent segments from the package directory the test runs in (sdk/launchpad/protocol/catalog needs four to reach the repository root) and resolve the path with ls from that directory before writing the step"

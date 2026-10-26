@@ -101,3 +101,11 @@ symbol = "_value"
 observed = "At revision 6bacebc05 the 17.0.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `KvxError: spec/layerx-merge/spec.kvx:145120: invalid value` because programme/kvx.py decodes every quoted value with json.loads, which rejects the `\0` escape inside the do_3 of 11.0.1 (one of 27 such lines), while the gate's reader (Hyperfide kvx_str) strips the quotes and keeps every byte between them."
 assumption = "The gate's reader defines the accepted kvx string syntax; the parser is repaired within 17.0.1 and spec.kvx stays as written."
 severity = "suspect"
+
+[finding.4.54.1]
+task = "4.54.1"
+file = "sdk/launchpad/protocol/catalog/registry_input_test.go:66"
+symbol = "TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation"
+observed = "At revisions 6e8b08215 and b28402274 the 4.54.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `open ../../../contracts/launchpad/artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json: no such file or directory` because do_2 prescribed three parent segments from the package directory the test runs in, which resolves to sdk/contracts/launchpad; the repository root is four segments above sdk/launchpad/protocol/catalog."
+assumption = "The step names the wrong depth, not the wrong artifact: do_2 now prescribes four parent segments and the test body stays as written."
+severity = "note"
