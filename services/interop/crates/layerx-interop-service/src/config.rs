@@ -2,7 +2,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::VerifyingKey as Ed25519Key;
 use layerx_ap2::{ap2_adapter_descriptor, Merchant, AP2_SPEC_SHA256};
-use layerx_client::sequencer::SequencerEndpoint;
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
 use layerx_fiat::fiat_adapter_descriptor;
 use layerx_interop_gateway::adapter::{
     AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec, SpecVersion,
@@ -283,6 +283,10 @@ pub fn load() -> Result<Config, String> {
     .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
     let receipt_keys =
         parse_receipt_keys(&read_file("LAYERX_INTEROP_RECEIPT_KEYS_FILE", 64 * 1024)?)?;
+    let published_receipt_keys = sequencer
+        .receipt_keys()
+        .map_err(|error| format!("sequencer px_getReceiptKeys failed: {error:?}"))?;
+    check_receipt_keys(&receipt_keys, &published_receipt_keys)?;
     let idempotency_seconds = env::var("LAYERX_INTEROP_IDEMPOTENCY_SECONDS")
         .unwrap_or_else(|_| "604800".to_owned())
         .parse::<u64>()
@@ -405,6 +409,30 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
             ))
         })
         .collect()
+}
+
+fn check_receipt_keys(
+    pinned: &[SequencerAuthorization],
+    published: &[ReceiptKeyEntry],
+) -> Result<(), String> {
+    for pin in pinned {
+        let key = published
+            .iter()
+            .find(|key| key.key_id == pin.sequencer_id())
+            .ok_or_else(|| {
+                "LAYERX_INTEROP_RECEIPT_KEYS_FILE pins a key absent from px_getReceiptKeys"
+                    .to_owned()
+            })?;
+        if key.public_key != pin.public_key()
+            || key.first_height != pin.first_batch_number()
+            || key.last_height != pin.last_batch_number()
+        {
+            return Err(
+                "LAYERX_INTEROP_RECEIPT_KEYS_FILE pin differs from px_getReceiptKeys".to_owned(),
+            );
+        }
+    }
+    Ok(())
 }
 
 fn hosted_gateway_endpoint() -> Result<Endpoint, String> {
@@ -1103,6 +1131,86 @@ mod tests {
             error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
             "{error}"
         );
+    }
+
+    fn receipt_key_pins() -> (Vec<super::SequencerAuthorization>, super::ReceiptKeyEntry) {
+        let fixture: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .expect("sequencer receipt fixture");
+        let bytes = serde_json::to_vec(&vec![fixture["cases"][0]["pinnedKey"].clone()])
+            .expect("receipt keys JSON array");
+        let pins = super::parse_receipt_keys(&bytes).expect("pinned receipt keys");
+        let published = super::ReceiptKeyEntry {
+            key_id: pins[0].sequencer_id(),
+            public_key: pins[0].public_key(),
+            first_height: 1000,
+            last_height: 1999,
+        };
+        (pins, published)
+    }
+
+    #[test]
+    fn a_pinned_key_missing_from_the_sequencer_is_refused() {
+        let (mut pins, published) = receipt_key_pins();
+        super::check_receipt_keys(&pins, &[published]).expect("matching pin is accepted");
+        let error = super::check_receipt_keys(&pins, &[])
+            .expect_err("an empty published list must refuse the pin");
+        assert!(error.contains("absent from px_getReceiptKeys"), "{error}");
+
+        let other_pin =
+            super::SequencerAuthorization::new([0x6c; 32], published.public_key, 2000, 2999);
+        pins.push(other_pin);
+        let error = super::check_receipt_keys(&pins, &[published])
+            .expect_err("a matching first pin must not hide a missing second pin");
+        assert!(error.contains("absent from px_getReceiptKeys"), "{error}");
+
+        for changed in [
+            super::ReceiptKeyEntry {
+                first_height: 999,
+                ..published
+            },
+            super::ReceiptKeyEntry {
+                last_height: 2000,
+                ..published
+            },
+            super::ReceiptKeyEntry {
+                public_key: ed25519_dalek::SigningKey::from_bytes(&[0x42; 32])
+                    .verifying_key()
+                    .to_bytes(),
+                ..published
+            },
+        ] {
+            let error = super::check_receipt_keys(&pins[..1], &[changed])
+                .expect_err("a changed public key or height bound must refuse the pin");
+            assert!(
+                error.contains("pin differs from px_getReceiptKeys"),
+                "{error}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_extra_published_key_is_not_trusted() {
+        let (pins, published) = receipt_key_pins();
+        let original_pins = pins.clone();
+        let rotated = super::ReceiptKeyEntry {
+            key_id: [0x6c; 32],
+            public_key: ed25519_dalek::SigningKey::from_bytes(&[0x42; 32])
+                .verifying_key()
+                .to_bytes(),
+            first_height: 2000,
+            last_height: 2999,
+        };
+        super::check_receipt_keys(&pins, &[rotated, published])
+            .expect("an additional published key must allow start");
+        assert_eq!(
+            pins, original_pins,
+            "published keys must not change the file pins"
+        );
+        assert_eq!(pins.len(), 1);
+        assert!(pins.iter().all(|pin| pin.sequencer_id() != rotated.key_id));
     }
 
     fn certificate() -> Certificate {
