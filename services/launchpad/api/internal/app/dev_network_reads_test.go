@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/go-chi/chi/v5"
 
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
@@ -61,7 +62,7 @@ func netCall(t *testing.T, method, url string) (int, []byte, http.Header) {
 	return resp.StatusCode, body, resp.Header
 }
 
-// Every path the adapter mounts is a frozen v2 OpenAPI operation with the same
+// Every path the adapter mounts is a frozen v2 catalog operation with the same
 // method; nothing outside the contract is invented.
 func TestDevelopmentNetworkReadsMountOnlyFrozenOperations(t *testing.T) {
 	d, err := newDevelopmentNetworkReads(context.Background(), "", nil)
@@ -70,21 +71,15 @@ func TestDevelopmentNetworkReadsMountOnlyFrozenOperations(t *testing.T) {
 	}
 	router := chi.NewRouter()
 	d.register(router, nil)
-	raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v2/openapi.json")
-	if err != nil {
-		t.Fatal(err)
-	}
-	var document struct {
-		Paths map[string]map[string]json.RawMessage `json:"paths"`
-	}
-	if err = json.Unmarshal(raw, &document); err != nil {
-		t.Fatal(err)
+	operations := make(map[string]struct{})
+	for _, op := range internaltest.FrozenV2Operations(t) {
+		operations[op.Method+" "+op.Path] = struct{}{}
 	}
 	count := 0
 	err = chi.Walk(router, func(method, path string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		count++
-		if _, ok := document.Paths[path][strings.ToLower(method)]; !ok {
-			t.Errorf("mounted operation absent from frozen v2 OpenAPI: %s %s", method, path)
+		if _, ok := operations[method+" "+path]; !ok {
+			t.Errorf("mounted operation absent from frozen v2 catalog: %s %s", method, path)
 		}
 		return nil
 	})
