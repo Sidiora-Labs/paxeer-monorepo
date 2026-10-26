@@ -26,6 +26,10 @@ MODULES := \
 	metadata \
 	social \
 	user \
+	discovery \
+	notifications \
+	security \
+	security/control
 
 
 # Money / correctness-critical modules: 90% coverage gate (others 85%).
