@@ -453,7 +453,7 @@ func encodeCommittedHead(tmClient client.LocalClient, evt blockHeaderEvent, base
 // encodeCommittedBlock encodes the committed Autobahn head as an Ethereum
 // newHeads payload: parentHash from the last block id, transactionsRoot from
 // the data hash, receiptsRoot from the last results hash and stateRoot from the
-// finalize response's app hash. A head missing any of them is refused rather
+// header's app hash. A head missing any of them is refused rather
 // than published with zero roots. encodeCommittedHead replaces receiptsRoot
 // with the results root of the head's own block.
 func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64, execution headExecution) (map[string]interface{}, error) {
@@ -464,7 +464,7 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 	if len(header.LastBlockId.Hash) != common.HashLength || len(header.DataHash) != common.HashLength || len(header.LastResultsHash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d lacks canonical parent, transaction, and receipt roots", header.Height)
 	}
-	if len(evt.response.AppHash) != common.HashLength {
+	if len(header.AppHash) != common.HashLength {
 		return nil, fmt.Errorf("committed Autobahn head %d lacks a state root", header.Height)
 	}
 	if len(evt.hash) != common.HashLength {
@@ -482,7 +482,7 @@ func encodeCommittedBlock(evt blockHeaderEvent, baseFee *big.Int, gasLimit int64
 		parent:   common.BytesToHash(header.LastBlockId.Hash),
 		txs:      txsRoot,
 		receipts: common.BytesToHash(header.LastResultsHash),
-		state:    common.BytesToHash(evt.response.AppHash),
+		state:    common.BytesToHash(header.AppHash),
 	}, execution.gasUsed, execution.bloom, baseFee, gasLimit)
 }
 

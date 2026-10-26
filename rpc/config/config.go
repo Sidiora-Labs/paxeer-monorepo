@@ -601,7 +601,7 @@ enable_test_api = {{ .EVM.EnableTestAPI }}
 enable_unsafe_keyring_rpc = {{ .EVM.EnableUnsafeKeyringRPC }}
 
 # Deny list defines list of methods that EVM RPC should fail fast, e.g ["debug_traceBlockByNumber"]
-deny_list = {{ .EVM.DenyList }}
+deny_list = [{{ range $i, $method := .EVM.DenyList }}{{ if $i }}, {{ end }}{{ printf "%q" $method }}{{ end }}]
 
 # Legacy pax_* / pax2_* JSON-RPC (EVM HTTP only - not Cosmos REST on 1317).
 #

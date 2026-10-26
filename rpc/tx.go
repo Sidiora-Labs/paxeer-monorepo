@@ -227,6 +227,24 @@ func (t *TransactionAPI) GetTransactionByBlockNumberAndIndex(ctx context.Context
 }
 
 func (t *TransactionAPI) getTransactionByBlockNumberAndIndex(ctx context.Context, blockNr rpc.BlockNumber, txIndex uint32) (result *export.RPCTransaction, returnErr error) {
+	if blockNr == rpc.PendingBlockNumber && t.watermarks != nil && t.watermarks.pending != nil {
+		snapshot, err := t.watermarks.pending.Snapshot()
+		if err != nil {
+			return nil, fmt.Errorf("pending block unavailable: %w", err)
+		}
+		hashes, err := pendingBlockTxHashes(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		if uint64(txIndex) >= uint64(len(hashes)) {
+			return nil, nil
+		}
+		ptx, ok := t.watermarks.pending.PendingTx(hashes[txIndex])
+		if !ok {
+			return nil, fmt.Errorf("pending transaction %s unavailable", hashes[txIndex].Hex())
+		}
+		return t.encodePendingTransaction(ptx)
+	}
 	blockNumber, err := getBlockNumber(ctx, t.tmClient, t.watermarks, blockNr)
 	if err != nil {
 		return nil, err
