@@ -33,11 +33,12 @@ var productionUnservedOperations = []struct{ method, path string }{
 }
 
 func registerUnservedOperations(r chi.Router, admission *rest.Admission, ops []struct{ method, path string }) {
+	var handler http.Handler = http.HandlerFunc(rest.WriteV2NotConfiguredError)
+	if admission != nil {
+		handler = admission.Middleware(rest.AdmissionCached)(handler)
+	}
+	handler = rest.ResponseMetadata(handler)
 	for _, op := range ops {
-		var handler http.Handler = http.HandlerFunc(rest.WriteV2NotConfiguredError)
-		if admission != nil {
-			handler = admission.Middleware(rest.AdmissionCached)(handler)
-		}
-		r.Method(op.method, op.path, rest.ResponseMetadata(handler))
+		r.Method(op.method, op.path, handler)
 	}
 }
