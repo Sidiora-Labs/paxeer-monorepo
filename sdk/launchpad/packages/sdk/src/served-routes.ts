@@ -166,7 +166,7 @@ export const ROUTE_STATUS: Readonly<Record<OperationName, 'served' | 'developmen
   IF_REPORT_CREATE: 'served',
   IF_REPORT_LIST: 'unrouted',
   IF_REWARDS: 'served',
-  IF_REWARD_CLAIM: 'unrouted',
+  IF_REWARD_CLAIM: 'served',
   IF_SEARCH: 'served',
   IF_SESSIONS: 'served',
   IF_SQUAD_CREATE: 'unrouted',
