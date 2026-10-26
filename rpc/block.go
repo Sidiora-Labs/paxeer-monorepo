@@ -130,6 +130,21 @@ func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number 
 	defer func() {
 		recordMetricsWithError(ctx, fmt.Sprintf("%s_getBlockTransactionCountByNumber", a.namespace), a.connectionType, startTime, returnErr, recover())
 	}()
+	if number == rpc.PendingBlockNumber {
+		if a.watermarks == nil || a.watermarks.pending == nil {
+			return nil, nil
+		}
+		snapshot, err := a.watermarks.pending.Snapshot()
+		if err != nil {
+			return nil, fmt.Errorf("pending block unavailable: %w", err)
+		}
+		hashes, err := pendingBlockTxHashes(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		count := hexutil.Uint(len(hashes))
+		return &count, nil
+	}
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
 		return nil, err
