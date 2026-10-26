@@ -6,6 +6,8 @@ use layerx_types::verify::VerificationLevel;
 
 use crate::identity::ContractError;
 
+pub type Rung = layerx_types::rung::Rung;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct RequestId(pub u64);
 
@@ -135,6 +137,18 @@ pub enum Level {
     SettlementAnchored = 5,
 }
 
+impl Level {
+    #[must_use]
+    pub const fn rung(self) -> Option<Rung> {
+        match self {
+            Self::Unverified | Self::SequencerSigned => Some(Rung::Submitted),
+            Self::BatchIncluded | Self::StateProven => Some(Rung::Receipted),
+            Self::CheckpointFinalised => Some(Rung::Committed),
+            Self::SettlementAnchored => None,
+        }
+    }
+}
+
 impl From<VerificationLevel> for Level {
     fn from(value: VerificationLevel) -> Self {
         match value.wire_rank() {
@@ -154,6 +168,16 @@ pub enum VerificationStatus {
     Unverified {
         requested: Level,
         achieved: Level,
+        reason: ReasonCode,
+    },
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RungStatus {
+    Achieved(Rung),
+    Below {
+        requested: Rung,
+        achieved: Rung,
         reason: ReasonCode,
     },
 }
