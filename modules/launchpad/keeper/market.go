@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -221,6 +222,11 @@ func (k *Keeper) createMarket(ctx sdk.Context, caller NestedCaller, evm *vm.EVM,
 	if err != nil {
 		return ctx, types.Market{}, err
 	}
+	ctx.EventManager().EmitEvent(sdk.NewEvent(types.EventTypeMarketCreated,
+		sdk.NewAttribute(types.AttributeKeyDenom, market.Denom),
+		sdk.NewAttribute(types.AttributeKeyPointer, market.TokenAddress),
+		sdk.NewAttribute(types.AttributeKeyCreator, market.Creator),
+		sdk.NewAttribute(types.AttributeKeyStrategy, strconv.FormatUint(uint64(strategy), 10))))
 	return ctx, market, nil
 }
 
