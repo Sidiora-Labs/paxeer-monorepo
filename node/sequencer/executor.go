@@ -73,6 +73,7 @@ type Host interface {
 	GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
 	GetTxConfig() client.TxConfig
 	GetEVMMsg(tx sdk.Tx) *evmtypes.MsgEVMTransaction
+	RefreshPrecompiles(ctx sdk.Context)
 }
 
 // Options configures an executor.
@@ -248,7 +249,7 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 	if err != nil {
 		return err
 	}
-	s.open = &openLayer{
+	opening := &sequential{open: &openLayer{
 		height:           height,
 		timestampMs:      timestampMs,
 		ctx:              ctx,
@@ -256,7 +257,11 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 		beginBlockEvents: events,
 		fromSeq:          s.lastSeq + 1,
 		prevSeqHash:      s.lastSeqHash,
+	}}
+	if err := RefreshPrecompiles(s.host, opening); err != nil {
+		return err
 	}
+	s.open = opening.open
 	return nil
 }
 
