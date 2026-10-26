@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test } from 'vitest';
-import { TRANSPILE_PACKAGES } from './next-build-config';
+import { allowedDevOrigins, TRANSPILE_PACKAGES } from './next-build-config';
 
 function transpilePackagesAreDeclaredWorkspaceDependencies() {
   const manifest: { dependencies: Record<string, string> } = JSON.parse(
@@ -25,3 +25,36 @@ function transpilePackagesAreDeclaredWorkspaceDependencies() {
 }
 
 test(transpilePackagesAreDeclaredWorkspaceDependencies);
+
+function allowedDevOriginsDefaultToLoopback() {
+  expect(allowedDevOrigins({})).toEqual(['localhost', '127.0.0.1']);
+  expect(allowedDevOrigins({ NEXT_DEV_ALLOWED_ORIGINS: '' })).toEqual(['localhost', '127.0.0.1']);
+  expect(allowedDevOrigins({ NEXT_DEV_ALLOWED_ORIGINS: ' , \t, ' })).toEqual(['localhost', '127.0.0.1']);
+  expect(allowedDevOrigins({ NEXT_DEV_ALLOWED_ORIGINS: ' dev.example.com, ,preview.example.com , 192.0.2.1 ' })).toEqual([
+    'localhost',
+    '127.0.0.1',
+    'dev.example.com',
+    'preview.example.com',
+    '192.0.2.1',
+  ]);
+}
+
+function allowedDevOriginsRejectSchemeOrPath() {
+  for (const entry of [
+    'https://dev.example.com',
+    'http://dev.example.com',
+    'dev.example.com:3050',
+    'dev.example.com/path',
+    'dev.example.com/',
+    'dev.example.com\\path',
+    '*.example.com',
+    'dev.*.com',
+    '*',
+  ]) {
+    expect(() => allowedDevOrigins({ NEXT_DEV_ALLOWED_ORIGINS: entry }), entry).toThrow(TypeError);
+    expect(() => allowedDevOrigins({ NEXT_DEV_ALLOWED_ORIGINS: `valid.example.com, ${entry} ` }), entry).toThrow(TypeError);
+  }
+}
+
+test(allowedDevOriginsDefaultToLoopback);
+test(allowedDevOriginsRejectSchemeOrPath);
