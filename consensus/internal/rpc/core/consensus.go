@@ -90,6 +90,10 @@ func (env *Environment) Validators(ctx context.Context, req *coretypes.RequestVa
 // UNSTABLE
 // More: https://docs.tendermint.com/master/rpc/#/Info/dump_consensus_state
 func (env *Environment) DumpConsensusState(ctx context.Context) (*coretypes.ResultDumpConsensusState, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		return nil, coretypes.ErrConsensusStateNotAvailable
+	}
+
 	// Get Peer consensus states.
 	reactor, err := env.requireConsensusReactor()
 	if err != nil {
@@ -144,6 +148,10 @@ func (env *Environment) DumpConsensusState(ctx context.Context) (*coretypes.Resu
 // UNSTABLE
 // More: https://docs.tendermint.com/master/rpc/#/Info/consensus_state
 func (env *Environment) GetConsensusState(ctx context.Context) (*coretypes.ResultConsensusState, error) {
+	if _, ok := env.gigaRouter().Get(); ok {
+		return nil, coretypes.ErrConsensusStateNotAvailable
+	}
+
 	consensusState, err := env.requireConsensusState()
 	if err != nil {
 		return nil, err
