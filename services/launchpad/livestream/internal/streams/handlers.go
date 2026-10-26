@@ -177,6 +177,9 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 		v.Post("/streams/{id}/go-live", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "start") }))
 		v.Post("/streams/{id}/end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.connectedAction(w, r, "end") }))
 		v.Post("/streams/{id}/heartbeat", h.connectedHeartbeat)
+		v.Post("/streams/{id}:start", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "start") }))
+		v.Post("/streams/{id}:end", h.provisioned(func(w http.ResponseWriter, r *http.Request) { h.frozenAction(w, r, "end") }))
+		v.Post("/streams/{id}/viewers:heartbeat", h.frozenHeartbeat)
 		v.Get("/streams/{id}", h.getByID)
 	})
 }
