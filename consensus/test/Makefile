@@ -18,26 +18,9 @@ test_cover:
 	bash test/test_cover.sh
 .PHONY: test_cover
 
-test_abci_apps:
-	bash abci/tests/test_app/test.sh
-.PHONY: test_abci_apps
-
-test_integrations:
-	make build_docker_test_image
-	make tools
-	make install
-	make test_cover
-	make test_abci_apps
-	make test_libs
-.PHONY: test_integrations
-
 test_release:
 	@go test -tags release $(PACKAGES)
 .PHONY: test_release
-
-test100:
-	@for i in {1..100}; do make test; done
-.PHONY: test100
 
 ### go tests
 test:
