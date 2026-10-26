@@ -75,6 +75,9 @@ func (k *Keeper) GetParams(ctx sdk.Context) types.Params {
 }
 
 func (k *Keeper) SetParams(ctx sdk.Context, params types.Params) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	if err := params.Validate(); err != nil {
 		return err
 	}
@@ -102,6 +105,9 @@ func (k *Keeper) GetEmergency(ctx sdk.Context) bool {
 }
 
 func (k *Keeper) SetEmergency(ctx sdk.Context, enabled bool) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	if enabled {
 		k.store(ctx).Set(types.EmergencyKey, []byte{1})
 	} else {
@@ -126,6 +132,9 @@ func (k *Keeper) setDepositCount(ctx sdk.Context, count uint64) {
 // denom or pointer already bound to another asset is refused, and the denom
 // of an asset that holds custody or pending claims cannot change.
 func (k *Keeper) SetAsset(ctx sdk.Context, asset types.AssetMapping) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	if err := asset.Validate(); err != nil {
 		return err
 	}
