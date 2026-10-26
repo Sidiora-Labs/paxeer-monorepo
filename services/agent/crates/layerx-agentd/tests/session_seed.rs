@@ -1,4 +1,6 @@
+use k256::ecdsa::SigningKey;
 use layerx_agentd::session_keys::SessionKeyRegistry;
+use layerx_crypto::secp256k1::evm_address;
 use std::fs;
 use std::os::unix::fs::{MetadataExt as _, PermissionsExt as _};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -24,19 +26,31 @@ fn prepared_session_seeds_are_encrypted_bound_and_survive_real_registry_restart(
     let seed = registry
         .prepare_seed(namespace, [7; 32])
         .unwrap_or_else(|error| panic!("initial preparation: {error:?}"));
-    assert_ne!(*seed, [0; 32]);
+    assert_ne!(*seed.secret(), [0; 32]);
+    let public_key = SigningKey::from_slice(seed.secret())
+        .unwrap_or_else(|error| panic!("valid secp256k1 scalar: {error:?}"));
+    let address = evm_address(
+        public_key
+            .verifying_key()
+            .to_encoded_point(false)
+            .as_bytes(),
+    )
+    .unwrap_or_else(|error| panic!("EVM address: {error:?}"));
+    assert_eq!(seed.evm_address(), address);
     assert_eq!(
         *registry
             .prepare_seed(namespace, [7; 32])
-            .unwrap_or_else(|error| panic!("same request: {error:?}")),
-        *seed
+            .unwrap_or_else(|error| panic!("same request: {error:?}"))
+            .secret(),
+        *seed.secret()
     );
     assert!(registry.prepare_seed(namespace, [8; 32]).is_err());
     assert_ne!(
         *registry
             .prepare_seed(b"tenant-b/principal-a/agent-a/action-a", [7; 32])
-            .unwrap_or_else(|error| panic!("separate tenant: {error:?}")),
-        *seed
+            .unwrap_or_else(|error| panic!("separate tenant: {error:?}"))
+            .secret(),
+        *seed.secret()
     );
     for entry in fs::read_dir(&root).unwrap_or_else(|error| panic!("registry entries: {error:?}")) {
         let bytes = fs::read(
@@ -56,8 +70,16 @@ fn prepared_session_seeds_are_encrypted_bound_and_survive_real_registry_restart(
     assert_eq!(
         *restarted
             .prepare_seed(namespace, [7; 32])
-            .unwrap_or_else(|error| panic!("durable seed: {error:?}")),
-        *seed
+            .unwrap_or_else(|error| panic!("durable seed: {error:?}"))
+            .secret(),
+        *seed.secret()
+    );
+    assert_eq!(
+        restarted
+            .prepare_seed(namespace, [7; 32])
+            .unwrap_or_else(|error| panic!("durable address: {error:?}"))
+            .evm_address(),
+        address
     );
     drop(restarted);
     let wrong_network = SessionKeyRegistry::open(root.clone(), vec![0x61; 32], 78, uid)
