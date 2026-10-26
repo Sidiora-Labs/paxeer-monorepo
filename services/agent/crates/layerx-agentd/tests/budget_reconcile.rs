@@ -206,3 +206,41 @@ fn only_a_local_cache_that_differs_from_the_verified_record_raises_a_divergence_
     assert!(behind_alert.health.divergence_open);
     assert_eq!(behind.consumed, 25);
 }
+
+#[test]
+fn committed_layerxpay_state_corrects_local_spend_and_flags_divergence() {
+    // One dynamic Budget tuple: 18 head words followed by an empty delegate array.
+    let mut result = vec![0_u8; 20 * 32];
+    for (index, value) in [
+        (0, 32_u128),
+        (5, 1_000),
+        (6, 1_000),
+        (8, 25),
+        (10, 100),
+        (11, 80),
+        (12, 5_000),
+        (14, 1),
+        (17, 18 * 32),
+    ] {
+        result[index * 32 + 16..(index + 1) * 32].copy_from_slice(&value.to_be_bytes());
+    }
+    let protocol = ProtocolBudgetState::decode_get_budget([0x51; 32], 99, &result)
+        .unwrap_or_else(|error| panic!("getBudget: {error:?}"));
+    let mut local = LocalAccounting {
+        consumed: 900,
+        window_start_sequence: 80,
+        last_receipt: None,
+    };
+    let state = protocol
+        .reconcile(&mut local, &[])
+        .unwrap_or_else(|error| panic!("committed reconciliation: {error:?}"));
+    assert_eq!(protocol.committed_height(), 99);
+    assert_eq!(local.consumed, 25);
+    assert_eq!(state.remaining(), 975);
+    let alert = divergence_alert(&state, 1_000)
+        .unwrap_or_else(|| panic!("local spend exceeds committed spentThisPeriod"));
+    assert_eq!(alert.audit.protocol_consumed, 25);
+    assert_eq!(alert.audit.observed_head_sequence, 99);
+    assert_eq!(alert.enforced_consumed, 900);
+    assert!(!alert.health.ready_for_writes);
+}

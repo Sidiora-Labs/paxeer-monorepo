@@ -10,6 +10,32 @@ const BANNED_DEPENDENCIES: &[&str] = &[
     "layerx-protocol-core",
 ];
 
+const RETIRED_CRATES: &[&str] = &["layerx-human-movement-provider", "layerx-paxeer-client"];
+
+const RETIRED_IMPORTS: &[&str] = &[
+    "layerx_client::lni",
+    "layerx_proof::receipt::AuthorizedBatch",
+    "layerx_proof::checkpoint::SettlementDomain",
+    "layerx_wire::activity",
+];
+
+const RETIRED_MODULES: &[&str] = &[
+    "journeys/deposit.rs",
+    "journeys/withdraw.rs",
+    "journeys/exit.rs",
+    "binding/mod.rs",
+    "server/movement_provider.rs",
+    "server/production_recipient.rs",
+    "custody/settlement_recipient.rs",
+];
+
+const RETIRED_ENV_PREFIXES: &[&str] = &[
+    "LAYERX_HUMAN_MOVEMENT_",
+    "LAYERX_HUMAN_PAXEER_",
+    "LAYERX_HUMAN_EXIT_",
+    "LAYERX_HUMAN_RECIPIENT_",
+];
+
 const PRIVATE_NODE_PATHS: &[&str] = &[
     "node.db",
     "projection.db",
@@ -274,6 +300,125 @@ pub fn human_payload_bundle_gate(bundle: &Path) -> Result<(), Vec<Violation>> {
                 })
         })
         .collect::<Vec<_>>();
+    if violations.is_empty() {
+        Ok(())
+    } else {
+        Err(violations)
+    }
+}
+
+fn manifest_uses_retired_crate(body: &str) -> bool {
+    let mut section = "";
+    let mut in_members = false;
+    for line in body.lines() {
+        let declaration = line.split('#').next().unwrap_or("").trim();
+        if declaration.starts_with('[') {
+            section = declaration.trim_matches(['[', ']']).trim();
+            in_members = false;
+            continue;
+        }
+        let assignment = declaration.split_once('=');
+        if section == "dependencies"
+            || section.ends_with(".dependencies")
+            || section == "dev-dependencies"
+            || section.ends_with(".dev-dependencies")
+            || section == "build-dependencies"
+            || section.ends_with(".build-dependencies")
+        {
+            if let Some((key, _)) = assignment {
+                let name = key.split('.').next().unwrap_or("").trim();
+                if RETIRED_CRATES.contains(&name.trim_matches(['\"', '\''])) {
+                    return true;
+                }
+            }
+        }
+        let members = if section == "workspace" {
+            if let Some((_, value)) = assignment.filter(|(key, _)| key.trim() == "members") {
+                in_members = true;
+                value
+            } else if in_members {
+                declaration
+            } else {
+                continue;
+            }
+        } else {
+            continue;
+        };
+        if members
+            .split(['\"', '\''])
+            .enumerate()
+            .any(|(index, entry)| {
+                index % 2 == 1
+                    && RETIRED_CRATES
+                        .iter()
+                        .any(|name| Path::new(entry).ends_with(name))
+            })
+        {
+            return true;
+        }
+        if members.contains(']') {
+            in_members = false;
+        }
+    }
+    false
+}
+
+/// # Errors
+///
+/// Returns every retired manifest, import, module and environment surface under `root`.
+pub fn human_retired_surface_gate(root: &Path) -> Result<(), Vec<Violation>> {
+    let mut files = Vec::new();
+    if visit_files(root, &mut files).is_err() {
+        return Err(vec![Violation {
+            path: root.to_path_buf(),
+            rule: "unreadable-human-tree",
+        }]);
+    }
+    let mut violations = Vec::new();
+    for path in files {
+        if path.extension().is_some_and(|extension| extension == "rs")
+            && RETIRED_MODULES.iter().any(|module| path.ends_with(module))
+        {
+            violations.push(Violation {
+                path: path.clone(),
+                rule: "retired-module",
+            });
+        }
+        let body = match fs::read_to_string(&path) {
+            Ok(body) => body,
+            Err(_) => {
+                violations.push(Violation {
+                    path,
+                    rule: "unreadable-human-file",
+                });
+                continue;
+            }
+        };
+        if path.file_name().is_some_and(|name| name == "Cargo.toml") {
+            if manifest_uses_retired_crate(&body) {
+                violations.push(Violation {
+                    path,
+                    rule: "retired-crate",
+                });
+            }
+            continue;
+        }
+        if RETIRED_IMPORTS.iter().any(|import| body.contains(import)) {
+            violations.push(Violation {
+                path: path.clone(),
+                rule: "retired-import",
+            });
+        }
+        if RETIRED_ENV_PREFIXES
+            .iter()
+            .any(|prefix| body.contains(prefix))
+        {
+            violations.push(Violation {
+                path,
+                rule: "retired-env",
+            });
+        }
+    }
     if violations.is_empty() {
         Ok(())
     } else {

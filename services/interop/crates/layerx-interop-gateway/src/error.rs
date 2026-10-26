@@ -43,6 +43,7 @@ pub enum GatewayError {
     UnknownTranslation,
     IdempotencyConflict,
     ReceiptRequired,
+    ReceiptPending,
     NotStateChanging,
     TranslationClosed,
     ReceiptRejected(VerificationFailure),
@@ -63,6 +64,7 @@ impl GatewayError {
             Self::UnknownTranslation => "translation-unknown",
             Self::IdempotencyConflict => "idempotency-conflict",
             Self::ReceiptRequired => "receipt-required",
+            Self::ReceiptPending => "receipt-pending",
             Self::NotStateChanging => "translation-read-only",
             Self::TranslationClosed => "translation-closed",
             Self::ReceiptRejected(_) => "receipt-rejected",
@@ -75,6 +77,7 @@ impl GatewayError {
     pub const fn retriability(&self) -> Retriability {
         match self {
             Self::Audit(_) | Self::ReceiptRejected(_) => Retriability::Retriable,
+            Self::ReceiptPending => Retriability::Retriable,
             Self::Adapter(_)
             | Self::Store(_)
             | Self::DuplicateAdapter
@@ -112,6 +115,9 @@ impl Display for GatewayError {
             Self::ReceiptRequired => formatter.write_str(
                 "a state-changing translation terminates only in a receipt-verified operation",
             ),
+            Self::ReceiptPending => {
+                formatter.write_str("transaction is held by the sequencer without a signed receipt")
+            }
             Self::NotStateChanging => {
                 formatter.write_str("a read-only translation cannot claim a settlement receipt")
             }
@@ -187,6 +193,7 @@ mod tests {
         GatewayError::UnknownTranslation,
         GatewayError::IdempotencyConflict,
         GatewayError::ReceiptRequired,
+        GatewayError::ReceiptPending,
         GatewayError::NotStateChanging,
         GatewayError::TranslationClosed,
         GatewayError::Corrupt("test"),

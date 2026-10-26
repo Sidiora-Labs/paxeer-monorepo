@@ -26,6 +26,10 @@ MODULES := \
 	metadata \
 	social \
 	user \
+	discovery \
+	notifications \
+	security \
+	security/control
 
 
 # Money / correctness-critical modules: 90% coverage gate (others 85%).
@@ -51,7 +55,7 @@ vet: ## go vet ./... in every module that has packages
 
 fmt: ## gofmt -w + goimports -w across the repo
 	@gofmt -w $(MODULES)
-	@command -v goimports >/dev/null && goimports -w $(MODULES) || true
+	@if command -v goimports >/dev/null; then goimports -w $(MODULES); fi
 
 fmt-check: ## fail if any file is not gofmt-clean
 	@out=$$(gofmt -l $(MODULES)); if [ -n "$$out" ]; then echo "gofmt needs to run on:"; echo "$$out"; exit 1; fi

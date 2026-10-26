@@ -1,0 +1,17 @@
+{
+  "submitted": {
+    "rung": "submitted",
+    "block_number": null,
+    "committed_height": 999
+  },
+  "receipted": {
+    "rung": "receipted",
+    "block_number": null,
+    "committed_height": 999
+  },
+  "committed": {
+    "rung": "committed",
+    "block_number": 1000,
+    "committed_height": 1001
+  }
+}

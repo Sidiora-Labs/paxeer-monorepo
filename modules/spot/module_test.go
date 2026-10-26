@@ -30,6 +30,7 @@ func TestModuleRegistersInvariants(t *testing.T) {
 		"spot/" + keeper.SolvencyInvariantName,
 		"spot/" + keeper.ShareBackingInvariantName,
 		"spot/" + keeper.EscrowInvariantName,
+		"spot/" + keeper.ActiveIndexInvariantName,
 	}, invariants.routes)
 }
 

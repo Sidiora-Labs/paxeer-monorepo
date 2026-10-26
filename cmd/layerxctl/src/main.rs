@@ -7,8 +7,8 @@ use std::process::ExitCode;
 
 use layerx_client::sequencer::{SequencerEndpoint, SequencerError, SequencerReceipt, REVERT_CODE};
 use layerx_types::result::{KnownResult, Retriability};
-use layerx_wire::limits::MAX_MESSAGE_BYTES;
 
+const MAX_INPUT_BYTES: usize = 1_048_576;
 const MAX_CERTIFICATE_BYTES: usize = 65_536;
 const USAGE: &str = "usage: layerxctl read-state --rpc-url URL --to HEX40 --data HEX [--block-height N] [--ca-cert DER_FILE]\n       layerxctl submit --rpc-url URL --transaction FILE [--ca-cert DER_FILE]\n       read-state defaults to pending; submit reads binary signed EIP-1559 bytes and reports submitted until receipt verification is available; HTTPS requires a pinned DER root";
 
@@ -167,7 +167,7 @@ fn rpc_error(error: &SequencerError) -> String {
             data.as_str()
                 .or_else(|| data.get("data").and_then(|nested| nested.as_str()))
         });
-        let bytes = data.and_then(|data| unhex(data, MAX_MESSAGE_BYTES).ok());
+        let bytes = data.and_then(|data| unhex(data, MAX_INPUT_BYTES).ok());
         if refusal.code == REVERT_CODE
             || bytes.as_deref().and_then(revert_reason).is_some()
             || refusal.message.starts_with("execution reverted")
@@ -237,7 +237,7 @@ fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {
         let raw = input_file(
             required(&parsed, "--transaction")?,
             "transaction",
-            MAX_MESSAGE_BYTES,
+            MAX_INPUT_BYTES,
         )?;
         if raw.first() != Some(&2) {
             return Err(
@@ -249,7 +249,7 @@ fn run(arguments: &[String]) -> Result<(String, ExitCode), String> {
         let to: [u8; 20] = unhex(required(&parsed, "--to")?, 20)?
             .try_into()
             .map_err(|_| "--to requires a 20-byte address".to_owned())?;
-        let data = unhex(required(&parsed, "--data")?, MAX_MESSAGE_BYTES)?;
+        let data = unhex(required(&parsed, "--data")?, MAX_INPUT_BYTES)?;
         let height = parsed
             .get("--block-height")
             .map(|text| {

@@ -2,6 +2,7 @@ use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::VerifyingKey as Ed25519Key;
 use layerx_ap2::{ap2_adapter_descriptor, Merchant, AP2_SPEC_SHA256};
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_fiat::fiat_adapter_descriptor;
 use layerx_interop_gateway::adapter::{
     AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec, SpecVersion,
@@ -58,6 +59,8 @@ pub struct Config {
     pub store: RedisStore,
     pub trusted_sequencer_key: [u8; 32],
     pub sequencer_authorization: SequencerAuthorization,
+    pub sequencer: SequencerEndpoint,
+    pub receipt_keys: Vec<SequencerAuthorization>,
     pub network_id: String,
     pub wire_version: String,
     pub protocol_version: u16,
@@ -250,9 +253,8 @@ pub fn load() -> Result<Config, String> {
         serde_json::from_slice(&manifest_bytes).map_err(|error| error.to_string())?;
     let manifest = runtime_manifest(manifest_file)?;
 
-    let outbound_ca =
-        Certificate::from_der(&read_file("LAYERX_INTEROP_OUTBOUND_CA_DER", 64 * 1024)?)
-            .map_err(|error| error.to_string())?;
+    let outbound_ca_der = read_file("LAYERX_INTEROP_OUTBOUND_CA_DER", 64 * 1024)?;
+    let outbound_ca = Certificate::from_der(&outbound_ca_der).map_err(|error| error.to_string())?;
     let identity_password = read_secret("LAYERX_INTEROP_CLIENT_IDENTITY_PASSWORD_FILE")?;
     let identity = Identity::from_pkcs12(
         &read_file("LAYERX_INTEROP_CLIENT_IDENTITY_PKCS12", 128 * 1024)?,
@@ -274,6 +276,13 @@ pub fn load() -> Result<Config, String> {
         read_secret("LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE")?.as_str(),
     )
     .map_err(|error| format!("interop sequencer authorization is invalid: {error}"))?;
+    let sequencer = SequencerEndpoint::new(
+        &required_label("LAYERX_INTEROP_SEQUENCER_URL", 4096)?,
+        &[outbound_ca_der.as_slice()],
+    )
+    .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
+    let receipt_keys =
+        parse_receipt_keys(&read_file("LAYERX_INTEROP_RECEIPT_KEYS_FILE", 64 * 1024)?)?;
     let idempotency_seconds = env::var("LAYERX_INTEROP_IDEMPOTENCY_SECONDS")
         .unwrap_or_else(|_| "604800".to_owned())
         .parse::<u64>()
@@ -339,6 +348,8 @@ pub fn load() -> Result<Config, String> {
         store: RedisStore::new(redis, outbound_ca, redis_username, redis_password),
         trusted_sequencer_key,
         sequencer_authorization,
+        sequencer,
+        receipt_keys,
         network_id,
         wire_version,
         protocol_version,
@@ -351,6 +362,49 @@ pub fn load() -> Result<Config, String> {
         manifest,
         migration_v2: migration_v2_config()?,
     })
+}
+
+fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, String> {
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase", deny_unknown_fields)]
+    struct ReceiptKey {
+        key_id: String,
+        public_key: String,
+        first_height: u64,
+        last_height: u64,
+    }
+
+    let keys: Vec<ReceiptKey> = serde_json::from_slice(bytes)
+        .map_err(|error| format!("LAYERX_INTEROP_RECEIPT_KEYS_FILE is invalid: {error}"))?;
+    if keys.is_empty() {
+        return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE must contain at least one key".to_owned());
+    }
+    keys.into_iter()
+        .map(|key| {
+            let hex32 = |value: &str, field: &str| {
+                value
+                    .strip_prefix("0x")
+                    .ok_or_else(|| "expected a 0x-prefixed 32-byte hexadecimal value".to_owned())
+                    .and_then(parse_hex32)
+                    .map_err(|error| {
+                        format!("LAYERX_INTEROP_RECEIPT_KEYS_FILE {field} is invalid: {error}")
+                    })
+            };
+            let id = hex32(&key.key_id, "keyId")?;
+            let public_key = hex32(&key.public_key, "publicKey")?;
+            if key.first_height > key.last_height {
+                return Err(
+                    "LAYERX_INTEROP_RECEIPT_KEYS_FILE has a reversed height range".to_owned(),
+                );
+            }
+            Ok(SequencerAuthorization::new(
+                id,
+                public_key,
+                key.first_height,
+                key.last_height,
+            ))
+        })
+        .collect()
 }
 
 fn hosted_gateway_endpoint() -> Result<Endpoint, String> {
@@ -1016,6 +1070,40 @@ mod tests {
     use openssl::x509::X509;
     use std::io::{Read, Write};
     use std::net::TcpListener;
+
+    #[test]
+    fn parses_the_pinned_receipt_keys_file() {
+        let fixture: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .expect("sequencer receipt fixture");
+        let pinned_key = fixture["cases"][0]["pinnedKey"].clone();
+        assert!(pinned_key.is_object());
+        let bytes = serde_json::to_vec(&vec![pinned_key]).expect("receipt keys JSON array");
+        let keys = super::parse_receipt_keys(&bytes).expect("pinned receipt keys");
+        assert_eq!(keys.len(), 1);
+        assert_eq!(keys[0].sequencer_id(), [0x6b; 32]);
+        assert_eq!(
+            keys[0].public_key(),
+            [
+                0x81, 0x46, 0x64, 0x0f, 0x02, 0x49, 0x3a, 0xf4, 0xfb, 0xc5, 0x4f, 0xe3, 0x33, 0x88,
+                0xe7, 0x5d, 0xc2, 0xc9, 0x37, 0xae, 0x0b, 0x77, 0x27, 0xcc, 0x2b, 0x2a, 0xfb, 0x1b,
+                0x75, 0x19, 0x9a, 0x3e,
+            ]
+        );
+        assert_eq!(keys[0].first_batch_number(), 1000);
+        assert_eq!(keys[0].last_batch_number(), 1999);
+    }
+
+    #[test]
+    fn refuses_an_empty_receipt_keys_file() {
+        let error = super::parse_receipt_keys(b"[]").expect_err("empty keys must be refused");
+        assert!(
+            error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
+            "{error}"
+        );
+    }
 
     fn certificate() -> Certificate {
         let group = EcGroup::from_curve_name(Nid::X9_62_PRIME256V1).expect("curve");

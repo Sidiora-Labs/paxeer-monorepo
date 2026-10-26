@@ -123,11 +123,11 @@ func (i *InfoAPI) GasPrice(ctx context.Context) (result *hexutil.Big, returnErr 
 	} else {
 		medianRewardPrevBlock = feeHist.Reward[0][0].ToInt()
 	}
-	return i.GasPriceHelper(ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
+	return i.gasPriceHelper(ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
 }
 
 // Helper function useful for testing
-func (i *InfoAPI) GasPriceHelper(ctx context.Context, baseFee *big.Int, totalGasUsedPrevBlock uint64, medianRewardPrevBlock *big.Int) (*hexutil.Big, error) {
+func (i *InfoAPI) gasPriceHelper(ctx context.Context, baseFee *big.Int, totalGasUsedPrevBlock uint64, medianRewardPrevBlock *big.Int) (*hexutil.Big, error) {
 	isChainCongested, err := i.isChainCongested(totalGasUsedPrevBlock)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (i *InfoAPI) FeeHistory(ctx context.Context, blockCount gmath.HexOrDecimal6
 		if !versionExists {
 			return nil, fmt.Errorf("EVM state is unavailable at height %d", blockNum)
 		}
-		calculatedRatio, err := i.CalculateGasUsedRatio(ctx, blockNum)
+		calculatedRatio, err := i.calculateGasUsedRatio(ctx, blockNum)
 		if err != nil {
 			return nil, fmt.Errorf("calculate gas-used ratio for block %d: %w", blockNum, err)
 		}
@@ -543,8 +543,8 @@ func (i *InfoAPI) getCongestionData(ctx context.Context, height *int64) (blockGa
 	return totalEVMGasUsed, nil
 }
 
-// CalculateGasUsedRatio calculates the actual gas used ratio for a specific block
-func (i *InfoAPI) CalculateGasUsedRatio(ctx context.Context, blockHeight int64) (float64, error) {
+// calculateGasUsedRatio calculates the actual gas used ratio for a specific block
+func (i *InfoAPI) calculateGasUsedRatio(ctx context.Context, blockHeight int64) (float64, error) {
 	block, err := blockByNumberRespectingWatermarks(ctx, i.tmClient, i.watermarks, &blockHeight, 1)
 	if err != nil {
 		return 0, err

@@ -1,15 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, expectTypeOf, it, test } from 'vitest';
 import {
   JOURNEY_STATES,
+  LADDER_RUNGS,
   decodeJourney,
-  decodeNetwork,
   readExplorerStatus,
   statusLadder,
   type ExplorerTransactionStatus,
   type JourneyState,
+  type LadderRung,
+  type LadderSource,
+  type SequencerRung,
 } from '../src/index.js';
 
 const fixtureDir = new URL('./fixtures/endpoint/', import.meta.url);
@@ -53,10 +56,57 @@ function schemaJourneyStates(): string[] {
 }
 
 describe('statusLadder', () => {
+  function ladder_rungs_are_submitted_receipted_committed_in_order() {
+    expectTypeOf<LadderRung>().toEqualTypeOf<SequencerRung>();
+    expect(LADDER_RUNGS).toEqual(['submitted', 'receipted', 'committed']);
+    expect(statusLadder.rungs).toBe(LADDER_RUNGS);
+    expect(statusLadder.tables.explorer).toEqual({
+      submitted: 'submitted',
+      receipted: 'receipted',
+      committed: 'committed',
+    });
+    for (const rung of LADDER_RUNGS) {
+      expect(statusLadder.fromExplorer(rung)).toEqual({ rung, source: 'explorer', state: rung });
+    }
+    const steps = LADDER_RUNGS.map((rung) => statusLadder.fromExplorer(rung));
+    expect(statusLadder.highest(steps)).toEqual({ rung: 'committed', source: 'explorer', state: 'committed' });
+    expect(statusLadder.highest([...steps].reverse())).toEqual(steps[2]);
+    expect(statusLadder.highest(steps.slice(0, 2))).toEqual(steps[1]);
+  }
+
+  test(ladder_rungs_are_submitted_receipted_committed_in_order);
+
+  function ladder_journey_states_map_onto_the_three_rungs_without_an_anchor_source() {
+    expectTypeOf<LadderSource>().toEqualTypeOf<'receipt' | 'explorer' | 'journey'>();
+    const expected: Record<JourneyState, LadderRung | null> = {
+      'getting-ready': null,
+      sending: 'submitted',
+      processing: 'receipted',
+      done: 'receipted',
+      'done-finalised': 'committed',
+      'still-checking': null,
+      refused: null,
+      'waiting-for-you': null,
+    };
+    expect(statusLadder.tables.journey).toEqual(expected);
+    expect(Object.keys(statusLadder.tables.journey)).toEqual([...JOURNEY_STATES]);
+    expect(Object.keys(statusLadder.tables.journey)).toEqual(schemaJourneyStates());
+    for (const state of JOURNEY_STATES) {
+      expect(statusLadder.fromJourney(state)).toEqual({ rung: expected[state], source: 'journey', state });
+    }
+    expect(Object.keys(statusLadder.tables)).toEqual(['explorer', 'journey']);
+    expect(statusLadder.tables).not.toHaveProperty('anchor');
+    expect(statusLadder).not.toHaveProperty('fromAnchor');
+    expect(() => statusLadder.fromJourney('pending' as JourneyState)).toThrow(RangeError);
+    expect(() => statusLadder.fromExplorer('final' as SequencerRung)).toThrow(RangeError);
+  }
+
+  test(ladder_journey_states_map_onto_the_three_rungs_without_an_anchor_source);
+
   it('ladder_explorer_table_maps_every_explorer_rung', () => {
-    expect(statusLadder.tables.explorer).toEqual({ pending: null, instant: 'instant', sealed: 'sealed', final: 'final' });
+    expect(statusLadder.tables.explorer).toEqual({ submitted: 'submitted', receipted: 'receipted', committed: 'committed' });
     for (const [state, rung] of Object.entries(statusLadder.tables.explorer)) {
-      expect(statusLadder.fromExplorer(state as ExplorerTransactionStatus['rung'])).toEqual({ rung, source: 'explorer', state });
+      expect(statusLadder.fromExplorer(state as SequencerRung)).toEqual({ rung, source: 'explorer', state });
     }
   });
 
@@ -65,10 +115,10 @@ describe('statusLadder', () => {
     expect(Object.keys(statusLadder.tables.journey)).toEqual([...JOURNEY_STATES]);
     expect(statusLadder.tables.journey).toEqual({
       'getting-ready': null,
-      sending: null,
-      processing: 'instant',
-      done: 'sealed',
-      'done-finalised': 'final',
+      sending: 'submitted',
+      processing: 'receipted',
+      done: 'receipted',
+      'done-finalised': 'committed',
       'still-checking': null,
       refused: null,
       'waiting-for-you': null,
@@ -76,20 +126,6 @@ describe('statusLadder', () => {
     for (const [state, rung] of Object.entries(statusLadder.tables.journey)) {
       expect(statusLadder.fromJourney(state as JourneyState)).toEqual({ rung, source: 'journey', state });
     }
-  });
-
-  it('ladder_anchor_table_maps_every_anchor_state_the_endpoint_reports', () => {
-    const exchanges = JSON.parse(readFileSync(new URL('available.json', fixtureDir), 'utf8')) as {
-      request: { method: string };
-      response: { result: unknown };
-    }[];
-    const network = decodeNetwork(exchanges.find((entry) => entry.request.method === 'px_getNetwork')?.response.result);
-    expect(Object.keys(statusLadder.tables.anchor)).toEqual(Object.values(network.anchor?.status_ladder ?? {}));
-    expect(statusLadder.tables.anchor).toEqual({ unknown: null, submitted: 'sealed', final: 'final' });
-    for (const [state, rung] of Object.entries(statusLadder.tables.anchor)) {
-      expect(statusLadder.fromAnchor(state as 'unknown' | 'submitted' | 'final')).toEqual({ rung, source: 'anchor', state });
-    }
-    expect(statusLadder.fromAnchor(network.anchor?.status_name ?? 'unknown')).toEqual({ rung: 'final', source: 'anchor', state: 'final' });
   });
 
   it('ladder_reads_recorded_explorer_statuses_onto_the_ladder', async () => {
@@ -108,27 +144,26 @@ describe('statusLadder', () => {
       body: { result: unknown };
     };
     const journey = decodeJourney(recorded.body.result);
-    expect(statusLadder.fromJourney(journey.state)).toEqual({ rung: 'instant', source: 'journey', state: 'processing' });
+    expect(statusLadder.fromJourney(journey.state)).toEqual({ rung: 'receipted', source: 'journey', state: 'processing' });
     const stages = journey.stages.map((stage) => statusLadder.fromJourney(stage.state));
-    expect(stages.map((step) => step.rung)).toEqual(['sealed', 'sealed', 'instant']);
-    expect(statusLadder.highest(stages)).toEqual({ rung: 'sealed', source: 'journey', state: 'done' });
+    expect(stages.map((step) => step.rung)).toEqual(['receipted', 'receipted', 'receipted']);
+    expect(statusLadder.highest(stages)).toEqual({ rung: 'receipted', source: 'journey', state: 'done' });
   });
 
   it('ladder_highest_picks_the_top_rung_across_sources', () => {
     const steps = [
       statusLadder.fromJourney('processing'),
-      statusLadder.fromExplorer('sealed'),
-      statusLadder.fromAnchor('unknown'),
+      statusLadder.fromExplorer('committed'),
+      statusLadder.fromJourney('still-checking'),
     ];
-    expect(statusLadder.highest(steps)).toEqual({ rung: 'sealed', source: 'explorer', state: 'sealed' });
+    expect(statusLadder.highest(steps)).toEqual({ rung: 'committed', source: 'explorer', state: 'committed' });
     expect(statusLadder.highest([statusLadder.fromJourney('refused')])).toEqual({ rung: null, source: 'journey', state: 'refused' });
     expect(statusLadder.highest([])).toBeNull();
-    expect(statusLadder.rungs).toEqual(['instant', 'sealed', 'final']);
+    expect(statusLadder.rungs).toEqual(['submitted', 'receipted', 'committed']);
   });
 
   it('ladder_refuses_a_state_outside_its_tables', () => {
     expect(() => statusLadder.fromJourney('pending' as JourneyState)).toThrow(RangeError);
-    expect(() => statusLadder.fromExplorer('confirmed' as ExplorerTransactionStatus['rung'])).toThrow(RangeError);
-    expect(() => statusLadder.fromAnchor('sealed' as 'final')).toThrow(RangeError);
+    expect(() => statusLadder.fromExplorer('confirmed' as SequencerRung)).toThrow(RangeError);
   });
 });

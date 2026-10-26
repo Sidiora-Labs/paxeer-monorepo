@@ -1,8 +1,8 @@
 import { isRecord } from './rpc.js';
-import type { AnchorStatusName, ExplorerRung, ExplorerTransactionStatus, JourneyState } from './types.js';
+import type { ExplorerRung, ExplorerTransactionStatus, JourneyState, SequencerRung } from './types.js';
 
-export type LadderRung = 'instant' | 'sealed' | 'final';
-export type LadderSource = 'receipt' | 'explorer' | 'journey' | 'anchor';
+export type LadderRung = SequencerRung;
+export type LadderSource = 'receipt' | 'explorer' | 'journey';
 
 export interface LadderStep {
   rung: LadderRung | null;
@@ -10,30 +10,23 @@ export interface LadderStep {
   state: string;
 }
 
-export const LADDER_RUNGS: readonly LadderRung[] = ['instant', 'sealed', 'final'];
+export const LADDER_RUNGS: readonly LadderRung[] = ['submitted', 'receipted', 'committed'];
 
-const EXPLORER_TABLE: Readonly<Record<ExplorerRung, LadderRung | null>> = Object.freeze({
-  pending: null,
-  instant: 'instant',
-  sealed: 'sealed',
-  final: 'final',
+const EXPLORER_TABLE: Readonly<Record<SequencerRung, LadderRung | null>> = Object.freeze({
+  submitted: 'submitted',
+  receipted: 'receipted',
+  committed: 'committed',
 });
 
 const JOURNEY_TABLE: Readonly<Record<JourneyState, LadderRung | null>> = Object.freeze({
   'getting-ready': null,
-  sending: null,
-  processing: 'instant',
-  done: 'sealed',
-  'done-finalised': 'final',
+  sending: 'submitted',
+  processing: 'receipted',
+  done: 'receipted',
+  'done-finalised': 'committed',
   'still-checking': null,
   refused: null,
   'waiting-for-you': null,
-});
-
-const ANCHOR_TABLE: Readonly<Record<AnchorStatusName, LadderRung | null>> = Object.freeze({
-  unknown: null,
-  submitted: 'sealed',
-  final: 'final',
 });
 
 function lookup<K extends string>(
@@ -53,15 +46,12 @@ function rank(rung: LadderRung | null): number {
 
 export const statusLadder = Object.freeze({
   rungs: LADDER_RUNGS,
-  tables: Object.freeze({ explorer: EXPLORER_TABLE, journey: JOURNEY_TABLE, anchor: ANCHOR_TABLE }),
-  fromExplorer(status: ExplorerTransactionStatus | ExplorerRung): LadderStep {
+  tables: Object.freeze({ explorer: EXPLORER_TABLE, journey: JOURNEY_TABLE }),
+  fromExplorer(status: ExplorerTransactionStatus | SequencerRung): LadderStep {
     return lookup(EXPLORER_TABLE, 'explorer', typeof status === 'string' ? status : status.rung);
   },
   fromJourney(state: JourneyState): LadderStep {
     return lookup(JOURNEY_TABLE, 'journey', state);
-  },
-  fromAnchor(state: AnchorStatusName): LadderStep {
-    return lookup(ANCHOR_TABLE, 'anchor', state);
   },
   highest(steps: readonly LadderStep[]): LadderStep | null {
     let best: LadderStep | null = null;
@@ -259,7 +249,7 @@ export async function observeTransfer(
       sender = identity.intent.sender;
       nonce = quantity(transaction.nonce, 'included transaction nonce');
     }
-    const steps: LadderStep[] = [{ rung: 'instant', source: 'receipt', state: `success:${blockHash}` }];
+    const steps: LadderStep[] = [{ rung: 'receipted', source: 'receipt', state: `success:${blockHash}` }];
     let warning: string | undefined;
     if (explorer) {
       try {

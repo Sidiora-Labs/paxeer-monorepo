@@ -168,9 +168,12 @@ func ValidateRotation(current, next ReceiptKeys, height int64) error {
 	return nil
 }
 
-// ParamKeyTable registers ReceiptKeys in the sequencer param subspace.
+// ParamKeyTable registers ReceiptKeys and Leaders in the sequencer param subspace.
 func ParamKeyTable() paramtypes.KeyTable {
-	return paramtypes.NewKeyTable(paramtypes.NewParamSetPair(KeyReceiptKeys, &ReceiptKeys{}, validateReceiptKeys))
+	return paramtypes.NewKeyTable(
+		paramtypes.NewParamSetPair(KeyReceiptKeys, &ReceiptKeys{}, validateReceiptKeys),
+		paramtypes.NewParamSetPair(KeyLeaders, &LeaderList{}, validateLeaders),
+	)
 }
 
 func validateReceiptKeys(value interface{}) error {
