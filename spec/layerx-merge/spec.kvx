@@ -118668,7 +118668,7 @@ do_1 = "Replace the literal const MergeUpgrade = \"v7.0\" at precompiles/setup.g
 do_2 = "Leave precompiles/common/precompiles.go:30 as the single literal, read by bank (precompiles/bank/bank.go:214), addr (precompiles/addr/addr.go:531) and feetoken (precompiles/feetoken/feetoken.go:190)"
 do_3 = "Write TestMergeUpgradeSingleSource in precompiles/merge_upgrade_test.go (planned) asserting precompiles.MergeUpgrade == pcommon.MergeUpgrade, next to the node pin at precompiles/setup_test.go:194"
 do_4 = "Keep XWebUpgrade (precompiles/setup.go:38) and FeeTokenUpgrade (precompiles/setup.go:44) unchanged"
-symbols = ["MergeUpgrade", "pcommon.MergeUpgrade", "TestMergeUpgradeSingleSource"]
+symbols = ["MergeUpgrade", "TestMergeUpgradeSingleSource"]
 touches = ["precompiles/setup.go", "precompiles/merge_upgrade_test.go"]
 tests = ["precompiles/merge_upgrade_test.go::TestMergeUpgradeSingleSource"]
 planned_paths = ["precompiles/merge_upgrade_test.go"]
