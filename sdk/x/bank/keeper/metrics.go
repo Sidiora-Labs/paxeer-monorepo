@@ -10,14 +10,23 @@ var (
 
 	bankMetrics = struct {
 		sendAmount metric.Int64Gauge
+		newAccount metric.Int64Counter
 	}{
 		sendAmount: must(meter.Int64Gauge(
 			"last_send_amount",
 			metric.WithDescription("Amount sent in the last MsgSend transaction by denomination"),
 			metric.WithUnit("{utoken}"),
 		)),
+		newAccount: newAccount(),
 	}
 )
+
+func newAccount() metric.Int64Counter {
+	return must(meter.Int64Counter(
+		"new_account",
+		metric.WithDescription("Accounts created by bank transfers"),
+	))
+}
 
 func must[V any](v V, err error) V {
 	if err != nil {
