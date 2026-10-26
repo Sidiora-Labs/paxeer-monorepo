@@ -77,3 +77,35 @@ symbol = "run_one_dispatches_case"
 observed = "At revision ec6d59cc5 `make -C . build/tests/kernel/codec/lxp_test_case_dispatch` exited 2 (log /out/logs/verify-1.log): No rule to make target 'build/tests/kernel/codec/lxp_test_case_dispatch'; the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982), which the other 71 kernel tasks require and 1.0.1 (wave 0, requires []) and 1.0.9 did not."
 assumption = "1.0.1 and 1.0.9 now require 16.2.1; 1.0.1's implementation at ec6d59cc5 is re-qualified unchanged once 16.2.1 is done."
 severity = "blocker"
+
+[finding.5.31.1]
+task = "5.31.1"
+file = "consensus/types/sequencer.go:20"
+symbol = "LeaderSchedule"
+observed = "At revision 0fcd7657f `cg spec done 5.31.1` (log /out/logs/verify-1.log) exited 1 with `LeaderSchedule — not defined in the graph` after the verify_cmd passed, and the same gate refused 10.0.1 (frame::Limits, frame::ConnectionGate), 11.0.1 (evidence::SettlementRung), 11.31.1 (GatewayConfig.receipt_keys), 12.0.1 (SEQUENCER_RPC_URL, RPC_URLS, sequencerUrlDefaultsToFirstReadUrl, configuredSequencerUrlIsKept), 6.61.1 (Keeper.upgrades), 6.73.1 (GenesisState.Params), 6.51.1 (RETIRED), 13.21.1 (ILayerXPrograms, LAYERX_PROGRAMS_ADDRESS) and 11.13.1 (render_ethereum_only), every one declared in a touched file: Hyperfide 3762f1c43 (extraction version 4) indexed no Go interface methods or struct fields, Rust struct fields, module-level Python bindings, Solidity interfaces, libraries, structs, enums, errors or constants, exported TypeScript object keys, named function expressions or shell functions, and a qualified Rust type tied with its own impl block."
+assumption = "Hyperfide 37e6b5737 (extraction version 5) extracts those kinds and skips impl rows, so each result is re-qualified unchanged at its recorded revision and no symbol list changes."
+severity = "suspect"
+
+[finding.6.6.1]
+task = "6.6.1"
+file = "precompiles/common/precompiles.go:30"
+symbol = "pcommon.MergeUpgrade"
+observed = "At revision 664b028c9 `cg spec done 6.6.1` (log /out/logs/verify-1.log) exited 1 with `pcommon.MergeUpgrade — not defined in the graph` while MergeUpgrade (constant, precompiles/common/precompiles.go:30) and TestMergeUpgradeSingleSource resolved: pcommon is the import alias of precompiles/common and the code graph keeps a whole-module import without its alias, so an alias-qualified name can never resolve."
+assumption = "The alias entry duplicates MergeUpgrade and leaves the symbol list; the result at 664b028c9 is re-qualified unchanged."
+severity = "note"
+
+[finding.17.0.1]
+task = "17.0.1"
+file = "spec/layerx-merge/programme/kvx.py:35"
+symbol = "_value"
+observed = "At revision 6bacebc05 the 17.0.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `KvxError: spec/layerx-merge/spec.kvx:145120: invalid value` because programme/kvx.py decodes every quoted value with json.loads, which rejects the `\0` escape inside the do_3 of 11.0.1 (one of 27 such lines), while the gate's reader (Hyperfide kvx_str) strips the quotes and keeps every byte between them."
+assumption = "The gate's reader defines the accepted kvx string syntax; the parser is repaired within 17.0.1 and spec.kvx stays as written."
+severity = "suspect"
+
+[finding.4.54.1]
+task = "4.54.1"
+file = "sdk/launchpad/protocol/catalog/registry_input_test.go:66"
+symbol = "TestOpticalRegistryReviewUsesRealCompiledArtifactAndExplicitAttestation"
+observed = "At revisions 6e8b08215 and b28402274 the 4.54.1 verify_cmd (log /out/logs/verify-1.log) exited 1 with `open ../../../contracts/launchpad/artifacts/contracts/opticals/OpticalRegistry.sol/OpticalRegistry.json: no such file or directory` because do_2 prescribed three parent segments from the package directory the test runs in, which resolves to sdk/contracts/launchpad; the repository root is four segments above sdk/launchpad/protocol/catalog."
+assumption = "The step names the wrong depth, not the wrong artifact: do_2 now prescribes four parent segments and the test body stays as written."
+severity = "note"
