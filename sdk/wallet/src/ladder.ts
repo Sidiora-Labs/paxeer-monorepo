@@ -51,9 +51,22 @@ function rank(rung: LadderRung | null): number {
   return rung === null ? -1 : LADDER_RUNGS.indexOf(rung);
 }
 
-export const statusLadder = Object.freeze({
+export const statusLadder: Readonly<{
+  rungs: typeof LADDER_RUNGS;
+  tables: Readonly<{ explorer: typeof EXPLORER_TABLE; journey: typeof JOURNEY_TABLE }>;
+  fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[];
+  fromExplorer(status: ExplorerTransactionStatus | SequencerRung): LadderStep;
+  fromJourney(state: JourneyState): LadderStep;
+  highest(steps: readonly LadderStep[]): LadderStep | null;
+}> = {
   rungs: LADDER_RUNGS,
   tables: Object.freeze({ explorer: EXPLORER_TABLE, journey: JOURNEY_TABLE }),
+  fromSequencerReceipt(answer: SequencerReceiptAnswer): readonly LadderStep[] {
+    const highestRung = answer.status === '0x0' ? 'submitted' : answer.rung;
+    return LADDER_RUNGS.slice(0, rank(highestRung) + 1).map(
+      (rung): LadderStep => ({ rung, source: 'receipt', state: answer.rung })
+    );
+  },
   fromExplorer(status: ExplorerTransactionStatus | SequencerRung): LadderStep {
     return lookup(EXPLORER_TABLE, 'explorer', typeof status === 'string' ? status : status.rung);
   },
@@ -67,7 +80,8 @@ export const statusLadder = Object.freeze({
     }
     return best;
   },
-});
+};
+Object.freeze(statusLadder);
 
 function nullableCount(value: unknown, what: string): number | null {
   if (value === null) return null;
