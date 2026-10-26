@@ -277,3 +277,115 @@ symbol = "fmt"
 observed = "The verify_cmd of 4.21.2 passed at 25dde4bf7 and `cg spec done 4.21.2` refused the result (log /out/logs/verify-1.log) with `fmt — not defined in the graph`: fmt is a Makefile target, which the graph does not index."
 assumption = "The target leaves the symbol list and the test function stays; the result at 25dde4bf7 is re-qualified unchanged."
 severity = "note"
+
+[finding.1.14.3]
+task = "1.14.3"
+file = "include/layerx/programs.h:176"
+symbol = "LX_PROGRAMS_FEE_GOVERNANCE"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 1.14.3` refused it (log /out/logs/verify-1.log) with `LX_PROGRAMS_FEE_GOVERNANCE — not defined in the graph`; the name is an enumerator of an untouched header that do_1 only removes from the type lists in src/modules/programs/registration.c."
+assumption = "The enumerator leaves the symbol list; the two fees.c functions and the two test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.1.3.2]
+task = "1.3.2"
+file = "include/layerx/lxp_result.h:29"
+symbol = "LXP_ERR_CONTEXT_MISMATCH"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 1.3.2` refused it (log /out/logs/verify-1.log) with `LXP_ERR_CONTEXT_MISMATCH — not defined in the graph`; the name is an X-macro enumerator of LXP_RESULT_CODE_LIST that the graph never indexes (finding.1.1.1)."
+assumption = "The result code leaves the symbol list; lxp_kernel_claim_writer, lxp_state_writer_assert_owner and the two test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.10.2.5]
+task = "10.2.5"
+file = "services/human/crates/layerx-human-service/src/activity/detail.rs"
+symbol = "Rung::Committed"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 10.2.5` refused it (log /out/logs/verify-1.log) with `Rung::Committed — not defined in the graph`; the variant is declared outside the touched files and the task only passes it as an argument (do_5)."
+assumption = "The variant leaves the symbol list; FinalityReference::new and EntryDetail::assemble stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.7.13.2]
+task = "7.13.2"
+file = "rpc/config/config.go:93"
+symbol = "CheckTxTimeout"
+observed = "The first attempt passed its verify_cmd at 2c2adb442 and `cg spec done 7.13.2` refused it (log /out/logs/verify-1.log) with `CheckTxTimeout — not defined in the graph` and `flagCheckTxTimeout — not defined in the graph`; do_1 and do_2 delete both declarations."
+assumption = "Both deleted names leave the symbol list, TestReadConfigIgnoresChecktxTimeout stays, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.6.28.1]
+task = "6.28.1"
+file = "modules/layerxgov/types/proposal.go:55-70"
+symbol = "init"
+observed = "The eighth attempt built at 535b9577a (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): the gov amino codec panics with `TypeInfo already exists` because modules/layerxbridge/types/proposal.go:26-31 already registers the six layerxbridge messages, so the registration do_1 asked for cannot be added."
+assumption = "The task becomes a test-only proof that a LayerXProposal carrying each bridge message marshals to amino JSON; proposal.go stays unchanged, req.6271 and the interface note describe the registry as it is, and the parked result is continued against this document."
+severity = "note"
+
+[finding.14.41.1]
+task = "14.41.1"
+file = "apps/bridge/vitest.config.ts:1"
+symbol = "svgr"
+observed = "Attempts a8 of 14.41.1 (3dd803148) and a9 of 14.41.2 (958b17ac6) exited 2 from `pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json` (log /out/logs/build-1.log) on errors the tasks do not own: vite-plugin-svgr 2.4.0 types against vite 4 while vitest 4.0.15 types against vite 7 (TS2769), BigInt literals under the es2017 target, the missing .next/types directory and duplicate OpenTelemetry type packages; the same command fails on an unchanged main."
+assumption = "Both tasks build with `vitest list` of their own spec file, 14.41.1 removes the unused svgr plugin (do_5), and the es2017 target, .next/types and OpenTelemetry duplicates stay for the wave-level typecheck gate of apps/bridge; the parked results are re-qualified against this document."
+severity = "note"
+
+[finding.16.7.1]
+task = "16.7.1"
+file = "tools/bringup/docs-names.sh:27-35"
+symbol = "spec"
+observed = "The fourth attempt built at 7787de9cd (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): the script reads [contract_context.108.decision.public_names] and the derivation_message of [contract_context.108.decision], which spec/layerx-merge/spec.kvx did not carry; they existed only in the retired spec/paxeer-x/spec.kvx (1c92186f7^)."
+assumption = "spec/layerx-merge/spec.kvx carries both sections after decision.1602 with the router, the sixteen RPC names, the dashboard, API, webhooks and ramp names and the derivation message; do_1 names them, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.9.32.1]
+task = "9.32.1"
+file = "services/agent/crates/layerx-sdk/src/wallet.rs:232-235"
+symbol = "send_activity"
+observed = "The eighth attempt (bec07e75b) never reached its build: do_3 removed RpcClient::send_activity and do_4 changed get_identity_sequence while wallet.rs:232-235 and wallet.rs:293, which the task may not touch, still call both, so the crate cannot compile until task 9.32.2 (wave 3) rewrites Wallet::execute."
+assumption = "9.32.1 adds send_raw_transaction beside send_activity, touches wallet.rs only to consume the pending nonce in Wallet::prepare (do_6), and 9.32.2 removes send_activity with its lx_sendActivity call (do_7); the parked result is continued against this document."
+severity = "note"
+
+[finding.11.14.1]
+task = "11.14.1"
+file = "services/interop/crates/layerx-x402/src/model.rs:447-478"
+symbol = "SettlementResponse::validate_wire"
+observed = "The seventh attempt built at 4d9233c99 (exit 0) and its verify_cmd exited 1 (log /out/logs/verify-1.log): validate_wire never reads extensions, so a committed_without_proof case that carries the txHash as transaction validates like receipted_settlement; the only refusal the function can give for a success body is EvidenceMissing on an empty transaction (model.rs:461-463)."
+assumption = "committed_without_proof is the success-with-empty-transaction case decided on /transaction, req.11005, acceptance.11.5.1 and acceptance.11.5.2 say so, and the parked result is continued against this document."
+severity = "note"
+
+[finding.1.1.2]
+task = "1.1.2"
+file = "include/layerx/lxp_result.h:22"
+symbol = "LXP_RESULT_DOMAIN_UNKNOWN"
+observed = "The first attempt passed its verify_cmd at 6a284f5a1 and `cg spec done 1.1.2` refused it (log /out/logs/verify-1.log) with `LXP_RESULT_DOMAIN_UNKNOWN — not defined in the graph`; the name is an enumerator of lxp_result_domain, and the graph indexes the enum type, not its enumerators (gotcha.1865)."
+assumption = "The enumerator leaves the symbol list; lxp_result_is_registered, lxp_result_domain and the two test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.1.16.3]
+task = "1.16.3"
+file = "include/layerx/lxp_kernel.h:18"
+symbol = "LXP_KERNEL_MAX_MODULE_KV"
+observed = "The first attempt passed its verify_cmd at f6bc29316 and `cg spec done 1.16.3` refused it (log /out/logs/verify-1.log) with `LXP_KERNEL_MAX_MODULE_KV — not defined in the graph` and `LXP_MODULE_MAX_STAGED_WRITES — not defined in the graph`; both are enumerators of the kernel bounds enum (lxp_kernel.h:18, :21), which the graph does not index (gotcha.1865)."
+assumption = "Both enumerators leave the symbol list, module_kv_bound_raised and staged_writes_bound_raised stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.1.20.2]
+task = "1.20.2"
+file = "include/layerx/lxp_result.h:143"
+symbol = "LXP_ERR_UNAUTHORIZED_ARBITER"
+observed = "The first attempt passed its verify_cmd at 9ead3a480 and `cg spec done 1.20.2` refused it (log /out/logs/verify-1.log) with `LXP_ERR_UNAUTHORIZED_ARBITER — not defined in the graph`; the name is an X-macro enumerator of LXP_RESULT_CODE_LIST (finding.1.1.1)."
+assumption = "The result code leaves the symbol list; the two execute functions and the three test functions stay, and the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.14.22.1]
+task = "14.22.1"
+file = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/committed_vectors_test.exs:1"
+symbol = "committed_vectors_drive_verify"
+observed = "The third attempt passed its verify_cmd at ffe462f43 and `cg spec done 14.22.1` refused it (log /out/logs/verify-1.log) with `SequencerReceipt.verify — not defined in the graph` and `committed_vectors_drive_verify — not defined in the graph`; the graph indexes no Elixir source, SequencerReceipt.verify lives in a file the task does not touch, and the second name is the string of an ExUnit test (gotcha.1865)."
+assumption = "The task carries symbols = [] and is proven by its verify_cmd alone; the parked result is re-qualified against this document."
+severity = "note"
+
+[finding.16.25.2]
+task = "16.25.2"
+file = "tools/benchmark/benchmark-compare.sh:33-37"
+symbol = "BASE_DIR"
+observed = "The first attempt passed its verify_cmd at efd16caf6 and `cg spec done 16.25.2` refused it (log /out/logs/verify-1.log) with `BASE_DIR`, `MAX_REGRESSION_PCT` and `RESULTS_ONLY — not defined in the graph`; the three are shell variables, and the graph indexes nothing in shell scripts (gotcha.1865)."
+assumption = "The three variables leave the symbol list, the two pytest functions of tools/benchmark/test_benchmark_compare.py stay, and the parked result is re-qualified against this document."
+severity = "note"
