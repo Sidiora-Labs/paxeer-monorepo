@@ -22,11 +22,12 @@ var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)
 // ConsensusSource is the consensus SequencerSource over an executor: it seals the open layer,
 // signs its MsgSequenceBatch with the pinned receipt key and seals it as tx 0 through SealBatch.
 type ConsensusSource struct {
-	app    *app.App
-	exec   Executor
-	key    *ReceiptKey
-	mu     sync.Mutex
-	sealed *SealedLayer
+	app     *app.App
+	exec    Executor
+	key     *ReceiptKey
+	mu      sync.Mutex
+	pending *Batch
+	sealed  *SealedLayer
 }
 
 // NewConsensusSource builds the consensus source over exec on a, signing tx 0 with key.
@@ -57,6 +58,8 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 	if err := ctx.Err(); err != nil {
 		return tmtypes.SealedBlock{}, err
 	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if !s.Sequenced(height) {
 		return tmtypes.SealedBlock{}, fmt.Errorf("%w: height %d", ErrNotSequenced, height)
 	}
@@ -64,9 +67,15 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 	if err != nil {
 		return tmtypes.SealedBlock{}, err
 	}
-	batch, err := s.exec.Seal(height)
-	if err != nil {
-		return tmtypes.SealedBlock{}, err
+	batch := s.pending
+	if batch == nil {
+		batch, err = s.exec.Seal(height)
+		if err != nil {
+			return tmtypes.SealedBlock{}, err
+		}
+		s.pending = batch
+	} else if batch.Height != height {
+		return tmtypes.SealedBlock{}, fmt.Errorf("%w: got %d, want %d", ErrSealHeight, height, batch.Height)
 	}
 	typed := make([]sdk.Tx, len(batch.Txs))
 	decode := s.app.GetTxConfig().TxDecoder()
@@ -95,9 +104,8 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 	if err != nil {
 		return tmtypes.SealedBlock{}, err
 	}
-	s.mu.Lock()
 	s.sealed = sealed
-	s.mu.Unlock()
+	s.pending = nil
 	txs := make(tmtypes.Txs, len(batch.Txs))
 	for i, tx := range batch.Txs {
 		txs[i] = tx

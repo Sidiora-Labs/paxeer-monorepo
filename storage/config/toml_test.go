@@ -49,9 +49,29 @@ func TestStateCommitConfigTemplate(t *testing.T) {
 	require.Contains(t, output, "sc-historical-proof-rate-limit = 1", "Missing or incorrect sc-historical-proof-rate-limit")
 	require.Contains(t, output, "sc-historical-proof-burst = 1", "Missing or incorrect sc-historical-proof-burst")
 
-	// sc-snapshot-writer-limit is intentionally removed from template (hardcoded to 4)
-	// but old configs with this field still parse fine via mapstructure
-	require.NotContains(t, output, "sc-snapshot-writer-limit", "sc-snapshot-writer-limit should not be in template")
+	require.Contains(t, output, "\nsc-snapshot-writer-limit = 4\n", "Missing or incorrect sc-snapshot-writer-limit")
+}
+
+func TestStateCommitTemplateWritesSnapshotWriterLimit(t *testing.T) {
+	cfg := struct {
+		StateCommit StateCommitConfig
+	}{
+		StateCommit: DefaultStateCommitConfig(),
+	}
+	require.Equal(t, 4, cfg.StateCommit.MemIAVLConfig.SnapshotWriterLimit)
+
+	tmpl, err := template.New("sc").Parse(StateCommitConfigTemplate)
+	require.NoError(t, err)
+
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, cfg))
+	require.Contains(t, buf.String(), "\n[state-commit]\n")
+	require.Contains(t, buf.String(), "\nsc-snapshot-writer-limit = 4\n")
+
+	cfg.StateCommit.MemIAVLConfig.SnapshotWriterLimit = 7
+	buf.Reset()
+	require.NoError(t, tmpl.Execute(&buf, cfg))
+	require.Contains(t, buf.String(), "\nsc-snapshot-writer-limit = 7\n")
 }
 
 // TestStateStoreConfigTemplate verifies that all field paths in the StateStore TOML template

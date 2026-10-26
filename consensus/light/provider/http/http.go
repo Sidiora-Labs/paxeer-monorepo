@@ -314,6 +314,9 @@ func (p *http) parseRPCError(e *rpctypes.RPCError) error {
 	case strings.Contains(e.Data, "connection refused"):
 		return provider.ErrConnectionClosed
 
+	case strings.Contains(e.Data, coretypes.ErrCommitNotAvailable.Error()):
+		return provider.ErrUnreliableProvider{Reason: e}
+
 	// 4) else return a generic error
 	default:
 		return provider.ErrBadLightBlock{Reason: e}

@@ -167,13 +167,25 @@ func (k Keeper) Leaders(ctx sdk.Context) ([][32]byte, error) {
 	for i := range leaders {
 		copy(leaders[i][:], bz[i*32:])
 	}
+	if len(leaders) > 0 {
+		if err := types.ValidateLeaders(leaders); err != nil {
+			return nil, ErrCorruptStore.Wrap(err.Error())
+		}
+	}
 	return leaders, nil
 }
 
-// InitGenesis writes the genesis: L, the receipt keys, lastSeq and
-// lastSeqHash.
+// InitGenesis writes L, the receipt keys, lastSeq, lastSeqHash and the
+// activation height, defaulting an unset activation to the next block.
 func (k Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) error {
 	if err := gs.Validate(); err != nil {
+		return err
+	}
+	activation := int64(gs.ActivationHeight)
+	if gs.ActivationHeight == 0 {
+		activation = ctx.BlockHeight() + 1
+	}
+	if err := k.SetActivationHeight(ctx, activation); err != nil {
 		return err
 	}
 	leaders := make([]byte, 0, len(gs.Leaders)*32)
@@ -206,8 +218,8 @@ func (k Keeper) SetReceiptKeys(ctx sdk.Context, keys ReceiptKeys) error {
 	return nil
 }
 
-// ExportGenesis returns the leader list, the receipt keys, lastSeq and
-// lastSeqHash.
+// ExportGenesis returns the stored activation height, leader list, receipt
+// keys, lastSeq and lastSeqHash for import into a fresh store.
 func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) {
 	leaders, err := k.Leaders(ctx)
 	if err != nil {
@@ -225,7 +237,11 @@ func (k Keeper) ExportGenesis(ctx sdk.Context) (types.GenesisState, error) {
 	if err != nil {
 		return types.GenesisState{}, err
 	}
-	return types.GenesisState{Leaders: leaders, ReceiptKeys: keys, LastSeq: lastSeq, LastSeqHash: lastSeqHash}, nil
+	activation, err := k.ActivationHeight(ctx)
+	if err != nil {
+		return types.GenesisState{}, err
+	}
+	return types.GenesisState{Leaders: leaders, ReceiptKeys: keys, ActivationHeight: uint64(activation), LastSeq: lastSeq, LastSeqHash: lastSeqHash}, nil
 }
 
 func encodeReceiptKeys(keys []types.ReceiptKey) []byte {

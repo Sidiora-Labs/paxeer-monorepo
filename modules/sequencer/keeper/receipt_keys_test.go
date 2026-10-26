@@ -141,6 +141,27 @@ func heightBatchID(height uint64) [32]byte {
 	return batchID
 }
 
+func TestReceiptKeyEntryRefusesFirstHeightZero(t *testing.T) {
+	signer := newReceiptSigner(0x51)
+	for _, tc := range []struct {
+		name string
+		last uint64
+	}{
+		{name: "zero lastHeight", last: 0},
+		{name: "one lastHeight", last: 1},
+		{name: "maximum lastHeight", last: math.MaxUint64},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			entry := signer.entry(0, tc.last)
+			err := entry.Validate()
+			require.ErrorIs(t, err, keeper.ErrReceiptKeyRange)
+			require.ErrorContains(t, err, "firstHeight is zero")
+			require.ErrorIs(t, keeper.ReceiptKeys{entry}.Validate(), keeper.ErrReceiptKeyRange)
+		})
+	}
+	require.NoError(t, signer.entry(1, 1).Validate())
+}
+
 func TestReceiptKeysRangeValidation(t *testing.T) {
 	k1, k2 := newReceiptSigner(0x51), newReceiptSigner(0x52)
 
