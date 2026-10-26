@@ -17,6 +17,7 @@ var (
 	ErrBatchBlockOnly    = sdkerrors.Register(types.ModuleName, 8, "sequence batch is block-only and refused in CheckTx")
 	ErrUnknownReceiptKey = sdkerrors.Register(types.ModuleName, 9, "no pinned receipt key for keyId at height")
 	ErrCorruptStore      = sdkerrors.Register(types.ModuleName, 10, "corrupt sequencer store entry")
+	ErrNotActivated      = sdkerrors.Register(types.ModuleName, 11, "sequence batch below the activation height")
 )
 
 // lastBatchHeightKey holds the height of the last delivered batch, u64
@@ -50,9 +51,9 @@ func RefuseCheckTx(ctx sdk.Context) error {
 
 // DeliverSequenceBatch applies the batch carried by tx 0 of the block: it
 // refuses it at any other position, a second time in one block, for another
-// height, with a range or prevSeqHash that does not chain from the stored
-// lastSeq and lastSeqHash, or under a receipt key not pinned for the height;
-// then it stores toSeq and lastSeqHash.
+// height, before activation is set and reached, with a range or prevSeqHash
+// that does not chain from the stored lastSeq and lastSeqHash, or under a
+// receipt key not pinned for the height; then it stores toSeq and lastSeqHash.
 func (k Keeper) DeliverSequenceBatch(ctx sdk.Context, msg types.MsgSequenceBatch) error {
 	if err := RefuseCheckTx(ctx); err != nil {
 		return err
@@ -62,6 +63,17 @@ func (k Keeper) DeliverSequenceBatch(ctx sdk.Context, msg types.MsgSequenceBatch
 	}
 	if ctx.BlockHeight() < 1 {
 		return types.ErrInvalidSequenceBatch.Wrapf("block height %d", ctx.BlockHeight())
+	}
+	sequenced, err := k.Sequenced(ctx, ctx.BlockHeight())
+	if err != nil {
+		return err
+	}
+	if !sequenced {
+		activation, err := k.ActivationHeight(ctx)
+		if err != nil {
+			return err
+		}
+		return ErrNotActivated.Wrapf("block height %d, activation height %d", ctx.BlockHeight(), activation)
 	}
 	height := uint64(ctx.BlockHeight())
 	if msg.Height != height {
