@@ -8915,3 +8915,9 @@ area = "tooling"
 symptom = "cg init exits 139 within a second on a tree that vendors C++ sources, before any symbol is written"
 cause = "the systems-language extractor handed null tree-sitter nodes to ts_node_child_by_field_name: a C++ declarator with no function_declarator (abstract and operator declarators in programs/vendor/binaryen-sys) left is_c_parameter's declarator null, and tree-sitter dereferences the node's subtree"
 do = "build cg at f93cce7254edb1fd7fbdd0b1cde2901c29e46ec8 or later, where field() and named() in src/ast_systems.c answer null for a null node; on an older cg keep vendored C++ trees out of the index scope, since they declare nothing a task names"
+
+[gotcha.1865]
+area = "spec"
+symptom = "cg spec done refuses a result with `<name> — not defined in the graph` for a name the touched file plainly declares: an enumerator, a shell variable, or an Elixir module or test"
+cause = "the graph indexes C functions, types, enums (the type, not its enumerators) and #define macros; it indexes nothing in shell scripts or Elixir sources, and an ExUnit `test \"name\"` is a string, not a declaration"
+do = "name enumerators (named or anonymous enum, X-macro lists included), shell variables and Elixir modules or tests in do_* text only; a task whose touched files are only .sh, .exs or .json carries symbols = [] and is proven by its verify_cmd alone"

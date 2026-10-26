@@ -273472,9 +273472,9 @@ path = "modules/layerxgov/types/proposal.go"
 line = 55
 signature = "func init() { govtypes.RegisterProposalTypeCodec(...) x13 }"
 callers = []
-status = "change"
+status = "keep"
 contract = "contracts/layerxgov.md#proposal-codec"
-notes = "omits the six layerxbridge messages and layerxpay MsgUpdateParams"
+notes = "the six layerxbridge messages are registered by modules/layerxbridge/types/proposal.go:26-31; layerxpay MsgUpdateParams is still omitted"
 
 [interface.6.go-layerxgov-types-checkpausescope-j35]
 kind = "go_exported"
