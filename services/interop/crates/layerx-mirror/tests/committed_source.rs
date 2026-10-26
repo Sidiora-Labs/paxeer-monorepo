@@ -1,5 +1,193 @@
-use layerx_mirror::committed::{CommittedCoordinate, CommittedHeader, CommittedRefusal};
+mod support;
+
+use layerx_mirror::committed::{
+    CommittedBlockSource, CommittedCoordinate, CommittedHeader, CommittedRefusal,
+};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
 use serde_json::{json, Value};
+
+fn committed_height(document: &Value) -> u64 {
+    u64::from_str_radix(
+        document["committedBlock"]["number"]
+            .as_str()
+            .unwrap_or_else(|| panic!("block number"))
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("hex number")),
+        16,
+    )
+    .unwrap_or_else(|error| panic!("height: {error}"))
+}
+
+#[test]
+fn a_committed_block_is_acquired_with_every_receipt_verified() {
+    let document = support::fixture();
+    let rpc = support::TestRpc::new(vec![document.clone(), document.clone()]);
+    let source =
+        CommittedBlockSource::new(&rpc.config).unwrap_or_else(|error| panic!("source: {error:?}"));
+    let height = committed_height(&document);
+    let block = source
+        .acquire(height)
+        .unwrap_or_else(|error| panic!("acquire: {error:?}"));
+    assert_eq!(
+        block.header,
+        CommittedHeader::from_block_json(&document["committedBlock"])
+            .unwrap_or_else(|error| panic!("header: {error:?}"))
+    );
+    let expected = document["receipts"]
+        .as_array()
+        .unwrap_or_else(|| panic!("receipts"));
+    assert_eq!(block.receipts.len(), expected.len());
+    let key = &rpc.config.receipt_keys[0];
+    let pins = [SequencerAuthorization::new(
+        support::bytes(&json!(key.sequencer_id_hex))
+            .try_into()
+            .unwrap_or_else(|_| panic!("key ID")),
+        support::bytes(&json!(key.public_key_hex))
+            .try_into()
+            .unwrap_or_else(|_| panic!("public key")),
+        key.first_height,
+        key.last_height,
+    )];
+    for (index, (bytes, answer)) in block.receipts.iter().zip(expected).enumerate() {
+        assert_eq!(*bytes, support::bytes(&answer["receipt"]));
+        let receipt = verify_sequencer_signature(bytes, ReceiptKeys::HeightRanges(&pins))
+            .unwrap_or_else(|error| panic!("verified receipt: {error:?}"));
+        assert_eq!(
+            receipt
+                .protocol()
+                .unwrap_or_else(|| panic!("protocol receipt"))
+                .activity_id(),
+            block.header.transactions[index]
+        );
+    }
+    let requests = rpc
+        .requests
+        .lock()
+        .unwrap_or_else(|error| panic!("requests: {error}"));
+    for endpoint in 0..2 {
+        let calls: Vec<_> = requests
+            .iter()
+            .filter(|(index, _)| *index == endpoint)
+            .map(|(_, request)| request)
+            .collect();
+        assert_eq!(calls.len(), 3 + expected.len());
+        assert_eq!(calls[0]["method"], "eth_chainId");
+        assert_eq!(calls[1]["params"], json!(["0x0", false]));
+        assert_eq!(calls[2]["method"], "eth_getBlockByNumber");
+        assert_eq!(calls[2]["params"], json!([format!("0x{height:x}"), false]));
+        for (index, transaction) in document["committedBlock"]["transactions"]
+            .as_array()
+            .unwrap_or_else(|| panic!("transactions"))
+            .iter()
+            .enumerate()
+        {
+            assert_eq!(calls[index + 3]["method"], "pax_sequencerReceipt");
+            assert_eq!(calls[index + 3]["params"], json!([transaction]));
+        }
+    }
+    drop(requests);
+    let mut config = rpc.config.clone();
+    config.chain_id += 1;
+    assert!(matches!(
+        CommittedBlockSource::new(&config),
+        Err(CommittedRefusal::ChainMismatch)
+    ));
+    config = rpc.config.clone();
+    config.genesis_hash_hex = format!("0x{}", "ff".repeat(32));
+    assert!(matches!(
+        CommittedBlockSource::new(&config),
+        Err(CommittedRefusal::GenesisMismatch)
+    ));
+
+    let mut different = document.clone();
+    different["committedBlock"]["timestamp"] = json!("0x1");
+    let divergent = support::TestRpc::new(vec![document.clone(), different]);
+    let source = CommittedBlockSource::new(&divergent.config)
+        .unwrap_or_else(|error| panic!("source: {error:?}"));
+    assert_eq!(source.acquire(height), Err(CommittedRefusal::Divergence));
+    let mut different = document.clone();
+    different["receipts"][1]["rung"] = json!("receipted");
+    let divergent = support::TestRpc::new(vec![document, different]);
+    let source = CommittedBlockSource::new(&divergent.config)
+        .unwrap_or_else(|error| panic!("source: {error:?}"));
+    assert_eq!(source.acquire(height), Err(CommittedRefusal::Divergence));
+}
+
+#[test]
+fn a_transaction_not_yet_committed_refuses_the_block() {
+    let document = support::fixture();
+    let height = committed_height(&document);
+    for (field, value) in [
+        ("rung", json!("submitted")),
+        ("rung", json!("receipted")),
+        ("blockNumber", json!(format!("0x{:x}", height + 1))),
+        ("blockHash", json!(format!("0x{}", "ff".repeat(32)))),
+        ("blockNumber", Value::Null),
+        ("blockHash", Value::Null),
+    ] {
+        let mut changed = document.clone();
+        changed["receipts"][1][field] = value;
+        let rpc = support::TestRpc::new(vec![changed.clone(), changed]);
+        let source = CommittedBlockSource::new(&rpc.config)
+            .unwrap_or_else(|error| panic!("source: {error:?}"));
+        assert_eq!(
+            source.acquire(height),
+            Err(CommittedRefusal::NotCommitted),
+            "{field}"
+        );
+        let requests = rpc
+            .requests
+            .lock()
+            .unwrap_or_else(|error| panic!("requests: {error}"));
+        assert_eq!(
+            requests
+                .iter()
+                .filter(|(_, request)| request["method"] == "pax_sequencerReceipt")
+                .count(),
+            4
+        );
+    }
+}
+
+#[test]
+fn a_receipt_outside_every_key_window_refuses_the_block() {
+    let document = support::fixture();
+    let height = committed_height(&document);
+    let rpc = support::TestRpc::new(vec![document.clone(), document.clone()]);
+    for (first, last) in [(height + 1, height + 2), (0, 999)] {
+        let mut config = rpc.config.clone();
+        config.receipt_keys[0].first_height = first;
+        config.receipt_keys[0].last_height = last;
+        let source =
+            CommittedBlockSource::new(&config).unwrap_or_else(|error| panic!("source: {error:?}"));
+        assert_eq!(
+            source.acquire(height),
+            Err(CommittedRefusal::ReceiptSignature)
+        );
+    }
+    let mut invalid = document.clone();
+    let signed = support::bytes(&invalid["receipts"][1]["receipt"]);
+    let mut altered = signed;
+    let last = altered
+        .last_mut()
+        .unwrap_or_else(|| panic!("signed receipt"));
+    *last ^= 1;
+    invalid["receipts"][1]["receipt"] = json!(format!(
+        "0x{}",
+        altered
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    ));
+    let rpc = support::TestRpc::new(vec![invalid.clone(), invalid]);
+    let source =
+        CommittedBlockSource::new(&rpc.config).unwrap_or_else(|error| panic!("source: {error:?}"));
+    assert_eq!(
+        source.acquire(height),
+        Err(CommittedRefusal::ReceiptSignature)
+    );
+}
 
 #[test]
 fn committed_refusal_codes_are_the_published_strings() {
