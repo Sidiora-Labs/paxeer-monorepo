@@ -14,6 +14,7 @@ func DefaultGenesis() *GenesisState {
 	return &GenesisState{
 		Params:        DefaultParams(),
 		FactoryDenoms: []GenesisDenom{},
+		PausedDenoms:  []string{},
 	}
 }
 
@@ -26,6 +27,7 @@ func (gs GenesisState) Validate() error {
 	}
 
 	seenDenoms := map[string]bool{}
+	seenPaused := map[string]bool{}
 
 	for _, denom := range gs.GetFactoryDenoms() {
 		if seenDenoms[denom.GetDenom()] {
@@ -41,6 +43,16 @@ func (gs GenesisState) Validate() error {
 		if err := denom.AuthorityMetadata.Validate(); err != nil {
 			return sdkerrors.Wrapf(ErrInvalidAuthorityMetadata, "denom %s: %s", denom.GetDenom(), err)
 		}
+	}
+
+	for _, denom := range gs.GetPausedDenoms() {
+		if !seenDenoms[denom] {
+			return sdkerrors.Wrapf(ErrInvalidGenesis, "paused denom %s is not a factory denom", denom)
+		}
+		if seenPaused[denom] {
+			return sdkerrors.Wrapf(ErrInvalidGenesis, "duplicate paused denom: %s", denom)
+		}
+		seenPaused[denom] = true
 	}
 
 	return nil
