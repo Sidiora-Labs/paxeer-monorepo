@@ -237,3 +237,11 @@ symbol = "test_catalogue_reads_layerx_merge_services"
 observed = "At revision 3df382457 the 16.9.2 verify_cmd (log /out/logs/verify-1.log) fails because the test expects 36 [service.*] blocks while spec/layerx-merge/interfaces.kvx holds 40."
 assumption = "Either the expected count or the catalogue is wrong; the result stays parked until the authority decides which."
 severity = "blocker"
+
+[finding.6.23.1]
+task = "6.23.1"
+file = "modules/tokenfactory/keeper/grpc_query.go:13"
+symbol = "QueryServer"
+observed = "Every attempt of 6.23.1 failed its build_cmd `go build ./modules/tokenfactory/...` (log /out/logs/build-1.log) with Keeper not implementing types.QueryServer: regenerating query.pb.go adds DenomPaused to the interface while the keeper method belonged to 6.23.2, so the task could never build as split."
+assumption = "The compile-time assertion makes the method part of the regeneration; 6.23.1 now adds it (do_5, touches, symbols) and 6.23.2 keeps only the two tests."
+severity = "note"
