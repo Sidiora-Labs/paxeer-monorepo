@@ -72,13 +72,18 @@ interface Connection {
   disposed: boolean;
 }
 
-const VENUE_SYMBOLS = new Set(PERPS_MARKETS.map(m => m.symbol.toUpperCase()));
+const registeredVenueSymbols = new Set(PERPS_MARKETS.map(m => m.symbol.toUpperCase()));
 /** The spot venue serves @orderbook and @trade for PAX and SID only; other symbols answer unknown_topic (contracts/data-services.md section 10). */
 const SPOT_VENUE_SYMBOLS = new Set(["PAX", "SID"]);
 const connections = new Map<string, Connection>();
 
+export function registerVenueSymbols(symbols: readonly string[]): void {
+  registeredVenueSymbols.clear();
+  for (const symbol of symbols) registeredVenueSymbols.add(symbol.toUpperCase());
+}
+
 export function isVenueSymbol(symbol: string | null | undefined): boolean {
-  return !!symbol && VENUE_SYMBOLS.has(symbol.toUpperCase());
+  return !!symbol && registeredVenueSymbols.has(symbol.toUpperCase());
 }
 
 export function isSpotVenueSymbol(symbol: string | null | undefined): boolean {
