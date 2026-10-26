@@ -39,6 +39,7 @@ message Params {
     (gogoproto.customtype) = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.Dec",
     (gogoproto.nullable) = false
   ];
+  reserved 8;
   uint64 lookback_duration = 9 [(gogoproto.moretags) = "yaml:\"lookback_duration\""];
 }
 

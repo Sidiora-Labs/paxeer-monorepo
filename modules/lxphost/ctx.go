@@ -119,6 +119,15 @@ func (b *branchCtx) lastSequence() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
+func NextSequence(ctx sdk.Context, key sdk.StoreKey) (uint64, error) {
+	branch := &branchCtx{store: ctx.KVStore(key)}
+	last, err := branch.lastSequence()
+	if err != nil {
+		return 0, err
+	}
+	return last + 1, nil
+}
+
 func (b *branchCtx) identitySequence(did [32]byte) (uint64, error) {
 	value := b.store.Get(identitySequenceKey(did))
 	if value == nil {
