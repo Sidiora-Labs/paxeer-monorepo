@@ -2,6 +2,7 @@ package keeper_test
 
 import (
 	"math/big"
+	"reflect"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
@@ -141,6 +142,17 @@ func (f *feeEnv) event(kind string) map[string]string {
 func (f *feeEnv) acc(a common.Address) sdk.AccAddress { return sdk.AccAddress(a.Bytes()) }
 
 func TestRecordFeeSplit(t *testing.T) {
+	t.Run("generation 1 accessors removed", func(t *testing.T) {
+		keeperType := reflect.TypeOf((*keeper.Keeper)(nil))
+		for _, name := range []string{
+			"TreasuryAddress", "GetProtocolFees", "AddProtocolFees",
+			"GetAirdropEpochAmount", "HasClaimedAirdrop", "GetAirdropBasis",
+		} {
+			_, found := keeperType.MethodByName(name)
+			require.False(t, found, "generation 1 accessor %s remains on the current keeper", name)
+		}
+	})
+
 	t.Run("protocol cut to the Treasury", func(t *testing.T) {
 		f, _ := newFeeEnv(t, types.FeeStrategyClaim, nil)
 		require.Equal(t, uint64(1000), f.k.GetParams(f.ctx).ProtocolFeeBps)
@@ -157,6 +169,8 @@ func TestRecordFeeSplit(t *testing.T) {
 		treasury, err := f.k.TreasuryGetBalance(f.ctx, f.usdl)
 		require.NoError(t, err)
 		require.Equal(t, int64(3_000), treasury.Int64())
+		require.False(t, f.ctx.KVStore(f.key).Has(types.ProtocolFeesKey(f.denom)),
+			"RecordFee must not write the generation 1 per-market protocol counter")
 		require.Equal(t, int64(27_000), f.accumulated())
 		require.Equal(t, int64(27_000), f.liabilities())
 		require.Equal(t, int64(30_000), f.balanceOf(f.custody))
