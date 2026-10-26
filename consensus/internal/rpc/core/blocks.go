@@ -2,6 +2,7 @@ package core
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sort"
 
@@ -27,6 +28,44 @@ import (
 // More: https://docs.tendermint.com/master/rpc/#/Info/blockchain
 func (env *Environment) BlockchainInfo(ctx context.Context, req *coretypes.RequestBlockchainInfo) (*coretypes.ResultBlockchainInfo, error) {
 	const limit = 20
+	if giga, ok := env.gigaRouter().Get(); ok {
+		info, err := env.ABCIInfo(ctx)
+		if err != nil {
+			return nil, err
+		}
+		minHeight, maxHeight, err := filterMinMax(1, info.Response.LastBlockHeight,
+			int64(req.MinHeight), int64(req.MaxHeight), limit)
+		if err != nil {
+			return nil, err
+		}
+		logger.Debug("BlockchainInfo", "maxHeight", maxHeight, "minHeight", minHeight)
+
+		blockMetas := make([]*types.BlockMeta, 0, maxHeight-minHeight+1)
+		for height := maxHeight; height >= minHeight; height-- {
+			gbn, ok := utils.SafeCast[atypes.GlobalBlockNumber](height)
+			if !ok {
+				return nil, fmt.Errorf("invalid height %d", height)
+			}
+			block, err := giga.BlockByNumber(ctx, gbn)
+			if errors.Is(err, coretypes.ErrHeightNotAvailable) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			blockMetas = append(blockMetas, &types.BlockMeta{
+				BlockID:   block.BlockID,
+				BlockSize: block.Block.Size(),
+				Header:    block.Block.Header,
+				NumTxs:    len(block.Block.Data.Txs),
+			})
+		}
+		return &coretypes.ResultBlockchainInfo{
+			LastHeight: info.Response.LastBlockHeight,
+			BlockMetas: blockMetas,
+		}, nil
+	}
+
 	minHeight, maxHeight, err := filterMinMax(
 		env.BlockStore.Base(),
 		env.BlockStore.Height(),
@@ -218,6 +257,20 @@ func (env *Environment) Header(ctx context.Context, req *coretypes.RequestBlockI
 // HeaderByHash gets header by hash.
 // More: https://docs.tendermint.com/master/rpc/#/Info/header_by_hash
 func (env *Environment) HeaderByHash(ctx context.Context, req *coretypes.RequestBlockByHash) (*coretypes.ResultHeader, error) {
+	if giga, ok := env.gigaRouter().Get(); ok {
+		if len(req.Hash) != len(atypes.BlockHeaderHash{}) {
+			return &coretypes.ResultHeader{}, nil
+		}
+		block, err := giga.BlockByHash(ctx, atypes.BlockHeaderHash(req.Hash))
+		if err != nil {
+			return nil, err
+		}
+		if block.Block == nil {
+			return &coretypes.ResultHeader{}, nil
+		}
+		return &coretypes.ResultHeader{Header: &block.Block.Header}, nil
+	}
+
 	blockMeta := env.BlockStore.LoadBlockMetaByHash(req.Hash)
 	if blockMeta == nil {
 		return &coretypes.ResultHeader{}, nil

@@ -1,8 +1,6 @@
 package sequencer
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,6 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -34,7 +33,7 @@ var (
 	ErrBeginBlock    = errors.New("sequencer: begin block failed")
 )
 
-var seqHashDomain = []byte("PAXEER/v1/sequence\x00")
+var seqHashDomain = []byte(seqtypes.SeqHashDomain)
 
 // Executor executes transactions at receipt on the open speculative block.
 type Executor interface {
@@ -73,6 +72,7 @@ type Host interface {
 	GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
 	GetTxConfig() client.TxConfig
 	GetEVMMsg(tx sdk.Tx) *evmtypes.MsgEVMTransaction
+	RefreshPrecompiles(ctx sdk.Context)
 }
 
 // Options configures an executor.
@@ -248,7 +248,7 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 	if err != nil {
 		return err
 	}
-	s.open = &openLayer{
+	opening := &sequential{open: &openLayer{
 		height:           height,
 		timestampMs:      timestampMs,
 		ctx:              ctx,
@@ -256,7 +256,11 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 		beginBlockEvents: events,
 		fromSeq:          s.lastSeq + 1,
 		prevSeqHash:      s.lastSeqHash,
+	}}
+	if err := RefreshPrecompiles(s.host, opening); err != nil {
+		return err
 	}
+	s.open = opening.open
 	return nil
 }
 
@@ -340,14 +344,5 @@ func (s *sequential) PendingTx(hash [32]byte) (PendingTx, bool) {
 
 // nextSeqHash is sha256("PAXEER/v1/sequence\0" || prevSeqHash || u64be(seq) || activity_id).
 func nextSeqHash(prev [32]byte, seq uint64, activityID [32]byte) [32]byte {
-	var seqBytes [8]byte
-	binary.BigEndian.PutUint64(seqBytes[:], seq)
-	h := sha256.New()
-	h.Write(seqHashDomain)
-	h.Write(prev[:])
-	h.Write(seqBytes[:])
-	h.Write(activityID[:])
-	var out [32]byte
-	copy(out[:], h.Sum(nil))
-	return out
+	return seqtypes.SeqHash(prev, seq, activityID)
 }

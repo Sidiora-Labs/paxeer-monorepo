@@ -18,6 +18,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/audit"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/jwt"
@@ -132,10 +134,18 @@ func policies(cfg *config.Config, st *store.Store) (*policy.Policy, *policy.Spen
 	return engine, ledger, kernel, nil
 }
 
+func NewMetrics(registry *prometheus.Registry) (*health.Metrics, error) {
+	return health.NewMetrics(registry)
+}
+
 func run(ctx context.Context, getenv func(string) string, ready func(listening)) error {
 	cfg, err := config.Load(getenv)
 	if err != nil {
 		return err
+	}
+	metrics, err := NewMetrics(prometheus.NewRegistry())
+	if err != nil {
+		return fmt.Errorf("attestor: metrics: %w", err)
 	}
 	if cfg.TLSCertFile == "" || cfg.TLSKeyFile == "" || cfg.TLSCAFile == "" || cfg.OperatorCAFile == "" {
 		return errors.New("attestor: TLS certificate, key, peer CA and operator CA files are required")
@@ -309,6 +319,7 @@ func run(ctx context.Context, getenv func(string) string, ready func(listening))
 		PeerProbe:  server.TCPPeerProbe(probe),
 		Replica:    replicaState,
 		Snapshots:  snapshots,
+		Metrics:    metrics,
 	})
 	if err != nil {
 		return err

@@ -566,6 +566,7 @@ lxp_result lxp_ctx_asset_issuance_stage(
     lxp_module_ctx *ctx, const lxp_activity *activity,
     const lxp_authority_resolved *authority, lx_account **account)
 {
+    const lx_asset_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_asset_register_payload payload;
     lx_account_registration registration;
     lx_account *existing;
@@ -585,7 +586,8 @@ lxp_result lxp_ctx_asset_issuance_stage(
         memcmp(activity->authority.bytes, authority->verified_key, 32U) != 0)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK && (runtime == NULL || !runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK) status = lx_asset_register_decode(
         activity->payload.bytes, activity->payload.length, &payload);
     if (status != LXP_OK) return status;
@@ -619,6 +621,7 @@ lxp_result lxp_ctx_asset_account_stage(
     const lxp_authority_resolved *authority, lx_account **account)
 {
     static const uint8_t hex[] = "0123456789abcdef";
+    const lx_asset_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_asset_account_open_payload payload;
     lx_account_registration registration;
     lx_account *existing;
@@ -643,7 +646,8 @@ lxp_result lxp_ctx_asset_account_stage(
         activity->actor_did.length > LX_ACCOUNT_NAME_MAX - 77U)
         return LXP_ERR_UNAUTHORIZED_DEBIT;
     status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK && (runtime == NULL || !runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK)
         status = lx_asset_account_open_decode(activity->payload.bytes,
                                                activity->payload.length, &payload);

@@ -113,6 +113,9 @@ def source_identity(repo, mainline):
             'release_credit': False}
 
 
+SERVICE_CATALOGUE = 'spec/layerx-merge/spec.kvx'
+
+
 def catalogue(path):
     text = Path(path).read_text(encoding='utf-8')
     rows = {}
@@ -121,13 +124,20 @@ def catalogue(path):
         if match:
             fields = {}
             for line in block[match.end():].splitlines():
-                found = re.fullmatch(r'(purpose|route|dependencies)\s*=\s*(".*")\s*', line)
+                found = re.fullmatch(r'(purpose|route|dependencies)\s*=\s*(".*"|\[.*\])\s*', line)
                 if found:
                     fields[found[1]] = json.loads(found[2])
             keys(fields, ('purpose', 'route', 'dependencies'), 'service declaration')
+            require(all(isinstance(fields[name], str) and fields[name]
+                        for name in ('purpose', 'route')), 'invalid service purpose or route')
+            dependencies = fields['dependencies']
+            require(isinstance(dependencies, str) or
+                    (isinstance(dependencies, list) and
+                     all(isinstance(name, str) and name for name in dependencies)),
+                    'invalid service dependencies')
             require(match[1] not in rows, 'duplicate catalogue service')
             rows[match[1]] = fields
-    require(len(rows) == 31, 'expected complete 31-service catalogue')
+    require(len(rows) == 40, 'expected complete 40-service catalogue; found ' + str(len(rows)))
     return rows
 
 

@@ -303,6 +303,13 @@ lxp_result lxp_programs_state_record_encode(
         account_order[index] = &values.values[index];
     qsort(account_order, values.count, sizeof(account_order[0]),
           account_pointer_compare);
+    for (index = 1U; index < values.count; ++index) {
+        if (memcmp(account_order[index - 1U]->account.id,
+                   account_order[index]->account.id, 32U) == 0) {
+            (void)lxp_arena_reset(arena, mark);
+            return LXP_ERR_NON_CANONICAL;
+        }
+    }
     writer_capacity = arena->capacity - arena->offset;
     status = lxp_arena_alloc(arena, writer_capacity, 1U, &memory);
     if (status != LXP_OK) {

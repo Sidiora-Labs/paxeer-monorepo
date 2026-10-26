@@ -3,8 +3,11 @@ package launchpad_test
 import (
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -110,5 +113,120 @@ func TestDirectABIFile(t *testing.T) {
 		"FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)":             common.HexToHash("0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4"),
 		"FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)":                      common.HexToHash("0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc"),
 	}, events)
-	require.Empty(t, direct.Errors)
+	require.Len(t, direct.Errors, 64)
+}
+
+func TestDirectABIDeclaresRoleErrors(t *testing.T) {
+	direct := parseABIFile(t, "abi.json")
+	require.Len(t, direct.Methods, 113)
+	require.Len(t, direct.Events, 12)
+	require.Len(t, direct.Errors, 64)
+
+	solidity, err := os.ReadFile("Launchpad.sol")
+	require.NoError(t, err)
+	declarations := regexp.MustCompile(`(?m)^    error (\w+)\(([^)]*)\);$`).FindAllStringSubmatch(string(solidity), -1)
+	solidityErrors := map[string]string{}
+	for _, declaration := range declarations {
+		name := declaration[1]
+		_, duplicate := solidityErrors[name]
+		require.False(t, duplicate, "duplicate Solidity error %s", name)
+		solidityErrors[name] = name + "(" + strings.ReplaceAll(declaration[2], " ", "") + ")"
+	}
+
+	keeperErrors := []error{
+		types.ErrOverflow,
+		types.ErrDivisionByZero,
+		types.ErrInsufficientInput,
+		types.ErrInsufficientLiquidity,
+		types.ErrVirtualFloorBreached,
+		types.ErrSlippageExceeded,
+		types.ErrDeadlineExpired,
+		types.ErrZeroAddress,
+		types.ErrZeroAmount,
+		types.ErrUnknownMarket,
+		types.ErrPaused,
+		types.ErrNotPaused,
+		types.ErrNotGuardian,
+		types.ErrNotFeeRightsHolder,
+		types.ErrWrongStrategy,
+		types.ErrInvalidStrategy,
+		types.ErrNoFeesAccumulated,
+		types.ErrAirdropNotTriggered,
+		types.ErrAlreadyClaimed,
+		types.ErrUnauthorized,
+		types.ErrInvalidAirdropEpoch,
+		types.ErrLegacyAirdropEpoch,
+		types.ErrAlreadyInitialized,
+		types.ErrAlreadyMinted,
+		types.ErrApproveFailed,
+		types.ErrDuplicatePool,
+		types.ErrDuplicateToken,
+		types.ErrFeeOutOfRange,
+		types.ErrIndexOutOfBounds,
+		types.ErrInsufficientBalance,
+		types.ErrInsufficientCreationFee,
+		types.ErrInsufficientSurplus,
+		types.ErrInvalidBalance,
+		types.ErrInvalidConfiguration,
+		types.ErrInvalidHookResponse,
+		types.ErrInvalidImplementation,
+		types.ErrInvalidRoleAccount,
+		types.ErrLastDefaultAdmin,
+		types.ErrMissingRole,
+		types.ErrMulticallFailed,
+		types.ErrNonERC721Receiver,
+		types.ErrNonPayableUpgrade,
+		types.ErrNotApproved,
+		types.ErrNotInitializing,
+		types.ErrNotTokenOwner,
+		types.ErrOpticalQuoteUnsupported,
+		types.ErrPoolIndexMigrationRequired,
+		types.ErrReentrancyGuardReentrantCall,
+		types.ErrSameToken,
+		types.ErrTokenNotFound,
+		types.ErrTransferFailed,
+		types.ErrTransferFromFailed,
+		types.ErrUUPSNotThroughActiveProxy,
+		types.ErrUUPSNotThroughProxy,
+		types.ErrUnauthorizedUpgrade,
+		types.ErrUnexecutableQuote,
+		types.ErrUnsupportedSnapshotToken,
+		types.ErrUpgradeInitializationFailed,
+		types.ErrInvalidToken,
+		types.ErrReentrantCall,
+		types.ErrAccessControlUnauthorizedAccount,
+		types.ErrRetired,
+		types.ErrFutureLookup,
+		types.ErrInsufficientAllowance,
+		types.ErrInvalidPermit,
+		types.ErrInvalidPoolBinding,
+		types.ErrPermitExpired,
+	}
+	declared := map[string]bool{}
+	for _, keeperError := range keeperErrors {
+		contractError, ok := types.ContractErrorOf(keeperError)
+		require.True(t, ok, "%s has no contract error", keeperError)
+		declared[contractError.Name] = true
+
+		abiError, ok := direct.Errors[contractError.Name]
+		require.True(t, ok, "direct ABI omits %s", contractError.Signature())
+		require.Equal(t, contractError.Signature(), abiError.Sig)
+		require.Equal(t, contractError.Selector[:], abiError.ID[:4], abiError.Sig)
+		require.Len(t, abiError.Inputs, len(contractError.Inputs), abiError.Sig)
+		for i, input := range contractError.Inputs {
+			require.Equal(t, input.Type.String(), abiError.Inputs[i].Type.String(), abiError.Sig)
+		}
+		require.Equal(t, contractError.Signature(), solidityErrors[contractError.Name])
+	}
+	require.Len(t, declared, 64)
+	require.Len(t, solidityErrors, len(declared))
+
+	for _, role := range directRoles {
+		for _, roleError := range parseABIFile(t, filepath.Join("abi", role+".json")).Errors {
+			abiError, ok := direct.Errors[roleError.Name]
+			require.True(t, ok, "%s error %s is missing", role, roleError.Sig)
+			require.Equal(t, roleError.Sig, abiError.Sig, role)
+			require.Equal(t, roleError.ID, abiError.ID, role)
+		}
+	}
 }

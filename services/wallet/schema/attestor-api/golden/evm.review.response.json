@@ -1,0 +1,13 @@
+{
+  "node_id": "node-1",
+  "key_id": "key-evm",
+  "to": "0x3535353535353535353535353535353535353535",
+  "value": "1000000000000000000",
+  "data": "0x",
+  "method": "",
+  "destination": "",
+  "signing_hash": "0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
+  "chain_id": 1,
+  "decision": "allowed",
+  "audit_sequence": 10
+}

@@ -57,7 +57,7 @@ func NewLoadTestClient(config Config) *LoadTestClient {
 	txClients, grpcConns := BuildGrpcClients(&config)
 	var evmTxClients []*EvmTxClient
 	if config.EvmRpcEndpoints != "" {
-		if config.ContainsAnyMessageTypes(EVM, ERC20, ERC721, UNIV2) {
+		if config.ContainsAnyMessageTypes(EVM, ERC20, ERC721) {
 			evmTxClients = BuildEvmTxClients(&config, keys)
 		}
 	}
@@ -199,7 +199,7 @@ func (c *LoadTestClient) BuildTxs(
 			var signedTx SignedTx
 			// Sign EVM and Cosmos TX differently
 			switch messageType {
-			case EVM, ERC20, ERC721, UNIV2:
+			case EVM, ERC20, ERC721:
 				signedTx = SignedTx{EvmTx: c.generateSignedEvmTx(keyIndex, messageType), MsgType: messageType}
 				EvmTxHashes = append(EvmTxHashes, signedTx.EvmTx.Hash())
 			default:
