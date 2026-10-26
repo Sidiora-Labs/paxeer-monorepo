@@ -57,15 +57,22 @@ const (
 // with only the rows that write inserted, so a block written twice folds once.
 // positions_current, orders and spot_orders follow their events in row order;
 // account_margin, user_stats, user_pnl_daily and market_stats_rolling are
-// recomputed from the stored facts for every key the rows touch, and
+// recomputed from the stored facts for every key the rows touch. Market stats
+// are also refreshed when their previous window is more than 24 hours old, and
 // keeper_cycles and spot_token_seen are written from the rows of the block,
 // and perps.leaderboard is rebuilt as of the block time when the block holds a
 // PositionOpened, PositionClosed or TradeSettled (contracts/data-services.md
 // section 18).
 func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	board, err := project(ctx, tx, rows)
-	if err != nil || !board {
+	if err != nil {
 		return err
+	}
+	if err := FoldSpotBoard(ctx, tx, rows); err != nil {
+		return err
+	}
+	if !board {
+		return nil
 	}
 	return rebuildLeaderboard(ctx, tx, rows[0].Common().BlockTime)
 }
@@ -83,10 +90,18 @@ func rebuildLeaderboard(ctx context.Context, tx *sql.Tx, at time.Time) error {
 // project folds the rows of one block into every projection but
 // perps.leaderboard and reports whether the block changes the leaderboard.
 func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
-	if len(rows) == 0 {
-		return false, nil
+	var first decode.Fact
+	if len(rows) != 0 {
+		first = rows[0].Common()
+	} else {
+		err := tx.QueryRowContext(ctx, `SELECT number, time FROM perps.blocks ORDER BY number DESC LIMIT 1`).Scan(&first.Block, &first.BlockTime)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("store: project empty block: %w", err)
+		}
 	}
-	first := rows[0].Common()
 	board := false
 	var (
 		margin  set[common.Address]
@@ -173,6 +188,24 @@ func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
 		if _, err := pnl.RebuildDaily(ctx, tx, d.account, d.day); err != nil {
 			return false, fmt.Errorf("store: project daily %s %s: %w", d.account.Hex(), d.day.Format(time.DateOnly), err)
 		}
+	}
+	expired, err := tx.QueryContext(ctx, staleMarketStatsSQL, first.BlockTime.UTC())
+	if err != nil {
+		return false, fmt.Errorf("store: select stale market stats: %w", err)
+	}
+	defer expired.Close()
+	for expired.Next() {
+		var market string
+		if err := expired.Scan(&market); err != nil {
+			return false, fmt.Errorf("store: scan stale market stats: %w", err)
+		}
+		markets.add(market)
+	}
+	if err := expired.Err(); err != nil {
+		return false, fmt.Errorf("store: read stale market stats: %w", err)
+	}
+	if err := expired.Close(); err != nil {
+		return false, fmt.Errorf("store: close stale market stats: %w", err)
 	}
 	for _, m := range markets.list {
 		if err := projectMarketStats(ctx, tx, m, first.Block, first.BlockTime); err != nil {
@@ -586,6 +619,13 @@ func projectStats(ctx context.Context, tx *sql.Tx, account common.Address, block
 	return exec1(ctx, tx, "stats "+account.Hex(), statsSQL, account.Bytes(), b)
 }
 
+const staleMarketStatsSQL = `SELECT s.market_id
+FROM perps.market_stats_rolling s
+JOIN perps.markets m ON m.market_id = s.market_id
+JOIN perps.blocks b ON b.number = s.updated_block
+WHERE b.time < $1::timestamptz - interval '24 hours'
+ORDER BY s.market_id`
+
 const marketStatsSQL = `INSERT INTO perps.market_stats_rolling (market_id, volume_24h, volume_7d, volume_30d, trades_count,
     open_interest_long, open_interest_short, high_24h, low_24h, open_24h, last_price, updated_block)
 SELECT $1,
@@ -611,9 +651,6 @@ ON CONFLICT (market_id) DO UPDATE SET volume_24h = EXCLUDED.volume_24h, volume_7
 // projectMarketStats recomputes the perps.market_stats_rolling row of market
 // from its fills, each Fill counted once per match, over the windows ending at
 // the block time, and its latest OpenInterestChanged.
-// ponytail: recomputed per touched market from the fills table, so a market
-// without fills keeps its windows until its next fill; move to hourly buckets
-// refreshed by the Snapshotter if the per-block scan or the staleness matters.
 func projectMarketStats(ctx context.Context, tx *sql.Tx, market string, block uint64, blockTime time.Time) error {
 	b, err := blockArg(block)
 	if err != nil {
