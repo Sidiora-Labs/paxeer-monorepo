@@ -4,6 +4,7 @@ import type {
   AnchorHead,
   AssetMap,
   Capabilities,
+  ChainHistoryPage,
   CompletedBalance,
   CompletionAsset,
   CustodyAssetRecord,
@@ -97,6 +98,16 @@ export class EndpointClient {
     if (query.kind !== undefined && !HISTORY_KIND.test(query.kind)) throw new RangeError('history kind is malformed');
     return decodeHistoryPage(
       await this.rpc.call('px_getUnifiedHistory', [account, cursor, query.limit ?? null, query.kind ?? null]),
+    );
+  }
+
+  async getChainHistory(address: string, cursor: string | null = null, query: Pick<HistoryQuery, 'limit'> = {}): Promise<ChainHistoryPage> {
+    if (cursor !== null && !HISTORY_CURSOR.test(cursor)) throw new RangeError('history cursor is malformed');
+    if (query.limit !== undefined && (!Number.isInteger(query.limit) || query.limit < 1 || query.limit > 100)) {
+      throw new RangeError('history limit must be an integer from 1 to 100');
+    }
+    return decodeChainHistoryPage(
+      await this.rpc.call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null]),
     );
   }
 
@@ -414,6 +425,18 @@ export function decodeHistoryPage(value: unknown): HistoryPage {
     accounts,
     items: doc.items.map(decodeHistoryItem),
     next_cursor: next,
+  };
+}
+
+export function decodeChainHistoryPage(value: unknown): ChainHistoryPage {
+  const page = decodeHistoryPage(value);
+  if (page.account.evm_address === null) fail('chain history account');
+  return {
+    account: page.account.evm_address,
+    items: page.items
+      .filter((item) => item.chain === 'paxeer')
+      .map(({ chain, side, ...item }) => item),
+    next_cursor: page.next_cursor,
   };
 }
 

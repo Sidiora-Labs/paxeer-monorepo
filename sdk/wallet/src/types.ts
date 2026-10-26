@@ -414,11 +414,13 @@ export interface HistoryItem {
   final: boolean;
   decoded: unknown;
   asset_metadata: HistoryAssetMetadata | null;
+  /** @deprecated Use ChainHistoryItem, which has no side label. */
   side: 'layerx' | 'paxeer';
 }
 
 export interface HistoryPage {
   account: UnifiedAccountDocument;
+  /** @deprecated Use ChainHistoryPage for a single chain account. */
   accounts: { side: 'layerx' | 'paxeer'; account: string }[];
   items: HistoryItem[];
   next_cursor: string | null;
