@@ -27,14 +27,6 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	return sdk.UnwrapSDKContext(goCtx), nil
 }
 
-func (q Querier) Params(goCtx context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.Params(sdk.WrapSDKContext(ctx), req)
-}
-
 func (q Querier) Market(goCtx context.Context, req *types.QueryMarketRequest) (*types.QueryMarketResponse, error) {
 	ctx, err := queryContext(goCtx, req)
 	if err != nil {
