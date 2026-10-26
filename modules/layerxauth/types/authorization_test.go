@@ -375,6 +375,195 @@ func TestLayerXScopeRefusesLedger(t *testing.T) {
 	}
 }
 
+type layerXScopeTestActivity struct {
+	*banktypes.MsgSend
+	moduleID uint16
+	ordinal  uint16
+	assetID  [32]byte
+}
+
+func (m *layerXScopeTestActivity) XXX_MessageName() string {
+	return proto.MessageName(m.MsgSend)
+}
+
+func (m *layerXScopeTestActivity) LayerXScope() (uint16, uint16, [32]byte, sdk.Int) {
+	return m.moduleID, m.ordinal, m.assetID, m.Amount[0].Amount
+}
+
+func layerXScopeTestScopedSend(grantor sdk.AccAddress, amount sdk.Int) *layerXScopeTestActivity {
+	msg := &layerXScopeTestActivity{
+		MsgSend:  banktypes.NewMsgSend(grantor, layerXScopeTestAddress(0x0e), sdk.Coins{{Denom: "upax", Amount: amount}}),
+		moduleID: 1,
+		ordinal:  5,
+	}
+	copy(msg.assetID[:], layerXScopeTestAuthorization().AssetId)
+	return msg
+}
+
+func TestLayerXScopeAcceptScopedActivity(t *testing.T) {
+	grantor := layerXScopeTestAddress(0xd5)
+	auth := layerXScopeTestAuthorization()
+	auth.ModuleMask = 1 << 1
+	auth.OrdinalMin = 5
+	auth.OrdinalMax = 6
+	auth.MaxPerActivity = "10"
+	auth.MaxTotal = "15"
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_activity"), sdk.NewTransientStoreKey("transient_layerx_scope_activity"))
+	ctx = WithGrantorRevocation(ctx, grantor, auth.RevocationEpoch)
+
+	cases := []struct {
+		name   string
+		mutate func(*layerXScopeTestActivity)
+		want   error
+	}{
+		{"inclusive_min_and_cap", func(m *layerXScopeTestActivity) {}, nil},
+		{"inclusive_max", func(m *layerXScopeTestActivity) { m.ordinal = 6 }, nil},
+		{"module_outside_mask", func(m *layerXScopeTestActivity) { m.moduleID = 2 }, ErrAuthScope},
+		{"module_zero", func(m *layerXScopeTestActivity) { m.moduleID = 0 }, ErrAuthScope},
+		{"module_64", func(m *layerXScopeTestActivity) { m.moduleID = 64 }, ErrAuthScope},
+		{"module_max_u16", func(m *layerXScopeTestActivity) { m.moduleID = 0xffff }, ErrAuthScope},
+		{"ordinal_below_min", func(m *layerXScopeTestActivity) { m.ordinal = 4 }, ErrAuthScope},
+		{"ordinal_above_max", func(m *layerXScopeTestActivity) { m.ordinal = 7 }, ErrAuthScope},
+		{"other_asset", func(m *layerXScopeTestActivity) { m.assetID[31] ^= 1 }, ErrAuthScope},
+		{"amount_above_cap", func(m *layerXScopeTestActivity) { m.Amount[0].Amount = sdk.NewInt(11) }, ErrAuthScope},
+		{"negative_amount", func(m *layerXScopeTestActivity) { m.Amount[0].Amount = sdk.NewInt(-1) }, ErrAuthScope},
+		{"nil_amount", func(m *layerXScopeTestActivity) { m.Amount[0].Amount = sdk.Int{} }, ErrAuthScope},
+		{"amount_above_u128", func(m *layerXScopeTestActivity) {
+			m.Amount[0].Amount = sdk.NewIntFromUint64(1).Mul(sdk.NewIntFromUint64(1 << 63)).Mul(sdk.NewIntFromUint64(1 << 63)).MulRaw(4)
+		}, ErrAuthScope},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			msg := layerXScopeTestScopedSend(grantor, sdk.NewInt(10))
+			tc.mutate(msg)
+			if err := auth.ValidateBasic(); err != nil {
+				t.Fatalf("ValidateBasic: %v", err)
+			}
+			before := proto.Clone(&auth)
+			resp, err := auth.Accept(ctx, msg)
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("Accept = %+v, %v; want %v", resp, err, tc.want)
+			}
+			if !proto.Equal(&auth, before) {
+				t.Fatal("Accept mutated its original authorization")
+			}
+			if tc.want != nil {
+				if resp.Accept || resp.Delete || resp.Updated != nil {
+					t.Fatalf("refused response = %+v, want zero", resp)
+				}
+				return
+			}
+			updated, ok := resp.Updated.(*LayerXScopeAuthorization)
+			if !resp.Accept || resp.Delete || !ok || updated.SpentTotal != "10" {
+				t.Fatalf("accepted response = %+v, want updated spent total 10", resp)
+			}
+		})
+	}
+
+	t.Run("revoked_scoped_activity", func(t *testing.T) {
+		resp, err := auth.Accept(WithGrantorRevocation(ctx, grantor, auth.RevocationEpoch+1), layerXScopeTestScopedSend(grantor, sdk.NewInt(10)))
+		if !errors.Is(err, ErrAuthRevoked) || resp.Accept || resp.Delete || resp.Updated != nil {
+			t.Fatalf("revoked scoped activity = %+v, %v; want %v and zero response", resp, err, ErrAuthRevoked)
+		}
+	})
+}
+
+func TestLayerXScopeAcceptSpendsTotal(t *testing.T) {
+	grantor := layerXScopeTestAddress(0xd6)
+	auth := layerXScopeTestAuthorization()
+	auth.ModuleMask = 1 << 1
+	auth.OrdinalMin = 5
+	auth.OrdinalMax = 6
+	auth.MaxPerActivity = "10"
+	auth.MaxTotal = "15"
+	ctx := testutil.DefaultContext(sdk.NewKVStoreKey("layerx_scope_spending"), sdk.NewTransientStoreKey("transient_layerx_scope_spending"))
+	ctx = WithGrantorRevocation(ctx, grantor, auth.RevocationEpoch)
+
+	resp, err := auth.Accept(ctx, layerXScopeTestScopedSend(grantor, sdk.NewInt(10)))
+	if err != nil || !resp.Accept || resp.Delete {
+		t.Fatalf("first activity = %+v, %v; want accept", resp, err)
+	}
+	updated, ok := resp.Updated.(*LayerXScopeAuthorization)
+	if !ok || updated.SpentTotal != "10" || auth.SpentTotal != "" {
+		t.Fatalf("first update = %v, original spent total = %q; want 10 and empty", resp.Updated, auth.SpentTotal)
+	}
+	want := auth
+	want.SpentTotal = "10"
+	if !proto.Equal(updated, &want) {
+		t.Fatalf("first update = %v, want %v", updated, &want)
+	}
+	encoded, err := proto.Marshal(updated)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stored LayerXScopeAuthorization
+	if err := proto.Unmarshal(encoded, &stored); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = stored.Accept(ctx, layerXScopeTestScopedSend(grantor, sdk.NewInt(6)))
+	if !errors.Is(err, ErrAuthScope) || resp.Accept || resp.Delete || resp.Updated != nil || stored.SpentTotal != "10" {
+		t.Fatalf("total 10 + 6 with cap 15 = %+v, %v, spent %s; want refusal without mutation", resp, err, stored.SpentTotal)
+	}
+	resp, err = stored.Accept(ctx, layerXScopeTestScopedSend(grantor, sdk.NewInt(5)))
+	if err != nil || !resp.Accept || resp.Delete {
+		t.Fatalf("total 10 + 5 with cap 15 = %+v, %v; want accept", resp, err)
+	}
+	exhausted, ok := resp.Updated.(*LayerXScopeAuthorization)
+	if !ok || exhausted.SpentTotal != "15" || stored.SpentTotal != "10" {
+		t.Fatalf("exact cap update = %v, prior spent %s; want 15 and 10", resp.Updated, stored.SpentTotal)
+	}
+	resp, err = exhausted.Accept(ctx, layerXScopeTestScopedSend(grantor, sdk.NewInt(1)))
+	if !errors.Is(err, ErrAuthScope) || resp.Accept || resp.Delete || resp.Updated != nil || exhausted.SpentTotal != "15" {
+		t.Fatalf("exhausted grant = %+v, %v; want refusal without mutation", resp, err)
+	}
+
+	cases := []struct {
+		name   string
+		mutate func(*LayerXScopeAuthorization)
+		amount int64
+		want   error
+		spent  string
+	}{
+		{"zero_amount", func(a *LayerXScopeAuthorization) {}, 0, nil, "0"},
+		{"explicit_zero_spent", func(a *LayerXScopeAuthorization) { a.SpentTotal = "0" }, 10, nil, "10"},
+		{"spent_leading_zero", func(a *LayerXScopeAuthorization) { a.SpentTotal = "01" }, 1, ErrNonCanonical, ""},
+		{"spent_negative", func(a *LayerXScopeAuthorization) { a.SpentTotal = "-1" }, 1, ErrNonCanonical, ""},
+		{"spent_not_decimal", func(a *LayerXScopeAuthorization) { a.SpentTotal = "1.5" }, 1, ErrNonCanonical, ""},
+		{"spent_above_u128", func(a *LayerXScopeAuthorization) { a.SpentTotal = "340282366920938463463374607431768211456" }, 1, ErrNonCanonical, ""},
+		{"invalid_per_activity", func(a *LayerXScopeAuthorization) { a.MaxPerActivity = "01" }, 1, ErrNonCanonical, ""},
+		{"invalid_total", func(a *LayerXScopeAuthorization) { a.MaxTotal = "+15" }, 1, ErrNonCanonical, ""},
+		{"u128_sum_overflow", func(a *LayerXScopeAuthorization) {
+			a.MaxTotal = "340282366920938463463374607431768211455"
+			a.SpentTotal = a.MaxTotal
+		}, 1, ErrAuthScope, ""},
+		{"u128_exact_cap", func(a *LayerXScopeAuthorization) {
+			a.MaxTotal = "340282366920938463463374607431768211455"
+			a.SpentTotal = "340282366920938463463374607431768211454"
+		}, 1, nil, "340282366920938463463374607431768211455"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			candidate := auth
+			tc.mutate(&candidate)
+			before := proto.Clone(&candidate)
+			resp, err := candidate.Accept(ctx, layerXScopeTestScopedSend(grantor, sdk.NewInt(tc.amount)))
+			if !errors.Is(err, tc.want) || !proto.Equal(&candidate, before) {
+				t.Fatalf("Accept = %+v, %v; want %v without mutation", resp, err, tc.want)
+			}
+			if tc.want != nil {
+				if resp.Accept || resp.Delete || resp.Updated != nil {
+					t.Fatalf("refused response = %+v, want zero", resp)
+				}
+				return
+			}
+			updated, ok := resp.Updated.(*LayerXScopeAuthorization)
+			if !resp.Accept || resp.Delete || !ok || updated.SpentTotal != tc.spent {
+				t.Fatalf("Accept = %+v; want updated spent total %s", resp, tc.spent)
+			}
+		})
+	}
+}
+
 func TestLayerXScopeGrantAndExec(t *testing.T) {
 	registry := cdctypes.NewInterfaceRegistry()
 	authtypes.RegisterInterfaces(registry)
