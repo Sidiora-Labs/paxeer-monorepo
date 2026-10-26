@@ -7,6 +7,7 @@ license.workspace = true
 
 [dependencies]
 base64.workspace = true
+layerx-committed-proof.workspace = true
 layerx-interop-gateway.workspace = true
 layerx-proof.workspace = true
 serde.workspace = true

@@ -62,3 +62,18 @@ observed = "At revision 3e95e95ed `cg spec done 10.0.1 -f layerx-merge --root /w
 assumption = "Hyperfide 3762f1c43 (CG_EXTRACTION_VERSION 4) indexes those kinds and resolves qualified names; the refused results are re-qualified with it and the affected symbol lists stay as written."
 severity = "suspect"
 
+[finding.13.21.9]
+task = "13.21.9"
+file = "precompiles/layerxprograms/args.go:11"
+symbol = "TransferLeg"
+observed = "precompiles/layerxprograms did not compile after tasks 13.21.4 (2d8bf2e07) and 13.21.9 (21a0d91ee) both landed: both wrote `type TransferLeg struct { From, Asset, To [32]byte; Amount *big.Int }`, 13.21.4 in payload_accounts.go as its do_1 specifies and 13.21.9 in args.go beside decodeLegs, which only uses the type; neither task requires the other and 47 later layerxprograms tasks build on the package."
+assumption = "The declaration belongs to 13.21.4; the copy in args.go is removed and 13.21.9's decodeLegs keeps using payload_accounts.go's TransferLeg, so no symbol list changes."
+severity = "blocker"
+
+[finding.1.0.1]
+task = "1.0.1"
+file = "Makefile:1668"
+symbol = "run_one_dispatches_case"
+observed = "At revision ec6d59cc5 `make -C . build/tests/kernel/codec/lxp_test_case_dispatch` exited 2 (log /out/logs/verify-1.log): No rule to make target 'build/tests/kernel/codec/lxp_test_case_dispatch'; the $(BUILD_DIR)/tests/kernel/% pattern rule is added by task 16.2.1 (req.16982), which the other 71 kernel tasks require and 1.0.1 (wave 0, requires []) and 1.0.9 did not."
+assumption = "1.0.1 and 1.0.9 now require 16.2.1; 1.0.1's implementation at ec6d59cc5 is re-qualified unchanged once 16.2.1 is done."
+severity = "blocker"
