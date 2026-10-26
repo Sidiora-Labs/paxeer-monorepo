@@ -8927,3 +8927,27 @@ area = "tooling"
 symptom = "cg spec done refuses a deleted touched path as `no matching change` although the tree no longer has the file and the commit records the deletion"
 cause = "cg spec done credits a deleted touched path only from a commit carrying the task's tag that exists before the check runs or from a snapshot taken before the deletion; the worktree diff alone never shows a deleted file"
 do = "keep the deleted path in touches, and put the tagged commit on the branch or take the snapshot of the base tree before cg spec done runs (gotcha.1860)"
+
+[gotcha.1867]
+area = "cargo"
+symptom = "every `cargo build --locked` in a workspace refuses to start after several branches that change the workspace manifests are merged"
+cause = "the merge takes each branch's manifest edits but Cargo.lock stays behind them, so --locked sees a lockfile that needs updating"
+do = "re-resolve with `cargo metadata --manifest-path <workspace>/Cargo.toml` (a minimal update) and commit the lockfiles with the merge"
+
+[gotcha.1868]
+area = "spec"
+symptom = "a task that renames fields of types exported by a shared crate passes its own build and verify gate while every dependent crate in the workspace stops compiling on main"
+cause = "the task's touches and build_cmd cover only the exporting crate, so neither the touched-path check nor the per-crate gate sees the dependents' call sites"
+do = "a task that changes exported types either carries its dependents' port in its touches or is followed by an explicit port task that every dependent owner requires; run cargo check --workspace --all-targets on the workspace before publishing"
+
+[gotcha.1869]
+area = "spec"
+symptom = "a task passes its build and verify gate and the verifier still refuses it with `not defined in the graph` for a name in its symbols"
+cause = "the symbol check indexes declarations only (functions, types, Go, Rust, TypeScript and Python declarations, #define macros); an enumerator, an X-macro result code, a Makefile target, a struct field or a type the task consumes but does not define is never in the graph"
+do = "list in symbols only names the task itself declares; move consumed types, enumerators, result codes, Makefile targets and struct fields out of the list before the task is re-qualified"
+
+[gotcha.1870]
+area = "spec"
+symptom = "every open task of one package parks on the same build failure although none of them touches the files the errors name"
+cause = "the tasks share a package-wide typecheck as their per-task build gate, so pre-existing errors elsewhere in the package fail each task's build before its own files are compiled"
+do = "make the per-task build the test runner's list of the task's own spec file (vitest list <spec>) and keep the package typecheck as a wave-level gate"

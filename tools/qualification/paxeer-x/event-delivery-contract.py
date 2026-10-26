@@ -19,6 +19,8 @@ from urllib.parse import urlsplit
 
 ROOT = Path(__file__).resolve().parents[3]
 sys.dont_write_bytecode = True
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE
 
 
 class Missing(Exception):
@@ -97,7 +99,7 @@ def der(directory):
 def load_manifest(path):
     path = protected_input(path, 'candidate manifest')
     result = run([sys.executable, ROOT / 'tools/paxeer-x/candidate.py', 'validate', path,
-                  '--repo', ROOT, '--spec', ROOT / 'spec/paxeer-x/spec.kvx'], check=False)
+                  '--repo', ROOT, '--spec', ROOT / SERVICE_CATALOGUE], check=False)
     if result.returncode:
         raise Missing('candidate manifest validation refused')
     document = json.loads(path.read_bytes())

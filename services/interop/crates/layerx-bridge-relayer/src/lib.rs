@@ -20,6 +20,7 @@
 
 pub mod abi;
 pub mod attestation;
+pub mod attestation_api;
 pub mod config;
 pub mod cosign;
 pub mod hex;

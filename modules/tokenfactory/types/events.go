@@ -5,6 +5,8 @@ const AttributePaused = "paused"
 // event types
 // nolint
 const (
+	EventTypeSetIssuerDid      = "set_issuer_did"
+	AttributeIssuerDid         = "issuer_did"
 	AttributeAmount            = "amount"
 	AttributeCreator           = "creator"
 	AttributeSubdenom          = "subdenom"

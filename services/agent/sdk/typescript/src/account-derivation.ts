@@ -18,6 +18,7 @@ import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { wordlist } from "@scure/bip39/wordlists/english.js";
 
 import { precompileTransactionRequest, type PrecompileCall } from "./exchange.js";
+import { eip1559SigningHash } from "./evm-transaction.js";
 
 /** SLIP-0044 style coin type of the LayerX branch: 0x4c58, ASCII "LX". */
 export const LAYERX_COIN_TYPE = 19544;
@@ -68,7 +69,11 @@ export class AccountDerivationError extends Error {
   }
 }
 
-/** The pair one secret yields. `evmPrivateKey` is null when a wallet holds it. */
+/**
+ * The pair one secret yields. `evmPrivateKey` is null when a wallet holds it.
+ * The Ed25519 key signs only LX:PAXEER-BIND:v1 messages and payer grants;
+ * EVM transactions are signed with the secp256k1 key.
+ */
 export interface DerivedAccount {
   readonly index: number;
   readonly evmAddress: string;
@@ -556,12 +561,36 @@ export function planLayerXBind(derived: DerivedAccount, chainId: number | bigint
   };
 }
 
-/** The `eth_sendTransaction` request a browser wallet sends for a bind call. */
-export function bindTransactionRequest(derived: DerivedAccount, call: BindCall): WalletRequest {
+/** The browser-wallet bind request. `nonce` must be the pending EVM nonce, not the bind nonce. */
+export function bindTransactionRequest(derived: DerivedAccount, call: BindCall, nonce?: bigint): WalletRequest {
+  if (nonce === undefined || nonce < 0n || nonce > 0xffffffffffffffffn) {
+    throw new AccountDerivationError("invalid_bind_fees", "a pending EVM nonce is required");
+  }
+  validateBindCall(derived, 125n, call);
   return {
     method: "eth_sendTransaction",
-    params: [{ from: derived.evmAddress, to: call.to, data: call.data, value: "0x0" }],
+    params: [
+      {
+        from: derived.evmAddress,
+        to: call.to,
+        data: call.data,
+        value: "0x0",
+        type: "0x2",
+        chainId: "0x7d",
+        nonce: `0x${nonce.toString(16)}`,
+      },
+    ],
   };
+}
+
+/** Signs a chain-125 bind call with the derived EVM key for `eth_sendRawTransaction`. */
+export function bindTransaction(
+  derived: DerivedAccount,
+  call: BindCall,
+  nonce: bigint,
+  fees: Omit<BindFees, "evmNonce">,
+): Uint8Array {
+  return fromHex(signBindTransaction(derived, 125n, call, { ...fees, evmNonce: nonce }), "invalid_bind_fees");
 }
 
 /** Reads the chain, plans, and (unless already bound) asks the wallet to send the bind call. */
@@ -572,11 +601,21 @@ export async function autoBindLayerX(
 ): Promise<
   Readonly<{ action: "already_bound" }> | Readonly<{ action: "bind"; call: BindCall; transactionHash: string }>
 > {
+  if (checkChainId(chainId) !== 125n) {
+    throw new AccountDerivationError("invalid_chain_id");
+  }
   const plan = planLayerXBind(derived, chainId, await readLayerXBindState(wallet, derived.evmAddress));
   if (plan.action === "already_bound") {
     return plan;
   }
-  const hash = await wallet.request(bindTransactionRequest(derived, plan.call));
+  const pendingNonce = await wallet.request({
+    method: "eth_getTransactionCount",
+    params: [derived.evmAddress, "pending"],
+  });
+  if (typeof pendingNonce !== "string" || !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]{0,15})$/u.test(pendingNonce)) {
+    throw new AccountDerivationError("malformed_precompile_answer", "invalid pending EVM nonce");
+  }
+  const hash = await wallet.request(bindTransactionRequest(derived, plan.call, BigInt(pendingNonce)));
   if (typeof hash !== "string" || !/^0x[0-9a-fA-F]{64}$/u.test(hash)) {
     throw new AccountDerivationError("malformed_precompile_answer", "wallet returned no transaction hash");
   }
@@ -588,6 +627,19 @@ export interface BindFees {
   readonly maxPriorityFeePerGas: bigint;
   readonly maxFeePerGas: bigint;
   readonly gasLimit: bigint;
+}
+
+function validateBindCall(derived: DerivedAccount, chainId: number | bigint, call: BindCall): void {
+  const plan = planLayerXBind(derived, chainId, { boundDidPublicKey: null, nonce: call.nonce });
+  if (
+    plan.action !== "bind" ||
+    call.to.toLowerCase() !== plan.call.to ||
+    call.data.toLowerCase() !== plan.call.data ||
+    call.didPublicKey.toLowerCase() !== plan.call.didPublicKey ||
+    call.signature.toLowerCase() !== plan.call.signature
+  ) {
+    throw new AccountDerivationError("malformed_precompile_answer");
+  }
 }
 
 function rlpLength(length: number, short: number): Uint8Array {
@@ -648,16 +700,7 @@ export function signBindTransaction(
   ) {
     throw new AccountDerivationError("invalid_bind_fees");
   }
-  const plan = planLayerXBind(derived, chainId, { boundDidPublicKey: null, nonce: call.nonce });
-  if (
-    plan.action !== "bind" ||
-    call.to.toLowerCase() !== plan.call.to ||
-    call.data.toLowerCase() !== plan.call.data ||
-    call.didPublicKey.toLowerCase() !== plan.call.didPublicKey ||
-    call.signature.toLowerCase() !== plan.call.signature
-  ) {
-    throw new AccountDerivationError("malformed_precompile_answer");
-  }
+  validateBindCall(derived, chainId, call);
   const fields = [
     rlpInteger(checkChainId(chainId)),
     rlpInteger(fees.evmNonce),
@@ -669,7 +712,17 @@ export function signBindTransaction(
     rlpBytes(fromHex(call.data, "malformed_precompile_answer")),
     rlpList([]),
   ];
-  const hash = keccak_256(concat(new Uint8Array([2]), rlpList(fields)));
+  const hash = eip1559SigningHash({
+    chainId: checkChainId(chainId),
+    nonce: fees.evmNonce,
+    maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+    maxFeePerGas: fees.maxFeePerGas,
+    gasLimit: fees.gasLimit,
+    to: addressBytes(call.to),
+    value: 0n,
+    data: fromHex(call.data, "malformed_precompile_answer"),
+    accessList: [],
+  });
   const signature = secp256k1.sign(hash, derived.evmPrivateKey, { prehash: false, format: "recovered" });
   const recovery = signature[0] ?? 0;
   const raw = concat(

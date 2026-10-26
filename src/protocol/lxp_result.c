@@ -1,5 +1,33 @@
 #include "layerx/lxp_result.h"
 
+static const struct {
+    lxp_result value;
+    const char *name;
+} result_registry[] = {
+#define LXP_RESULT_REGISTRY_ROW(name, value) { value, #name },
+    LXP_RESULT_CODE_LIST(LXP_RESULT_REGISTRY_ROW)
+#undef LXP_RESULT_REGISTRY_ROW
+};
+
+size_t lxp_result_registry_count(void)
+{
+    return sizeof(result_registry) / sizeof(result_registry[0]);
+}
+
+lxp_result lxp_result_registry_at(size_t index, lxp_result *value,
+                                  const char **name)
+{
+    if (index >= lxp_result_registry_count()) {
+        return LXP_ERR_UNKNOWN_FIELD;
+    }
+    if (value == NULL || name == NULL) {
+        return LXP_ERR_NON_CANONICAL;
+    }
+    *value = result_registry[index].value;
+    *name = result_registry[index].name;
+    return LXP_OK;
+}
+
 const char *lxp_result_name(lxp_result result)
 {
     switch (result) {

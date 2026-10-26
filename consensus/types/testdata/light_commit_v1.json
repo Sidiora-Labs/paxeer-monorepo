@@ -1,0 +1,104 @@
+{
+  "version": 1,
+  "bytes_encoding": "hex",
+  "header": {
+    "version": {
+      "block": "11",
+      "app": "1"
+    },
+    "chain_id": "layerx-light-v1",
+    "height": "42",
+    "time": "2023-11-14T22:13:20.123456789Z",
+    "last_block_id": {
+      "hash": "0BC52425A6D276312ACB871BC85F8129DED87412C36DA4E17D64369E1FC0B13F",
+      "parts": {
+        "total": 2,
+        "hash": "81B5C7E6BADD6A64DCCA2749B2CC58E2CB639E12F3342FB7A2682BAE19B0E884"
+      }
+    },
+    "last_commit_hash": "9C51294B7894463F16422D56A0CDEEC724264D121B900F336C0FC82B97E599C3",
+    "data_hash": "4D56F5194E2D1E3EC309822083FF435777BBE1B2EDC85CEA487A48BEFABCCDAB",
+    "validators_hash": "C423735952F76DB8CCD6AB6DE6645051C2EAB1B0DCC192961BB32F88FF2E219B",
+    "next_validators_hash": "C423735952F76DB8CCD6AB6DE6645051C2EAB1B0DCC192961BB32F88FF2E219B",
+    "consensus_hash": "CCCD05F447370DF6D6EAEFCD18C325F3F5FF9725BB1B83B528C0694D37FAB56B",
+    "app_hash": "3A2AD56D9D2B16168A2454BA8E117D0AD5469F3D1AA26A9164059AEA8225BDA3",
+    "last_results_hash": "26406CB3CAEFDD39D16A757B74712FAE7CC2950079B65C0A966651325A8853D8",
+    "evidence_hash": "FEADFDFD60284A95BD54AFA5DF1A5F84F3BD3916EA5756D562B9D6E10B3234D9",
+    "proposer_address": "17B9A204CEDFEF7F4C1C22EBF15AEEA2BD2E28F9"
+  },
+  "header_protobuf": "0a04080b1001120f6c61796572782d6c696768742d7631182a220b0880e2cfaa0610959aef3a2a480a200bc52425a6d276312acb871bc85f8129ded87412c36da4e17d64369e1fc0b13f12240802122081b5c7e6badd6a64dcca2749b2cc58e2cb639e12f3342fb7a2682bae19b0e88432209c51294b7894463f16422d56a0cdeec724264d121b900f336c0fc82b97e599c33a204d56f5194e2d1e3ec309822083ff435777bbe1b2edc85cea487a48befabccdab4220c423735952f76db8ccd6ab6de6645051c2eab1b0dcc192961bb32f88ff2e219b4a20c423735952f76db8ccd6ab6de6645051c2eab1b0dcc192961bb32f88ff2e219b5220cccd05f447370df6d6eaefcd18c325f3f5ff9725bb1b83b528c0694d37fab56b5a203a2ad56d9d2b16168a2454ba8e117d0ad5469f3d1aa26a9164059aea8225bda3622026406cb3caefdd39d16a757b74712fae7cc2950079b65c0a966651325a8853d86a20feadfdfd60284a95bd54afa5df1a5f84f3bd3916ea5756d562b9d6e10b3234d9721417b9a204cedfef7f4c1c22ebf15aeea2bd2e28f9",
+  "header_hash": "d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba3",
+  "validators": [
+    {
+      "address": "17b9a204cedfef7f4c1c22ebf15aeea2bd2e28f9",
+      "public_key": "b84b18824fcd1f89d54f7cf656b51339007b935fddfe170933e97c83bba2d0a5",
+      "voting_power": 10,
+      "protobuf": "0a220a20b84b18824fcd1f89d54f7cf656b51339007b935fddfe170933e97c83bba2d0a5100a"
+    },
+    {
+      "address": "3ab62f0d93849be495e21e3e9013a517038f45bd",
+      "public_key": "93fbce7316450a74e8a7f12dfb32131096cc06f4f08b63cbf649317b21869db8",
+      "voting_power": 10,
+      "protobuf": "0a220a2093fbce7316450a74e8a7f12dfb32131096cc06f4f08b63cbf649317b21869db8100a"
+    },
+    {
+      "address": "5ef3b5f25c54946d4a89fc0d09d2f126614540f2",
+      "public_key": "5710507df12263139fcd4a386e6fa441ee7242f772fbea5227de8f3c00742b21",
+      "voting_power": 10,
+      "protobuf": "0a220a205710507df12263139fcd4a386e6fa441ee7242f772fbea5227de8f3c00742b21100a"
+    },
+    {
+      "address": "63d771218209d8bd03c482f69dfba57310f08609",
+      "public_key": "4eeaaadf130120ede39396a95a48a46377e1a81503b1161a777116e56c9c8174",
+      "voting_power": 10,
+      "protobuf": "0a220a204eeaaadf130120ede39396a95a48a46377e1a81503b1161a777116e56c9c8174100a"
+    }
+  ],
+  "validator_set_hash": "c423735952f76db8ccd6ab6de6645051c2eab1b0dcc192961bb32f88ff2e219b",
+  "commit": {
+    "height": 42,
+    "round": 2,
+    "block_id": {
+      "hash": "D408ADCCC0FFDE478EDDDA84C349482C61962CAE22A930CEE1E074631E9EBBA3",
+      "parts": {
+        "total": 3,
+        "hash": "AA623D52AAFAFBCBC824A9B331D9353180538240CB9704B78A913CE98618B15D"
+      }
+    },
+    "signatures": [
+      {
+        "validator_index": 0,
+        "block_id_flag": 2,
+        "validator_address": "17b9a204cedfef7f4c1c22ebf15aeea2bd2e28f9",
+        "timestamp": "2023-11-14T22:13:20.124456789Z",
+        "vote_sign_bytes": "7c0802112a0000000000000019020000000000000022480a20d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba3122408031220aa623d52aafafbcbc824a9b331d9353180538240cb9704b78a913ce98618b15d2a0b0880e2cfaa0610d59eac3b320f6c61796572782d6c696768742d7631",
+        "signature": "74301d7d50356419b74d970e2775917aa7c4479a62eaf7fd6605337742fb037fce6b5875da296adebc243005f5f3beb3ff3e7091b354cc1bcb26fc4e4de74907"
+      },
+      {
+        "validator_index": 1,
+        "block_id_flag": 2,
+        "validator_address": "3ab62f0d93849be495e21e3e9013a517038f45bd",
+        "timestamp": "2023-11-14T22:13:20.125456789Z",
+        "vote_sign_bytes": "7c0802112a0000000000000019020000000000000022480a20d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba3122408031220aa623d52aafafbcbc824a9b331d9353180538240cb9704b78a913ce98618b15d2a0b0880e2cfaa061095a3e93b320f6c61796572782d6c696768742d7631",
+        "signature": "dc1ae981825a05d702ee71b332dcecaae884f67dbc3470cf19a8f81a26dcd793941fa2421919fadbf7c7e6b655de235f42c271b0d969ed3a8175258a0a859906"
+      },
+      {
+        "validator_index": 2,
+        "block_id_flag": 2,
+        "validator_address": "5ef3b5f25c54946d4a89fc0d09d2f126614540f2",
+        "timestamp": "2023-11-14T22:13:20.126456789Z",
+        "vote_sign_bytes": "7c0802112a0000000000000019020000000000000022480a20d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba3122408031220aa623d52aafafbcbc824a9b331d9353180538240cb9704b78a913ce98618b15d2a0b0880e2cfaa0610d5a7a63c320f6c61796572782d6c696768742d7631",
+        "signature": "4cab4f7d40c35f6c572e31e5a1e2fc57a66f0b3b76aa703e924209ed124925e17f2b07776430ce4a57e5d204fc73d5adf8a07907a1ed7fc73ee6117bed22c509"
+      },
+      {
+        "validator_index": 3,
+        "block_id_flag": 2,
+        "validator_address": "63d771218209d8bd03c482f69dfba57310f08609",
+        "timestamp": "2023-11-14T22:13:20.127456789Z",
+        "vote_sign_bytes": "7c0802112a0000000000000019020000000000000022480a20d408adccc0ffde478eddda84c349482c61962cae22a930cee1e074631e9ebba3122408031220aa623d52aafafbcbc824a9b331d9353180538240cb9704b78a913ce98618b15d2a0b0880e2cfaa061095ace33c320f6c61796572782d6c696768742d7631",
+        "signature": "4ab80166dab76823ff2d59610fc15b6afe5c77ab35ace11eba5adb4f8bcec94105ff9379385c3442d3df5a5af1d193625bd6094684c48538bceb97ec44f92500"
+      }
+    ]
+  },
+  "verify_commit_light": true
+}

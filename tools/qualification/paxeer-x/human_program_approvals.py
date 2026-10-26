@@ -10,6 +10,9 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE
+
 spec = importlib.util.spec_from_file_location('human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(B)
@@ -92,7 +95,7 @@ def main():
     sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
     from candidate import catalogue, load_private, validate
     candidate = load_private(args.candidate_manifest)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     fixture = os.environ.get('PAXEER_X_HUMAN_PROGRAM_APPROVALS_MANIFEST')
     B.require(fixture, 'genuine protected Programs process authority fixture required')
     material = B.load(fixture)

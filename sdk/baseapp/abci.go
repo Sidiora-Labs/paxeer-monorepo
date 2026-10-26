@@ -9,6 +9,7 @@ import (
 	"math"
 	"os"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -257,6 +258,14 @@ func (app *BaseApp) SetProcessProposalStateToCommit() {
 
 func (app *BaseApp) SetDeliverStateToCommit() {
 	app.stateToCommit = app.deliverState
+}
+
+func (app *BaseApp) SetSealedStateToCommit(ctx sdk.Context, ms sdk.CacheMultiStore) error {
+	if ms == nil {
+		return errors.New("cannot commit a nil sealed multistore")
+	}
+	app.stateToCommit = &state{ms: ms, ctx: ctx.WithMultiStore(ms), mtx: &sync.RWMutex{}}
+	return nil
 }
 
 // Commit implements the ABCI interface. It will commit all state that exists in
