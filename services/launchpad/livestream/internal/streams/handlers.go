@@ -161,6 +161,7 @@ func (h *Handlers) RegisterRoutes(r chi.Router) {
 	r.Post("/webhooks/livepeer", h.provisioned(h.webhook))
 	r.Post("/webhooks/livepeer/playback-access", h.provisioned(h.playbackAccess))
 	r.Route("/v2", func(v chi.Router) {
+		v.Post("/provider-webhooks/livepeer", h.provisioned(h.webhook))
 		v.Get("/streams", h.listV2)
 		v.Post("/streams", h.provisioned(h.connectedCreate))
 		v.Patch("/streams/{id}", h.provisioned(h.connectedEdit))
