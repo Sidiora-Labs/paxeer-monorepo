@@ -110,9 +110,6 @@ type Config struct {
 	// timeout for filters
 	FilterTimeout time.Duration `mapstructure:"filter_timeout"`
 
-	// checkTx timeout for sig verify
-	CheckTxTimeout time.Duration `mapstructure:"checktx_timeout"`
-
 	// max number of txs to pull from mempool
 	MaxTxPoolTxs uint64 `mapstructure:"max_tx_pool_txs"`
 
@@ -215,7 +212,6 @@ var DefaultConfig = Config{
 	CORSOrigins:                  "*",
 	WSOrigins:                    "*",
 	FilterTimeout:                120 * time.Second,
-	CheckTxTimeout:               5 * time.Second,
 	MaxTxPoolTxs:                 1000,
 	Slow:                         false,
 	DenyList:                     make([]string, 0),
@@ -269,7 +265,6 @@ const (
 	flagWSOrigins                    = "evm.ws_origins"
 	flagFilterTimeout                = "evm.filter_timeout"
 	flagMaxTxPoolTxs                 = "evm.max_tx_pool_txs"
-	flagCheckTxTimeout               = "evm.checktx_timeout"
 	flagSlow                         = "evm.slow"
 	flagDenyList                     = "evm.deny_list"
 	flagMaxLogNoBlock                = "evm.max_log_no_block"
@@ -386,11 +381,6 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagFilterTimeout); v != nil {
 		if cfg.FilterTimeout, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
-		}
-	}
-	if v := opts.Get(flagCheckTxTimeout); v != nil {
-		if cfg.CheckTxTimeout, err = cast.ToDurationE(v); err != nil {
 			return cfg, err
 		}
 	}
@@ -599,9 +589,6 @@ ws_origins = "{{ .EVM.WSOrigins }}"
 
 # timeout for filters
 filter_timeout = "{{ .EVM.FilterTimeout }}"
-
-# checkTx timeout for sig verify
-checktx_timeout = "{{ .EVM.CheckTxTimeout }}"
 
 max_tx_pool_txs = {{ .EVM.MaxTxPoolTxs }}
 

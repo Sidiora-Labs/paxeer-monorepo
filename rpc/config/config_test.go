@@ -212,6 +212,30 @@ func getDefaultOpts() opts {
 	}
 }
 
+func TestReadConfigIgnoresChecktxTimeout(t *testing.T) {
+	for _, value := range []string{`"5s"`, `"bad"`, `["5s"]`} {
+		t.Run(value, func(t *testing.T) {
+			options := viper.New()
+			options.SetConfigType("toml")
+			require.NoError(t, options.ReadConfig(bytes.NewBufferString("[evm]\nchecktx_timeout = "+value+"\n")))
+			require.True(t, options.IsSet("evm.checktx_timeout"))
+			cfg, err := config.ReadConfig(options)
+			require.NoError(t, err)
+			require.Equal(t, config.DefaultConfig, cfg)
+		})
+	}
+
+	tmpl, err := template.New("evm").Parse(config.ConfigTemplate)
+	require.NoError(t, err)
+	var rendered bytes.Buffer
+	require.NoError(t, tmpl.Execute(&rendered, struct{ EVM config.Config }{EVM: config.DefaultConfig}))
+	require.NotContains(t, rendered.String(), "checktx_timeout")
+	options := viper.New()
+	options.SetConfigType("toml")
+	require.NoError(t, options.ReadConfig(&rendered))
+	require.False(t, options.IsSet("evm.checktx_timeout"))
+}
+
 func readConfigTemplate(t *testing.T, cfg config.Config) config.Config {
 	t.Helper()
 	tmpl, err := template.New("evm").Parse(config.ConfigTemplate)
@@ -392,8 +416,9 @@ func TestReadConfig(t *testing.T) {
 	require.NotNil(t, err)
 	badOpts = goodOpts
 	badOpts.checkTxTimeout = "bad"
-	_, err = config.ReadConfig(&badOpts)
-	require.NotNil(t, err)
+	legacyCfg, err := config.ReadConfig(&badOpts)
+	require.NoError(t, err)
+	require.Equal(t, cfg, legacyCfg)
 	badOpts = goodOpts
 	badOpts.maxTxPoolTxs = "bad"
 	_, err = config.ReadConfig(&badOpts)
