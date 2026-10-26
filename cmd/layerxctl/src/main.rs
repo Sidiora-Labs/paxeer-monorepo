@@ -193,12 +193,24 @@ fn rpc_error(error: &SequencerError) -> String {
 }
 
 fn submit(client: &SequencerEndpoint, raw: &[u8]) -> Result<(String, ExitCode), String> {
+    let local = layerx_crypto::evm_transaction::transaction_hash(raw);
     let hash = match client.send_raw_transaction(raw) {
-        Ok(hash) if hash != [0; 32] => hash,
-        Ok(_) => return Err("submission returned a zero transaction hash".to_owned()),
+        Ok(hash) if hash == [0; 32] => {
+            return Err("submission returned a zero transaction hash".to_owned());
+        }
+        Ok(hash) if hash != local => {
+            return Err(format!(
+                "submission refused: transaction hash mismatch (local transaction hash: {})",
+                hex(&local)
+            ));
+        }
+        Ok(hash) => hash,
         Err(SequencerError::Unavailable) => {
             return Ok((
-                "{\"state\":\"submitted\",\"outcome\":\"unknown\"}".to_owned(),
+                format!(
+                    "{{\"state\":\"submitted\",\"outcome\":\"unknown\",\"transaction_hash\":\"{}\"}}",
+                    hex(&local)
+                ),
                 ExitCode::from(3),
             ));
         }
