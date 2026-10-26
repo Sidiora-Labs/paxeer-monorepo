@@ -61,6 +61,10 @@ struct LayerXEvidence {
     receipt_digest: String,
     verification_level: String,
     #[serde(default)]
+    block_number: Option<String>,
+    #[serde(default)]
+    block_hash: Option<String>,
+    #[serde(default)]
     purpose_hash: Option<String>,
 }
 
@@ -185,9 +189,33 @@ impl Buyer {
             .get("layerx")
             .cloned()
             .ok_or_else(|| fail(X402Error::EvidenceMissing))?;
-        let evidence: LayerXEvidence =
-            serde_json::from_value(evidence_value).map_err(|_| fail(X402Error::EvidenceMissing))?;
-        if evidence.verification_level != "receipted"
+        let has_block_fields = evidence_value.get("blockNumber").is_some()
+            || evidence_value.get("blockHash").is_some();
+        let evidence: LayerXEvidence = serde_json::from_value(evidence_value)
+            .map_err(|_| fail(X402Error::EvidenceMismatch))?;
+        let valid_rung = match evidence.verification_level.as_str() {
+            "receipted" => !has_block_fields,
+            "committed" => match (
+                evidence.block_number.as_deref(),
+                evidence.block_hash.as_deref(),
+            ) {
+                (Some(number), Some(hash)) => {
+                    number.strip_prefix("0x").is_some_and(|digits| {
+                        !digits.is_empty()
+                            && digits.len() <= 16
+                            && (digits == "0" || !digits.starts_with('0'))
+                            && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    }) && hash.len() == 66
+                        && hash.starts_with("0x")
+                        && hash.as_bytes()[2..]
+                            .iter()
+                            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(byte))
+                }
+                _ => false,
+            },
+            _ => false,
+        };
+        if !valid_rung
             || evidence.purpose_hash
                 != expected_purpose(&expected.payload.accepted).map_err(fail)?
         {
