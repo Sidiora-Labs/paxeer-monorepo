@@ -7,10 +7,12 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -214,6 +216,8 @@ func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 		{"launchpad", "buy", []any{pointer, big.NewInt(10), big.NewInt(9), big.NewInt(1000)}, "pool", pointer},
 		{"feetoken", "setFeeDenom", []any{"usid"}, "denom", "usid"},
 		{"xweb", "request", []any{uint8(2), []byte("query"), uint64(50_000)}, "callbackGas", uint64(50_000)},
+		{"layerxpay", "budgetFund", []any{did, big.NewInt(500)}, "budgetId", did},
+		{"layerxprograms", "call", []any{did, uint16(5), "execute", []byte{1, 2, 3}, []byte{4}, []byte{5}, uint32(1024), [7]uint64{1, 2, 3, 4, 5, 6, 7}, big.NewInt(100)}, "programId", did},
 	}
 	if len(cases) != len(PrecompileNames()) {
 		t.Fatalf("cases cover %d of %d precompiles", len(cases), len(PrecompileNames()))
@@ -261,6 +265,147 @@ func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 	addr, _ := PrecompileAddress("addr")
 	if _, err := DecodeCalldata(addr, []byte{0xde, 0xad, 0xbe, 0xef}); !errors.Is(err, ErrUnknownMethod) {
 		t.Fatalf("unknown precompile method: %v", err)
+	}
+}
+
+func TestDecodeCalldataForLayerxpayWrites(t *testing.T) {
+	address := common.HexToAddress("0x000000000000000000000000000000000000101B")
+	if got, ok := PrecompileAddress("layerxpay"); !ok || got != address || !IsPrecompile(address) {
+		t.Fatalf("layerxpay address %s registered=%v", got, ok)
+	}
+	amount := new(big.Int).Lsh(big.NewInt(1), 100)
+	budgetID := [32]byte{0x01}
+	escrowID := [32]byte{0x02}
+	owner := [32]byte{0x03}
+	escrowAccount := [32]byte{0x04}
+	beneficiary := [32]byte{0x05}
+	arbiter := [32]byte{0x06}
+	assetID := [32]byte{0x07}
+	termsHash := [32]byte{0x08}
+	agreementReference := [32]byte{0x09}
+	cases := []struct {
+		sig  string
+		args []any
+		want map[string]any
+	}{
+		{
+			sig:  "budgetFund(bytes32,uint128)",
+			args: []any{budgetID, amount},
+			want: map[string]any{"budgetId": budgetID, "amount": amount},
+		},
+		{
+			sig:  "escrowOpen(bytes32,bytes32,bytes32,bytes32,bytes32,bytes32,uint128,uint64,uint64,bytes32,bytes32)",
+			args: []any{escrowID, owner, escrowAccount, beneficiary, arbiter, assetID, amount, uint64(1_900_000_000_000), uint64(86_400_000), termsHash, agreementReference},
+			want: map[string]any{
+				"escrowId": escrowID, "owner": owner, "escrowAccount": escrowAccount,
+				"beneficiary": beneficiary, "arbiter": arbiter, "assetId": assetID,
+				"amount": amount, "expiryMs": uint64(1_900_000_000_000), "disputeWindowMs": uint64(86_400_000),
+				"termsHash": termsHash, "agreementReference": agreementReference,
+			},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.sig, func(t *testing.T) {
+			call := decodePrecompileWrite(t, address, "layerxpay", tc.sig, tc.args)
+			assertDecodedArgs(t, call.Args, tc.want)
+		})
+	}
+}
+
+func TestDecodeCalldataForLayerxprogramsWrites(t *testing.T) {
+	address := common.HexToAddress("0x000000000000000000000000000000000000101D")
+	if got, ok := PrecompileAddress("layerxprograms"); !ok || got != address || !IsPrecompile(address) {
+		t.Fatalf("layerxprograms address %s registered=%v", got, ok)
+	}
+	programID := [32]byte{0x11}
+	t.Run("call", func(t *testing.T) {
+		callData := []byte{0x01, 0x00, 0xff}
+		capabilities := []byte{0x02, 0x03}
+		accessDeclaration := []byte{0x04, 0x05, 0x06}
+		budget := [7]uint64{100_000, 200_000, 300_000, 400_000, 500_000, 600_000, 700_000}
+		feeLimit := new(big.Int).Lsh(big.NewInt(1), 100)
+		call := decodePrecompileWrite(t, address, "layerxprograms", "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
+			[]any{programID, uint16(5), "execute", callData, capabilities, accessDeclaration, uint32(4096), budget, feeLimit})
+		assertDecodedArgs(t, call.Args, map[string]any{
+			"programId": programID, "abiVersion": uint16(5), "entrypoint": "execute",
+			"callData": callData, "capabilities": capabilities, "accessDeclaration": accessDeclaration,
+			"responseCapacity": uint32(4096), "budget": budget, "feeLimit": feeLimit,
+		})
+	})
+	t.Run("transfer", func(t *testing.T) {
+		type transferLeg struct {
+			From   [32]byte
+			Asset  [32]byte
+			To     [32]byte
+			Amount *big.Int
+		}
+		legs := []transferLeg{
+			{From: [32]byte{0x21}, Asset: [32]byte{0x22}, To: [32]byte{0x23}, Amount: new(big.Int).Lsh(big.NewInt(1), 100)},
+			{From: [32]byte{0x31}, Asset: [32]byte{0x32}, To: [32]byte{0x33}, Amount: big.NewInt(77)},
+		}
+		call := decodePrecompileWrite(t, address, "layerxprograms", "transfer(bytes32,(bytes32,bytes32,bytes32,uint128)[])", []any{programID, legs})
+		if len(call.Args) != 2 || call.Args["programId"] != programID {
+			t.Fatalf("transfer args %v", call.Args)
+		}
+		value, ok := call.Args["legs"]
+		if !ok {
+			t.Fatal("transfer missing legs argument")
+		}
+		got := *abi.ConvertType(value, new([]transferLeg)).(*[]transferLeg)
+		if len(got) != len(legs) {
+			t.Fatalf("transfer legs %d want %d", len(got), len(legs))
+		}
+		for i, want := range legs {
+			if got[i].From != want.From || got[i].Asset != want.Asset || got[i].To != want.To || got[i].Amount == nil || got[i].Amount.Cmp(want.Amount) != 0 {
+				t.Fatalf("transfer leg %d = %+v want %+v", i, got[i], want)
+			}
+		}
+	})
+}
+
+func decodePrecompileWrite(t *testing.T, address common.Address, destination, sig string, args []any) *Call {
+	t.Helper()
+	contract, err := PrecompileABI(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	selector := crypto.Keccak256([]byte(sig))[:4]
+	method, err := contract.MethodById(selector)
+	if err != nil {
+		t.Fatalf("%s abi has no %s: %v", destination, sig, err)
+	}
+	packed, err := method.Inputs.Pack(args...)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := append(common.CopyBytes(selector), packed...)
+	call, err := DecodeCalldata(address, data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if call.Kind != CallPrecompile || call.To != address || call.Destination != destination || call.Method != method.Name || !bytes.Equal(call.Selector, selector) {
+		t.Fatalf("%s decoded as %+v", sig, call)
+	}
+	if _, err := DecodeCalldata(address, data[:len(data)-1]); !errors.Is(err, ErrMalformedCall) {
+		t.Fatalf("truncated %s calldata: %v", sig, err)
+	}
+	return call
+}
+
+func assertDecodedArgs(t *testing.T, got, want map[string]any) {
+	t.Helper()
+	if len(got) != len(want) {
+		t.Fatalf("args %v want %v", got, want)
+	}
+	for name, expected := range want {
+		if number, ok := expected.(*big.Int); ok {
+			actual, ok := got[name].(*big.Int)
+			if !ok || actual == nil || actual.Cmp(number) != 0 {
+				t.Fatalf("%s = %v want %v", name, got[name], expected)
+			}
+		} else if !reflect.DeepEqual(got[name], expected) {
+			t.Fatalf("%s = %v want %v", name, got[name], expected)
+		}
 	}
 }
 
