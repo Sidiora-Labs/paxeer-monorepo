@@ -800,3 +800,44 @@ func TokenParamLogs(ctx sdk.Context, before, after []types.TokenParams) []*ethty
 	}
 	return logs
 }
+
+func (k *Keeper) ListTokens(ctx sdk.Context, before, after []types.TokenParams) ([]types.TokenParams, []*ethtypes.Log, error) {
+	previous := make(map[common.Address]bool, len(before))
+	listed := make(map[common.Address]bool, len(after))
+	for _, params := range before {
+		previous[params.Address] = true
+	}
+	for _, params := range after {
+		listed[params.Address] = true
+	}
+	for _, params := range before {
+		if listed[params.Address] {
+			continue
+		}
+		book, err := k.GetBook(ctx, params.Address)
+		if err != nil {
+			return nil, nil, err
+		}
+		escrow, err := k.GetEscrow(ctx, params.Address)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !book.Reserves.IsZero() || !escrow.IsZero() {
+			return nil, nil, fmt.Errorf("%w: token %s holds reserves", types.ErrParamsInvalid, params.Address.Hex())
+		}
+	}
+	updated := append([]types.TokenParams(nil), after...)
+	var logs []*ethtypes.Log
+	for i, params := range updated {
+		if previous[params.Address] {
+			continue
+		}
+		registered, tokenLogs, err := k.RegisterToken(ctx, params)
+		if err != nil {
+			return nil, nil, err
+		}
+		updated[i] = registered
+		logs = append(logs, tokenLogs...)
+	}
+	return updated, logs, nil
+}
