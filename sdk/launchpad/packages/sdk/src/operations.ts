@@ -37,6 +37,7 @@ export class Operations {
   private readonly publicSnapshots = new PublicSnapshotRequests();
   constructor(readonly client: SdkClient) {}
   async call<N extends OperationName>(name: N, input: OperationInput<N>, options: Pick<RequestOptions, 'signal'|'headers'|'requestId'|'timeoutMs'> = {}): Promise<OperationResponse<N>> {
+    if (routeStatus(name) === 'development' && this.client.config.production) throw new CapabilityUnavailableError(`Operation ${name} is development-only`);
     const definition: Definition = operationDefinitions[name];
     if (!definition.response && !definition.emptyResponse && !definition.binaryResponse) throw new CapabilityUnavailableError('Operation requires its dedicated streaming transport');
     if (routeStatus(name) === 'unrouted') throw new CapabilityUnavailableError(`Operation ${name} has no served route`);
