@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { fileURLToPath } from 'node:url';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 import { keccak256, recoverAddress, recoverMessageAddress, recoverTypedDataAddress, toHex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { SIDIORA_DECIMALS, sponsoredBatchDigest as agentBatchDigest, type SponsoredBatch } from '@sidiora/layerx-sdk';
@@ -27,6 +27,7 @@ import {
   type ProviderEvent,
   type ProviderListener,
   type RequestArguments,
+  type SequencerReceiptAnswer,
   type SponsoredBatchConstruction,
   type Eip7702AuthorizationConstruction,
   type TypedDataPayload,
@@ -71,6 +72,14 @@ const fixtures: Fixture[] = readdirSync(fixtureDir)
   .map((name) => JSON.parse(readFileSync(`${fixtureDir}${name}`, 'utf8')) as Fixture);
 const vectors = JSON.parse(readFileSync(`${fixtureDir}constructions.json`, 'utf8')) as Constructions;
 const fixtureKey = keccak256(toHex('paxeer-wallet-sdk-fixture'));
+const sequencerFixtures = JSON.parse(
+  readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8'),
+) as Record<'submitted' | 'receipted' | 'committed', SequencerReceiptAnswer>;
+const sequencerReceipted: SequencerReceiptAnswer = {
+  ...sequencerFixtures.receipted,
+  blockNumber: sequencerFixtures.committed.blockNumber,
+  blockHash: sequencerFixtures.committed.blockHash,
+};
 
 const seen: Seen[] = [];
 let server: Server;
@@ -100,6 +109,22 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
   const path = `/${rest.join('/')}`;
   const body = await readBody(req);
   seen.push({ method: req.method ?? '', path, scenario, authorization: req.headers.authorization, body });
+  if (scenario === 'sequencer' && path === '/rpc') {
+    const rpc = body as { method: string; id: number; params: unknown[] };
+    if (
+      rpc.method !== 'pax_sequencerReceipt' ||
+      rpc.params.length !== 1 ||
+      rpc.params[0] !== sequencerFixtures.submitted.txHash
+    ) {
+      return send(res, 200, { jsonrpc: '2.0', id: rpc.id, error: { code: -32602, message: 'invalid receipt request' } });
+    }
+    const reads = seen.filter((request) => request.scenario === 'sequencer' && request.path === '/rpc').length;
+    return send(res, 200, {
+      jsonrpc: '2.0',
+      id: rpc.id,
+      result: reads === 1 ? sequencerFixtures.submitted : sequencerReceipted,
+    });
+  }
   if (scenario === 'rpc') {
     const rpc = body as { method: string; id: number };
     const fixture = fixtures.find((f) => f.scenario === 'rpc' && f.method === rpc.method);
@@ -116,6 +141,9 @@ async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> 
     );
   const fixture = matches(scenario) ?? matches('default');
   if (!fixture) return send(res, 404, { error: 'not_found' });
+  if (scenario === 'sequencer' && path === '/v1/wallet/send') {
+    return send(res, fixture.status, { ...(fixture.body as object), tx_hash: sequencerFixtures.submitted.txHash });
+  }
   send(res, fixture.status, fixture.body);
 }
 
@@ -763,6 +791,70 @@ describe('gas station through PaxeerProvider', () => {
     expect(seen.length).toBe(before);
   });
 });
+
+async function provider_send_transaction_receipted_answers_the_receipted_sequencer_receipt() {
+  const confirmations: string[] = [];
+  const p = provider('sequencer', {
+    rpc: `${base}/sequencer/rpc`,
+    confirm: ({ method }) => {
+      confirmations.push(method);
+      return true;
+    },
+  });
+  await p.request({ method: 'eth_requestAccounts' });
+  const before = seen.length;
+  const answer = await p.request({
+    method: 'paxeer_sendTransactionReceipted',
+    params: [{ from: vectors.address, ...vectors.transaction }],
+  });
+  expect(answer).toEqual(sequencerReceipted);
+  expect(answer).toMatchObject({ rung: 'receipted', txHash: sequencerFixtures.submitted.txHash });
+  expect(confirmations).toEqual(['paxeer_sendTransactionReceipted']);
+  expect(seen.slice(before)).toEqual([
+    {
+      method: 'POST',
+      path: '/v1/wallet/send',
+      scenario: 'sequencer',
+      authorization: `Bearer ${TOKEN}`,
+      body: { tx: vectors.transaction },
+    },
+    ...[1, 2].map((id) => ({
+      method: 'POST',
+      path: '/rpc',
+      scenario: 'sequencer',
+      authorization: undefined,
+      body: { jsonrpc: '2.0', id, method: 'pax_sequencerReceipt', params: [sequencerFixtures.submitted.txHash] },
+    })),
+  ]);
+  const rejected = provider('sequencer', { confirm: () => false });
+  await rejected.request({ method: 'eth_requestAccounts' });
+  const beforeRejected = seen.length;
+  await expect(
+    rejected.request({ method: 'paxeer_sendTransactionReceipted', params: [vectors.transaction] }),
+  ).rejects.toBeInstanceOf(UserRejectedRequestError);
+  expect(seen).toHaveLength(beforeRejected);
+}
+
+async function provider_eth_send_transaction_still_answers_only_the_hash() {
+  const p = provider('sequencer', { rpc: `${base}/sequencer/rpc` });
+  await p.request({ method: 'eth_requestAccounts' });
+  const before = seen.length;
+  const answer = await p.request({ method: 'eth_sendTransaction', params: [vectors.transaction] });
+  expect(answer).toBe(sequencerFixtures.submitted.txHash);
+  expect(typeof answer).toBe('string');
+  expect(seen.slice(before)).toEqual([
+    {
+      method: 'POST',
+      path: '/v1/wallet/send',
+      scenario: 'sequencer',
+      authorization: `Bearer ${TOKEN}`,
+      body: { tx: vectors.transaction },
+    },
+  ]);
+}
+
+test(provider_send_transaction_receipted_answers_the_receipted_sequencer_receipt);
+test(provider_eth_send_transaction_still_answers_only_the_hash);
 
 describe('WalletInterface', () => {
   async function script(wallet: WalletInterface): Promise<unknown[]> {

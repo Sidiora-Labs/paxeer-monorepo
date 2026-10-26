@@ -8,7 +8,9 @@ use k256::ecdsa::SigningKey;
 use k256::elliptic_curve::rand_core::OsRng;
 use layerx_gas_station::config::StationConfig;
 use layerx_gas_station::journal::{Entry, Journal, Key};
-use layerx_gas_station::policy::{DidBudget, PolicyRefusal, QuotePolicy};
+use layerx_gas_station::policy::{
+    DidBudget, PolicyRefusal, QuotePolicy, DID_BUDGET_INTERVAL_SECONDS,
+};
 use layerx_gas_station::price::PaymasterRateSource;
 use layerx_gas_station::quote::{address_word, keccak, word, Address, Word, SIDIORA};
 use layerx_gas_station::rpc::{hex, ConfiguredRpc, Exchange, RpcFault};
@@ -102,6 +104,7 @@ enum Binding {
 /// DID bindings. Every `eth_call` to the precompile is recorded.
 struct Chain {
     balance: Cell<u128>,
+    rate_updated_at: Cell<u64>,
     bindings: RefCell<BTreeMap<Address, Binding>>,
     did_calls: RefCell<Vec<Value>>,
     sent: Cell<usize>,
@@ -110,6 +113,7 @@ impl Chain {
     fn new(balance: u128) -> Rc<Self> {
         Rc::new(Self {
             balance: Cell::new(balance),
+            rate_updated_at: Cell::new(1000),
             bindings: RefCell::new(BTreeMap::new()),
             did_calls: RefCell::new(vec![]),
             sent: Cell::new(0),
@@ -177,7 +181,7 @@ impl Chain {
         if to == hex(&PAYMASTER) {
             assert_eq!(params[1], "latest");
             if data == keccak(b"rateUpdatedAt()")[..4] {
-                return Ok(json!(hex(&word(1000))));
+                return Ok(json!(hex(&word(u128::from(self.rate_updated_at.get())))));
             }
             if data == keccak(b"currentRate()")[..4] {
                 return Ok(json!(hex(&word(3_114_000))));
@@ -287,6 +291,19 @@ impl Harness {
             quote_nonce: word(quote_nonce),
         }
     }
+    fn quote_at(
+        &self,
+        station: &mut TestStation,
+        account: Address,
+        quote_nonce: u128,
+        now: u64,
+    ) -> Result<QuoteOutcome, Box<dyn std::error::Error>> {
+        self.chain.rate_updated_at.set(now);
+        let fees = fees(200_000);
+        let mut request = request(account, quote_nonce, fees)?;
+        request.deadline = now;
+        Ok(station.quote(&request, fees, now)?)
+    }
 }
 
 fn fees(gas_limit: u64) -> Fees {
@@ -344,6 +361,111 @@ fn policy(per_account_limit: u128) -> Result<QuotePolicy, Box<dyn std::error::Er
 }
 
 #[test]
+fn did_gas_budget_resets_at_the_day_boundary_not_the_policy_interval() -> TestResult {
+    assert_eq!(DID_BUDGET_INTERVAL_SECONDS, 86_400);
+    let mut harness = Harness::new(20_000_000_000_000_000_000)?;
+    harness.config.interval_seconds = 3600;
+    harness.config.per_account_limit = 40_000_000;
+    harness.config.per_interval_limit = 80_000_000;
+    let first = signer()?.address();
+    let second = signer()?.address();
+    harness.chain.bind(first, Binding::Bound([0x71; 32]));
+    harness.chain.bind(second, Binding::Bound([0x71; 32]));
+    let day_start = 2 * 86_400;
+    let mut station = harness.open()?;
+    for nonce in 1..=5 {
+        assert_eq!(
+            signed_amount(&harness.quote_at(&mut station, first, nonce, day_start + 3599)?),
+            Some(word(AMOUNT))
+        );
+    }
+    for now in [
+        day_start + 3599,
+        day_start + 3600,
+        day_start + 7200,
+        day_start + 86_399,
+    ] {
+        harness.chain.rate_updated_at.set(now);
+        let fees = fees(200_000);
+        let mut request = request(second, 6, fees)?;
+        request.deadline = now;
+        assert_eq!(
+            station.quote(&request, fees, now).err(),
+            Some(StationError::Quote(QuoteError::Policy(
+                PolicyRefusal::PerAccount
+            )))
+        );
+        assert_eq!(harness.signatures.get(), 5);
+        assert_eq!(station.journal().state().items.len(), 5);
+    }
+    for nonce in 6..=10 {
+        assert_eq!(
+            signed_amount(&harness.quote_at(&mut station, second, nonce, day_start + 86_400)?),
+            Some(word(AMOUNT))
+        );
+    }
+    assert_eq!(harness.signatures.get(), 10);
+    assert_eq!(station.journal().state().items.len(), 10);
+    assert_eq!(harness.chain.sent.get(), 0);
+    drop(station);
+    remove_journal(&harness.path)
+}
+
+#[test]
+fn journal_replay_restores_did_gas_within_the_same_day() -> TestResult {
+    let mut harness = Harness::new(20_000_000_000_000_000_000)?;
+    harness.config.interval_seconds = 3600;
+    harness.config.per_account_limit = 40_000_000;
+    harness.config.per_interval_limit = 80_000_000;
+    let first = signer()?.address();
+    let second = signer()?.address();
+    let did = did_of([0x72; 32]);
+    harness.chain.bind(first, Binding::Bound([0x72; 32]));
+    harness.chain.bind(second, Binding::Bound([0x72; 32]));
+    let day_start = 2 * 86_400;
+    let mut station = harness.open()?;
+    for nonce in 1..=5 {
+        let now = if nonce <= 3 {
+            day_start + 3599
+        } else {
+            day_start + 3600
+        };
+        assert_eq!(
+            signed_amount(&harness.quote_at(&mut station, first, nonce, now)?),
+            Some(word(AMOUNT))
+        );
+    }
+    drop(station);
+
+    let mut station = harness.open()?;
+    assert_eq!(
+        station.journal().state().did_spend(&did, 86_400, 2)?,
+        (5 * AMOUNT, 1_000_000)
+    );
+    let now = day_start + 7200;
+    harness.chain.rate_updated_at.set(now);
+    let fees = fees(200_000);
+    let mut request = request(second, 6, fees)?;
+    request.deadline = now;
+    assert_eq!(
+        station.quote(&request, fees, now).err(),
+        Some(StationError::Quote(QuoteError::Policy(
+            PolicyRefusal::PerAccount
+        )))
+    );
+    assert_eq!(harness.signatures.get(), 5);
+    assert_eq!(station.journal().state().items.len(), 5);
+    assert_eq!(
+        signed_amount(&harness.quote_at(&mut station, second, 6, day_start + 86_400)?),
+        Some(word(AMOUNT))
+    );
+    assert_eq!(harness.signatures.get(), 6);
+    assert_eq!(harness.chain.sent.get(), 0);
+    drop(station);
+    remove_journal(&harness.path)
+}
+
+#[test]
 fn accounts_sharing_did_share_budget() -> TestResult {
     let did = did_of([0x21; 32]);
     let other = did_of([0x22; 32]);
@@ -358,7 +480,12 @@ fn accounts_sharing_did_share_budget() -> TestResult {
         Err(PolicyRefusal::PerAccount)
     );
     assert_eq!(policy.used(&did, 1000), 60_000_000);
-    assert_eq!(policy.did_budget().used(&did, 16), 1);
+    assert_eq!(
+        policy
+            .did_budget()
+            .used(&did, 1000 / DID_BUDGET_INTERVAL_SECONDS),
+        1
+    );
     assert_eq!(policy.outstanding_pax(), outstanding);
     assert_eq!(policy.used(&hex(&[2; 20]), 1000), 0);
     assert_eq!(
@@ -387,8 +514,18 @@ fn unbound_account_uses_address() -> TestResult {
     );
     assert_eq!(policy.used(&unbound, 1000), 60_000_000);
     assert_eq!(policy.used(&did, 1000), 60_000_000);
-    assert_eq!(policy.did_budget().used(&did, 16), 1);
-    assert_eq!(policy.did_budget().used(&unbound, 16), 1);
+    assert_eq!(
+        policy
+            .did_budget()
+            .used(&did, 1000 / DID_BUDGET_INTERVAL_SECONDS),
+        1
+    );
+    assert_eq!(
+        policy
+            .did_budget()
+            .used(&unbound, 1000 / DID_BUDGET_INTERVAL_SECONDS),
+        1
+    );
     assert_eq!(
         policy.reserve([3; 20], 40_000_001, 1, u128::MAX, 1000),
         Err(PolicyRefusal::PerAccount)

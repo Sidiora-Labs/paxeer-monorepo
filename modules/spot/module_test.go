@@ -3,14 +3,17 @@ package spot_test
 import (
 	"encoding/json"
 	"testing"
+	"time"
 
 	pricefeedkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
 	pricefeedtestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/testutil"
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
@@ -74,4 +77,82 @@ func mustJSON(t *testing.T, gs *types.GenesisState) json.RawMessage {
 	bz, err := json.Marshal(gs)
 	require.NoError(t, err)
 	return bz
+}
+
+func newEndBlockerKeeper(t *testing.T) (*keeper.Keeper, sdk.Context, sdk.StoreKey, sdk.StoreKey) {
+	t.Helper()
+	app := testkeeper.EVMTestApp
+	ctx := app.GetContextForDeliverTx(nil).WithBlockHeight(10).WithBlockTime(time.Unix(1000, 0).UTC())
+	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx)).WithEventManager(sdk.NewEventManager())
+	key := sdk.NewKVStoreKey(types.StoreKey)
+	feedKey := sdk.NewKVStoreKey(pricefeedtypes.StoreKey)
+	ctx = pricefeedtestutil.WithPriceFeedStore(ctx, feedKey)
+	ctx = pricefeedtestutil.WithPriceFeedStore(ctx, key)
+	feed := pricefeedkeeper.NewKeeper(feedKey, app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
+	require.NoError(t, feed.SetParams(ctx, pricefeedtypes.DefaultParams(pricefeedtypes.DefaultAuthority())))
+	k := keeper.NewKeeper(key, app.BankKeeper, &app.EvmKeeper, feed)
+	k.InitGenesis(ctx, *types.DefaultGenesis())
+	return k, ctx.WithEventManager(sdk.NewEventManager()), key, feedKey
+}
+
+func TestEndBlockerEmitsRestingEvent(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		sampled bool
+		want    string
+	}{
+		{name: "idle", want: "0"},
+		{name: "price samples", sampled: true, want: "2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			k, ctx, key, feedKey := newEndBlockerKeeper(t)
+			params := types.DefaultParams()
+			if tc.sampled {
+				params.Tokens = types.OpeningTokens(common.HexToAddress("0xa1"), common.HexToAddress("0xb2"))
+				for _, token := range params.Tokens {
+					if token.IsStablecoin {
+						continue
+					}
+					price := sdk.NewIntWithDecimal(1, 18)
+					aggregate, err := json.Marshal(pricefeedtypes.Aggregate{
+						IndexPrice: price, MarkPrice: price, Basis: sdk.ZeroInt(),
+						TimestampMs: uint64(ctx.BlockTime().UnixMilli()), Height: ctx.BlockHeight(), Sources: 1,
+					})
+					require.NoError(t, err)
+					ctx.KVStore(feedKey).Set(pricefeedtypes.AggregateKey(token.MarketID), aggregate)
+				}
+			}
+			require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
+
+			require.NoError(t, spot.EndBlocker(ctx, k))
+			require.Equal(t, sdk.Events{sdk.NewEvent("spot_resting",
+				sdk.NewAttribute("samples", tc.want),
+				sdk.NewAttribute("expired", "0"),
+				sdk.NewAttribute("activated", "0"),
+				sdk.NewAttribute("filled", "0"),
+			)}, ctx.EventManager().Events())
+			if tc.sampled {
+				for _, token := range params.Tokens[1:] {
+					var ring types.TwapRing
+					ringKey := append(append([]byte(nil), types.TwapRingPrefix...), token.Address.Bytes()...)
+					require.NoError(t, json.Unmarshal(ctx.KVStore(key).Get(ringKey), &ring))
+					require.Equal(t, uint32(1), ring.Count)
+				}
+			}
+		})
+	}
+}
+
+func TestEndBlockerEmitsFailureEvent(t *testing.T) {
+	k, ctx, key, _ := newEndBlockerKeeper(t)
+	cursorKey := append(append([]byte(nil), types.CursorPrefix...), byte(1))
+	malformed := []byte{byte(types.FillIndexLimit)}
+	ctx.KVStore(key).Set(cursorKey, malformed)
+
+	err := spot.EndBlocker(ctx, k)
+	require.EqualError(t, err, "spot: invalid fill cursor")
+	require.Equal(t, sdk.Events{sdk.NewEvent("spot_resting_failed",
+		sdk.NewAttribute("error", err.Error()),
+	)}, ctx.EventManager().Events())
+	require.Equal(t, malformed, ctx.KVStore(key).Get(cursorKey))
 }

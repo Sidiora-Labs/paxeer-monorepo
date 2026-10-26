@@ -414,7 +414,23 @@ func (env *Environment) BlockSearch(ctx context.Context, req *coretypes.RequestB
 	pageSize := tmmath.MinInt(perPage, totalCount-skipCount)
 
 	apiResults := make([]*coretypes.ResultBlock, 0, pageSize)
+	giga, autobahn := env.gigaRouter().Get()
 	for i := skipCount; i < skipCount+pageSize; i++ {
+		if autobahn {
+			height, ok := utils.SafeCast[atypes.GlobalBlockNumber](results[i])
+			if !ok {
+				return nil, fmt.Errorf("invalid height %d", results[i])
+			}
+			block, err := giga.BlockByNumber(ctx, height)
+			if errors.Is(err, coretypes.ErrHeightNotAvailable) {
+				continue
+			}
+			if err != nil {
+				return nil, err
+			}
+			apiResults = append(apiResults, block)
+			continue
+		}
 		block := env.BlockStore.LoadBlock(results[i])
 		if block != nil {
 			blockMeta := env.BlockStore.LoadBlockMeta(block.Height)

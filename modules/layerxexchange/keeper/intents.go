@@ -66,23 +66,16 @@ func (k *Keeper) record(ctx sdk.Context, owner common.Address, intent types.Inte
 	return intent, nil
 }
 
-// DepositMargin moves amount of the asset's denom from the owner's bank
-// account into the layerxcustody module account as a custody deposit for the
-// LayerX account, and records the deposit intent that tells the router the
-// credit is margin. The asset must margin an enabled market.
+// RecordDepositMarginIntent records an intent for margin credit the router
+// already holds for the owner account. The asset must margin an enabled market.
 func (k *Keeper) RecordDepositMarginIntent(ctx sdk.Context, owner common.Address, ownerAccount sdk.AccAddress,
 	assetID, account [32]byte, amount sdk.Int) (types.Intent, error) {
 	if !k.GetParams(ctx).MarginAsset(custodytypes.Hash32(assetID)) {
 		return types.Intent{}, types.ErrNotMarginAsset
 	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Intent, error) {
-		deposit, err := k.custody.Deposit(ctx, owner, ownerAccount, assetID, account, amount)
-		if err != nil {
-			return types.Intent{}, err
-		}
 		intent, err := k.record(ctx, owner, types.Intent{Kind: types.IntentKind_INTENT_KIND_DEPOSIT,
-			Account: deposit.Beneficiary, AssetId: deposit.AssetId, Denom: deposit.Denom, Amount: deposit.Amount,
-			DepositId: deposit.DepositId})
+			Account: custodytypes.Hash32(account), AssetId: custodytypes.Hash32(assetID), Amount: amount.String()})
 		if err != nil {
 			return types.Intent{}, err
 		}
