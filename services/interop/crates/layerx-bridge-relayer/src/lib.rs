@@ -24,6 +24,7 @@ pub mod config;
 pub mod cosign;
 pub mod hex;
 pub mod journal;
+pub mod receipt;
 pub mod relayer;
 pub mod rpc;
 pub mod signer;
