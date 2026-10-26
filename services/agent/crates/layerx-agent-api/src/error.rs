@@ -106,6 +106,17 @@ pub struct ApiError {
 }
 
 impl ApiError {
+    #[must_use]
+    pub fn idempotent_replay(request_id: RequestId) -> Self {
+        Self {
+            class: ErrorClass::CoreRejection,
+            protocol_result_code: Some(ResultCode::from_raw(-302)),
+            retriability: Retriability::Terminal,
+            request_id,
+            reason: ReasonCode("idempotent_replay".into()),
+        }
+    }
+
     /// Constructs the non-emulated unavailable-capability error.
     ///
     /// # Errors
