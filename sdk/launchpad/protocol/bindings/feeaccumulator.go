@@ -31,7 +31,7 @@ var (
 
 // FeeAccumulatorMetaData contains all meta data concerning the FeeAccumulator contract.
 var FeeAccumulatorMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AirdropNotTriggered\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyClaimed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ApproveFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"MissingRole\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NoFeesAccumulated\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrancyGuardReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughActiveProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnauthorizedUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WrongStrategy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAmount\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"AirdropClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"totalAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"AirdropTriggered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"feeAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"protocolCut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"poolCut\",\"type\":\"uint256\"}],\"name\":\"FeeRecorded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeesBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeesClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"version\",\"type\":\"uint64\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"LpRewardsSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeeSwept\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"previousAdminRole\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"newAdminRole\",\"type\":\"bytes32\"}],\"name\":\"RoleAdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleGranted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleRevoked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"DEAD_ADDRESS\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"DEFAULT_ADMIN_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"FEES_ROUTER_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"POOL_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"burn\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"claim\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"}],\"name\":\"claimAirdrop\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"eventEmitter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getAccumulatedFees\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getAirdropBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getAirdropEpoch\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getLpRewardsBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getProtocolFeesPending\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"getRoleAdmin\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"grantRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"hasClaimedAirdrop\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"hasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_protocolConfig\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_poolRegistry\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_eventEmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_usdlAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_admin\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"poolRegistry\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"protocolConfig\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"feeAmount\",\"type\":\"uint256\"}],\"name\":\"recordFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"callerConfirmation\",\"type\":\"address\"}],\"name\":\"renounceRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"revokeRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"sendLpRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"treasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"triggerAirdrop\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"totalAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"upgradeToAndCall\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"usdlAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"AirdropNotTriggered\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyClaimed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"AlreadyInitialized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ApproveFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InsufficientSurplus\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidImplementation\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"InvalidRoleAccount\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"LastDefaultAdmin\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"MissingRole\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NoFeesAccumulated\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NonPayableUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"NotInitializing\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ReentrancyGuardReentrantCall\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"TransferFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughActiveProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UUPSNotThroughProxy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"Unauthorized\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnauthorizedUpgrade\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UnsupportedSnapshotToken\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"UpgradeInitializationFailed\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"WrongStrategy\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAddress\",\"type\":\"error\"},{\"inputs\":[],\"name\":\"ZeroAmount\",\"type\":\"error\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"liabilities\",\"type\":\"uint256\"}],\"name\":\"AccountingMigrated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"AirdropClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"totalAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"AirdropTriggered\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"feeAmount\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"protocolCut\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"poolCut\",\"type\":\"uint256\"}],\"name\":\"FeeRecorded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeesBurned\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"FeesClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint64\",\"name\":\"version\",\"type\":\"uint64\"}],\"name\":\"Initialized\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"},{\"indexed\":false,\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"budget\",\"type\":\"uint256\"}],\"name\":\"LegacyAirdropAllocated\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"LpRewardsSent\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes4\",\"name\":\"selector\",\"type\":\"bytes4\"}],\"name\":\"MirrorFailed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"OpticalSurplusClaimed\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"OpticalSurplusRecorded\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":false,\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"ProtocolFeeSwept\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"previousAdminRole\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"newAdminRole\",\"type\":\"bytes32\"}],\"name\":\"RoleAdminChanged\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleGranted\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"},{\"indexed\":true,\"internalType\":\"address\",\"name\":\"sender\",\"type\":\"address\"}],\"name\":\"RoleRevoked\",\"type\":\"event\"},{\"anonymous\":false,\"inputs\":[{\"indexed\":true,\"internalType\":\"address\",\"name\":\"implementation\",\"type\":\"address\"}],\"name\":\"Upgraded\",\"type\":\"event\"},{\"inputs\":[],\"name\":\"DEAD_ADDRESS\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"DEFAULT_ADMIN_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"FACTORY_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"FEES_ROUTER_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"OPTICAL_CLAIM_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"OPTICAL_GRANTER_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"POOL_ROLE\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"accountingInitialized\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"accountingMigrationCursor\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"airdropClaimedSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"airdropEligibleSupply\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"airdropEpochRemaining\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"airdropSnapshotBlock\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"root\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"budget\",\"type\":\"uint256\"}],\"name\":\"allocateLegacyAirdrop\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"optical\",\"type\":\"address\"}],\"name\":\"authorizeOptical\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"authorizePool\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"burn\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"claim\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"}],\"name\":\"claimAirdrop\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"claimAirdropEpoch\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"bytes32[]\",\"name\":\"proof\",\"type\":\"bytes32[]\"}],\"name\":\"claimLegacyAirdrop\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"recipient\",\"type\":\"address\"}],\"name\":\"claimOpticalSurplus\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"eventEmitter\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getAccumulatedFees\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getAirdropBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getAirdropEpoch\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getLpRewardsBalance\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"getOpticalSurplus\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"getProtocolFeesPending\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"}],\"name\":\"getRoleAdmin\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"grantRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"holder\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"epoch\",\"type\":\"uint256\"}],\"name\":\"hasClaimedAirdrop\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"hasRole\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_protocolConfig\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_treasury\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_poolRegistry\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_eventEmitter\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_usdlAddress\",\"type\":\"address\"},{\"internalType\":\"address\",\"name\":\"_admin\",\"type\":\"address\"}],\"name\":\"initialize\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"legacyAirdropRemaining\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"name\":\"legacyAirdropRoot\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"legacyAirdropUnallocated\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"uint256\",\"name\":\"maxPools\",\"type\":\"uint256\"}],\"name\":\"migrateAccounting\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address[]\",\"name\":\"pools\",\"type\":\"address[]\"}],\"name\":\"migrateAdditionalAccounting\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"poolRegistry\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"protocolConfig\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"proxiableUUID\",\"outputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"feeAmount\",\"type\":\"uint256\"}],\"name\":\"recordFee\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"},{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"name\":\"recordOpticalSurplus\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"registeredDefaultAdminCount\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"callerConfirmation\",\"type\":\"address\"}],\"name\":\"renounceRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"role\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"account\",\"type\":\"address\"}],\"name\":\"revokeRole\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"sendLpRewards\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"amount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"supportsAirdrop\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"totalLiabilities\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"treasury\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"pool\",\"type\":\"address\"}],\"name\":\"triggerAirdrop\",\"outputs\":[{\"internalType\":\"uint256\",\"name\":\"totalAmount\",\"type\":\"uint256\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"newImplementation\",\"type\":\"address\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"name\":\"upgradeToAndCall\",\"outputs\":[],\"stateMutability\":\"payable\",\"type\":\"function\"},{\"inputs\":[],\"name\":\"usdlAddress\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 // FeeAccumulatorABI is the input ABI used to generate the binding from.
@@ -242,6 +242,37 @@ func (_FeeAccumulator *FeeAccumulatorCallerSession) DEFAULTADMINROLE() ([32]byte
 	return _FeeAccumulator.Contract.DEFAULTADMINROLE(&_FeeAccumulator.CallOpts)
 }
 
+// FACTORYROLE is a free data retrieval call binding the contract method 0x04a0fb17.
+//
+// Solidity: function FACTORY_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCaller) FACTORYROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "FACTORY_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// FACTORYROLE is a free data retrieval call binding the contract method 0x04a0fb17.
+//
+// Solidity: function FACTORY_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorSession) FACTORYROLE() ([32]byte, error) {
+	return _FeeAccumulator.Contract.FACTORYROLE(&_FeeAccumulator.CallOpts)
+}
+
+// FACTORYROLE is a free data retrieval call binding the contract method 0x04a0fb17.
+//
+// Solidity: function FACTORY_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) FACTORYROLE() ([32]byte, error) {
+	return _FeeAccumulator.Contract.FACTORYROLE(&_FeeAccumulator.CallOpts)
+}
+
 // FEESROUTERROLE is a free data retrieval call binding the contract method 0xdfb76d70.
 //
 // Solidity: function FEES_ROUTER_ROLE() view returns(bytes32)
@@ -273,6 +304,68 @@ func (_FeeAccumulator *FeeAccumulatorCallerSession) FEESROUTERROLE() ([32]byte, 
 	return _FeeAccumulator.Contract.FEESROUTERROLE(&_FeeAccumulator.CallOpts)
 }
 
+// OPTICALCLAIMROLE is a free data retrieval call binding the contract method 0x39df917a.
+//
+// Solidity: function OPTICAL_CLAIM_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCaller) OPTICALCLAIMROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "OPTICAL_CLAIM_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// OPTICALCLAIMROLE is a free data retrieval call binding the contract method 0x39df917a.
+//
+// Solidity: function OPTICAL_CLAIM_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorSession) OPTICALCLAIMROLE() ([32]byte, error) {
+	return _FeeAccumulator.Contract.OPTICALCLAIMROLE(&_FeeAccumulator.CallOpts)
+}
+
+// OPTICALCLAIMROLE is a free data retrieval call binding the contract method 0x39df917a.
+//
+// Solidity: function OPTICAL_CLAIM_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) OPTICALCLAIMROLE() ([32]byte, error) {
+	return _FeeAccumulator.Contract.OPTICALCLAIMROLE(&_FeeAccumulator.CallOpts)
+}
+
+// OPTICALGRANTERROLE is a free data retrieval call binding the contract method 0x85f3d987.
+//
+// Solidity: function OPTICAL_GRANTER_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCaller) OPTICALGRANTERROLE(opts *bind.CallOpts) ([32]byte, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "OPTICAL_GRANTER_ROLE")
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// OPTICALGRANTERROLE is a free data retrieval call binding the contract method 0x85f3d987.
+//
+// Solidity: function OPTICAL_GRANTER_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorSession) OPTICALGRANTERROLE() ([32]byte, error) {
+	return _FeeAccumulator.Contract.OPTICALGRANTERROLE(&_FeeAccumulator.CallOpts)
+}
+
+// OPTICALGRANTERROLE is a free data retrieval call binding the contract method 0x85f3d987.
+//
+// Solidity: function OPTICAL_GRANTER_ROLE() view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) OPTICALGRANTERROLE() ([32]byte, error) {
+	return _FeeAccumulator.Contract.OPTICALGRANTERROLE(&_FeeAccumulator.CallOpts)
+}
+
 // POOLROLE is a free data retrieval call binding the contract method 0x404ccd07.
 //
 // Solidity: function POOL_ROLE() view returns(bytes32)
@@ -302,6 +395,192 @@ func (_FeeAccumulator *FeeAccumulatorSession) POOLROLE() ([32]byte, error) {
 // Solidity: function POOL_ROLE() view returns(bytes32)
 func (_FeeAccumulator *FeeAccumulatorCallerSession) POOLROLE() ([32]byte, error) {
 	return _FeeAccumulator.Contract.POOLROLE(&_FeeAccumulator.CallOpts)
+}
+
+// AccountingInitialized is a free data retrieval call binding the contract method 0x2a2593e7.
+//
+// Solidity: function accountingInitialized() view returns(bool)
+func (_FeeAccumulator *FeeAccumulatorCaller) AccountingInitialized(opts *bind.CallOpts) (bool, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "accountingInitialized")
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// AccountingInitialized is a free data retrieval call binding the contract method 0x2a2593e7.
+//
+// Solidity: function accountingInitialized() view returns(bool)
+func (_FeeAccumulator *FeeAccumulatorSession) AccountingInitialized() (bool, error) {
+	return _FeeAccumulator.Contract.AccountingInitialized(&_FeeAccumulator.CallOpts)
+}
+
+// AccountingInitialized is a free data retrieval call binding the contract method 0x2a2593e7.
+//
+// Solidity: function accountingInitialized() view returns(bool)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) AccountingInitialized() (bool, error) {
+	return _FeeAccumulator.Contract.AccountingInitialized(&_FeeAccumulator.CallOpts)
+}
+
+// AccountingMigrationCursor is a free data retrieval call binding the contract method 0xad37f674.
+//
+// Solidity: function accountingMigrationCursor() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) AccountingMigrationCursor(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "accountingMigrationCursor")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// AccountingMigrationCursor is a free data retrieval call binding the contract method 0xad37f674.
+//
+// Solidity: function accountingMigrationCursor() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) AccountingMigrationCursor() (*big.Int, error) {
+	return _FeeAccumulator.Contract.AccountingMigrationCursor(&_FeeAccumulator.CallOpts)
+}
+
+// AccountingMigrationCursor is a free data retrieval call binding the contract method 0xad37f674.
+//
+// Solidity: function accountingMigrationCursor() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) AccountingMigrationCursor() (*big.Int, error) {
+	return _FeeAccumulator.Contract.AccountingMigrationCursor(&_FeeAccumulator.CallOpts)
+}
+
+// AirdropClaimedSupply is a free data retrieval call binding the contract method 0x9deb3b11.
+//
+// Solidity: function airdropClaimedSupply(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) AirdropClaimedSupply(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "airdropClaimedSupply", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// AirdropClaimedSupply is a free data retrieval call binding the contract method 0x9deb3b11.
+//
+// Solidity: function airdropClaimedSupply(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) AirdropClaimedSupply(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropClaimedSupply(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropClaimedSupply is a free data retrieval call binding the contract method 0x9deb3b11.
+//
+// Solidity: function airdropClaimedSupply(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) AirdropClaimedSupply(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropClaimedSupply(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropEligibleSupply is a free data retrieval call binding the contract method 0xd71c7375.
+//
+// Solidity: function airdropEligibleSupply(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) AirdropEligibleSupply(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "airdropEligibleSupply", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// AirdropEligibleSupply is a free data retrieval call binding the contract method 0xd71c7375.
+//
+// Solidity: function airdropEligibleSupply(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) AirdropEligibleSupply(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropEligibleSupply(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropEligibleSupply is a free data retrieval call binding the contract method 0xd71c7375.
+//
+// Solidity: function airdropEligibleSupply(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) AirdropEligibleSupply(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropEligibleSupply(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropEpochRemaining is a free data retrieval call binding the contract method 0x81de2866.
+//
+// Solidity: function airdropEpochRemaining(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) AirdropEpochRemaining(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "airdropEpochRemaining", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// AirdropEpochRemaining is a free data retrieval call binding the contract method 0x81de2866.
+//
+// Solidity: function airdropEpochRemaining(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) AirdropEpochRemaining(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropEpochRemaining(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropEpochRemaining is a free data retrieval call binding the contract method 0x81de2866.
+//
+// Solidity: function airdropEpochRemaining(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) AirdropEpochRemaining(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropEpochRemaining(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropSnapshotBlock is a free data retrieval call binding the contract method 0xae1e143b.
+//
+// Solidity: function airdropSnapshotBlock(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) AirdropSnapshotBlock(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "airdropSnapshotBlock", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// AirdropSnapshotBlock is a free data retrieval call binding the contract method 0xae1e143b.
+//
+// Solidity: function airdropSnapshotBlock(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) AirdropSnapshotBlock(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropSnapshotBlock(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// AirdropSnapshotBlock is a free data retrieval call binding the contract method 0xae1e143b.
+//
+// Solidity: function airdropSnapshotBlock(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) AirdropSnapshotBlock(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.AirdropSnapshotBlock(&_FeeAccumulator.CallOpts, arg0, arg1)
 }
 
 // EventEmitter is a free data retrieval call binding the contract method 0x9ff78c30.
@@ -459,6 +738,37 @@ func (_FeeAccumulator *FeeAccumulatorCallerSession) GetLpRewardsBalance(pool com
 	return _FeeAccumulator.Contract.GetLpRewardsBalance(&_FeeAccumulator.CallOpts, pool)
 }
 
+// GetOpticalSurplus is a free data retrieval call binding the contract method 0xfc7ea90c.
+//
+// Solidity: function getOpticalSurplus(address pool) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) GetOpticalSurplus(opts *bind.CallOpts, pool common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "getOpticalSurplus", pool)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// GetOpticalSurplus is a free data retrieval call binding the contract method 0xfc7ea90c.
+//
+// Solidity: function getOpticalSurplus(address pool) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) GetOpticalSurplus(pool common.Address) (*big.Int, error) {
+	return _FeeAccumulator.Contract.GetOpticalSurplus(&_FeeAccumulator.CallOpts, pool)
+}
+
+// GetOpticalSurplus is a free data retrieval call binding the contract method 0xfc7ea90c.
+//
+// Solidity: function getOpticalSurplus(address pool) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) GetOpticalSurplus(pool common.Address) (*big.Int, error) {
+	return _FeeAccumulator.Contract.GetOpticalSurplus(&_FeeAccumulator.CallOpts, pool)
+}
+
 // GetProtocolFeesPending is a free data retrieval call binding the contract method 0x52b2a385.
 //
 // Solidity: function getProtocolFeesPending() view returns(uint256)
@@ -583,6 +893,99 @@ func (_FeeAccumulator *FeeAccumulatorCallerSession) HasRole(role [32]byte, accou
 	return _FeeAccumulator.Contract.HasRole(&_FeeAccumulator.CallOpts, role, account)
 }
 
+// LegacyAirdropRemaining is a free data retrieval call binding the contract method 0xf10dec34.
+//
+// Solidity: function legacyAirdropRemaining(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) LegacyAirdropRemaining(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "legacyAirdropRemaining", arg0, arg1)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// LegacyAirdropRemaining is a free data retrieval call binding the contract method 0xf10dec34.
+//
+// Solidity: function legacyAirdropRemaining(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) LegacyAirdropRemaining(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.LegacyAirdropRemaining(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// LegacyAirdropRemaining is a free data retrieval call binding the contract method 0xf10dec34.
+//
+// Solidity: function legacyAirdropRemaining(address , uint256 ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) LegacyAirdropRemaining(arg0 common.Address, arg1 *big.Int) (*big.Int, error) {
+	return _FeeAccumulator.Contract.LegacyAirdropRemaining(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// LegacyAirdropRoot is a free data retrieval call binding the contract method 0x45f34775.
+//
+// Solidity: function legacyAirdropRoot(address , uint256 ) view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCaller) LegacyAirdropRoot(opts *bind.CallOpts, arg0 common.Address, arg1 *big.Int) ([32]byte, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "legacyAirdropRoot", arg0, arg1)
+
+	if err != nil {
+		return *new([32]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
+
+	return out0, err
+
+}
+
+// LegacyAirdropRoot is a free data retrieval call binding the contract method 0x45f34775.
+//
+// Solidity: function legacyAirdropRoot(address , uint256 ) view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorSession) LegacyAirdropRoot(arg0 common.Address, arg1 *big.Int) ([32]byte, error) {
+	return _FeeAccumulator.Contract.LegacyAirdropRoot(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// LegacyAirdropRoot is a free data retrieval call binding the contract method 0x45f34775.
+//
+// Solidity: function legacyAirdropRoot(address , uint256 ) view returns(bytes32)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) LegacyAirdropRoot(arg0 common.Address, arg1 *big.Int) ([32]byte, error) {
+	return _FeeAccumulator.Contract.LegacyAirdropRoot(&_FeeAccumulator.CallOpts, arg0, arg1)
+}
+
+// LegacyAirdropUnallocated is a free data retrieval call binding the contract method 0x8e09d24b.
+//
+// Solidity: function legacyAirdropUnallocated(address ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) LegacyAirdropUnallocated(opts *bind.CallOpts, arg0 common.Address) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "legacyAirdropUnallocated", arg0)
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// LegacyAirdropUnallocated is a free data retrieval call binding the contract method 0x8e09d24b.
+//
+// Solidity: function legacyAirdropUnallocated(address ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) LegacyAirdropUnallocated(arg0 common.Address) (*big.Int, error) {
+	return _FeeAccumulator.Contract.LegacyAirdropUnallocated(&_FeeAccumulator.CallOpts, arg0)
+}
+
+// LegacyAirdropUnallocated is a free data retrieval call binding the contract method 0x8e09d24b.
+//
+// Solidity: function legacyAirdropUnallocated(address ) view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) LegacyAirdropUnallocated(arg0 common.Address) (*big.Int, error) {
+	return _FeeAccumulator.Contract.LegacyAirdropUnallocated(&_FeeAccumulator.CallOpts, arg0)
+}
+
 // PoolRegistry is a free data retrieval call binding the contract method 0xafcff50f.
 //
 // Solidity: function poolRegistry() view returns(address)
@@ -676,6 +1079,99 @@ func (_FeeAccumulator *FeeAccumulatorCallerSession) ProxiableUUID() ([32]byte, e
 	return _FeeAccumulator.Contract.ProxiableUUID(&_FeeAccumulator.CallOpts)
 }
 
+// RegisteredDefaultAdminCount is a free data retrieval call binding the contract method 0xc0cb71b6.
+//
+// Solidity: function registeredDefaultAdminCount() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) RegisteredDefaultAdminCount(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "registeredDefaultAdminCount")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// RegisteredDefaultAdminCount is a free data retrieval call binding the contract method 0xc0cb71b6.
+//
+// Solidity: function registeredDefaultAdminCount() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) RegisteredDefaultAdminCount() (*big.Int, error) {
+	return _FeeAccumulator.Contract.RegisteredDefaultAdminCount(&_FeeAccumulator.CallOpts)
+}
+
+// RegisteredDefaultAdminCount is a free data retrieval call binding the contract method 0xc0cb71b6.
+//
+// Solidity: function registeredDefaultAdminCount() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) RegisteredDefaultAdminCount() (*big.Int, error) {
+	return _FeeAccumulator.Contract.RegisteredDefaultAdminCount(&_FeeAccumulator.CallOpts)
+}
+
+// SupportsAirdrop is a free data retrieval call binding the contract method 0x8c61de83.
+//
+// Solidity: function supportsAirdrop(address pool) view returns(bool)
+func (_FeeAccumulator *FeeAccumulatorCaller) SupportsAirdrop(opts *bind.CallOpts, pool common.Address) (bool, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "supportsAirdrop", pool)
+
+	if err != nil {
+		return *new(bool), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(bool)).(*bool)
+
+	return out0, err
+
+}
+
+// SupportsAirdrop is a free data retrieval call binding the contract method 0x8c61de83.
+//
+// Solidity: function supportsAirdrop(address pool) view returns(bool)
+func (_FeeAccumulator *FeeAccumulatorSession) SupportsAirdrop(pool common.Address) (bool, error) {
+	return _FeeAccumulator.Contract.SupportsAirdrop(&_FeeAccumulator.CallOpts, pool)
+}
+
+// SupportsAirdrop is a free data retrieval call binding the contract method 0x8c61de83.
+//
+// Solidity: function supportsAirdrop(address pool) view returns(bool)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) SupportsAirdrop(pool common.Address) (bool, error) {
+	return _FeeAccumulator.Contract.SupportsAirdrop(&_FeeAccumulator.CallOpts, pool)
+}
+
+// TotalLiabilities is a free data retrieval call binding the contract method 0xf73579a9.
+//
+// Solidity: function totalLiabilities() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCaller) TotalLiabilities(opts *bind.CallOpts) (*big.Int, error) {
+	var out []interface{}
+	err := _FeeAccumulator.contract.Call(opts, &out, "totalLiabilities")
+
+	if err != nil {
+		return *new(*big.Int), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+
+	return out0, err
+
+}
+
+// TotalLiabilities is a free data retrieval call binding the contract method 0xf73579a9.
+//
+// Solidity: function totalLiabilities() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorSession) TotalLiabilities() (*big.Int, error) {
+	return _FeeAccumulator.Contract.TotalLiabilities(&_FeeAccumulator.CallOpts)
+}
+
+// TotalLiabilities is a free data retrieval call binding the contract method 0xf73579a9.
+//
+// Solidity: function totalLiabilities() view returns(uint256)
+func (_FeeAccumulator *FeeAccumulatorCallerSession) TotalLiabilities() (*big.Int, error) {
+	return _FeeAccumulator.Contract.TotalLiabilities(&_FeeAccumulator.CallOpts)
+}
+
 // Treasury is a free data retrieval call binding the contract method 0x61d027b3.
 //
 // Solidity: function treasury() view returns(address)
@@ -736,6 +1232,69 @@ func (_FeeAccumulator *FeeAccumulatorSession) UsdlAddress() (common.Address, err
 // Solidity: function usdlAddress() view returns(address)
 func (_FeeAccumulator *FeeAccumulatorCallerSession) UsdlAddress() (common.Address, error) {
 	return _FeeAccumulator.Contract.UsdlAddress(&_FeeAccumulator.CallOpts)
+}
+
+// AllocateLegacyAirdrop is a paid mutator transaction binding the contract method 0xb01b2210.
+//
+// Solidity: function allocateLegacyAirdrop(address pool, uint256 epoch, bytes32 root, uint256 budget) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) AllocateLegacyAirdrop(opts *bind.TransactOpts, pool common.Address, epoch *big.Int, root [32]byte, budget *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "allocateLegacyAirdrop", pool, epoch, root, budget)
+}
+
+// AllocateLegacyAirdrop is a paid mutator transaction binding the contract method 0xb01b2210.
+//
+// Solidity: function allocateLegacyAirdrop(address pool, uint256 epoch, bytes32 root, uint256 budget) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) AllocateLegacyAirdrop(pool common.Address, epoch *big.Int, root [32]byte, budget *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.AllocateLegacyAirdrop(&_FeeAccumulator.TransactOpts, pool, epoch, root, budget)
+}
+
+// AllocateLegacyAirdrop is a paid mutator transaction binding the contract method 0xb01b2210.
+//
+// Solidity: function allocateLegacyAirdrop(address pool, uint256 epoch, bytes32 root, uint256 budget) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) AllocateLegacyAirdrop(pool common.Address, epoch *big.Int, root [32]byte, budget *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.AllocateLegacyAirdrop(&_FeeAccumulator.TransactOpts, pool, epoch, root, budget)
+}
+
+// AuthorizeOptical is a paid mutator transaction binding the contract method 0x610edef8.
+//
+// Solidity: function authorizeOptical(address optical) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) AuthorizeOptical(opts *bind.TransactOpts, optical common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "authorizeOptical", optical)
+}
+
+// AuthorizeOptical is a paid mutator transaction binding the contract method 0x610edef8.
+//
+// Solidity: function authorizeOptical(address optical) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) AuthorizeOptical(optical common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.AuthorizeOptical(&_FeeAccumulator.TransactOpts, optical)
+}
+
+// AuthorizeOptical is a paid mutator transaction binding the contract method 0x610edef8.
+//
+// Solidity: function authorizeOptical(address optical) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) AuthorizeOptical(optical common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.AuthorizeOptical(&_FeeAccumulator.TransactOpts, optical)
+}
+
+// AuthorizePool is a paid mutator transaction binding the contract method 0x3059b7c6.
+//
+// Solidity: function authorizePool(address pool) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) AuthorizePool(opts *bind.TransactOpts, pool common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "authorizePool", pool)
+}
+
+// AuthorizePool is a paid mutator transaction binding the contract method 0x3059b7c6.
+//
+// Solidity: function authorizePool(address pool) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) AuthorizePool(pool common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.AuthorizePool(&_FeeAccumulator.TransactOpts, pool)
+}
+
+// AuthorizePool is a paid mutator transaction binding the contract method 0x3059b7c6.
+//
+// Solidity: function authorizePool(address pool) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) AuthorizePool(pool common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.AuthorizePool(&_FeeAccumulator.TransactOpts, pool)
 }
 
 // Burn is a paid mutator transaction binding the contract method 0x89afcb44.
@@ -801,6 +1360,69 @@ func (_FeeAccumulator *FeeAccumulatorTransactorSession) ClaimAirdrop(pool common
 	return _FeeAccumulator.Contract.ClaimAirdrop(&_FeeAccumulator.TransactOpts, pool, holder)
 }
 
+// ClaimAirdropEpoch is a paid mutator transaction binding the contract method 0xd195ba7e.
+//
+// Solidity: function claimAirdropEpoch(address pool, address holder, uint256 epoch) returns(uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorTransactor) ClaimAirdropEpoch(opts *bind.TransactOpts, pool common.Address, holder common.Address, epoch *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "claimAirdropEpoch", pool, holder, epoch)
+}
+
+// ClaimAirdropEpoch is a paid mutator transaction binding the contract method 0xd195ba7e.
+//
+// Solidity: function claimAirdropEpoch(address pool, address holder, uint256 epoch) returns(uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorSession) ClaimAirdropEpoch(pool common.Address, holder common.Address, epoch *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.ClaimAirdropEpoch(&_FeeAccumulator.TransactOpts, pool, holder, epoch)
+}
+
+// ClaimAirdropEpoch is a paid mutator transaction binding the contract method 0xd195ba7e.
+//
+// Solidity: function claimAirdropEpoch(address pool, address holder, uint256 epoch) returns(uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) ClaimAirdropEpoch(pool common.Address, holder common.Address, epoch *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.ClaimAirdropEpoch(&_FeeAccumulator.TransactOpts, pool, holder, epoch)
+}
+
+// ClaimLegacyAirdrop is a paid mutator transaction binding the contract method 0x05fb334e.
+//
+// Solidity: function claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] proof) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) ClaimLegacyAirdrop(opts *bind.TransactOpts, pool common.Address, epoch *big.Int, holder common.Address, amount *big.Int, proof [][32]byte) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "claimLegacyAirdrop", pool, epoch, holder, amount, proof)
+}
+
+// ClaimLegacyAirdrop is a paid mutator transaction binding the contract method 0x05fb334e.
+//
+// Solidity: function claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] proof) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) ClaimLegacyAirdrop(pool common.Address, epoch *big.Int, holder common.Address, amount *big.Int, proof [][32]byte) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.ClaimLegacyAirdrop(&_FeeAccumulator.TransactOpts, pool, epoch, holder, amount, proof)
+}
+
+// ClaimLegacyAirdrop is a paid mutator transaction binding the contract method 0x05fb334e.
+//
+// Solidity: function claimLegacyAirdrop(address pool, uint256 epoch, address holder, uint256 amount, bytes32[] proof) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) ClaimLegacyAirdrop(pool common.Address, epoch *big.Int, holder common.Address, amount *big.Int, proof [][32]byte) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.ClaimLegacyAirdrop(&_FeeAccumulator.TransactOpts, pool, epoch, holder, amount, proof)
+}
+
+// ClaimOpticalSurplus is a paid mutator transaction binding the contract method 0x613022fd.
+//
+// Solidity: function claimOpticalSurplus(address pool, uint256 amount, address recipient) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) ClaimOpticalSurplus(opts *bind.TransactOpts, pool common.Address, amount *big.Int, recipient common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "claimOpticalSurplus", pool, amount, recipient)
+}
+
+// ClaimOpticalSurplus is a paid mutator transaction binding the contract method 0x613022fd.
+//
+// Solidity: function claimOpticalSurplus(address pool, uint256 amount, address recipient) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) ClaimOpticalSurplus(pool common.Address, amount *big.Int, recipient common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.ClaimOpticalSurplus(&_FeeAccumulator.TransactOpts, pool, amount, recipient)
+}
+
+// ClaimOpticalSurplus is a paid mutator transaction binding the contract method 0x613022fd.
+//
+// Solidity: function claimOpticalSurplus(address pool, uint256 amount, address recipient) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) ClaimOpticalSurplus(pool common.Address, amount *big.Int, recipient common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.ClaimOpticalSurplus(&_FeeAccumulator.TransactOpts, pool, amount, recipient)
+}
+
 // GrantRole is a paid mutator transaction binding the contract method 0x2f2ff15d.
 //
 // Solidity: function grantRole(bytes32 role, address account) returns()
@@ -843,6 +1465,48 @@ func (_FeeAccumulator *FeeAccumulatorTransactorSession) Initialize(_protocolConf
 	return _FeeAccumulator.Contract.Initialize(&_FeeAccumulator.TransactOpts, _protocolConfig, _treasury, _poolRegistry, _eventEmitter, _usdlAddress, _admin)
 }
 
+// MigrateAccounting is a paid mutator transaction binding the contract method 0x479db4fd.
+//
+// Solidity: function migrateAccounting(uint256 maxPools) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) MigrateAccounting(opts *bind.TransactOpts, maxPools *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "migrateAccounting", maxPools)
+}
+
+// MigrateAccounting is a paid mutator transaction binding the contract method 0x479db4fd.
+//
+// Solidity: function migrateAccounting(uint256 maxPools) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) MigrateAccounting(maxPools *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.MigrateAccounting(&_FeeAccumulator.TransactOpts, maxPools)
+}
+
+// MigrateAccounting is a paid mutator transaction binding the contract method 0x479db4fd.
+//
+// Solidity: function migrateAccounting(uint256 maxPools) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) MigrateAccounting(maxPools *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.MigrateAccounting(&_FeeAccumulator.TransactOpts, maxPools)
+}
+
+// MigrateAdditionalAccounting is a paid mutator transaction binding the contract method 0xdb6087ea.
+//
+// Solidity: function migrateAdditionalAccounting(address[] pools) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) MigrateAdditionalAccounting(opts *bind.TransactOpts, pools []common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "migrateAdditionalAccounting", pools)
+}
+
+// MigrateAdditionalAccounting is a paid mutator transaction binding the contract method 0xdb6087ea.
+//
+// Solidity: function migrateAdditionalAccounting(address[] pools) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) MigrateAdditionalAccounting(pools []common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.MigrateAdditionalAccounting(&_FeeAccumulator.TransactOpts, pools)
+}
+
+// MigrateAdditionalAccounting is a paid mutator transaction binding the contract method 0xdb6087ea.
+//
+// Solidity: function migrateAdditionalAccounting(address[] pools) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) MigrateAdditionalAccounting(pools []common.Address) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.MigrateAdditionalAccounting(&_FeeAccumulator.TransactOpts, pools)
+}
+
 // RecordFee is a paid mutator transaction binding the contract method 0x0a6e0fd4.
 //
 // Solidity: function recordFee(address pool, uint256 feeAmount) returns()
@@ -862,6 +1526,27 @@ func (_FeeAccumulator *FeeAccumulatorSession) RecordFee(pool common.Address, fee
 // Solidity: function recordFee(address pool, uint256 feeAmount) returns()
 func (_FeeAccumulator *FeeAccumulatorTransactorSession) RecordFee(pool common.Address, feeAmount *big.Int) (*types.Transaction, error) {
 	return _FeeAccumulator.Contract.RecordFee(&_FeeAccumulator.TransactOpts, pool, feeAmount)
+}
+
+// RecordOpticalSurplus is a paid mutator transaction binding the contract method 0x9605d79b.
+//
+// Solidity: function recordOpticalSurplus(address pool, uint256 amount) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactor) RecordOpticalSurplus(opts *bind.TransactOpts, pool common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.contract.Transact(opts, "recordOpticalSurplus", pool, amount)
+}
+
+// RecordOpticalSurplus is a paid mutator transaction binding the contract method 0x9605d79b.
+//
+// Solidity: function recordOpticalSurplus(address pool, uint256 amount) returns()
+func (_FeeAccumulator *FeeAccumulatorSession) RecordOpticalSurplus(pool common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.RecordOpticalSurplus(&_FeeAccumulator.TransactOpts, pool, amount)
+}
+
+// RecordOpticalSurplus is a paid mutator transaction binding the contract method 0x9605d79b.
+//
+// Solidity: function recordOpticalSurplus(address pool, uint256 amount) returns()
+func (_FeeAccumulator *FeeAccumulatorTransactorSession) RecordOpticalSurplus(pool common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _FeeAccumulator.Contract.RecordOpticalSurplus(&_FeeAccumulator.TransactOpts, pool, amount)
 }
 
 // RenounceRole is a paid mutator transaction binding the contract method 0x36568abe.
@@ -967,6 +1652,140 @@ func (_FeeAccumulator *FeeAccumulatorSession) UpgradeToAndCall(newImplementation
 // Solidity: function upgradeToAndCall(address newImplementation, bytes data) payable returns()
 func (_FeeAccumulator *FeeAccumulatorTransactorSession) UpgradeToAndCall(newImplementation common.Address, data []byte) (*types.Transaction, error) {
 	return _FeeAccumulator.Contract.UpgradeToAndCall(&_FeeAccumulator.TransactOpts, newImplementation, data)
+}
+
+// FeeAccumulatorAccountingMigratedIterator is returned from FilterAccountingMigrated and is used to iterate over the raw logs and unpacked data for AccountingMigrated events raised by the FeeAccumulator contract.
+type FeeAccumulatorAccountingMigratedIterator struct {
+	Event *FeeAccumulatorAccountingMigrated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FeeAccumulatorAccountingMigratedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FeeAccumulatorAccountingMigrated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FeeAccumulatorAccountingMigrated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FeeAccumulatorAccountingMigratedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FeeAccumulatorAccountingMigratedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FeeAccumulatorAccountingMigrated represents a AccountingMigrated event raised by the FeeAccumulator contract.
+type FeeAccumulatorAccountingMigrated struct {
+	Liabilities *big.Int
+	Raw         types.Log // Blockchain specific contextual infos
+}
+
+// FilterAccountingMigrated is a free log retrieval operation binding the contract event 0x75b17ca7274960709421f611b666d569ceebe0cbb24821254bfe2e5e4fce9df2.
+//
+// Solidity: event AccountingMigrated(uint256 liabilities)
+func (_FeeAccumulator *FeeAccumulatorFilterer) FilterAccountingMigrated(opts *bind.FilterOpts) (*FeeAccumulatorAccountingMigratedIterator, error) {
+
+	logs, sub, err := _FeeAccumulator.contract.FilterLogs(opts, "AccountingMigrated")
+	if err != nil {
+		return nil, err
+	}
+	return &FeeAccumulatorAccountingMigratedIterator{contract: _FeeAccumulator.contract, event: "AccountingMigrated", logs: logs, sub: sub}, nil
+}
+
+// WatchAccountingMigrated is a free log subscription operation binding the contract event 0x75b17ca7274960709421f611b666d569ceebe0cbb24821254bfe2e5e4fce9df2.
+//
+// Solidity: event AccountingMigrated(uint256 liabilities)
+func (_FeeAccumulator *FeeAccumulatorFilterer) WatchAccountingMigrated(opts *bind.WatchOpts, sink chan<- *FeeAccumulatorAccountingMigrated) (event.Subscription, error) {
+
+	logs, sub, err := _FeeAccumulator.contract.WatchLogs(opts, "AccountingMigrated")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FeeAccumulatorAccountingMigrated)
+				if err := _FeeAccumulator.contract.UnpackLog(event, "AccountingMigrated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseAccountingMigrated is a log parse operation binding the contract event 0x75b17ca7274960709421f611b666d569ceebe0cbb24821254bfe2e5e4fce9df2.
+//
+// Solidity: event AccountingMigrated(uint256 liabilities)
+func (_FeeAccumulator *FeeAccumulatorFilterer) ParseAccountingMigrated(log types.Log) (*FeeAccumulatorAccountingMigrated, error) {
+	event := new(FeeAccumulatorAccountingMigrated)
+	if err := _FeeAccumulator.contract.UnpackLog(event, "AccountingMigrated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
 }
 
 // FeeAccumulatorAirdropClaimedIterator is returned from FilterAirdropClaimed and is used to iterate over the raw logs and unpacked data for AirdropClaimed events raised by the FeeAccumulator contract.
@@ -1850,6 +2669,161 @@ func (_FeeAccumulator *FeeAccumulatorFilterer) ParseInitialized(log types.Log) (
 	return event, nil
 }
 
+// FeeAccumulatorLegacyAirdropAllocatedIterator is returned from FilterLegacyAirdropAllocated and is used to iterate over the raw logs and unpacked data for LegacyAirdropAllocated events raised by the FeeAccumulator contract.
+type FeeAccumulatorLegacyAirdropAllocatedIterator struct {
+	Event *FeeAccumulatorLegacyAirdropAllocated // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FeeAccumulatorLegacyAirdropAllocatedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FeeAccumulatorLegacyAirdropAllocated)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FeeAccumulatorLegacyAirdropAllocated)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FeeAccumulatorLegacyAirdropAllocatedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FeeAccumulatorLegacyAirdropAllocatedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FeeAccumulatorLegacyAirdropAllocated represents a LegacyAirdropAllocated event raised by the FeeAccumulator contract.
+type FeeAccumulatorLegacyAirdropAllocated struct {
+	Pool   common.Address
+	Epoch  *big.Int
+	Root   [32]byte
+	Budget *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterLegacyAirdropAllocated is a free log retrieval operation binding the contract event 0x66f288a74d4384624c871c51e16635a78cbc49fc5c471db184fae9b5860ee216.
+//
+// Solidity: event LegacyAirdropAllocated(address indexed pool, uint256 indexed epoch, bytes32 root, uint256 budget)
+func (_FeeAccumulator *FeeAccumulatorFilterer) FilterLegacyAirdropAllocated(opts *bind.FilterOpts, pool []common.Address, epoch []*big.Int) (*FeeAccumulatorLegacyAirdropAllocatedIterator, error) {
+
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+	var epochRule []interface{}
+	for _, epochItem := range epoch {
+		epochRule = append(epochRule, epochItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.FilterLogs(opts, "LegacyAirdropAllocated", poolRule, epochRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FeeAccumulatorLegacyAirdropAllocatedIterator{contract: _FeeAccumulator.contract, event: "LegacyAirdropAllocated", logs: logs, sub: sub}, nil
+}
+
+// WatchLegacyAirdropAllocated is a free log subscription operation binding the contract event 0x66f288a74d4384624c871c51e16635a78cbc49fc5c471db184fae9b5860ee216.
+//
+// Solidity: event LegacyAirdropAllocated(address indexed pool, uint256 indexed epoch, bytes32 root, uint256 budget)
+func (_FeeAccumulator *FeeAccumulatorFilterer) WatchLegacyAirdropAllocated(opts *bind.WatchOpts, sink chan<- *FeeAccumulatorLegacyAirdropAllocated, pool []common.Address, epoch []*big.Int) (event.Subscription, error) {
+
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+	var epochRule []interface{}
+	for _, epochItem := range epoch {
+		epochRule = append(epochRule, epochItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.WatchLogs(opts, "LegacyAirdropAllocated", poolRule, epochRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FeeAccumulatorLegacyAirdropAllocated)
+				if err := _FeeAccumulator.contract.UnpackLog(event, "LegacyAirdropAllocated", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseLegacyAirdropAllocated is a log parse operation binding the contract event 0x66f288a74d4384624c871c51e16635a78cbc49fc5c471db184fae9b5860ee216.
+//
+// Solidity: event LegacyAirdropAllocated(address indexed pool, uint256 indexed epoch, bytes32 root, uint256 budget)
+func (_FeeAccumulator *FeeAccumulatorFilterer) ParseLegacyAirdropAllocated(log types.Log) (*FeeAccumulatorLegacyAirdropAllocated, error) {
+	event := new(FeeAccumulatorLegacyAirdropAllocated)
+	if err := _FeeAccumulator.contract.UnpackLog(event, "LegacyAirdropAllocated", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
 // FeeAccumulatorLpRewardsSentIterator is returned from FilterLpRewardsSent and is used to iterate over the raw logs and unpacked data for LpRewardsSent events raised by the FeeAccumulator contract.
 type FeeAccumulatorLpRewardsSentIterator struct {
 	Event *FeeAccumulatorLpRewardsSent // Event containing the contract specifics and raw log
@@ -1989,6 +2963,449 @@ func (_FeeAccumulator *FeeAccumulatorFilterer) WatchLpRewardsSent(opts *bind.Wat
 func (_FeeAccumulator *FeeAccumulatorFilterer) ParseLpRewardsSent(log types.Log) (*FeeAccumulatorLpRewardsSent, error) {
 	event := new(FeeAccumulatorLpRewardsSent)
 	if err := _FeeAccumulator.contract.UnpackLog(event, "LpRewardsSent", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// FeeAccumulatorMirrorFailedIterator is returned from FilterMirrorFailed and is used to iterate over the raw logs and unpacked data for MirrorFailed events raised by the FeeAccumulator contract.
+type FeeAccumulatorMirrorFailedIterator struct {
+	Event *FeeAccumulatorMirrorFailed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FeeAccumulatorMirrorFailedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FeeAccumulatorMirrorFailed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FeeAccumulatorMirrorFailed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FeeAccumulatorMirrorFailedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FeeAccumulatorMirrorFailedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FeeAccumulatorMirrorFailed represents a MirrorFailed event raised by the FeeAccumulator contract.
+type FeeAccumulatorMirrorFailed struct {
+	Selector [4]byte
+	Raw      types.Log // Blockchain specific contextual infos
+}
+
+// FilterMirrorFailed is a free log retrieval operation binding the contract event 0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd.
+//
+// Solidity: event MirrorFailed(bytes4 indexed selector)
+func (_FeeAccumulator *FeeAccumulatorFilterer) FilterMirrorFailed(opts *bind.FilterOpts, selector [][4]byte) (*FeeAccumulatorMirrorFailedIterator, error) {
+
+	var selectorRule []interface{}
+	for _, selectorItem := range selector {
+		selectorRule = append(selectorRule, selectorItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.FilterLogs(opts, "MirrorFailed", selectorRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FeeAccumulatorMirrorFailedIterator{contract: _FeeAccumulator.contract, event: "MirrorFailed", logs: logs, sub: sub}, nil
+}
+
+// WatchMirrorFailed is a free log subscription operation binding the contract event 0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd.
+//
+// Solidity: event MirrorFailed(bytes4 indexed selector)
+func (_FeeAccumulator *FeeAccumulatorFilterer) WatchMirrorFailed(opts *bind.WatchOpts, sink chan<- *FeeAccumulatorMirrorFailed, selector [][4]byte) (event.Subscription, error) {
+
+	var selectorRule []interface{}
+	for _, selectorItem := range selector {
+		selectorRule = append(selectorRule, selectorItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.WatchLogs(opts, "MirrorFailed", selectorRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FeeAccumulatorMirrorFailed)
+				if err := _FeeAccumulator.contract.UnpackLog(event, "MirrorFailed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseMirrorFailed is a log parse operation binding the contract event 0x8694b6bbbf10ff6faa1b6ae45172474b03b0df0b4d87ac2113bbced3810eebdd.
+//
+// Solidity: event MirrorFailed(bytes4 indexed selector)
+func (_FeeAccumulator *FeeAccumulatorFilterer) ParseMirrorFailed(log types.Log) (*FeeAccumulatorMirrorFailed, error) {
+	event := new(FeeAccumulatorMirrorFailed)
+	if err := _FeeAccumulator.contract.UnpackLog(event, "MirrorFailed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// FeeAccumulatorOpticalSurplusClaimedIterator is returned from FilterOpticalSurplusClaimed and is used to iterate over the raw logs and unpacked data for OpticalSurplusClaimed events raised by the FeeAccumulator contract.
+type FeeAccumulatorOpticalSurplusClaimedIterator struct {
+	Event *FeeAccumulatorOpticalSurplusClaimed // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FeeAccumulatorOpticalSurplusClaimedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FeeAccumulatorOpticalSurplusClaimed)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FeeAccumulatorOpticalSurplusClaimed)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FeeAccumulatorOpticalSurplusClaimedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FeeAccumulatorOpticalSurplusClaimedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FeeAccumulatorOpticalSurplusClaimed represents a OpticalSurplusClaimed event raised by the FeeAccumulator contract.
+type FeeAccumulatorOpticalSurplusClaimed struct {
+	Pool      common.Address
+	Recipient common.Address
+	Amount    *big.Int
+	Raw       types.Log // Blockchain specific contextual infos
+}
+
+// FilterOpticalSurplusClaimed is a free log retrieval operation binding the contract event 0x879606fa2db265e0664b2683c3e39e5ca7c90eae54628f7af6b70f239af8d0a6.
+//
+// Solidity: event OpticalSurplusClaimed(address indexed pool, address indexed recipient, uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorFilterer) FilterOpticalSurplusClaimed(opts *bind.FilterOpts, pool []common.Address, recipient []common.Address) (*FeeAccumulatorOpticalSurplusClaimedIterator, error) {
+
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.FilterLogs(opts, "OpticalSurplusClaimed", poolRule, recipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FeeAccumulatorOpticalSurplusClaimedIterator{contract: _FeeAccumulator.contract, event: "OpticalSurplusClaimed", logs: logs, sub: sub}, nil
+}
+
+// WatchOpticalSurplusClaimed is a free log subscription operation binding the contract event 0x879606fa2db265e0664b2683c3e39e5ca7c90eae54628f7af6b70f239af8d0a6.
+//
+// Solidity: event OpticalSurplusClaimed(address indexed pool, address indexed recipient, uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorFilterer) WatchOpticalSurplusClaimed(opts *bind.WatchOpts, sink chan<- *FeeAccumulatorOpticalSurplusClaimed, pool []common.Address, recipient []common.Address) (event.Subscription, error) {
+
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+	var recipientRule []interface{}
+	for _, recipientItem := range recipient {
+		recipientRule = append(recipientRule, recipientItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.WatchLogs(opts, "OpticalSurplusClaimed", poolRule, recipientRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FeeAccumulatorOpticalSurplusClaimed)
+				if err := _FeeAccumulator.contract.UnpackLog(event, "OpticalSurplusClaimed", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOpticalSurplusClaimed is a log parse operation binding the contract event 0x879606fa2db265e0664b2683c3e39e5ca7c90eae54628f7af6b70f239af8d0a6.
+//
+// Solidity: event OpticalSurplusClaimed(address indexed pool, address indexed recipient, uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorFilterer) ParseOpticalSurplusClaimed(log types.Log) (*FeeAccumulatorOpticalSurplusClaimed, error) {
+	event := new(FeeAccumulatorOpticalSurplusClaimed)
+	if err := _FeeAccumulator.contract.UnpackLog(event, "OpticalSurplusClaimed", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+// FeeAccumulatorOpticalSurplusRecordedIterator is returned from FilterOpticalSurplusRecorded and is used to iterate over the raw logs and unpacked data for OpticalSurplusRecorded events raised by the FeeAccumulator contract.
+type FeeAccumulatorOpticalSurplusRecordedIterator struct {
+	Event *FeeAccumulatorOpticalSurplusRecorded // Event containing the contract specifics and raw log
+
+	contract *bind.BoundContract // Generic contract to use for unpacking event data
+	event    string              // Event name to use for unpacking event data
+
+	logs chan types.Log        // Log channel receiving the found contract events
+	sub  ethereum.Subscription // Subscription for errors, completion and termination
+	done bool                  // Whether the subscription completed delivering logs
+	fail error                 // Occurred error to stop iteration
+}
+
+// Next advances the iterator to the subsequent event, returning whether there
+// are any more events found. In case of a retrieval or parsing error, false is
+// returned and Error() can be queried for the exact failure.
+func (it *FeeAccumulatorOpticalSurplusRecordedIterator) Next() bool {
+	// If the iterator failed, stop iterating
+	if it.fail != nil {
+		return false
+	}
+	// If the iterator completed, deliver directly whatever's available
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(FeeAccumulatorOpticalSurplusRecorded)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+	// Iterator still in progress, wait for either a data or an error event
+	select {
+	case log := <-it.logs:
+		it.Event = new(FeeAccumulatorOpticalSurplusRecorded)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+// Error returns any retrieval or parsing error occurred during filtering.
+func (it *FeeAccumulatorOpticalSurplusRecordedIterator) Error() error {
+	return it.fail
+}
+
+// Close terminates the iteration process, releasing any pending underlying
+// resources.
+func (it *FeeAccumulatorOpticalSurplusRecordedIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+// FeeAccumulatorOpticalSurplusRecorded represents a OpticalSurplusRecorded event raised by the FeeAccumulator contract.
+type FeeAccumulatorOpticalSurplusRecorded struct {
+	Pool   common.Address
+	Amount *big.Int
+	Raw    types.Log // Blockchain specific contextual infos
+}
+
+// FilterOpticalSurplusRecorded is a free log retrieval operation binding the contract event 0xc15bf759695c18fd9ddf60f8638036310ac80c3da55f86b717f102c53a44a9e3.
+//
+// Solidity: event OpticalSurplusRecorded(address indexed pool, uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorFilterer) FilterOpticalSurplusRecorded(opts *bind.FilterOpts, pool []common.Address) (*FeeAccumulatorOpticalSurplusRecordedIterator, error) {
+
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.FilterLogs(opts, "OpticalSurplusRecorded", poolRule)
+	if err != nil {
+		return nil, err
+	}
+	return &FeeAccumulatorOpticalSurplusRecordedIterator{contract: _FeeAccumulator.contract, event: "OpticalSurplusRecorded", logs: logs, sub: sub}, nil
+}
+
+// WatchOpticalSurplusRecorded is a free log subscription operation binding the contract event 0xc15bf759695c18fd9ddf60f8638036310ac80c3da55f86b717f102c53a44a9e3.
+//
+// Solidity: event OpticalSurplusRecorded(address indexed pool, uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorFilterer) WatchOpticalSurplusRecorded(opts *bind.WatchOpts, sink chan<- *FeeAccumulatorOpticalSurplusRecorded, pool []common.Address) (event.Subscription, error) {
+
+	var poolRule []interface{}
+	for _, poolItem := range pool {
+		poolRule = append(poolRule, poolItem)
+	}
+
+	logs, sub, err := _FeeAccumulator.contract.WatchLogs(opts, "OpticalSurplusRecorded", poolRule)
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+				// New log arrived, parse the event and forward to the user
+				event := new(FeeAccumulatorOpticalSurplusRecorded)
+				if err := _FeeAccumulator.contract.UnpackLog(event, "OpticalSurplusRecorded", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+// ParseOpticalSurplusRecorded is a log parse operation binding the contract event 0xc15bf759695c18fd9ddf60f8638036310ac80c3da55f86b717f102c53a44a9e3.
+//
+// Solidity: event OpticalSurplusRecorded(address indexed pool, uint256 amount)
+func (_FeeAccumulator *FeeAccumulatorFilterer) ParseOpticalSurplusRecorded(log types.Log) (*FeeAccumulatorOpticalSurplusRecorded, error) {
+	event := new(FeeAccumulatorOpticalSurplusRecorded)
+	if err := _FeeAccumulator.contract.UnpackLog(event, "OpticalSurplusRecorded", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
