@@ -228,12 +228,13 @@ fn settlement_usable(config: &Config, endpoint: &str) -> bool {
             .get("protocol_version")
             .and_then(serde_json::Value::as_u64)
             == Some(u64::from(x_websearch::payment::PROTOCOL_VERSION))
-        && node
-            .get("authorised_sequencer_key")
-            .and_then(serde_json::Value::as_str)
-            == Some(x_websearch::payment::hex(&config.gateway.sequencer.public_key).as_str())
-        && layerx_wire::handover::sequencer_id(&config.gateway.sequencer.public_key).ok()
-            == Some(config.gateway.sequencer.sequencer_id)
+        && config.gateway.receipt_keys.iter().any(|key| {
+            node.get("authorised_sequencer_key")
+                .and_then(serde_json::Value::as_str)
+                == Some(x_websearch::payment::hex(&key.public_key()).as_str())
+                && layerx_wire::handover::sequencer_id(&key.public_key()).ok()
+                    == Some(key.sequencer_id())
+        })
 }
 
 fn peer_quorum_usable(config: &Config, set: &attest::AttestorSet, signer: [u8; 20]) -> bool {
@@ -615,7 +616,7 @@ fn relay(
     .map_err(|error| format!("kernel.endpoint: {error}"))?
     .with_authorization_file(authorization_file)
     .map_err(|error| format!("gateway.authorization_file: {error}"))?
-    .with_receipt_key(config.gateway.sequencer.public_key);
+    .with_receipt_keys(config.gateway.receipt_keys.clone());
     let relay = KernelRelay::open(
         watcher,
         attestor,
