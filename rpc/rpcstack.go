@@ -81,10 +81,12 @@ type HTTPServer struct {
 
 	HTTPConfig  HTTPConfig
 	httpHandler atomic.Value // *rpcHandler
+	apis        []rpc.API
 
 	// WebSocket handler things.
 	WsConfig  WsConfig
 	wsHandler atomic.Value // *rpcHandler
+	wsAPIs    []rpc.API
 
 	// These are set by SetListenAddr.
 	endpoint string
@@ -272,10 +274,12 @@ func (h *HTTPServer) doStop() {
 	if httpHandler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
+		h.apis = nil
 	}
 	if wsHandler != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		wsHandler.server.Stop()
+		h.wsAPIs = nil
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
@@ -319,6 +323,7 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 		srv.RegisterDenyList(method)
 	}
 	h.HTTPConfig = config
+	h.apis = registeredAPIs(apis, config.Modules)
 	base := NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
 	h.httpHandler.Store(&rpcHandler{
 		Handler: wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist),
@@ -333,6 +338,7 @@ func (h *HTTPServer) disableRPC() bool {
 	if handler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		handler.server.Stop()
+		h.apis = nil
 	}
 	return handler != nil
 }
@@ -354,6 +360,7 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 		return err
 	}
 	h.WsConfig = config
+	h.wsAPIs = registeredAPIs(apis, config.Modules)
 	h.wsHandler.Store(&rpcHandler{
 		Handler: NewWSHandlerStack(srv.WebsocketHandler(config.Origins), config.JwtSecret),
 		server:  srv,
@@ -367,6 +374,7 @@ func (h *HTTPServer) disableWS() bool {
 	if ws != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		ws.server.Stop()
+		h.wsAPIs = nil
 	}
 	return ws != nil
 }
