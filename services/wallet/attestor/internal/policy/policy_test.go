@@ -382,6 +382,19 @@ func TestLoadFile(t *testing.T) {
 	}
 }
 
+func TestShippedPolicyListsSendAuthorizationKind(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(doc.Defaults.Kinds, KindLXSendAuth) {
+		t.Fatal("shipped defaults omit lx_send_authorization")
+	}
+	if !slices.Contains(doc.Defaults.Kinds, KindLXActivity) {
+		t.Fatal("shipped defaults no longer allow lx_activity")
+	}
+}
+
 func TestShippedPolicyAllowsWalletSDKWrites(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
