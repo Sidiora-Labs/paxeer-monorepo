@@ -31,8 +31,9 @@ var pauseExitPaths = map[string]map[string]bool{
 		"streamPause": true, "streamClose": true, "serviceOfferWithdraw": true, "serviceCommitAbandon": true,
 	},
 	exchange.ModuleName:          {"cancelOrder": true, "cancelSpotOrder": true, "closePosition": true, "withdrawMargin": true},
-	layerxledgertypes.ModuleName: {},
-	layerxauthtypes.ModuleName:   {},
+	layerxledgertypes.ModuleName: {"revokeGrant": true},
+	layerxauthtypes.ModuleName:   {"revokeGrant": true},
+	"layerxagent":                {"cancel": true},
 }
 
 func CheckPauseScope(module string, paused bool, method string) error {
