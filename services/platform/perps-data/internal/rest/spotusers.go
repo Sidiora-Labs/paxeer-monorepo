@@ -38,9 +38,11 @@ type SpotNode interface {
 // SpotUsers serves the spot user routes and the spot leaderboards of
 // contracts/data-services.md section 25 from schema perps and the node.
 type SpotUsers struct {
-	db    *sql.DB
-	node  SpotNode
-	board spotBoard
+	db          *sql.DB
+	node        SpotNode
+	board       spotBoard
+	marketsOnce sync.Once
+	markets     *records.MarketSet
 }
 
 // spotBoardTTL is how long one fold of every account serves the leaderboards.
@@ -1078,12 +1080,18 @@ func (s *SpotUsers) mark(ctx context.Context, meta spotToken) (string, bool, err
 	if meta.symbol == nil || meta.decimals == nil {
 		return "", false, nil
 	}
-	market, ok := marketIDs[*meta.symbol]
+	s.marketsOnce.Do(func() {
+		s.markets = records.NewMarketSet(s.db, 30*time.Second)
+	})
+	market, ok, err := s.markets.ID(ctx, *meta.symbol)
+	if err != nil {
+		return "", false, err
+	}
 	if !ok {
 		return "", false, nil
 	}
 	var raw string
-	err := s.db.QueryRowContext(ctx, spotIndexPriceSQL, market).Scan(&raw)
+	err = s.db.QueryRowContext(ctx, spotIndexPriceSQL, market).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}
