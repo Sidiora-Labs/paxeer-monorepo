@@ -27,8 +27,8 @@ const (
 
 	// ProgramPendingCapacity bounds the program requests recorded and not yet
 	// fulfilled; ProgramCommittedCapacity bounds the committed answers.
-	ProgramPendingCapacity   = 256
-	ProgramCommittedCapacity = 64
+	ProgramPendingCapacity   = types.ProgramPendingCapacity
+	ProgramCommittedCapacity = types.ProgramCommittedCapacity
 
 	// ProgramRequestHeaderBytes is the u64 request id, u8 kind and u32 payload
 	// length that precede the payload in the request event data.
@@ -37,7 +37,7 @@ const (
 	// ProgramPendingRecordVersion and ProgramPendingRecordBytes are the
 	// version byte and the exact length of a pending record.
 	ProgramPendingRecordVersion = 1
-	ProgramPendingRecordBytes   = 123
+	ProgramPendingRecordBytes   = types.ProgramPendingRecordBytes
 
 	programPendingPrefix = "web/pending"
 	programAmountBits    = 128
