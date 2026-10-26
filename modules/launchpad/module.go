@@ -1,15 +1,16 @@
-// Package launchpad is the native KindleLaunch launchpad: bonding-curve
-// markets over tokenfactory denoms, reached from the EVM through the
-// launchpad precompile at 0x…1017.
+// Package launchpad serves the generation 2 Launch-x role surfaces at
+// precompile 0x1017, the Msg service and the Query service.
 package launchpad
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/simulation"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
@@ -70,9 +71,11 @@ func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config clien
 
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {}
 
-// RegisterGRPCGatewayRoutes registers nothing: launchpad state is read
-// through the launchpad precompile views.
-func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
+		panic(err)
+	}
+}
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
@@ -97,6 +100,7 @@ func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQuerier(am.keeper))
 }
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
@@ -137,7 +141,9 @@ func (am AppModule) ProposalContents(_ module.SimulationState) []simtypes.Weight
 
 func (am AppModule) RandomizedParams(_ *rand.Rand) []simtypes.ParamChange { return nil }
 
-func (am AppModule) RegisterStoreDecoder(_ sdk.StoreDecoderRegistry) {}
+func (am AppModule) RegisterStoreDecoder(sdr sdk.StoreDecoderRegistry) {
+	sdr[types.StoreKey] = simulation.NewDecodeStore()
+}
 
 func (am AppModule) WeightedOperations(_ module.SimulationState) []simtypes.WeightedOperation {
 	return nil

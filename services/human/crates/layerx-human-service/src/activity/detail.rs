@@ -5,6 +5,7 @@ use std::fmt::{Display, Formatter, Write as _};
 
 use layerx_agent_api::verify::Level;
 use layerx_proof::receipt::{canonical_protocol_facts, VerifiedReceipt};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use super::{ActivityEntry, ActivityKind, ActivityStatus, DepositStage, WithdrawalStage};
@@ -80,11 +81,11 @@ impl ReceiptActual {
     }
 }
 
-/// Checkpoint reference accepted only at a finalised verification level.
+/// Checkpoint reference carrying the observed activity rung.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FinalityReference {
     checkpoint_id: [u8; 32],
-    level: Level,
+    rung: Rung,
 }
 
 impl FinalityReference {
@@ -92,14 +93,14 @@ impl FinalityReference {
     ///
     /// # Errors
     ///
-    /// Refuses zero identifiers and levels below checkpoint finality.
-    pub fn new(checkpoint_id: [u8; 32], level: Level) -> Result<Self, DetailError> {
-        if checkpoint_id == [0; 32] || level < Level::CheckpointFinalised {
+    /// Refuses zero identifiers.
+    pub fn new(checkpoint_id: [u8; 32], rung: Rung) -> Result<Self, DetailError> {
+        if checkpoint_id == [0; 32] {
             Err(DetailError::InvalidFinalityEvidence)
         } else {
             Ok(Self {
                 checkpoint_id,
-                level,
+                rung,
             })
         }
     }
@@ -110,10 +111,38 @@ impl FinalityReference {
         self.checkpoint_id
     }
 
-    /// Returns the achieved verification level.
+    /// Returns the observed activity rung.
     #[must_use]
-    pub const fn level(self) -> Level {
-        self.level
+    pub const fn rung(self) -> Rung {
+        self.rung
+    }
+
+    /// Returns whether the activity has committed.
+    #[must_use]
+    pub const fn is_final(self) -> bool {
+        matches!(self.rung, Rung::Committed)
+    }
+}
+
+impl ActivityEntry {
+    /// Returns the rung established by the feed's verified receipt evidence.
+    #[must_use]
+    pub fn rung(&self) -> Rung {
+        if self
+            .receipts()
+            .iter()
+            .any(|receipt| receipt.level() >= Level::CheckpointFinalised)
+        {
+            Rung::Committed
+        } else if self
+            .receipts()
+            .iter()
+            .any(|receipt| receipt.level() > Level::Unverified)
+        {
+            Rung::Receipted
+        } else {
+            Rung::Submitted
+        }
     }
 }
 
@@ -195,6 +224,8 @@ pub struct EntryDetail {
     entry_id: ActivityEntryId,
     kind: ActivityKind,
     status: ActivityStatus,
+    rung: Rung,
+    finality: Option<FinalityReference>,
     sentence: &'static str,
     stages: Vec<DetailStage>,
     actuals: Vec<ReceiptActual>,
@@ -228,17 +259,14 @@ impl EntryDetail {
             return Err(DetailError::ReceiptMaterialMismatch);
         }
 
-        let source_finalised = entry
-            .receipts()
-            .iter()
-            .any(|receipt| receipt.level() >= Level::CheckpointFinalised)
-            || entry.status() == ActivityStatus::DoneFinalised;
-        if source_finalised != finality.is_some() {
-            return Err(if source_finalised {
-                DetailError::MissingFinalityEvidence
-            } else {
-                DetailError::UnjustifiedFinalityEvidence
-            });
+        let rung = entry.rung();
+        let source_finalised = rung == Rung::Committed;
+        if let Some(reference) = finality {
+            if reference.rung() != rung {
+                return Err(DetailError::UnjustifiedFinalityEvidence);
+            }
+        } else if source_finalised {
+            return Err(DetailError::MissingFinalityEvidence);
         }
 
         let status = if source_finalised && entry.status() == ActivityStatus::Done {
@@ -262,7 +290,7 @@ impl EntryDetail {
                 kind: EvidenceKind::Checkpoint,
                 path: format!("/explorer/checkpoints/{reference}"),
                 reference,
-                level: finality.level(),
+                level: super::rung_level(finality.rung()),
             });
         }
         let refusal_money_left = match status {
@@ -273,6 +301,8 @@ impl EntryDetail {
             entry_id: entry.entry_id().clone(),
             kind: entry.kind(),
             status,
+            rung,
+            finality,
             sentence: sentence(entry.kind(), status),
             stages: timeline(entry.kind(), status),
             actuals,
@@ -297,6 +327,24 @@ impl EntryDetail {
     #[must_use]
     pub const fn status(&self) -> ActivityStatus {
         self.status
+    }
+
+    /// Returns the rung established by the source entry.
+    #[must_use]
+    pub const fn rung(&self) -> Rung {
+        self.rung
+    }
+
+    /// Returns the checkpoint reference with its observed rung, if supplied.
+    #[must_use]
+    pub const fn finality(&self) -> Option<FinalityReference> {
+        self.finality
+    }
+
+    /// Returns whether the source entry has committed.
+    #[must_use]
+    pub const fn is_final(&self) -> bool {
+        matches!(self.rung, Rung::Committed)
     }
 
     /// Returns the one-sentence plain description.

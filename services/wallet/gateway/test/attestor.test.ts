@@ -7,7 +7,7 @@ import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, randomUUID, sign, verify, X509Certificate } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { SignJWT, exportJWK, generateKeyPair, type KeyLike } from 'jose';
 import {
@@ -16,10 +16,12 @@ import {
   recoverMessageAddress,
   recoverTransactionAddress,
   recoverTypedDataAddress,
+  serializeTransaction,
   type Hex,
   type TypedDataDefinition,
 } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
+import type { EvmReviewResult } from '../src/attestor/client.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, 'fixtures', 'attestor');
@@ -48,6 +50,7 @@ interface WireRequest extends RecordedRequest {
 interface Received {
   path: string;
   authorization: string | undefined;
+  custodySequence?: string;
   body: WireRequest;
 }
 
@@ -78,6 +81,9 @@ interface AttestorNode {
   refuse: 'policy' | 'token' | null;
   truncate: boolean;
   received: Received[];
+  requestCount: number;
+  authoritySequence: string | null;
+  evmReviewOverrides: Partial<EvmReviewResult>;
 }
 
 let tlsDir: string;
@@ -96,19 +102,23 @@ function makeCertificates(): void {
   writeFileSync(p('server.ext'), 'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth\n');
   writeFileSync(p('client.ext'), 'extendedKeyUsage=clientAuth\n');
   for (const [name, subj] of [
-    ['server', '/CN=attestor'],
+    ['server-1', '/CN=attestor-1'],
+    ['server-2', '/CN=attestor-2'],
+    ['server-3', '/CN=attestor-3'],
+    ['server-4', '/CN=attestor-4'],
+    ['server-5', '/CN=attestor-5'],
     ['client', '/CN=wallet-gateway'],
   ] as const) {
     ossl(['req', ...ec, '-keyout', p(`${name}.key`), '-out', p(`${name}.csr`), '-subj', subj]);
     ossl([
       'x509', '-req', '-in', p(`${name}.csr`), '-CA', p('ca.crt'), '-CAkey', p('ca.key'), '-CAcreateserial',
-      '-out', p(`${name}.crt`), '-days', '1', '-extfile', p(`${name}.ext`),
+      '-out', p(`${name}.crt`), '-days', '1', '-extfile', p(name === 'client' ? 'client.ext' : 'server.ext'),
     ]);
   }
   tls = {
     caCert: readFileSync(p('ca.crt'), 'utf8'),
-    serverCert: readFileSync(p('server.crt'), 'utf8'),
-    serverKey: readFileSync(p('server.key'), 'utf8'),
+    serverCert: readFileSync(p('server-1.crt'), 'utf8'),
+    serverKey: readFileSync(p('server-1.key'), 'utf8'),
     clientCert: readFileSync(p('client.crt'), 'utf8'),
     clientKey: readFileSync(p('client.key'), 'utf8'),
   };
@@ -130,10 +140,15 @@ function startAttestor(index: number): Promise<AttestorNode> {
     refuse: null,
     truncate: false,
     received: [],
+    requestCount: 0,
+    authoritySequence: null,
+    evmReviewOverrides: {},
   };
   node.server = createHttpsServer(
-    { key: tls.serverKey, cert: tls.serverCert, ca: tls.caCert, requestCert: true, rejectUnauthorized: true },
+    { key: readFileSync(join(tlsDir, `server-${index}.key`)), cert: readFileSync(join(tlsDir, `server-${index}.crt`)),
+      ca: tls.caCert, requestCert: true, rejectUnauthorized: true },
     (req, res) => {
+      node.requestCount++;
       const chunks: Buffer[] = [];
       req.on('data', (c: Buffer) => chunks.push(c));
       req.on('end', () => {
@@ -144,6 +159,35 @@ function startAttestor(index: number): Promise<AttestorNode> {
         const peers = Object.fromEntries(
           [1, 2, 3, 4, 5].filter((i) => i !== index).map((i) => [`attestor-${i}`, { reachable: true, rtt_ns: 1000 }]),
         );
+        if (req.method === 'POST' && req.url === '/v1/authority') {
+          const { token } = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { token: string };
+          const [header, payload, signature] = token.split('.');
+          if (!header || !payload || !signature || !verify('sha256', Buffer.from(`${header}.${payload}`),
+            { key: createPublicKey(tls.clientCert), dsaEncoding: 'ieee-p1363' }, Buffer.from(signature, 'base64url'))) {
+            send(401, fixture('refusal-token.response.json'));
+            return;
+          }
+          const authority = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as { sequence: string };
+          node.authoritySequence = authority.sequence;
+          send(200, { node_id: node.nodeId, sequence: authority.sequence });
+          return;
+        }
+        if (req.method === 'POST' && req.url === '/v1/evm/review') {
+          const wire = JSON.parse(Buffer.concat(chunks).toString('utf8')) as WireRequest;
+          const custodySequence = req.headers['x-custody-sequence'] as string | undefined;
+          node.received.push({ path: req.url, authorization: req.headers.authorization, custodySequence, body: wire });
+          if (req.headers.authorization !== `Bearer ${expectedToken}` || !node.authoritySequence || custodySequence !== node.authoritySequence) {
+            send(401, fixture('refusal-token.response.json'));
+            return;
+          }
+          const tx = parseTransaction(`0x${wire.transaction!.replace(/^0x/, '')}`);
+          const unsigned = serializeTransaction({ type: 'eip1559', chainId: tx.chainId!, nonce: tx.nonce!, to: tx.to!,
+            value: tx.value!, gas: tx.gas!, maxFeePerGas: tx.maxFeePerGas!, maxPriorityFeePerGas: tx.maxPriorityFeePerGas!, data: tx.data ?? '0x' });
+          send(200, { node_id: node.nodeId, key_id: wire.key_id, to: tx.to, value: tx.value!.toString(), data: tx.data ?? '0x',
+            method: 'native_transfer', destination: tx.to, signing_hash: keccak256(unsigned), chain_id: tx.chainId,
+            decision: 'allowed', audit_sequence: index, ...node.evmReviewOverrides });
+          return;
+        }
         if (req.method === 'GET' && req.url === '/health') {
           setTimeout(
             () =>
@@ -284,6 +328,43 @@ let clientMod: ClientModule;
 let quorumMod: QuorumModule;
 let pgServer: EphemeralPostgres;
 
+const reviewOwner = 'review-owner';
+const ed25519ReviewKey = 'ed25519-review-key';
+
+function configureReviewInventory(): void {
+  const now = Math.floor(Date.now() / 1000);
+  const secp = generateKeyPairSync('ec', { namedCurve: 'secp256k1' }).publicKey.export({ format: 'jwk' });
+  const ed = generateKeyPairSync('ed25519').publicKey.export({ format: 'jwk' });
+  const inventory = {
+    version: 1, iss: `${supabaseUrl}/auth/v1`, aud: 'wallet-custody-inventory', tenant: 'attestor-review-tests',
+    sequence: '1', iat: now, exp: now + 600, protocol: 'wallet', threshold: 3,
+    members: attestorNodes.map(node => ({ id: node.nodeId, spki_sha256: createHash('sha256')
+      .update(new X509Certificate(readFileSync(join(tlsDir, `server-${node.index}.crt`))).publicKey.export({ type: 'spki', format: 'der' })).digest('hex') })),
+    keys: [
+      { key_id: walletFixture.key_id, epoch: 1, curve: 'secp256k1', owner: reviewOwner, operations: ['sign'],
+        public_key: `04${Buffer.from(secp.x!, 'base64url').toString('hex')}${Buffer.from(secp.y!, 'base64url').toString('hex')}` },
+      { key_id: ed25519ReviewKey, epoch: 1, curve: 'ed25519', owner: reviewOwner, operations: ['sign'],
+        public_key: Buffer.from(ed.x!, 'base64url').toString('hex') },
+    ],
+  };
+  const header = Buffer.from(JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })).toString('base64url');
+  const payload = Buffer.from(JSON.stringify(inventory)).toString('base64url');
+  const signature = sign('sha256', Buffer.from(`${header}.${payload}`), { key: tls.clientKey, dsaEncoding: 'ieee-p1363' });
+  const inventoryFile = join(tlsDir, 'inventory.jwt');
+  const publicKeyFile = join(tlsDir, 'inventory.pub');
+  writeFileSync(inventoryFile, `${header}.${payload}.${signature.toString('base64url')}`);
+  writeFileSync(publicKeyFile, createPublicKey(tls.clientKey).export({ type: 'spki', format: 'pem' }));
+  process.env.WALLET_CUSTODY_INVENTORY_FILE = inventoryFile;
+  process.env.WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE = publicKeyFile;
+  process.env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = join(tlsDir, 'client.key');
+  process.env.WALLET_IDENTITY_BINDING_TENANT = inventory.tenant;
+  process.env.ATTESTOR_ENDPOINTS = attestorNodes.map(node => node.url).join(',');
+  process.env.ATTESTOR_QUORUM = '3';
+  process.env.ATTESTOR_CLIENT_CERT_FILE = join(tlsDir, 'client.crt');
+  process.env.ATTESTOR_CLIENT_KEY_FILE = join(tlsDir, 'client.key');
+  process.env.ATTESTOR_CA_FILE = join(tlsDir, 'ca.crt');
+}
+
 function newClient(): InstanceType<ClientModule['AttestorClient']> {
   return new clientMod.AttestorClient({
     endpoints: attestorNodes.map((n) => n.url),
@@ -300,6 +381,7 @@ beforeAll(async () => {
   await startJwks();
   await startRpc();
   process.env.SUPABASE_URL = supabaseUrl;
+  configureReviewInventory();
   pgServer = await startPostgres();
   clientMod = await import('../src/attestor/client.js');
   quorumMod = await import('../src/attestor/quorum.js');
@@ -322,6 +404,9 @@ beforeEach(() => {
     n.refuse = null;
     n.truncate = false;
     n.received = [];
+    n.requestCount = 0;
+    n.authoritySequence = null;
+    n.evmReviewOverrides = {};
   }
 });
 
@@ -363,6 +448,59 @@ describe('selectQuorum', () => {
 });
 
 describe('AttestorClient over mutual TLS', () => {
+  async function reviewEvmTransactionRequiresQuorumAgreement(): Promise<void> {
+    attestorNodes[3]!.ready = false;
+    attestorNodes[4]!.ready = false;
+    expectedToken = await mintToken(reviewOwner);
+    const client = newClient();
+    const input = { keyId: walletFixture.key_id, sessionId: randomUUID(), transaction: recorded[0]!.request.transaction!,
+      owner: reviewOwner, token: expectedToken };
+    try {
+      const result = await client.reviewEvmTransaction(input);
+      expect(result.participants.slice().sort()).toEqual(['attestor-1', 'attestor-2', 'attestor-3']);
+      expect(result.audit.slice().sort((a, b) => a.audit_sequence - b.audit_sequence)).toEqual([
+        { node_id: 'attestor-1', audit_sequence: 1 }, { node_id: 'attestor-2', audit_sequence: 2 }, { node_id: 'attestor-3', audit_sequence: 3 },
+      ]);
+      expect(result).toMatchObject({ to: routeInputs.tx.to.toLowerCase(), value: routeInputs.tx.value, data: '0x',
+        method: 'native_transfer', destination: routeInputs.tx.to.toLowerCase(), chain_id: walletFixture.chain_id });
+      expect(result.signing_hash).toMatch(/^0x[0-9a-f]{64}$/);
+      expect(attestorNodes.flatMap(node => node.received)).toHaveLength(3);
+      for (const node of attestorNodes.slice(0, 3)) {
+        expect(node.received[0]).toEqual({ path: '/v1/evm/review', authorization: `Bearer ${expectedToken}`,
+          custodySequence: node.authoritySequence, body: { session_id: input.sessionId, key_id: input.keyId, transaction: input.transaction } });
+        expect(node.authoritySequence).toMatch(/^[1-9][0-9]*$/);
+      }
+      const disagreements = [
+        { signing_hash: `0x${'ff'.repeat(32)}` }, { to: `0x${'11'.repeat(20)}` }, { value: '1001' },
+        { data: '0x01' }, { method: 'transfer' }, { destination: `0x${'22'.repeat(20)}` }, { chain_id: 1 },
+      ];
+      for (const disagreement of disagreements) {
+        attestorNodes[1]!.evmReviewOverrides = disagreement;
+        const error = await client.reviewEvmTransaction({ ...input, sessionId: randomUUID() }).catch((reason: unknown) => reason);
+        expect(error).toBeInstanceOf(clientMod.AttestorSessionError);
+        expect(error).toMatchObject({ code: 'evm_review_disagreement' });
+      }
+    } finally {
+      client.stop();
+    }
+  }
+  it(reviewEvmTransactionRequiresQuorumAgreement);
+
+  async function reviewEvmTransactionRefusesEd25519Key(): Promise<void> {
+    const client = newClient();
+    try {
+      const error = await client.reviewEvmTransaction({ keyId: ed25519ReviewKey, sessionId: randomUUID(),
+        transaction: recorded[0]!.request.transaction!, owner: reviewOwner, token: 'unused-token' }).catch((reason: unknown) => reason);
+      expect(error).toBeInstanceOf(clientMod.AttestorKeyError);
+      expect(error).toMatchObject({ code: 'key_curve_mismatch' });
+      expect(attestorNodes.map(node => node.requestCount)).toEqual([0, 0, 0, 0, 0]);
+      expect(attestorNodes.flatMap(node => node.received)).toEqual([]);
+    } finally {
+      client.stop();
+    }
+  }
+  it(reviewEvmTransactionRefusesEd25519Key);
+
   it('selects a quorum by health and latency with one unhealthy node', async () => {
     attestorNodes[1]!.ready = false;
     attestorNodes[4]!.healthDelayMs = 300;

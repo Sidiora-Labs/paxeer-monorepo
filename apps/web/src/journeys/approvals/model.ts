@@ -19,11 +19,10 @@ import type {
   ProgramApprovalState,
   StepUpEvidence,
   Timestamp,
-  VerificationLevel,
   VerifiedMoney,
 } from "../../api/index.ts";
 import { formatExplicitCurrencyAmount } from "../../kit/a11y.ts";
-import { protocolAmount, type ProtocolAmount, type StatusKey } from "../../kit/model.ts";
+import { protocolAmount, verificationRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
 
 export const APPROVALS_ROUTE = "/app/approvals";
 export const MONEY_LOCALE = "en-US";
@@ -86,16 +85,14 @@ export function requestedAtLabel(createdAt: Timestamp): string {
   );
 }
 
-const VERIFICATION_COPY: Readonly<Record<VerificationLevel, string>> = Object.freeze({
+const VERIFICATION_COPY: Readonly<Record<VerificationRung, string>> = Object.freeze({
   unverified: "verification.unverified",
   "receipt-verified": "verification.receipt_verified",
   "checkpoint-finalised": "verification.checkpoint_finalised",
-  "paxeer-finalised": "verification.paxeer_finalised",
-  "settlement-anchored": "explorer.verification.settlement_anchored",
 });
 
-export function verificationLabel(level: VerificationLevel): string {
-  return copyEntry(VERIFICATION_COPY[level]).message;
+export function verificationLabel(level: string): string {
+  return copyEntry(VERIFICATION_COPY[verificationRung(level)]).message;
 }
 
 export function verifiedMoneyLabel(budget: VerifiedMoney): string {

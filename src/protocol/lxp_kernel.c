@@ -291,28 +291,18 @@ static lxp_result migration_replay_prestate(
     lxp_migration_admission_facts *facts)
 {
     const lxp_receipt *expected = execution->replay_receipt;
-    lxp_sequencer_authorization authorization;
     lxp_byte_span encoded;
     uint8_t activity_id[32], state_root[32], receipt_digest[32];
-    uint64_t epoch;
     size_t mark;
     lxp_result status, reset;
     if (expected == NULL && execution->replay_public_key == NULL)
         return LXP_OK;
     if (expected == NULL || execution->replay_public_key == NULL ||
-        execution->sequencer_private_key != NULL || !kernel->handover.enabled)
+        execution->sequencer_private_key != NULL)
         return LXP_ERR_AUTH_SCOPE;
     mark = lxp_arena_mark(execution->arena);
-    status = lxp_handover_history_resolve(kernel, execution->batch_number,
-        &authorization, &epoch, execution->arena);
-    if (status == LXP_OK &&
-        (epoch != execution->epoch ||
-         lxp_ct_memcmp(authorization.public_key,
-                       execution->replay_public_key, 32U) != 0))
-        status = LXP_ERR_AUTH_SCOPE;
-    if (status == LXP_OK)
-        status = lxp_receipt_verify(expected, authorization.public_key,
-                                    execution->arena);
+    status = lxp_receipt_verify(expected, execution->replay_public_key,
+                                execution->arena);
     if (status == LXP_OK)
         status = lxp_activity_encode(activity, execution->arena, &encoded);
     if (status == LXP_OK)
@@ -4722,7 +4712,10 @@ static bool kernel_snapshot_matches_live(
     size_t index;
     if (base == NULL || live == NULL || identities == NULL ||
         live->epoch != base->kernel.epoch ||
-        memcmp(&live->handover, &base->kernel.handover, sizeof(live->handover)) != 0 ||
+        live->governance_authority.enabled != base->kernel.governance_authority.enabled ||
+        live->governance_authority.network_id != base->kernel.governance_authority.network_id ||
+        memcmp(live->governance_authority.governance_public_key,
+               base->kernel.governance_authority.governance_public_key, 32U) != 0 ||
         live->module_kv_count != base->kernel.module_kv_count ||
         live->blob_count != base->kernel.blob_count ||
         live->blob_total_bytes != base->kernel.blob_total_bytes ||
@@ -4858,7 +4851,6 @@ static lxp_result kernel_batch_snapshot_commit(
     lxp_result status;
     if (kernel == NULL || identities == NULL || base == NULL ||
         settled == NULL || base == settled || kernel->publication_poisoned ||
-        settled->kernel.handover.pending ||
         settled->kernel.module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         settled->kernel.blob_count > LXP_KERNEL_MAX_BLOBS ||
         settled->identities.count > LXP_IDENTITY_STORE_CAPACITY)
@@ -4931,7 +4923,7 @@ static lxp_result kernel_batch_snapshot_commit(
         blob_bytes[index] = NULL;
     }
     kernel->epoch = settled->kernel.epoch;
-    kernel->handover = settled->kernel.handover;
+    kernel->governance_authority = settled->kernel.governance_authority;
     (void)memcpy(kernel->current_state_root,
                  settled->kernel.current_state_root, 32U);
     lxp_state_snapshot_publish_guarded(guard);
@@ -5221,12 +5213,6 @@ static lxp_result kernel_prepare_serial_activity_batch(
     private_execution.recorded_fee_schedule_version = batch->settled->fee_schedule.version;
     private_execution.recorded_metering_schedule_version = batch->settled->metering_schedule.version;
     private_execution.canonical_events_out = NULL;
-    if (activity->activity_type == LXP_GOVERNANCE_HANDOVER) {
-        status = lxp_handover_prepare(&batch->settled->kernel, activity,
-                                      execution->batch_number, &arena);
-        if (status != LXP_OK) goto done;
-        private_execution.epoch = batch->settled->kernel.epoch;
-    }
     record = (kernel_staged_commit){execution->arena, {0}, execution->global_sequence, false};
     batch->settled->programs_runtime.state_feed = runtime->state_feed;
     batch->settled->kernel.observe_commit = kernel_stage_commit;
@@ -5473,69 +5459,6 @@ bool lxp_kernel_uses_batch_maintenance(const lxp_kernel *kernel, uint16_t protoc
     return kernel != NULL && protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
 }
 
-static lxp_result maintenance_epoch_hooks(kernel_maintenance_run *run)
-{
-    lxp_kernel *kernel = &run->snapshot->kernel;
-    const lxp_handover_certificate *certificate = &kernel->handover.pending_certificate;
-    lxp_module_ctx *ctx;
-    lxp_effect_buffer *effects;
-    lxp_byte_span encoded;
-    uint8_t digest[32];
-    lxp_result status;
-    if (!kernel->handover.pending) return LXP_OK;
-    if (!kernel->handover.enabled || certificate->new_epoch != kernel->epoch ||
-        certificate->activation_batch != run->execution->batch_number ||
-        kernel->journal == NULL || !kernel->journal->open)
-        return LXP_ERR_CONTEXT_MISMATCH;
-    status = lxp_handover_history_latest(kernel, &encoded);
-    if (status == LXP_OK)
-        status = lxp_hash_sha256(encoded.bytes, encoded.length, digest);
-    if (status == LXP_OK && memcmp(digest, kernel->handover.pending_evidence_digest, 32U) != 0)
-        status = LXP_ERR_CONTEXT_MISMATCH;
-    if (status != LXP_OK) return status;
-    ctx = calloc(1U, sizeof(*ctx));
-    effects = calloc(1U, sizeof(*effects));
-    if (ctx == NULL || effects == NULL) { free(ctx); free(effects); return LXP_ERR_ARENA_EXHAUSTED; }
-    for (unsigned phase = 0U; status == LXP_OK && phase < 2U; ++phase) {
-        uint64_t epoch = phase == 0U ? certificate->old_epoch : certificate->new_epoch;
-        for (uint16_t module = 1U; status == LXP_OK && module <= LXP_MODULE_RESERVED_COUNT; ++module) {
-            const lxp_module_registration *registration;
-            lxp_module_epoch_fn hook;
-            size_t mark = lxp_arena_mark(run->arena);
-            bool initialized = false;
-            status = lxp_kernel_module_by_id(kernel, module, epoch, &registration);
-            if (status == LXP_ERR_MODULE_DISABLED) { status = LXP_OK; continue; }
-            if (status != LXP_OK) break;
-            hook = phase == 0U ? registration->iface->epoch_end : registration->iface->epoch_begin;
-            if (hook == NULL) { status = LXP_FATAL_INVARIANT; break; }
-            status = lxp_module_ctx_init(ctx, kernel, module, run->execution->batch_timestamp_ms,
-                epoch, kernel->state->next_sequence, UINT64_MAX, run->arena, true);
-            if (status == LXP_OK) {
-                initialized = true;
-                ctx->protocol_version = run->protocol_version;
-                ctx->batch_number = run->execution->batch_number;
-                status = lxp_effect_buffer_init(effects);
-            }
-            if (status == LXP_OK) status = lxp_module_ctx_bind_effects(ctx, effects);
-            if (status == LXP_OK) status = hook(ctx, epoch, run->execution->batch_timestamp_ms);
-            if (status == LXP_OK) status = lxp_module_ctx_prepare_commit(ctx);
-            if (status == LXP_OK && (ctx->staged_count != 0U || effects->count != 0U))
-                status = maintenance_frame(run, ctx, effects, registration->abi_version);
-            if (status == LXP_OK) status = lxp_module_ctx_commit(ctx);
-            if (initialized && status != LXP_OK) lxp_module_ctx_rollback(ctx);
-            if (lxp_arena_reset(run->arena, mark) != LXP_OK) status = LXP_FATAL_INVARIANT;
-        }
-    }
-    free(effects);
-    free(ctx);
-    if (status == LXP_OK) {
-        kernel->handover.pending = false;
-        (void)memset(&kernel->handover.pending_certificate, 0, sizeof(kernel->handover.pending_certificate));
-        (void)memset(kernel->handover.pending_evidence_digest, 0, sizeof(kernel->handover.pending_evidence_digest));
-    }
-    return status;
-}
-
 static lxp_result kernel_run_batch_maintenance(void *opaque)
 {
     static const uint8_t domain[] = "LXP/batch-maintenance-effects/v1";
@@ -5554,7 +5477,6 @@ static lxp_result kernel_run_batch_maintenance(void *opaque)
     lxp_result status = ctx != NULL && effects != NULL ? LXP_OK : LXP_ERR_ARENA_EXHAUSTED;
     if (status == LXP_OK) status = maintenance_append(run, domain, sizeof(domain));
     if (status == LXP_OK) status = maintenance_integer(run, 0U, 2U);
-    if (status == LXP_OK) status = maintenance_epoch_hooks(run);
     for (size_t i = 0U; status == LXP_OK && i < sizeof(hooks) / sizeof(hooks[0]); ++i) {
         const lxp_module_registration *registration;
         bool complete = false;

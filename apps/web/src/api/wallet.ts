@@ -1,6 +1,6 @@
 import { gasStation, GasStationError, ModuleError, type GasSubmissionStore, type SponsoredSubmissionEvidence } from "@paxeer/wallet";
 import { sidioraAccountDid, sidioraStationMetadata } from "./gas-station.ts";
-import { windowWalletProvider } from "../journeys/custody/handoff.ts";
+import { windowWalletProvider } from "./provider.ts";
 import { copyEntry } from "../../copy/runtime.ts";
 import { parseFeeAmount } from "../auth/native-fee-budget.ts";
 import {

@@ -114,9 +114,10 @@ type State struct {
 	evpool evidencePool
 
 	// internal state
-	mtx        sync.RWMutex
-	roundState cstypes.SafeRoundState
-	state      sm.State // State until height-1.
+	mtx          sync.RWMutex
+	roundState   cstypes.SafeRoundState
+	state        sm.State // State until height-1.
+	leaderSource types.LeaderSource
 
 	// state changes may be triggered by: msgs from peers,
 	// msgs from ourself, or by timeouts
@@ -287,6 +288,28 @@ func (cs *State) SetPrivValidator(ctx context.Context, priv utils.Option[types.P
 func (cs *State) SetLeaderPin(pin cstypes.LeaderPin) {
 	cs.mtx.Lock()
 	defer cs.mtx.Unlock()
+	cs.roundState.SetLeaderPin(pin)
+}
+
+func (cs *State) SetLeaderSource(src types.LeaderSource) {
+	cs.mtx.Lock()
+	defer cs.mtx.Unlock()
+	cs.leaderSource = src
+	cs.refreshLeaderPin(cs.roundState.Height())
+}
+
+func (cs *State) refreshLeaderPin(height int64) {
+	if cs.leaderSource == nil {
+		return
+	}
+	activationHeight, leaders, err := cs.leaderSource.LeaderSchedule(height)
+	if err != nil {
+		panic(err)
+	}
+	pin, err := cstypes.LeaderPinFromSchedule(activationHeight, leaders)
+	if err != nil {
+		panic(err)
+	}
 	cs.roundState.SetLeaderPin(pin)
 }
 
@@ -596,6 +619,7 @@ func (cs *State) updateToState(state sm.State) {
 	if height == 1 {
 		height = state.InitialHeight
 	}
+	cs.refreshLeaderPin(height)
 
 	// RoundState fields
 	cs.updateHeight(height)

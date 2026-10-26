@@ -114,7 +114,8 @@ fn substitute(value: &Value, bindings: &BTreeMap<String, Value>) -> Value {
 
 /// The recorded node: every exchange is answered from tests/fixtures/cycle.json,
 /// except in the `unreachable` phase, where the request goes to a real HTTPS
-/// exchange aimed at a closed loopback port.
+/// exchange aimed at a closed loopback port. The `did_unreachable` phase sends
+/// only the DID read to that port.
 struct ReplayExchange(Arc<Recording>);
 impl Exchange for ReplayExchange {
     fn request(&self, _endpoint: &str, method: &str, params: &Value) -> Result<Value, RpcFault> {
@@ -124,7 +125,11 @@ impl Exchange for ReplayExchange {
             .lock()
             .map_err(|_| RpcFault::Unavailable)?
             .clone();
-        if phase == "unreachable" {
+        if phase == "unreachable"
+            || (phase == "did_unreachable"
+                && method == "eth_call"
+                && params[0]["to"] == hex(&DID_PRECOMPILE))
+        {
             return HttpsExchange.request("https://127.0.0.1:1", method, params);
         }
         if method == "eth_sendRawTransaction" {
@@ -203,6 +208,7 @@ fn sequencer_endpoint_rules() -> Value {
             {"method": "eth_call", "params": [{"to": "$account", "data": "$consumed_call"}, finalized],
                 "result": "$zero"},
         ],
+        "did_unreachable": [],
         "receipted": [sent.clone(), receipt(executed("receipted", "0x1", json!("$sponsor")))],
         "reverted": [sent.clone(), receipt(executed("receipted", "0x0", Value::Null))],
         "foreign_sponsor": [sent.clone(), receipt(executed("receipted", "0x1", json!("$paymaster")))],
@@ -282,7 +288,7 @@ fn ephemeral_signer(
 ) -> Result<(LocalSigner, String), Box<dyn std::error::Error>> {
     let secret = hex(&SigningKey::random(&mut OsRng).to_bytes());
     std::env::set_var(&config.relayer_key_env, &secret);
-    let signer = LocalSigner::from_config(config);
+    let signer = LocalSigner::from_env(&config.relayer_key_env);
     std::env::remove_var(&config.relayer_key_env);
     Ok((signer?, secret))
 }
@@ -700,6 +706,20 @@ fn healthz_answers_a_plain_get_and_refuses_other_methods() -> TestResult {
         (405, json!({"error": "method_not_allowed"}))
     );
     harness.assert_log_clean(&["/healthz 200", "/healthz 405"]);
+    harness.finish()
+}
+
+#[test]
+fn a_failed_did_read_answers_503_unavailable() -> TestResult {
+    let harness = start("DID_UNAVAILABLE")?;
+    harness.recorded.phase("did_unreachable");
+    assert_eq!(
+        harness.post("/quote", &harness.quote_body())?,
+        (503, json!({"error": "unavailable"}))
+    );
+    assert!(harness.journal_is_empty()?);
+    assert!(harness.recorded.sent().is_empty());
+    harness.assert_log_clean(&["/quote 503"]);
     harness.finish()
 }
 

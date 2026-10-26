@@ -6,18 +6,18 @@ usage() {
 usage: scripts/ci/beta-ledger-check.sh [--ledger PATH] [--spec PATH] [--revisions]
 
 Validates every record of the LayerX beta executed-evidence ledger
-(spec/layerx-beta/qualification.kvx by default) and prints the set of distinct
+(spec/layerx-merge/qualification.kvx by default) and prints the set of distinct
 gate revisions. Every violation is listed on stderr; the exit status is 1 when
 at least one violation exists, 2 on usage or environment errors, 0 otherwise.
 
-  --ledger PATH   ledger to check (default spec/layerx-beta/qualification.kvx)
+  --ledger PATH   ledger to check (default spec/layerx-merge/qualification.kvx)
   --spec PATH     feature spec used to resolve tasks and acceptance criteria
-                  (default spec/layerx-beta/spec.kvx)
+                  (default spec/layerx-merge/spec.kvx)
   --evidence-root PATH  private evidence directory outside source (required)
   --candidate REV candidate revision (default current HEAD)
   --revisions     print only the distinct gate revisions, one per line
 
-Parsing rules (mirroring spec/specgen/kvx.go):
+Parsing rules:
   * a line whose trimmed text is [name] opens a section; every later key = value
     line belongs to it; a section name or a key repeated inside one section is
     a violation
@@ -26,8 +26,8 @@ Parsing rules (mirroring spec/specgen/kvx.go):
     ([...] split on commas outside quotes, each item a quoted string) or a bare
     scalar; a value containing ${...} is a violation because ledger values must
     be literal
-  * a section is either gate.<task>.<n> or observation.<task>.<n>; any other
-    section name is a violation
+  * a section is gate.<task>.<n>, observation.<task>.<n>, or a layerx-merge
+    finding.<N>.<k>.<m>[.<n>]; any other section name is a violation
 
 Gate records ([gate.<task>.<n>]) must satisfy:
   * keys task, reqs, revision, command, environment, started_at, outcome,
@@ -69,6 +69,11 @@ Observation records ([observation.<task>.<n>]) must satisfy:
     severity is blocker, suspect, assumption or note
   * no gate key (reqs, revision, command, environment, started_at, outcome,
     evidence, note) and no other unknown key is present
+
+Finding records ([finding.<N>.<k>.<m>] or [finding.<N>.<k>.<m>.<n>]) must satisfy:
+  * exactly task, file, symbol, observed, assumption and severity, all non-empty
+    quoted strings; task matches <N>.<k>.<m> and exists in the feature spec
+  * severity is blocker, suspect, assumption or note; findings confer no gate credit
 EOF
 }
 
@@ -682,8 +687,8 @@ beta_ledger_check() {
             ;;
         esac
     done
-    ledger=${ledger:-$root/spec/layerx-beta/qualification.kvx}
-    spec=${spec:-$root/spec/paxeer-x/spec.kvx}
+    ledger=${ledger:-$root/spec/layerx-merge/qualification.kvx}
+    spec=${spec:-$root/spec/layerx-merge/spec.kvx}
     candidate=${candidate:-$(git -C "$root" rev-parse HEAD)}
     [ -n "$evidence_root" ] || { echo "beta-ledger-check: private --evidence-root required" >&2; return 2; }
     [ -f "$ledger" ] || { echo "beta-ledger-check: ledger not found: $ledger" >&2; return 2; }
@@ -697,7 +702,7 @@ beta_ledger_check() {
     local -A make_targets=() makefiles_seen=()
     local -A revisions=()
     local kind section key type val ln
-    local gates=0 observations=0
+    local gates=0 observations=0 findings=0
 
     while IFS=$'\036' read -r kind section key type val ln; do
         case $kind in
@@ -936,8 +941,31 @@ PY
                 *) violations+=("$line_ref: [$section] severity '${value[$section$'\037'severity]}' is not blocker, suspect, assumption or note") ;;
                 esac
             fi
+        elif [[ $section =~ ^finding\.([0-9]+\.[0-9]+\.[0-9]+)(\.[1-9][0-9]*)?$ ]]; then
+            findings=$((findings + 1))
+            task_part=${BASH_REMATCH[1]}
+            for key in $observation_keys; do
+                if [ -z "${value[$section$'\037'$key]+x}" ]; then
+                    violations+=("$line_ref: [$section] lacks key '$key'")
+                elif [ "${vtype[$section$'\037'$key]}" != string ] || [ -z "${value[$section$'\037'$key]}" ]; then
+                    violations+=("$line_ref: [$section] '$key' must be a non-empty quoted string")
+                fi
+            done
+            for key in ${section_keys[$section]}; do
+                case " $observation_keys " in
+                *" $key "*) ;;
+                *) violations+=("$line_ref: [$section] carries unknown key '$key'") ;;
+                esac
+            done
+            record_task=${value[$section$'\037'task]-}
+            [ "$record_task" = "$task_part" ] || violations+=("$line_ref: [$section] task '$record_task' differs from the section task '$task_part'")
+            [ -n "${spec_sections[task.$record_task]+x}" ] || violations+=("$line_ref: [$section] task '$record_task' is not a [task.*] section of $spec")
+            case ${value[$section$'\037'severity]-} in
+            blocker | suspect | assumption | note) ;;
+            *) violations+=("$line_ref: [$section] severity '${value[$section$'\037'severity]-}' is not blocker, suspect, assumption or note") ;;
+            esac
         else
-            violations+=("$line_ref: [$section] is neither gate.<task>.<n> nor observation.<task>.<n>")
+            violations+=("$line_ref: [$section] is not a gate, observation or layerx-merge finding record")
         fi
     done
 
@@ -955,7 +983,7 @@ PY
         [ "${#distinct[@]}" -eq 0 ] || printf '%s\n' "${distinct[@]}"
         return 0
     fi
-    printf 'beta-ledger-check: %d gate record(s), %d observation record(s) in %s\n' "$gates" "$observations" "${ledger#"$root"/}"
+    printf 'beta-ledger-check: %d gate record(s), %d observation record(s), %d finding record(s) in %s\n' "$gates" "$observations" "$findings" "${ledger#"$root"/}"
     printf 'beta-ledger-check: distinct gate revisions (%d):\n' "${#distinct[@]}"
     [ "${#distinct[@]}" -eq 0 ] || printf '  %s\n' "${distinct[@]}"
     return 0
