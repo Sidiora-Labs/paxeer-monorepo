@@ -3,7 +3,6 @@ package types
 // Oracle module event types
 const (
 	EventTypeExchangeRateUpdate = "exchange_rate_update"
-	EventTypeVote               = "vote"
 	EventTypeFeedDelegate       = "feed_delegate"
 	EventTypeAggregateVote      = "aggregate_vote"
 	EventTypeEndSlashWindow     = "end_slash_window"
