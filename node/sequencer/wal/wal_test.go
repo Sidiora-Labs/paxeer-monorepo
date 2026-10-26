@@ -478,6 +478,97 @@ func TestWALReplayReproducesReceipts(t *testing.T) {
 	}
 }
 
+func TestReplayKeepsLeaseBeforeCommitted(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		cfg  Config
+	}{
+		{name: "head", cfg: DefaultConfig()},
+		{name: "sealed", cfg: Config{SegmentSizeLimit: 1}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			w := mustOpen(t, dir, tc.cfg)
+			t.Cleanup(w.Close)
+			older := &Lease{Epoch: 7, KeyID: [32]byte{1}, ExpiryMs: 400_000}
+			want := &Lease{Epoch: 8, KeyID: [32]byte{2}, ExpiryMs: 500_000}
+			mustAppend(t, w, older)
+			mustAppend(t, w, want)
+			mustSync(t, w, 2)
+			committed := &Committed{Height: 1000, LastSeq: 7, AppHash: [32]byte{3}}
+			mustAppend(t, w, committed)
+			mustSync(t, w, 1)
+			w.Close()
+
+			w = mustOpen(t, dir, tc.cfg)
+			defer w.Close()
+			exec := &chainExecutor{}
+			res, err := w.Replay(exec)
+			if err != nil {
+				t.Fatalf("Replay: %v", err)
+			}
+			if !reflect.DeepEqual(res.Lease, want) {
+				t.Fatalf("replayed lease %+v, want %+v before COMMITTED", res.Lease, want)
+			}
+			if !reflect.DeepEqual(res.From, committed) {
+				t.Fatalf("replay started after %+v, want %+v", res.From, committed)
+			}
+			if len(exec.applied) != 0 || res.Accepts != 0 || res.LastAccept != nil {
+				t.Fatalf("replayed entries before COMMITTED: applied %+v, result %+v", exec.applied, res)
+			}
+		})
+	}
+}
+
+func TestReplayReportsLatestLease(t *testing.T) {
+	older := &Lease{Epoch: 7, KeyID: [32]byte{1}, ExpiryMs: 400_000}
+	later := &Lease{Epoch: 8, KeyID: [32]byte{2}, ExpiryMs: 500_000}
+	latest := &Lease{Epoch: 9, KeyID: [32]byte{3}, ExpiryMs: 600_000}
+	committed := &Committed{Height: 1000, LastSeq: 7, AppHash: [32]byte{4}}
+	for _, tc := range []struct {
+		name    string
+		entries []Entry
+		want    *Lease
+		applied []Entry
+	}{
+		{name: "empty"},
+		{name: "without_lease", entries: []Entry{committed}},
+		{
+			name: "without_committed", entries: []Entry{older, latest},
+			want: latest, applied: []Entry{older, latest},
+		},
+		{
+			name: "after_committed", entries: []Entry{older, committed, later, latest},
+			want: latest, applied: []Entry{later, latest},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			dir := t.TempDir()
+			w := mustOpen(t, dir, DefaultConfig())
+			t.Cleanup(w.Close)
+			for _, entry := range tc.entries {
+				mustAppend(t, w, entry)
+			}
+			mustSync(t, w, len(tc.entries))
+			w.Close()
+
+			w = mustOpen(t, dir, DefaultConfig())
+			defer w.Close()
+			exec := &chainExecutor{}
+			res, err := w.Replay(exec)
+			if err != nil {
+				t.Fatalf("Replay: %v", err)
+			}
+			if !reflect.DeepEqual(res.Lease, tc.want) {
+				t.Fatalf("replayed lease %+v, want %+v", res.Lease, tc.want)
+			}
+			if !reflect.DeepEqual(exec.applied, tc.applied) {
+				t.Fatalf("applied %+v, want %+v", exec.applied, tc.applied)
+			}
+		})
+	}
+}
+
 func sealedSegments(t *testing.T, dir string) []segment {
 	t.Helper()
 	des, err := os.ReadDir(dir)
