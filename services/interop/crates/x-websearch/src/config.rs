@@ -1,3 +1,4 @@
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde_json::{Map, Value};
 use std::io::Read as _;
 use std::net::{IpAddr, SocketAddr};
@@ -146,17 +147,11 @@ impl FetchLimits {
     }
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct SequencerTrust {
-    pub sequencer_id: [u8; 32],
-    pub public_key: [u8; 32],
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GatewayConfig {
     pub endpoint: String,
     pub authorization_file: Option<PathBuf>,
-    pub sequencer: SequencerTrust,
+    pub receipt_keys: Vec<SequencerAuthorization>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -420,7 +415,7 @@ impl Object {
     }
 }
 
-const HEX_FIELDS: [&str; 3] = ["asset_id", "sequencer_id", "sequencer_public_key"];
+const HEX_FIELDS: [&str; 3] = ["asset_id", "key_id", "public_key"];
 const SECRET_WORDS: [&str; 8] = [
     "private",
     "secret",
@@ -449,7 +444,16 @@ fn scan_key_material(map: &Map<String, Value>, prefix: &str) -> Result<(), Confi
         } else {
             format!("{prefix}.{name}")
         };
-        if secret_name(name) {
+        if matches!(
+            path.as_str(),
+            "gateway.sequencer_id" | "gateway.sequencer_public_key"
+        ) {
+            continue;
+        }
+        if secret_name(name)
+            && path != "gateway.receipt_keys"
+            && path != "gateway.receipt_keys.key_id"
+        {
             return Err(ConfigError::new(path, Refusal::KeyMaterial));
         }
         scan_value(value, &path, HEX_FIELDS.contains(&name.as_str()))?;
@@ -861,31 +865,80 @@ fn assets(root: &mut Object) -> Result<[AssetConfig; 4], ConfigError> {
 fn gateway(root: &mut Object) -> Result<GatewayConfig, ConfigError> {
     let mut object = root.object("gateway")?;
     let endpoint = endpoint(&mut object)?;
-    let authorization_file = object.optional("authorization_file")?.map(|(value, path)| {
-        let text = optional_text(value, &path)?;
-        let file = absolute_directory(&text).ok_or_else(|| ConfigError::new(&path, Refusal::Invalid))?;
-        if file.components().any(|part| part.as_os_str().to_str()
-            .is_some_and(|part| part == ".env" || part.starts_with(".env."))) {
-            return Err(ConfigError::new(path, Refusal::Invalid));
+    let authorization_file = object
+        .optional("authorization_file")?
+        .map(|(value, path)| {
+            let text = optional_text(value, &path)?;
+            let file = absolute_directory(&text)
+                .ok_or_else(|| ConfigError::new(&path, Refusal::Invalid))?;
+            if file.components().any(|part| {
+                part.as_os_str()
+                    .to_str()
+                    .is_some_and(|part| part == ".env" || part.starts_with(".env."))
+            }) {
+                return Err(ConfigError::new(path, Refusal::Invalid));
+            }
+            Ok(file)
+        })
+        .transpose()?;
+    for legacy in ["sequencer_id", "sequencer_public_key"] {
+        if object.map.contains_key(legacy) {
+            return Err(ConfigError::new(
+                object.field_path(legacy),
+                Refusal::Unknown,
+            ));
         }
-        Ok(file)
-    }).transpose()?;
-    let sequencer_id = hex32(&mut object, "sequencer_id")?;
-    let key_path = object.field_path("sequencer_public_key");
-    let public_key = hex32(&mut object, "sequencer_public_key")?;
-    let valid_key =
-        ed25519_dalek::VerifyingKey::from_bytes(&public_key).is_ok_and(|key| !key.is_weak());
-    if !valid_key {
-        return Err(ConfigError::new(key_path, Refusal::Invalid));
+    }
+    let (value, path) = object.take("receipt_keys")?;
+    let Value::Array(entries) = value else {
+        return Err(ConfigError::new(path, Refusal::Invalid));
+    };
+    if entries.is_empty() {
+        return Err(ConfigError::new(path, Refusal::Invalid));
+    }
+    let mut receipt_keys: Vec<SequencerAuthorization> = Vec::with_capacity(entries.len());
+    for (index, entry) in entries.into_iter().enumerate() {
+        let entry_path = format!("{path}[{index}]");
+        let Value::Object(map) = entry else {
+            return Err(ConfigError::new(entry_path, Refusal::Invalid));
+        };
+        let mut entry = Object {
+            path: entry_path,
+            map,
+        };
+        let key_id = hex32(&mut entry, "key_id")?;
+        let public_key = hex32(&mut entry, "public_key")?;
+        if !ed25519_dalek::VerifyingKey::from_bytes(&public_key).is_ok_and(|key| !key.is_weak()) {
+            return Err(ConfigError::new(
+                entry.field_path("public_key"),
+                Refusal::Invalid,
+            ));
+        }
+        let (first_height, _) = entry.integer("first_height")?;
+        let (last_height, last_path) = entry.integer("last_height")?;
+        if last_height < first_height {
+            return Err(ConfigError::new(last_path, Refusal::Invalid));
+        }
+        entry.finish()?;
+        if receipt_keys.iter().any(|key| {
+            key.sequencer_id() == key_id
+                && first_height <= key.last_batch_number()
+                && key.first_batch_number() <= last_height
+        }) {
+            return Err(ConfigError::new(&path, Refusal::Invalid));
+        }
+        receipt_keys.push(SequencerAuthorization::new(
+            key_id,
+            public_key,
+            first_height,
+            last_height,
+        ));
     }
     object.finish()?;
     Ok(GatewayConfig {
         endpoint,
         authorization_file,
-        sequencer: SequencerTrust {
-            sequencer_id,
-            public_key,
-        },
+        receipt_keys,
     })
 }
 

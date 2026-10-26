@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"math/big"
+	"slices"
 	"strings"
 	"testing"
 
@@ -14,7 +15,7 @@ import (
 
 func kernelDocument(t *testing.T) *Document {
 	t.Helper()
-	raw := strings.Replace(string(testDocument(t)), `"eip7702_authorization"]`, `"eip7702_authorization", "lx_activity", "lx_bind", "lx_grant"]`, 1)
+	raw := strings.Replace(string(testDocument(t)), `"eip7702_authorization"]`, `"eip7702_authorization", "lx_activity", "lx_bind", "lx_grant", "lx_send_authorization"]`, 1)
 	doc, err := Parse([]byte(raw))
 	if err != nil {
 		t.Fatal(err)
@@ -42,13 +43,13 @@ func TestRegisterKernelKinds(t *testing.T) {
 	refusing := func(Context, any) (Inspection, error) {
 		return Inspection{}, &Refusal{Code: "stale_bind_nonce", Reason: "nonce differs from the chain"}
 	}
-	if err := engine.RegisterKernel(capture(KindLXActivity), nil, capture(KindLXGrant)); err == nil {
+	if err := engine.RegisterKernel(capture(KindLXActivity), nil, capture(KindLXGrant), capture(KindLXSendAuth)); err == nil {
 		t.Fatal("kernel kinds registered without a bind inspector")
 	}
-	if err := engine.RegisterKernel(capture(KindLXActivity), refusing, capture(KindLXGrant)); err != nil {
+	if err := engine.RegisterKernel(capture(KindLXActivity), refusing, capture(KindLXGrant), capture(KindLXSendAuth)); err != nil {
 		t.Fatal(err)
 	}
-	if err := engine.RegisterKernel(capture(KindLXActivity), refusing, capture(KindLXGrant)); err == nil {
+	if err := engine.RegisterKernel(capture(KindLXActivity), refusing, capture(KindLXGrant), capture(KindLXSendAuth)); err == nil {
 		t.Fatal("kernel kinds registered twice")
 	}
 
@@ -68,10 +69,30 @@ func TestRegisterKernelKinds(t *testing.T) {
 	if err := other.Register(KindLXGrant, capture(KindLXGrant)); err != nil {
 		t.Fatal(err)
 	}
-	if err := other.RegisterKernel(capture(KindLXActivity), refusing, capture(KindLXGrant)); err == nil {
+	if err := other.RegisterKernel(capture(KindLXActivity), refusing, capture(KindLXGrant), capture(KindLXSendAuth)); err == nil {
 		t.Fatal("kernel kinds registered over an existing grant inspector")
 	}
 	expect(t, other.Evaluate(testAccount, Request{Kind: KindLXActivity, View: []byte{1}}, h.ledger), CodeUnknownKind)
+}
+
+func TestRegisterKernelRegistersSendAuthorization(t *testing.T) {
+	h := newHarness(t)
+	engine := New(kernelDocument(t))
+	if !slices.Contains(KernelKinds(), KindLXSendAuth) {
+		t.Fatal("kernel kinds omit send authorization")
+	}
+	if err := engine.RegisterKernel(inspectTransaction, inspectAuthorization, inspectTypedData, nil); err == nil {
+		t.Fatal("kernel kinds registered without a send authorization inspector")
+	}
+	message := evm.DecodePersonalMessage([]byte("send authorization inspector routing"))
+	request := Request{Kind: KindLXSendAuth, View: message}
+	expect(t, engine.Evaluate(testAccount, request, h.ledger), CodeUnknownKind)
+	if err := engine.RegisterKernel(inspectTransaction, inspectAuthorization, inspectTypedData, inspectPersonalMessage); err != nil {
+		t.Fatal(err)
+	}
+	expect(t, engine.Evaluate(testAccount, request, h.ledger), CodeAllowed)
+	request.Kind = KindLXActivity
+	expect(t, engine.Evaluate(testAccount, request, h.ledger), CodeMissingField)
 }
 
 func TestVerificationMessageLayout(t *testing.T) {
@@ -117,7 +138,7 @@ func TestNoOtherKindSignsTheVerificationMessage(t *testing.T) {
 	h := newHarness(t)
 	engine := New(kernelDocument(t))
 	accept := func(Context, any) (Inspection, error) { return Inspection{}, nil }
-	if err := engine.RegisterKernel(accept, accept, accept); err != nil {
+	if err := engine.RegisterKernel(accept, accept, accept, accept); err != nil {
 		t.Fatal(err)
 	}
 	pub := bytes.Repeat([]byte{0x04}, 65)

@@ -21,6 +21,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/consensus"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/eventbus"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/evidence"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/mempool"
@@ -900,13 +901,19 @@ func TestNodeShutdownJoinsPruner(t *testing.T) {
 // or above activation, so it implements types.SequencerSource.
 type sequencedApp struct {
 	*kvstore.Application
-	activation int64
+	activation       int64
+	leaderActivation int64
+	leaders          [][32]byte
 
 	mu     sync.Mutex
 	sealed map[int64]types.SealedBlock
 }
 
 func (a *sequencedApp) Sequenced(height int64) bool { return height >= a.activation }
+
+func (a *sequencedApp) LeaderSchedule(_ int64) (int64, [][32]byte, error) {
+	return a.leaderActivation, a.leaders, nil
+}
 
 func (a *sequencedApp) Seal(_ context.Context, height int64) (types.SealedBlock, error) {
 	a.mu.Lock()
@@ -925,6 +932,143 @@ func (a *sequencedApp) sealedAt(height int64) (types.SealedBlock, bool) {
 	defer a.mu.Unlock()
 	sb, ok := a.sealed[height]
 	return sb, ok
+}
+
+func TestNodeInstallsLeaderSource(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		enabled    bool
+		activation int64
+	}{
+		{name: "active", activation: 1},
+		{name: "future", activation: 2},
+		{name: "sequencer active", enabled: true, activation: 1},
+		{name: "sequencer future", enabled: true, activation: 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, err := config.ResetTestRoot(t.TempDir(), "node_leader_source_test")
+			require.NoError(t, err)
+			cfg.RPC.ListenAddress = fmt.Sprintf("tcp://%s", tcp.TestReserveAddr())
+			cfg.Consensus.Sequencer.Enable = tc.enabled
+			gen, err := types.GenesisDocFromFile(cfg.GenesisFile())
+			require.NoError(t, err)
+			standby := ed25519.GenerateSecretKey().Public()
+			gen.Validators = append(gen.Validators, types.GenesisValidator{
+				Address: standby.Address(),
+				PubKey:  standby,
+				Power:   gen.Validators[0].Power,
+			})
+			keys := []crypto.PubKey{standby, gen.Validators[0].PubKey}
+			app := &sequencedApp{
+				Application:      kvstore.NewApplication(),
+				activation:       tc.activation,
+				leaderActivation: tc.activation,
+				leaders:          [][32]byte{[32]byte(keys[0].Bytes()), [32]byte(keys[1].Bytes())},
+				sealed:           map[int64]types.SealedBlock{},
+			}
+			app.SetValidators(gen.ValidatorUpdates())
+			ns, err := New(t.Context(), cfg, func() {}, app, gen, nil,
+				DefaultMetricsProvider(cfg.Instrumentation)(cfg.ChainID()), types.DefaultConsensusPolicy())
+			require.NoError(t, err)
+			n, ok := ns.(*nodeImpl)
+			require.True(t, ok)
+			t.Cleanup(func() {
+				n.Stop()
+				n.Wait()
+			})
+			require.NoError(t, n.Start(t.Context()))
+			state, ok := n.RPCEnvironment().ConsensusState.Get()
+			require.True(t, ok)
+			cs, ok := state.(*consensus.State)
+			require.True(t, ok)
+			rs := cs.GetRoundState()
+			require.Equal(t, int64(1), rs.Height)
+			require.False(t, rs.LeaderPin.Applies(tc.activation-1))
+			require.True(t, rs.LeaderPin.Applies(tc.activation))
+			for round := range int32(4) {
+				leader, pinned := rs.LeaderPin.Leader(tc.activation, round)
+				require.True(t, pinned)
+				require.Equal(t, keys[round%2], leader)
+			}
+			if tc.activation == rs.Height {
+				require.Equal(t, keys[0], rs.Leader())
+			}
+		})
+	}
+	t.Run("proposer at activation", func(t *testing.T) {
+		cfg, err := config.ResetTestRoot(t.TempDir(), "node_leader_source_proposer_test")
+		require.NoError(t, err)
+		cfg.RPC.ListenAddress = fmt.Sprintf("tcp://%s", tcp.TestReserveAddr())
+		gen, err := types.GenesisDocFromFile(cfg.GenesisFile())
+		require.NoError(t, err)
+		const activation int64 = 2
+		leader := gen.Validators[0].PubKey
+		app := &sequencedApp{
+			Application:      kvstore.NewApplication(),
+			activation:       activation,
+			leaderActivation: activation,
+			leaders:          [][32]byte{[32]byte(leader.Bytes())},
+			sealed:           map[int64]types.SealedBlock{},
+		}
+		app.SetValidators(gen.ValidatorUpdates())
+		ns, err := New(t.Context(), cfg, func() {}, app, gen, nil,
+			DefaultMetricsProvider(cfg.Instrumentation)(cfg.ChainID()), types.DefaultConsensusPolicy())
+		require.NoError(t, err)
+		n, ok := ns.(*nodeImpl)
+		require.True(t, ok)
+		t.Cleanup(func() {
+			n.Stop()
+			n.Wait()
+		})
+		blocks, err := n.EventBus().SubscribeWithArgs(t.Context(), pubsub.SubscribeArgs{
+			ClientID: "node_test_leader_source",
+			Query:    types.EventQueryNewBlock,
+			Limit:    1000,
+		})
+		require.NoError(t, err)
+		require.NoError(t, n.Start(t.Context()))
+		ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
+		defer cancel()
+		for {
+			msg, err := blocks.Next(ctx)
+			require.NoError(t, err, "waiting for block %d", activation)
+			block := msg.Data().(types.EventDataNewBlock).Block
+			if block.Height == activation {
+				require.Equal(t, leader.Address(), block.ProposerAddress)
+				return
+			}
+		}
+	})
+}
+
+func TestNodeRefusesSequencerWithoutLeaderSource(t *testing.T) {
+	for _, enabled := range []bool{false, true} {
+		t.Run(fmt.Sprintf("sequencer enabled=%t", enabled), func(t *testing.T) {
+			cfg, err := config.ResetTestRoot(t.TempDir(), "node_no_leader_source_test")
+			require.NoError(t, err)
+			cfg.Consensus.Sequencer.Enable = enabled
+			app := kvstore.NewApplication()
+			gen, err := types.GenesisDocFromFile(cfg.GenesisFile())
+			require.NoError(t, err)
+			app.SetValidators(gen.ValidatorUpdates())
+			_, hasSource := any(app).(types.LeaderSource)
+			require.False(t, hasSource)
+			ns, err := New(t.Context(), cfg, func() {}, app, gen, nil,
+				DefaultMetricsProvider(cfg.Instrumentation)(cfg.ChainID()), types.DefaultConsensusPolicy())
+			if ns != nil {
+				n, ok := ns.(*nodeImpl)
+				require.True(t, ok)
+				t.Cleanup(n.OnStop)
+			}
+			if enabled {
+				require.Error(t, err)
+				require.Nil(t, ns)
+			} else {
+				require.NoError(t, err)
+				require.NotNil(t, ns)
+			}
+		})
+	}
 }
 
 func TestNodeInstallsSequencerSource(t *testing.T) {

@@ -1,6 +1,7 @@
 use crate::config::{
     decode_hex, parse_hex32, Ap2KeyPin, Config, FiatProviderPin, VisaAgentPin, VisaTargetPin,
 };
+use crate::payer_tx::{decode_pay_exact, PayExactCall};
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signature, Verifier as _, VerifyingKey as Ed25519Key};
@@ -355,8 +356,10 @@ fn resumed_request(encoded: &str, authorization: &str) -> Result<IncomingRequest
             || (continuation.method == "POST"
                 && matches!(
                     continuation.path.as_str(),
-                    "/v2/migration/accounts" | "/v2/migration/assets"
-                        | "/v2/migration/history" | "/v2/migration/history/read"
+                    "/v2/migration/accounts"
+                        | "/v2/migration/assets"
+                        | "/v2/migration/history"
+                        | "/v2/migration/history/read"
                 )))
         || continuation.path.starts_with("/v1/operations/")
     {
@@ -450,8 +453,12 @@ fn dispatch(
             migration_account_v2(config, request, record, principal, trace)
         }
         InteropRoute::MigrationAssetV2 => migration_asset_v2(config, request, record, trace),
-        InteropRoute::MigrationHistoryImportV2 => migration_history_import_v2(config, request, record, principal, trace),
-        InteropRoute::MigrationHistoryReadV2 => migration_history_read_v2(config, request, principal),
+        InteropRoute::MigrationHistoryImportV2 => {
+            migration_history_import_v2(config, request, record, principal, trace)
+        }
+        InteropRoute::MigrationHistoryReadV2 => {
+            migration_history_read_v2(config, request, principal)
+        }
         InteropRoute::Live | InteropRoute::Ready | InteropRoute::AdapterMetadata => {
             Dispatch::error(404, "refused", "not_found")
         }
@@ -474,7 +481,9 @@ struct MigrationHistoryReadRequestV2 {
 }
 
 fn history_evidence(encoded: &str) -> Result<SourceEvidence, MigrationError> {
-    let decoded = STANDARD.decode(encoded).map_err(|_| MigrationError::InvalidEvidence)?;
+    let decoded = STANDARD
+        .decode(encoded)
+        .map_err(|_| MigrationError::InvalidEvidence)?;
     if STANDARD.encode(&decoded) != encoded {
         return Err(MigrationError::InvalidEvidence);
     }
@@ -507,10 +516,14 @@ fn migration_history_import_v2(
         let ownership = history_evidence(&body.ownership_evidence)?;
         let evidence = history_evidence(&body.source_evidence)?;
         let page = match body.chain {
-            MigrationSourceV2::Ethereum => profile.ethereum.as_ref()
+            MigrationSourceV2::Ethereum => profile
+                .ethereum
+                .as_ref()
                 .ok_or(MigrationError::Configuration)?
                 .verify_owned_history(&ownership, &evidence, identity, trace)?,
-            MigrationSourceV2::Solana => profile.solana.as_ref()
+            MigrationSourceV2::Solana => profile
+                .solana
+                .as_ref()
                 .ok_or(MigrationError::Configuration)?
                 .verify_owned_history(&ownership, &evidence, identity, trace)?,
         };
@@ -519,14 +532,22 @@ fn migration_history_import_v2(
             sink.store_external(principal, &page, trace)?;
         }
         match body.chain {
-            MigrationSourceV2::Ethereum => profile.ethereum.as_ref()
-                .ok_or(MigrationError::Configuration)?.commit_history(&evidence, &page, trace)?,
-            MigrationSourceV2::Solana => profile.solana.as_ref()
-                .ok_or(MigrationError::Configuration)?.commit_history(&evidence, &page, trace)?,
+            MigrationSourceV2::Ethereum => profile
+                .ethereum
+                .as_ref()
+                .ok_or(MigrationError::Configuration)?
+                .commit_history(&evidence, &page, trace)?,
+            MigrationSourceV2::Solana => profile
+                .solana
+                .as_ref()
+                .ok_or(MigrationError::Configuration)?
+                .commit_history(&evidence, &page, trace)?,
         }
-        Ok(json!({"version":"external-history-v2", "state":"external-history-imported",
+        Ok(
+            json!({"version":"external-history-v2", "state":"external-history-imported",
             "record_count":page.records().len(), "next_cursor":page.next_cursor().map(|value| hex(&value)),
-            "evidence_digest":hex(&page.evidence_digest()), "provenance":"external", "layerx_receipt":false}))
+            "evidence_digest":hex(&page.evidence_digest()), "provenance":"external", "layerx_receipt":false}),
+        )
     })();
     match imported {
         Ok(value) => Dispatch::result(200, "external_history_imported", value),
@@ -534,11 +555,19 @@ fn migration_history_import_v2(
     }
 }
 
-fn migration_history_read_v2(config: &Config, request: &IncomingRequest, principal: &PrincipalId) -> Dispatch {
+fn migration_history_read_v2(
+    config: &Config,
+    request: &IncomingRequest,
+    principal: &PrincipalId,
+) -> Dispatch {
     let Ok(body) = direct_body::<MigrationHistoryReadRequestV2>(request) else {
         return Dispatch::error(400, "refused", "invalid_migration_request");
     };
-    let Some(history) = config.migration_v2.as_ref().and_then(|profile| profile.history.as_ref()) else {
+    let Some(history) = config
+        .migration_v2
+        .as_ref()
+        .and_then(|profile| profile.history.as_ref())
+    else {
         return Dispatch::error(503, "refused", "migration_history_unconfigured");
     };
     let cursor = match body.cursor {
@@ -548,7 +577,9 @@ fn migration_history_read_v2(config: &Config, request: &IncomingRequest, princip
             _ => return Dispatch::error(400, "refused", "invalid_history"),
         },
     };
-    let page = history.lock().map_err(|_| MigrationError::StorageRefused)
+    let page = history
+        .lock()
+        .map_err(|_| MigrationError::StorageRefused)
         .and_then(|sink| sink.read(principal, cursor, body.limit));
     match page {
         Ok(page) => Dispatch::result(200, "external_history_read", page.json()),
@@ -559,13 +590,16 @@ fn migration_history_read_v2(config: &Config, request: &IncomingRequest, princip
 fn migration_history_error(error: MigrationError) -> Dispatch {
     let (status, state) = match error {
         MigrationError::SourcePending => (202, "pending"),
-        MigrationError::RpcUnavailable | MigrationError::RpcDivergence
-            | MigrationError::RpcResponseMismatch => (503, "pending"),
+        MigrationError::RpcUnavailable
+        | MigrationError::RpcDivergence
+        | MigrationError::RpcResponseMismatch => (503, "pending"),
         MigrationError::RpcRateLimited { .. } => (429, "pending"),
-        MigrationError::Configuration | MigrationError::StorageRefused
-            | MigrationError::CheckpointIntegrity => (503, "refused"),
-        MigrationError::CheckpointConflict | MigrationError::SourceDisplaced
-            | MigrationError::SourceReverted => (409, "refused"),
+        MigrationError::Configuration
+        | MigrationError::StorageRefused
+        | MigrationError::CheckpointIntegrity => (503, "refused"),
+        MigrationError::CheckpointConflict
+        | MigrationError::SourceDisplaced
+        | MigrationError::SourceReverted => (409, "refused"),
         _ => (400, "refused"),
     };
     Dispatch::error(status, state, error.code())
@@ -785,8 +819,10 @@ fn migration_account_v2(
 
 #[cfg(test)]
 mod migration_v2_request_tests {
-    use super::{direct_body, history_evidence, resumed_request, DurableContinuation,
-        MigrationAccountRequestV2, MigrationHistoryImportRequestV2, MigrationHistoryReadRequestV2};
+    use super::{
+        direct_body, history_evidence, resumed_request, DurableContinuation,
+        MigrationAccountRequestV2, MigrationHistoryImportRequestV2, MigrationHistoryReadRequestV2,
+    };
     use layerx_platform_gateway::http::IncomingRequest;
     use std::collections::BTreeMap;
 
@@ -854,10 +890,12 @@ mod migration_v2_request_tests {
     fn history_body_cannot_inject_owner_or_receipt_authority() {
         assert!(direct_body::<MigrationHistoryImportRequestV2>(&request(
             br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag=="}"#,
-        )).is_ok());
+        ))
+        .is_ok());
         assert!(direct_body::<MigrationHistoryReadRequestV2>(&request(
             br#"{"cursor":null,"limit":1}"#,
-        )).is_ok());
+        ))
+        .is_ok());
         for body in [
             br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag==","principal":"other"}"#.as_slice(),
             br#"{"chain":"ethereum","ownership_evidence":"AQ==","source_evidence":"Ag==","layerx_receipt":true}"#.as_slice(),
@@ -880,14 +918,20 @@ mod migration_v2_request_tests {
     fn history_pending_continuations_retain_exact_route_and_reauthentication() {
         for path in ["/v2/migration/history", "/v2/migration/history/read"] {
             let encoded = serde_json::to_string(&DurableContinuation {
-                method: "POST".to_owned(), path: path.to_owned(),
-                content_type: "application/json".to_owned(), idempotency_key: Some("history-key".to_owned()),
+                method: "POST".to_owned(),
+                path: path.to_owned(),
+                content_type: "application/json".to_owned(),
+                idempotency_key: Some("history-key".to_owned()),
                 body: "7b7d".to_owned(),
-            }).unwrap_or_else(|error| panic!("history continuation: {error}"));
+            })
+            .unwrap_or_else(|error| panic!("history continuation: {error}"));
             let resumed = resumed_request(&encoded, "Bearer renewed-key")
                 .unwrap_or_else(|()| panic!("history continuation refused"));
             assert_eq!(resumed.path, path);
-            assert_eq!(resumed.headers.get("authorization").map(String::as_str), Some("Bearer renewed-key"));
+            assert_eq!(
+                resumed.headers.get("authorization").map(String::as_str),
+                Some("Bearer renewed-key")
+            );
         }
     }
 }
@@ -1018,15 +1062,48 @@ fn gateway_core(config: &Config, trace: &TraceId, now: u64) -> Result<GatewayCor
     Ok(gateway)
 }
 
-struct X402VerifyPlane<'a> {
-    modules: &'a ModuleRegistry,
-    protocol_version: u16,
-    protocol_network_id: u32,
-    expected_signer: [u8; 32],
+struct X402VerifyPlane {
     observed_at: u64,
 }
 
 fn verified_x402_transfer(
+    request: &FacilitatorPaymentRequest,
+    observed_at: u64,
+) -> Result<(PayExactCall, [u8; 32]), &'static str> {
+    let transaction = request
+        .payment_payload
+        .payload
+        .get("layerxTransaction")
+        .and_then(Value::as_str)
+        .ok_or("typed_intent_required")?;
+    let transaction = transaction.strip_prefix("0x").unwrap_or(transaction);
+    let transaction = decode_hex(transaction, MAX_BODY).map_err(|_| "transaction_malformed")?;
+    let declared_idempotency = request
+        .payment_payload
+        .payload
+        .get("layerxIdempotencyKey")
+        .and_then(Value::as_str)
+        .and_then(|value| parse_hex32(value).ok())
+        .ok_or("protocol_idempotency_required")?;
+    let (transfer, _, transaction_hash) =
+        decode_pay_exact(&transaction).map_err(|error| error.code())?;
+    if transfer.reference != declared_idempotency {
+        return Err("protocol_idempotency_mismatch");
+    }
+    let (asset, recipient) = x402_facts(&request.payment_requirements)?;
+    if transfer.asset != asset
+        || transfer.to != recipient
+        || transfer.amount != request.payment_requirements.amount.value()
+    {
+        return Err("payment_requirements_mismatch");
+    }
+    if observed_at > transfer.expires_at {
+        return Err("activity_time_window_refused");
+    }
+    Ok((transfer, transaction_hash))
+}
+
+fn verified_x402_activity(
     request: &FacilitatorPaymentRequest,
     modules: &ModuleRegistry,
     protocol_version: u16,
@@ -1081,23 +1158,16 @@ fn x402_facts(requirements: &PaymentRequirements) -> Result<([u8; 32], [u8; 32])
     requirements.layerx_facts().map_err(|_| "unsupported_offer")
 }
 
-impl FacilitatorPlane for X402VerifyPlane<'_> {
+impl FacilitatorPlane for X402VerifyPlane {
     fn verify(
         &mut self,
         request: &FacilitatorPaymentRequest,
         _trace: &TraceId,
     ) -> Result<PlaneVerifyOutcome, X402Error> {
-        match verified_x402_transfer(
-            request,
-            self.modules,
-            self.protocol_version,
-            self.protocol_network_id,
-            &self.expected_signer,
-            self.observed_at,
-        ) {
-            Ok((submission, transfer)) => Ok(PlaneVerifyOutcome::Valid {
-                payer: Some(hex(&transfer.payer())),
-                extra: Some(json!({ "layerxActivityId": hex(&submission.activity_id()) })),
+        match verified_x402_transfer(request, self.observed_at) {
+            Ok((transfer, transaction_hash)) => Ok(PlaneVerifyOutcome::Valid {
+                payer: Some(hex(&transfer.from)),
+                extra: Some(json!({ "layerxTransactionHash": hex(&transaction_hash) })),
             }),
             Err(reason) => Ok(PlaneVerifyOutcome::Invalid {
                 reason,
@@ -1129,9 +1199,9 @@ fn x402_verify(
     let Ok(facilitator) = Facilitator::new(config.manifest.x402_supported.clone()) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
-    let Ok(expected_signer) = parse_hex32(&record.signer_public_key) else {
+    if parse_hex32(&record.signer_public_key).is_err() {
         return Dispatch::error(503, "pending", "authenticated_signer_invalid");
-    };
+    }
     let Ok(server_now) = now() else {
         return Dispatch::error(503, "pending", "clock_unavailable");
     };
@@ -1139,10 +1209,6 @@ fn x402_verify(
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
     let mut plane = X402VerifyPlane {
-        modules: &config.modules,
-        protocol_version: config.protocol_version,
-        protocol_network_id: config.protocol_network_id,
-        expected_signer,
         observed_at: server_now,
     };
     match facilitator.verify(
@@ -1205,7 +1271,7 @@ impl FacilitatorPlane for X402SettlePlane<'_> {
         let Ok(expected_signer) = parse_hex32(self.expected_signer) else {
             return Err(X402Error::PaymentRefused);
         };
-        let (submission, _) = match verified_x402_transfer(
+        let (submission, _) = match verified_x402_activity(
             &request,
             &self.config.modules,
             self.config.protocol_version,
@@ -3498,6 +3564,151 @@ mod tests {
         gateway
     }
 
+    fn recorded_x402_request(
+        case_id: &str,
+    ) -> Result<(FacilitatorPaymentRequest, Value), Box<dyn std::error::Error>> {
+        let fixtures: Value = serde_json::from_str(include_str!(
+            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))?;
+        let case = fixtures["cases"]
+            .as_array()
+            .ok_or("fixture cases must be an array")?
+            .iter()
+            .find(|case| case["id"] == case_id)
+            .ok_or("recorded transaction must exist")?;
+        let reference = "26fde3dedb14662268bff5bb3ab6560550a0dc3938b0c9d5ed717932c75b9839";
+        let requirements = PaymentRequirements {
+            scheme: "exact".to_owned(),
+            network: "layerx:beta".to_owned(),
+            amount: AtomicAmount::parse("1000000")?,
+            asset: "4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28".to_owned(),
+            pay_to: "84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985".to_owned(),
+            max_timeout_seconds: 60,
+            extra: None,
+        };
+        let request = FacilitatorPaymentRequest {
+            payment_payload: PaymentPayload {
+                x402_version: 2,
+                resource: None,
+                payload: json!({
+                    "layerxTransaction": case["rawTransaction"],
+                    "layerxIdempotencyKey": reference,
+                }),
+                accepted: requirements.clone(),
+                extensions: BTreeMap::new(),
+            },
+            payment_requirements: requirements,
+            idempotency_key: parse_hex32(reference)?,
+            request_digest: parse_hex32(
+                case["receiptJson"]["txHash"]
+                    .as_str()
+                    .and_then(|hash| hash.strip_prefix("0x"))
+                    .ok_or("recorded transaction has a prefixed hash")?,
+            )?,
+            settlement_step: SettlementStep::Single,
+        };
+        Ok((request, case["receiptJson"].clone()))
+    }
+
+    #[test]
+    fn x402_verify_accepts_the_recorded_pay_exact_transaction(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (request, receipt) = recorded_x402_request("V1-layerxledger-pay-exact")?;
+        let observed_at = 1_750_000_000_000;
+        let (transfer, transaction_hash) = verified_x402_transfer(&request, observed_at)?;
+        let payer = "1fb0082aa4aa4ce1eb67568a7d8f67798f3b008c254e0929dfe5eabb1dc0d769";
+        assert_eq!(transfer.from, parse_hex32(payer)?);
+        assert_eq!(
+            transfer.asset,
+            parse_hex32(&request.payment_requirements.asset)?
+        );
+        assert_eq!(
+            transfer.to,
+            parse_hex32(&request.payment_requirements.pay_to)?
+        );
+        assert_eq!(transfer.amount, 1_000_000);
+        assert_eq!(transfer.expires_at, 1_750_003_600_000);
+        assert_eq!(transfer.reference, request.idempotency_key);
+        assert_eq!(
+            transaction_hash,
+            parse_hex32(
+                receipt["txHash"]
+                    .as_str()
+                    .and_then(|hash| hash.strip_prefix("0x"))
+                    .ok_or("recorded prefixed hash")?,
+            )?,
+        );
+        let trace = TraceId::mint([0x72; 16]);
+        let mut plane = X402VerifyPlane { observed_at };
+        let outcome = plane.verify(&request, &trace)?;
+        match outcome {
+            PlaneVerifyOutcome::Valid {
+                payer: actual,
+                extra,
+            } => {
+                assert_eq!(actual.as_deref(), Some(payer));
+                assert_eq!(
+                    extra,
+                    Some(json!({ "layerxTransactionHash": hex(&transaction_hash) })),
+                );
+            }
+            PlaneVerifyOutcome::Invalid { reason, .. } => {
+                panic!("recorded payExact must verify: {reason}");
+            }
+        }
+        for field in ["asset", "pay_to", "amount"] {
+            let mut mismatched = request.clone();
+            match field {
+                "asset" => mismatched.payment_requirements.asset = "44".repeat(32),
+                "pay_to" => mismatched.payment_requirements.pay_to = "45".repeat(32),
+                "amount" => {
+                    mismatched.payment_requirements.amount = AtomicAmount::parse("1000001")?
+                }
+                _ => unreachable!(),
+            }
+            assert_eq!(
+                verified_x402_transfer(&mismatched, observed_at),
+                Err("payment_requirements_mismatch"),
+            );
+        }
+        let mut mismatched = request.clone();
+        mismatched.payment_payload.payload["layerxIdempotencyKey"] = json!("00".repeat(32));
+        assert_eq!(
+            verified_x402_transfer(&mismatched, observed_at),
+            Err("protocol_idempotency_mismatch"),
+        );
+        assert!(verified_x402_transfer(&request, transfer.expires_at).is_ok());
+        assert_eq!(
+            verified_x402_transfer(&request, transfer.expires_at + 1),
+            Err("activity_time_window_refused"),
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn x402_verify_refuses_a_transaction_to_another_contract(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let (request, _) = recorded_x402_request("V1-pax-transfer")?;
+        assert_eq!(
+            verified_x402_transfer(&request, 1_750_000_000_000),
+            Err("transaction_target_refused"),
+        );
+        let mut plane = X402VerifyPlane {
+            observed_at: 1_750_000_000_000,
+        };
+        let outcome = plane.verify(&request, &TraceId::mint([0x73; 16]))?;
+        match outcome {
+            PlaneVerifyOutcome::Invalid { reason, payer } => {
+                assert_eq!(reason, "transaction_target_refused");
+                assert_eq!(payer, None);
+            }
+            PlaneVerifyOutcome::Valid { .. } => {
+                panic!("recorded PAX transfer must be refused");
+            }
+        }
+        Ok(())
+    }
+
     #[test]
     fn x402_verify_refuses_unsigned_and_unverifiable_payments_through_the_facilitator() {
         let facilitator = Facilitator::new(SupportedResponse {
@@ -3514,15 +3725,7 @@ mod tests {
         let trace = TraceId::mint([0x71; 16]);
         let principal = PrincipalId::new("principal-x402-verify")
             .unwrap_or_else(|error| panic!("principal id is valid: {error:?}"));
-        let modules = ModuleRegistry::new(&[])
-            .unwrap_or_else(|error| panic!("empty module registry is valid: {error:?}"));
-        let mut plane = X402VerifyPlane {
-            modules: &modules,
-            protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-            protocol_network_id: 1,
-            expected_signer: [0x21; 32],
-            observed_at: 10,
-        };
+        let mut plane = X402VerifyPlane { observed_at: 10 };
         let mut gateway = x402_fixture_gateway(&trace);
         let unsigned = facilitator
             .verify(
@@ -3534,7 +3737,9 @@ mod tests {
                 10,
             )
             .unwrap_or_else(|error| {
-                panic!("verify renders a refusal for a payment without a typed activity: {error:?}")
+                panic!(
+                    "verify renders a refusal for a payment without a typed transaction: {error:?}"
+                )
             });
         assert!(!unsigned.is_valid);
         assert_eq!(
@@ -3546,7 +3751,7 @@ mod tests {
                 &mut gateway,
                 &principal,
                 &x402_fixture_request(serde_json::json!({
-                    "layerxActivity": "deadbeef",
+                    "layerxTransaction": "deadbeef",
                     "layerxIdempotencyKey": "00".repeat(32),
                 })),
                 &mut plane,
@@ -3554,12 +3759,12 @@ mod tests {
                 10,
             )
             .unwrap_or_else(|error| {
-                panic!("verify renders a refusal for unverifiable activity bytes: {error:?}")
+                panic!("verify renders a refusal for unverifiable transaction bytes: {error:?}")
             });
         assert!(!unverifiable.is_valid);
         assert_eq!(
             unverifiable.invalid_reason.as_deref(),
-            Some("activity_authorization_refused")
+            Some("transaction_malformed")
         );
     }
 

@@ -323,6 +323,28 @@ func (p *Precompile) RunAndCalculateGas(evm *vm.EVM, caller, callingContract com
 	return ret, remainingGas, nil
 }
 
+var precompileDefinitions = [...]struct {
+	address common.Address
+	name    string
+	abi     abi.ABI
+}{
+	{pecorAddress, "spot_pecor", railEventABIs[pecorAddress]},
+	{ordersAddress, "spot_orders", railEventABIs[ordersAddress]},
+	{stopOrdersAddress, "spot_stoporders", railEventABIs[stopOrdersAddress]},
+	{quoterAddress, "spot_quoter", railEventABIs[quoterAddress]},
+	{vaultAddress, "spot_vault", railEventABIs[vaultAddress]},
+}
+
+// PrecompileABIs returns the names and parsed ABIs of the spot precompiles
+// at 0x1021-0x1025 without requiring application keepers.
+func PrecompileABIs() map[string]abi.ABI {
+	abis := make(map[string]abi.ABI, len(precompileDefinitions))
+	for _, entry := range precompileDefinitions {
+		abis[entry.name] = entry.abi
+	}
+	return abis
+}
+
 // NewPrecompileSet builds the PECOR set at 0x1021-0x1025 over the spot keeper
 // of keepers. 0x1026 and 0x1027 carry no code and have no entry.
 func NewPrecompileSet(keepers utils.Keepers) (map[common.Address]*pcommon.Precompile, error) {
@@ -350,21 +372,17 @@ func NewPrecompileSet(keepers utils.Keepers) (map[common.Address]*pcommon.Precom
 	if err != nil {
 		return nil, err
 	}
-	executors := []struct {
-		address  common.Address
-		name     string
-		executor pcommon.PrecompileExecutor
-	}{
-		{pecorAddress, "spot_pecor", pecor},
-		{ordersAddress, "spot_orders", orders},
-		{stopOrdersAddress, "spot_stoporders", stopOrders},
-		{quoterAddress, quoter.GetName(), quoter.GetExecutor()},
-		{vaultAddress, "spot_vault", newVaultExecutor(k, evmKeeper)},
+	executors := map[common.Address]pcommon.PrecompileExecutor{
+		pecorAddress:      pecor,
+		ordersAddress:     orders,
+		stopOrdersAddress: stopOrders,
+		quoterAddress:     quoter.GetExecutor(),
+		vaultAddress:      newVaultExecutor(k, evmKeeper),
 	}
-	set := make(map[common.Address]*pcommon.Precompile, len(executors))
-	for _, entry := range executors {
-		served := &rail{executor: entry.executor, keeper: k, evmKeeper: evmKeeper, gas: GasTable[entry.address]}
-		set[entry.address] = pcommon.NewPrecompile(railEventABIs[entry.address], served, entry.address, entry.name)
+	set := make(map[common.Address]*pcommon.Precompile, len(precompileDefinitions))
+	for _, entry := range precompileDefinitions {
+		served := &rail{executor: executors[entry.address], keeper: k, evmKeeper: evmKeeper, gas: GasTable[entry.address]}
+		set[entry.address] = pcommon.NewPrecompile(entry.abi, served, entry.address, entry.name)
 	}
 	return set, nil
 }

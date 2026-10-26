@@ -3,6 +3,7 @@ import {
   SellerMiddleware,
   VerifiedWebhookConsumer,
   X402_VERSION,
+  paymentCommitment,
   protocolSelection,
   requireProtocolVersion,
   verifyPaymentReceipt,
@@ -286,7 +287,7 @@ export interface SettlementWebhookEvent {
   readonly receipt_digest: string;
   readonly receipt_ref: string;
   readonly transaction: string;
-  readonly verification: "sequencer-signed" | "batch-included" | "state-proven" | "checkpoint-finalised" | "settlement-anchored";
+  readonly verification: "receipted" | "committed";
 }
 
 export interface MerchantReceiptEvidence {
@@ -345,13 +346,14 @@ export class MerchantSettlementWebhooks {
         throw new MerchantError("order-conflict");
       }
       const evidence = await this.#receipts.resolve(event.receipt_ref);
-      const verification = await verifyPaymentReceipt(
+      const requirements = current.quote.paymentRequired.accepts[0]!;
+      await verifyPaymentReceipt(
         evidence,
-        current.quote.paymentRequired.accepts[0]!,
+        requirements,
         this.#commitments,
         this.#protocol,
       );
-      if (verificationRank(event.verification) > verificationRank(verification.level)) {
+      if (verificationRank(event.verification) > verificationRank(paymentCommitment(requirements.extra))) {
         throw new MerchantError("invalid-webhook");
       }
       const receiptDigest = toHex(await settlementReceiptDigest(evidence.canonicalReceipt));
@@ -470,11 +472,10 @@ function parseSettlementWebhook(value: Readonly<Record<string, JsonValue>>): Set
     throw new MerchantError("invalid-webhook");
   }
   const verification = value["verification"];
-  const levels = new Set(["sequencer-signed", "batch-included", "state-proven", "checkpoint-finalised", "settlement-anchored"]);
-  if (typeof verification !== "string" || !levels.has(verification)) {
+  if (verification !== "receipted" && verification !== "committed") {
     throw new MerchantError("invalid-webhook");
   }
-  const event = {
+  const event: SettlementWebhookEvent = {
     order_id: requiredField(value, "order_id", 255),
     request_digest: requiredHex(value, "request_digest"),
     receipt_digest: requiredHex(value, "receipt_digest"),
@@ -482,18 +483,15 @@ function parseSettlementWebhook(value: Readonly<Record<string, JsonValue>>): Set
     transaction: requiredField(value, "transaction", 512),
     verification,
   };
-  return event as SettlementWebhookEvent;
+  return event;
 }
 
 function verificationRank(
-  level: SettlementWebhookEvent["verification"] | ReceiptVerification["level"],
+  level: SettlementWebhookEvent["verification"],
 ): number {
   switch (level) {
-    case "sequencer-signed": return 1;
-    case "batch-included": return 2;
-    case "state-proven": return 3;
-    case "checkpoint-finalised": return 4;
-    case "settlement-anchored": return 5;
+    case "receipted": return 1;
+    case "committed": return 2;
   }
 }
 

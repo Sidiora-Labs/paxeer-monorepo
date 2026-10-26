@@ -2,6 +2,7 @@ import { operationValidators } from './validators-operations.gen.js';
 import { operationDefinitions, type OperationTypes } from './operations.gen.js';
 import { SdkClient, decodeV2Contract, CapabilityUnavailableError, type RequestOptions, type V2ContractTypes } from './transport.js';
 import { PublicSnapshotRequests, snapshotRequestKey } from './shared-snapshot.js';
+import { routeStatus } from './served-routes.js';
 export type OperationName = keyof OperationTypes;
 export type OperationInput<N extends OperationName> = OperationTypes[N]['input'];
 export type OperationResponse<N extends OperationName> = OperationTypes[N]['response'];
@@ -38,6 +39,7 @@ export class Operations {
   async call<N extends OperationName>(name: N, input: OperationInput<N>, options: Pick<RequestOptions, 'signal'|'headers'|'requestId'|'timeoutMs'> = {}): Promise<OperationResponse<N>> {
     const definition: Definition = operationDefinitions[name];
     if (!definition.response && !definition.emptyResponse && !definition.binaryResponse) throw new CapabilityUnavailableError('Operation requires its dedicated streaming transport');
+    if (routeStatus(name) === 'unrouted') throw new CapabilityUnavailableError(`Operation ${name} has no served route`);
     const supplied = input as { path?: Record<string, unknown>; query?: Record<string, unknown>; body?: unknown };
     let path = definition.path;
     const query = new URLSearchParams();

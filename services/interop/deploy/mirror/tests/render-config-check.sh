@@ -69,14 +69,11 @@ render_ethereum_only() {
         --state-directory "$WORK/state" \
         --first-batch-number 1 \
         --status-listen "127.0.0.1:$STATUS_PORT" \
-        --lni-socket /run/layerx/node/layerxd.lni.sock \
         --paxeer-endpoint "https://paxeer-a.invalid:9443/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
         --paxeer-endpoint "https://paxeer-b.invalid:9443/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
         --paxeer-chain-id 125 --paxeer-confirmations 2 \
         --paxeer-genesis-hash "$(printf 'paxeer-genesis' | sha256sum | cut -d ' ' -f 1)" \
         --sequencer-public-key "$(printf 'sequencer' | sha256sum | cut -d ' ' -f 1)" \
-        --network-id 1 \
-        --protocol-version 3 \
         --ethereum-endpoint "https://ethereum-a.invalid:9443/rpc,ethereum-a,$WORK/rpc.der,$WORK/ethereum-a.token" \
         --ethereum-endpoint "https://ethereum-b.invalid:9443/rpc,ethereum-b,$WORK/rpc.der,$WORK/ethereum-b.token" \
         --ethereum-chain-id 125 \
@@ -160,8 +157,8 @@ render_output=$(render "$WORK/never.json" 2>&1) || status=$?
 [ "$status" -eq 0 ] || fail "the renderer refused a valid deployment: $render_output"
 status=0
 render_output=$(python3 "$RENDERER" --output "$WORK/never.json" --state-directory relative \
-    --first-batch-number 1 --status-listen 127.0.0.1:1 --lni-socket /run/s --network-id 1 \
-    --protocol-version 3 --paxeer-chain-id 125 --paxeer-confirmations 2 \
+    --first-batch-number 1 --status-listen 127.0.0.1:1 \
+    --paxeer-chain-id 125 --paxeer-confirmations 2 \
     --paxeer-genesis-hash "$(printf '11%.0s' {1..32})" \
     --sequencer-public-key "$(printf '22%.0s' {1..32})" \
     --paxeer-endpoint "https://paxeer-a.invalid/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
