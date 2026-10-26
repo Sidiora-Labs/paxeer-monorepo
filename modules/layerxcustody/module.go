@@ -9,7 +9,6 @@ import (
 	"math/rand"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -67,9 +66,7 @@ func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {}
 // the layerxCustody precompile views.
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
 
-// GetTxCmd returns the custody proposal submit command: only governance sends
-// the module's authority-gated messages.
-func (AppModuleBasic) GetTxCmd() *cobra.Command { return cli.GetTxCmd() }
+func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
 func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
 
