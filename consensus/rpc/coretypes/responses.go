@@ -18,12 +18,15 @@ import (
 
 // List of standardized errors used across RPC
 var (
-	ErrZeroOrNegativePerPage  = errors.New("zero or negative per_page")
-	ErrPageOutOfRange         = errors.New("page should be within range")
-	ErrZeroOrNegativeHeight   = errors.New("height must be greater than zero")
-	ErrHeightExceedsChainHead = errors.New("height must be less than or equal to the head of the node's blockchain")
-	ErrHeightNotAvailable     = errors.New("height is not available")
-	ErrLagIsTooHigh           = errors.New("lag is too high")
+	ErrZeroOrNegativePerPage      = errors.New("zero or negative per_page")
+	ErrPageOutOfRange             = errors.New("page should be within range")
+	ErrZeroOrNegativeHeight       = errors.New("height must be greater than zero")
+	ErrHeightExceedsChainHead     = errors.New("height must be less than or equal to the head of the node's blockchain")
+	ErrHeightNotAvailable         = errors.New("height is not available")
+	ErrLagIsTooHigh               = errors.New("lag is too high")
+	ErrCommitNotAvailable         = errors.New("commit is not available under autobahn consensus")
+	ErrConsensusStateNotAvailable = errors.New("consensus round state is not available under autobahn consensus")
+	ErrEvidenceNotAccepted        = errors.New("evidence is not accepted under autobahn consensus")
 	// ErrInvalidRequest is used as a wrapper to cover more specific cases where the user has
 	// made an invalid request
 	ErrInvalidRequest = errors.New("invalid request")
