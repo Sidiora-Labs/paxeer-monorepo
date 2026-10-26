@@ -135,23 +135,33 @@ const { subscriptionAcknowledgement, subscriptionCursor, subscriptionNotificatio
 assert.equal(subscriptionAcknowledgement({jsonrpc:"2.0",id:"1",result:"sub"},"1"),"sub");
 assert.throws(() => subscriptionAcknowledgement({jsonrpc:"2.0",id:"2",result:"sub"},"1"));
 assert.throws(() => subscriptionAcknowledgement({jsonrpc:"2.0",id:"1",result:{state:"accepted"}},"1"));
-const event = {jsonrpc:"2.0",method:"lx_subscription",params:{subscription:"sub",result:{state:"pending"},cursor:"41"}};
-assert.deepEqual(subscriptionNotification(event,"sub"),{result:{state:"pending"},cursor:41n});
+const event = {jsonrpc:"2.0",method:"eth_subscription",params:{subscription:"sub",result:{number:"0x29"}}};
+assert.deepEqual(subscriptionNotification(event,"sub"),{result:{number:"0x29"},cursor:41n});
 assert.throws(() => subscriptionNotification(event,"other"));
 assert.throws(() => subscriptionNotification({jsonrpc:"2.0",method:"lx_subscription",params:{subscription:"sub",result:{state:"pending"}}},"sub"));
+assert.throws(() => subscriptionNotification({...event,method:"lx_subscription"},"sub"));
+assert.throws(() => subscriptionNotification({...event,params:{...event.params,cursor:"41"}},"sub"));
+assert.throws(() => subscriptionNotification({...event,params:{subscription:"sub",result:{}}},"sub"));
 for (const cursor of ["041","",41,"-1","+1","18446744073709551616"]) {
-  assert.throws(() => subscriptionNotification({jsonrpc:"2.0",method:"lx_subscription",params:{subscription:"sub",result:{state:"pending"},cursor}},"sub"));
   assert.throws(() => subscriptionCursor(cursor));
+}
+for (const number of ["0x00","0x029","",41,"-1","+1","0x10000000000000000"]) {
+  assert.throws(() => subscriptionNotification({...event,params:{subscription:"sub",result:{number}}},"sub"));
 }
 assert.equal(subscriptionCursor("0"),0n);
 assert.equal(subscriptionCursor("18446744073709551615"),18446744073709551615n);
-assert.deepEqual(subscriptionSelector("receipts"),["receipts"]);
-assert.deepEqual(subscriptionSelector("receipts",undefined,41n),["receipts","41"]);
-assert.deepEqual(subscriptionSelector("checkpoints",undefined,0n),["checkpoints","0"]);
-assert.deepEqual(subscriptionSelector("account","ab".repeat(32),7n),["account","ab".repeat(32),"7"]);
+assert.deepEqual(subscriptionSelector("heads"),["newHeads"]);
+assert.deepEqual(subscriptionSelector("heads",undefined,41n),["newHeads"]);
+assert.deepEqual(subscriptionSelector("heads",undefined,0n),["newHeads"]);
+const accountAddress = `0x${"ab".repeat(20)}`;
+assert.deepEqual(subscriptionSelector("account",accountAddress,7n),["logs",{address:accountAddress,topics:[]}]);
+assert.deepEqual(subscriptionNotification({jsonrpc:"2.0",method:"eth_subscription",params:{subscription:"sub",result:{address:accountAddress,blockNumber:"0x29"}}},"sub"),{result:{address:accountAddress,blockNumber:"0x29"},cursor:41n});
 assert.throws(() => subscriptionSelector("account",undefined,7n));
-assert.throws(() => subscriptionSelector("receipts",undefined,-1n));
-assert.throws(() => subscriptionSelector("receipts",undefined,18446744073709551616n));
+for (const account of ["ab".repeat(32),"ab".repeat(20),`0x${"ab".repeat(19)}`,`0x${"ab".repeat(21)}`,`0x${"zz".repeat(20)}`]) {
+  assert.throws(() => subscriptionSelector("account",account));
+}
+assert.throws(() => subscriptionSelector("heads",undefined,-1n));
+assert.throws(() => subscriptionSelector("heads",undefined,18446744073709551616n));
 assert.equal(unsubscribeAcknowledgement({jsonrpc:"2.0",id:"1:unsubscribe",result:true},"1:unsubscribe"),true);
 assert.throws(() => unsubscribeAcknowledgement({jsonrpc:"2.0",id:"1:unsubscribe",result:false},"1:unsubscribe"));
 assert.throws(() => unsubscribeAcknowledgement({jsonrpc:"2.0",id:"1:unsubscribe",result:"true"},"1:unsubscribe"));
@@ -159,21 +169,23 @@ assert.throws(() => unsubscribeAcknowledgement({jsonrpc:"2.0",id:"2:unsubscribe"
 assert.throws(() => unsubscribeAcknowledgement({jsonrpc:"2.0",id:"1:unsubscribe",error:{code:-32602,message:"Unknown subscription"}},"1:unsubscribe"),
   (error: unknown) => error instanceof JsonRpcError && error.code === -32602);
 await assert.rejects(feeClient.subscribe("account").next());
-await assert.rejects(feeClient.subscribe("receipts","ab".repeat(32)).next());
-await assert.rejects(feeClient.subscribeFrom("receipts",-1n).next());
+await assert.rejects(feeClient.subscribe("heads",accountAddress).next());
+await assert.rejects(feeClient.subscribeFrom("heads",-1n).next());
 const cancellation = new AbortController(); cancellation.abort();
-await assert.rejects(feeClient.subscribe("receipts",undefined,cancellation.signal).next());
-await assert.rejects(feeClient.subscribeFrom("receipts",41n,undefined,cancellation.signal).next());
+await assert.rejects(feeClient.subscribe("heads",undefined,cancellation.signal).next());
+await assert.rejects(feeClient.subscribeFrom("heads",41n,undefined,cancellation.signal).next());
 
 const { SubscriptionContinuity } = await import("../src/rpc-subscription.js");
-const receiptContinuity = new SubscriptionContinuity("receipts", 40n);
-receiptContinuity.accept({cursor: 41n, result: {}});
-for (const cursor of [40n, 41n, 43n]) assert.throws(() => receiptContinuity.accept({cursor, result: {}}));
-receiptContinuity.accept({cursor: 42n, result: {}});
+const headContinuity = new SubscriptionContinuity("heads", 40n);
+headContinuity.accept({cursor: 41n, result: {number:"0x29"}});
+for (const cursor of [40n, 41n, 43n]) assert.throws(() => headContinuity.accept({cursor, result: {number:`0x${cursor.toString(16)}`}}));
+headContinuity.accept({cursor: 42n, result: {number:"0x2a"}});
 const accountContinuity = new SubscriptionContinuity("account", 40n);
-accountContinuity.accept({cursor: 45n, result: {}});
-assert.throws(() => accountContinuity.accept({cursor: 45n, result: {}}));
-assert.throws(() => new SubscriptionContinuity("checkpoints", 40n).accept({cursor: 40n, result: {}}));
+accountContinuity.accept({cursor: 45n, result: {blockNumber:"0x2d",logIndex:"0x0"}});
+accountContinuity.accept({cursor: 45n, result: {blockNumber:"0x2d",logIndex:"0x1"}});
+assert.throws(() => accountContinuity.accept({cursor: 44n, result: {blockNumber:"0x2c"}}));
+assert.throws(() => new SubscriptionContinuity("heads", 40n).accept({cursor: 41n, result: {}}));
+assert.throws(() => headContinuity.accept({cursor: 43n, result: {number:"0x2c"}}));
 
 const { decodeMirrorProcessResult } = await import("../src/node-mirror.js");
 const mirrorOutput = JSON.stringify({ok:true,verification:{level:"receipt-verified",batchNumber:"3",headerDigest:"11".repeat(32),evidenceDigest:"22".repeat(32),sourceId:"source",target:"mirror",canonicalPosition:"3",provenance:"Canonical",latestBatch:null,batchLag:"0",failoverCount:0,agreeingSources:1,checkpointLevel:"unavailable"}});
