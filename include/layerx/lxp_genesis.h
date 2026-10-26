@@ -221,6 +221,8 @@ lxp_result lxp_genesis_manifest_commitment(
 lxp_result lxp_genesis_materialize(
     const lxp_genesis_manifest *manifest, lxp_arena *arena,
     struct lxp_kernel *kernel);
+#define LXP_GENESIS_CUSTODY_ASSET_COUNT 4
+lxp_result lxp_genesis_custody_asset_id(size_t index, uint8_t asset_id[32]);
 lxp_result lxp_genesis_fresh_empty_accounts(
     lxp_genesis_manifest *manifest, const uint8_t asset_id[32]);
 lxp_result lxp_genesis_parameter_version(

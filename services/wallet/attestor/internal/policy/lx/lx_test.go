@@ -240,7 +240,7 @@ func (g grantVector) grant(t *testing.T) lxwire.Grant {
 
 const engineDocument = `{
   "version": 1,
-  "defaults": {"chain_id": 125, "kinds": ["lx_activity", "lx_bind", "lx_grant"], "rate_per_minute": 100}
+  "defaults": {"chain_id": 125, "kinds": ["lx_activity", "lx_bind", "lx_grant", "lx_send_authorization"], "rate_per_minute": 100}
 }`
 
 const kernelDocument = `{
@@ -956,6 +956,56 @@ func TestKernelBudgetFundChecks(t *testing.T) {
 		if effect, err := DecodeEffect(activity); err == nil {
 			t.Fatalf("%s: decoded to %+v", name, effect)
 		}
+	}
+}
+
+func TestSendAuthorizationEvaluatedUnderItsOwnKind(t *testing.T) {
+	h := newHarness(t)
+	v := h.kernel.vector(t, "native-send")
+	activity := v.activity(t)
+	send, err := lxwire.DecodeSend(activity.Payload)
+	if err != nil {
+		t.Fatal(err)
+	}
+	send.Signature = [64]byte{}
+	activity.Payload, err = send.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	activity.PayloadHash = lxwire.PayloadHash(activity.Payload)
+	envelope, err := lxwire.EncodeUnsignedActivity(activity)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := &SendAuthorizationRequest{Envelope: envelope, Digest: mustDigest(t, send), PublicKey: hex32(t, h.kernel.PublicKey), Disclosure: v.disclosure(t)}
+	wallet := common.HexToAddress(walletAddr)
+	for _, tc := range []struct {
+		name  string
+		kinds []string
+		code  string
+	}{
+		{"activity only", []string{policy.KindLXActivity}, policy.CodeUnknownKind},
+		{"send authorization only", []string{policy.KindLXSendAuth}, policy.CodeAllowed},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			doc, err := policy.Parse([]byte(engineDocument))
+			if err != nil {
+				t.Fatal(err)
+			}
+			doc.Defaults.Kinds = tc.kinds
+			evaluator, err := New(policy.New(doc), h.evaluator.doc, h.evaluator.chain)
+			if err != nil {
+				t.Fatal(err)
+			}
+			decision := evaluator.EvaluateSendAuthorization(wallet, req, h.request())
+			expect(t, decision, tc.code)
+			if len(decision.Spends) != 0 {
+				t.Fatalf("send authorization recorded spends: %+v", decision.Spends)
+			}
+		})
+	}
+	if got := h.spent(t, walletAddr, "lx:"+strings.Repeat("00", 32)); got.Sign() != 0 {
+		t.Fatalf("send authorization counted %s", got)
 	}
 }
 

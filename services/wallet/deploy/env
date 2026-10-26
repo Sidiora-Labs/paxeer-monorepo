@@ -185,7 +185,8 @@ ATTESTOR_CA - platform secret holding the CA bundle that authenticates the attes
 ATTESTOR_QUORUM - number of healthy attestors a signing session needs, defaulting to 3
 ATTESTOR_HEALTH_INTERVAL_MS - interval between attestor health probes in milliseconds, defaulting to 5000
 ATTESTOR_TIMEOUT_MS - timeout of one attestor request in milliseconds, defaulting to 15000
-RPC_URLS - comma-separated chain RPC URLs of the gateway's RPC pool, defaulting to the sixteen public mainnet hosts; set as a Fly secret of the wallet gateway app to the router URL followed by the serving RPC names
+RPC_URLS - comma-separated chain RPC URLs of the gateway's RPC pool, defaulting to the single router URL https://api-mainnet-beta.paxeer.network; set as a Fly secret of the wallet gateway app to the router URL followed by the serving RPC names
+SEQUENCER_RPC_URL - write endpoint of the gateway, defaulting to the first RPC_URLS entry
 RPC_LAG_THRESHOLD_BLOCKS - blocks an RPC endpoint may trail the best head before it leaves the pool, defaulting to 20
 RPC_HEALTH_INTERVAL_MS - interval between RPC pool health checks in milliseconds, defaulting to 5000
 RPC_TIMEOUT_MS - timeout of one RPC request in milliseconds, defaulting to 8000

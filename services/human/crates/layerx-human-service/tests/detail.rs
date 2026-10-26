@@ -18,6 +18,7 @@ use layerx_human_service::activity::{
 };
 use layerx_human_service::notify::ActivityEntryId;
 use layerx_proof::receipt::{verify, AuthorizedBatch, VerifiedReceipt};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use sha2::{Digest as _, Sha256};
 
@@ -156,8 +157,11 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
         ActivityKind::Security,
     ];
 
-    for (index, kind) in kinds.into_iter().enumerate() {
-        let finalised = kind == ActivityKind::Movement;
+    for (index, (kind, finalised)) in kinds
+        .into_iter()
+        .flat_map(|kind| [(kind, false), (kind, true)])
+        .enumerate()
+    {
         let level = if finalised {
             Level::CheckpointFinalised
         } else {
@@ -182,13 +186,22 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
         )
         .unwrap_or_else(|error| panic!("feed entry: {error}"));
         let finality = finalised.then(|| {
-            FinalityReference::new([0x77; 32], Level::CheckpointFinalised)
+            FinalityReference::new([0x77; 32], Rung::Committed)
                 .unwrap_or_else(|error| panic!("finality: {error}"))
         });
         let detail = EntryDetail::assemble(&entry, vec![actual.clone()], finality)
             .unwrap_or_else(|error| panic!("detail: {error}"));
 
         assert_eq!(detail.kind(), kind);
+        assert_eq!(detail.is_final(), finalised);
+        assert_eq!(
+            detail.rung(),
+            if finalised {
+                Rung::Committed
+            } else {
+                Rung::Receipted
+            }
+        );
         assert!(detail.sentence().ends_with('.'));
         assert!(!detail.stages().is_empty());
         assert_eq!(
@@ -207,6 +220,11 @@ fn assembles_every_activity_class_from_verified_receipt_actuals() {
             .path()
             .starts_with("/explorer/receipts/"));
         if finalised {
+            let reference = detail
+                .finality()
+                .unwrap_or_else(|| panic!("missing finality"));
+            assert_eq!(reference.rung(), Rung::Committed);
+            assert!(reference.is_final());
             assert_eq!(detail.evidence().len(), 2);
             assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
             assert!(detail.evidence()[1]
@@ -256,7 +274,7 @@ fn refuses_unbacked_actuals_and_states_refusal_funds_disposition() {
             &completed,
             vec![actual],
             Some(
-                FinalityReference::new([9; 32], Level::CheckpointFinalised)
+                FinalityReference::new([9; 32], Rung::Committed)
                     .unwrap_or_else(|error| panic!("finality: {error}")),
             ),
         ),

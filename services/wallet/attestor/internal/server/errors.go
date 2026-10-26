@@ -142,7 +142,25 @@ type errorBody struct {
 	Error *Error `json:"error"`
 }
 
+type errorResponseWriter struct {
+	http.ResponseWriter
+	server *Server
+}
+
+func (w *errorResponseWriter) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
+func (s *Server) writeError(w http.ResponseWriter, e *Error) {
+	if s.opts.Metrics != nil {
+		s.opts.Metrics.Refused(e.Code)
+	}
+	writeJSON(w, e.Status(), errorBody{Error: e})
+}
+
 func writeError(w http.ResponseWriter, e *Error) {
+	if bound, ok := w.(*errorResponseWriter); ok {
+		bound.server.writeError(w, e)
+		return
+	}
 	writeJSON(w, e.Status(), errorBody{Error: e})
 }
 

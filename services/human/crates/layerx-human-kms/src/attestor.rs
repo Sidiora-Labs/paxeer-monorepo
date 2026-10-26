@@ -506,6 +506,9 @@ pub struct AttestorSigner {
     client: AttestorClient,
     key_id: String,
     public_key: [u8; 32],
+    evm_key_id: String,
+    evm_address: [u8; 20],
+    evm_assertion: Option<Zeroizing<String>>,
     signers: Vec<String>,
     network: u32,
     audit: Mutex<BTreeMap<String, u64>>,
@@ -528,6 +531,8 @@ pub struct AttestorSignerConfig {
     pub client_private_key_pkcs8: PathBuf,
     pub key_id: String,
     pub public_key: [u8; 32],
+    pub evm_key_id: String,
+    pub evm_address: [u8; 20],
     pub signers: Vec<String>,
     pub network_id: u32,
     pub timeout_seconds: u64,
@@ -547,6 +552,9 @@ impl fmt::Debug for AttestorSigner {
 
 impl AttestorSigner {
     pub fn from_config(config: &AttestorSignerConfig) -> Result<Self, AttestorError> {
+        if config.evm_key_id.trim().is_empty() || !valid_identifier(&config.evm_key_id) {
+            return Err(AttestorError::Configuration("EVM key id"));
+        }
         if config.timeout_seconds == 0 || config.timeout_seconds > 60 {
             return Err(AttestorError::Configuration("attestor timeout"));
         }
@@ -582,13 +590,105 @@ impl AttestorSigner {
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>();
-        Self::new(
+        let mut signer = Self::new(
             client,
             &config.key_id,
             config.public_key,
             &signers,
             config.network_id,
-        )
+        )?;
+        signer.evm_key_id.clone_from(&config.evm_key_id);
+        signer.evm_address = config.evm_address;
+        Ok(signer)
+    }
+
+    pub fn set_evm_assertion(&mut self, assertion: &str) -> Result<(), AttestorError> {
+        if assertion.is_empty() || assertion.len() > 65_536 {
+            return Err(AttestorError::Configuration("EVM owner assertion"));
+        }
+        self.evm_assertion = Some(Zeroizing::new(assertion.to_owned()));
+        Ok(())
+    }
+
+    pub fn sign_evm_transaction(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+    ) -> Result<[u8; 65], AttestorError> {
+        if !valid_identifier(&self.evm_key_id) {
+            return Err(AttestorError::Configuration("EVM key id"));
+        }
+        let assertion = self
+            .evm_assertion
+            .as_ref()
+            .ok_or(AttestorError::Configuration("EVM owner assertion"))?;
+        let (digest, transaction) = evm_transaction(unsigned, chain_id)?;
+        let body = Zeroizing::new(
+            serde_json::to_vec(&serde_json::json!({
+                "session_id": session_id("evm")?,
+                "key_id": self.evm_key_id,
+                "kind": "evm_tx",
+                "signers": self.signers,
+                "transaction": encode_hex(&transaction),
+            }))
+            .map_err(|_| AttestorError::Configuration("EVM sign request"))?,
+        );
+        let mut signature = None;
+        let mut audit = BTreeMap::new();
+        for (node, result) in
+            self.client
+                .post_all(&self.signers, PATH_SIGN, &body, Some(assertion.as_str()))
+        {
+            let raw = result?;
+            let response: SignResponseBody =
+                serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
+            let returned =
+                decode_fixed::<65>(&response.signature).ok_or_else(|| malformed(&node))?;
+            if response.node_id != node
+                || response.key_id != self.evm_key_id
+                || response.kind != "evm_tx"
+                || response.recovery_id != Some(returned[64])
+                || returned[64] > 1
+                || decode_fixed::<32>(&response.signed_bytes) != Some(digest)
+            {
+                return Err(malformed(&node));
+            }
+            let invalid = || AttestorError::SignatureInvalid { node: node.clone() };
+            let compact =
+                k256::ecdsa::Signature::from_slice(&returned[..64]).map_err(|_| invalid())?;
+            if compact.normalize_s().is_some() {
+                return Err(invalid());
+            }
+            let recovery = k256::ecdsa::RecoveryId::from_byte(returned[64]).ok_or_else(invalid)?;
+            let recovered =
+                k256::ecdsa::VerifyingKey::recover_from_prehash(&digest, &compact, recovery)
+                    .map_err(|_| invalid())?;
+            let point = recovered.to_encoded_point(false);
+            if sha3::Keccak256::digest(&point.as_bytes()[1..])[12..] != self.evm_address {
+                return Err(invalid());
+            }
+            if signature.is_some_and(|agreed| agreed != returned) {
+                return Err(malformed(&node));
+            }
+            signature = Some(returned);
+            audit.insert(node, response.audit_sequence);
+        }
+        if audit.len() < MIN_SIGNERS {
+            return Err(AttestorError::Configuration("signing quorum"));
+        }
+        let signature = signature.ok_or(AttestorError::Configuration("signing quorum"))?;
+        let mut recorded = self.recorded();
+        for (node, sequence) in &audit {
+            if *sequence == 0
+                || recorded
+                    .get(node)
+                    .is_some_and(|previous| sequence <= previous)
+            {
+                return Err(malformed(node));
+            }
+        }
+        recorded.extend(audit);
+        Ok(signature)
     }
 
     pub fn sign_payment_grant(
@@ -715,6 +815,9 @@ impl AttestorSigner {
             client,
             key_id: key_id.to_owned(),
             public_key,
+            evm_key_id: String::new(),
+            evm_address: [0; 20],
+            evm_assertion: None,
             signers: distinct.into_iter().map(str::to_owned).collect(),
             network,
             audit: Mutex::new(BTreeMap::new()),
@@ -1380,6 +1483,107 @@ pub fn preimage(canonical: &[u8]) -> [u8; 32] {
     hash.update(PREIMAGE_DOMAIN);
     hash.update(canonical);
     hash.finalize().into()
+}
+
+fn evm_rlp_item(raw: &[u8]) -> Option<(&[u8], usize, bool)> {
+    let prefix = *raw.first()?;
+    if prefix < 0x80 {
+        return Some((&raw[..1], 1, false));
+    }
+    let list = prefix >= 0xc0;
+    let short = if list { 0xc0 } else { 0x80 };
+    let long = short + 55;
+    let (offset, length) = if prefix <= long {
+        (1, usize::from(prefix - short))
+    } else {
+        let count = usize::from(prefix - long);
+        let encoded = raw.get(1..1 + count)?;
+        if encoded.first() == Some(&0) {
+            return None;
+        }
+        let length = encoded.iter().try_fold(0_usize, |length, byte| {
+            length.checked_mul(256)?.checked_add(usize::from(*byte))
+        })?;
+        if length <= 55 {
+            return None;
+        }
+        (1 + count, length)
+    };
+    let end = offset.checked_add(length)?;
+    let payload = raw.get(offset..end)?;
+    if !list && length == 1 && payload[0] < 0x80 {
+        return None;
+    }
+    Some((payload, end, list))
+}
+
+fn evm_rlp_list(payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    if let Ok(length @ 0..=55) = u8::try_from(payload.len()) {
+        out.push(0xc0 + length);
+    } else {
+        let length = payload.len().to_be_bytes();
+        let significant = &length[length.iter().take_while(|byte| **byte == 0).count()..];
+        out.push(0xf7 + significant.iter().fold(0_u8, |count, _| count + 1));
+        out.extend_from_slice(significant);
+    }
+    out.extend_from_slice(payload);
+    out
+}
+
+fn evm_transaction(unsigned: &[u8], chain_id: u64) -> Result<([u8; 32], Vec<u8>), AttestorError> {
+    let invalid = || AttestorError::Configuration("unsigned EIP-1559 transaction");
+    if unsigned.first() != Some(&2) || unsigned.len() > 1_048_576 || chain_id == 0 {
+        return Err(invalid());
+    }
+    let (payload, length, list) = evm_rlp_item(&unsigned[1..]).ok_or_else(invalid)?;
+    if !list || length != unsigned.len() - 1 {
+        return Err(invalid());
+    }
+    let mut fields = Vec::new();
+    let mut offset = 0;
+    while offset < payload.len() {
+        let (value, length, list) = evm_rlp_item(&payload[offset..]).ok_or_else(invalid)?;
+        fields.push((value, list, offset + length));
+        offset += length;
+        if fields.len() > 12 {
+            return Err(invalid());
+        }
+    }
+    if fields.len() != 9 && fields.len() != 12 {
+        return Err(invalid());
+    }
+    for index in [0, 1, 2, 3, 4, 6] {
+        let (value, list, _) = fields[index];
+        let max = if matches!(index, 0 | 1 | 4) { 8 } else { 32 };
+        if list || value.len() > max || value.first() == Some(&0) {
+            return Err(invalid());
+        }
+    }
+    let actual = fields[0]
+        .0
+        .iter()
+        .fold(0_u64, |value, byte| (value << 8) | u64::from(*byte));
+    if actual != chain_id
+        || fields[5].1
+        || !matches!(fields[5].0.len(), 0 | 20)
+        || fields[7].1
+        || !fields[8].1
+        || fields[9..]
+            .iter()
+            .any(|(value, list, _)| *list || !value.is_empty())
+    {
+        return Err(invalid());
+    }
+    let signing_fields = &payload[..fields[8].2];
+    let mut preimage = vec![2];
+    preimage.extend(evm_rlp_list(signing_fields));
+    let digest = sha3::Keccak256::digest(preimage).into();
+    let mut wire_fields = signing_fields.to_vec();
+    wire_fields.extend_from_slice(&[0x80, 0x80, 0x80]);
+    let mut wire = vec![2];
+    wire.extend(evm_rlp_list(&wire_fields));
+    Ok((digest, wire))
 }
 
 #[derive(Serialize)]

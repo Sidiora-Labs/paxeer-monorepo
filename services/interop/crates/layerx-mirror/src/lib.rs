@@ -1,6 +1,7 @@
 //! Ethereum and Solana publication of retrievable `LayerX` batch archives.
 
 pub mod ethereum;
+pub mod committed;
 pub mod node;
 pub mod rpc;
 pub mod runtime;

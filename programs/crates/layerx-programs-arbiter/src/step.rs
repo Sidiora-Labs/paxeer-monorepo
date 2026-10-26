@@ -15,7 +15,9 @@ use layerx_proof::state_witness::StateWitness;
 use layerx_proof::{inclusion::VerifiedBatchHeader, merkle::Proof};
 use sha2::{Digest, Sha256};
 
-const MAX_BYTES: usize = 1_048_576;
+use crate::activity_codec::signed_activity_bytes;
+
+pub(crate) const MAX_BYTES: usize = 1_048_576;
 const RECORD_DOMAIN: &[u8] = b"LXP/program-replay-native/v1\0";
 const AUTHORITY_DOMAIN: &[u8] = b"LXP/program-replay-authority/v1\0";
 const PROFILE_DOMAIN: &[u8] = b"LXP/program-replay-profile/v1\0";
@@ -494,10 +496,7 @@ impl VerifiedReplay {
         let mut authority = Reader(authority_bytes);
         authority.domain(AUTHORITY_DOMAIN)?;
         let signed = authority.vector(MAX_BYTES)?;
-        if layerx_wire::activity::encode_signed(admission.activity())
-            .map_err(|_| ReplayError::Authority)?
-            != signed
-        {
+        if signed_activity_bytes(admission.activity())? != signed {
             return Err(ReplayError::Authority);
         }
         let mut profile = Reader(admission.activity().payload());

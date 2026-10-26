@@ -200,7 +200,8 @@ export class BuyerMiddleware {
     const seen = new Set<string>();
     for (const kind of config.supported) {
       const key = `${kind.scheme}\0${kind.network}`;
-      if (kind.scheme.length === 0 || kind.network.length === 0 || seen.has(key)) {
+      const chainId = /^eip155:([1-9][0-9]{0,9})$/u.exec(kind.network)?.[1];
+      if (kind.scheme.length === 0 || chainId === undefined || Number(chainId) > 0xffff_ffff || seen.has(key)) {
         throw new MiddlewareError("unsupported-payment");
       }
       seen.add(key);
@@ -229,7 +230,7 @@ export class BuyerMiddleware {
     if (accepted === undefined) {
       throw new MiddlewareError("unsupported-payment");
     }
-    if (paymentCommitment(accepted.extra) !== "executed" && this.#commitments === undefined) {
+    if (paymentCommitment(accepted.extra) !== "receipted" && this.#commitments === undefined) {
       throw new MiddlewareError("unsupported-payment");
     }
     return { required, accepted };
