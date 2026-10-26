@@ -170,9 +170,21 @@ func (s *Server) runBoundSession(ctx context.Context, requestSession, phase, pro
 	stopWatch := make(chan struct{})
 	watched := make(chan []string, 1)
 	go s.watchRounds(ts, stall, stopWatch, watched)
+	started := time.Now()
+	if s.opts.Metrics != nil {
+		s.opts.Metrics.SessionStarted(protocol)
+	}
 	runErr := fn(runCtx, ps)
 	if runErr == nil {
 		runErr = ts.Flush(runCtx)
+	}
+	if s.opts.Metrics != nil {
+		if protocol == protocolSignSecp || protocol == protocolSignEd {
+			s.opts.Metrics.ObserveSigning(protocol, time.Since(started))
+		}
+		if runErr == nil {
+			s.opts.Metrics.SessionCompleted(protocol)
+		}
 	}
 	close(stopWatch)
 	var laggards []string

@@ -3,7 +3,7 @@ use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
+use crate::frame::{self, ConnectionGate, FrameTransport, Limits, Uds};
 use serde_json::{json, Map, Value};
 use zeroize::{Zeroize, Zeroizing};
 
@@ -744,11 +744,7 @@ impl HumanApiComponents for UnixComponents {
         let encoded = serde_json::to_vec(&wire);
         zeroize_value(&mut wire);
         let mut encoded = encoded.map_err(|_| ApiFailure::invalid_request(None))?;
-        let sent = layerx_client::lni::framing::write_frame(
-            &mut connection,
-            &encoded,
-            self.limits.maximum_frame_bytes,
-        );
+        let sent = frame::write_frame(&mut connection, &encoded, self.limits.maximum_frame_bytes);
         encoded.zeroize();
         sent.map_err(|_| ApiFailure::unavailable())?;
         let mut budget = StreamBudget::new(maximum_bytes.min(self.limits.maximum_frame_bytes));
@@ -756,11 +752,8 @@ impl HumanApiComponents for UnixComponents {
             if cancelled() {
                 return Ok(());
             }
-            let mut bytes = layerx_client::lni::framing::read_frame(
-                &mut connection,
-                self.limits.maximum_frame_bytes,
-            )
-            .map_err(|_| ApiFailure::upstream_degraded())?;
+            let mut bytes = frame::read_frame(&mut connection, self.limits.maximum_frame_bytes)
+                .map_err(|_| ApiFailure::upstream_degraded())?;
             let parsed = serde_json::from_slice::<Value>(&bytes);
             bytes.zeroize();
             let mut frame = parsed.map_err(|_| ApiFailure::upstream_degraded())?;

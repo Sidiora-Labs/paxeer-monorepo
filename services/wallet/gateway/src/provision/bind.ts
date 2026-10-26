@@ -2,7 +2,6 @@ import { createHash, createPublicKey, verify as edVerify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   bytesToHex,
-  decodeAbiParameters,
   decodeFunctionResult,
   encodeFunctionData,
   getAddress,
@@ -19,7 +18,6 @@ import { AttestorClient } from '../attestor/client.js';
 import { RpcPool, RpcResponseError } from '../rpc/pool.js';
 
 export const ADDR_PRECOMPILE = '0x0000000000000000000000000000000000001004' as const;
-export const ANCHOR_PRECOMPILE = '0x0000000000000000000000000000000000001014' as const;
 export const BIND_DOMAIN = 'LX:PAXEER-BIND:v1';
 export const DID_PREFIX = 'did:layerx:';
 
@@ -29,8 +27,6 @@ export const addrAbi = parseAbi([
   'function getUnifiedAccount(address evm) view returns (address evm, string paxAddr, bytes32 didPublicKey, bytes32 layerxMainAccountId)',
   'event LayerXBound(address indexed evm, bytes32 indexed didPublicKey, uint64 nonce)',
 ]);
-
-export const anchorAbi = parseAbi(['function latestFinalized() view returns (uint64 batchNumber, bool exists)']);
 
 const ZERO32 = `0x${'00'.repeat(32)}` as Hex;
 
@@ -124,21 +120,15 @@ export async function readBindNonce(rpc: RpcPool, address: `0x${string}`): Promi
 }
 
 export type KernelAvailability =
-  | { state: 'available'; finalized_batch: string }
+  | { state: 'available' }
   | { state: 'unavailable'; reason: string };
 
 export async function readKernelAvailability(rpc: RpcPool): Promise<KernelAvailability> {
   try {
-    const data = encodeFunctionData({ abi: anchorAbi, functionName: 'latestFinalized' });
-    const out = await rpc.request<Hex>('eth_call', [{ to: ANCHOR_PRECOMPILE, data }, 'latest']);
-    const [batch, exists] = decodeAbiParameters(
-      [{ type: 'uint64' }, { type: 'bool' }],
-      out,
-    );
-    if (!exists) return { state: 'unavailable', reason: 'no kernel checkpoint is finalized on chain' };
-    return { state: 'available', finalized_batch: batch.toString() };
+    await readBindNonce(rpc, '0x0000000000000000000000000000000000000000');
+    return { state: 'available' };
   } catch (err) {
-    return { state: 'unavailable', reason: `kernel anchor could not be read: ${(err as Error).message}` };
+    return { state: 'unavailable', reason: `kernel bind nonce could not be read: ${(err as Error).message}` };
   }
 }
 

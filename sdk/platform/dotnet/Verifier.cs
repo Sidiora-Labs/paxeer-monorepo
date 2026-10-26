@@ -3,6 +3,7 @@
 using System.Buffers.Binary;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Org.BouncyCastle.Asn1.Sec;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Digests;
@@ -195,6 +196,12 @@ public sealed record ProtocolReceipt(
 public sealed record AuthorizedReceiptBatch(byte[] BatchId, byte[] Asset, byte[] PreviousStateRoot, byte[] ResultingStateRoot, byte[] SequencerPublicKey);
 public sealed record ReceiptVerification(string Level, ProtocolReceipt Receipt, byte[] CanonicalBytes, byte[] ReceiptDigest);
 
+public sealed record ReceiptKey(byte[] KeyId, byte[] PublicKey, ulong FirstHeight, ulong LastHeight);
+public sealed record ReceiptKeys(IReadOnlyList<ReceiptKey> Pinned, byte[] PreviousSequenceHash);
+public sealed record SequencerRevert(string? Code, string? Reason, byte[] ReturnData, string VmError);
+public sealed record SequencerReceiptVerification(string Rung, uint Status, ProtocolReceipt Receipt, byte[] CanonicalBytes,
+    byte[] ReceiptDigest, byte[] ReturnData, SequencerRevert? Revert);
+
 public static class LocalVerifier
 {
     public static bool VerifyEd25519Digest(ReadOnlySpan<byte> publicKey, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> digest) =>
@@ -203,7 +210,8 @@ public static class LocalVerifier
     private static readonly byte[] MerkleLeafDomain = Encoding.UTF8.GetBytes("LXP/v1/merkle-leaf\0");
     private static readonly byte[] MerkleInternalDomain = Encoding.UTF8.GetBytes("LXP/v1/merkle-internal\0");
     private static readonly byte[] BatchHeaderDomain = Encoding.UTF8.GetBytes("LXP/v1/batch-header\0");
-    private static readonly byte[] ReceiptDomain = Encoding.UTF8.GetBytes("LXP/v1/receipt\0");
+    private static readonly byte[] ReceiptDomain = Encoding.UTF8.GetBytes(GeneratedReceiptContract.ReceiptDomain + "\0");
+    private static readonly byte[] SequenceDomain = Encoding.UTF8.GetBytes(GeneratedReceiptContract.SequenceDomain + "\0");
     private static readonly byte[] CheckpointDomain = Encoding.UTF8.GetBytes("LXP/v2/checkpoint-certificate\0");
     private static readonly byte[] GuarantorAttestationDomain = Encoding.UTF8.GetBytes("LXP/v2/guarantor-attestation\0");
     private const int MaximumMessageBytes = 1_048_576;
@@ -212,10 +220,266 @@ public static class LocalVerifier
     private const int BatchHeaderBytes = 354;
     private const byte AllAvailabilityClasses = 0x1f;
     private const ushort CurrentProtocolVersion = 2;
-    private const uint ProgramOutcomeV1 = GeneratedReceiptContract.ProgramOutcomeV1;
-    private const uint ProgramOutcomeV2 = GeneratedReceiptContract.ProgramOutcomeV2;
-    private const uint ProgramOutcomeV3 = GeneratedReceiptContract.ProgramOutcomeV3;
-    private const uint ProgramOutcomeV4 = GeneratedReceiptContract.ProgramOutcomeV4;
+    private const uint ProgramOutcomeV1 = 0x50524731;
+    private const uint ProgramOutcomeV2 = 0x50524732;
+    private const uint ProgramOutcomeV3 = 0x50524733;
+    private const uint ProgramOutcomeV4 = 0x50524734;
+
+    public static SequencerReceiptVerification VerifySequencerReceipt(ReadOnlyMemory<byte> receiptBytes,
+        ReadOnlyMemory<byte> rawTransaction, ReceiptKeys keys)
+    {
+        return ReceiptRead(ReceiptCheck.Decode, () =>
+        {
+            if (receiptBytes.IsEmpty || receiptBytes.Length > MaximumMessageBytes * 4)
+                throw VerificationFailure(ReceiptCheck.Decode);
+            using var document = JsonDocument.Parse(receiptBytes);
+            return VerifySequencerReceipt(document.RootElement, rawTransaction, keys);
+        });
+    }
+
+    public static SequencerReceiptVerification VerifySequencerReceipt(JsonElement view,
+        ReadOnlyMemory<byte> rawTransaction, ReceiptKeys keys)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        var canonical = ReceiptRead(ReceiptCheck.Decode, () =>
+        {
+            RejectDuplicateReceiptFields(view);
+            if (view.GetProperty("rung").GetString() is not ("receipted" or "committed"))
+                throw VerificationFailure(ReceiptCheck.Fields);
+            return ReceiptHex(view, "receipt");
+        });
+        var decoded = DecodeProtocolReceipt(canonical, sequencer: true);
+        var receipt = decoded.Receipt;
+        var reencoded = EncodeSequencerReceipt(receipt, signed: true);
+        if (!Equal(canonical, reencoded)) throw VerificationFailure(ReceiptCheck.CanonicalEncoding);
+
+        if (keys.Pinned is null || keys.Pinned.Any(key => key is null || key.KeyId is null || key.KeyId.Length != 32))
+            throw VerificationFailure(ReceiptCheck.KeyId);
+        var matching = keys.Pinned.Where(key => Equal(key.KeyId, receipt.ContextHash)).ToArray();
+        if (matching.Length == 0) throw VerificationFailure(ReceiptCheck.KeyId);
+        var height = BinaryPrimitives.ReadUInt64BigEndian(receipt.BatchId.AsSpan(24));
+        var covering = matching.Where(key => key.FirstHeight <= key.LastHeight &&
+            height >= key.FirstHeight && height <= key.LastHeight).ToArray();
+        if (!AllZero(receipt.BatchId.AsSpan(0, 24)) || covering.Length == 0)
+            throw VerificationFailure(ReceiptCheck.KeyHeight);
+
+        var digest = Digest(ReceiptDomain, EncodeSequencerReceipt(receipt, signed: false));
+        if (!covering.Any(key => key.PublicKey is not null && VerifyEd25519(key.PublicKey, receipt.SequencerSignature, digest)))
+            throw VerificationFailure(ReceiptCheck.Signature);
+
+        var transaction = rawTransaction.ToArray();
+        var keccak = new KeccakDigest(256);
+        keccak.BlockUpdate(transaction, 0, transaction.Length);
+        var transactionHash = new byte[32];
+        keccak.DoFinal(transactionHash, 0);
+        ReceiptRead(ReceiptCheck.RawTransaction, () =>
+        {
+            if (transaction.Length == 0 || !Equal(transactionHash, receipt.ActivityId) ||
+                !Equal(transactionHash, ReceiptHex(view, "txHash", 32)))
+                throw VerificationFailure(ReceiptCheck.RawTransaction);
+            return true;
+        });
+
+        var outputs = VerifySequencerView(view, receipt, height);
+        if (keys.PreviousSequenceHash is null || keys.PreviousSequenceHash.Length != 32 ||
+            !Equal(receipt.PreviousStateRoot, keys.PreviousSequenceHash) ||
+            !Equal(receipt.ResultingStateRoot, Digest(SequenceDomain, keys.PreviousSequenceHash,
+                EncodeUInt64(receipt.GlobalSequence), receipt.ActivityId)))
+            throw VerificationFailure(ReceiptCheck.SequenceHash);
+
+        var status = receipt.ResultCode == 0 ? 1U : 0U;
+        var revert = status == 0 ? DecodeSequencerRevert(outputs.ReturnData, outputs.VmError) : null;
+        return new("receipted", status, receipt, canonical, digest, outputs.ReturnData, revert);
+    }
+
+    private static (byte[] ReturnData, string VmError) VerifySequencerView(JsonElement view, ProtocolReceipt receipt, ulong height)
+    {
+        var summary = ReceiptRead(ReceiptCheck.Fields, () =>
+        {
+            if (receipt.ModuleId <= 11 || receipt.ModuleVersion != 1 || receipt.ParameterVersion != 0 ||
+                receipt.ProgramOutcome is not null || receipt.ResultCode is not (0 or 1) || receipt.Effects.Count == 0)
+                throw VerificationFailure(ReceiptCheck.Fields);
+            var effect = receipt.Effects[0];
+            var body = effect.Body;
+            if (effect.ModuleId != receipt.ModuleId || effect.Ordinal != 0 || effect.EventType != 0 || effect.Kind != 1 ||
+                effect.Monetary || !AllZero(effect.TransferSetRoot) || body.Length < 109 ||
+                body[108] is < 1 or > 64 || body.Length != 109 + body[108])
+                throw VerificationFailure(ReceiptCheck.Fields);
+            var denom = new UTF8Encoding(false, true).GetString(body, 109, body[108]);
+            var vmError = view.GetProperty("vmError").GetString() ?? throw VerificationFailure(ReceiptCheck.Fields);
+            if (ReceiptQuantity(view, "seq") != receipt.GlobalSequence || ReceiptQuantity(view, "height") != height ||
+                ReceiptQuantity(view, "nonce") != receipt.FromSequence || ReceiptQuantity(view, "timestamp") != receipt.Timestamp ||
+                ReceiptQuantity(view, "status") != (receipt.ResultCode == 0 ? 1UL : 0UL) ||
+                ReceiptQuantity(view, "gasUsed") != BinaryPrimitives.ReadUInt64BigEndian(body.AsSpan(0, 8)) ||
+                ReceiptQuantity(view, "cumulativeGasUsed") != BinaryPrimitives.ReadUInt64BigEndian(body.AsSpan(8, 8)) ||
+                ReceiptQuantity(view, "effectiveGasPrice") != BinaryPrimitives.ReadUInt64BigEndian(body.AsSpan(16, 8)) ||
+                ReceiptQuantity(view, "index") != BinaryPrimitives.ReadUInt32BigEndian(body.AsSpan(24, 4)) ||
+                !Equal(ReceiptHex(view, "contractAddress", 20), body.AsSpan(28, 20)) ||
+                !Equal(ReceiptHex(view, "sponsor", 20), body.AsSpan(48, 20)) ||
+                !Equal(SHA256.HashData(Encoding.UTF8.GetBytes(vmError)), body.AsSpan(68, 32)) ||
+                view.GetProperty("feeDenom").GetString() != denom || !Equal(SHA256.HashData(body.AsSpan(109)), receipt.Asset) ||
+                ReceiptQuantity128(view, "feeAmount") != receipt.FeeCharged ||
+                !AllZero(receipt.From.AsSpan(0, 12)) || !AllZero(receipt.To.AsSpan(0, 12)) ||
+                !Equal(ReceiptHex(view, "from", 20), receipt.From.AsSpan(12)) ||
+                !Equal(ReceiptHex(view, "to", 20), receipt.To.AsSpan(12)))
+                throw VerificationFailure(ReceiptCheck.Fields);
+            if (!Equal(ReceiptHex(view, "keyId", 32), receipt.ContextHash)) throw VerificationFailure(ReceiptCheck.KeyId);
+            if (view.GetProperty("rung").GetString() == "receipted")
+            {
+                if (view.TryGetProperty("blockNumber", out _) || view.TryGetProperty("blockHash", out _))
+                    throw VerificationFailure(ReceiptCheck.Fields);
+            }
+            else if (ReceiptQuantity(view, "blockNumber") < height || ReceiptHex(view, "blockHash", 32).Length != 32)
+                throw VerificationFailure(ReceiptCheck.Fields);
+            return (Body: body, VmError: vmError);
+        });
+
+        var returnData = ReceiptRead(ReceiptCheck.ReturnData, () =>
+        {
+            var value = ReceiptHex(view, "returnData");
+            if (value.Length != BinaryPrimitives.ReadUInt32BigEndian(summary.Body.AsSpan(100, 4)) ||
+                !Equal(SHA256.HashData(value), receipt.ActivityRoot))
+                throw VerificationFailure(ReceiptCheck.ReturnData);
+            return value;
+        });
+        ReceiptRead(ReceiptCheck.Logs, () =>
+        {
+            var logs = view.GetProperty("logs");
+            if (logs.GetArrayLength() != receipt.Effects.Count - 1 ||
+                logs.GetArrayLength() != BinaryPrimitives.ReadUInt32BigEndian(summary.Body.AsSpan(104, 4)))
+                throw VerificationFailure(ReceiptCheck.Logs);
+            for (var i = 0; i < logs.GetArrayLength(); i++)
+            {
+                var effect = receipt.Effects[i + 1];
+                var body = effect.Body;
+                if (effect.ModuleId != receipt.ModuleId || effect.Ordinal != i + 1 || effect.EventType != 0 || effect.Kind != 3 ||
+                    effect.Monetary || !AllZero(effect.TransferSetRoot) || body.Length < 53 || body[20] > 4 ||
+                    body.Length != 53 + body[20] * 32)
+                    throw VerificationFailure(ReceiptCheck.Logs);
+                var log = logs[i];
+                var topics = log.GetProperty("topics");
+                if (ReceiptQuantity(log, "logIndex") != (ulong)i || topics.GetArrayLength() != body[20] ||
+                    !Equal(ReceiptHex(log, "address", 20), body.AsSpan(0, 20)) ||
+                    !Equal(SHA256.HashData(ReceiptHex(log, "data")), body.AsSpan(body.Length - 32)))
+                    throw VerificationFailure(ReceiptCheck.Logs);
+                for (var t = 0; t < topics.GetArrayLength(); t++)
+                    if (!Equal(ReceiptHexValue(topics[t], 32), body.AsSpan(21 + t * 32, 32)))
+                        throw VerificationFailure(ReceiptCheck.Logs);
+            }
+            return true;
+        });
+        return (returnData, summary.VmError);
+    }
+
+    private static byte[] EncodeSequencerReceipt(ProtocolReceipt receipt, bool signed)
+    {
+        using var stream = new MemoryStream();
+        void U16(ushort value) => stream.Write(EncodeUInt16(value));
+        void U32(uint value) => stream.Write(EncodeUInt32(value));
+        void U64(ulong value) => stream.Write(EncodeUInt64(value));
+        void U128(UInt128Value value) { U64(value.High); U64(value.Low); }
+        void Bytes(byte[] value) { U32(checked((uint)value.Length)); stream.Write(value); }
+        U16(receipt.ProtocolVersion); U16(0x5201); U16(receipt.ProtocolVersion);
+        Bytes(receipt.ActivityId); U64(receipt.GlobalSequence);
+        Bytes(receipt.PreviousStateRoot); Bytes(receipt.ResultingStateRoot); Bytes(receipt.ActivityRoot);
+        U32(unchecked((uint)receipt.ResultCode)); U32(checked((uint)receipt.Effects.Count));
+        foreach (var effect in receipt.Effects)
+        {
+            U16(effect.ModuleId); U16(effect.Ordinal); U16(effect.EventType);
+            stream.WriteByte(effect.Kind); stream.WriteByte(effect.Monetary ? (byte)1 : (byte)0);
+            Bytes(effect.TransferSetRoot); Bytes(effect.Body);
+        }
+        U128(receipt.FeeCharged); Bytes(receipt.BatchId); U16(receipt.ModuleId);
+        U32(receipt.ModuleVersion); U32(receipt.ParameterVersion); stream.WriteByte(receipt.Operation);
+        Bytes(receipt.Asset); U128(receipt.Amount); Bytes(receipt.From);
+        U128(receipt.FromBalanceBefore); U128(receipt.FromBalanceAfter); U64(receipt.FromSequence);
+        Bytes(receipt.To); U128(receipt.ToBalanceBefore); U128(receipt.ToBalanceAfter);
+        Bytes(receipt.TransferSetRoot); Bytes(receipt.AuthorizationHash); Bytes(receipt.ContextHash); U64(receipt.Timestamp);
+        stream.WriteByte(signed ? (byte)1 : (byte)0);
+        if (signed) Bytes(receipt.SequencerSignature);
+        return stream.ToArray();
+    }
+
+    private static T ReceiptRead<T>(ReceiptCheck check, Func<T> read)
+    {
+        try { return read(); }
+        catch (PlatformSdkException error) when (error.ReceiptCheck is not null) { throw; }
+        catch (Exception error) when (error is JsonException or FormatException or InvalidOperationException or
+            KeyNotFoundException or OverflowException or ArgumentException)
+        {
+            throw VerificationFailure(check);
+        }
+    }
+
+    private static void RejectDuplicateReceiptFields(JsonElement value)
+    {
+        if (value.ValueKind == JsonValueKind.Object)
+        {
+            var names = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var property in value.EnumerateObject())
+            {
+                if (!names.Add(property.Name)) throw VerificationFailure(ReceiptCheck.Decode);
+                RejectDuplicateReceiptFields(property.Value);
+            }
+        }
+        else if (value.ValueKind == JsonValueKind.Array)
+            foreach (var element in value.EnumerateArray()) RejectDuplicateReceiptFields(element);
+    }
+
+    private static byte[] ReceiptHex(JsonElement value, string name, int? length = null) =>
+        ReceiptHexValue(value.GetProperty(name), length);
+
+    private static byte[] ReceiptHexValue(JsonElement value, int? length = null)
+    {
+        var text = value.GetString();
+        if (text is null || !text.StartsWith("0x", StringComparison.Ordinal) || text.Length % 2 != 0)
+            throw new FormatException();
+        var bytes = Convert.FromHexString(text.AsSpan(2));
+        if (length.HasValue && bytes.Length != length.Value) throw new FormatException();
+        return bytes;
+    }
+
+    private static UInt128Value ReceiptQuantity128(JsonElement view, string name)
+    {
+        var text = view.GetProperty(name).GetString();
+        if (text is null || text.Length < 3 || text.Length > 34 || !text.StartsWith("0x", StringComparison.Ordinal) ||
+            text.Length > 3 && text[2] == '0') throw new FormatException();
+        var bytes = Convert.FromHexString(text.Length % 2 == 0 ? text[2..] : "0" + text[2..]);
+        var padded = new byte[16];
+        bytes.CopyTo(padded, 16 - bytes.Length);
+        return new(BinaryPrimitives.ReadUInt64BigEndian(padded), BinaryPrimitives.ReadUInt64BigEndian(padded.AsSpan(8)));
+    }
+
+    private static ulong ReceiptQuantity(JsonElement view, string name)
+    {
+        var value = ReceiptQuantity128(view, name);
+        if (value.High != 0) throw new OverflowException();
+        return value.Low;
+    }
+
+    private static SequencerRevert DecodeSequencerRevert(byte[] returnData, string vmError)
+    {
+        string? reason = null;
+        string? code = null;
+        if (returnData.Length >= 68 && returnData.AsSpan(0, 4).SequenceEqual(new byte[] { 0x08, 0xc3, 0x79, 0xa0 }) &&
+            AllZero(returnData.AsSpan(4, 31)) && returnData[35] == 32 && AllZero(returnData.AsSpan(36, 28)))
+        {
+            var length = BinaryPrimitives.ReadUInt32BigEndian(returnData.AsSpan(64, 4));
+            var paddedLength = ((ulong)length + 31) / 32 * 32;
+            if ((ulong)returnData.Length == 68 + paddedLength &&
+                AllZero(returnData.AsSpan(68 + (int)length)))
+            {
+                try { reason = new UTF8Encoding(false, true).GetString(returnData, 68, (int)length); }
+                catch (DecoderFallbackException) { return new(null, null, returnData.ToArray(), vmError); }
+                if (reason is not null && reason.StartsWith("LXP_", StringComparison.Ordinal))
+                {
+                    var end = reason.IndexOf(':');
+                    code = end < 0 ? reason : reason[..end];
+                }
+            }
+        }
+        return new(code, reason, returnData.ToArray(), vmError);
+    }
 
     public static void VerifyMerkleInclusion(ReadOnlySpan<byte> canonicalLeaf, MerkleProof proof, ReadOnlySpan<byte> expectedRoot)
     {
@@ -342,47 +606,47 @@ public static class LocalVerifier
         cancellationToken.ThrowIfCancellationRequested();
         var decoded = DecodeProtocolReceipt(canonicalReceipt.Span);
         var receipt = decoded.Receipt;
-        if ((protocolVersion != 2 && protocolVersion != 3) || receipt.ProtocolVersion != protocolVersion) throw VerificationFailure(ReceiptCheck.ProtocolVersion);
+        if ((protocolVersion != 2 && protocolVersion != 3) || receipt.ProtocolVersion != protocolVersion) throw VerificationFailure(ReceiptCheck.ReceiptVersion);
         _ = Exact(authorized.Asset, 32);
         var program = receipt.ModuleId == 9 && (receipt.Operation == 0 || receipt.Operation == 3);
         if (program)
         {
             var module = receipt.ModuleVersion;
             var validModule = receipt.ProtocolVersion == 3 ? module is 4 or 5 : module == 2 || module == 3 || receipt.Operation == 3 && module == 1;
-            if (!validModule) throw VerificationFailure(ReceiptCheck.ModuleVersion);
-            if (receipt.Operation == 0 && receipt.ResultCode != 0) throw VerificationFailure(ReceiptCheck.ResultCode);
+            if (!validModule) throw VerificationFailure(ReceiptCheck.Fields);
+            if (receipt.Operation == 0 && receipt.ResultCode != 0) throw VerificationFailure(ReceiptCheck.Fields);
             if (receipt.Operation == 3)
             {
                 var outcome = receipt.ProgramOutcome;
-                if (outcome is null) throw VerificationFailure(ReceiptCheck.ReceiptShape);
+                if (outcome is null) throw VerificationFailure(ReceiptCheck.Fields);
                 var supportedAbi = receipt.ProtocolVersion == 3
                     ? GeneratedReceiptContract.SupportsProgramGuestAbi(outcome.AbiVersion)
                     : outcome.AbiVersion is GeneratedReceiptContract.ProgramAbiV1 or GeneratedReceiptContract.ProgramAbiV2;
-                if (!supportedAbi || outcome.RuntimeVersion != 1) throw VerificationFailure(ReceiptCheck.ProtocolVersion);
-                if (receipt.ProtocolVersion == 3 && outcome.AbiVersion > module) throw VerificationFailure(ReceiptCheck.ModuleVersion);
+                if (!supportedAbi || outcome.RuntimeVersion != 1) throw VerificationFailure(ReceiptCheck.ReceiptVersion);
+                if (receipt.ProtocolVersion == 3 && outcome.AbiVersion > module) throw VerificationFailure(ReceiptCheck.Fields);
                 if (receipt.ProtocolVersion == 3 && outcome.AbiVersion is GeneratedReceiptContract.ProgramAbiV3 or GeneratedReceiptContract.ProgramAbiV4 or GeneratedReceiptContract.ProgramAbiV5 &&
-                    !Equal(receipt.Asset, Exact(authorized.Asset, 32))) throw VerificationFailure(ReceiptCheck.Asset);
+                    !Equal(receipt.Asset, Exact(authorized.Asset, 32))) throw VerificationFailure(ReceiptCheck.Fields);
             }
         }
-        if (!program && receipt.Operation == 0) throw VerificationFailure(ReceiptCheck.Operation);
+        if (!program && receipt.Operation == 0) throw VerificationFailure(ReceiptCheck.Fields);
         if (AllZero(receipt.ActivityId)) throw VerificationFailure(ReceiptCheck.ActivityId);
-        if (!program && AllZero(receipt.Asset)) throw VerificationFailure(ReceiptCheck.Asset);
-        if (!Equal(receipt.BatchId, Exact(authorized.BatchId, 32))) throw VerificationFailure(ReceiptCheck.BatchId);
-        if (!program && !Equal(receipt.Asset, Exact(authorized.Asset, 32))) throw VerificationFailure(ReceiptCheck.Asset);
+        if (!program && AllZero(receipt.Asset)) throw VerificationFailure(ReceiptCheck.Fields);
+        if (!Equal(receipt.BatchId, Exact(authorized.BatchId, 32))) throw VerificationFailure(ReceiptCheck.Fields);
+        if (!program && !Equal(receipt.Asset, Exact(authorized.Asset, 32))) throw VerificationFailure(ReceiptCheck.Fields);
         if (!Equal(receipt.PreviousStateRoot, Exact(authorized.PreviousStateRoot, 32)))
-            throw VerificationFailure(ReceiptCheck.PreviousStateRoot);
+            throw VerificationFailure(ReceiptCheck.Fields);
         if (!Equal(receipt.ResultingStateRoot, Exact(authorized.ResultingStateRoot, 32)))
-            throw VerificationFailure(ReceiptCheck.ResultingStateRoot);
+            throw VerificationFailure(ReceiptCheck.Fields);
         if (!program && receipt.ResultCode == 0)
         {
             if (!receipt.FromBalanceBefore.TrySubtract(receipt.Amount, out var debitAfter) || debitAfter != receipt.FromBalanceAfter)
-                throw VerificationFailure(ReceiptCheck.DebitBalance);
+                throw VerificationFailure(ReceiptCheck.Fields);
             if (!receipt.ToBalanceBefore.TryAdd(receipt.Amount, out var creditAfter) || creditAfter != receipt.ToBalanceAfter)
-                throw VerificationFailure(ReceiptCheck.CreditBalance);
+                throw VerificationFailure(ReceiptCheck.Fields);
         }
         var receiptDigest = Digest(ReceiptDomain, decoded.UnsignedBytes);
         if (!VerifyEd25519(Exact(authorized.SequencerPublicKey, 32), receipt.SequencerSignature, receiptDigest))
-            throw VerificationFailure(ReceiptCheck.SequencerSignature);
+            throw VerificationFailure(ReceiptCheck.Signature);
         return ValueTask.FromResult(new ReceiptVerification("sequencer-signed", receipt, canonicalReceipt.ToArray(), receiptDigest));
     }
 
@@ -391,36 +655,38 @@ public static class LocalVerifier
         var decoded = DecodeProtocolReceipt(canonical); var receipt = decoded.Receipt;
         if (receipt.ProtocolVersion != 3 || receipt.ModuleId != 9 || receipt.ModuleVersion != 4 || receipt.Operation != 0 ||
             receipt.ProgramOutcome is not null || AllZero(Exact(expectedActivity, 32)) || !Equal(receipt.ActivityId, expectedActivity) ||
-            AllZero(Exact(sequencer, 32))) throw VerificationFailure(ReceiptCheck.ReceiptShape);
+            AllZero(Exact(sequencer, 32))) throw VerificationFailure(ReceiptCheck.Fields);
         var digest = Digest(ReceiptDomain, decoded.UnsignedBytes);
-        if (!VerifyEd25519(sequencer, receipt.SequencerSignature, digest)) throw VerificationFailure(ReceiptCheck.SequencerSignature);
+        if (!VerifyEd25519(sequencer, receipt.SequencerSignature, digest)) throw VerificationFailure(ReceiptCheck.Signature);
         return new ReceiptVerification("sequencer-signed", receipt, canonical.ToArray(), digest);
     }
 
     public static async ValueTask<ReceiptVerification> VerifyReceiptAsync(ReadOnlyMemory<byte> canonicalReceipt, AuthorizedReceiptBatch authorized, CancellationToken cancellationToken = default, ushort protocolVersion = 2)
     {
         var verified = await VerifyReceiptOutcomeAsync(canonicalReceipt, authorized, cancellationToken, protocolVersion).ConfigureAwait(false);
-        if (verified.Receipt.ResultCode != 0) throw VerificationFailure(ReceiptCheck.ResultCode);
+        if (verified.Receipt.ResultCode != 0) throw VerificationFailure(ReceiptCheck.Fields);
         return verified;
     }
 
-    private static DecodedReceipt DecodeProtocolReceipt(ReadOnlySpan<byte> canonicalReceipt)
+    private static DecodedReceipt DecodeProtocolReceipt(ReadOnlySpan<byte> canonicalReceipt, bool sequencer = false)
     {
-        try { return DecodeProtocolReceiptInner(canonicalReceipt); }
+        try { return DecodeProtocolReceiptInner(canonicalReceipt, sequencer); }
         catch (PlatformSdkException error) when (error.ReceiptCheck is not null) { throw; }
         catch (PlatformSdkException) { throw VerificationFailure(ReceiptCheck.Decode); }
     }
 
-    private static DecodedReceipt DecodeProtocolReceiptInner(ReadOnlySpan<byte> canonicalReceipt)
+    private static DecodedReceipt DecodeProtocolReceiptInner(ReadOnlySpan<byte> canonicalReceipt, bool sequencer)
     {
         if (canonicalReceipt.IsEmpty || canonicalReceipt.Length > MaximumMessageBytes)
-            throw VerificationFailure(ReceiptCheck.ReceiptShape);
+            throw VerificationFailure(sequencer ? ReceiptCheck.Decode : ReceiptCheck.Fields);
         var decoder = new WireDecoder(canonicalReceipt.ToArray());
         var envelopeVersion = decoder.U16();
+        if (sequencer && envelopeVersion is not (GeneratedReceiptContract.ReceiptVersionV2 or GeneratedReceiptContract.ReceiptVersionV3))
+            throw VerificationFailure(ReceiptCheck.ReceiptVersion);
         if (envelopeVersion is not (1 or 2 or 3) || decoder.U16() != 0x5201)
             throw VerificationFailure(ReceiptCheck.Decode);
         var protocolVersion = decoder.U16();
-        if (protocolVersion != envelopeVersion) throw VerificationFailure(ReceiptCheck.ProtocolVersion);
+        if (protocolVersion != envelopeVersion) throw VerificationFailure(ReceiptCheck.ReceiptVersion);
         var activityId = decoder.Array32();
         var globalSequence = decoder.U64();
         var previousStateRoot = decoder.Array32();
@@ -459,22 +725,24 @@ public static class LocalVerifier
         var authorizationHash = decoder.Array32();
         var contextHash = decoder.Array32();
         var timestamp = decoder.U64();
-        if (globalSequence == 0) throw VerificationFailure(ReceiptCheck.GlobalSequence);
-        if (module == 0) throw VerificationFailure(ReceiptCheck.ModuleId);
-        if (moduleVersion == 0) throw VerificationFailure(ReceiptCheck.ModuleVersion);
-        if (timestamp == 0) throw VerificationFailure(ReceiptCheck.Timestamp);
+        if (globalSequence == 0) throw VerificationFailure(ReceiptCheck.Fields);
+        if (module == 0) throw VerificationFailure(ReceiptCheck.Fields);
+        if (moduleVersion == 0) throw VerificationFailure(ReceiptCheck.Fields);
+        if (timestamp == 0) throw VerificationFailure(ReceiptCheck.Fields);
         if (AllZero(activityId)) throw VerificationFailure(ReceiptCheck.ActivityId);
-        if (AllZero(resultingStateRoot)) throw VerificationFailure(ReceiptCheck.ResultingStateRoot);
+        if (AllZero(resultingStateRoot)) throw VerificationFailure(ReceiptCheck.Fields);
         ProgramReceiptOutcome? programOutcome;
-        try { programOutcome = decoder.Remaining > 69 ? DecodeProgramReceiptOutcomeFrom(decoder, protocolVersion) : null; }
-        catch (PlatformSdkException) { throw VerificationFailure(ReceiptCheck.ProgramOutcome); }
+        try { programOutcome = !sequencer && decoder.Remaining > 69 ? DecodeProgramReceiptOutcomeFrom(decoder, protocolVersion) : null; }
+        catch (PlatformSdkException) { throw VerificationFailure(ReceiptCheck.Fields); }
         if (programOutcome is not null &&
-            (module != GeneratedReceiptContract.ProgramsModuleId || programOutcome.ResultCode != resultCode ||
+            (module != 9 || programOutcome.ResultCode != resultCode ||
              programOutcome.TerminalKind == 1 && !Equal(programOutcome.TransferRoot, transferSetRoot) ||
              programOutcome.TerminalKind != 1 && !AllZero(transferSetRoot)))
-            throw VerificationFailure(ReceiptCheck.ProgramOutcome);
+            throw VerificationFailure(ReceiptCheck.Fields);
         var signatureFlagOffset = decoder.Position;
-        if (decoder.U8() != 1) throw VerificationFailure(ReceiptCheck.MissingSignature);
+        var signatureFlag = decoder.U8();
+        if (sequencer && signatureFlag > 1) throw VerificationFailure(ReceiptCheck.CanonicalEncoding);
+        if (signatureFlag != 1) throw VerificationFailure(ReceiptCheck.Signature);
         var sequencerSignature = decoder.BoundedExactly(64);
         decoder.Finish();
         var receipt = new ProtocolReceipt(protocolVersion, activityId, globalSequence, previousStateRoot, resultingStateRoot, activityRoot, resultCode, effects.AsReadOnly(), feeCharged, batchId, module, moduleVersion, parameterVersion, operation, asset, amount, from, fromBalanceBefore, fromBalanceAfter, fromSequence, to, toBalanceBefore, toBalanceAfter, transferSetRoot, authorizationHash, contextHash, timestamp, programOutcome, sequencerSignature);
@@ -546,7 +814,7 @@ public static class LocalVerifier
                                                                      ushort protocolVersion)
     {
         if (canonicalOutcome.IsEmpty || canonicalOutcome.Length > MaximumMessageBytes)
-            throw VerificationFailure(ReceiptCheck.ReceiptShape);
+            throw VerificationFailure(ReceiptCheck.Fields);
         try
         {
             var decoder = new WireDecoder(canonicalOutcome.ToArray());
@@ -555,7 +823,7 @@ public static class LocalVerifier
             return outcome;
         }
         catch (PlatformSdkException error) when (error.ReceiptCheck is not null) { throw; }
-        catch (PlatformSdkException) { throw VerificationFailure(ReceiptCheck.ProgramOutcome); }
+        catch (PlatformSdkException) { throw VerificationFailure(ReceiptCheck.Fields); }
     }
 
     private static bool VerifyEd25519(ReadOnlySpan<byte> publicKey, ReadOnlySpan<byte> signature, ReadOnlySpan<byte> message)

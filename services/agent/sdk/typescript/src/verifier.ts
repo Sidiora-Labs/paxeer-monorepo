@@ -1,4 +1,6 @@
 import { PlatformSdkError } from "./production.js";
+import { ed25519 } from "@noble/curves/ed25519.js";
+import { keccak_256 } from "@noble/hashes/sha3.js";
 import {
   PROGRAM_OUTCOME_TAGS,
   PROGRAMS_MODULE_ID,
@@ -1175,4 +1177,216 @@ export async function verifyReceipt(
     return receiptFailure(ReceiptFailureCode.ResultCode);
   }
   return verified;
+}
+
+export type SequencerReceiptRefusal =
+  | "unpinned_key"
+  | "key_out_of_range"
+  | "bad_signature"
+  | "hash_mismatch"
+  | "height_regression"
+  | "insufficient_power";
+
+export class SequencerReceiptVerificationError extends PlatformSdkError {
+  public constructor(public readonly check: SequencerReceiptRefusal) {
+    super({ code: "verification-failure", retry: "never" });
+    this.name = "SequencerReceiptVerificationError";
+  }
+}
+
+export interface SequencerReceiptKey {
+  readonly keyId: Uint8Array;
+  readonly publicKey: Uint8Array;
+  readonly first_height: bigint;
+  readonly last_height: bigint;
+}
+
+export interface SequencerReceiptVerification extends ReceiptVerification {
+  readonly height: bigint;
+}
+
+export interface CometBlockId {
+  readonly hash: Uint8Array;
+  readonly partSetHeader: {
+    readonly total: number;
+    readonly hash: Uint8Array;
+  };
+}
+
+export interface CometCommitSignature {
+  readonly blockIdFlag: 1 | 2 | 3;
+  readonly validatorAddress: Uint8Array;
+  readonly timestamp: { readonly seconds: bigint; readonly nanos: number };
+  readonly signature: Uint8Array;
+}
+
+export interface CometValidator {
+  readonly address: Uint8Array;
+  readonly publicKey: Uint8Array;
+  readonly votingPower: bigint;
+}
+
+export interface CommittedReceiptEvidence {
+  readonly chainId: string;
+  readonly landingHeight: bigint;
+  readonly blockId: CometBlockId;
+  readonly commit: {
+    readonly height: bigint;
+    readonly round: number;
+    readonly blockId: CometBlockId;
+    readonly signatures: readonly CometCommitSignature[];
+  };
+  /** The validator set trusted by the caller for this chain and landing height. */
+  readonly validators: readonly CometValidator[];
+}
+
+export interface CommittedReceiptVerification {
+  readonly level: "committed";
+  readonly receipt: SequencerReceiptVerification;
+  readonly landingHeight: bigint;
+  readonly blockHash: Uint8Array;
+  readonly signedPower: bigint;
+  readonly totalPower: bigint;
+}
+
+function sequencerReceiptFailure(check: SequencerReceiptRefusal): never {
+  throw new SequencerReceiptVerificationError(check);
+}
+
+export async function verifySequencerReceipt(
+  signedReceipt: Uint8Array,
+  rawTransaction: Uint8Array,
+  receiptKeys: readonly SequencerReceiptKey[],
+): Promise<SequencerReceiptVerification> {
+  const canonicalBytes = new Uint8Array(signedReceipt);
+  const transactionHash = keccak_256(new Uint8Array(rawTransaction));
+  let decoded: DecodedReceipt;
+  try {
+    decoded = decodeProtocolReceipt(canonicalBytes);
+  } catch {
+    return sequencerReceiptFailure("bad_signature");
+  }
+  const { receipt, unsignedBytes } = decoded;
+  if (receipt.protocolVersion !== 2 || receipt.moduleVersion !== 1
+    || receipt.parameterVersion !== 0 || receipt.programOutcome !== undefined
+    || !allZero(receipt.batchId.subarray(0, 24))) {
+    return sequencerReceiptFailure("bad_signature");
+  }
+  const height = new DataView(arrayBuffer(receipt.batchId)).getBigUint64(24, false);
+  const pinned = receiptKeys.filter((key) => equal(key.keyId, receipt.contextHash));
+  if (pinned.length === 0) return sequencerReceiptFailure("unpinned_key");
+  const active = pinned.filter((key) => key.first_height >= 0n
+    && key.last_height <= 0xffff_ffff_ffff_ffffn
+    && key.first_height <= height && height <= key.last_height);
+  if (active.length === 0) return sequencerReceiptFailure("key_out_of_range");
+  const publicKeys = active.map((key) => new Uint8Array(key.publicKey));
+  const receiptDigest = await sha256(RECEIPT_DOMAIN, unsignedBytes);
+  let valid = false;
+  for (const publicKey of publicKeys) {
+    if (await verifyEd25519(publicKey, receipt.sequencerSignature, receiptDigest)) valid = true;
+  }
+  if (!valid) return sequencerReceiptFailure("bad_signature");
+  if (!equal(receipt.activityId, transactionHash)) return sequencerReceiptFailure("hash_mismatch");
+  return Object.freeze({ level: "sequencer-signed", receipt, canonicalBytes, receiptDigest, height });
+}
+
+function cometVarint(value: bigint): Uint8Array {
+  const bytes: number[] = [];
+  let remaining = BigInt.asUintN(64, value);
+  while (remaining >= 128n) {
+    bytes.push(Number(remaining & 127n) | 128);
+    remaining >>= 7n;
+  }
+  bytes.push(Number(remaining));
+  return Uint8Array.from(bytes);
+}
+
+function cometBytes(field: number, bytes: Uint8Array): Uint8Array {
+  return concatenate(Uint8Array.of(field * 8 + 2), cometVarint(BigInt(bytes.length)), bytes);
+}
+
+function cometFixed64(field: number, value: bigint): Uint8Array {
+  if (value === 0n) return new Uint8Array();
+  const bytes = new Uint8Array(9);
+  bytes[0] = field * 8 + 1;
+  new DataView(bytes.buffer).setBigInt64(1, value, true);
+  return bytes;
+}
+
+function cometVoteSignBytes(evidence: CommittedReceiptEvidence, signature: CometCommitSignature): Uint8Array {
+  const { blockId, height, round } = evidence.commit;
+  const { seconds, nanos } = signature.timestamp;
+  if (seconds < -62135596800n || seconds > 253402300799n
+    || !Number.isInteger(nanos) || nanos < 0 || nanos >= 1_000_000_000) {
+    return sequencerReceiptFailure("bad_signature");
+  }
+  const partSet = concatenate(Uint8Array.of(8), cometVarint(BigInt(blockId.partSetHeader.total)),
+    cometBytes(2, blockId.partSetHeader.hash));
+  const block = concatenate(cometBytes(1, blockId.hash), cometBytes(2, partSet));
+  const timestamp = concatenate(
+    seconds === 0n ? new Uint8Array() : concatenate(Uint8Array.of(8), cometVarint(seconds)),
+    nanos === 0 ? new Uint8Array() : concatenate(Uint8Array.of(16), cometVarint(BigInt(nanos))),
+  );
+  const vote = concatenate(Uint8Array.of(8, 2), cometFixed64(2, height), cometFixed64(3, BigInt(round)),
+    cometBytes(4, block), cometBytes(5, timestamp), cometBytes(6, new TextEncoder().encode(evidence.chainId)));
+  return concatenate(cometVarint(BigInt(vote.length)), vote);
+}
+
+export async function verifyCommittedReceipt(
+  receipt: SequencerReceiptVerification,
+  evidence: CommittedReceiptEvidence,
+): Promise<CommittedReceiptVerification> {
+  if (evidence.landingHeight < receipt.height || evidence.commit.height !== evidence.landingHeight) {
+    return sequencerReceiptFailure("height_regression");
+  }
+  const { commit, validators } = evidence;
+  const blockId = commit.blockId;
+  if (commit.height <= 0n || commit.height > 0x7fff_ffff_ffff_ffffn
+    || !Number.isInteger(commit.round) || commit.round < 0 || commit.round > 0x7fff_ffff
+    || evidence.chainId.length === 0 || new TextEncoder().encode(evidence.chainId).length > 50
+    || blockId.hash.length !== 32 || blockId.partSetHeader.hash.length !== 32
+    || !Number.isInteger(blockId.partSetHeader.total) || blockId.partSetHeader.total <= 0
+    || blockId.partSetHeader.total > 0xffff_ffff
+    || !equal(blockId.hash, evidence.blockId.hash)
+    || !equal(blockId.partSetHeader.hash, evidence.blockId.partSetHeader.hash)
+    || blockId.partSetHeader.total !== evidence.blockId.partSetHeader.total) {
+    return sequencerReceiptFailure("bad_signature");
+  }
+  let totalPower = 0n;
+  const addresses: Uint8Array[] = [];
+  for (const validator of validators) {
+    if (validator.votingPower <= 0n || validator.votingPower > 0x7fff_ffff_ffff_ffffn
+      || validator.publicKey.length !== 32 || validator.address.length !== 20
+      || addresses.some((address) => equal(address, validator.address))
+      || !equal((await sha256(validator.publicKey)).subarray(0, 20), validator.address)) {
+      return sequencerReceiptFailure("bad_signature");
+    }
+    addresses.push(validator.address);
+    totalPower += validator.votingPower;
+  }
+  let signedPower = 0n;
+  const seen: Uint8Array[] = [];
+  for (const signature of commit.signatures) {
+    if (signature.blockIdFlag === 1 || signature.blockIdFlag === 3) continue;
+    const validator = validators.find((entry) => equal(entry.address, signature.validatorAddress));
+    if (signature.blockIdFlag !== 2 || validator === undefined
+      || seen.some((address) => equal(address, signature.validatorAddress))) {
+      return sequencerReceiptFailure("bad_signature");
+    }
+    let valid = false;
+    try {
+      valid = ed25519.verify(signature.signature, cometVoteSignBytes(evidence, signature), validator.publicKey,
+        { zip215: false });
+    } catch {
+      return sequencerReceiptFailure("bad_signature");
+    }
+    if (!valid) return sequencerReceiptFailure("bad_signature");
+    seen.push(signature.validatorAddress);
+    signedPower += validator.votingPower;
+  }
+  if (totalPower === 0n || signedPower * 3n <= totalPower * 2n) {
+    return sequencerReceiptFailure("insufficient_power");
+  }
+  return Object.freeze({ level: "committed", receipt, landingHeight: evidence.landingHeight,
+    blockHash: new Uint8Array(blockId.hash), signedPower, totalPower });
 }

@@ -122,11 +122,40 @@ class RpcTransportError extends Error {
 
 export interface RpcPoolOptions {
   urls: string[];
+  sequencerUrl?: string;
   chainId: number;
   lagThresholdBlocks: number;
   timeoutMs: number;
   healthIntervalMs: number;
 }
+
+export interface SequencerReceiptView {
+  seq: Hex;
+  height: Hex;
+  index: Hex;
+  timestamp: Hex;
+  status: Hex;
+  returnData: Hex;
+  logs: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
+  gasUsed: Hex;
+  cumulativeGasUsed: Hex;
+  effectiveGasPrice: Hex;
+  feeDenom: string;
+  feeAmount: Hex;
+  sponsor: Hex;
+  from: Hex;
+  to: Hex;
+  contractAddress: Hex;
+  vmError: string;
+  keyId: Hex;
+  receipt: Hex;
+}
+
+export type SequencerReceiptResult = { txHash: Hex; nonce: Hex } & (
+  | { rung: 'submitted' }
+  | (SequencerReceiptView & { rung: 'receipted' })
+  | (SequencerReceiptView & { rung: 'committed'; blockNumber: Hex; blockHash: Hex })
+);
 
 export interface PreparedGas {
   gas: bigint;
@@ -332,26 +361,35 @@ export class RpcPool {
     return (await this.sendRawTransactionVia(signed)).hash;
   }
 
+  async sequencerReceipt(hash: Hex): Promise<SequencerReceiptResult | null> {
+    return (await this.post(this.sequencerEndpoint(), 'pax_sequencerReceipt', [hash])) as SequencerReceiptResult | null;
+  }
+
+  private sequencerEndpoint(): string {
+    if (!this.opts.sequencerUrl) throw new RpcUnavailableError('SEQUENCER_RPC_URL is not configured');
+    return this.opts.sequencerUrl;
+  }
+
   /**
-   * sendRawTransaction(), also naming the pool member that accepted the transaction; an idempotent
-   * answer returns the keccak of the signed bytes as the hash. A member that times out is retried with the same bytes only, so a
-   * retry can only answer already known (success with our hash) or accept it. Nonce too low is
+   * sendRawTransaction(), also naming the sequencer that accepted the transaction; an idempotent
+   * answer returns the keccak of the signed bytes as the hash. Each call sends once to the sequencer. Nonce too low is
    * success when our hash is known on any member; known on none, it is a BroadcastOutcomeUnknownError
    * when the sender's latest count is past our nonce (ours may have mined unindexed) and a
    * NonceConflictError otherwise; replacement underpriced is a NonceConflictError; any other refusal is
    * a TransactionRejectedError.
    */
   async sendRawTransactionVia(signed: Hex): Promise<{ hash: Hex; member: string | null }> {
+    const member = this.sequencerEndpoint();
     const hash = keccak256(signed);
     try {
-      const { result, member } = await this.requestVia<Hex>('eth_sendRawTransaction', [signed]);
+      const result = (await this.post(member, 'eth_sendRawTransaction', [signed])) as Hex;
       return { hash: result, member };
     } catch (err) {
       if (!(err instanceof RpcResponseError)) throw err;
-      if (ALREADY_KNOWN.test(err.message)) return { hash, member: null };
+      if (ALREADY_KNOWN.test(err.message)) return { hash, member };
       const members = this.endpoints.length;
       if (NONCE_TOO_LOW.test(err.message)) {
-        if (await this.transactionKnown(hash, null)) return { hash, member: null };
+        if (await this.transactionKnown(hash, member)) return { hash, member };
         const nonce = parseTransaction(signed).nonce ?? 0;
         const from = await recoverTransactionAddress({ serializedTransaction: signed as Parameters<typeof recoverTransactionAddress>[0]['serializedTransaction'] });
         if ((await this.getTransactionCount(from, 'latest')) > nonce) {
@@ -420,6 +458,7 @@ function callObject(req: CallRequest): Record<string, string> {
 
 export function rpcPoolFromConfig(cfg: {
   RPC_URLS: string[];
+  SEQUENCER_RPC_URL?: string;
   HYPERPAXEER_CHAIN_ID: number;
   RPC_LAG_THRESHOLD_BLOCKS: number;
   RPC_TIMEOUT_MS: number;
@@ -427,6 +466,7 @@ export function rpcPoolFromConfig(cfg: {
 }): RpcPool {
   return new RpcPool({
     urls: cfg.RPC_URLS,
+    sequencerUrl: cfg.SEQUENCER_RPC_URL,
     chainId: cfg.HYPERPAXEER_CHAIN_ID,
     lagThresholdBlocks: cfg.RPC_LAG_THRESHOLD_BLOCKS,
     timeoutMs: cfg.RPC_TIMEOUT_MS,
