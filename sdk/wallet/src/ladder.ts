@@ -74,16 +74,15 @@ export function decodeExplorerStatus(value: unknown): ExplorerTransactionStatus 
   if (typeof rung !== 'string' || !Object.prototype.hasOwnProperty.call(EXPLORER_TABLE, rung)) {
     throw new TypeError('malformed explorer rung');
   }
-  const checkpoint = value.checkpoint_id;
-  if (checkpoint !== null && (typeof checkpoint !== 'string' || !/^0x[0-9a-f]{64}$/.test(checkpoint))) {
-    throw new TypeError('malformed explorer checkpoint_id');
+  const blockNumber = nullableCount(value.block_number, 'block_number');
+  if (rung === 'committed' && (typeof value.committed_height !== 'number' ||
+      (blockNumber !== null && value.committed_height < blockNumber))) {
+    throw new TypeError('malformed explorer status');
   }
   return {
     rung: rung as ExplorerRung,
-    block_number: nullableCount(value.block_number, 'block_number'),
-    sealed_batch_number: nullableCount(value.sealed_batch_number, 'sealed_batch_number'),
-    finalized_batch_number: nullableCount(value.finalized_batch_number, 'finalized_batch_number'),
-    checkpoint_id: checkpoint,
+    block_number: blockNumber,
+    committed_height: nullableCount(value.committed_height, 'committed_height'),
   };
 }
 
@@ -255,12 +254,10 @@ export async function observeTransfer(
       try {
         const status = await readExplorerStatus(explorer.url, identity.hash, explorer.fetchImpl);
         if (status.block_number !== blockNumber) throw new Error('explorer status does not identify the receipt block');
-        if ((status.rung === 'sealed' || status.rung === 'final') &&
-            (status.sealed_batch_number === null || status.checkpoint_id === null)) throw new Error('explorer sealing evidence is incomplete');
-        if (status.rung === 'final' && (status.finalized_batch_number === null || status.sealed_batch_number === null ||
-            status.finalized_batch_number > status.sealed_batch_number)) throw new Error('explorer finality evidence is incomplete');
+        if (status.rung === 'committed' && (status.committed_height === null ||
+            status.committed_height < blockNumber)) throw new Error('explorer commitment evidence is incomplete');
         const step = statusLadder.fromExplorer(status);
-        if (step.rung !== null) steps.push({ ...step, state: `${status.rung}:${status.checkpoint_id ?? blockHash}` });
+        if (step.rung !== null) steps.push({ ...step, state: `${status.rung}:${blockHash}` });
       } catch (error) {
         warning = error instanceof Error ? error.message : 'Explorer evidence unavailable';
       }
