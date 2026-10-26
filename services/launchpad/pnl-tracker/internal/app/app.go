@@ -292,8 +292,7 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 			router.Get("/v3/me/portfolio", journeys.portfolio.PortfolioV3HTTP)
 			router.Get("/v3/wallets/{wallet}/portfolio", journeys.portfolio.PublicPortfolioV3HTTP)
 			router.Get("/v3/me/portfolio/history", journeys.intervalHTTP)
-			router.Get("/v2/me/rewards", journeys.rewardsHTTP.Rewards)
-			router.Post("/v2/me/rewards/claim", journeys.rewardsHTTP.PrepareClaim)
+			registerRewardRoutes(router, journeys.rewardsHTTP)
 			router.Post("/v2/me/portfolio/rebuild", journeys.rebuildHTTP)
 			router.Get("/v3/me/pnl/history", journeys.intervalHTTP)
 			router.Get("/v2/me/referrals", journeys.referralHTTP.Dashboard)
@@ -349,6 +348,11 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		reconciler:  reconciler,
 		reconcileIn: cfg.ReconcileInterval(),
 	}, nil
+}
+
+func registerRewardRoutes(router chi.Router, h l18.HTTP) {
+	router.Get("/v2/me/rewards", h.Rewards)
+	router.Post("/v2/me/rewards:prepare-claim", h.PrepareClaim)
 }
 
 // shareLabel renders the human footer drawn on the OG image (origin host without
