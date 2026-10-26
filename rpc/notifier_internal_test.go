@@ -15,16 +15,24 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	rpctest "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/test"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
+	transferkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/apps/transfer/keeper"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	codectypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	authtx "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/tx"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
+	paramtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/params/types"
+	dbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
+	receiptstore "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/require"
 )
 
@@ -177,7 +185,7 @@ func TestEncodeCommittedBlock(t *testing.T) {
 		},
 	}
 
-	out, err := encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000)
+	out, err := encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000, headExecution{})
 	require.Nil(t, out)
 	require.ErrorContains(t, err, "lacks canonical parent, transaction, and receipt roots")
 }
@@ -211,7 +219,7 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 		}
 	}
 
-	out, err := encodeCommittedBlock(event(), big.NewInt(42), 10_000_000)
+	out, err := encodeCommittedBlock(event(), big.NewInt(42), 10_000_000, headExecution{gasUsed: 121000, txCount: 2})
 	require.NoError(t, err)
 	enc, err := json.Marshal(out)
 	require.NoError(t, err)
@@ -246,18 +254,18 @@ func TestEncodeCommittedBlockWithRoots(t *testing.T) {
 	} {
 		evt := event()
 		strip(&evt)
-		out, err := encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000)
+		out, err := encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000, headExecution{})
 		require.Nil(t, out, name)
 		require.EqualError(t, err, "committed Autobahn head 12345 lacks canonical parent, transaction, and receipt roots", name)
 	}
 	evt := event()
 	evt.response.AppHash = nil
-	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000)
+	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000, headExecution{})
 	require.Nil(t, out)
 	require.EqualError(t, err, "committed Autobahn head 12345 lacks a state root")
 	evt = event()
 	evt.hash = hash.Bytes()[1:]
-	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000)
+	out, err = encodeCommittedHead(nil, evt, big.NewInt(42), 10_000_000, headExecution{})
 	require.Nil(t, out)
 	require.EqualError(t, err, "committed Autobahn head 12345 has a 31-byte block hash")
 }
@@ -312,7 +320,7 @@ func TestNewHeadsKeySetMatchesBlockHeader(t *testing.T) {
 		hash:     block.BlockID.Hash,
 		header:   block.Block.Header.ToProto(),
 		response: &abci.ResponseFinalizeBlock{AppHash: block.Block.AppHash},
-	}, baseFee, gasLimit)
+	}, baseFee, gasLimit, headExecution{})
 	require.NoError(t, err)
 	headKeys := make(map[string]struct{}, len(head))
 	for key := range head {
@@ -349,9 +357,132 @@ func TestEncodeCommittedBlock_ZeroGasLimit(t *testing.T) {
 		header:   &tmproto.Header{Height: 1, Time: time.Unix(0, 0)},
 		response: &abci.ResponseFinalizeBlock{},
 	}
-	out, err := encodeCommittedHead(nil, evt, big.NewInt(0), 0)
+	out, err := encodeCommittedHead(nil, evt, big.NewInt(0), 0, headExecution{})
 	require.Nil(t, out)
 	require.ErrorContains(t, err, "lacks canonical parent, transaction, and receipt roots")
+}
+
+func TestNewHeadsBloomAndGasUsedMatchBlock(t *testing.T) {
+	storeKey := sdk.NewKVStoreKey("evm")
+	tkey := sdk.NewTransientStoreKey("evm_transient")
+	ctx := testutil.DefaultContext(storeKey, tkey).WithBlockHeight(1).
+		WithBlockTime(time.Unix(1_700_000_000, 0).UTC()).WithConsensusParams(&tmproto.ConsensusParams{
+		Block: &tmproto.BlockParams{MaxGas: 10_000_000},
+	})
+	cfg := dbconfig.DefaultReceiptStoreConfig()
+	cfg.DBDirectory = t.TempDir()
+	cfg.KeepRecent = 0
+	store, err := receiptstore.NewReceiptStore(cfg, storeKey)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, store.Close()) })
+	registry := codectypes.NewInterfaceRegistry()
+	evmtypes.RegisterInterfaces(registry)
+	banktypes.RegisterInterfaces(registry)
+	cdc := codec.NewProtoCodec(registry)
+	txConfig := authtx.NewTxConfig(cdc, authtx.DefaultSignModes)
+	params := paramtypes.NewSubspace(cdc, codec.NewLegacyAmino(), storeKey, tkey, "evm")
+	k := evmkeeper.NewKeeper(storeKey, tkey, params, store, nil, nil, nil, transferkeeper.Keeper{}, nil, nil, nil)
+	ctxProvider := func(height int64) sdk.Context { return ctx.WithBlockHeight(height) }
+	txConfigProvider := func(int64) client.TxConfig { return txConfig }
+	encodeTx := func(msg sdk.Msg) tmtypes.Tx {
+		builder := txConfig.NewTxBuilder()
+		require.NoError(t, builder.SetMsgs(msg))
+		bz, err := txConfig.TxEncoder()(builder.GetTx())
+		require.NoError(t, err)
+		return bz
+	}
+	key, err := crypto.GenerateKey()
+	require.NoError(t, err)
+	to := common.HexToAddress("0x1234")
+	block := &coretypes.ResultBlock{
+		BlockID: tmtypes.BlockID{Hash: common.HexToHash("0x11").Bytes()},
+		Block: &tmtypes.Block{
+			Header: tmtypes.Header{
+				Height: 1, Time: ctx.BlockTime(),
+				LastBlockID:     tmtypes.BlockID{Hash: common.HexToHash("0x22").Bytes()},
+				LastResultsHash: common.HexToHash("0x33").Bytes(),
+				AppHash:         common.HexToHash("0x44").Bytes(),
+				ProposerAddress: to.Bytes(),
+			},
+			LastCommit: &tmtypes.Commit{},
+		},
+	}
+	var records []receiptstore.ReceiptRecord
+	var evmLogs []*ethtypes.Log
+	for i, gas := range []uint64{21000, 55000, 99000} {
+		tx, err := ethtypes.SignNewTx(key, ethtypes.LatestSignerForChainID(k.ChainID(ctx)), &ethtypes.DynamicFeeTx{
+			ChainID: k.ChainID(ctx), Nonce: uint64(i), Gas: 200000,
+			GasFeeCap: big.NewInt(1_000_000_000), GasTipCap: big.NewInt(1), To: &to,
+		})
+		require.NoError(t, err)
+		txData, err := ethtx.NewDynamicFeeTx(tx)
+		require.NoError(t, err)
+		msg, err := evmtypes.NewMsgEVMTransaction(txData)
+		require.NoError(t, err)
+		block.Block.Txs = append(block.Block.Txs, encodeTx(msg))
+		logs := []*ethtypes.Log{{Address: common.BytesToAddress([]byte{byte(i + 1)}), Topics: []common.Hash{common.BytesToHash([]byte{byte(i + 10)})}}}
+		bloom := ethtypes.CreateBloom(&ethtypes.Receipt{Logs: logs})
+		rcpt := &evmtypes.Receipt{
+			TxHashHex: tx.Hash().Hex(), BlockNumber: 1, TransactionIndex: uint32(i),
+			GasUsed: gas, EffectiveGasPrice: 1_000_000_000, Status: 1,
+			TxType: uint32(ethtypes.DynamicFeeTxType), Logs: evmtypes.NewLogsFromEth(logs), LogsBloom: bloom.Bytes(),
+		}
+		if i == 2 {
+			rcpt.TxType = evmtypes.ShellEVMTxType
+		} else {
+			evmLogs = append(evmLogs, logs...)
+		}
+		records = append(records, receiptstore.ReceiptRecord{TxHash: tx.Hash(), Receipt: rcpt})
+	}
+	require.NoError(t, store.SetReceipts(ctx.WithBlockHeight(0), records))
+	cosmosTx := encodeTx(&banktypes.MsgSend{
+		FromAddress: sdk.AccAddress(to.Bytes()).String(), ToAddress: sdk.AccAddress(common.HexToAddress("0x5678").Bytes()).String(),
+		Amount: sdk.NewCoins(sdk.NewInt64Coin("uhpx", 1)),
+	})
+	block.Block.Txs = append(block.Block.Txs, cosmosTx)
+	response := &abci.ResponseFinalizeBlock{AppHash: block.Block.AppHash, TxResults: []*abci.ExecTxResult{
+		{GasUsed: 123}, {GasUsed: 456}, {GasUsed: 789}, {GasUsed: 999999},
+	}}
+	for _, tc := range []struct {
+		name    string
+		txs     tmtypes.Txs
+		gas     uint64
+		bloom   ethtypes.Bloom
+		txCount int
+	}{
+		{"multiTransaction", block.Block.Txs, 76000, ethtypes.CreateBloom(&ethtypes.Receipt{Logs: evmLogs}), 2},
+		{"cosmosOnly", tmtypes.Txs{cosmosTx}, 0, ethtypes.Bloom{}, 0},
+		{"empty", nil, 0, ethtypes.Bloom{}, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			block.Block.Txs = tc.txs
+			block.Block.DataHash = tc.txs.Hash()
+			fetcher := &LogFetcher{k: k, ctxProvider: ctxProvider, txConfigProvider: txConfigProvider,
+				globalBlockCache: NewBlockCache(1), cacheCreationMutex: &sync.Mutex{}}
+			execution, err := fetcher.headExecution(block)
+			require.NoError(t, err)
+			require.Equal(t, tc.txCount, execution.txCount)
+			head, err := encodeCommittedBlock(blockHeaderEvent{
+				hash: block.BlockID.Hash, header: block.Block.Header.ToProto(), response: response,
+			}, evmtypes.DefaultMinFeePerGas.TruncateInt().BigInt(), 10_000_000, execution)
+			require.NoError(t, err)
+			require.Equal(t, hexutil.Uint64(tc.gas), head["gasUsed"])
+			require.Equal(t, tc.bloom, head["logsBloom"])
+			if tc.txCount == 0 {
+				require.Equal(t, ethtypes.EmptyTxsHash, head["transactionsRoot"])
+			} else {
+				require.NotEqual(t, ethtypes.Bloom{}, head["logsBloom"])
+				require.Equal(t, common.BytesToHash(block.Block.DataHash), head["transactionsRoot"])
+			}
+			for _, fullTx := range []bool{false, true} {
+				encoded, err := EncodeTmBlock(ctxProvider, txConfigProvider, block, k, fullTx, false, false, false, NewBlockCache(1), &sync.Mutex{})
+				require.NoError(t, err)
+				for _, field := range []string{"logsBloom", "gasUsed", "transactionsRoot"} {
+					require.Equal(t, encoded[field], head[field], field)
+				}
+			}
+		})
+	}
 }
 
 // TestPickHeadBaseFee_UsesParentCtx pins down the off-by-one fix:
