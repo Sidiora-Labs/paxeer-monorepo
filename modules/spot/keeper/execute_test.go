@@ -311,6 +311,76 @@ func TestFillQualityRule(t *testing.T) {
 	require.Equal(t, limitPrice(500), twap)
 }
 
+func TestEndBlockCostIndependentOfBookSize(t *testing.T) {
+	measure := func(resting uint64) uint64 {
+		f := newStopFixture(t)
+		f.params.MaxExpiriesPerBlock = 10
+		f.params.FillScanPerBlock = 10
+		f.params.ActivationScanPerBlock = 10
+		f.setParams()
+		gs := types.DefaultGenesis()
+		gs.Params = f.params
+		gs.NextOrderID = resting + 11
+		for _, token := range []common.Address{f.stable, f.base} {
+			book, err := f.k.GetBook(f.ctx, token)
+			require.NoError(t, err)
+			gs.Books = append(gs.Books, book)
+		}
+		gs.ActiveCounts = append(gs.ActiveCounts, types.ActiveOrderCount{User: f.user, Count: 10})
+		for offset := uint64(0); offset < resting; offset += 100 {
+			user := common.BigToAddress(new(big.Int).SetUint64(offset/100 + 1))
+			gs.ActiveCounts = append(gs.ActiveCounts, types.ActiveOrderCount{User: user, Count: min(uint64(100), resting-offset)})
+		}
+		for id := uint64(1); id < gs.NextOrderID; id++ {
+			user, expiry := f.user, uint64(1001)
+			if id > 10 {
+				user = common.BigToAddress(new(big.Int).SetUint64((id-11)/100 + 1))
+				expiry = 0
+			}
+			order := types.LimitOrder{
+				ID: id, User: user, Stablecoin: f.stable, Token: f.base,
+				Amount: sdk.NewInt(100_000_000), TargetPrice: stopTestPrice(60),
+				OrderType: types.OrderTypeLimitSell, Status: types.OrderStatusPending,
+				CreatedAt: uint64(f.ctx.BlockTime().Unix()), ExpiresAt: expiry,
+			}
+			gs.LimitOrders = append(gs.LimitOrders, order)
+			gs.ActiveLimitOrders = append(gs.ActiveLimitOrders, id)
+			gs.UserOrders = append(gs.UserOrders, types.UserOrder{User: user, OrderID: id, OrderType: order.OrderType})
+			gs.OrderMinOutputs = append(gs.OrderMinOutputs, types.OrderMinOutput{OrderID: id, MinOutput: sdk.ZeroInt()})
+			if expiry != 0 {
+				gs.Expiries = append(gs.Expiries, types.OrderExpiry{ExpiresAt: expiry, OrderID: id})
+			}
+		}
+		escrow := sdk.NewIntFromUint64(resting + 10).MulRaw(100_000_000)
+		gs.Escrows = []types.TokenEscrow{{Token: f.base, Amount: escrow}}
+		require.NoError(t, gs.Validate())
+		app := testkeeper.EVMTestApp
+		require.NoError(t, app.BankKeeper.SendCoins(f.ctx, app.EvmKeeper.GetPaxAddressOrDefault(f.ctx, f.user), keeper.CustodyAddress(), sdk.NewCoins(sdk.NewCoin("uhpx", escrow))))
+		f.k.InitGenesis(f.ctx, *gs)
+		count, err := f.k.GetActiveLimitOrderCount(f.ctx)
+		require.NoError(t, err)
+		require.Equal(t, resting+10, count)
+		f.ctx = f.ctx.WithBlockHeight(f.ctx.BlockHeight() + 1).WithBlockTime(time.Unix(1001, 0).UTC())
+		f.setPrice(50)
+		meter := sdk.NewInfiniteGasMeterWithMultiplier(f.ctx)
+		work, err := f.k.ExecuteResting(f.ctx.WithGasMeter(meter))
+		gas := meter.GasConsumed()
+		require.NoError(t, err)
+		require.Equal(t, uint64(10), work.Expired)
+		require.Equal(t, uint64(10), work.ExpiriesExamined)
+		require.LessOrEqual(t, work.FillsExamined, uint64(10))
+		require.Zero(t, work.Filled)
+		require.Positive(t, gas)
+		count, err = f.k.GetActiveLimitOrderCount(f.ctx)
+		require.NoError(t, err)
+		require.Equal(t, resting, count)
+		return gas
+	}
+	small, large := measure(10), measure(2000)
+	difference := float64(max(small, large) - min(small, large))
+	require.Less(t, difference/float64(small), 0.05, "ExecuteResting gas: 10 resting orders = %d, 2000 resting orders = %d", small, large)
+}
+
 func TestEndBlockBoundedWork(t *testing.T) {
 	f := newStopFixture(t)
 	f.params.OrderPriceImpactEnabled = false
