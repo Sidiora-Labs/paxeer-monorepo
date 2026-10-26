@@ -21,6 +21,7 @@ type HTTP struct {
 	Callouts     CalloutService
 	Store        Store
 	Authenticate Authenticate
+	Wallet       func(*http.Request) (string, error)
 	Intervals    IntervalAuthority
 }
 
@@ -129,6 +130,72 @@ func (h HTTP) Handler() http.Handler {
 		}
 		v, e := h.Callouts.Edit(r.Context(), actor, r.PathValue("id"), input.Body, input.Expected, input.Delete)
 		reply(w, r, v, e)
+	})
+	mux.HandleFunc("POST /v2/me/alerts", func(w http.ResponseWriter, r *http.Request) {
+		actor, e := h.actor(r)
+		if e != nil {
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+			return
+		}
+		if h.Wallet == nil {
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			return
+		}
+		wallet, e := h.Wallet(r)
+		if e != nil || !address.MatchString(wallet) {
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			return
+		}
+		var raw json.RawMessage
+		if e = decode(w, r, &raw); e != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
+			return
+		}
+		rule, e := RuleFromV2AlertCreate(raw, actor)
+		if e != nil {
+			reply(w, r, nil, e)
+			return
+		}
+		var input v2.AlertCreateBody
+		if e = json.Unmarshal(raw, &input); e != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
+			return
+		}
+		if e = h.Store.SaveRule(r.Context(), actor, rule, 0); e != nil {
+			reply(w, r, nil, e)
+			return
+		}
+		response, e := AdaptV2AlertCreate(rule, wallet, input.Threshold, squadRequestID(r), time.Now().UTC())
+		if e != nil {
+			reply(w, r, nil, e)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.WriteHeader(http.StatusCreated)
+		_ = json.NewEncoder(w).Encode(response)
+	})
+	mux.HandleFunc("DELETE /v2/me/alerts/{alertId}", func(w http.ResponseWriter, r *http.Request) {
+		actor, e := h.actor(r)
+		if e != nil {
+			writeError(w, r, http.StatusUnauthorized, "AUTH_REQUIRED")
+			return
+		}
+		if h.Wallet == nil {
+			writeError(w, r, http.StatusServiceUnavailable, "DEPENDENCY_UNAVAILABLE")
+			return
+		}
+		id, e := uuid.Parse(r.PathValue("alertId"))
+		if e != nil {
+			writeError(w, r, http.StatusBadRequest, "INVALID_REQUEST")
+			return
+		}
+		if e = h.Store.DisableRule(r.Context(), actor, id.String()); e != nil {
+			reply(w, r, nil, e)
+			return
+		}
+		w.Header().Set("Cache-Control", "private, no-store")
+		w.WriteHeader(http.StatusNoContent)
 	})
 	mux.HandleFunc("PUT /v2/discovery/alerts/{id}", func(w http.ResponseWriter, r *http.Request) {
 		actor, e := h.actor(r)
