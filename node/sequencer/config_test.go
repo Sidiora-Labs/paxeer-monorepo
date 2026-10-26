@@ -147,6 +147,109 @@ replication-timeout = "soon"
 	require.ErrorIs(t, err, sequencer.ErrConfigValue)
 }
 
+func TestSequencerConfigReadsForwardURL(t *testing.T) {
+	cfg, err := sequencer.ReadConfig(seqConfigOptions(t, `
+[sequencer]
+enable = false
+receipt-forward-url = "https://sequencer.example/receipts"
+`))
+	require.NoError(t, err)
+	require.False(t, cfg.Enable)
+	require.Equal(t, "https://sequencer.example/receipts", cfg.ReceiptForwardURL)
+	require.NoError(t, cfg.Validate())
+	require.Empty(t, sequencer.DefaultConfig().ReceiptForwardURL)
+
+	opts := viper.New()
+	opts.Set("sequencer.receipt-forward-url", []string{"https://sequencer.example/receipts"})
+	_, err = sequencer.ReadConfig(opts)
+	require.ErrorIs(t, err, sequencer.ErrConfigValue)
+}
+
+func TestSequencerConfigRefusesForwardURLOnSequencer(t *testing.T) {
+	cfg, err := sequencer.ReadConfig(seqConfigOptions(t, `
+[sequencer]
+enable = true
+wal-dir = "data/sequencer-wal"
+receipt-key-file = "config/receipt_key.hex"
+receipt-forward-url = "https://sequencer.example/receipts"
+`))
+	require.ErrorIs(t, err, sequencer.ErrConfigValue)
+	require.True(t, cfg.Enable)
+	require.Equal(t, "https://sequencer.example/receipts", cfg.ReceiptForwardURL)
+	require.ErrorIs(t, cfg.Validate(), sequencer.ErrConfigValue)
+
+	cfg.ReceiptForwardURL = ""
+	require.NoError(t, cfg.Validate())
+}
+
+func TestSequencerConfigTemplateHasForwardURL(t *testing.T) {
+	tmpl, err := template.New("app").Parse(sequencer.ConfigTemplate)
+	require.NoError(t, err)
+	var buf bytes.Buffer
+	require.NoError(t, tmpl.Execute(&buf, nil))
+	require.Contains(t, buf.String(), `receipt-forward-url = ""`)
+	require.Contains(t, buf.String(), `role = "primary"`)
+
+	opts := seqConfigOptions(t, buf.String())
+	require.True(t, opts.IsSet("sequencer.receipt-forward-url"))
+	require.Equal(t, "", opts.Get("sequencer.receipt-forward-url"))
+	require.Equal(t, "primary", opts.Get("sequencer.role"))
+	cfg, err := sequencer.ReadConfig(opts)
+	require.NoError(t, err)
+	require.Equal(t, sequencer.DefaultConfig(), cfg)
+}
+
+func TestSequencerConfigReadsStandbyRole(t *testing.T) {
+	def, err := sequencer.ReadConfig(viper.New())
+	require.NoError(t, err)
+	require.Equal(t, sequencer.RolePrimary, def.Role)
+	require.Equal(t, "primary", def.Role.String())
+
+	for _, tc := range []struct {
+		name string
+		role sequencer.Role
+	}{
+		{"primary", sequencer.RolePrimary},
+		{"standby", sequencer.RoleStandby},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			opts := seqConfigOptions(t, `
+[sequencer]
+enable = true
+wal-dir = "data/sequencer-wal"
+receipt-key-file = "config/receipt_key.hex"
+standby-address = "localhost:26700"
+replication-timeout = "250ms"
+`)
+			opts.Set("sequencer.role", tc.name)
+			cfg, err := sequencer.ReadConfig(opts)
+			require.NoError(t, err)
+			require.Equal(t, tc.role, cfg.Role)
+			require.Equal(t, tc.name, cfg.Role.String())
+			require.Equal(t, "localhost:26700", cfg.StandbyAddress)
+			require.NoError(t, cfg.Validate())
+		})
+	}
+
+	for _, enabled := range []bool{false, true} {
+		for _, name := range []string{"", "unknown", "Standby"} {
+			opts := viper.New()
+			opts.Set("sequencer.enable", enabled)
+			opts.Set("sequencer.role", name)
+			_, err := sequencer.ReadConfig(opts)
+			require.ErrorIs(t, err, sequencer.ErrConfigValue, "role %q, enable %t", name, enabled)
+		}
+		bad := sequencer.DefaultConfig()
+		bad.Enable, bad.Role = enabled, sequencer.Role(255)
+		require.ErrorIs(t, bad.Validate(), sequencer.ErrConfigValue)
+	}
+
+	opts := viper.New()
+	opts.Set("sequencer.role", []string{"standby"})
+	_, err = sequencer.ReadConfig(opts)
+	require.ErrorIs(t, err, sequencer.ErrConfigValue)
+}
+
 func TestSequencerConfigSelectsMicroBatch(t *testing.T) {
 	const section = `
 [sequencer]
