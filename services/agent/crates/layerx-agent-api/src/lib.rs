@@ -79,7 +79,8 @@ pub mod policy {
 /// Proof retrieval contract namespace.
 pub mod proof {
     pub use crate::read_contract::{
-        ProofBundle, ProofBundleRecord, ProofBundleTarget, ProofBundleVariant, MAX_PROOF_BUNDLE_BYTES,
+        ProofBundle, ProofBundleRecord, ProofBundleTarget, ProofBundleVariant,
+        MAX_PROOF_BUNDLE_BYTES,
     };
 }
 
@@ -127,7 +128,9 @@ pub mod idempotency {
 
 /// Contract-level verification lattice and success envelope.
 pub mod verify {
-    pub use crate::error_contract::{ApiSuccess, Level, VerificationStatus};
+    pub use crate::error_contract::{
+        ApiSuccess, Level, ReasonCode, Rung, RungStatus, VerificationStatus,
+    };
 }
 
 pub use generated::{
