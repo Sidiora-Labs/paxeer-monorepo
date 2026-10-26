@@ -297,7 +297,7 @@ func (qp QueryPlugin) HandleStakingExtQuery(ctx sdk.Context, queryData json.RawM
 				response.Entries = append(response.Entries, UnbondingDelegationEntry{
 					CreationHeight: entry.CreationHeight,
 					CompletionTime: entry.CompletionTime.String(),
-					InitialBalance: entry.Balance,
+					InitialBalance: entry.InitialBalance,
 					Balance:        entry.Balance,
 				})
 			}

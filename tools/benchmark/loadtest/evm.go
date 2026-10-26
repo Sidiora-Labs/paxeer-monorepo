@@ -20,7 +20,6 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc20"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/erc721"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/tools/benchmark/loadtest/contracts/evm/bindings/univ2_swapper"
 )
 
 var (
@@ -92,8 +91,6 @@ func (txClient *EvmTxClient) GetTxForMsgType(msgType string) *ethtypes.Transacti
 		return txClient.GenerateERC20TransferTx()
 	case ERC721:
 		return txClient.GenerateERC721Mint()
-	case UNIV2:
-		return txClient.GenerateUniV2SwapTx()
 	default:
 		panic("invalid message type")
 	}
@@ -145,20 +142,6 @@ func (txClient *EvmTxClient) GenerateERC20TransferTx() *ethtypes.Transaction {
 	tx, err := token.Transfer(opts, txClient.accountAddress, randomValue())
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create ERC20 transfer: %v \n", err))
-	}
-	return txClient.sign(tx)
-}
-
-func (txClient *EvmTxClient) GenerateUniV2SwapTx() *ethtypes.Transaction {
-	opts := txClient.getTransactOpts()
-	opts.GasLimit = uint64(200000)
-	univ2Swapper, err := univ2_swapper.NewUniv2Swapper(txClient.evmAddresses.UniV2Swapper, GetNextEthClient(txClient.ethClients))
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create univ2 swapper contract: %v \n", err))
-	}
-	tx, err := univ2Swapper.Swap(opts)
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create univ2 swap: %v \n", err))
 	}
 	return txClient.sign(tx)
 }

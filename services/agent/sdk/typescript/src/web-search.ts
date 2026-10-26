@@ -3,7 +3,7 @@ import * as http from "node:http";
 import * as https from "node:https";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import { walletAccount } from "./rpc.js";
-import { verifyReceipt, type AuthorizedReceiptBatch, type ReceiptVerification, type SelectableProtocolVersion } from "./verifier.js";
+import { verifySequencerReceipt as verifyPinnedSequencerReceipt, type SequencerReceiptKey as ReceiptKey, type ReceiptVerification, type SelectableProtocolVersion } from "./verifier.js";
 import { encodeGrant, type PayerGrant } from "./x402/receive.js";
 
 export const WEB_CONTENT_DOMAIN = "PAXEERX_WEB_CONTENT_V1";
@@ -56,6 +56,7 @@ export interface WebSearchMeteredPayment {
 
 export interface WebSearchExactPayment {
   readonly receipt: Uint8Array;
+  readonly rawTransaction?: Uint8Array;
 }
 
 export interface WebSearchPayer {
@@ -76,7 +77,8 @@ export interface WebSearchClientOptions {
   readonly nativeAsset: string;
   readonly assets: Partial<Readonly<Record<WebSearchCurrency, WebSearchAssetTerms>>>;
   readonly payer: WebSearchPayer;
-  readonly authority: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<AuthorizedReceiptBatch>;
+  readonly receiptKeys?: readonly ReceiptKey[];
+  readonly authority?: (receipt: Uint8Array, offer: WebSearchOffer) => Promise<import("./verifier.js").AuthorizedReceiptBatch>;
   readonly protocolVersion?: SelectableProtocolVersion;
   readonly now?: () => bigint;
   readonly pendingAttempts?: number;
@@ -129,6 +131,7 @@ interface Reply {
 interface PreparedPayment {
   readonly header: string;
   readonly receipt?: Uint8Array;
+  readonly rawTransaction?: Uint8Array;
 }
 
 const HEX32 = /^[0-9a-f]{64}$/u;
@@ -309,6 +312,24 @@ function jsonBody(reply: Reply): Record<string, unknown> {
   return record(parsed, "invalid-resource");
 }
 
+async function verifySequencerReceipt(receipt: Uint8Array, rawTransaction: Uint8Array | undefined, offer: WebSearchOffer, receiptKeys: readonly ReceiptKey[] | undefined): Promise<ReceiptVerification> {
+  let verified: ReceiptVerification;
+  try {
+    if (rawTransaction === undefined || rawTransaction.length === 0 || receiptKeys === undefined) throw new WebSearchError("receipt-unverified");
+    verified = await verifyPinnedSequencerReceipt(receipt, rawTransaction, receiptKeys);
+    if (verified.receipt.resultCode !== 0) throw new WebSearchError("receipt-unverified");
+    const outcome = verified.receipt;
+    if (outcome.moduleId === 1 && (outcome.operation === 0 || outcome.fromBalanceBefore < outcome.amount
+      || outcome.fromBalanceBefore - outcome.amount !== outcome.fromBalanceAfter
+      || outcome.toBalanceBefore + outcome.amount >= 1n << 128n
+      || outcome.toBalanceBefore + outcome.amount !== outcome.toBalanceAfter)) throw new WebSearchError("receipt-unverified");
+  } catch {
+    throw new WebSearchError("receipt-unverified");
+  }
+  if (hex(verified.receipt.asset) !== offer.asset || verified.receipt.amount !== BigInt(offer.amount) || hex(verified.receipt.to) !== offer.payTo) throw new WebSearchError("receipt-offer-mismatch");
+  return verified;
+}
+
 export class WebSearchClient {
   readonly #endpoint: URL;
   readonly #basePath: string;
@@ -455,22 +476,13 @@ export class WebSearchClient {
       return { header: encodeHeader({ x402Version: 2, accepted: raw, payload: { grant: hex(canonical), idempotencyKey } }) };
     }
     if (payer.exact === undefined) throw new WebSearchError("exact-payer-unavailable");
-    const { receipt } = await payer.exact(offer, target);
-    await this.#verify(receipt, offer);
-    const payload = { receipt: Buffer.from(receipt).toString("base64"), receiptDigest: receiptDigest(receipt), verificationLevel: "sequencer-signed" };
-    return { header: encodeHeader({ x402Version: 2, accepted: raw, payload }), receipt: new Uint8Array(receipt) };
-  }
-
-  async #verify(receipt: Uint8Array, offer: WebSearchOffer): Promise<ReceiptVerification> {
-    let verified: ReceiptVerification;
-    try {
-      const authority = await this.#options.authority(receipt, offer);
-      verified = await verifyReceipt(receipt, authority, this.#options.protocolVersion === undefined ? undefined : { protocolVersion: this.#options.protocolVersion });
-    } catch {
-      throw new WebSearchError("receipt-unverified");
-    }
-    if (hex(verified.receipt.asset) !== offer.asset || verified.receipt.amount !== BigInt(offer.amount) || hex(verified.receipt.to) !== offer.payTo) throw new WebSearchError("receipt-offer-mismatch");
-    return verified;
+    const payment = await payer.exact(offer, target);
+    const receipt = new Uint8Array(payment.receipt);
+    const rawTransaction = payment.rawTransaction === undefined ? undefined : new Uint8Array(payment.rawTransaction);
+    await verifySequencerReceipt(receipt, rawTransaction, offer, this.#options.receiptKeys);
+    if (rawTransaction === undefined) throw new WebSearchError("receipt-unverified");
+    const payload = { receipt: Buffer.from(receipt).toString("base64"), receiptDigest: receiptDigest(receipt), verificationLevel: "sequencer-signed", rawTransaction: `0x${hex(rawTransaction)}` };
+    return { header: encodeHeader({ x402Version: 2, accepted: raw, payload }), receipt, rawTransaction };
   }
 
   async #settle(header: string | undefined, offer: WebSearchOffer, payment: PreparedPayment): Promise<WebSettlement> {
@@ -486,8 +498,12 @@ export class WebSearchClient {
     const digest = receiptDigest(receipt);
     if (layerx["receiptDigest"] !== digest) throw new WebSearchError("settlement-receipt-mismatch");
     if (payment.receipt !== undefined && hex(payment.receipt) !== hex(receipt)) throw new WebSearchError("settlement-receipt-mismatch");
-    const verified = await this.#verify(receipt, offer);
-    const transaction = `0x${hex(verified.receipt.activityId)}`;
+    const encodedTransaction = layerx["rawTransaction"];
+    if (typeof encodedTransaction !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(encodedTransaction)) throw new WebSearchError("settlement-receipt-mismatch");
+    const rawTransaction = new Uint8Array(Buffer.from(encodedTransaction.slice(2), "hex"));
+    if (payment.rawTransaction !== undefined && hex(payment.rawTransaction) !== hex(rawTransaction)) throw new WebSearchError("settlement-receipt-mismatch");
+    const verified = await verifySequencerReceipt(receipt, rawTransaction, offer, this.#options.receiptKeys);
+    const transaction = `0x${hex(keccak_256(rawTransaction))}`;
     if (settlement["transaction"] !== transaction) throw new WebSearchError("settlement-receipt-mismatch");
     const from = hex(verified.receipt.from);
     if (settlement["payer"] !== from) throw new WebSearchError("settlement-payer-mismatch");

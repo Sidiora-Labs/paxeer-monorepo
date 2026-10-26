@@ -3,7 +3,7 @@
 # pull requests and pushes to main; it carries one concurrency group per ref with
 # cancel-in-progress; its path filters are exactly the trees the paxeer-x-web
 # feature touches and the trees its legs exercise, each naming a path this
-# repository holds or a path a task of the retired feature declared; its five jobs are the five legs, each
+# repository holds or a path a task of the retired feature declared; its four jobs are the four legs, each
 # named for the tools it runs, and together they run exactly the commands of the
 # retired feature's gate task verify_cmd, which this script now carries, each from the repository root with a tool the
 # same job installs first at a version this repository already pins; every
@@ -49,15 +49,14 @@ import yaml
 WORKFLOW_PATH = ".github/workflows/xweb-test.yml"
 SPEC_PATH = "the retired paxeer-x-web feature"
 
-# The retired feature's gate task 3.1 verify_cmd, re-pointed to the services/ tree.
+# The retired feature's gate task 3.1 verify_cmd, re-pointed to the services/ tree
+# with the retired kernel web commands removed.
 GATE_VERIFY_CMD = (
     "timeout 20m sh -c '"
     'cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch && '
     'go test -count=1 ./modules/xweb/... ./precompiles/xweb/... && '
     'bash scripts/ci/xweb-forge-libs.sh && '
     'FOUNDRY_CONFIG=foundry.paxeer.toml forge test --evm-version=prague --match-path contracts/test/XWebConsumer.t.sol && '
-    'make test-web-intake test-web-root test-web-adapter test-programs-web-read test-web-program-path && '
-    'cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test web_read && '
     'cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test web && '
     '(cd services/agent/sdk/typescript && npm ci && npm run build && node dist/test/web-search.test.js) && '
     'PYTHONPATH=services/agent/sdk/python python3 -m pytest -q tests/agent/sdk/python/test_web_search.py'
@@ -364,8 +363,6 @@ FILTERS = [
     "include/layerx/programs.h",
     "src/modules/web/**",
     "src/modules/programs/call.c",
-    "src/network/lx_web_adapter.c",
-    "src/sequencer/lx_web_root.c",
     "tests/modules/**",
     "tests/sequencer/**",
     "tests/network/**",
@@ -387,7 +384,7 @@ PUSH_BRANCHES = ["main"]
 CONCURRENCY_PREFIX = "xweb-test-"
 REF_EXPRESSION = "${{ github.ref }}"
 
-# The five legs: job id -> the job name, the tool phrases the name carries and
+# The four legs: job id -> the job name, the tool phrases the name carries and
 # the positions, in the gate task's verify_cmd, of the commands the job runs.
 LEGS = {
     "sidecar-crate": {
@@ -405,21 +402,13 @@ LEGS = {
         "tools": ["forge test"],
         "gate": [2, 3],
     },
-    "kernel-web": {
-        "name": (
-            "make for the kernel web targets and cargo test for the runtime "
-            "web_read test"
-        ),
-        "tools": ["make", "cargo test"],
-        "gate": [4, 5],
-    },
     "agent-clients": {
         "name": (
             "cargo test, npm and pytest for the MCP, TypeScript and Python web "
             "clients"
         ),
         "tools": ["cargo test", "npm", "pytest"],
-        "gate": [6, 7, 8],
+        "gate": [4, 5, 6],
     },
 }
 
@@ -666,7 +655,7 @@ def check_jobs_are_the_legs(jobs, gate):
         missing = sorted(set(LEGS) - set(jobs))
         extra = sorted(set(jobs) - set(LEGS))
         refuse(
-            "the jobs are %s, not the five legs %s (missing %s, unexpected %s)"
+            "the jobs are %s, not the four legs %s (missing %s, unexpected %s)"
             % (sorted(jobs), sorted(LEGS), missing, extra)
         )
     positions = sorted(index for leg in LEGS.values() for index in leg["gate"])
@@ -1288,4 +1277,4 @@ for entry in \
         || fail "the check refused the $mutation mutation without naming $keyword: $output"
 done
 
-printf 'xweb-workflow-check: the xweb workflow carries the feature path filters, one concurrency group per ref, the five legs running the gate commands from the repository root and no excused step, and refuses every mutation of them\n' >&2
+printf 'xweb-workflow-check: the xweb workflow carries the feature path filters, one concurrency group per ref, the four legs running the gate commands from the repository root and no excused step, and refuses every mutation of them\n' >&2
