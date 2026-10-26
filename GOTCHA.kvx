@@ -8927,3 +8927,9 @@ area = "tooling"
 symptom = "cg spec done refuses a deleted touched path as `no matching change` although the tree no longer has the file and the commit records the deletion"
 cause = "cg spec done credits a deleted touched path only from a commit carrying the task's tag that exists before the check runs or from a snapshot taken before the deletion; the worktree diff alone never shows a deleted file"
 do = "keep the deleted path in touches, and put the tagged commit on the branch or take the snapshot of the base tree before cg spec done runs (gotcha.1860)"
+
+[gotcha.1867]
+area = "cargo"
+symptom = "every `cargo build --locked` in a workspace refuses to start after several branches that change the workspace manifests are merged"
+cause = "the merge takes each branch's manifest edits but Cargo.lock stays behind them, so --locked sees a lockfile that needs updating"
+do = "re-resolve with `cargo metadata --manifest-path <workspace>/Cargo.toml` (a minimal update) and commit the lockfiles with the merge"
