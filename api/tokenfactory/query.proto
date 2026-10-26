@@ -40,6 +40,11 @@ service Query {
   rpc DenomAllowList(QueryDenomAllowListRequest) returns (QueryDenomAllowListResponse) {
     option (google.api.http).get = "/pax-protocol/paxchain/tokenfactory/denoms/allow_list";
   }
+
+  // DenomPaused queries the pause status and issuer DID of a denom.
+  rpc DenomPaused(QueryDenomPausedRequest) returns (QueryDenomPausedResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/paused";
+  }
 }
 
 // QueryParamsRequest is the request type for the Query/Params RPC method.
@@ -104,4 +109,15 @@ message QueryDenomAllowListRequest {
 message QueryDenomAllowListResponse {
   // allow_list provides addresses allowed for the requested token.
   cosmos.bank.v1beta1.AllowList allow_list = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryDenomPausedRequest is the request type for the DenomPaused gRPC method.
+message QueryDenomPausedRequest {
+  string denom = 1;
+}
+
+// QueryDenomPausedResponse is the response type for the DenomPaused gRPC method.
+message QueryDenomPausedResponse {
+  bool paused = 1;
+  string issuer_did = 2;
 }
