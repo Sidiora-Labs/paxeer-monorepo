@@ -122,13 +122,13 @@ from .px import decode_history_asset_metadata as decode_history_asset_metadata
 from .px import decode_history_row as decode_history_row
 from .px import decode_paxeer_history_page as decode_paxeer_history_page
 from .px import decode_unified_history_page as decode_unified_history_page
+from .px import history_cursor as history_cursor
 from .px import history_params as history_params
 from .px import history_account as history_account
 from .px import PX_MAXIMUM_JOINED_ASSETS as PX_MAXIMUM_JOINED_ASSETS
 from .px import PX_METHODS as PX_METHODS
 from .px import PxAccountBalances as PxAccountBalances
 from .px import PxAccountJoin as PxAccountJoin
-from .px import PxAnchorHead as PxAnchorHead
 from .px import PxAssetBalance as PxAssetBalance
 from .px import PxAssetEntry as PxAssetEntry
 from .px import PxAssetTable as PxAssetTable
@@ -143,7 +143,6 @@ from .px import PxResolvedIdentities as PxResolvedIdentities
 from .px import PxRpcError as PxRpcError
 from .px import decode_px_account_balances as decode_px_account_balances
 from .px import decode_px_account_join as decode_px_account_join
-from .px import decode_px_anchor_head as decode_px_anchor_head
 from .px import decode_px_asset_balance as decode_px_asset_balance
 from .px import decode_px_asset_table as decode_px_asset_table
 from .px import decode_px_custody_asset as decode_px_custody_asset
