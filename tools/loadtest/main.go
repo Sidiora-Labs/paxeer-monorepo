@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -29,7 +30,8 @@ import (
 )
 
 var (
-	configFile string
+	configFile           string
+	ErrPerformanceBounds = errors.New("performance bounds violated")
 )
 
 var rootCmd = &cobra.Command{
@@ -43,10 +45,8 @@ to multiple endpoints with account pooling management.
 
 Use --dry-run to test configuration and view transaction details
 without actually sending requests or deploying contracts.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := runLoadTest(context.Background(), cmd, args); err != nil {
-			log.Fatal(err)
-		}
+	RunE: func(cmd *cobra.Command, args []string) error {
+		return runLoadTest(context.Background(), cmd, args)
 	},
 }
 
@@ -66,6 +66,9 @@ func init() {
 	rootCmd.Flags().String("metricsListenAddr", "0.0.0.0:9090", "The ip:port on which to export prometheus metrics.")
 	rootCmd.Flags().Bool("ramp-up", false, "Ramp up loadtest")
 	rootCmd.Flags().String("report-path", "", "Path to save the report")
+	rootCmd.Flags().Float64("min-tps", 0, "Minimum average transactions per second (0 = disabled)")
+	rootCmd.Flags().Duration("max-p99-latency", 0, "Maximum p99 latency per endpoint (0 = disabled)")
+	rootCmd.Flags().Uint64("min-total-txs", 0, "Minimum total transactions (0 = disabled)")
 	rootCmd.Flags().String("txs-dir", "", "Path to save the transactions")
 	rootCmd.Flags().Uint64("target-gas", 10_000_000, "Target gas per block")
 	rootCmd.Flags().Int("num-blocks-to-write", 100, "Number of blocks to write")
@@ -311,14 +314,32 @@ func runLoadTest(ctx context.Context, cmd *cobra.Command, args []string) error {
 		return nil
 	})
 	// Print final statistics
-	if _, reportErr := logger.LogFinalStats(); reportErr != nil {
+	finalStats, reportErr := logger.LogFinalStats()
+	if reportErr != nil {
 		return reportErr
 	}
 	if settings.RampUp && ramper != nil {
 		ramper.LogFinalStats()
 	}
 	log.Printf("👋 Shutdown complete")
-	return err
+	return errors.Join(err, enforceBounds(settings, finalStats))
+}
+
+func enforceBounds(s config.Settings, fs *stats.FinalStats) error {
+	bounds := stats.Bounds{
+		MinAverageTPS: s.MinTPS,
+		MaxP99Latency: s.MaxP99Latency.ToDuration(),
+		MinTotalTxs:   s.MinTotalTxs,
+	}
+	violations := bounds.Check(fs)
+	if len(violations) == 0 {
+		return nil
+	}
+	details := make([]string, 0, len(violations))
+	for _, violation := range violations {
+		details = append(details, fmt.Sprintf("%s: limit=%s observed=%s", violation.Bound, violation.Limit, violation.Observed))
+	}
+	return fmt.Errorf("%w: %s", ErrPerformanceBounds, strings.Join(details, "; "))
 }
 
 func exportPrometheusMetrics(ctx context.Context, listenAddr string) error {
