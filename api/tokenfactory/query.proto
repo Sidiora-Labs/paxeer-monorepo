@@ -21,7 +21,10 @@ service Query {
   // DenomAuthorityMetadata defines a gRPC query method for fetching
   // DenomAuthorityMetadata for a particular denom.
   rpc DenomAuthorityMetadata(QueryDenomAuthorityMetadataRequest) returns (QueryDenomAuthorityMetadataResponse) {
-    option (google.api.http).get = "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/authority_metadata";
+    option (google.api.http) = {
+      get: "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/authority_metadata"
+      additional_bindings: {get: "/pax-protocol/paxchain/tokenfactory/denom_authority_metadata"}
+    };
   }
 
   // DenomsMetadata defines a gRPC query method for fetching
@@ -43,7 +46,10 @@ service Query {
 
   // DenomPaused queries the pause status and issuer DID of a denom.
   rpc DenomPaused(QueryDenomPausedRequest) returns (QueryDenomPausedResponse) {
-    option (google.api.http).get = "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/paused";
+    option (google.api.http) = {
+      get: "/pax-protocol/paxchain/tokenfactory/denoms/{denom}/paused"
+      additional_bindings: {get: "/pax-protocol/paxchain/tokenfactory/denom_paused"}
+    };
   }
 }
 
