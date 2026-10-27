@@ -70,5 +70,4 @@ export function parseExplorerBaseUrl(configured: string | undefined): URL | unde
 /// route the control plane still serves.
 export const EXPLORER_NAVIGATION = [
   Object.freeze({ href: "/explorer", copyKey: "explorer.navigation.overview" }),
-  Object.freeze({ href: "/explorer/verify", copyKey: "explorer.navigation.verify" }),
 ] as const;

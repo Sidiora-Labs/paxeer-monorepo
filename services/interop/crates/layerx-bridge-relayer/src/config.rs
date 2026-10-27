@@ -12,7 +12,6 @@ use layerx_mirror::rpc::{RpcCluster, RpcQuorumConfig};
 use layerx_mirror::signer::{
     RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
 };
-use layerx_paxeer_verifier::{EndpointConfig, EndpointTransport};
 use serde::Deserialize;
 
 use crate::cosign::CosignDirectory;
@@ -27,6 +26,7 @@ use crate::signer::{Attestor, FeePayer, Submitter, ALGORITHM, FEE_PAYER_ALGORITH
 use crate::solana::observe::SolanaSettings;
 use crate::solana::rpc::{Commitment, SolanaRpc};
 use crate::solana::{base58_fixed, SOLANA_CHAIN_ID};
+use crate::transport::PaxeerEndpoint;
 
 const MAX_CONFIG_BYTES: u64 = 1024 * 1024;
 
@@ -424,24 +424,27 @@ impl RelayerConfig {
         .map_err(|error| invalid(format!("signer handle {}: {error:?}", key.handle)))
     }
 
-    fn paxeer_endpoints(&self) -> Result<Vec<EndpointConfig>, RelayerError> {
+    fn paxeer_endpoints(&self) -> Result<Vec<PaxeerEndpoint>, RelayerError> {
         self.paxeer
             .endpoints
             .iter()
             .map(|endpoint| {
-                let transport = match &endpoint.trust_anchor_der {
-                    Some(path) => EndpointTransport::PinnedTls {
-                        trust_anchor_der: std::fs::read(path)
-                            .map_err(|error| invalid(format!("{}: {error}", path.display())))?,
-                    },
-                    None => EndpointTransport::LocalEmulator,
-                };
-                Ok(EndpointConfig {
-                    url: endpoint.url.clone(),
-                    request_timeout: Duration::from_millis(endpoint.request_timeout_ms),
-                    transport,
-                    expected_chain_id: self.paxeer.chain_id,
-                })
+                let trust_anchor_der = endpoint
+                    .trust_anchor_der
+                    .as_ref()
+                    .map(|path| {
+                        std::fs::read(path)
+                            .map_err(|error| invalid(format!("{}: {error}", path.display())))
+                    })
+                    .transpose()?;
+                PaxeerEndpoint::new(
+                    endpoint.url.clone(),
+                    Duration::from_millis(endpoint.request_timeout_ms),
+                    trust_anchor_der,
+                    self.paxeer.chain_id,
+                    endpoint.local_emulator,
+                )
+                .map_err(|error| invalid(format!("Paxeer endpoint {}: {error}", endpoint.url)))
             })
             .collect()
     }

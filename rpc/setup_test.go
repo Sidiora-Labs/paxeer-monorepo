@@ -1048,6 +1048,7 @@ func setupLogs() {
 		TxHashHex: block2SyntheticTx.Hash().Hex(),
 	})
 	EVMKeeper.MockReceipt(CtxMultiTx, multiTxBlockTx1.Hash(), &types.Receipt{
+		Status:           uint32(ethtypes.ReceiptStatusSuccessful),
 		BlockNumber:      MockHeight2,
 		TransactionIndex: 1, // start at 1 bc 0 is the non-evm tx
 		TxHashHex:        multiTxBlockTx1.Hash().Hex(),
