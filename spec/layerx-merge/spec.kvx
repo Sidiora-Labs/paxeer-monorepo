@@ -105977,7 +105977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.0.4]
 title = "Report native surfaces as healthy identities in the production health check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.12.1", "4.0.3"]
@@ -110702,7 +110702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.7]
 title = "Repoint mobile stream list and receipt reads to served v2 routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -130756,7 +130756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.2.2]
 title = "Read the history asset registry from the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "8.1.5"]
@@ -135120,7 +135120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.2]
 title = ".NET SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.43.1", "8.0.2"]
@@ -151106,7 +151106,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.8.2]
 title = "Count layerxledger sends and layerxauth grant allowances as spends"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["12.2.2", "12.8.1"]
