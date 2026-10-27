@@ -13,7 +13,7 @@ use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
-use layerx_proof::sequencer_logs::verify_logs;
+use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 
@@ -26,6 +26,13 @@ use crate::model::{
 const ADAPTER_ID: &str = "x402";
 const PAYMENT_DIGEST_DOMAIN: &[u8] = b"LayerX/x402/v2/payment\0";
 const PAYMENT_KEY_DOMAIN: &[u8] = b"LayerX/x402/v2/idempotency\0";
+const LEDGER_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+];
+const PAYMENT_EXACT_TOPIC: [u8; 32] = [
+    0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e, 0x56,
+    0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
+];
 
 /// Typed request handed to the plane's existing payment authority. The x402
 /// adapter never constructs `LayerX` payload bytes; it passes meaning and the
@@ -298,34 +305,7 @@ impl Seller {
         }
         let verified = verify_logs(&receipt, evidence.logs.clone())
             .map_err(|_| X402Error::EvidenceMismatch)?;
-        // The gateway authenticates the event signature and payment key below;
-        // bind that same log's ABI payment fields to the seller's offer first.
-        let mut payments = verified.logs().iter().filter_map(|log| {
-            let mut ledger = [0; 20];
-            ledger[18..].copy_from_slice(&[0x10, 0x1a]);
-            if log.address() != ledger || log.topics().len() != 4 {
-                return None;
-            }
-            let (payer, recipient) = match log.data().len() {
-                64 if log.topics()[3] == idempotency_key => (log.topics()[1], log.topics()[2]),
-                128 if log.data()[64..96] == idempotency_key => (log.topics()[2], log.topics()[3]),
-                _ => return None,
-            };
-            Some((log, payer, recipient))
-        });
-        let (payment, payer, recipient) = payments.next().ok_or(X402Error::EvidenceMismatch)?;
-        if payments.next().is_some() || payment.data()[32..48] != [0; 16] {
-            return Err(X402Error::EvidenceMismatch);
-        }
-        let asset = payment.data()[..32]
-            .try_into()
-            .map_err(|_| X402Error::EvidenceMismatch)?;
-        let amount = u128::from_be_bytes(
-            payment.data()[48..64]
-                .try_into()
-                .map_err(|_| X402Error::EvidenceMismatch)?,
-        );
-        payment_matches(accepted, asset, recipient, amount)?;
+        let payer = pay_exact_matches(accepted, verified.logs(), &idempotency_key)?;
         let purpose = grant_purpose(accepted)?;
         let status = gateway
             .settle_with_sequencer_evidence(
@@ -419,6 +399,39 @@ pub(crate) fn validate_transaction(transaction: &str) -> Result<(), X402Error> {
         return Err(X402Error::TransactionForm);
     }
     Ok(())
+}
+
+fn pay_exact_matches(
+    accepted: &PaymentRequirements,
+    logs: &[SequencerLog],
+    idempotency_key: &[u8; 32],
+) -> Result<[u8; 32], X402Error> {
+    let mut payments = logs.iter().filter(|log| {
+        log.address() == LEDGER_ADDRESS && log.topics().first() == Some(&PAYMENT_EXACT_TOPIC)
+    });
+    let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
+    if payments.next().is_some() {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let [_, payer, recipient, reference] = payment.topics() else {
+        return Err(X402Error::EvidenceMismatch);
+    };
+    if reference != idempotency_key
+        || payment.data().len() != 64
+        || payment.data()[32..48] != [0; 16]
+    {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let asset = payment.data()[..32]
+        .try_into()
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+    let amount = u128::from_be_bytes(
+        payment.data()[48..64]
+            .try_into()
+            .map_err(|_| X402Error::EvidenceMismatch)?,
+    );
+    payment_matches(accepted, asset, *recipient, amount)?;
+    Ok(*payer)
 }
 
 pub(crate) fn payment_matches(
