@@ -134,8 +134,17 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "Treasury",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.Treasury(goCtx, &types.QueryTreasuryRequest{})
-				require.Nil(t, response)
+				token, err := types.ParseHexAddress("token", querier.GetParams(ctx).QuoteToken)
+				require.NoError(t, err)
+				balance, err := querier.TreasuryGetBalance(ctx, token)
+				require.NoError(t, err)
+				held, err := querier.TreasuryHeld(ctx, token)
+				require.NoError(t, err)
+				response, err := client.Treasury(goCtx, &types.QueryTreasuryRequest{Token: token.Hex()})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, balance.String(), response.Balance)
+				require.Equal(t, held.String(), response.Held)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -288,7 +297,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets":
+			case "Params", "Markets", "Treasury":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
