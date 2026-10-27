@@ -7,16 +7,11 @@ import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { usePortfolioStats } from "@/hooks/perps/usePortfolioStats";
 import { usePerpsOrders } from "@/hooks/perps/usePerpsOrders";
 import { useQuoter } from "@/hooks/perps/useQuoter";
+import { useMarketConfig } from "@/hooks/perps/useMarketConfig";
+import { maxLeverageForNotional } from "@/core/perps/marketConfig";
 import type { OpenPositionQuote } from "@/hooks/perps/useQuoter";
-import {
-  COLLATERAL_OPTIONS,
-  type PerpsMarket,
-} from "@/core/perps/config";
-import {
-  safeParseUnits,
-  getCollateralDecimals,
-  deriveImpliedCollateral,
-} from "@/core/perps/amounts";
+import { COLLATERAL_OPTIONS, type PerpsMarket } from "@/core/perps/config";
+import { safeParseUnits, getCollateralDecimals, deriveImpliedCollateral } from "@/core/perps/amounts";
 import { Info, Settings2 } from "lucide-react";
 import { IcoAlert, IcoExclamation } from "@/ui/atoms/custom-icon";
 import { Popover, PopoverContent, PopoverTrigger } from "@/ui/atoms/popover";
@@ -34,6 +29,7 @@ import {
   type OrderConfirmation,
   type OrderOptions,
   type OrderPlan,
+  type OrderLimits,
 } from "@/core/perps/orderPlan";
 
 type OrderType = "market" | "limit" | "stop-limit" | "scaled";
@@ -95,21 +91,30 @@ const META_LABEL: React.CSSProperties = {
 };
 
 // ── Detail row with optional tooltip ─────────────────────────────────
-function DetailRow({ label, value, tooltip, valueClass }: {
-  label: string; value: string; tooltip?: string; valueClass?: string;
+function DetailRow({
+  label,
+  value,
+  tooltip,
+  valueClass,
+}: {
+  label: string;
+  value: string;
+  tooltip?: string;
+  valueClass?: string;
 }) {
   return (
     <div className="flex items-center justify-between py-0.5">
-      <div
-        className="flex items-center gap-1"
-        style={{ ...META_LABEL, color: "var(--fg-muted)" }}
-      >
+      <div className="flex items-center gap-1" style={{ ...META_LABEL, color: "var(--fg-muted)" }}>
         {label}
         {tooltip && (
           <TooltipProvider>
             <Tooltip delayDuration={0}>
-              <TooltipTrigger><Info className="w-3 h-3" /></TooltipTrigger>
-              <TooltipContent side="left" className="max-w-[200px]">{tooltip}</TooltipContent>
+              <TooltipTrigger>
+                <Info className="w-3 h-3" />
+              </TooltipTrigger>
+              <TooltipContent side="left" className="max-w-[200px]">
+                {tooltip}
+              </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         )}
@@ -124,13 +129,10 @@ function DetailRow({ label, value, tooltip, valueClass }: {
   );
 }
 
-const LEVERAGE_PRESETS = ["5", "10", "20", "50", "100"];
-
 // ── Risk rate bar ────────────────────────────────────────────────────
 function RiskRateBar({ leverage, maxLev }: { leverage: number; maxLev: number }) {
   const pct = Math.min((leverage / maxLev) * 100, 100);
-  const barColor =
-    pct < 30 ? "var(--success)" : pct < 60 ? "var(--warning)" : "var(--danger)";
+  const barColor = pct < 30 ? "var(--success)" : pct < 60 ? "var(--warning)" : "var(--danger)";
   const label = pct < 30 ? "Low" : pct < 60 ? "Medium" : "High";
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -173,9 +175,24 @@ function RiskRateBar({ leverage, maxLev }: { leverage: number; maxLev: number })
 }
 
 // ── Toggle row helper ────────────────────────────────────────────────
-function ToggleRow({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+function ToggleRow({
+  label,
+  checked,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <label className={cn("flex items-center justify-between py-0.5 cursor-pointer", disabled && "opacity-40 cursor-not-allowed")}>
+    <label
+      className={cn(
+        "flex items-center justify-between py-0.5 cursor-pointer",
+        disabled && "opacity-40 cursor-not-allowed",
+      )}
+    >
       <span style={{ ...META_LABEL, fontSize: 10 }}>{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} disabled={disabled} className="h-4 w-7" />
     </label>
@@ -228,6 +245,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
 
   const ordersHook = usePerpsOrders();
   const quoterHook = useQuoter();
+  const marketConfig = useMarketConfig(BigInt(market.marketId));
   const ordersRef = useRef(ordersHook);
   ordersRef.current = ordersHook;
   const quoterRef = useRef(quoterHook);
@@ -323,23 +341,12 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
-  const maxLev = market.maxLeverage ?? 1000;
-
-  const leveragePresets = useMemo(() => {
-    if (maxLev >= 1000) return [2, 10, 50, 200, 500];
-    if (maxLev >= 500) return [2, 10, 50, 100, 250];
-    return [2, 5, 10, 50, 100];
-  }, [maxLev]);
-
   // ── BigInt conversions ──
   // All on-chain inputs go through viem's `parseUnits` via
   // `safeParseUnits`. Never use `parseFloat(x) * 10**decimals` — JS
   // floats can't represent decimal fractions exactly and we'd silently
   // send the wrong wei to the matching engine at high precision.
-  const collateralDecimals = useMemo(
-    () => getCollateralDecimals(collateralToken),
-    [collateralToken],
-  );
+  const collateralDecimals = useMemo(() => getCollateralDecimals(collateralToken), [collateralToken]);
 
   const collateralBigInt = useMemo(
     () => safeParseUnits(collateralAmount, collateralDecimals),
@@ -354,20 +361,37 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
     return parsed;
   }, [leverage]);
 
-  const triggerPriceBigInt = useMemo(
-    () => safeParseUnits(triggerPrice, 18),
-    [triggerPrice],
-  );
+  const triggerPriceBigInt = useMemo(() => safeParseUnits(triggerPrice, 18), [triggerPrice]);
 
-  const limitPriceBigInt = useMemo(
-    () => safeParseUnits(limitPrice, 18),
-    [limitPrice],
-  );
+  const limitPriceBigInt = useMemo(() => safeParseUnits(limitPrice, 18), [limitPrice]);
 
-  const sizeUsdBigInt = useMemo(
-    () => safeParseUnits(sizeUsd, 18),
-    [sizeUsd],
-  );
+  const sizeUsdBigInt = useMemo(() => safeParseUnits(sizeUsd, 18), [sizeUsd]);
+
+  const orderLimits = useMemo<OrderLimits | null>(() => {
+    if (!marketConfig.data) return null;
+    const { config, tiers } = marketConfig.data;
+    const notional =
+      orderType === "market" ? (collateralBigInt * leverageBigInt) / 10n ** BigInt(collateralDecimals) : sizeUsdBigInt;
+    const tierMax = maxLeverageForNotional(notional, tiers);
+    return {
+      tickSize: config.tickSize,
+      lotSize: config.lotSize,
+      maxLeverage: tierMax < config.maxLeverage ? tierMax : config.maxLeverage,
+    };
+  }, [marketConfig.data, orderType, collateralBigInt, leverageBigInt, collateralDecimals, sizeUsdBigInt]);
+  const maxLev = orderLimits === null ? 1 : n18(orderLimits.maxLeverage);
+  const leveragePresets = useMemo(() => {
+    if (orderLimits === null) return [];
+    const presets =
+      maxLev >= 1000 ? [2, 10, 50, 200, 500] : maxLev >= 500 ? [2, 10, 50, 100, 250] : [2, 5, 10, 50, 100];
+    return [...new Set([...presets.filter((value) => value < maxLev), maxLev])];
+  }, [orderLimits, maxLev]);
+
+  useEffect(() => {
+    if (orderLimits !== null && leverageBigInt > orderLimits.maxLeverage) {
+      setLeverage(String(maxLev));
+    }
+  }, [orderLimits, leverageBigInt, maxLev]);
 
   // ── Derived values ──
   const leverageNum = parseFloat(leverage) || 1;
@@ -401,6 +425,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
   }, [orderType, collateralNum, maxLev, portfolioStats.freeCollateral]);
 
   const canTrade = useMemo(() => {
+    if (orderLimits === null || !marketConfig.data?.config.enabled) return false;
     if (!isConnected) return false;
     // F-03: never allow submit while the wallet is on a different chain.
     // Trying to send a Paxeer-bound write through a wrong-chain provider
@@ -409,7 +434,8 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
     if (!isCorrectChain) return false;
     if (effectiveCollateralBigInt === BigInt(0) || leverageBigInt === BigInt(0)) return false;
     if (orderType === "limit" && triggerPriceBigInt === BigInt(0)) return false;
-    if (orderType === "stop-limit" && (triggerPriceBigInt === BigInt(0) || limitPriceBigInt === BigInt(0))) return false;
+    if (orderType === "stop-limit" && (triggerPriceBigInt === BigInt(0) || limitPriceBigInt === BigInt(0)))
+      return false;
     if (orderType !== "market" && sizeUsdBigInt === BigInt(0)) return false;
     if (
       orderType === "scaled" &&
@@ -420,7 +446,21 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
       return false;
     }
     return true;
-  }, [isConnected, isCorrectChain, effectiveCollateralBigInt, leverageBigInt, orderType, triggerPriceBigInt, limitPriceBigInt, sizeUsdBigInt, scaledDistribution, scaledStartPrice, scaledEndPrice]);
+  }, [
+    orderLimits,
+    marketConfig.data,
+    isConnected,
+    isCorrectChain,
+    effectiveCollateralBigInt,
+    leverageBigInt,
+    orderType,
+    triggerPriceBigInt,
+    limitPriceBigInt,
+    sizeUsdBigInt,
+    scaledDistribution,
+    scaledStartPrice,
+    scaledEndPrice,
+  ]);
 
   // ── Auto-quote for market orders ──
   // F-11: the quote that comes back from the indexer is bound to the
@@ -459,16 +499,25 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
       try {
         const result = await quoterRef.current.quoteOpenPosition(inputs);
         setQuote(result ?? null);
-        boundQuoteRef.current = result
-          ? { quote: result, inputHash, takenAt: Date.now() }
-          : null;
+        boundQuoteRef.current = result ? { quote: result, inputHash, takenAt: Date.now() } : null;
       } catch {
         setQuote(null);
         boundQuoteRef.current = null;
-      } finally { setIsQuoting(false); }
+      } finally {
+        setIsQuoting(false);
+      }
     }, 500);
     return () => clearTimeout(timer);
-  }, [collateralAmount, leverage, isLong, collateralToken, orderType, market.marketId, collateralBigInt, leverageBigInt]);
+  }, [
+    collateralAmount,
+    leverage,
+    isLong,
+    collateralToken,
+    orderType,
+    market.marketId,
+    collateralBigInt,
+    leverageBigInt,
+  ]);
 
   // ── Submit ──
   const resetAfterSuccess = useCallback(() => {
@@ -488,24 +537,31 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
     lines.setSlPrice(reset.lines.slPrice);
   }, [olStore]);
 
-  const sendOrder = useCallback(async (plan: OrderPlan) => {
-    setIsSubmitting(true); setError(null); setSuccess(null);
-    try {
-      await ordersRef.current.submitOrderPlan(plan.calls);
-      const placed = plan.calls.length > 1 ? `${plan.calls.length} scaled orders placed` : "Order placed";
-      setSuccess(orderType === "market" ? `${isLong ? "Long" : "Short"} position opened on ${market.symbol}/USD` : placed);
-      resetAfterSuccess();
-    } catch (err) {
-      // Never surface raw err.message — always go through the classifier
-      // so the inline error block gets a friendly, actionable string.
-      const ufe = classifyError(err, `perps-order/${orderType}`);
-      setError(errorText(ufe));
-      void reportError(ufe);
-    } finally {
-      setIsSubmitting(false);
-      setTimeout(() => setSuccess(null), 3000);
-    }
-  }, [orderType, isLong, market.symbol, resetAfterSuccess]);
+  const sendOrder = useCallback(
+    async (plan: OrderPlan) => {
+      setIsSubmitting(true);
+      setError(null);
+      setSuccess(null);
+      try {
+        await ordersRef.current.submitOrderPlan(plan.calls);
+        const placed = plan.calls.length > 1 ? `${plan.calls.length} scaled orders placed` : "Order placed";
+        setSuccess(
+          orderType === "market" ? `${isLong ? "Long" : "Short"} position opened on ${market.symbol}/USD` : placed,
+        );
+        resetAfterSuccess();
+      } catch (err) {
+        // Never surface raw err.message — always go through the classifier
+        // so the inline error block gets a friendly, actionable string.
+        const ufe = classifyError(err, `perps-order/${orderType}`);
+        setError(errorText(ufe));
+        void reportError(ufe);
+      } finally {
+        setIsSubmitting(false);
+        setTimeout(() => setSuccess(null), 3000);
+      }
+    },
+    [orderType, isLong, market.symbol, resetAfterSuccess],
+  );
 
   /** The current quote of the market inputs; an out-of-sync or aged quote is re-fetched. */
   const currentQuote = useCallback(async (): Promise<OpenPositionQuote> => {
@@ -532,7 +588,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
   }, [market.marketId, collateralToken, collateralBigInt, leverageBigInt, isLong]);
 
   const handleSubmit = useCallback(async () => {
-    if (!canTrade) return;
+    if (!canTrade || orderLimits === null || !marketConfig.data) return;
     // F-03 (defense in depth): the canTrade memo already covers this,
     // but `canTrade` is reactive UI state — re-check at submit time so
     // the wallet can't slip across chains between click and dispatch.
@@ -540,7 +596,9 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
       setError("Wrong network — switch to Paxeer Mainnet before placing this order.");
       return;
     }
-    setError(null); setSuccess(null); setPending(null);
+    setError(null);
+    setSuccess(null);
+    setPending(null);
     let marketQuote: OpenPositionQuote | null = null;
     if (orderType === "market") {
       setIsQuoting(true);
@@ -555,6 +613,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
         setIsQuoting(false);
       }
     }
+    const tierMax = maxLeverageForNotional(marketQuote?.sizeUsd ?? sizeUsdBigInt, marketConfig.data.tiers);
     const plan = buildOrderPlan(
       {
         orderType,
@@ -579,6 +638,10 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
         ladderId: newLadderId(),
       },
       marketQuote,
+      {
+        ...orderLimits,
+        maxLeverage: tierMax < marketConfig.data.config.maxLeverage ? tierMax : marketConfig.data.config.maxLeverage,
+      },
     );
     if (plan.error) {
       setError(errorText(plan.error));
@@ -590,7 +653,35 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
       return;
     }
     await sendOrder(plan);
-  }, [canTrade, isCorrectChain, orderType, currentQuote, market.marketId, isLong, collateralAmount, leverage, triggerPrice, limitPrice, sizeUsd, scaledStartPrice, scaledEndPrice, scaledTotalOrders, scaledDistribution, tpslEnabled, tpPrice, slPrice, reduceOnly, postOnly, ioc, fok, orderConfirm, sendOrder]);
+  }, [
+    canTrade,
+    orderLimits,
+    marketConfig.data,
+    sizeUsdBigInt,
+    isCorrectChain,
+    orderType,
+    currentQuote,
+    market.marketId,
+    isLong,
+    collateralAmount,
+    leverage,
+    triggerPrice,
+    limitPrice,
+    sizeUsd,
+    scaledStartPrice,
+    scaledEndPrice,
+    scaledTotalOrders,
+    scaledDistribution,
+    tpslEnabled,
+    tpPrice,
+    slPrice,
+    reduceOnly,
+    postOnly,
+    ioc,
+    fok,
+    orderConfirm,
+    sendOrder,
+  ]);
 
   const acceptPending = useCallback(async () => {
     if (!pending) return;
@@ -602,7 +693,26 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
   // A confirmation shows the plan of the inputs it was built from; any edit discards it.
   useEffect(() => {
     setPending(null);
-  }, [orderType, isLong, collateralAmount, leverage, triggerPrice, limitPrice, sizeUsd, scaledStartPrice, scaledEndPrice, scaledTotalOrders, scaledDistribution, tpslEnabled, tpPrice, slPrice, reduceOnly, orderOptions]);
+  }, [
+    market.marketId,
+    marketConfig.data,
+    orderType,
+    isLong,
+    collateralAmount,
+    leverage,
+    triggerPrice,
+    limitPrice,
+    sizeUsd,
+    scaledStartPrice,
+    scaledEndPrice,
+    scaledTotalOrders,
+    scaledDistribution,
+    tpslEnabled,
+    tpPrice,
+    slPrice,
+    reduceOnly,
+    orderOptions,
+  ]);
 
   const submitLabel = useMemo(() => {
     const action = isLong ? "Buy / Long" : "Sell / Short";
@@ -611,13 +721,9 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
 
   // ── Paxeer visual tokens for this render ──
   const accent = isLong ? "var(--success)" : "var(--danger)";
-  const accentShadow = isLong
-    ? "0 8px 20px -8px rgba(5, 193, 104, 0.5)"
-    : "0 8px 20px -8px rgba(255, 90, 101, 0.5)";
+  const accentShadow = isLong ? "0 8px 20px -8px rgba(5, 193, 104, 0.5)" : "0 8px 20px -8px rgba(255, 90, 101, 0.5)";
   const previewBg = isLong ? "rgba(5, 193, 104, 0.14)" : "rgba(255, 90, 101, 0.14)";
-  const previewBorder = isLong
-    ? "1px solid rgba(5, 193, 104, 0.3)"
-    : "1px solid rgba(255, 90, 101, 0.3)";
+  const previewBorder = isLong ? "1px solid rgba(5, 193, 104, 0.3)" : "1px solid rgba(255, 90, 101, 0.3)";
 
   const estLiqPrice = quote ? n18(quote.liquidationPrice) : null;
   const estFees = quote ? n18(quote.tradingFeeUsd) : null;
@@ -633,11 +739,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
   return (
     <div className={cn("flex flex-col", !compact && "h-full")}>
       <div
-        className={cn(
-          !compact
-            ? "flex-1 overflow-y-auto scrollbar-custom"
-            : ""
-        )}
+        className={cn(!compact ? "flex-1 overflow-y-auto scrollbar-custom" : "")}
         style={{ display: "flex", flexDirection: "column", gap: 10, padding: compact ? 10 : 14 }}
       >
         {/* ═══ 1. Long/Short fat toggle ═══ */}
@@ -735,10 +837,26 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
                 }}
               >
                 {(["market", "limit", "stop-limit", "scaled"] as OrderType[]).map((t) => (
-                  <option key={t} value={t}>{orderTypeLabels[t]}</option>
+                  <option key={t} value={t}>
+                    {orderTypeLabels[t]}
+                  </option>
                 ))}
               </select>
-              <span aria-hidden style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--fg-muted)", fontSize: 8, lineHeight: 1 }}>▾</span>
+              <span
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  right: 8,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                  pointerEvents: "none",
+                  color: "var(--fg-muted)",
+                  fontSize: 8,
+                  lineHeight: 1,
+                }}
+              >
+                ▾
+              </span>
             </div>
             {/* Collateral compact select */}
             {orderType !== "scaled" && (
@@ -763,10 +881,26 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
                   }}
                 >
                   {COLLATERAL_OPTIONS.map((opt) => (
-                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
                   ))}
                 </select>
-                <span aria-hidden style={{ position: "absolute", right: 8, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", color: "var(--fg-muted)", fontSize: 8, lineHeight: 1 }}>▾</span>
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    right: 8,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    pointerEvents: "none",
+                    color: "var(--fg-muted)",
+                    fontSize: 8,
+                    lineHeight: 1,
+                  }}
+                >
+                  ▾
+                </span>
               </div>
             )}
           </div>
@@ -971,10 +1105,7 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
               </div>
             </div>
             {/* percent shortcuts */}
-            <div
-              className="flex justify-between"
-              style={{ ...META_LABEL, fontSize: 10 }}
-            >
+            <div className="flex justify-between" style={{ ...META_LABEL, fontSize: 10 }}>
               {[0, 25, 50, 75, 100].map((pct) => (
                 <button
                   key={pct}
@@ -1105,8 +1236,9 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
           <Slider
             min={1}
             max={maxLev}
-            step={maxLev >= 500 ? 1 : 0.5}
-            value={[parseFloat(leverage) || 1]}
+            step={maxLev >= 500 ? 1 : 0.1}
+            disabled={orderLimits === null || maxLev === 1}
+            value={[Math.min(parseFloat(leverage) || 1, maxLev)]}
             onValueChange={([v]) => setLeverage(String(v))}
             className="my-0"
           />
@@ -1136,6 +1268,13 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
               );
             })}
           </div>
+          {orderLimits === null && (
+            <p role={marketConfig.error ? "alert" : "status"} style={META_LABEL}>
+              {marketConfig.error
+                ? "Market order limits unavailable. Please reload to try again."
+                : "Loading market order limits…"}
+            </p>
+          )}
         </div>
 
         {/* ═══ 10. Risk rate ═══ */}
@@ -1179,7 +1318,12 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
                   <div style={{ ...META_LABEL, marginBottom: 8 }}>Order options</div>
                   <div className="space-y-0.5">
                     <ToggleRow label="Reduce only" checked={reduceOnly} onChange={setReduceOnly} />
-                    <ToggleRow label="Post only" checked={postOnly} onChange={(v) => setOrderOption("postOnly", v)} disabled={orderType === "market"} />
+                    <ToggleRow
+                      label="Post only"
+                      checked={postOnly}
+                      onChange={(v) => setOrderOption("postOnly", v)}
+                      disabled={orderType === "market"}
+                    />
                     <ToggleRow label="IOC" checked={ioc} onChange={(v) => setOrderOption("ioc", v)} />
                     <ToggleRow label="FOK" checked={fok} onChange={(v) => setOrderOption("fok", v)} />
                     <div style={{ height: 1, background: "var(--border-soft)", margin: "6px 0" }} />
@@ -1280,13 +1424,17 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
             }}
           >
             {/* Row 1: Notional · Margin */}
-            <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}
+            >
               <span>Notional</span>
-              <span style={{ color: "var(--fg)", fontVariantNumeric: "tabular-nums" }}>
-                {formatUsd(estimatedSize)}
-              </span>
+              <span style={{ color: "var(--fg)", fontVariantNumeric: "tabular-nums" }}>{formatUsd(estimatedSize)}</span>
             </div>
-            <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}
+            >
               <span>Margin</span>
               <span style={{ color: "var(--fg)", fontVariantNumeric: "tabular-nums" }}>
                 {leverageNum > 0 ? formatUsd(estimatedSize / leverageNum) : "—"}
@@ -1294,29 +1442,39 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
             </div>
 
             {/* Row 2: Est. liquidation · Slippage (slippage placeholder for limit) */}
-            <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}
+            >
               <span>Est. liquidation</span>
               <span style={{ color: accent, fontVariantNumeric: "tabular-nums" }}>
                 {estLiqPrice !== null ? formatUsd(estLiqPrice) : "—"}
               </span>
             </div>
-            <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}
+            >
               <span>Slippage</span>
               <span style={{ color: "var(--fg)", fontVariantNumeric: "tabular-nums" }}>
-                {orderType === "market"
-                  ? estSlippagePct !== null ? `${estSlippagePct.toFixed(2)}%` : "0.00%"
-                  : "—"}
+                {orderType === "market" ? (estSlippagePct !== null ? `${estSlippagePct.toFixed(2)}%` : "0.00%") : "—"}
               </span>
             </div>
 
             {/* Row 3: Fees · Taker / Maker */}
-            <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--fg-muted)" }}
+            >
               <span>Fees</span>
               <span style={{ color: "var(--warning)", fontVariantNumeric: "tabular-nums" }}>
                 {estFees !== null ? formatUsd(estFees) : "—"}
               </span>
             </div>
-            <div className="flex items-center justify-between" style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-subtle)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--fg-subtle)" }}
+            >
               <span>Taker / Maker</span>
               <span style={{ fontVariantNumeric: "tabular-nums" }}>0.06% / 0.03%</span>
             </div>
@@ -1329,21 +1487,9 @@ export function PerpsOrderForm({ market, compact = false }: { market: PerpsMarke
         {/* and route to wagmi's switchChain instead of submit. */}
         {(() => {
           const wrongChain = isConnected && !isCorrectChain;
-          const ctaDisabled = !isConnected
-            ? false
-            : wrongChain
-              ? false
-              : (!canTrade || isSubmitting);
-          const onCtaClick = !isConnected
-            ? connect
-            : wrongChain
-              ? switchToPaxeer
-              : handleSubmit;
-          const ctaBg = !isConnected
-            ? "var(--accent-solid)"
-            : wrongChain
-              ? "var(--warning, #f5a623)"
-              : accent;
+          const ctaDisabled = !isConnected ? false : wrongChain ? false : !canTrade || isSubmitting;
+          const onCtaClick = !isConnected ? connect : wrongChain ? switchToPaxeer : handleSubmit;
+          const ctaBg = !isConnected ? "var(--accent-solid)" : wrongChain ? "var(--warning, #f5a623)" : accent;
           const ctaShadow = !isConnected
             ? "0 8px 20px -8px rgba(0, 76, 237, 0.5)"
             : wrongChain
