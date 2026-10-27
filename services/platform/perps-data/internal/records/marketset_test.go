@@ -68,8 +68,12 @@ func insertChainMarket(t *testing.T, db *sql.DB, symbol, id string) {
 func TestMarketSetLoadsChainMarkets(t *testing.T) {
 	db := marketSetDB(t)
 	ctx := context.Background()
-	if _, exists := MarketIDs["DOGE"]; exists {
-		t.Fatal("DOGE must be absent from the static map")
+	var initialCount, dogeCount int
+	if err := db.QueryRow(`SELECT count(*), count(*) FILTER (WHERE symbol = 'DOGE') FROM perps.markets`).Scan(&initialCount, &dogeCount); err != nil {
+		t.Fatal(err)
+	}
+	if dogeCount != 0 {
+		t.Fatal("DOGE must be absent before its chain record is inserted")
 	}
 	insertChainMarket(t, db, "DOGE", "18")
 	insertChainMarket(t, db, "LARGE", "18446744073709551616")
@@ -94,8 +98,8 @@ func TestMarketSetLoadsChainMarkets(t *testing.T) {
 	if err := rows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if count != len(MarketIDs)+2 {
-		t.Fatalf("checked %d markets; want %d", count, len(MarketIDs)+2)
+	if count != initialCount+2 {
+		t.Fatalf("checked %d markets; want %d", count, initialCount+2)
 	}
 	insertChainMarket(t, db, "MISS", "20")
 	if id, ok, err := set.ID(ctx, "MISS"); err != nil || !ok || id != "20" {
