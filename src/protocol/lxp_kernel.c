@@ -13,6 +13,7 @@
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_state_proof.h"
 #include "layerx/programs.h"
+#include "layerx/lxp_replica.h"
 
 #include "../modules/programs/event.h"
 
@@ -752,7 +753,6 @@ static lxp_result kernel_snapshot_finish(
     snapshot->programs_runtime.accounts =
         lxp_state_snapshot_accounts_for_prepare(snapshot->state);
     snapshot->programs_runtime.assets = snapshot->assets;
-    snapshot->programs_runtime.state_feed = NULL;
     (void)memcpy(snapshot->programs_runtime.occupancy_asset_id,
                  snapshot->occupancy_asset_id, 32U);
     snapshot->programs_runtime.resolve_metering_schedule =
@@ -1674,11 +1674,6 @@ lxp_result lxp_kernel_bind_module_runtime(lxp_kernel *kernel,
         status = lxp_state_store_bind_accounts(
             kernel->state, programs_runtime->accounts);
         if (status != LXP_OK) return status;
-        if (programs_runtime->state_feed != NULL) {
-            status = lxp_programs_bind_state_feed(
-                kernel, programs_runtime->state_feed);
-            if (status != LXP_OK) return status;
-        }
     } else if (module_id == LXP_MODULE_WEB) {
         const lx_web_store *store = (const lx_web_store *)runtime;
         if (store->network_id == 0U ||
@@ -5183,7 +5178,7 @@ static lxp_result kernel_prepare_serial_activity_batch(
     runtime = kernel->module_runtime[LXP_MODULE_PROGRAMS];
     if ((activity->activity_type == LX_PROGRAMS_ACCOUNT ||
          activity->activity_type == LX_PROGRAMS_WIND_DOWN) &&
-        (runtime == NULL || runtime->state_feed == NULL || kernel->observe_commit == NULL))
+        (runtime == NULL || kernel->observe_commit == NULL))
         return LXP_ERR_MODULE_DISABLED;
     batch = calloc(1U, sizeof(*batch));
     storage = malloc(LXP_KERNEL_PREPARE_ARENA_BYTES);
@@ -5225,7 +5220,6 @@ static lxp_result kernel_prepare_serial_activity_batch(
     private_execution.recorded_metering_schedule_version = batch->settled->metering_schedule.version;
     private_execution.canonical_events_out = NULL;
     record = (kernel_staged_commit){execution->arena, {0}, execution->global_sequence, false};
-    batch->settled->programs_runtime.state_feed = runtime->state_feed;
     batch->settled->kernel.observe_commit = kernel_stage_commit;
     batch->settled->kernel.commit_observer_context = &record;
     if (kernel->replay_catalogue_capture_enabled &&
@@ -5295,7 +5289,6 @@ static lxp_result kernel_prepare_serial_activity_batch(
         status = LXP_ERR_IO;
     batch->settled->kernel.observe_commit = NULL;
     batch->settled->kernel.commit_observer_context = NULL;
-    batch->settled->programs_runtime.state_feed = NULL;
     mark = lxp_arena_mark(execution->arena);
     if (status == LXP_OK)
         status = lxp_receipt_digest(&batch->receipts[0], execution->arena, receipt_digest);
@@ -6975,8 +6968,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
     if (programs_state_activity &&
         (!lxp_protocol_version_uses_occupancy(activity->protocol_version) ||
          kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL ||
-         ((const lx_programs_transfer_runtime *)
-              kernel->module_runtime[LXP_MODULE_PROGRAMS])->state_feed == NULL ||
          kernel->observe_commit == NULL))
         return LXP_ERR_MODULE_DISABLED;
     if (programs_call) {
@@ -7604,7 +7595,6 @@ static lxp_result kernel_prepare_terminal_rejection(
     private_execution.canonical_events_out = NULL;
     record = (kernel_staged_commit){execution->arena, {0},
                                     execution->global_sequence, false};
-    batch->settled->programs_runtime.state_feed = runtime->state_feed;
     batch->settled->kernel.observe_commit = kernel_stage_commit;
     batch->settled->kernel.commit_observer_context = &record;
     if (kernel->replay_catalogue_capture_enabled &&
@@ -7672,7 +7662,6 @@ static lxp_result kernel_prepare_terminal_rejection(
         status = LXP_ERR_IO;
     batch->settled->kernel.observe_commit = NULL;
     batch->settled->kernel.commit_observer_context = NULL;
-    batch->settled->programs_runtime.state_feed = NULL;
     mark = lxp_arena_mark(execution->arena);
     if (status == LXP_OK)
         status = lxp_receipt_digest(&batch->receipts[0], execution->arena,

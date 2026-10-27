@@ -1,0 +1,285 @@
+[meta]
+format_version = 1
+source = "spec/layerx-merge/spec.kvx"
+readiness_source = "spec/layerx-merge/contracts/services.md"
+undeclared_readiness = "No readiness probe path is declared in the merged service block or its cited service contract."
+
+[service.agent-mcp]
+domain = 9
+route = "MCP stdio and HTTP transports"
+readiness = "undeclared"
+completion_task = "9.0.9"
+operation_task = "9.15.3"
+
+[service.agentd]
+domain = 9
+route = "agent RPC"
+readiness = "undeclared"
+completion_task = "9.0.9"
+operation_task = "9.11.3"
+
+[service.bridge-deploy]
+domain = 14
+route = "operator command line"
+readiness = "undeclared"
+completion_task = "14.0.9"
+operation_task = "14.53.5"
+
+[service.bridge-relayer]
+domain = 11
+route = "none public"
+readiness = "undeclared"
+completion_task = "11.0.9"
+operation_task = "11.22.4"
+
+[service.embedded-wallet-gateway]
+domain = 12
+route = "wallet gateway routes"
+readiness = "/readyz"
+completion_task = "12.0.9"
+operation_task = "12.13.2"
+
+[service.explorer]
+domain = 14
+route = "explorer through the router UI proxy"
+readiness = "/api/health/readiness"
+completion_task = "14.0.9"
+operation_task = "14.23.5"
+
+[service.gas-station]
+domain = 11
+route = "/quote, /submit, /status, /retry"
+readiness = "undeclared"
+completion_task = "11.0.9"
+operation_task = "11.24.3"
+
+[service.human-explorer-index]
+domain = 10
+route = "internal HTTP"
+readiness = "undeclared"
+completion_task = "10.0.9"
+operation_task = "10.27.1"
+
+[service.human-kms]
+domain = 10
+route = "TCP listener with TLS client-certificate pins (services/human/crates/layerx-human-kms/src/server.rs:24, :74); component adapters reach it over Unix sockets"
+readiness = "undeclared"
+completion_task = "10.0.9"
+operation_task = "10.11.5"
+
+[service.human-network-gateway]
+domain = 10
+route = "internal HTTP"
+readiness = "undeclared"
+completion_task = "10.0.9"
+operation_task = "10.24.3"
+
+[service.human-service]
+domain = 10
+route = "human web routes"
+readiness = "/readyz"
+completion_task = "10.0.9"
+operation_task = "10.1.2"
+
+[service.interop-gateway]
+domain = 11
+route = "interop HTTP routes"
+readiness = "/readyz"
+completion_task = "11.0.9"
+operation_task = "11.15.2"
+
+[service.interop-service]
+domain = 11
+route = "interop service routes"
+readiness = "undeclared"
+completion_task = "11.0.9"
+operation_task = "11.12.2"
+
+[service.launchpad-gateway]
+domain = 4
+route = "launchpad v1/v2 HTTP and WebSocket routes"
+readiness = "undeclared"
+completion_task = "4.0.9"
+operation_task = "4.22.6"
+
+[service.launchpad-indexer]
+domain = 4
+route = "internal"
+readiness = "undeclared"
+completion_task = "4.0.9"
+operation_task = "4.28.1"
+
+[service.merge-tools]
+domain = 16
+route = "operator command line"
+readiness = "undeclared"
+completion_task = "16.0.9"
+operation_task = "16.9.4"
+
+[service.mirror-publisher]
+domain = 11
+route = "none public"
+readiness = "undeclared"
+completion_task = "11.0.9"
+operation_task = "11.27.1"
+
+[service.mirror-signer]
+domain = 11
+route = "operator-only socket"
+readiness = "undeclared"
+completion_task = "11.0.9"
+operation_task = "11.0.4"
+
+[service.perps-data]
+domain = 3
+route = "GraphQL and HTTP market data routes"
+readiness = "/healthz/ready"
+completion_task = "3.0.9"
+operation_task = "3.42.6"
+
+[service.platform-agent-boundary]
+domain = 8
+route = "GET /v1/receipts/{id}, GET /internal/v1/receipts/{id}, GET /internal/v1/deployment-proof/{id}, GET /v1/protocol/account-state/head, /livez, /readyz"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.8.4"
+
+[service.platform-ai-artifacts]
+domain = 8
+route = "artifact routes"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-ai-evaluator]
+domain = 8
+route = "health endpoint"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-core-boundary]
+domain = 8
+route = "/livez, /readyz, GET /v1/sequencer, GET /v1/state, GET /v1/receipts/{id}, POST /admin/v1/testnet/fund, POST /admin/v1/testnet/reset"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.20.1"
+
+[service.platform-dashboard]
+domain = 8
+route = "dashboard HTTP routes"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-faucet]
+domain = 8
+route = "router px_requestFunds over the claim path"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.2.1"
+
+[service.platform-gateway]
+domain = 8
+route = "POST /rpc, GET /rpc/schema, /rpc/ws, /rpc/evm/ws, /livez, /readyz, /v1/settle, /v1/keys, UI proxy prefixes"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.3.1"
+
+[service.platform-identity]
+domain = 8
+route = "router px_register; identity service routes"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-indexer]
+domain = 8
+route = "/healthz, /readyz, /v1/history, /v1/assets, /v1/assets/{id}, /v1/holders"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.16.7"
+
+[service.platform-paxai-worker]
+domain = 8
+route = "job submission path"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-price-feeder]
+domain = 8
+route = "health endpoint"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-program-registry]
+domain = 8
+route = "POST /__registry/head, POST /__registry/deployments, registry read routes"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.12.3"
+
+[service.platform-receipt-authority]
+domain = 8
+route = "receipt admission and lookup routes of layerx-receipt-authority, /livez, /readyz"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.11.3"
+
+[service.platform-runtime-clock]
+domain = 8
+route = "Unix socket named by LAYERX_RUNTIME_CLOCK_SOCKET"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.0.4"
+
+[service.platform-testnet-control]
+domain = 8
+route = "/livez, /readyz, /v1/status, /v1/parameters, POST /admin/v1/testnet/fund, POST /admin/v1/testnet/reset"
+readiness = "/readyz"
+completion_task = "8.0.9"
+operation_task = "8.14.4"
+
+[service.platform-webhooks]
+domain = 8
+route = "webhook endpoint management and delivery routes of layerx-webhooks"
+readiness = "undeclared"
+completion_task = "8.0.9"
+operation_task = "8.13.2"
+
+[service.rollout-controller]
+domain = 16
+route = "operator command line"
+readiness = "undeclared"
+completion_task = "16.0.9"
+operation_task = "16.9.1"
+
+[service.sequencer]
+domain = 5
+route = "node JSON-RPC eth_sendRawTransaction, pax_sequencerReceipt and pending-tag reads; private to the router and registered hosted senders"
+readiness = "undeclared"
+completion_task = "5.0.9"
+operation_task = "5.4.6"
+
+[service.wallet-attestors]
+domain = 12
+route = "attestor endpoints"
+readiness = "undeclared"
+completion_task = "12.0.9"
+operation_task = "12.12.1"
+
+[service.x-websearch]
+domain = 11
+route = "/search and /fetch per node; private listeners"
+readiness = "/readyz"
+completion_task = "11.0.9"
+operation_task = "11.34.7"
+
+[service.x402-seller-middleware]
+domain = 11
+route = "merchant HTTP middleware"
+readiness = "undeclared"
+completion_task = "11.0.9"
+operation_task = "11.4.2"

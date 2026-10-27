@@ -1431,7 +1431,7 @@ $(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | prog
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/codec $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_fuzz_smoke: tests/test_fuzz_smoke.c \
 		tests/fuzz/fuzz_activity.c tests/fuzz/fuzz_signature.c \

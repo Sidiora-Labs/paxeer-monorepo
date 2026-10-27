@@ -3181,9 +3181,9 @@ affects = ["12.27.1", "12.27.2"]
 
 [decision.1230]
 title = "The exchange module on 0x1015 is the landed baseline"
-value = "No task changes the exchange module or ExchangeView; they are reconciled as landed."
-basis = "sdk/wallet/src/modules/exchange.ts:45 already targets the perps venue on 0x1015 and apps/wallet/src/surfaces/ExchangeView.test.tsx:1 tests it."
-affects = ["12.33.2"]
+value = "The exchange module and ExchangeView follow the perps v2 call shapes of 9.33.13 through task 12.33.8; no receipt task changes them."
+basis = "sdk/wallet/src/modules/exchange.ts:54 and apps/wallet/src/surfaces/ExchangeView.tsx:61 still call the v1 perpsOpenPositionCall and one-argument perpsCancelOrderCall that 9.33.13 (ccec3dfd1) replaced; apps/wallet/src/surfaces/ExchangeView.test.tsx:42 tests the view."
+affects = ["12.33.2", "12.33.8", "12.34.6", "14.5.1", "14.8.2"]
 
 [decision.1231]
 title = "The app health check uses the gateway /healthz"
@@ -21702,7 +21702,7 @@ ac_1 = "to_finding of a failed result returns a block with the six ledger keys o
 
 [req.17027]
 title = "Write the off-chain service catalogue"
-ac_1 = "every catalogue entry has a domain in 3..14, a completion_task N.0.9 of that domain and an operation_task of that domain."
+ac_1 = "every catalogue entry has a domain in 3..16, a completion_task N.0.9 of that domain and an operation_task of that domain."
 ac_2 = "the catalogue slugs equal the [service.*] slugs of the merged spec."
 
 [req.17028]
@@ -40096,7 +40096,7 @@ reqs = ["11049.1"]
 touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
 tests = ["services/interop/crates/layerx-committed-proof/tests/receipted.rs::receipted_fixture_cases_verify_or_refuse"]
 verification_contract = "contracts/interop-committed-proof.md#rs-committed-proof-crate"
-do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned)."
+do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], receipt_json: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], [u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned), keys being (key id, public key, first height, last height)."
 symbols = ["verify_receipted"]
 
 [capability.11.3.1]
@@ -90757,7 +90757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.0.2]
 title = "Freeze the kernel result registry and module id surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "1.1.3", "1.1.1", "1.11.1", "16.2.1", "9.23.7"]
@@ -91058,7 +91058,7 @@ do_2 = "Delete the prepare-path lookup at src/protocol/lxp_kernel.c:3517, the re
 do_3 = "Delete the staged idempotency preview at src/protocol/lxp_module_ctx.c:1401-1469."
 do_4 = "Keep the capacity ledger lookup at src/protocol/lxp_kernel.c:8180 until task 1.2.4 deletes the ledger."
 do_5 = "Write tests/codec/lxp_test_idempotency_retired.c (planned) with the three cases."
-symbols = ["lxp_idempotency_lookup", "lxp_idempotency_record", "LXP_ERR_SEQUENCE_REUSED", "reused_key_next_sequence_executes", "reused_sequence_refused", "idempotency_table_stays_empty"]
+symbols = ["lxp_idempotency_lookup", "lxp_idempotency_record", "reused_key_next_sequence_executes", "reused_sequence_refused", "idempotency_table_stays_empty"]
 touches = ["src/protocol/lxp_kernel.c", "src/protocol/lxp_module_ctx.c", "tests/codec/lxp_test_idempotency_retired.c"]
 tests = ["tests/codec/lxp_test_idempotency_retired.c::reused_key_next_sequence_executes", "tests/codec/lxp_test_idempotency_retired.c::reused_sequence_refused", "tests/codec/lxp_test_idempotency_retired.c::idempotency_table_stays_empty"]
 planned_paths = ["tests/codec/lxp_test_idempotency_retired.c"]
@@ -91276,7 +91276,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.1]
 title = "Refuse duplicate keys in the asset state root instead of tie-breaking by address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["1.0.1", "16.2.1"]
@@ -91351,6 +91351,7 @@ do_1 = "Write tests/fuzz/lxp_prop_prepare_workers.c (planned) generating 50 dete
 do_2 = "Prepare each batch twice with lxp_kernel_prepare_activity_batch (include/layerx/lxp_kernel.h:508) from two kernels built from one genesis, maximum_workers 1 and 4."
 do_3 = "Compare receipts, resulting roots and retry_prefix_count of both prepared batches and release them with lxp_kernel_prepared_batch_destroy (include/layerx/lxp_kernel.h:629)."
 do_4 = "tests/programs/test_call_activity.c:1050-1072 is the reference construction of a signed LX_PROGRAMS_CALL execution (signature, lxp_activity_encode, lxp_batch_roots_compute, batch_id, then lxp_kernel_prepare_activity_batch(kernel, &signed_activity, execution, 1U, 4U, &prepared, &retry) at :1069-1071); build each activity of the 50 batches from it and prepare every batch with maximum_workers 1 and 4."
+do_5 = "Each lxp_activity_encode takes LXP_MAX_ACTIVITY_BYTES (1048576) from its arena (src/protocol/lxp_activity.c:36 through lxp_codec_writer_init, src/codec/lxp_codec.c:36), so size the encode arena of one batch at 16 * LXP_MAX_ACTIVITY_BYTES plus the roots and preparation headroom on the heap, or encode each activity into a scratch arena that is reset after its bytes are copied out; a 4 * LXP_MAX_ACTIVITY_BYTES arena runs out at the fourth encode."
 symbols = ["lxp_kernel_prepare_activity_batch", "prepare_one_vs_four_workers_equal"]
 touches = ["tests/fuzz/lxp_prop_prepare_workers.c"]
 tests = ["tests/fuzz/lxp_prop_prepare_workers.c::prepare_one_vs_four_workers_equal"]
@@ -91371,7 +91372,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.4]
 title = "Prove global_sequence gaps and reuse are refused at execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -91382,6 +91383,7 @@ wiring = ["wiring.J21.1"]
 do_1 = "Write tests/codec/lxp_test_global_sequence.c (planned) that builds a kernel with an asset and two accounts and executes an asset send through lxp_kernel_execute_activity (include/layerx/lxp_kernel.h:643)."
 do_2 = "Assert LXP_ERR_SEQUENCE_GAP for global_sequence next_sequence + 2 and for a reused sequence, as bound at src/state/lxp_journal.c:992 (reached from lxp_kernel_execute_activity through lxp_state_journal_open)."
 do_3 = "Compare the state root before and after each refused call through lxp_state_root_proof (include/layerx/lxp_kernel.h:679)."
+do_4 = "In tests/codec/lxp_test_global_sequence.c:167-168 append `, false` after LXP_PROTOCOL_VERSION_STATE_COMMITMENT in the lx_asset_runtime initializer for the binding_authority field 1.11.1 (66e8f097c) added at include/layerx/lx_asset.h:130, and replace LXP_ERR_CONTEXT_MISMATCH with LXP_ERR_SEQUENCE_GAP at :256-264 (src/state/lxp_journal.c:992, req.1020 ac_1/ac_2)."
 symbols = ["lxp_kernel_execute_activity", "execute_refuses_sequence_gap", "execute_refuses_sequence_reuse"]
 touches = ["tests/codec/lxp_test_global_sequence.c"]
 tests = ["tests/codec/lxp_test_global_sequence.c::execute_refuses_sequence_gap", "tests/codec/lxp_test_global_sequence.c::execute_refuses_sequence_reuse"]
@@ -91465,7 +91467,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.5.2]
 title = "Refuse host-supplied fee meter values at activity execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -91529,7 +91531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.5.4]
 title = "Pin the genesis fee schedule and per-activity fees as a conformance golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.5.2", "1.5.1", "16.2.1"]
@@ -91749,7 +91751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.7.2]
 title = "Prove stream payload codecs are canonical"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["1.0.1", "16.2.1"]
@@ -92218,6 +92220,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.1.11.4]
+title = "Initialise binding_authority in every positional asset runtime and send environment literal"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["1.11.1"]
+reqs = ["1044.1"]
+capabilities = []
+interfaces = ["interface.1.c-lx-asset-runtime", "interface.1.c-lxp-send-environment"]
+wiring = ["wiring.J21.1"]
+do_1 = "cmd/layerxd/lxp_daemon_process.c:5847-5850 (open_process): the lx_asset_runtime compound literal gains false as its last initializer (binding_authority, include/layerx/lx_asset.h:130, added by 1.11.1), so the daemon keeps verifying activity signatures; -Werror=missing-field-initializers (Makefile:32) refuses the literal today."
+do_2 = "cmd/layerx-guarantor/runtime.c:1131-1134 (gp_runtime_open): the same literal gains false as its last initializer."
+do_3 = "Every other positional lx_asset_runtime literal that stops at protocol_version gains false as its last initializer: tests/daemon/lxp_test_arbiter_admission.c:270 and :1051, tests/daemon/lxp_test_arbiter_prestate.c:180 and :940, tests/daemon/lxp_test_arbiter_prestate_transport.c:270 and :1030, tests/daemon/lxp_test_asset_execution_prestate.c:279 and :1049, tests/daemon/lxp_test_asset_inventory.c:290 and :1067, tests/daemon/lxp_test_epoch_modules.h:155, tests/daemon/lxp_test_replay_catalogue.c:275 and :1098, tests/modules/test_asset_account_grant.c:212, tests/modules/test_asset_registry.c:237, :442, :630 and :779, tests/modules/test_asset_transfer.c:216, tests/modules/test_asset_withdraw_activity.c:82, tests/modules/test_perps_book.c:117, tests/modules/test_perps_funding.c:117, tests/modules/test_perps_insurance.c:117, tests/modules/test_perps_liquidate.c:117, tests/modules/test_perps_market.c:117, tests/modules/test_perps_position.c:117, tests/modules/test_spot_book.c:128, tests/programs/test_reference_custody.c:285, tests/protocol/lxp_test_terminal_rejection.c:115, tests/state/lxp_test_idempotency.c:120, tests/storage/lxp_test_maintenance_publication.c:171, :833 and :1054, tests/support/lxp_real_replay.h:127 and tests/test_state_commitment_transition.c:117 (tests/codec/lxp_test_fee_meter_refused.c:116 already carries it)."
+do_4 = "Every positional lxp_send_environment literal (include/layerx/lxp_ledger.h:184-196, nine members) gains false as its last initializer: tests/ledger/test_send.c:114, :180, :240 and :279, tests/ledger/test_send_allowance.c:161, tests/network/test_gateway_kv.c:137 and tests/test_gateway_send.c:166; no fixture changes behaviour, binding authority stays off everywhere."
+symbols = ["gp_runtime_open"]
+touches = ["cmd/layerxd/lxp_daemon_process.c", "cmd/layerx-guarantor/runtime.c", "tests/daemon/lxp_test_arbiter_admission.c", "tests/daemon/lxp_test_arbiter_prestate.c", "tests/daemon/lxp_test_arbiter_prestate_transport.c", "tests/daemon/lxp_test_asset_execution_prestate.c", "tests/daemon/lxp_test_asset_inventory.c", "tests/daemon/lxp_test_epoch_modules.h", "tests/daemon/lxp_test_replay_catalogue.c", "tests/ledger/test_send.c", "tests/ledger/test_send_allowance.c", "tests/modules/test_asset_account_grant.c", "tests/modules/test_asset_registry.c", "tests/modules/test_asset_transfer.c", "tests/modules/test_asset_withdraw_activity.c", "tests/modules/test_perps_book.c", "tests/modules/test_perps_funding.c", "tests/modules/test_perps_insurance.c", "tests/modules/test_perps_liquidate.c", "tests/modules/test_perps_market.c", "tests/modules/test_perps_position.c", "tests/modules/test_spot_book.c", "tests/network/test_gateway_kv.c", "tests/programs/test_reference_custody.c", "tests/protocol/lxp_test_terminal_rejection.c", "tests/state/lxp_test_idempotency.c", "tests/storage/lxp_test_maintenance_publication.c", "tests/support/lxp_real_replay.h", "tests/test_gateway_send.c", "tests/test_state_commitment_transition.c"]
+tests = []
+planned_paths = []
+build_cmd = "make -C . layerxd layerx-guarantor"
+verify_cmd = "make -C . build/tests/test_layerxd && ./build/tests/test_layerxd"
+gate_kind = "existing"
+sandbox_profile = "mixed"
+owner_role = "fm-kernel"
+rollback = "Revert the listed files; the daemon, the guarantor and the kernel test fixtures fail to compile under -Werror again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.1.12.1]
 title = "Retire kernel RECEIVE, GRANT_ISSUE and GRANT_REVOKE and the ledger grant store"
 status = "pending"
@@ -92385,7 +92419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.2]
 title = "Reserve staging for native sandbox fund and activate before lifecycle validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.14.1", "16.2.1", "9.23.7"]
@@ -92397,6 +92431,7 @@ do_1 = "In the non-Execute branch of lxp_programs_sandbox_execute (src/modules/p
 do_2 = "Let layerx_programs_call_sandbox_state_stage_begin (src/modules/programs/sandbox.c:716) accept that reservation; host_reserved and reservation_token stay Execute-only (src/modules/programs/sandbox.c:91-98)."
 do_3 = "Free the lifecycle buffers and release the reservation with lxp_module_staged_release on every exit of the branch in tests/codec/lxp_test_sandbox_lifecycle.c (planned)."
 do_4 = "Write tests/codec/lxp_test_sandbox_lifecycle.c (planned) with sandbox_fund_activate_native and sandbox_stage_begin_accepts_lifecycle."
+do_5 = "In fill_staging (tests/codec/lxp_test_sandbox_lifecycle.c:292-301) use a three-byte key {0xf1U, (uint8_t)(i >> 8U), (uint8_t)i} so the LXP_MODULE_MAX_STAGED_WRITES - 1, - 2 and - 3 fills at :310, :334 and :345 stage that many distinct writes (stage_change at src/protocol/lxp_module_ctx.c:504 merges a repeated key); keep every expected result code."
 symbols = ["lxp_programs_sandbox_execute", "layerx_programs_call_sandbox_state_stage_begin", "lxp_module_staged_reserve", "sandbox_fund_activate_native", "sandbox_stage_begin_accepts_lifecycle"]
 touches = ["src/modules/programs/sandbox.c", "tests/codec/lxp_test_sandbox_lifecycle.c"]
 tests = ["tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_fund_activate_native", "tests/codec/lxp_test_sandbox_lifecycle.c::sandbox_stage_begin_accepts_lifecycle"]
@@ -92481,7 +92516,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.5]
 title = "Declare the programs event log encoder exported by the sandbox staticlib"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.14.1", "16.2.1", "9.23.7"]
@@ -92513,7 +92548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.15.1]
 title = "Stop the kernel binding and requiring the Programs state feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -92526,6 +92561,7 @@ do_2 = "Remove the state_feed requirement of batch preparation at src/protocol/l
 do_3 = "Delete the state_feed copies and clears at src/protocol/lxp_kernel.c:756, :5231, :5301, :7672 and :7740; the field stays until task 1.15.2 deletes it."
 do_4 = "Write tests/codec/lxp_test_state_feed_unbound.c (planned) with programs_runtime_without_feed and feed_does_not_change_roots."
 do_5 = "Add -lsqlite3 after -lcrypto on the link line of the $(BUILD_DIR)/tests/kernel/% pattern rule (Makefile:1433) so a kernel test that calls lxp_history_open links, as the explicit kernel rules that link liblayerx.a with history already do."
+do_6 = "In tests/codec/lxp_test_state_feed_unbound.c:1-2 keep `#define main unbound_fixture_reference_main` but replace the external prototype with `static int unbound_fixture_reference_main(int argc, char **argv) __attribute__((unused));`, so the renamed main of tests/programs/test_call_activity.c has internal linkage and is dropped together with publish_artifact_fixture_batch and its lxp_batch_sign call (test_call_activity.c:1152); lxp_batch_sign lives only in src/sequencer/lxp_batch_seal.c, which 16.0.2 (f2a8c304f) removed from LIB_SOURCES, and lxp_batch_verify_signature is defined once, at src/sequencer/lxp_batch_header.c:154 since 14.29.2 (465829782)."
 symbols = ["lxp_programs_bind_state_feed", "programs_runtime_without_feed", "feed_does_not_change_roots"]
 touches = ["src/protocol/lxp_kernel.c", "tests/codec/lxp_test_state_feed_unbound.c", "Makefile"]
 tests = ["tests/codec/lxp_test_state_feed_unbound.c::programs_runtime_without_feed", "tests/codec/lxp_test_state_feed_unbound.c::feed_does_not_change_roots"]
@@ -92590,10 +92626,10 @@ interfaces = []
 wiring = ["wiring.J21.1"]
 do_1 = "Replace #include \"layerx/lxp_replica.h\" at include/layerx/programs.h:7 with typedef struct lxp_replay_engine lxp_replay_engine and typedef struct lxp_replay_activity_output lxp_replay_activity_output, the two types used at include/layerx/programs.h:1081-1082."
 do_2 = "Include layerx/lxp_replica.h directly in src/modules/programs/occupancy.c, which defines the replay functions (src/modules/programs/occupancy.c:1242, :1272)."
-do_3 = "Add the direct includes any other kernel source needs after the build, so the anchor 1.0.3 holds the guarantee that J22 task 1.38.2 relies on in tests/codec/lxp_test_programs_header.c (planned)."
+do_3 = "Add `#include \"layerx/lxp_replica.h\"` after `#include \"layerx/programs.h\"` at src/protocol/lxp_kernel.c:15 (lxp_kernel_finalize_batch_maintenance dereferences lxp_replay_activity_output at :5660-5666, code from 287b9d642), so the anchor 1.0.3 holds the guarantee that J22 task 1.38.2 relies on in tests/codec/lxp_test_programs_header.c (planned)."
 do_4 = "Write tests/codec/lxp_test_programs_header.c (planned) with programs_header_without_replica."
 symbols = ["lxp_replay_engine", "lxp_replay_activity_output", "programs_header_without_replica"]
-touches = ["include/layerx/programs.h", "src/modules/programs/occupancy.c", "tests/codec/lxp_test_programs_header.c"]
+touches = ["include/layerx/programs.h", "src/modules/programs/occupancy.c", "tests/codec/lxp_test_programs_header.c", "src/protocol/lxp_kernel.c"]
 tests = ["tests/codec/lxp_test_programs_header.c::programs_header_without_replica"]
 planned_paths = ["tests/codec/lxp_test_programs_header.c"]
 build_cmd = "make -C . build/liblayerx.a"
@@ -92740,7 +92776,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.17.3]
 title = "Delete the handover trust builder declaration from lxp_genesis_builder.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.17.1", "16.2.1", "9.23.7"]
@@ -92821,7 +92857,7 @@ do_2 = "Delete the web runtime binding and checks of src/protocol/lxp_kernel.c:1
 do_3 = "Delete lxp_bridge_credit_bind_receipt (src/protocol/lxp_kernel.c:2396-2510), its calls at src/protocol/lxp_kernel.c:4610 and :7377 and the include at src/protocol/lxp_kernel.c:4 (custody-credit req 11019)."
 do_4 = "Return LXP_ERR_MODULE_DISABLED from the web_read host read at src/modules/programs/call.c:1190-1201, drop the request decode at src/modules/programs/call.c:1884 and the include at src/modules/programs/call.c:9."
 do_5 = "Write tests/codec/lxp_test_modules_unregistered.c (planned) with web_and_bridge_rows_absent, program_web_read_disabled and bridge_receipt_bind_absent."
-symbols = ["LXP_MODULE_WEB", "LXP_MODULE_BRIDGE", "lx_web_committed_read", "lxp_bridge_credit_bind_receipt", "web_and_bridge_rows_absent", "program_web_read_disabled", "bridge_receipt_bind_absent"]
+symbols = ["lx_web_committed_read", "lxp_bridge_credit_bind_receipt", "web_and_bridge_rows_absent", "program_web_read_disabled", "bridge_receipt_bind_absent"]
 touches = ["src/protocol/lxp_genesis.c", "src/protocol/lxp_kernel.c", "src/modules/programs/call.c", "tests/codec/lxp_test_modules_unregistered.c"]
 tests = ["tests/codec/lxp_test_modules_unregistered.c::web_and_bridge_rows_absent", "tests/codec/lxp_test_modules_unregistered.c::program_web_read_disabled", "tests/codec/lxp_test_modules_unregistered.c::bridge_receipt_bind_absent"]
 planned_paths = ["tests/codec/lxp_test_modules_unregistered.c"]
@@ -92919,7 +92955,7 @@ do_3 = "Remove #include \"layerx/lxp_guarantor.h\" at include/layerx/lxp_bridge.
 do_4 = "Delete lx_checkpoint_registry_register_deposit_root (include/layerx/lx_asset.h:300, src/modules/asset/lx_asset_custody.c:85-129), whose only callers are tests/test_bridge_deposit.c:174-312 and tests/modules/test_asset_deposit.c:60."
 do_5 = "Ask domain 16 through wiring.J21.22 to drop the claim cases of tests/test_emergency_exit.c:147-159 and tests/test_bridge_withdraw.c:233-605."
 do_6 = "Write tests/codec/lxp_test_bridge_claims_retired.c (planned) with bridge_header_without_guarantor and bridge_claim_symbols_absent."
-symbols = ["lxp_withdrawal_claim", "lxp_exit_claim", "lxp_bridge_withdraw_finalize", "lxp_deposit_nullifier", "bridge_header_without_guarantor", "bridge_claim_symbols_absent"]
+symbols = ["lxp_bridge_withdraw_finalize", "lxp_deposit_nullifier", "bridge_header_without_guarantor", "bridge_claim_symbols_absent"]
 touches = ["include/layerx/lxp_bridge.h", "src/modules/bridge/lxp_bridge_withdraw.c", "src/modules/bridge/lxp_bridge_exit.c", "include/layerx/lx_asset.h", "src/modules/asset/lx_asset_custody.c", "tests/codec/lxp_test_bridge_claims_retired.c"]
 tests = ["tests/codec/lxp_test_bridge_claims_retired.c::bridge_header_without_guarantor", "tests/codec/lxp_test_bridge_claims_retired.c::bridge_claim_symbols_absent"]
 planned_paths = ["tests/codec/lxp_test_bridge_claims_retired.c"]
@@ -93261,7 +93297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.1]
 title = "Set the asset binding authority and stop forcing signature_valid in the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.22.1", "1.0.2"]
@@ -93294,7 +93330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.2]
 title = "Add ExecuteActivity and ResultError for EVM-bound kernel activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.23.1"]
@@ -93516,7 +93552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.26.3]
 title = "Check kernel Ed25519 verification against Go crypto/ed25519 through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.23.1"]
@@ -93847,7 +93883,7 @@ do_1 = "Delete lxp_gateway_receive_claim (src/network/lxp_gateway_receive.c:472)
 do_2 = "Remove their declarations at include/layerx/lxp_gateway.h:97, include/layerx/lxp_gateway.h:102 and src/network/lxp_gateway_internal.h:84; the send path (lxp_gateway_send_settle, src/network/lxp_gateway_send.c:608) and the invoice registry stay."
 do_3 = "Remove the receive-only static helpers of src/network/lxp_gateway_receive.c left unused by the deletion; lxp_gateway_receive_test_fail_after (src/network/lxp_gateway_receive.c:29) stays declared for the send tests."
 do_4 = "Create modules/lxphost/retired_gateway_test.go (planned) with TestRetiredGatewayGrantSymbolsAbsent over kernelArchiveSymbols (modules/lxphost/archive_symbols_test.go, planned); tests/test_gateway_receive.c is removed through a wiring request to domain 16."
-symbols = ["lxp_gateway_receive_claim", "lxp_gateway_grant_bounds_check", "lxp_gateway_grant_present_test_locked", "TestRetiredGatewayGrantSymbolsAbsent"]
+symbols = ["TestRetiredGatewayGrantSymbolsAbsent"]
 touches = ["src/network/lxp_gateway_receive.c", "include/layerx/lxp_gateway.h", "src/network/lxp_gateway_internal.h", "modules/lxphost/retired_gateway_test.go"]
 tests = ["modules/lxphost/retired_gateway_test.go::TestRetiredGatewayGrantSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_gateway_test.go"]
@@ -95215,7 +95251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.94.1]
 title = "Write the lxphost store key vector for the Rust key builder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2"]
@@ -95992,7 +96028,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.3.4]
 title = "Submit ledger activities to the kernel host with global sequencing and idempotency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["2.3.2", "1.91.1", "1.23.1"]
@@ -96529,7 +96565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.6.4]
 title = "Submit governance authority activities to the kernel host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["2.6.2", "1.91.1"]
@@ -96563,7 +96599,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.6.5]
 title = "Decode authority receipts into the 0x101C event set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.6.4", "1.21.3"]
@@ -96659,7 +96695,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.7.3]
 title = "Revoke grants through governance sub-op 6 and advance the grantor revocation sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.6.3", "2.6.5"]
@@ -97039,7 +97075,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.1]
 title = "Build the 0x101C layerxauth precompile executor and register its merge constructor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.2.2", "2.2.4", "2.2.6", "2.6.2", "2.6.3"]
@@ -97146,11 +97182,13 @@ reqs = ["2058.1", "2058.2", "2058.3", "2058.4"]
 capabilities = ["2.11.4"]
 interfaces = ["interface.6.pc-0x101c-resultbyidempotency", "interface.6.pc-0x101c-getgrant", "interface.6.pc-0x101c-islive", "interface.6.pc-0x101c-sessionkey", "interface.6.pc-0x101c-capabilityscope", "interface.6.pc-0x101c-checkactivity"]
 do_1 = "Create precompiles/layerxauth/views.go (planned) with the ABI handlers resultByIdempotency, getGrant, isLive, sessionKey, capabilityScope, checkActivity unpacking inputs with the method Inputs of GetABI (precompiles/layerxauth/abi.go (planned))."
-do_2 = "Call the keeper functions ResultByIdempotency, GetGrant, IsLive, SessionKey, CapabilityScope, CheckActivity with the Actor resolved in Execute (precompiles/layerxauth/layerxauth.go (planned))."
+do_2 = "Call the keeper functions ResultByIdempotency, GetGrant, IsLive, SessionKey, CapabilityScope, CheckActivity without a caller Actor (the handlers take authkeeper.Actor{})."
 do_3 = "Turn keeper errors into reverts with RevertError (precompiles/layerxauth/errors.go (planned))."
 do_4 = "Write TestPrecompileAuthViews, TestPrecompileIsLive, TestPrecompileCheckActivity, TestPrecompileResultByIdempotency in precompiles/layerxauth/views_test.go (planned)."
+do_5 = "In Execute (precompiles/layerxauth/layerxauth.go:79-82) call p.keeper.Actor(ctx, caller) only when !method.IsConstant(), passing authkeeper.Actor{} to constant methods, so the six views answer an unbound caller (req 2058.1)."
+do_6 = "At precompiles/layerxauth/views_test.go:183-187 compare the capabilityScope result as bytes: pack the expected tuple with a.Methods[\"capabilityScope\"].Outputs.Pack(expected...) and require.Equal it with the raw staticcall return data, so decoded zero big.Int values compare by value."
 symbols = ["resultByIdempotency", "getGrant", "isLive", "sessionKey", "capabilityScope", "checkActivity", "TestPrecompileAuthViews", "TestPrecompileIsLive", "TestPrecompileCheckActivity", "TestPrecompileResultByIdempotency"]
-touches = ["precompiles/layerxauth/views.go", "precompiles/layerxauth/views_test.go"]
+touches = ["precompiles/layerxauth/views.go", "precompiles/layerxauth/views_test.go", "precompiles/layerxauth/layerxauth.go"]
 tests = ["precompiles/layerxauth/views_test.go::TestPrecompileAuthViews", "precompiles/layerxauth/views_test.go::TestPrecompileIsLive", "precompiles/layerxauth/views_test.go::TestPrecompileCheckActivity", "precompiles/layerxauth/views_test.go::TestPrecompileResultByIdempotency"]
 planned_paths = ["precompiles/layerxauth/views.go", "precompiles/layerxauth/views_test.go"]
 build_cmd = "go build ./precompiles/layerxauth/..."
@@ -98537,7 +98575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.27.3]
 title = "Add the layerxpay AppModule with genesis, services and no block hooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.22.5", "2.27.1", "2.27.2"]
@@ -99075,7 +99113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.32.8]
 title = "Add the layerxagent AppModule with genesis, services and the RunDue end block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.32.6", "2.32.7", "2.32.4"]
@@ -100709,7 +100747,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.5.3]
 title = "Round-trip perps genesis after governance changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.4", "3.1.5", "3.1.6"]
@@ -101359,7 +101397,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.21]
 title = "Refuse leverage above a governed market leverage tier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5", "1.22.3"]
@@ -101792,7 +101830,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.10.1]
 title = "Show governed market fields in the getMarketConfig view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5", "1.22.3"]
@@ -101824,7 +101862,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.10.2]
 title = "Report a governance-disabled market as inactive in isMarketActive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -101917,7 +101955,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.10.5]
 title = "Show a governed open-interest cap in the getOpenInterest view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -105806,7 +105844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.3]
 title = "Serve Query/MarketByAddress from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["4.3.1", "4.2.3", "4.2.4", "4.4.2"]
@@ -109977,11 +110015,13 @@ do_2 = "Change the eleven MobileServices methods at apps/launchpad/mobile/src/ru
 do_3 = "Route modules import only from sdk/launchpad/packages/sdk/src and never from src/platform, so they load without react-native (apps/launchpad/mobile/src/platform/protected-storage.ts:1)."
 do_4 = "Write apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts (planned) test routeModulesPreserveHeadPaths: serve a node:http loopback server, call each route function through a real SdkClient with production false and assert the eleven observed method and path pairs equal the HEAD pairs."
 do_5 = "Close the `{price && <Copyable …/>` JSX expression at apps/launchpad/mobile/src/screens/token.tsx:2 column 1180 with its missing `}` (TS1005, present since 145164d70) and change nothing else in Token."
+do_6 = "Set apps/launchpad/mobile/tsconfig.json compilerOptions \"lib\": [\"ES2022\"], \"types\": [\"react-native\"] and \"include\": [\"src\"], and add apps/launchpad/mobile/tsconfig.test.json extending it with \"types\": [\"node\"] and \"include\": [\"test\"], keeping strict true in both."
+do_7 = "Type WalletProtocolStorage.load (apps/launchpad/mobile/src/platform/protected-storage.ts:15) as Promise<Record<string, unknown>>, assigning the parsed object to a local before storing it in this.values, and write the 204 return of service-client.ts (:48) as `undefined as unknown as ContractTypes[N]`."
 symbols = ["MobileServices", "marketRoutes", "routeModulesPreserveHeadPaths"]
-touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx"]
+touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/tsconfig.test.json", "apps/launchpad/mobile/src/platform/protected-storage.ts"]
 tests = ["apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts::routeModulesPreserveHeadPaths"]
-planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"]
-build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
+planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/tsconfig.test.json"]
+build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.test.json"
 verify_cmd = "pnpm --dir apps/launchpad/mobile exec vitest run --config vitest.config.ts test/vitest/routes-scaffold.test.ts -t '(?:^|\\s)(routeModulesPreserveHeadPaths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -111909,7 +111949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.12]
 title = "Assemble the sequencer runtime from config"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.5.7", "5.5.9", "5.5.11", "5.5.16", "5.17.2", "5.0.1"]
@@ -111921,6 +111961,7 @@ do_2 = "Build Accepter, Driver, ReceiptSource, LogFeedPublisher and NonceAdmissi
 do_3 = "Return a nil Node for enable = false and delegate RoleStandby to StartStandby in node/sequencer/standby_role.go (planned)."
 do_4 = "Leave the daemon start to task 5.46.7 (daemon/paxd/cmd/root.go:249), and replace the type assertion app.(types.SequencerSource) at consensus/node/node.go:263 with an assertion on interface{ SequencerSource() types.SequencerSource } that calls SequencerSource() (added to App by task 5.0.1) and installs a non-nil result through blockExec.SetSequencerSource, per decision.582."
 do_5 = "Write node/sequencer/node_test.go (planned) with the two tests below."
+do_6 = "At node/sequencer/node_test.go:110 compare plain byte slices: require.Equal(t, pub.Address().Bytes(), batch.Ctx.BlockHeader().ProposerAddress) (crypto.Address is bytes.HexBytes, consensus/crypto/crypto.go:21; tmproto.Header.ProposerAddress is []byte), keeping the exact-bytes check."
 symbols = ["Node", "NewNode", "TestNewNodeAssemblesSequencerComponents", "TestNewNodeDisabledReturnsNil"]
 touches = ["node/sequencer/node.go", "node/sequencer/node_test.go", "consensus/node/node.go"]
 tests = ["node/sequencer/node_test.go::TestNewNodeAssemblesSequencerComponents", "node/sequencer/node_test.go::TestNewNodeDisabledReturnsNil"]
@@ -112157,7 +112198,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.21]
 title = "Check that receipts over TCP wait for the standby ack"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["5.5.12"]
@@ -113021,7 +113062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.15.3]
 title = "Fence the executor so a superseded primary writes nothing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.4.5", "5.17.1", "5.4.3", "5.4.7"]
@@ -113053,7 +113094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.15.4]
 title = "Fence the primary on ErrFenced and build the promoted standby's consensus source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.15.3", "5.5.14", "5.27.3"]
@@ -113085,7 +113126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.15.5]
 title = "Rehearse a failover under load without losing a receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.15.4", "5.27.4"]
@@ -113215,11 +113256,12 @@ interfaces = []
 do_1 = "Write node/sequencer/seal_giga_test.go (planned) sealing a block of EVM transfers and contract calls with SealBatch (node/sequencer/seal.go:133)."
 do_2 = "Replay it through ProcessBlock with the giga executor selected at node/app.go:2617."
 do_3 = "Assert identical app hashes and per-tx results of SealBatch (node/sequencer/seal.go:133) and ProcessBlock (node/app.go:2207)."
+do_4 = "engine/executor/lib/libevmone.0.12.0_linux_amd64.so is untracked and produced only by `go generate ./engine/executor/lib` (engine/executor/lib/evmlib.go:11 runs gen/main.go, which downloads the evmone 0.12.0 library and checks its sha256 0fec5d79f4c9a466bb680e8b0b9c770aea38f3dd6d2e4af23535c893d0d18d40); the build step runs it so GigaEvmKeeper.EvmoneVM is set when the test runs."
 symbols = ["TestSealBatchEqualsGigaProcessBlock", "TestSealBatchEqualsGigaProcessBlock"]
 touches = ["node/sequencer/seal_giga_test.go"]
 tests = ["node/sequencer/seal_giga_test.go::TestSealBatchEqualsGigaProcessBlock"]
 planned_paths = ["node/sequencer/seal_giga_test.go"]
-build_cmd = "go build ./node/sequencer/..."
+build_cmd = "go generate ./engine/executor/lib && go build ./node/sequencer/..."
 verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestSealBatchEqualsGigaProcessBlock)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -114267,7 +114309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.27.4]
 title = "Hand over the open block between hosts with a lease"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.27.3", "5.15.3"]
@@ -115476,7 +115518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.48.1]
 title = "Remove read-node, --socket and --actor from layerx-module-registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.0.1", "16.0.2", "9.23.7"]
@@ -115508,7 +115550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.48.2]
 title = "Remove --custody-profile from layerx-module-registry generate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.48.1", "5.0.2"]
@@ -115538,7 +115580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.1]
 title = "Remove the custody profile and registry inputs from layerx-genesis-build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.0.1", "1.19.2"]
@@ -115574,7 +115616,7 @@ title = "Stop writing the handover trust artefact from layerx-genesis-build"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["5.49.1", "5.0.2", "1.17.3", "16.23.1"]
+requires = ["5.49.1", "5.0.2", "1.17.3"]
 reqs = ["5511.1"]
 capabilities = ["5.49.2"]
 interfaces = ["interface.5.cli-layerx-genesis"]
@@ -118856,7 +118898,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.3]
 title = "Record perps, pricefeed and spot names in PrecompileNamesToInfo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["6.0.1", "6.6.2", "3.0.2", "3.93.2"]
@@ -124999,7 +125041,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.69.4]
 title = "Register the xweb query service, gateway routes and query command on the module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.69.1", "6.70.1"]
@@ -125275,7 +125317,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.74.1]
 title = "Prove the origin-2 round trip from program request to EVM read after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["6.65.3", "6.61.2", "6.61.3", "6.64.3"]
@@ -125428,7 +125470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.77.1]
 title = "Prove the merge plan keeps origin-1 state and opens origin 2 at one height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["6.74.1", "6.64.4"]
@@ -126149,7 +126191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.0.2]
 title = "Freeze the wave-2 served HTTP and WebSocket method sets as goldens"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.0.1", "7.2.1", "7.2.2", "7.2.3", "7.3.1", "7.3.2", "7.4.1", "7.4.2", "7.4.3", "7.5.1", "7.5.2", "7.6.1", "7.6.2", "7.7.1", "7.8.1", "7.9.2"]
@@ -126161,8 +126203,9 @@ do_2 = "Write rpc/testdata/served_methods_ws.golden (planned) with the WebSocket
 do_3 = "Write TestServedMethodsHTTPGolden in rpc/served_methods_golden_test.go (planned) comparing HTTPMethods of the HTTP server started by the package setup with the HTTP golden line by line."
 do_4 = "Write TestServedMethodsWSGolden in rpc/served_methods_golden_test.go (planned) comparing WSMethods of the WebSocket server started by the package setup (rpc/setup_test.go:761) with the WS golden."
 do_5 = "Assert in both tests that no golden line starts with lx_ (decision 701) and that eth_cleanup, eth_setReceiptLogFeed, eth_gasPriceHelper and eth_calculateGasUsedRatio are absent (planned)."
+do_6 = "Turn the InfoAPI methods GasPriceHelperForTest and CalculateGasUsedRatioForTest at rpc/export_info_test.go:10-16 into package-level functions GasPriceHelperForTest(i *InfoAPI, ...) and CalculateGasUsedRatioForTest(i *InfoAPI, ...) as rpc/export_filter_test.go:3 does, and call them at the ten call sites of rpc/info_test.go (292, 348, 380, 445, 468, 491, 539, 559, 565, 591), so the test binary serves no *ForTest method and both goldens stay as written."
 symbols = ["HTTPMethods", "WSMethods", "TestServedMethodsHTTPGolden", "TestServedMethodsWSGolden"]
-touches = ["rpc/testdata/served_methods_http.golden", "rpc/testdata/served_methods_ws.golden", "rpc/served_methods_golden_test.go"]
+touches = ["rpc/testdata/served_methods_http.golden", "rpc/testdata/served_methods_ws.golden", "rpc/served_methods_golden_test.go", "rpc/export_info_test.go", "rpc/info_test.go"]
 tests = ["rpc/served_methods_golden_test.go::TestServedMethodsHTTPGolden", "rpc/served_methods_golden_test.go::TestServedMethodsWSGolden"]
 planned_paths = ["rpc/testdata/served_methods_http.golden", "rpc/testdata/served_methods_ws.golden", "rpc/served_methods_golden_test.go"]
 build_cmd = "go build ./rpc/..."
@@ -126774,7 +126817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.9.1]
 title = "Bind the WebSocket listener to http_address and apply the deny list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.9.2", "7.2.1"]
@@ -127709,7 +127752,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.17.2]
 title = "Answer unknown block for eth_getLogs with an unknown blockHash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.17.1"]
@@ -132243,12 +132286,12 @@ title = "Retire the kernel batch, checkpoint and authorized-batch seller exports
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.22.4", "8.22.5", "8.23.3", "8.24.4", "8.25.2", "8.26.1", "8.26.4", "8.26.5", "8.26.6", "8.27.1"]
+requires = ["8.22.4", "8.22.5", "8.23.3", "8.24.4", "8.25.2", "8.26.1", "8.26.4", "8.26.5", "8.26.6", "8.27.1", "8.22.7"]
 reqs = ["8248.1", "8248.2"]
 capabilities = ["8.22.6"]
 interfaces = ["interface.8.ts-middleware-seller-sidiora-layerx-seller-middleware-authorizedbatchresolver", "interface.8.ts-middleware-seller-checkpoint-rpccheckpointauthority-j41", "interface.8.ts-middleware-seller-checkpoint-rpccheckpointevidence-j41", "interface.8.ts-middleware-seller-rpc-rpcbatchevidence-j41"]
-do_1 = "services/platform/middleware/seller/src/checkpoint.ts:5-65 defines RpcCheckpointAuthority and rpcCheckpointEvidence, which build guarantor checkpoint evidence that no merged node serves; delete the file."
-do_2 = "Remove `export * from \"./checkpoint.js\";` at services/platform/middleware/seller/src/index.ts:978."
+do_1 = "Task 8.22.7 deletes services/platform/middleware/seller/src/checkpoint.ts (RpcCheckpointAuthority, rpcCheckpointEvidence); confirm it is absent and delete it if a merge restored it."
+do_2 = "Confirm no `export * from \"./checkpoint.js\";` remains in services/platform/middleware/seller/src/index.ts (task 8.22.7 removed it)."
 do_3 = "Delete rpcBatchEvidence at services/platform/middleware/seller/src/rpc.ts:80-94, which reads the relay batch_evidence bundle."
 do_4 = "Delete AuthorizedBatchResolver at services/platform/middleware/seller/src/index.ts:111-113 and MERKLE_LEAF_DOMAIN at services/platform/middleware/seller/src/index.ts:28 once no caller in the middleware packages imports them."
 do_5 = "Create services/platform/middleware/seller/test/retired-exports.test.mjs (planned) with the two tests below importing the built package entry."
@@ -132263,6 +132306,37 @@ sandbox_profile = "node"
 owner_role = "fm-platform"
 rollback = "Restore checkpoint.ts and the removed exports from the previous revision."
 do_6 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: packageEntryHasNoKernelBatchEvidenceExports in services/platform/middleware/seller/test/retired-exports.test.mjs (planned); packageEntryKeepsLedgerAndReceiptExports in services/platform/middleware/seller/test/retired-exports.test.mjs (planned)."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.22.7]
+title = "Retire the seller checkpoint evidence module built on the deleted SDK checkpoint verifiers"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["9.34.2"]
+reqs = ["8248.1"]
+capabilities = []
+interfaces = []
+do_1 = "services/platform/middleware/seller/src/checkpoint.ts:1-65 imports CheckpointAttestation and CheckpointVerificationInput from the TypeScript SDK, which task 9.34.2 (b69843349) deleted, so every seller package build fails in that file; delete the file."
+do_2 = "Remove `export * from \"./checkpoint.js\";` from services/platform/middleware/seller/src/index.ts (:1148 at HEAD) and any other import of ./checkpoint.js under services/platform/middleware/seller/src."
+do_3 = "Create services/platform/middleware/seller/test/checkpoint-retired.test.mjs (planned) with one node:test case named exactly packageEntryHasNoCheckpointEvidenceExports that imports the built package entry and asserts that RpcCheckpointAuthority and rpcCheckpointEvidence are not exported while verifyPaymentReceipt still is."
+do_4 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: packageEntryHasNoCheckpointEvidenceExports in services/platform/middleware/seller/test/checkpoint-retired.test.mjs (planned)."
+symbols = ["packageEntryHasNoCheckpointEvidenceExports"]
+touches = ["services/platform/middleware/seller/src/checkpoint.ts", "services/platform/middleware/seller/src/index.ts", "services/platform/middleware/seller/test/checkpoint-retired.test.mjs"]
+tests = ["services/platform/middleware/seller/test/checkpoint-retired.test.mjs::packageEntryHasNoCheckpointEvidenceExports"]
+planned_paths = ["services/platform/middleware/seller/test/checkpoint-retired.test.mjs"]
+build_cmd = "npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "node --test --test-name-pattern='^(packageEntryHasNoCheckpointEvidenceExports)$' services/platform/middleware/seller/test/checkpoint-retired.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-platform"
+rollback = "Restore checkpoint.ts and its re-export from the previous revision."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -132307,8 +132381,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Verify buyer payments and captured settlements as portable receipts"
 status = "pending"
 mode = "BUILD"
-wave = 3
-requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1"]
+wave = 4
+requires = ["8.23.1", "8.22.1", "8.22.2", "10.92.1", "8.22.7"]
 reqs = ["8250.1", "8250.2", "8250.3"]
 capabilities = ["8.23.2"]
 interfaces = ["interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-buyermiddleware", "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-preparedpayment", "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-journey", "interface.8.ts-middleware-buyer-index-buyermiddlewareconfig-j41", "interface.8.ts-middleware-buyer-index-evidencereference-j41", "interface.8.ts-middleware-buyer-index-evidencematerial-j41", "interface.8.ts-middleware-buyer-index-capturedsettlement-j41"]
@@ -132345,7 +132419,7 @@ title = "Build buyer grant headers from signed 0x101A draw transactions"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["8.23.2", "8.22.5"]
+requires = ["8.23.2", "8.22.5", "8.22.7"]
 reqs = ["8251.1", "8251.2", "8251.3"]
 capabilities = ["8.23.3"]
 interfaces = ["interface.8.ts-middleware-buyer-index-grantpaymentheader-j41", "interface.8.ts-middleware-buyer-sidiora-layerx-buyer-middleware-buyermiddleware"]
@@ -132579,7 +132653,7 @@ title = "Produce conformance receipts as signed sequencer receipts over EIP-1559
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["8.22.4", "8.23.2", "8.33.1"]
+requires = ["8.22.4", "8.23.2", "8.33.1", "8.22.7"]
 reqs = ["8258.1", "8258.2", "8258.3"]
 capabilities = ["8.26.1"]
 interfaces = ["interface.8.ts-middleware-conformance-receipts-conformance-protocol-version-j41", "interface.8.ts-middleware-conformance-receipts-conformancesequencer-j41", "interface.8.ts-middleware-conformance-receipts-receiptfacts-j41", "interface.8.ts-middleware-conformance-receipts-signedreceipt-j41", "interface.8.ts-middleware-conformance-receipts-buildsignedreceipt-j41", "interface.8.ts-middleware-conformance-receipts-offerfixture-j41", "interface.8.ts-middleware-conformance-receipts-buyerpayload-j41", "interface.8.ts-middleware-conformance-support-fixedbatchresolver-j41", "interface.8.ts-middleware-conformance-support-fixedreceiptkeys-j41"]
@@ -132613,7 +132687,7 @@ title = "Run the in-process conformance scenarios on rungs and transaction hashe
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["8.26.1", "8.24.3", "8.25.2", "8.23.3"]
+requires = ["8.26.1", "8.24.3", "8.25.2", "8.23.3", "8.22.7"]
 reqs = ["8259.1", "8259.2"]
 capabilities = ["8.26.2"]
 interfaces = ["interface.8.ts-middleware-conformance-scenarios-runscenarios-j41"]
@@ -132648,7 +132722,7 @@ title = "Drive service conformance and connected acceptance with receipt keys an
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3"]
+requires = ["8.26.1", "8.33.2", "8.34.1", "8.34.3", "8.22.7"]
 reqs = ["8260.1", "8260.2"]
 capabilities = ["8.26.3"]
 interfaces = ["interface.8.ts-middleware-conformance-service-runservicescenarios-j41", "interface.8.env-middleware-conformance-layerx-authorized-batch-json", "interface.8.env-middleware-conformance-layerx-receipt-keys-json-j41", "interface.8.env-middleware-conformance-layerx-protocol-version"]
@@ -132682,7 +132756,7 @@ title = "Replace the kernel receive and draw payment fixtures with a 0x101A draw
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["8.22.5", "8.21.1", "8.23.2"]
+requires = ["8.22.5", "8.21.1", "8.23.2", "8.22.7"]
 reqs = ["8261.1", "8261.2"]
 capabilities = ["8.26.4"]
 interfaces = []
@@ -132713,7 +132787,7 @@ title = "Replace the kernel batch and checkpoint fixtures with a committed rung 
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["8.22.2", "8.26.1"]
+requires = ["8.22.2", "8.26.1", "8.22.7"]
 reqs = ["8262.1", "8262.2"]
 capabilities = ["8.26.5"]
 interfaces = ["interface.8.env-middleware-conformance-cc"]
@@ -132745,7 +132819,7 @@ title = "Move the commitment, RPC and agent conformance tests to an EVM receipt 
 status = "pending"
 mode = "BUILD"
 wave = 28
-requires = ["8.26.1", "8.24.3", "9.96.1"]
+requires = ["8.26.1", "8.24.3", "9.96.1", "8.22.7"]
 reqs = ["8263.1", "8263.2"]
 capabilities = ["8.26.6"]
 interfaces = []
@@ -133547,7 +133621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.33.3]
 title = "Verify marketplace program outcomes from signed sequencer receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["8.33.1", "9.92.1"]
@@ -133617,7 +133691,7 @@ title = "Settle merchant checkouts and webhooks on portable receipts"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["8.33.1", "8.25.2", "8.22.4"]
+requires = ["8.33.1", "8.25.2", "8.22.4", "8.22.7"]
 reqs = ["8288.1", "8288.2"]
 capabilities = ["8.34.1"]
 interfaces = ["interface.8.ts-examples-support-merchant-app-runmerchantapplication-j41", "interface.8.http-examples-support-post-webhooks-settlement", "interface.8.http-examples-support-post-checkout", "interface.8.http-examples-support-get-orders"]
@@ -136903,7 +136977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.1.6]
 title = "Port layerx-mirror to the rung and height read types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.1.1", "9.1.2", "9.23.7"]
@@ -136946,8 +137020,11 @@ interfaces = ["interface.9.http-rpc-project", "interface.9.rs-agent-api-read-rel
 do_1 = "services/agent/crates/layerx-sdk/src/rpc_budget.rs decodes ProtocolBudgetView with achieved_rung (wire key \"achieved_rung\") and BudgetRecord::Protocol reads view.achieved_rung."
 do_2 = "services/agent/crates/layerx-sdk/src/agent_envelope.rs, services/agent/crates/layerx-sdk/src/rpc_verification.rs and services/agent/crates/layerx-sdk/src/rpc_sign.rs: ReadRequest, VerifiedRead and ReceiptReference use requested_rung, achieved_rung and rung; the rung comparison replaces the Level comparison one for one."
 do_3 = "services/agent/crates/layerx-sdk/src/rpc_export.rs, services/agent/crates/layerx-sdk/src/rpc_history.rs, services/agent/crates/layerx-sdk/src/rpc_projection.rs, services/agent/crates/layerx-sdk/src/program_http.rs and services/agent/crates/layerx-sdk/src/lib.rs: OfflineExport decodes `bundles` and `height` and no certificates; HistorySelector sends from_height/to_height and the block-position cursor; FeeProjection reads snapshot_height; re-exports follow the agent-api names."
+do_4 = "services/agent/crates/layerx-sdk/tests/sdk.rs: freshness() (:74-84) builds the agent-api Freshness { chain_head: 20, value_height: 17, relative_to: RelativeTo::Block { height: 19, hash: [0x19; 32] } } (services/agent/crates/layerx-agent-api/src/read.rs:98-108) and the BalanceValue literal at :257 gains height: 17 (read.rs:182-188); every assertion of the file stays."
+do_5 = "services/agent/crates/layerx-sdk/tests/offline_export.rs: api() (:190-200) builds layerx_proof::export_codec::EncodedOfflineArtifact { facts: the fact strings, receipts, proofs, certificates: Vec::new(), headers } (export_codec.rs:1105), the tests decode it with decode_historical_offline_export(&export, &trust) (services/agent/crates/layerx-sdk/src/rpc_export.rs), whose CompleteOfflineArtifact is what verify_complete (services/agent/crates/layerx-proof/src/export.rs:937) and encode() take; Rung::Receipted replaces VerificationLevel::BATCH_INCLUDED; the settlement-anchoring case (:293-297) becomes the rung-claim case: verify_complete_historical_offline_export(&decoded, Rung::Committed, Rung::Receipted, &trust) returns Err(OfflineVerificationError::ClaimExceedsVerified { claimed: Rung::Committed, verified: Rung::Receipted }) for the fixture, which carries receipts and headers but no verified commit; the round-trip, misplaced-bucket, certificate and rogue-key refusals stay."
+do_6 = "verify_cmd compiles every integration test target of the crate (--no-run), so tests/offline_export.rs and tests/sdk.rs are part of this task and touches lists them; no test is deleted or skipped."
 symbols = ["ProtocolBudgetView", "BudgetRecord", "ReadRequest", "VerifiedRead", "ReceiptReference", "OfflineExport", "HistorySelector", "FeeProjection"]
-touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk"
@@ -139296,7 +139373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.23.5]
 title = "Build evidence bundles from eth_getProof and the landing block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.21.7", "9.22.1", "9.23.4", "9.26.1", "9.23.7"]
@@ -139327,7 +139404,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.23.6]
 title = "Submit and resolve AI market operations through SequencerEndpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.21.7", "9.23.1", "9.23.2"]
@@ -139402,12 +139479,13 @@ interfaces = []
 do_1 = "Delete services/agent/crates/layerx-client/tests/arbiter_admission.rs, services/agent/crates/layerx-client/tests/arbiter_prestate_transport.rs, services/agent/crates/layerx-client/tests/asset_execution_prestate.rs, services/agent/crates/layerx-client/tests/replay_catalogue.rs, services/agent/crates/layerx-client/tests/caps_discovery.rs, services/agent/crates/layerx-client/tests/arbiter_prestate.rs, services/agent/crates/layerx-client/tests/effective_asset.rs, which drive only the kernel caps, execution, admission and arbiter prestate readers over LNI frames (services/agent/crates/layerx-client/tests/arbiter_admission.rs:221), per decision.923; the readers are deleted by tasks 9.24.3 and 9.25.2."
 do_2 = "No replacement test is written: the readers (services/agent/crates/layerx-client/src/arbiter_prestate.rs:15) have no JSON-RPC successor in this crate, program state being read by eth_call in agentd task 9.10.1."
 do_3 = "Run the existing native_budget_versions_fields_and_extremes (services/agent/crates/layerx-client/tests/committed_caps.rs:23) unchanged as the gate for the kept committed budget decoder."
+do_4 = "native_budget_versions_fields_and_extremes reads the file named by LAYERX_CAPS_VECTORS (services/agent/crates/layerx-client/tests/committed_caps.rs:9), the output of the native producer tests/qualification/lxp_wallet_caps_vectors.c; the build step produces it (`make -C . paxd-native-libs`, then the producer compiled against build/liblayerx.a and programs/target/release/liblayerx_programs_sandbox.a into build/lxp_wallet_caps_vectors, its stdout written to build/native-vectors.json) and the verify step exports LAYERX_CAPS_VECTORS to that file; the test and the decoder stay unchanged (do_3)."
 symbols = ["native_budget_versions_fields_and_extremes"]
 touches = ["services/agent/crates/layerx-client/tests/arbiter_admission.rs", "services/agent/crates/layerx-client/tests/arbiter_prestate_transport.rs", "services/agent/crates/layerx-client/tests/asset_execution_prestate.rs", "services/agent/crates/layerx-client/tests/replay_catalogue.rs", "services/agent/crates/layerx-client/tests/caps_discovery.rs", "services/agent/crates/layerx-client/tests/arbiter_prestate.rs", "services/agent/crates/layerx-client/tests/effective_asset.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::native_budget_versions_fields_and_extremes"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=\"$PWD/build/native-vectors.json\" cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_budget_versions_fields_and_extremes"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -139768,7 +139846,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.2]
 title = "Request and report rungs in complete offline export verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.27.1"]
@@ -139899,7 +139977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.6]
 title = "Pin activity identities in proof receipt tests instead of decoding activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["9.27.2"]
@@ -140619,7 +140697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.33.13]
 title = "Encode perps writes as exchange v2 calls and drop the activity type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.33.10"]
@@ -140852,7 +140930,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.3]
 title = "Delete the layerx-crypto kernel activity onboarding, rotation and envelope tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.31.2", "9.31.3"]
@@ -141919,8 +141997,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Drop the settlement domain from the stream journal"
 status = "pending"
 mode = "BUILD"
-wave = 2
-requires = ["10.0.1"]
+wave = 5
+requires = ["10.0.1", "9.1.6", "9.1.7"]
 reqs = ["10025.1", "10025.2"]
 capabilities = ["10.3.2"]
 interfaces = []
@@ -145780,18 +145858,19 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.6]
 title = "Verify the receipted rung rules R4 to R6 against the recorded receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.2.4"]
 reqs = ["11049.1"]
 capabilities = ["11.2.5"]
 interfaces = ["interface.11.rs-committed-proof-verify-receipted-j47"]
-do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned)."
+do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], receipt_json: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], [u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned), keys being (key id, public key, first height, last height)."
 do_2 = "Require the receipt activity id to equal the raw transaction hash, the receipt's previous sequence hash to equal `prev_seq_hash`, and the signing key to be pinned for the receipt height, the refusals the V3 cases of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:263-307 record."
 do_3 = "Create services/interop/crates/layerx-committed-proof/tests/receipted.rs (planned) running every V1 and V3 case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:12."
+do_4 = "Refuse R3 when the receipt's keyId is not a pinned key id and R5 when the receipt_json view differs from the decoded receipt bytes; add `serde_json.workspace = true` to services/interop/crates/layerx-committed-proof/Cargo.toml."
 symbols = ["verify_receipted"]
-touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
+touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs", "services/interop/crates/layerx-committed-proof/Cargo.toml"]
 tests = ["services/interop/crates/layerx-committed-proof/tests/receipted.rs::receipted_fixture_cases_verify_or_refuse"]
 planned_paths = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --tests"
@@ -147733,7 +147812,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.23.3]
 title = "Report the per-DID gas budget on POST /status"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["11.23.2", "11.24.2"]
@@ -147745,7 +147824,7 @@ do_2 = "Compute the day as now / DID_BUDGET_INTERVAL_SECONDS, the constant task 
 do_3 = "Keep the status route at services/interop/crates/layerx-gas-station/src/service.rs:291 and its identity fields at services/interop/crates/layerx-gas-station/src/service.rs:588-590 unchanged."
 do_4 = "Write status_reports_the_did_gas_budget in services/interop/crates/layerx-gas-station/tests/service.rs:927 beside the registered-sender budget test."
 do_5 = "Add `pub const fn policy(&self) -> &QuotePolicy` returning &self.station.policy to GasStation beside journal() at services/interop/crates/layerx-gas-station/src/station.rs:277, and read the budget through it in service.rs."
-symbols = ["Service::report", "QuotePolicy::did_budget"]
+symbols = ["status_reports_the_did_gas_budget"]
 touches = ["services/interop/crates/layerx-gas-station/src/service.rs", "services/interop/crates/layerx-gas-station/tests/service.rs", "services/interop/crates/layerx-gas-station/src/station.rs"]
 tests = ["services/interop/crates/layerx-gas-station/tests/service.rs::status_reports_the_did_gas_budget"]
 planned_paths = []
@@ -149208,7 +149287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.38.2]
 title = "Build the release attestation bundle for Paxeer BridgeOut burns"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.38.1", "9.1.6"]
@@ -150071,7 +150150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.6.2]
 title = "Bind broadcast and receipt read go through the sequencer receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["12.5.1", "12.6.1"]
@@ -150486,6 +150565,7 @@ do_2 = "Move the row to signing_unknown, sign with kind evm_tx through attestors
 do_3 = "Read rpc.sequencerReceipt(hash) (planned in services/wallet/gateway/src/rpc/pool.ts:146), store tx_hash and receipt as evidence and answer state signed with tx_hash, rung and receipt."
 do_4 = "Write services/wallet/gateway/test/evm-sign.test.ts (planned)."
 do_5 = "In services/wallet/gateway/test/evm-sign.test.ts have the fixture review an ERC-20 transfer whose calldata carries a method, not a calldata-free native value transfer (parseEvmReview at services/wallet/gateway/src/attestor/client.ts:1203 refuses the attestor's empty method with evm_review_invalid), and answer pax_sequencerReceipt and eth_sendRawTransaction from an in-process JSON-RPC server started in beforeAll, as test/evm-approvals.test.ts and the wallet send-receipt test do; the test reads no EVM_SIGN_TEST_SEQUENCER_RPC_URL or EVM_SIGN_TEST_FUNDING_KEY."
+do_6 = "At services/wallet/gateway/test/evm-sign.test.ts:219 compare every field but value with toMatchObject and assert the zero value explicitly: `const { value: zero, ...fields } = tx; expect(signed).toMatchObject(fields); expect(signed.value ?? 0n).toBe(zero);` (viem's parseTransaction leaves out a zero value); :220 keeps the byte-exact reserialisation check."
 symbols = ["evmApprovalRoutes", "evmSignRequiresApprovedRow", "evmSignSendsThroughSequencerWithReceipt"]
 touches = ["services/wallet/gateway/src/routes/evmApprovals.ts", "services/wallet/gateway/test/evm-sign.test.ts"]
 tests = ["services/wallet/gateway/test/evm-sign.test.ts::evmSignRequiresApprovedRow", "services/wallet/gateway/test/evm-sign.test.ts::evmSignSendsThroughSequencerWithReceipt"]
@@ -152307,7 +152387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.1]
 title = "Read grant caps observed at a block on a rung in the web data surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["12.25.1", "12.34.1", "12.35.1"]
@@ -152341,7 +152421,7 @@ title = "Send module transactions through the receipted send in the surfaces"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["12.33.1", "12.23.5", "12.31.2"]
+requires = ["12.33.1", "12.23.5", "12.31.2", "12.33.8"]
 reqs = ["12278.1"]
 capabilities = ["12.33.2"]
 interfaces = ["interface.12.ts-app-module-send", "interface.12.ts-app-use-module-send", "interface.12.ts-app-sent-transaction", "interface.12.ts-app-receipt-status", "interface.12.ts-app-receipt-status-2", "interface.12.ts-app-receipt-events"]
@@ -152488,9 +152568,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.12.33.8]
+title = "Move the wallet and web exchange callers to the perps v2 open and cancel shapes"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["9.33.13"]
+reqs = ["9363.2"]
+capabilities = []
+interfaces = []
+do_1 = "sdk/wallet/src/modules/exchange.ts: ExchangeModule.cancelOrder (:37) takes (orderId: string, accountId: string) and calls perpsCancelOrderCall(orderId, accountId) (:54); ExchangeOrder stays PerpsOpenPosition, whose v2 fields are marketId and accountId as 0x-prefixed 64-hex-digit words, side (1 long, 2 short), size and leverage (services/agent/sdk/typescript/src/perps.ts:718-724, from 9.33.13 per clients.md O58); openPosition pulls no collateral, the margin comes from the deposited cross account, so approval applies to deposit only."
+do_2 = "apps/wallet/src/surfaces/ExchangeView.tsx:56-72: the open form takes marketId, side, size and leverage and builds { marketId: word(marketId), accountId, side: side === 'long' ? 1 : 2, size: parseUnits(size, 18), leverage: parseUnits(leverage, 18) } with pull 0n, where word() renders a decimal id as its 32-byte big-endian hex word and accountId is the connected address's layerx_account (sdk/wallet/src/types.ts:247, read as apps/wallet/src/account/KernelPlan.tsx:188 does); the cancel action builds surfaceModule.cancelOrder(word(id), accountId); the view refuses to build an order while layerx_account is null."
+do_3 = "apps/web/src/app/exchange/exchange-client.tsx:168-175 and :235 build the same v2 order and perpsCancelOrderCall(word(orderId), accountId), with accountId the layerxAccount of pxResolveAccount(account) (apps/web/src/api/gateway.ts:253-261); the approve-before-open path goes (sendPerpsWrite is called with pull 0n for open and cancel), the deposit path keeps its approve."
+do_4 = "apps/wallet/src/surfaces/ExchangeView.test.tsx:42-78 becomes exchange_view_opens_a_perps_position_through_the_v2_call_and_shows_the_decoded_event: it types marketId 3, side Short, size 50 and leverage 5, expects the preview to carry the selector of openPosition(bytes32,bytes32,uint8,uint256,uint256) and chain.sent to be exactly one send to the venue whose data equals perpsOpenPositionCall of that v2 order (no approve), and keeps the OrderPlaced event assertions; apps/web/e2e/exchange-perps.test.ts: the case at :195 becomes opening_a_position_sends_the_v2_perps_write_without_an_approve (one send, v2 data, no approve request), the cancel refusal at :241 passes (word(9n), accountId), and PERPS_ABI carries the v2 openPosition and cancelOrder entries."
+do_5 = "Register every test named in tests as a case whose name is exactly that name (vitest it() in ExchangeView.test.tsx, node:test in exchange-perps.test.ts), because an anchored name pattern exits 0 when no case matches; the gate counts only when each run reports one passing case per name."
+symbols = ["exchange", "ExchangeModule", "ExchangeView"]
+touches = ["sdk/wallet/src/modules/exchange.ts", "apps/wallet/src/surfaces/ExchangeView.tsx", "apps/wallet/src/surfaces/ExchangeView.test.tsx", "apps/web/src/app/exchange/exchange-client.tsx", "apps/web/e2e/exchange-perps.test.ts"]
+tests = ["apps/wallet/src/surfaces/ExchangeView.test.tsx::exchange_view_opens_a_perps_position_through_the_v2_call_and_shows_the_decoded_event", "apps/web/e2e/exchange-perps.test.ts::opening_a_position_sends_the_v2_perps_write_without_an_approve"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/wallet run typecheck && npm --prefix apps/web run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/surfaces/ExchangeView.test.tsx -t 'exchange_view_opens_a_perps_position_through_the_v2_call_and_shows_the_decoded_event$' && node --test --test-name-pattern '^opening_a_position_sends_the_v2_perps_write_without_an_approve$' apps/web/e2e/exchange-perps.test.ts"
+gate_kind = "existing"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the five files; the callers return to the v1 perps shapes and fail to type-check against the SDK."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.12.34.1]
 title = "Label the account status ladder submitted, receipted and committed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["12.22.1", "12.35.1"]
@@ -152523,7 +152635,7 @@ title = "Read the transaction ladder from the sequencer receipt before the explo
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["12.34.1", "12.22.4"]
+requires = ["12.34.1", "12.22.4", "12.33.1"]
 reqs = ["12284.1"]
 capabilities = ["12.34.2"]
 interfaces = ["interface.12.ts-app-transaction-ladder"]
@@ -152645,7 +152757,7 @@ title = "Page the chain history in the history view"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["12.24.1", "12.31.1", "12.33.1", "12.34.1", "12.35.1"]
+requires = ["12.24.1", "12.31.1", "12.33.1", "12.34.1", "12.35.1", "12.33.8"]
 reqs = ["12288.1"]
 capabilities = ["12.34.6"]
 interfaces = ["interface.12.ts-app-history-view", "interface.12.http-app-page-account-history", "interface.12.ts-app-account-history-page"]
@@ -156920,7 +157032,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.1]
 title = "Take sdk/js in-repo as a first-party package with working entries and a test harness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -157083,7 +157195,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.1.1]
 title = "Unregister the proto modules absent at HEAD from the sdk/js encoding barrel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -157115,7 +157227,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.1.2]
 title = "Unregister the REST clients whose routes no proto declares at HEAD from the sdk/js barrel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -157147,7 +157259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.1.3]
 title = "Drop the absent proto modules from the sdk/js message registry and amino converters"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -157180,7 +157292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.1.4]
 title = "Delete the sdk/js accesscontrol_x and cosmos mint REST clients"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.2"]
@@ -157212,7 +157324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.1]
 title = "Delete types encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1, part a"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157244,7 +157356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.2]
 title = "Delete types encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1, part b"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157276,7 +157388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.3]
 title = "Delete the esm encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157309,7 +157421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.4]
 title = "Delete the cjs encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157342,7 +157454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.5]
 title = "Delete types encoding files of accesscontrol_x, part a"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157374,7 +157486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.6]
 title = "Delete types encoding files of accesscontrol_x, part b"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157406,7 +157518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.7]
 title = "Delete the esm encoding files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157437,7 +157549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.8]
 title = "Delete the cjs encoding files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157660,7 +157772,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.1]
 title = "Drop the 17 tendermint.abci Request encoders that consensus/proto has no message for"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157692,7 +157804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.2]
 title = "Align tendermint types and version encoders in sdk/js with consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157724,7 +157836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.3]
 title = "Align the PublicKey and BlockParams encoders in sdk/js with consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157756,7 +157868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.4]
 title = "Add the evm Params fee-token and pointer fields of api/evm to the sdk/js encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157788,7 +157900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.5]
 title = "Add issuer_did and pagination to the sdk/js tokenfactory encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157831,7 +157943,7 @@ do_1 = "Wrap req[\"denom\"] in encodeURIComponent at sdk/js/dist/esm/rest/tokenf
 do_2 = "Wrap req[\"creator\"] in encodeURIComponent at sdk/js/dist/esm/rest/tokenfactory/query.js:16 for /pax-protocol/paxchain/tokenfactory/denoms_from_creator/{creator} (api/tokenfactory/query.proto:36) and render pagination.limit and pagination.key as query parameters."
 do_3 = "Make the same two changes in the CommonJS twin sdk/js/dist/cjs/rest/tokenfactory/query.js:1."
 do_4 = "Create sdk/js/test/tokenfactory-rest.test.cjs (planned) with denom_authority_metadata_route_escapes_factory_denom and denoms_from_creator_route_carries_pagination, driving Querier.tokenfactory with a stub fetch that records the URL."
-symbols = ["Query", "DenomAuthorityMetadata", "DenomsFromCreator", "denom_authority_metadata_route_escapes_factory_denom", "denoms_from_creator_route_carries_pagination"]
+symbols = ["DenomAuthorityMetadata", "DenomsFromCreator", "denom_authority_metadata_route_escapes_factory_denom", "denoms_from_creator_route_carries_pagination"]
 touches = ["sdk/js/dist/esm/rest/tokenfactory/query.js", "sdk/js/dist/cjs/rest/tokenfactory/query.js", "sdk/js/test/tokenfactory-rest.test.cjs"]
 tests = ["sdk/js/test/tokenfactory-rest.test.cjs::denom_authority_metadata_route_escapes_factory_denom", "sdk/js/test/tokenfactory-rest.test.cjs::denoms_from_creator_route_carries_pagination"]
 planned_paths = ["sdk/js/test/tokenfactory-rest.test.cjs"]
@@ -157884,7 +157996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.8]
 title = "Drop the 21 remaining tendermint.abci encoders absent from consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.1"]
@@ -157917,7 +158029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.9]
 title = "Align the sdk/js evm and tokenfactory type declarations with api/ protos"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.4", "14.3.10", "14.3.5"]
@@ -157949,7 +158061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.10]
 title = "Add the ChainConfig and Asset fields of api/evm to the sdk/js encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -158079,8 +158191,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Drop the anchor, batch and checkpoint explorer link targets"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["14.0.1"]
+wave = 4
+requires = ["14.0.1", "12.33.8"]
 reqs = ["14039.1", "14039.2"]
 capabilities = ["14.5.1"]
 interfaces = ["interface.14.ts-web-explorer-links-explorerlinktarget", "interface.14.ts-web-explorer-links-explorer-anchor-path", "interface.14.ts-web-explorer-links-explorerlinkpath"]
@@ -158144,7 +158256,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Read explorer records from the PAXEER_X_EXPLORER_BASE_URL origin only"
 status = "pending"
 mode = "BUILD"
-wave = 3
+wave = 4
 requires = ["14.5.1", "14.5.2"]
 reqs = ["14041.1", "14041.2"]
 capabilities = ["14.5.3"]
@@ -158368,7 +158480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Remove the deposit, withdraw, journey and exit routes"
 status = "pending"
 mode = "BUILD"
-wave = 2
+wave = 4
 requires = ["14.7.5", "14.8.2"]
 reqs = ["14047.1"]
 capabilities = ["14.7.1"]
@@ -158400,7 +158512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the deposit, withdraw and exit journeys and their browser specs"
 status = "pending"
 mode = "BUILD"
-wave = 3
+wave = 4
 requires = ["14.7.1"]
 reqs = ["14049.1", "14049.2"]
 capabilities = ["14.7.3"]
@@ -158528,7 +158640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Remove the wallet payout binding from settings and keep the fee preference"
 status = "pending"
 mode = "BUILD"
-wave = 2
+wave = 4
 requires = ["14.8.2", "14.11.2"]
 reqs = ["14053.1", "14053.2"]
 capabilities = ["14.8.2"]
@@ -158561,8 +158673,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Stop the settings screen reading the retired wallet binding and exit routes"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["14.0.1"]
+wave = 4
+requires = ["14.0.1", "12.33.8"]
 reqs = ["14052.1", "14052.2"]
 capabilities = ["14.8.1"]
 interfaces = ["interface.14.ts-web-settings-settings-screen-loadsettingssnapshot-j53"]
@@ -161477,7 +161589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.1]
 title = "Add an appenv package that turns EVM deployment records into the app's vault variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -161508,7 +161620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.2]
 title = "Add the paxeer-bridge-app-env command that writes the app env from a records directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.53.1"]
@@ -166159,8 +166271,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Drop the handover registration check from the genesis module-table suite"
 status = "pending"
 mode = "BUILD"
-wave = 3
-requires = ["16.21.1", "16.2.3"]
+wave = 6
+requires = ["16.21.1", "16.2.3", "5.49.2"]
 reqs = ["16245.1"]
 capabilities = ["16.23.1"]
 interfaces = []
@@ -166530,7 +166642,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.26.3]
 title = "Retire the benchmark wasm OCC scenarios built on the sourceless pax_tester.wasm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["16.26.2"]
@@ -166562,7 +166674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.27.1]
 title = "Retire the nested paxload workflows that the repository CI never runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["16.37.1", "16.4.5"]
@@ -167468,7 +167580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.33.1]
 title = "Remove retired guarantor, checkpoint and web-root cases from the protocol and dispatch suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["16.37.1", "9.23.7"]
@@ -168066,7 +168178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.93.1]
 title = "Catalogue the explorer signature route and gate the sig-provider workspace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["16.0.2", "14.0.1"]
@@ -169249,7 +169361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.2.4]
 title = "Add the requires_sei contracts to the retired inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.2.3", "16.94.2"]
@@ -169460,7 +169572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.3.3]
 title = "Record rehearsal evidence in the qualification ledger format"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.3.2", "17.0.2"]
@@ -169702,8 +169814,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
-wave = 0
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1"]
+wave = 1
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -169734,7 +169846,7 @@ title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2"]
+requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]
 interfaces = []
@@ -170368,7 +170480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.9.1]
 title = "Write the off-chain service catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.0.2"]
@@ -170378,6 +170490,7 @@ interfaces = ["interface.17.fmt-service-catalogue-j60"]
 do_1 = "Create spec/layerx-merge/programme/data/services.kvx (planned) with one [service.<slug>] per service block of the merged spec: the eight platform services of domain 8, the agent, human, interop, wallet, web, explorer and bridge services, and perps-data (services/platform/perps-data, domain 3) and the launchpad services (services/launchpad, domain 4)."
 do_2 = "Give each service its domain, route, readiness probe path, completion_task N.0.9 and operation_task, the same values its [service.*] block carries; the change lands in spec/layerx-merge/programme/data/services.kvx (planned)."
 do_3 = "Create spec/layerx-merge/programme/services.py (planned) and spec/layerx-merge/programme/tests/test_service_catalogue.py (planned) with the two tests named below."
+do_4 = "Bound the domain check of test_every_service_has_domain_and_tasks at spec/layerx-merge/programme/tests/test_service_catalogue.py:17-18 to 3..16 per req.17027 ac_1, so merge-tools and rollout-controller (domain 16, completion_task 16.0.9) are accepted."
 symbols = ["diff_spec"]
 touches = ["spec/layerx-merge/programme/data/services.kvx", "spec/layerx-merge/programme/services.py", "spec/layerx-merge/programme/tests/test_service_catalogue.py"]
 tests = ["spec/layerx-merge/programme/tests/test_service_catalogue.py::test_every_service_has_domain_and_tasks", "spec/layerx-merge/programme/tests/test_service_catalogue.py::test_catalogue_matches_spec_service_blocks"]
@@ -170458,7 +170571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.10.2]
 title = "Check the qualification ledger header against the v2 task ids and entry keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["17.10.1", "17.0.2"]
@@ -170548,7 +170661,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.13.1]
 title = "Register the external artefacts the repository references but does not carry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.0.2"]
@@ -170578,7 +170691,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.92.1]
 title = "Describe sdk/js as the first-party cosmos package in the contributor docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.0.1", "14.0.1"]
