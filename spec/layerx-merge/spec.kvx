@@ -102054,7 +102054,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.8.1]
 title = "Rehearse RunMigrations at perps consensus version 1 as a no-op"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -105390,7 +105390,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.53.2]
 title = "Show the account fee tier from getFeeTier in the portfolio panel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.53.1", "3.48.1", "3.0.3"]
@@ -111107,7 +111107,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.50.1]
 title = "Retire the v1 browser stream transport from the SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["4.46.8"]
@@ -115325,7 +115325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.1]
 title = "Serve the merge stores from the composite commit store in migration write modes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.41.2"]
@@ -115356,7 +115356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.2]
 title = "Add the merge trees to an existing memiavl database by store upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.41.2"]
@@ -115416,7 +115416,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.4]
 title = "Route the merge stores to memiavl through the EVM migration routers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.41.2"]
@@ -115476,7 +115476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.6]
 title = "Migrate the merge stores through the all-but-bank and bank migration routers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.41.2"]
@@ -153495,7 +153495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.3]
 title = "Bind kernel plan legs with the pending nonce of the wallet address"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["12.25.3", "12.31.1"]
@@ -157900,7 +157900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.0.2]
 title = "Freeze the web receipt read: ethTransactionReceipt on the gateway client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["14.0.1", "14.11.1", "14.1.4", "14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8", "14.3.1", "14.3.2", "14.3.3", "14.3.4", "14.3.5", "14.3.6", "14.3.10", "14.5.1", "14.5.2", "14.7.1", "14.8.1", "14.9.2", "14.9.3", "14.9.4", "14.9.5", "14.9.6", "14.10.1", "14.21.2", "14.22.3", "14.22.5", "14.23.1", "14.25.2", "14.26.2", "14.27.1", "14.29.1", "14.30.2", "14.35.1", "14.36.1", "14.38.1", "14.42.1", "14.43.1", "14.44.3", "14.46.2", "14.47.1", "14.48.2", "14.49.1", "14.50.2", "14.52.1", "14.53.2", "14.54.1", "14.56.1", "14.57.1"]
