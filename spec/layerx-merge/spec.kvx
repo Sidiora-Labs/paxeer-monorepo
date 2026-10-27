@@ -100095,7 +100095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.5]
 title = "Prove layerxagent params and pause change through a LayerX governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.32.7", "2.32.8", "2.0.2", "6.95.1"]
@@ -100130,13 +100130,13 @@ title = "Prove the application imports and exports layerxpay genesis over the sh
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["2.27.3", "2.0.2", "5.19.2"]
+requires = ["2.27.3", "2.0.2", "5.19.2", "5.94.2", "5.19.4"]
 reqs = ["2308.1"]
 capabilities = ["2.38.6"]
 interfaces = []
 wiring = ["wiring.J24.9"]
 do_1 = "Write package integration_test in modules/layerxpay/integration/genesis_test.go (planned) over NewTestWrapper (node/test_helpers.go:128)."
-do_2 = "Open one escrow through the served 0x101B, export the application state with ExportAppStateAndValidators (node/export.go:22) and import it into a second application through InitChainer (node/app.go:1507)."
+do_2 = "Open one escrow through the served 0x101B, export the application state with ExportAppStateAndValidators (node/export.go:22) and import it into a second application through InitChainer (node/app.go:1507); the pay precompile at 0x000000000000000000000000000000000000101B is served by the application itself (the blank import task 5.19.4 adds and the LayerXPayKeepers accessor task 5.94.2 exposes), so the test imports precompiles/layerxpay only for PayAddress and the ABI and never builds the precompile locally."
 do_3 = "Compare the layerxpay genesis JSON and the getEscrow result (spec/layerx-merge/contracts/pay.md:153) across both applications."
 do_4 = "Write TestAppExportsPayGenesisWithSharedHost in modules/layerxpay/integration/genesis_test.go (planned)."
 symbols = ["TestAppExportsPayGenesisWithSharedHost"]
@@ -100161,14 +100161,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove the application imports and exports layerxagent genesis with stored jobs"
 status = "pending"
 mode = "BUILD"
-wave = 14
-requires = ["2.32.8", "2.0.2", "5.19.2"]
+wave = 15
+requires = ["2.32.8", "2.0.2", "5.19.2", "2.34.2"]
 reqs = ["2309.1"]
 capabilities = ["2.38.7"]
 interfaces = []
 wiring = ["wiring.J24.10"]
 do_1 = "Write package integration_test in modules/layerxagent/integration/genesis_test.go (planned) over NewTestWrapper (node/test_helpers.go:128)."
-do_2 = "Schedule one job through the served 0x0905, export with ExportAppStateAndValidators (node/export.go:22) and import into a second application through InitChainer (node/app.go:1507)."
+do_2 = "Schedule one job through the served 0x0905, export with ExportAppStateAndValidators (node/export.go:22) and import into a second application through InitChainer (node/app.go:1507); the scheduler precompile at 0x0000000000000000000000000000000000000905 is the one the application serves (task 2.34.2 wires it), not one built locally in the test."
 do_3 = "Compare the layerxagent Job query in api/layerxagent/query.proto (planned) and the module account balance across both applications."
 do_4 = "Write TestAppExportsAgentGenesis in modules/layerxagent/integration/genesis_test.go (planned)."
 symbols = ["TestAppExportsAgentGenesis"]
@@ -101064,7 +101064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.3.2]
 title = "Pin the quoteMarket handler to the keeper market quote"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -101930,7 +101930,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.2]
 title = "Freeze the 0x1015 order and market view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -101992,7 +101992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.4]
 title = "Freeze the 0x1015 quote outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -102084,7 +102084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.8.2]
 title = "Rehearse the v6.12.0 perps seed after governance changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -102114,7 +102114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.1]
 title = "Aggregate a pricefeed market appended by a governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -102176,7 +102176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.3]
 title = "Skip aggregation when a proposal raises MinSources above the sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -104949,7 +104949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.5]
 title = "Apply chain order limits in PerpsOrderForm and buildOrderPlan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.48.1", "3.48.2", "3.47.3", "3.0.3"]
@@ -104982,7 +104982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.6]
 title = "Take quoter leverage, margin and market status from the chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.48.1", "3.48.13", "3.0.3"]
@@ -105297,7 +105297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.52.2]
 title = "Block spot order submit for a paused token"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.52.1", "3.47.3", "3.0.3"]
@@ -105328,7 +105328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.52.3]
 title = "Badge paused tokens in the spot watchlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.52.1", "3.0.3"]
@@ -110359,7 +110359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.43.5]
 title = "Decode UnexecutableQuote into a typed optical rejection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["4.43.4", "4.43.2"]
@@ -135975,7 +135975,7 @@ touches = ["sdk/platform/conformance/fixtures/native-program-call-v3.json", "sdk
 tests = ["sdk/platform/conformance/evm-call-wrapping.test.py::test_call_vectors_wrap_payload_in_layerxprograms_call", "sdk/platform/conformance/evm-call-wrapping.test.py::test_account_derivation_records_evm_address", "sdk/platform/conformance/evm-call-wrapping.test.py::test_intent_plan_legs_are_evm_calls"]
 planned_paths = ["sdk/platform/conformance/evm-call-wrapping.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/fixtures/generate_native_program_fixture.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/evm-call-wrapping.test.py::test_call_vectors_wrap_payload_in_layerxprograms_call sdk/platform/conformance/evm-call-wrapping.test.py::test_account_derivation_records_evm_address sdk/platform/conformance/evm-call-wrapping.test.py::test_intent_plan_legs_are_evm_calls -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/evm-call-wrapping.test.py::test_call_vectors_wrap_payload_in_layerxprograms_call sdk/platform/conformance/evm-call-wrapping.test.py::test_account_derivation_records_evm_address sdk/platform/conformance/evm-call-wrapping.test.py::test_intent_plan_legs_are_evm_calls -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -136005,7 +136005,7 @@ touches = ["sdk/platform/conformance/fixtures/native-program-deploy-v3.json", "s
 tests = ["sdk/platform/conformance/evm-lifecycle-wrapping.test.py::test_deploy_and_upgrade_vectors_use_layerxprograms_selectors", "sdk/platform/conformance/evm-lifecycle-wrapping.test.py::test_lifecycle_generator_check_detects_drift"]
 planned_paths = ["sdk/platform/conformance/evm-lifecycle-wrapping.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/evm-lifecycle-wrapping.test.py::test_deploy_and_upgrade_vectors_use_layerxprograms_selectors sdk/platform/conformance/evm-lifecycle-wrapping.test.py::test_lifecycle_generator_check_detects_drift -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/evm-lifecycle-wrapping.test.py::test_deploy_and_upgrade_vectors_use_layerxprograms_selectors sdk/platform/conformance/evm-lifecycle-wrapping.test.py::test_lifecycle_generator_check_detects_drift -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -136036,7 +136036,7 @@ touches = ["sdk/platform/conformance/streaming-resumability.test.py", "services/
 tests = ["sdk/platform/conformance/streaming-resumability.test.py::test_log_cursor_resumes_after_last_delivered_log", "sdk/platform/conformance/streaming-resumability.test.py::test_log_cursor_refuses_regressing_log_position"]
 planned_paths = []
 build_cmd = "python3 -m py_compile sdk/platform/conformance/streaming-resumability.test.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/streaming-resumability.test.py::test_log_cursor_resumes_after_last_delivered_log sdk/platform/conformance/streaming-resumability.test.py::test_log_cursor_refuses_regressing_log_position -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/streaming-resumability.test.py::test_log_cursor_resumes_after_last_delivered_log sdk/platform/conformance/streaming-resumability.test.py::test_log_cursor_refuses_regressing_log_position -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -136067,7 +136067,7 @@ touches = ["sdk/platform/conformance/fixtures/receipt-positive-v1.json", "sdk/pl
 tests = ["sdk/platform/conformance/kernel-fixtures-retired-1.test.py::test_kernel_fixture_group_1_absent"]
 planned_paths = ["sdk/platform/conformance/kernel-fixtures-retired-1.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/kernel-fixtures-retired-1.test.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/kernel-fixtures-retired-1.test.py::test_kernel_fixture_group_1_absent -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/kernel-fixtures-retired-1.test.py::test_kernel_fixture_group_1_absent -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -136098,7 +136098,7 @@ touches = ["sdk/platform/conformance/fixtures/receipt-programs-positive-v1.json"
 tests = ["sdk/platform/conformance/kernel-fixtures-retired-2.test.py::test_kernel_fixture_group_2_absent"]
 planned_paths = ["sdk/platform/conformance/kernel-fixtures-retired-2.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/kernel-fixtures-retired-2.test.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/kernel-fixtures-retired-2.test.py::test_kernel_fixture_group_2_absent -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/kernel-fixtures-retired-2.test.py::test_kernel_fixture_group_2_absent -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -136130,7 +136130,7 @@ touches = ["sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
 tests = ["sdk/platform/conformance/kernel-fixtures-retired-3.test.py::test_kernel_fixture_group_3_absent"]
 planned_paths = ["sdk/platform/conformance/kernel-fixtures-retired-3.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/kernel-fixtures-retired-3.test.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/kernel-fixtures-retired-3.test.py::test_kernel_fixture_group_3_absent -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/kernel-fixtures-retired-3.test.py::test_kernel_fixture_group_3_absent -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -136225,7 +136225,7 @@ touches = ["sdk/platform/conformance/fixtures/native-program-wind-down-deprecate
 tests = ["sdk/platform/conformance/evm-wind-down-wrapping.test.py::test_wind_down_vectors_are_layerxprograms_calls"]
 planned_paths = ["sdk/platform/conformance/evm-wind-down-wrapping.test.py"]
 build_cmd = "python3 -m py_compile sdk/platform/conformance/fixtures/generate_native_lifecycle_fixtures.py"
-verify_cmd = "python3 -m pytest sdk/platform/conformance/evm-wind-down-wrapping.test.py::test_wind_down_vectors_are_layerxprograms_calls -q"
+verify_cmd = "PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib sdk/platform/conformance/evm-wind-down-wrapping.test.py::test_wind_down_vectors_are_layerxprograms_calls -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -152701,7 +152701,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.25.3]
 title = "Read the pending nonce and sequencer receipt in KernelClient and retire the lx reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["12.25.2", "12.23.1"]
@@ -159892,7 +159892,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.21.2]
 title = "Drop custody and anchor from the capabilities response and its OpenAPI schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["14.21.1", "8.93.1"]
