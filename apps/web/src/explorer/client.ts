@@ -36,25 +36,6 @@ export class ExplorerUnavailableError extends Error {
   }
 }
 
-function programExplorerOrigin(): Readonly<{ origin: URL; bearer: string }> {
-  const configured = process.env.LAYERX_EXPLORER_PROGRAM_API_ORIGIN;
-  const bearer = process.env.LAYERX_EXPLORER_PROGRAM_BEARER_TOKEN;
-  if (configured === undefined || bearer === undefined || bearer.length < 32) {
-    throw new ExplorerUnavailableError();
-  }
-  let origin: URL;
-  try {
-    origin = new URL(configured);
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  const loopback = origin.hostname === "127.0.0.1" || origin.hostname === "localhost";
-  if (!loopback || origin.protocol !== "http:" || origin.pathname !== "/") {
-    throw new ExplorerUnavailableError();
-  }
-  return Object.freeze({ origin, bearer });
-}
-
 function explorerOrigin(): URL {
   return explorerBaseUrl();
 }
@@ -161,12 +142,11 @@ export async function programRecord(identifier: string): Promise<ProgramRecord |
   if (!validExplorerIdentifier(identifier)) {
     throw new TypeError("Invalid program identifier");
   }
-  const { origin, bearer } = programExplorerOrigin();
-  const url = new URL(`/v1/programs/${encodeURIComponent(identifier.toLowerCase())}`, origin);
+  const url = new URL(`/v1/programs/${encodeURIComponent(identifier.toLowerCase())}`, explorerOrigin());
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+      headers: { Accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
@@ -270,13 +250,12 @@ export async function resolveName(name: string): Promise<NameResolutionRecord | 
   if (!validExplorerName(name)) {
     throw new TypeError("Invalid name");
   }
-  const { origin, bearer } = programExplorerOrigin();
-  const url = new URL(`/v1/programs/${namingProgram()}/reads/resolve`, origin);
+  const url = new URL(`/v1/programs/${namingProgram()}/reads/resolve`, explorerOrigin());
   url.searchParams.set("name", name);
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+      headers: { Accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
