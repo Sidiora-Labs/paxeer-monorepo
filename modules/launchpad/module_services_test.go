@@ -133,6 +133,18 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				var result types.QueryAirdropEpochResponse
 				require.NoError(t, cdc.Unmarshal(response.Value, &result))
 				require.Equal(t, types.QueryAirdropEpochResponse{Found: false}, result)
+			case "AirdropClaimed":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				data, err := cdc.Marshal(&types.QueryAirdropClaimedRequest{
+					Pool:   "0x0000000000000000000000000000000000001238",
+					Holder: "0x0000000000000000000000000000000000001239", Epoch: 1,
+				})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryAirdropClaimedResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QueryAirdropClaimedResponse{Claimed: false}, result)
 			case "Treasury":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})

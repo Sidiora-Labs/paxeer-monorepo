@@ -27,14 +27,6 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	return sdk.UnwrapSDKContext(goCtx), nil
 }
 
-func (q Querier) AirdropClaimed(goCtx context.Context, req *types.QueryAirdropClaimedRequest) (*types.QueryAirdropClaimedResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.AirdropClaimed(sdk.WrapSDKContext(ctx), req)
-}
-
 func (q Querier) HasRole(goCtx context.Context, req *types.QueryHasRoleRequest) (*types.QueryHasRoleResponse, error) {
 	ctx, err := queryContext(goCtx, req)
 	if err != nil {
