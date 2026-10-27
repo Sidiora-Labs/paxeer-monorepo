@@ -298,12 +298,20 @@ fn precompile_answers() -> Vec<(String, String)> {
 }
 
 fn chain_answer(answers: &[(String, String)], request: &http::Request) -> http::Response {
+    chain_answer_for_chain(answers, request, CHAIN_ID)
+}
+
+fn chain_answer_for_chain(
+    answers: &[(String, String)],
+    request: &http::Request,
+    chain_id: &str,
+) -> http::Response {
     let Ok(call) = serde_json::from_slice::<Value>(&request.body) else {
         return http::refusal(400, "invalid_json", None);
     };
     let id = call["id"].clone();
     let result = match call["method"].as_str() {
-        Some("eth_chainId") => Some(json!(CHAIN_ID)),
+        Some("eth_chainId") => Some(json!(chain_id)),
         Some("eth_blockNumber") => Some(json!(LATEST_BLOCK)),
         Some("eth_call") => call["params"][0]["data"].as_str().and_then(|data| {
             answers
@@ -426,9 +434,20 @@ fn gateway_command(environment: &[(String, String)]) -> Command {
     command
 }
 
-fn start_gateway(redis: &RedisProcess, chain_port: u16, producer: bool) -> Gateway {
+fn start_gateway(
+    redis: &RedisProcess,
+    chain_port: u16,
+    producer: bool,
+    receipt_keys: Option<&str>,
+) -> Gateway {
     let listen = free_port();
-    let environment = chain_only_environment(redis, chain_port, listen, producer);
+    let mut environment = chain_only_environment(redis, chain_port, listen, producer);
+    if let Some(path) = receipt_keys {
+        environment.push((
+            "LAYERX_GATEWAY_RECEIPT_KEYS_FILE".to_owned(),
+            path.to_owned(),
+        ));
+    }
     assert!(environment.iter().all(|(name, _)| {
         !KERNEL_SIDE_VARIABLES.contains(&name.as_str()) && name != "LAYERX_GATEWAY_COMPONENT_URL"
     }));
@@ -538,7 +557,7 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
     let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
         chain_answer(&answers, request)
     });
-    let gateway = start_gateway(&redis, chain.port, true);
+    let gateway = start_gateway(&redis, chain.port, true, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
@@ -614,7 +633,7 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
     let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
         chain_answer(&answers, request)
     });
-    let gateway = start_gateway(&redis, chain.port, true);
+    let gateway = start_gateway(&redis, chain.port, true, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
@@ -667,6 +686,45 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
 }
 
 #[test]
+fn chain_only_gateway_pins_receipt_keys_without_the_component_url() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let redis = RedisProcess::start();
+    let (tls, _) = payment_events::tls(&redis);
+    let answers = precompile_answers();
+    let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
+        chain_answer_for_chain(&answers, request, "0x7d")
+    });
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[0x42; 32]);
+    let receipt_keys = secret(
+        &redis.directory,
+        "receipt-keys.json",
+        &json!([{
+            "key_id": layerx_platform_internal::base64::encode(&[0x51; 32]),
+            "public_key": layerx_platform_internal::base64::encode(
+                &signer.verifying_key().to_bytes()
+            ),
+            "first_height": 0,
+            "last_height": u64::MAX,
+        }])
+        .to_string(),
+    );
+    let gateway = start_gateway(&redis, chain.port, false, Some(&receipt_keys));
+
+    let (status, liveness) = gateway.get("/livez");
+    assert_eq!(status, 200, "{liveness}");
+
+    let (status, readiness) = gateway.get("/readyz");
+    assert_eq!(status, 200, "{readiness}");
+    assert_eq!(
+        readiness["backends"]["paxeer_chain"],
+        json!({"state": "ready", "reason": "ready"}),
+        "{readiness}"
+    );
+    drop(gateway);
+    drop(chain);
+}
+
+#[test]
 fn degraded_endpoint_refuses_a_kernel_side_input_without_the_component_url() {
     let redis = RedisProcess::start();
     let _ = payment_events::tls(&redis);
@@ -703,7 +761,7 @@ fn degraded_endpoint_starts_without_the_event_producer_and_reports_it_unconfigur
     assert!(environment
         .iter()
         .all(|(name, _)| !name.starts_with("LAYERX_EVENTS_")));
-    let gateway = start_gateway(&redis, chain.port, false);
+    let gateway = start_gateway(&redis, chain.port, false, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
