@@ -7637,3 +7637,83 @@ symbol = "TestPayGenesisRehearsalKeepsKernelState"
 observed = "Attempt 0991dc490 fails at :64 with LXP_MODULE_DISABLED: layerxpay streamOpen, because the hosted kernel registers no stream module until task 1.24.1 lands, the break the layerxpay_host_pending hold records."
 assumption = "2.40.9 now requires 1.24.1. Recorded once."
 severity = "major"
+
+[finding.5.55.2]
+task = "5.55.2"
+file = "daemon/committed-fixture/vectors/vector-v1-receipted-positive.json"
+symbol = "TestVectorV1ReceiptedPositiveVerifies"
+observed = "Attempt 8bba2b20d compiled the V1 recorder and test but wrote no vector file: it treated building paxd for the recording as a gate beyond its allowance and stopped, so the test fails on open."
+assumption = "do_4 states that the recording run is implementation work and names the build, the record command and the two sibling files to restore; a fresh recording is required because the conformance fixture holds no two-log contract creation. Recorded once."
+severity = "major"
+
+[finding.5.55.3]
+task = "5.55.3"
+file = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json"
+symbol = "recordV2"
+observed = "The published V2 vector carries the provenance of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (generator rpc/sequencer_receipt_vectors_test.go) instead of a fresh recording through the committed-fixture recorder, which the attempt did not run for want of a paxd binary."
+assumption = "The vector verifies and is left as published; whether V2 and V3 must be re-recorded through the recorder once 5.55.2 proves the route is the owner's call. Recorded once."
+severity = "minor"
+
+[finding.13.22.1.2]
+task = "13.22.1"
+file = "precompiles/layerxprograms/harness_test.go"
+symbol = "TestProgramsMergeConstructorRegistered"
+observed = "At c947bd839 the build passed and the verify_cmd failed with 'import cycle not allowed in test': the in-package tests reach node through tests/testutil/keeper and modules/xweb/testutil while node now imports precompiles/layerxprograms."
+assumption = "Converting the in-package tests to package layerxprograms_test behind an export_test.go breaks the cycle; do_9 records it."
+severity = "major"
+
+[finding.5.55.2.2]
+task = "5.55.2"
+file = "daemon/committed-fixture/main.go"
+symbol = "run"
+observed = "The recorder writes a primary sequencer config without standby-address, so paxd exits at node/sequencer/node.go:62 ('invalid standby-address: missing port in address'); a primary also needs a reachable standby for Release (node/sequencer/driver.go:81)."
+assumption = "5.55.2 starts a loopback standby paxd beside the primary (do_5) and 5.55.5 now requires 5.55.2."
+severity = "major"
+
+[finding.5.55.5]
+task = "5.55.5"
+file = "daemon/committed-fixture/vectors/vector-v4-committed.json"
+symbol = "recordV4"
+observed = "At 3fd4b1b6d the V4 vector stayed incomplete because the recorder's primary paxd refused to start without a standby-address."
+assumption = "Same cause as finding.5.55.2.2; the task requires 5.55.2 and records nothing until the recorder runs."
+severity = "major"
+
+[finding.6.47.1]
+task = "6.47.1"
+file = "modules/layerxcustody/keeper/merge_release_test.go"
+symbol = "TestMergePlanReleasesCustodyToTheAuthority"
+observed = "At d2debe963 ApplyUpgrade v7.0 panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584): the node imports the oracle, scheduler and streams precompiles only in 5.94.4."
+assumption = "The task now requires 5.94.4 and the test is kept as written; the check is not relaxed."
+severity = "major"
+
+[finding.6.33.2]
+task = "6.33.2"
+file = "modules/layerxanchor/keeper/merge_handler_test.go"
+symbol = "TestMergeHandlerRetiresAnchor"
+observed = "At 8b60a0084 ApplyUpgrade v7.0 panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584): the node imports the oracle, scheduler and streams precompiles only in 5.94.4."
+assumption = "The task now requires 5.94.4 and the test is kept as written; the check is not relaxed."
+severity = "major"
+
+[finding.5.16.3]
+task = "5.16.3"
+file = "node/merge_rehearsal_test.go"
+symbol = "TestMergeRehearsalFirstSequencedBlock"
+observed = "At 8e69e3525 ApplyUpgrade v7.0 panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584): the node imports the oracle, scheduler and streams precompiles only in 5.94.4."
+assumption = "The task now requires 5.94.4 and the test is kept as written; the check is not relaxed."
+severity = "major"
+
+[finding.11.1.4]
+task = "11.1.4"
+file = "services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs"
+symbol = "lock_lists_every_member_dependency"
+observed = "At 421a5628d and 44a9584d0 cargo build --tests failed: workspace_lock.rs:19 still include_str!s crates/layerx-intent-ingester/Cargo.toml, a crate 11.30.1 deleted at fc9c1c7ce."
+assumption = "11.1.4 drops the entry (do_4) because the build blocks it; 11.30.1 is not reopened."
+severity = "major"
+
+[finding.5.14.2]
+task = "5.14.2"
+file = "node/sequencer/ante_sequenced_test.go"
+symbol = "TestSequencedGaslessOracleVoteChargesNoFee"
+observed = "At 3de7a2c9c ValidateFeeder refused the vote ('validator does not exist') and after the repair ProcessBlock panicked 'secp256k1 consensus keys are not supported' (sdk/crypto/codec/tm.go:35)."
+assumption = "The test derives an ed25519 consensus key as node/sequencer/failover_rehearsal_test.go:47-49 does (do_4)."
+severity = "minor"

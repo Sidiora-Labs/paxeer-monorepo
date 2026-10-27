@@ -18,6 +18,8 @@ store_added = ["perps", "spot", "pricefeed"]
 store_deleted = []
 
 [plan.v7.0]
+declaring_constant = "pcommon.MergeUpgrade"
+constant_site = "precompiles/common/precompiles.go:30"
 handler = "mergeUpgradePlan"
 precompile_gate = "mergePrecompileGate"
 store_added = ["sequencer", "layerxledger", "layerxauth", "layerxpay", "layerxprograms", "layerxagent", "layerxhost"]
