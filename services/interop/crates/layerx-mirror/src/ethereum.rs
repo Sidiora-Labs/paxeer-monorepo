@@ -1193,7 +1193,203 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_manifest, manifest_within_bounds, MAX_ARCHIVE_BYTES, MAX_ARCHIVE_CHUNKS};
+    use std::io::Read;
+
+    use layerx_proof::availability::{verify_chunk, AvailabilityClass, Chunk};
+    use layerx_proof::merkle::build_leaf_hash_proof;
+    use layerx_wire::receipt::decode_batch_header;
+    use sha2::{Digest, Sha256};
+    use sha3::Keccak256;
+
+    use crate::committed::{CommittedBlock, CommittedHeader};
+    use crate::{Archive, BatchAuthorization, NodeBatch, NodeHead, SignedHeaderTrust};
+
+    use super::{
+        chunk_chain_root, decode_manifest, manifest_within_bounds, stages, EthereumError,
+        PublicationStage, MAX_ARCHIVE_BYTES, MAX_ARCHIVE_CHUNKS, MIN_CHUNK_BYTES,
+    };
+
+    fn committed_archive() -> Archive {
+        let height = 0x0102_0304_0506_0708;
+        Archive::from_committed(
+            &CommittedBlock {
+                header: CommittedHeader {
+                    height,
+                    block_hash: [0x11; 32],
+                    parent_hash: [0x22; 32],
+                    app_hash: [0x33; 32],
+                    timestamp: 1_700_000_000,
+                    transactions: vec![[0x44; 32]],
+                },
+                receipts: vec![vec![0x55; 2049]],
+            },
+            125,
+            NodeHead {
+                latest_sealed_batch: height + 3,
+                latest_committed: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("committed archive: {error:?}"))
+    }
+
+    fn fixture_field<const N: usize>(input: &mut &[u8]) -> [u8; N] {
+        let mut bytes = [0; N];
+        input
+            .read_exact(&mut bytes)
+            .unwrap_or_else(|error| panic!("native fixture field: {error}"));
+        bytes
+    }
+
+    fn archive_without_committed_block() -> Archive {
+        let header_bytes = include_bytes!("../tests/fixtures/native-publisher/1.header");
+        let header = decode_batch_header(header_bytes)
+            .unwrap_or_else(|error| panic!("native header: {error:?}"));
+        let trust = SignedHeaderTrust {
+            sequencer_id: *include_bytes!("../tests/fixtures/native-publisher/sequencer.id"),
+            sequencer_public_key: *include_bytes!(
+                "../tests/fixtures/native-publisher/sequencer.public"
+            ),
+            first_batch_number: 1,
+            last_batch_number: 6,
+        };
+        let batch = NodeBatch::verify(
+            header_bytes.to_vec(),
+            BatchAuthorization {
+                sequencer_id: trust.sequencer_id,
+                sequencer_public_key: trust.sequencer_public_key,
+                first_batch_number: trust.first_batch_number,
+                last_batch_number: trust.last_batch_number,
+                header_signature: *include_bytes!("../tests/fixtures/native-publisher/1.signature"),
+            },
+            &trust,
+        )
+        .unwrap_or_else(|error| panic!("native batch: {error:?}"));
+        let mut input = include_bytes!("../tests/fixtures/native-publisher/1.lxda").as_slice();
+        assert_eq!(fixture_field::<4>(&mut input), *b"LXD1");
+        assert_eq!(u64::from_be_bytes(fixture_field(&mut input)), 1);
+        assert_eq!(
+            fixture_field::<32>(&mut input),
+            header.data_availability_root()
+        );
+        let count = u32::from_be_bytes(fixture_field(&mut input));
+        let total = u64::from_be_bytes(fixture_field(&mut input));
+        let mut chunks = Vec::new();
+        for _ in 0..count {
+            let index = u32::from_be_bytes(fixture_field(&mut input));
+            let class = match fixture_field::<1>(&mut input)[0] {
+                1 => AvailabilityClass::Activities,
+                2 => AvailabilityClass::Receipts,
+                3 => AvailabilityClass::Oracle,
+                4 => AvailabilityClass::StateDiff,
+                5 => AvailabilityClass::Recovery,
+                value => panic!("native availability class: {value}"),
+            };
+            let class_offset = u64::from_be_bytes(fixture_field(&mut input));
+            let length = usize::try_from(u32::from_be_bytes(fixture_field(&mut input)))
+                .unwrap_or_else(|error| panic!("native chunk length: {error}"));
+            let claimed_hash = fixture_field(&mut input);
+            let mut bytes = vec![0; length];
+            input
+                .read_exact(&mut bytes)
+                .unwrap_or_else(|error| panic!("native chunk bytes: {error}"));
+            chunks.push(Chunk {
+                batch_number: 1,
+                index,
+                class,
+                class_offset,
+                bytes,
+                claimed_hash,
+            });
+        }
+        assert!(input.is_empty());
+        assert_eq!(
+            chunks
+                .iter()
+                .map(|chunk| chunk.bytes.len() as u64)
+                .sum::<u64>(),
+            total
+        );
+        let hashes = chunks
+            .iter()
+            .map(|chunk| chunk.claimed_hash)
+            .collect::<Vec<_>>();
+        let verified = chunks
+            .into_iter()
+            .enumerate()
+            .map(|(index, chunk)| {
+                let (proof, root) = build_leaf_hash_proof(&hashes, index)
+                    .unwrap_or_else(|error| panic!("native inclusion proof: {error:?}"));
+                assert_eq!(root, header.data_availability_root());
+                verify_chunk(chunk, &proof, 1, &root)
+                    .unwrap_or_else(|error| panic!("native verified chunk: {error:?}"))
+            })
+            .collect::<Vec<_>>();
+        Archive::from_node(
+            &batch,
+            &verified,
+            None,
+            NodeHead {
+                latest_sealed_batch: 1,
+                latest_committed: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("native archive: {error:?}"))
+    }
+
+    #[test]
+    fn begin_carries_the_committed_height_and_block_hash() {
+        let archive = committed_archive();
+        assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
+        assert!(archive.data().checkpoint.is_none());
+        let payloads = stages(&archive, MIN_CHUNK_BYTES)
+            .unwrap_or_else(|error| panic!("archive stages: {error:?}"));
+        let manifest = &payloads[0];
+        assert_eq!(manifest.stage, PublicationStage::Manifest);
+        let call = &manifest.call_data;
+        assert_eq!(call.len(), 4 + 8 * 32);
+        let selector = Keccak256::digest(
+            b"begin(bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32,bytes32)",
+        );
+        assert_eq!(&call[..4], &selector[..4]);
+        let words = call[4..].chunks_exact(32).collect::<Vec<_>>();
+        assert_eq!(words[0], archive.commitment().as_bytes());
+        let uint_word = |value: u64| {
+            let mut word = [0; 32];
+            word[24..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        assert_eq!(words[1], uint_word(125));
+        assert_eq!(words[2], uint_word(0x0102_0304_0506_0708));
+        assert_eq!(words[3], [0x11; 32]);
+        assert_eq!(words[4], uint_word(archive.bytes().len() as u64));
+        assert_eq!(words[5], uint_word(3));
+        assert_eq!(words[6], Sha256::digest(archive.bytes()).as_slice());
+        assert_eq!(
+            words[7],
+            chunk_chain_root(archive.bytes(), MIN_CHUNK_BYTES)
+                .unwrap_or_else(|error| panic!("chunk chain: {error:?}"))
+        );
+        assert_eq!(payloads.len(), 5);
+        for (index, payload) in payloads[1..4].iter().enumerate() {
+            assert_eq!(payload.stage, PublicationStage::Chunk(index as u32));
+        }
+        assert_eq!(payloads[4].stage, PublicationStage::Finalize);
+    }
+
+    #[test]
+    fn a_v4_archive_without_a_committed_block_has_no_manifest() {
+        let archive = committed_archive();
+        let mut missing_block = archive.bytes().to_vec();
+        missing_block.truncate(8 + 2 + 4 + 8);
+        assert!(Archive::from_spool(missing_block, archive.node_head()).is_err());
+
+        let without_committed = archive_without_committed_block();
+        assert!(without_committed.data().committed.is_none());
+        assert!(matches!(
+            stages(&without_committed, MIN_CHUNK_BYTES),
+            Err(EthereumError::Transaction)
+        ));
+    }
 
     fn manifest(length: u64, chunks: u64, finalized: bool) -> Vec<u8> {
         let mut encoded = vec![0_u8; 128];
