@@ -1143,6 +1143,12 @@ async function sha256(...values: readonly Uint8Array[]): Promise<Uint8Array> {
 }
 
 
-export * from "./rpc.js";
+export {
+  PaymentRpc,
+  PaymentRpcError,
+  rpcHex,
+  rpcObject,
+  verifyRpcPayment,
+  type RpcBatchEvidence,
+} from "./rpc.js";
 export * from "./grant.js";
-export * from "./checkpoint.js";
