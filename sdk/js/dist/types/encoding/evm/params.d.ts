@@ -12,6 +12,8 @@ export interface Params extends Params_type {
 }
 export interface AllowedFeeDenom {
     denom: string;
+    rate: string;
+    rate_update_height: number;
 }
 export interface ParamsPreV580 extends ParamsPreV580_type {
 }
@@ -24,9 +26,13 @@ export declare const aminoConverters: {
         aminoType: string;
         toAmino: (message: AllowedFeeDenom) => {
             denom: string;
+            rate: string;
+            rate_update_height: number;
         };
         fromAmino: (object: AllowedFeeDenom) => {
             denom: string;
+            rate: string;
+            rate_update_height: number;
         };
     };
     "/paxprotocol.paxchain.evm.Params": {
