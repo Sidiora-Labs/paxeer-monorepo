@@ -3,6 +3,7 @@ package portal
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,9 +16,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/graph-gophers/graphql-go/relay"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/graphql"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/pnl"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 )
 
@@ -296,6 +301,82 @@ func contains(t *testing.T, where, text string, wants ...string) {
 }
 
 func hour(at time.Time) string { return at.UTC().Truncate(time.Hour).Format(time.RFC3339) }
+
+func TestPortalChainMarketPage(t *testing.T) {
+	db := serverDB(t)
+	if _, err := db.Exec(`INSERT INTO perps.markets
+		(market_id, symbol, name, oracle_symbol, sz_decimals, px_decimals,
+		max_leverage, maintenance_margin_bps, max_open_interest, enabled, source, refreshed_block)
+		VALUES (18, 'DOGE', 'Dogecoin', 'DOGE', NULL, NULL, 1000, 5, 1000000, true, 'chain', 1)`); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	at := now.Truncate(time.Hour).Add(-2 * time.Hour)
+	block := &pageBlock{n: 100, at: at}
+	f := block.fact(0, true, "mark", decode.PerpsAddress)
+	block.add("MarkPriceUpdated", map[string]any{"marketId": "18"}, decode.MarkPriceUpdatedRow{
+		Fact: f, MarketID: "18", MarkPrice: pUSD5, IndexPrice: pUSD7, MidPrice: pUSD5})
+	f = block.fact(0, true, "rate", decode.PerpsAddress)
+	block.add("FundingRateUpdated", map[string]any{"marketId": "18"}, decode.FundingRateUpdatedRow{
+		Fact: f, MarketID: "18", NewRatePerSecond: pRate, FundingRate24h: pRate24h})
+	parent := commitPageBlock(t, db, block, common.Hash{})
+	commitPageBlock(t, db, &pageBlock{n: 101, at: now.Add(-time.Minute)}, parent)
+	markets, err := rest.NewMarkets(db, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	symbols, err := rest.NewSymbol(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	schema, err := graphql.NewSchema(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	mux := http.NewServeMux()
+	markets.Register(mux)
+	symbols.Register(mux)
+	mux.Handle("/graphql", &relay.Handler{Schema: schema})
+	gw := httptest.NewServer(mux)
+	t.Cleanup(gw.Close)
+	answer := get(t, gw.URL+"/api/markets/DOGE")
+	if answer.status != http.StatusOK {
+		t.Fatalf("DOGE record answered %d: %s", answer.status, answer.body)
+	}
+	var record struct {
+		Market records.MarketRecord `json:"market"`
+	}
+	if err := json.Unmarshal([]byte(answer.body), &record); err != nil {
+		t.Fatal(err)
+	}
+	if record.Market.MarketID != "18" {
+		t.Fatalf("DOGE record market_id = %q, want 18", record.Market.MarketID)
+	}
+	proxy, rec := recordingGateway(t, gw.URL)
+	portal := portalServer(t, proxy.URL)
+	for _, symbol := range []string{"DOGE", "doge"} {
+		body := page(t, portal.URL+"/markets/"+symbol)
+		contains(t, "DOGE record", section(body, "record"), "<tr><th>Symbol</th><td>DOGE</td></tr>",
+			"<tr><th>Name</th><td>Dogecoin</td></tr>", "<tr><th>Mark price</th><td>5</td></tr>",
+			"<tr><th>Index price</th><td>7</td></tr>")
+		contains(t, "DOGE funding", section(body, "funding"), fmt.Sprintf(
+			"<tr><td>100</td><td>0.000000001</td><td>0.0000864</td><td>%s</td><td>%s</td></tr>",
+			at.Format(time.RFC3339), explorerLink(100, 0)))
+		contains(t, "DOGE snapshots", section(body, "snapshots"),
+			"<tr><td>"+hour(at.Add(time.Hour))+"</td><td>5</td><td>7</td><td>0</td></tr>")
+		want := "GET /api/markets/DOGE,GET /api/doge/perp_trades?limit=100,POST /graphql,POST /graphql"
+		if got := strings.Join(rec.take(), ","); got != want {
+			t.Fatalf("DOGE page read %s, want %s", got, want)
+		}
+	}
+	unknown := get(t, portal.URL+"/markets/NOPE")
+	if unknown.status != http.StatusNotFound {
+		t.Fatalf("unknown market answered %d: %s", unknown.status, unknown.body)
+	}
+	if got := strings.Join(rec.take(), ","); got != "GET /api/markets/NOPE" {
+		t.Fatalf("unknown market page read %s, want only its REST record", got)
+	}
+}
 
 func TestPortalPages(t *testing.T) {
 	db := serverDB(t)
