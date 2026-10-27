@@ -76,6 +76,7 @@ type HTTPServer struct {
 	mu       sync.Mutex
 	server   *http.Server
 	listener net.Listener // non-nil when server is running
+	onStop   []func()
 
 	// HTTP RPC handler things.
 
@@ -251,6 +252,12 @@ func CheckPath(r *http.Request, path string) bool {
 	return len(r.URL.Path) >= len(path) && r.URL.Path[:len(path)] == path
 }
 
+func (h *HTTPServer) addStopHook(hook func()) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.onStop = append(h.onStop, hook)
+}
+
 // Stop shuts down the HTTP server.
 func (h *HTTPServer) Stop() {
 	h.mu.Lock()
@@ -261,7 +268,11 @@ func (h *HTTPServer) Stop() {
 }
 
 func (h *HTTPServer) doStop() {
+	defer func() { h.onStop = nil }()
 	if h.listener == nil {
+		for _, hook := range h.onStop {
+			hook()
+		}
 		return // not running
 	}
 
@@ -280,6 +291,9 @@ func (h *HTTPServer) doStop() {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		wsHandler.server.Stop()
 		h.wsAPIs = nil
+	}
+	for _, hook := range h.onStop {
+		hook()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
