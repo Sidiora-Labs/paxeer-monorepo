@@ -100063,7 +100063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.4]
 title = "Prove layerxpay params change through a LayerX governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.27.1", "2.27.3", "2.0.2", "6.95.1"]
@@ -135027,7 +135027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.7]
 title = "JVM SDK exports and verifies portable receipt v2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.42.2"]
@@ -135275,7 +135275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.7]
 title = ".NET SDK exports and verifies portable receipt v2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.43.2"]
@@ -152514,7 +152514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.3]
 title = "Read the chain account through px_getAccount in the endpoint client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.24.2", "8.0.2"]
