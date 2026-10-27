@@ -577,10 +577,10 @@ type FilterAPI struct {
 	receiptLogs      *ReceiptLogFeed
 }
 
-// SetReceiptLogFeed makes this API serve pending logs and pending transaction
+// setReceiptLogFeed makes this API serve pending logs and pending transaction
 // filters from feed. Only the sequencer and standby set it, before the server
 // serves requests; every other node refuses them.
-func (a *FilterAPI) SetReceiptLogFeed(feed *ReceiptLogFeed) {
+func (a *FilterAPI) setReceiptLogFeed(feed *ReceiptLogFeed) {
 	a.receiptLogs = feed
 }
 

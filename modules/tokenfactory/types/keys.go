@@ -25,13 +25,11 @@ const (
 const KeySeparator = "|"
 
 var (
-	DenomAuthorityMetadataKey  = "authoritymetadata"
-	DenomsPrefixKey            = "denoms"
-	CreatorPrefixKey           = "creator"
-	AdminPrefixKey             = "admin"
-	DenomPausedPrefixKey       = "paused"
-	CreateDenomFeeWhitelistKey = "createdenomfeewhitelist"
-	DenomAllowListMaxSizeKey   = []byte("allowlistmaxsize")
+	DenomAuthorityMetadataKey = "authoritymetadata"
+	DenomsPrefixKey           = "denoms"
+	CreatorPrefixKey          = "creator"
+	DenomPausedPrefixKey      = "paused"
+	DenomAllowListMaxSizeKey  = []byte("allowlistmaxsize")
 )
 
 // GetDenomPrefixStore returns the store prefix where all the data associated with a specific denom

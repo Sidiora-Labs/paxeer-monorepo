@@ -23,6 +23,7 @@ pub mod payment;
 pub mod robots;
 pub mod search;
 pub mod server;
+pub mod settlement;
 pub mod submit;
 pub mod watch;
 

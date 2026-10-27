@@ -1,0 +1,138 @@
+syntax = "proto3";
+package paxprotocol.paxchain.xweb;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "xweb/tx.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/params";
+  }
+  rpc Attestors(QueryAttestorsRequest) returns (QueryAttestorsResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/attestors";
+  }
+  rpc Request(QueryRequestRequest) returns (QueryRequestResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/request/{request_id}";
+  }
+  rpc Result(QueryResultRequest) returns (QueryResultResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/result/{request_id}";
+  }
+  rpc ProgramRequest(QueryProgramRequestRequest) returns (QueryProgramRequestResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/program_request/{program_id}/{request_id}";
+  }
+  rpc ProgramResult(QueryProgramResultRequest) returns (QueryProgramResultResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/program_result/{program_id}/{request_id}";
+  }
+  rpc ProgramCounters(QueryProgramCountersRequest) returns (QueryProgramCountersResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/xweb/program_counters";
+  }
+}
+
+message Params {
+  option (gogoproto.typedecl) = false;
+  option (gogoproto.goproto_getters) = false;
+  option (gogoproto.goproto_stringer) = false;
+
+  string authority = 1;
+  string fee = 2 [(gogoproto.customtype) = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.Int", (gogoproto.nullable) = false];
+  uint32 max_payload_bytes = 3;
+  uint64 max_callback_gas = 4;
+  uint64 timeout_blocks = 5;
+  uint32 kernel_network_id = 6;
+  repeated string program_fee_denoms = 7;
+}
+
+message Request {
+  option (gogoproto.typedecl) = false;
+  option (gogoproto.goproto_getters) = false;
+  option (gogoproto.goproto_stringer) = false;
+
+  uint64 id = 1 [(gogoproto.customname) = "ID"];
+  bytes requester = 2 [(gogoproto.customtype) = "Address20", (gogoproto.nullable) = false];
+  uint32 kind = 3 [(gogoproto.casttype) = "uint8"];
+  bytes payload_hash = 4 [(gogoproto.customtype) = "Hash32", (gogoproto.nullable) = false];
+  uint64 callback_gas = 5;
+  string fee = 6 [(gogoproto.customtype) = "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types.Int", (gogoproto.nullable) = false];
+  int64 height = 7;
+  int64 timeout_height = 8;
+  uint32 status = 9 [(gogoproto.casttype) = "RequestStatus"];
+  uint32 level = 10 [(gogoproto.casttype) = "uint8"];
+  bytes attestor = 11 [(gogoproto.customtype) = "Address20", (gogoproto.nullable) = false];
+}
+
+message Result {
+  option (gogoproto.typedecl) = false;
+  option (gogoproto.goproto_getters) = false;
+  option (gogoproto.goproto_stringer) = false;
+
+  uint64 request_id = 1 [(gogoproto.customname) = "RequestID"];
+  bytes response = 2;
+  bytes content_digest = 3 [(gogoproto.customtype) = "Hash32", (gogoproto.nullable) = false];
+  uint32 full_length = 4;
+  repeated bytes signers = 5 [(gogoproto.customtype) = "Address20", (gogoproto.nullable) = false];
+  int64 height = 6;
+  uint32 callback = 7 [(gogoproto.casttype) = "CallbackOutcome"];
+  uint64 callback_gas_used = 8;
+  uint32 level = 9 [(gogoproto.casttype) = "uint8"];
+}
+
+message QueryParamsRequest {}
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryAttestorsRequest {}
+message QueryAttestorsResponse {
+  repeated Attestor attestors = 1 [(gogoproto.nullable) = false];
+  uint32 threshold = 2;
+}
+
+message QueryRequestRequest {
+  uint64 request_id = 1;
+}
+message QueryRequestResponse {
+  Request request = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryResultRequest {
+  uint64 request_id = 1;
+}
+message QueryResultResponse {
+  Result result = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryProgramRequestRequest {
+  // Exactly 32 bytes; the server rejects any other width.
+  bytes program_id = 1;
+  uint64 request_id = 2;
+}
+message QueryProgramRequestResponse {
+  // The canonical 123-byte ProgramPendingRecord, including its version byte.
+  bytes record = 1;
+  string fee_denom = 2;
+}
+
+message QueryProgramResultRequest {
+  // Exactly 32 bytes; the server rejects any other width.
+  bytes program_id = 1;
+  uint64 request_id = 2;
+}
+message QueryProgramResultResponse {
+  bytes content_digest = 1 [(gogoproto.customtype) = "Hash32", (gogoproto.nullable) = false];
+  uint32 full_length = 2;
+  uint32 response_length = 3;
+  bytes response = 4;
+}
+
+message QueryProgramCountersRequest {}
+message QueryProgramCountersResponse {
+  uint64 pending = 1;
+  uint64 committed = 2;
+  // The pending request capacity is 256.
+  uint64 pending_capacity = 3;
+  // The committed answer capacity is 64.
+  uint64 committed_capacity = 4;
+}

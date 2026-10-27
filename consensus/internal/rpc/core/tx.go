@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"sort"
 
+	atypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/autobahn/types"
 	tmquery "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/pubsub/query"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/internal/state/indexer"
 	tmmath "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/math"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 )
@@ -32,8 +34,19 @@ func (env *Environment) Tx(ctx context.Context, req *coretypes.RequestTx) (*core
 
 			var proof types.TxProof
 			if req.Prove {
-				block := env.BlockStore.LoadBlock(r.Height)
-				proof = block.Txs.Proof(int(r.Index))
+				if giga, ok := env.gigaRouter().Get(); ok {
+					block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(r.Height))
+					if err != nil {
+						return nil, err
+					}
+					proof = block.Block.Data.Txs.Proof(int(r.Index))
+				} else {
+					block := env.BlockStore.LoadBlock(r.Height)
+					if block == nil {
+						return nil, coretypes.WrapErrHeightNotAvailable(r.Height, utils.None[int64]())
+					}
+					proof = block.Txs.Proof(int(r.Index))
+				}
 			}
 
 			return &coretypes.ResultTx{
@@ -110,8 +123,19 @@ func (env *Environment) TxSearch(ctx context.Context, req *coretypes.RequestTxSe
 
 				var proof types.TxProof
 				if req.Prove {
-					block := env.BlockStore.LoadBlock(r.Height)
-					proof = block.Txs.Proof(int(r.Index))
+					if giga, ok := env.gigaRouter().Get(); ok {
+						block, err := giga.BlockByNumber(ctx, atypes.GlobalBlockNumber(r.Height))
+						if err != nil {
+							return nil, err
+						}
+						proof = block.Block.Data.Txs.Proof(int(r.Index))
+					} else {
+						block := env.BlockStore.LoadBlock(r.Height)
+						if block == nil {
+							return nil, coretypes.WrapErrHeightNotAvailable(r.Height, utils.None[int64]())
+						}
+						proof = block.Txs.Proof(int(r.Index))
+					}
 				}
 
 				apiResults = append(apiResults, &coretypes.ResultTx{

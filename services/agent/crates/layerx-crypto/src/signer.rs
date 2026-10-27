@@ -12,6 +12,7 @@ use k256::ecdsa::Signature;
 use layerx_types::payload::ModuleRegistry;
 use layerx_wire::hash::Domain;
 
+use crate::disclosure::call::bind_call;
 use crate::disclosure::{Disclosure, DisclosureError};
 use crate::evm_transaction::Eip1559Call;
 use crate::{ct, ed25519, SignatureMessage, VerifyError};
@@ -269,6 +270,22 @@ pub trait Signer: fmt::Debug + Send + Sync {
 
     /// Signs the EIP-1559 preimage of one call or refuses it.
     fn sign_transaction<'a>(&'a self, call: &'a Eip1559Call) -> TransactionSignFuture<'a>;
+}
+
+#[must_use]
+pub fn sign_disclosed_call<'a>(
+    signer: &'a dyn Signer,
+    call: &'a Eip1559Call,
+    disclosure: &'a Disclosure,
+    from: [u8; 20],
+) -> TransactionSignFuture<'a> {
+    Box::pin(async move {
+        let rebound = bind_call(call, from).map_err(SignError::from)?;
+        if &rebound != disclosure {
+            return Err(SignError::DisclosureMismatch("call"));
+        }
+        signer.sign_transaction(call).await
+    })
 }
 
 /// Validates, re-encodes, and signs one canonical disclosed activity.

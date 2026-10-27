@@ -26,10 +26,11 @@ func (k ReceiptKey) Covers(height uint64) bool {
 // lastSeq and the seqHash of lastSeq. The activation genesis carries lastSeq 0
 // and the zero lastSeqHash; an exported genesis carries the stored pair.
 type GenesisState struct {
-	Leaders     [][32]byte
-	ReceiptKeys []ReceiptKey
-	LastSeq     uint64
-	LastSeqHash [HashLength]byte
+	Leaders          [][32]byte
+	ReceiptKeys      []ReceiptKey
+	ActivationHeight uint64
+	LastSeq          uint64
+	LastSeqHash      [HashLength]byte
 }
 
 // Validate checks the activation genesis: a non-empty leader list with no zero
@@ -37,20 +38,11 @@ type GenesisState struct {
 // distinct, whose public keys are canonical ed25519 encodings and whose
 // ranges start at height 1 or later and are not inverted, and a lastSeq that
 // agrees with lastSeqHash: lastSeq 0 with the zero hash, a non-zero lastSeq
-// with a non-zero hash.
+// with a non-zero hash. ActivationHeight 0 lets InitGenesis use the next block;
+// a non-zero ActivationHeight must be covered by at least one receipt key.
 func (gs GenesisState) Validate() error {
-	if len(gs.Leaders) == 0 {
-		return ErrInvalidGenesis.Wrap("leader list is empty")
-	}
-	leaders := make(map[[32]byte]struct{}, len(gs.Leaders))
-	for i, leader := range gs.Leaders {
-		if leader == ([32]byte{}) {
-			return ErrInvalidGenesis.Wrapf("leader %d is the zero key", i)
-		}
-		if _, ok := leaders[leader]; ok {
-			return ErrInvalidGenesis.Wrapf("leader %d repeats an earlier leader", i)
-		}
-		leaders[leader] = struct{}{}
+	if err := ValidateLeaders(gs.Leaders); err != nil {
+		return err
 	}
 	if len(gs.ReceiptKeys) == 0 {
 		return ErrInvalidGenesis.Wrap("receipt key list is empty")
@@ -72,6 +64,18 @@ func (gs GenesisState) Validate() error {
 		}
 		if key.FirstHeight > key.LastHeight {
 			return ErrInvalidGenesis.Wrapf("receipt key %d firstHeight %d above lastHeight %d", i, key.FirstHeight, key.LastHeight)
+		}
+	}
+	if gs.ActivationHeight > 0 {
+		covered := false
+		for _, key := range gs.ReceiptKeys {
+			if key.Covers(gs.ActivationHeight) {
+				covered = true
+				break
+			}
+		}
+		if !covered {
+			return ErrInvalidGenesis.Wrapf("no receipt key covers activation height %d", gs.ActivationHeight)
 		}
 	}
 	zeroHash := gs.LastSeqHash == [HashLength]byte{}

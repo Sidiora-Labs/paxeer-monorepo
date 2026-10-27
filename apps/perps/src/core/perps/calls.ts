@@ -383,6 +383,22 @@ export function buildWithdrawAll(accountState: Pick<AccountState, "withdrawable"
 
 /* ── reads ──────────────────────────────────────────────────────── */
 
+export function buildGetMarketConfig(marketId: bigint) {
+  return call("getMarketConfig", [marketId] as const);
+}
+
+export function buildGetMarginTiers(marketId: bigint) {
+  return call("getMarginTiers", [marketId] as const);
+}
+
+export function buildGetMarkPriceDetails(marketId: bigint) {
+  return call("getMarkPriceDetails", [marketId] as const);
+}
+
+export function buildGetFeeTier(account: Address) {
+  return call("getFeeTier", [requireAccount(account)] as const);
+}
+
 export function buildGetAccount(account: Address) {
   return call("getAccount", [requireAccount(account)] as const);
 }

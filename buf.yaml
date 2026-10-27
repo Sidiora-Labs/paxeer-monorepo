@@ -23,7 +23,6 @@ lint:
     - PACKAGE_DIRECTORY_MATCH
     - PACKAGE_SAME_GO_PACKAGE
   ignore:
-    - wasm/third_party/proto
     - sdk/third_party/proto
 
 breaking:

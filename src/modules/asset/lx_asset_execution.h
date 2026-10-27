@@ -164,6 +164,7 @@ static lxp_result asset_transfer(lxp_module_ctx *ctx, const lxp_activity *activi
 static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *activity,
     const lxp_authority_resolved *authority, const asset_decoded *value)
 {
+    const lx_asset_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_asset_record record;
     lx_account *account;
     lx_account *issuance;
@@ -181,7 +182,8 @@ static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *a
     if (status == LXP_OK && memcmp(actor, authority->actor, 32U) != 0)
         status = LXP_ERR_UNAUTHORIZED_DEBIT;
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK && (runtime == NULL || !runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK) status = lxp_hash_context_value(value->payload, value->payload_length, context);
     if (status == LXP_OK) status = lxp_hash_authority(activity->signature.bytes,
                                                      activity->signature.length, authorization);
@@ -192,7 +194,6 @@ static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *a
         if (status == LXP_OK) return LXP_ERR_ASSET_ALREADY_REGISTERED;
         if (status != LXP_ERR_ASSET_MISMATCH) return status;
         {
-            const lx_asset_runtime *runtime = lxp_ctx_module_runtime(ctx);
             size_t count = runtime == NULL ? 0U : runtime->asset_count;
             if (count > LX_ASSET_REGISTRY_CAPACITY) return LXP_FATAL_INVARIANT;
             for (size_t i = 0U; i < ctx->kernel->module_kv_count; ++i) {

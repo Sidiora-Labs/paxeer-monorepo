@@ -1,5 +1,7 @@
 //! Structured, byte-bound descriptions of canonical activities.
 
+pub mod call;
+
 mod native;
 mod program;
 
@@ -28,6 +30,7 @@ use layerx_wire::WireError;
 use crate::{
     authority_grant::AuthorityGrant,
     ct,
+    evm_transaction::Eip1559Call,
     onboarding::{OnboardingConsent, SponsoredRegistration},
     payments::{Grant, Payment},
     session::{decode_session_key, IssuedSessionKey, SessionPurpose},
@@ -169,9 +172,16 @@ pub struct Disclosure {
     pub session_grant: Option<DisclosedSessionGrant>,
     pub onboarding: Option<DisclosedOnboarding>,
     pub native_operation: Option<DisclosedNativeOperation>,
-    activity: Activity,
+    source: Source,
+    call_sender: Option<[u8; 20]>,
     signing_digest: [u8; 32],
     budget_context: Option<BudgetStateContext>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Source {
+    Activity(Activity),
+    Call(Eip1559Call),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -282,7 +292,7 @@ fn fixed<const N: usize>(decoder: &mut Decoder<'_>) -> Result<[u8; N], Disclosur
         .map_err(|_| DisclosureError::MalformedPayload)
 }
 
-fn decode_send(payload: &[u8], activity: &Activity) -> Result<SendSemantics, DisclosureError> {
+fn decode_send(payload: &[u8]) -> Result<SendSemantics, DisclosureError> {
     let mut decoder = Decoder::new(payload, 0);
     if decoder.u16()? != SEND_WIRE_TAG || decoder.u16()? != SEND_FIELD_COUNT {
         return Err(DisclosureError::MalformedPayload);
@@ -318,9 +328,8 @@ fn decode_send(payload: &[u8], activity: &Activity) -> Result<SendSemantics, Dis
 
     if controller != from
         || signed_context_hash != context_hash
-        || network_id != activity.network_id()
-        || protocol_version != activity.protocol_version()
-        || idempotency_key != activity.idempotency_key()
+        || network_id == 0
+        || !layerx_wire::limits::protocol_version_supported(protocol_version)
     {
         return Err(DisclosureError::MalformedPayload);
     }
@@ -344,6 +353,21 @@ fn decode_send(payload: &[u8], activity: &Activity) -> Result<SendSemantics, Dis
         idempotency_key,
         expires_at,
     })
+}
+
+fn decode_activity_send(
+    payload: &[u8],
+    activity: &Activity,
+) -> Result<SendSemantics, DisclosureError> {
+    let send = decode_send(payload)?;
+    let scope = &payload[payload.len() - 6..];
+    if scope[..4] != activity.network_id().to_be_bytes()
+        || scope[4..] != activity.protocol_version().to_be_bytes()
+        || send.idempotency_key != activity.idempotency_key()
+    {
+        return Err(DisclosureError::MalformedPayload);
+    }
+    Ok(send)
 }
 
 fn decode_receive(payload: &[u8], activity: &Activity) -> Result<SendSemantics, DisclosureError> {
@@ -501,7 +525,7 @@ fn semantics(activity: &Activity) -> Result<SendSemantics, DisclosureError> {
         return Err(DisclosureError::MalformedPayload);
     }
     match kind {
-        (ModuleId::Asset, ASSET_SEND_ORDINAL) => decode_send(activity.payload(), activity),
+        (ModuleId::Asset, ASSET_SEND_ORDINAL) => decode_activity_send(activity.payload(), activity),
         (ModuleId::Asset, ASSET_RECEIVE_ORDINAL) => decode_receive(activity.payload(), activity),
         (ModuleId::Bridge, BRIDGE_DEPOSIT_CREDIT_ORDINAL) => {
             decode_bridge_deposit_credit(activity.payload(), activity)
@@ -990,17 +1014,26 @@ struct DisclosureFields {
 impl Disclosure {
     #[must_use]
     pub fn canonical_payload(&self) -> &[u8] {
-        self.activity.payload()
+        match &self.source {
+            Source::Activity(activity) => activity.payload(),
+            Source::Call(call) => &call.data,
+        }
     }
 
     #[must_use]
     pub const fn envelope_sequence(&self) -> u64 {
-        self.activity.account_sequence()
+        match &self.source {
+            Source::Activity(activity) => activity.account_sequence(),
+            Source::Call(call) => call.nonce,
+        }
     }
 
     /// # Errors
     /// Returns a payload decoding error for malformed canonical semantics.
     pub fn payload_sequence(&self) -> Result<Option<u64>, DisclosureError> {
+        if let Source::Call(call) = &self.source {
+            return call::payload_sequence(call);
+        }
         if let Some(DisclosedNativeOperation::BudgetCreate(budget)) = &self.native_operation {
             return Ok(Some(budget.source_sequence));
         }
@@ -1014,13 +1047,22 @@ impl Disclosure {
             });
         }
         match (self.activity_type.module(), self.activity_type.ordinal()) {
-            (ModuleId::Asset, 5 | 6) => Ok(Some(semantics(&self.activity)?.sequence)),
+            (ModuleId::Asset, 5 | 6) => match &self.source {
+                Source::Activity(activity) => Ok(Some(semantics(activity)?.sequence)),
+                Source::Call(call) => call::payload_sequence(call),
+            },
             _ => Ok(None),
         }
     }
 
     fn validate_fields(&self) -> Result<(), DisclosureError> {
-        let expected = decoded_fields(&self.activity, self.budget_context.as_ref())?;
+        let expected = match &self.source {
+            Source::Activity(activity) => decoded_fields(activity, self.budget_context.as_ref())?,
+            Source::Call(call) => call::fields(
+                call,
+                self.call_sender.ok_or(DisclosureError::MalformedPayload)?,
+            )?,
+        };
         macro_rules! require_field {
             ($field:ident) => {
                 if self.$field != expected.$field {
@@ -1054,7 +1096,10 @@ impl Disclosure {
     /// Names the first changed semantic field or returns a typed wire error.
     pub fn reencode(&self) -> Result<Vec<u8>, DisclosureError> {
         self.validate_fields()?;
-        encode_unsigned(&self.activity).map_err(DisclosureError::from)
+        match &self.source {
+            Source::Activity(activity) => encode_unsigned(activity).map_err(DisclosureError::from),
+            Source::Call(_) => Err(DisclosureError::FieldMismatch("source")),
+        }
     }
 
     /// Computes a domain-separated audit digest over the validated disclosure form.
@@ -1167,19 +1212,48 @@ impl Disclosure {
         if let Some(operation) = &self.native_operation {
             encoder.bytes(&operation.encode()?, 2048)?;
         }
+        if let Source::Call(call) = &self.source {
+            encoder.fixed(&call.signing_hash())?;
+            encoder.bytes(&call.data, MAX_TRANSPORT_DISCLOSURE_BYTES)?;
+        }
         Ok(encoder.finish())
     }
 
+    /// Returns the signing digest after checking every disclosed field.
+    ///
+    /// # Errors
+    /// Refuses any semantic field that differs from its source bytes.
+    pub fn signing_digest(&self) -> Result<[u8; 32], DisclosureError> {
+        self.validated_digest()
+    }
+
+    /// Returns all ABI arguments for a construct call, including grant and bank fields.
+    ///
+    /// # Errors
+    /// Refuses malformed calldata.
+    pub fn construct_method(&self) -> Result<Option<call::ConstructMethod>, DisclosureError> {
+        match &self.source {
+            Source::Activity(_) => Ok(None),
+            Source::Call(call) => call::decode_method(call).map(Some),
+        }
+    }
+
     pub(crate) fn validated_digest(&self) -> Result<[u8; 32], DisclosureError> {
-        let reencoded = self.reencode()?;
-        let message = SignatureMessage::new(
-            hash::Domain::SignaturePreimage,
-            self.activity.protocol_version(),
-            self.activity.network_id(),
-            &reencoded,
-        )
-        .map_err(|_| DisclosureError::MalformedPayload)?;
-        let digest = message.digest();
+        self.validate_fields()?;
+        let digest = match &self.source {
+            Source::Activity(activity) => {
+                let reencoded = encode_unsigned(activity)?;
+                SignatureMessage::new(
+                    hash::Domain::SignaturePreimage,
+                    activity.protocol_version(),
+                    activity.network_id(),
+                    &reencoded,
+                )
+                .map_err(|_| DisclosureError::MalformedPayload)?
+                .digest()
+            }
+            Source::Call(call) => call.signing_hash(),
+        };
         if !ct::eq_fixed(&digest, &self.signing_digest) {
             return Err(DisclosureError::FieldMismatch("canonical_bytes"));
         }
@@ -1187,7 +1261,11 @@ impl Disclosure {
     }
 
     pub(crate) const fn scope(&self) -> (u16, u32) {
-        (self.activity.protocol_version(), self.activity.network_id())
+        match &self.source {
+            Source::Activity(activity) => (activity.protocol_version(), activity.network_id()),
+            // Calls have no kernel signing domain and cannot enter the activity signer.
+            Source::Call(_) => (0, 0),
+        }
     }
 
     pub(crate) fn validate_bytes(
@@ -1195,6 +1273,9 @@ impl Disclosure {
         canonical: &[u8],
         registry: &ModuleRegistry,
     ) -> Result<(), DisclosureError> {
+        if matches!(self.source, Source::Call(_)) {
+            return Err(DisclosureError::FieldMismatch("source"));
+        }
         let actual = bind_with(canonical, registry, self.budget_context.as_ref())?;
         macro_rules! require_field {
             ($field:ident) => {
@@ -1301,7 +1382,8 @@ fn bind_with(
         evm_payout_binding: fields.evm_payout_binding,
         withdrawal: fields.withdrawal,
         payment: fields.payment,
-        activity,
+        source: Source::Activity(activity),
+        call_sender: None,
         signing_digest: message.digest(),
         budget_context: budget_context.copied(),
     })

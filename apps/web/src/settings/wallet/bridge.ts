@@ -1,5 +1,5 @@
 import type { EvmAddress, EvmSignature } from "../../api/index.ts";
-import type { Eip1193Provider } from "../../journeys/custody/handoff.ts";
+import type { Eip1193Provider } from "../../api/provider.ts";
 
 export type WalletBridgeFailure = "cancelled" | "rejected" | "unavailable" | "failed";
 

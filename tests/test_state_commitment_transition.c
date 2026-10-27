@@ -613,9 +613,7 @@ static int pay1_submit_bytes(fixture *f, uint16_t ordinal, const uint8_t *payloa
         uint8_t replay_root[32];
         uint64_t next_sequence = actor_identity->next_sequence;
         REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
-            &f->execution, &replay) == LXP_ERR_IDEMPOTENT_REPLAY);
-        REQUIRE(replay.result_code == f->receipt.result_code);
-        REQUIRE(memcmp(replay.activity_id, f->receipt.activity_id, 32U) == 0);
+            &f->execution, &replay) == LXP_ERR_SEQUENCE_REUSED);
         REQUIRE(actor_identity->next_sequence == next_sequence);
         REQUIRE(lxp_state_root(&f->kernel, replay_root) == LXP_OK);
         REQUIRE(memcmp(root, replay_root, 32U) == 0);

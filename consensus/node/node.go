@@ -214,6 +214,11 @@ func makeNode(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create router: %w", err)
 	}
+	if gigaEnabled {
+		if giga, ok := router.Giga().Get(); ok {
+			giga.SetEventBus(eventBus)
+		}
+	}
 	node.router = router
 	node.rpcEnv.Router = router
 
@@ -248,6 +253,10 @@ func makeNode(
 		}
 		mpReactor.MarkReadyToStart()
 		node.services = append(node.services, mpReactor)
+
+		if _, ok := app.(types.LeaderSource); cfg.Consensus.Sequencer.Enable && !ok {
+			return nil, fmt.Errorf("sequencer mode needs an application implementing LeaderSource")
+		}
 
 		// make block executor for consensus and blockchain reactors to execute blocks
 		blockExec := sm.NewBlockExecutor(
@@ -299,6 +308,9 @@ func makeNode(
 			tracerProviderOptions,
 			nodeMetrics.consensus,
 		)
+		if src, ok := app.(types.LeaderSource); ok {
+			csState.SetLeaderSource(src)
+		}
 		node.rpcEnv.ConsensusState = utils.Some[rpccore.ConsensusState](csState)
 
 		csReactor, err := consensus.NewReactor(

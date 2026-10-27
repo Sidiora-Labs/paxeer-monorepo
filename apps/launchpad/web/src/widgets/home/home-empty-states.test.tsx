@@ -48,7 +48,12 @@ function serve(responder: Responder): Promise<Served> {
 }
 
 const profiles = await serve(() => ({ status: 404 }));
-process.env.NEXT_PUBLIC_USER_API_URL = profiles.origin;
+const previousGatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL;
+process.env.NEXT_PUBLIC_GATEWAY_URL = profiles.origin;
+afterAll(() => {
+  if (previousGatewayUrl === undefined) delete process.env.NEXT_PUBLIC_GATEWAY_URL;
+  else process.env.NEXT_PUBLIC_GATEWAY_URL = previousGatewayUrl;
+});
 const { WagmiProvider, createConfig, http } = await import('wagmi');
 const { defineChain } = await import('viem');
 const { MarketClientContext } = await import('@/core/market/client');
@@ -137,6 +142,26 @@ function expectEmptyNotError(container: HTMLElement) {
 
 const props = { columnId: 'home-1', filter: '', density: 'comfortable' as const, view: 'list' as const };
 
+async function homeEmptyStatesProfilesUseGatewayOrigin() {
+  const wallet = '0x' + '43'.repeat(20);
+  const board = emptyBoard('trader', '24h');
+  board.data.snapshot.entries = [{ rank: 1, wallet, metricRaw: '1000000', quality: 'complete' }];
+  const market = await serve(url => url.startsWith('/v2/leaderboards/trader?')
+    ? { status: 200, body: board }
+    : { status: 404 });
+  const before = profiles.paths.length;
+  const { root, container, queryClient } = mount(market.origin, <LeaderboardWidget {...props} />);
+  try {
+    const profilePath = `/v2/profiles:batch?wallets=${wallet}`;
+    await waitFor(() => profiles.paths.slice(before).includes(profilePath));
+    expect(profiles.paths.slice(before)).toContain(profilePath);
+    expect(container.querySelector(`a[href="/profile/${wallet}"]`)).not.toBeNull();
+  } finally {
+    unmount(root, container, queryClient);
+    await new Promise<void>(resolve => market.server.close(() => resolve()));
+  }
+}
+
 describe('home widgets on a successful empty answer', () => {
   let empty: Served;
   let failing: Served;
@@ -149,6 +174,8 @@ describe('home widgets on a successful empty answer', () => {
     for (const { server } of [empty, failing, profiles]) await new Promise<void>(resolve => server.close(() => resolve()));
     dom.window.close();
   });
+
+  it(homeEmptyStatesProfilesUseGatewayOrigin);
 
   it('Trending renders the empty state with a Create coin action and no quality warning', async () => {
     const { root, container, queryClient } = mount(empty.origin, <TrendingWidget {...props} />);

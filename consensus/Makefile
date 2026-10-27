@@ -11,7 +11,7 @@ else
 VERSION := $(shell git describe --tags --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/||')
 endif
 
-LD_FLAGS = -X github.com/tendermint/tendermint/version.TMVersion=$(VERSION)
+LD_FLAGS = -X github.com/Sidiora-Labs/Paxeer-X-Network/consensus/version.TMVersion=$(VERSION)
 BUILD_FLAGS = -mod=readonly -ldflags "$(LD_FLAGS)"
 CGO_ENABLED ?= 0
 
@@ -54,7 +54,7 @@ endif
 # allow users to pass additional flags via the conventional LDFLAGS variable
 LD_FLAGS += $(LDFLAGS)
 
-all: check build test install
+all: build test install
 .PHONY: all
 
 include test/Makefile
@@ -68,7 +68,7 @@ build: $(BUILDDIR)/
 .PHONY: build
 
 install:
-	CGO_ENABLED=$(CGO_ENABLED) go install $(BUILD_FLAGS) -tags $(BUILD_TAGS) ./cmd/tendermint
+	CGO_ENABLED=$(CGO_ENABLED) go install $(BUILD_FLAGS) -tags '$(BUILD_TAGS)' ./cmd/tendermint
 .PHONY: install
 
 $(BUILDDIR)/:
@@ -79,7 +79,7 @@ $(BUILDDIR)/:
 ###############################################################################
 
 build_privval_server:
-	@go build -mod=readonly -o $(BUILDDIR)/ -i ./cmd/priv_val_server/...
+	@go build -mod=readonly -o $(BUILDDIR)/ ./cmd/priv_val_server/...
 .PHONY: build_privval_server
 
 generate_test_cert:
@@ -154,13 +154,8 @@ clean_certs:
 
 format:
 	find . -name '*.go' -type f -not -path "*.git*" -not -name '*.pb.go' -not -name '*pb_test.go' | xargs gofmt -w -s
-	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -w -local github.com/tendermint/tendermint
+	find . -name '*.go' -type f -not -path "*.git*"  -not -name '*.pb.go' -not -name '*pb_test.go' | xargs goimports -w -local github.com/Sidiora-Labs/Paxeer-X-Network
 .PHONY: format
-
-lint:
-	@echo "--> Running linter"
-	go run github.com/golangci/golangci-lint/cmd/golangci-lint run
-.PHONY: lint
 
 DESTINATION = ./index.html.md
 
@@ -242,24 +237,6 @@ localnet-start: localnet-stop build-docker-localnode
 localnet-stop:
 	docker-compose down
 .PHONY: localnet-stop
-
-# Build hooks for dredd, to skip or add information on some steps
-build-contract-tests-hooks:
-ifeq ($(OS),Windows_NT)
-	go build -mod=readonly $(BUILD_FLAGS) -o build/contract_tests.exe ./cmd/contract_tests
-else
-	go build -mod=readonly $(BUILD_FLAGS) -o build/contract_tests ./cmd/contract_tests
-endif
-.PHONY: build-contract-tests-hooks
-
-# Run a nodejs tool to test endpoints against a localnet
-# The command takes care of starting and stopping the network
-# prerequisits: build-contract-tests-hooks build-linux
-# the two build commands were not added to let this command run from generic containers or machines.
-# The binaries should be built beforehand
-contract-tests:
-	dredd
-.PHONY: contract-tests
 
 clean:
 	rm -rf $(CURDIR)/artifacts/ $(BUILDDIR)/

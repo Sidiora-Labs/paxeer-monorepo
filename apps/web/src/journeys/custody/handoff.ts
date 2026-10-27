@@ -1,6 +1,7 @@
 import { decodeCustodyAuthorization, encodeCustodyAuthorization, PAXEER_CHAIN_ID, type CustodyAuthorization, decodeCustodyStatus } from "@paxeer/wallet/provider";
 import { keccak256, recoverMessageAddress, type Hex } from "viem";
 import type { WalletSignRequest } from "../../api/index.ts";
+import type { Eip1193Provider } from "../../api/provider.ts";
 
 export type WalletHandOffPhase =
   | "idle"
@@ -86,9 +87,7 @@ export class WalletHandOff {
   }
 }
 
-export interface Eip1193Provider {
-  request(args: Readonly<{ method: string; params?: readonly unknown[] }>): Promise<unknown>;
-}
+export type { Eip1193Provider } from "../../api/provider.ts";
 
 const USER_REJECTED_REQUEST = 4001;
 const UNAUTHORIZED_REQUEST = 4100;
@@ -275,14 +274,4 @@ export function browserWalletBridge(
   };
 }
 
-export function windowWalletProvider(): Eip1193Provider | undefined {
-  if (typeof window === "undefined") {
-    return undefined;
-  }
-  const candidate = (window as Readonly<{ paxeer?: unknown }>).paxeer;
-  if (typeof candidate !== "object" || candidate === null) {
-    return undefined;
-  }
-  const request = (candidate as Readonly<{ request?: unknown }>).request;
-  return typeof request === "function" ? (candidate as Eip1193Provider) : undefined;
-}
+export { windowWalletProvider } from "../../api/provider.ts";

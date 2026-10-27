@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -591,7 +590,11 @@ type App struct {
 	GigaOCCEnabled bool
 
 	// openBlock is the sequencer executor's open block; nil in full-node mode.
-	openBlock OpenBlock
+	openBlock        OpenBlock
+	sequencerSource  tmtypes.SequencerSource
+	sequencerRPC     evmrpc.SequencerOption
+	sequencerReceipt evmrpc.SequencerReceiptOption
+	commitListener   func(height int64, appHash []byte)
 }
 
 type AppOption func(*App)
@@ -987,7 +990,11 @@ func New(
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	if enableCustomEVMPrecompiles {
-		app.customPrecompiles = precompiles.GetCustomPrecompiles(LatestUpgrade, app.GetPrecompileKeepers())
+		custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, app.GetPrecompileKeepers())
+		if err != nil {
+			panic(fmt.Sprintf("error building the custom precompiles due to %s", err))
+		}
+		app.customPrecompiles = custom
 		next, err := app.v6120Contracts()
 		if err != nil {
 			panic(fmt.Sprintf("error building the v6.12.0 precompiles due to %s", err))
@@ -1534,7 +1541,7 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 	// Start block processing timing (ends at FinalizeBlock)
 	app.StartBenchmarkBlockProcessing()
 
-	// Once the merge plan is done tx 0 is the sequence batch, decoded on its own; the gas check
+	// From the keeper activation height tx 0 is the sequence batch, decoded on its own; the gas check
 	// covers the sequenced transactions behind it.
 	sequenced := app.Sequenced(ctx, req.Header.Height)
 	var batch seqtypes.MsgSequenceBatch
@@ -1542,10 +1549,12 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 	if sequenced {
 		if len(req.Txs) == 0 {
 			logger.Error("sequenced proposal has no sequence batch", "height", req.Header.Height)
+			recordSequencedReject(ctx.Context(), sequencedRejectNoBatch)
 			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
 		}
 		if batch, err = DecodeSequenceBatch(req.Txs[0]); err != nil {
 			logger.Error("sequenced proposal tx 0 is not a sequence batch", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectBatchDecode)
 			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
 		}
 		blockTxs = req.Txs[1:]
@@ -1561,17 +1570,25 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 		}, nil
 	}
 
+	// Keep validation on the clean context; ProcessBlock writes to ctx downstream.
+	checkCtx := app.GetProcessProposalCleanContext()
 	if sequenced {
-		if root := app.SequencedTxRoot(blockTxs, typedTxs); !bytes.Equal(batch.TxRoot, root[:]) {
-			logger.Error("sequence batch txRoot differs from the sealed sequence", "height", req.Header.Height,
-				"batchTxRoot", fmt.Sprintf("%X", batch.TxRoot), "txRoot", fmt.Sprintf("%X", root))
+		if err := seqtypes.VerifyBatchTxs(batch, app.sequencedActivityIDs(blockTxs, typedTxs)); err != nil {
+			logger.Error("sequence batch differs from block transactions", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectBatchTxs)
+			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
+		}
+		if err := app.checkSequencerOrder(checkCtx, batch); err != nil {
+			logger.Error("sequence batch order check failed", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectOrder)
+			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
+		}
+		if err := app.checkSequencerProposer(checkCtx, req.Header.ProposerAddress); err != nil {
+			logger.Error("sequenced proposal proposer check failed", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectProposer)
 			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
 		}
 	}
-
-	// Use the clean context for gas validation only. We cannot reassign
-	// ctx because ProcessBlock writes to ctx's store downstream.
-	checkCtx := app.GetProcessProposalCleanContext()
 
 	// Invariant: at this point nil entries in typedTxs are proto decode failures only.
 	// EVM preprocessing runs later inside ProcessBlock; do not reorder that before this check.
@@ -2232,7 +2249,7 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	blockSpan.SetAttributes(attribute.Int64("height", req.Height))
 	ctx = ctx.WithTraceSpanContext(blockSpanCtx)
 
-	// Once the merge plan is done tx 0 is the sequence batch: it is applied after BeginBlock and
+	// From the keeper activation height tx 0 is the sequence batch: it is applied after BeginBlock and
 	// the transactions behind it execute at their block positions.
 	firstTx := 0
 	var batch seqtypes.MsgSequenceBatch
@@ -2251,7 +2268,8 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 
 	if firstTx == 1 {
 		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
-			return nil, nil, abci.ResponseEndBlock{}, err
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
 		}
 	}
 
@@ -3050,6 +3068,23 @@ func (app *App) SetOpenBlock(ob OpenBlock) {
 	app.openBlock = ob
 }
 
+func (app *App) SetSequencerSource(src tmtypes.SequencerSource) {
+	app.sequencerSource = src
+}
+
+func (app *App) SequencerSource() tmtypes.SequencerSource {
+	return app.sequencerSource
+}
+
+func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.SequencerReceiptOption) {
+	app.sequencerRPC = opt
+	app.sequencerReceipt = rcpt
+}
+
+func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) {
+	app.commitListener = fn
+}
+
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
 // is open, so reads see every receipted transaction; otherwise it is the check context.
 func (app *App) LatestCtx() sdk.Context {
@@ -3091,71 +3126,39 @@ const lxpModuleReservedCount uint16 = 11
 // kernel module set, so no kernel module id is reused.
 const EVMReceiptModuleID = lxpModuleReservedCount + 1
 
-// Sequenced reports whether the block at height, executing on ctx, is built from the sealed
-// receipt order: the merge plan, which brings the sequencer module up, is done in ctx at a
-// height below it. It reads chain state, never node config, so every validator agrees; the
-// block that applies the plan is not sequenced, so a write of the plan by an optimistic run of
-// that block cannot change the answer for it.
+// Sequenced reports whether height has reached the keeper's activation height.
 func (app *App) Sequenced(ctx sdk.Context, height int64) bool {
-	done := app.UpgradeKeeper.GetDoneHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), MergeUpgrade)
-	return done > 0 && height > done
+	sequenced, err := app.SequencerKeeper.Sequenced(ctx, height)
+	if err != nil {
+		panic(err)
+	}
+	return sequenced
 }
 
 // sequenceBatchDomain prefixes the tx 0 encoding of MsgSequenceBatch.
-const sequenceBatchDomain = "PAXEER/v1/sequence-batch\x00"
+const sequenceBatchDomain = seqtypes.SequenceBatchDomain
 
 // sequenceBatchTxLength is the domain, three u64 fields, four 32-byte fields and the signature.
-const sequenceBatchTxLength = len(sequenceBatchDomain) + 3*8 + 3*seqtypes.HashLength + seqtypes.KeyIDLength + seqtypes.SignatureLength
+const sequenceBatchTxLength = seqtypes.SequenceBatchTxLength
 
-// EncodeSequenceBatch encodes m as tx 0 of a sequenced block: domain ‖ u64be height ‖
-// u64be fromSeq ‖ u64be toSeq ‖ prevSeqHash ‖ lastSeqHash ‖ txRoot ‖ keyId ‖ sig.
+// EncodeSequenceBatch encodes m as tx 0 of a sequenced block.
 func EncodeSequenceBatch(m seqtypes.MsgSequenceBatch) ([]byte, error) {
-	if err := m.ValidateBasic(); err != nil {
-		return nil, err
-	}
-	b := make([]byte, 0, sequenceBatchTxLength)
-	b = append(b, sequenceBatchDomain...)
-	b = binary.BigEndian.AppendUint64(b, m.Height)
-	b = binary.BigEndian.AppendUint64(b, m.FromSeq)
-	b = binary.BigEndian.AppendUint64(b, m.ToSeq)
-	b = append(b, m.PrevSeqHash...)
-	b = append(b, m.LastSeqHash...)
-	b = append(b, m.TxRoot...)
-	b = append(b, m.KeyId...)
-	return append(b, m.Sig...), nil
+	return seqtypes.EncodeSequenceBatchTx(m)
 }
 
 // DecodeSequenceBatch decodes tx 0 of a sequenced block and checks its field shape.
 func DecodeSequenceBatch(tx []byte) (seqtypes.MsgSequenceBatch, error) {
-	if len(tx) != sequenceBatchTxLength || string(tx[:len(sequenceBatchDomain)]) != sequenceBatchDomain {
-		return seqtypes.MsgSequenceBatch{}, seqtypes.ErrInvalidSequenceBatch.Wrapf("tx 0 is not a sequence batch: %d bytes", len(tx))
-	}
-	rest := tx[len(sequenceBatchDomain):]
-	next := func(n int) []byte {
-		field := bytes.Clone(rest[:n])
-		rest = rest[n:]
-		return field
-	}
-	m := seqtypes.MsgSequenceBatch{
-		Height:  binary.BigEndian.Uint64(next(8)),
-		FromSeq: binary.BigEndian.Uint64(next(8)),
-		ToSeq:   binary.BigEndian.Uint64(next(8)),
-	}
-	m.PrevSeqHash = next(seqtypes.HashLength)
-	m.LastSeqHash = next(seqtypes.HashLength)
-	m.TxRoot = next(seqtypes.HashLength)
-	m.KeyId = next(seqtypes.KeyIDLength)
-	m.Sig = next(seqtypes.SignatureLength)
-	if err := m.ValidateBasic(); err != nil {
-		return seqtypes.MsgSequenceBatch{}, err
-	}
-	return m, nil
+	return seqtypes.DecodeSequenceBatchTx(tx)
 }
 
 // SequencedTxRoot is sha256 over the activity ids of txs in order: keccak256 of the signed EVM
 // transaction, else sha256 of the tx bytes.
 func (app *App) SequencedTxRoot(txs [][]byte, typedTxs []sdk.Tx) [32]byte {
-	root := sha256.New()
+	return seqtypes.TxRoot(app.sequencedActivityIDs(txs, typedTxs))
+}
+
+func (app *App) sequencedActivityIDs(txs [][]byte, typedTxs []sdk.Tx) [][32]byte {
+	ids := make([][32]byte, len(txs))
 	for i, tx := range txs {
 		id := sha256.Sum256(tx)
 		if msg := app.GetEVMMsg(typedTxs[i]); msg != nil {
@@ -3163,11 +3166,9 @@ func (app *App) SequencedTxRoot(txs [][]byte, typedTxs []sdk.Tx) [32]byte {
 				id = [32]byte(etx.Hash())
 			}
 		}
-		root.Write(id[:])
+		ids[i] = id
 	}
-	var out [32]byte
-	copy(out[:], root.Sum(nil))
-	return out
+	return ids
 }
 
 func (app *App) RPCContextProvider(i int64) sdk.Context {

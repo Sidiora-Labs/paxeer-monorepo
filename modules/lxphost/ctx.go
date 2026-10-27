@@ -119,6 +119,15 @@ func (b *branchCtx) lastSequence() (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
+func NextSequence(ctx sdk.Context, key sdk.StoreKey) (uint64, error) {
+	branch := &branchCtx{store: ctx.KVStore(key)}
+	last, err := branch.lastSequence()
+	if err != nil {
+		return 0, err
+	}
+	return last + 1, nil
+}
+
 func (b *branchCtx) identitySequence(did [32]byte) (uint64, error) {
 	value := b.store.Get(identitySequenceKey(did))
 	if value == nil {
@@ -130,25 +139,27 @@ func (b *branchCtx) identitySequence(did [32]byte) (uint64, error) {
 	return binary.BigEndian.Uint64(value), nil
 }
 
-func (b *branchCtx) load(h *Host) error {
-	iterator := sdk.KVStorePrefixIterator(b.store, []byte{moduleKVPrefix})
-	for ; iterator.Valid(); iterator.Next() {
-		key := iterator.Key()
-		if len(key) < 4 {
-			iterator.Close()
+func (b *branchCtx) load(h *Host, modules []uint16) error {
+	for _, module := range modules {
+		iterator := sdk.KVStorePrefixIterator(b.store, moduleKVKey(module, nil))
+		for ; iterator.Valid(); iterator.Next() {
+			key := iterator.Key()
+			if len(key) < 4 {
+				iterator.Close()
+				return codeFatalInvariant
+			}
+			value := append([]byte(nil), iterator.Value()...)
+			if err := h.loadModuleKV(module, key[3:], value); err != nil {
+				iterator.Close()
+				return err
+			}
+			b.loaded[string(key)] = value
+		}
+		if err := iterator.Close(); err != nil {
 			return codeFatalInvariant
 		}
-		value := append([]byte(nil), iterator.Value()...)
-		if err := h.loadModuleKV(binary.BigEndian.Uint16(key[1:3]), key[3:], value); err != nil {
-			iterator.Close()
-			return err
-		}
-		b.loaded[string(key)] = value
 	}
-	if err := iterator.Close(); err != nil {
-		return codeFatalInvariant
-	}
-	iterator = sdk.KVStorePrefixIterator(b.store, []byte{idempotencyPrefix})
+	iterator := sdk.KVStorePrefixIterator(b.store, []byte{idempotencyPrefix})
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != 33 {

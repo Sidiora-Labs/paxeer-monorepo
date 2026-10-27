@@ -13,12 +13,16 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
+
+	"github.com/prometheus/client_golang/prometheus"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
 
 // Fixed topics of the markets and chain families.
@@ -133,6 +137,13 @@ func (c *cursor) advance(items []item, window int) ([]item, error) {
 	return out, nil
 }
 
+type topicMarkets struct {
+	symbol  *records.Symbol
+	symbols map[string]string
+	ids     map[string]string
+	order   []string
+}
+
 // Providers serves the book, trade, stats, market, totals and chain topics
 // from schema perps. The hub calls Subscribed before a subscribe and
 // Unsubscribed when a subscriber leaves, feeds every stream message to
@@ -141,13 +152,9 @@ func (c *cursor) advance(items []item, window int) ([]item, error) {
 // the timed frames keep it current, and Held answers a subscribe snapshot
 // from it without IO. State is kept only for topics with a subscriber.
 type Providers struct {
-	db     *sql.DB
-	symbol *records.Symbol
-	logger *slog.Logger
-	// symbols maps every market symbol to its decimal market id.
-	symbols map[string]string
-	ids     map[string]string
-	order   []string
+	db      *sql.DB
+	logger  *slog.Logger
+	markets atomic.Pointer[topicMarkets]
 
 	// mu guards the held state; Message and the book frames read the
 	// database under it, Load and Snapshot read outside it.
@@ -171,44 +178,61 @@ type Providers struct {
 	lastStats, lastMarkets time.Time
 }
 
+const perps_gateway_markets = "perps_gateway_markets"
+
 const marketsSQL = `SELECT market_id::text, symbol FROM perps.markets ORDER BY market_id`
 
 // NewProviders reads the market set of perps.markets and serves its topics,
 // reading the symbol bodies of records.Symbol for the stats and trade payloads.
-func NewProviders(ctx context.Context, db *sql.DB, logger *slog.Logger) (*Providers, error) {
-	symbol, err := records.NewSymbol(db)
-	if err != nil {
-		return nil, err
-	}
+func NewProviders(ctx context.Context, db *sql.DB, logger *slog.Logger, metrics ...*telemetry.Metrics) (*Providers, error) {
 	if logger == nil {
 		logger = slog.Default()
 	}
 	p := &Providers{
-		db: db, symbol: symbol, logger: logger,
-		symbols: map[string]string{}, ids: map[string]string{},
+		db: db, logger: logger,
 		watched: map[string]int{}, books: map[string]*bookState{}, cursors: map[string]*cursor{}, bodies: map[string]json.RawMessage{},
 		loading: map[string]*load{}, pre: map[string]*prefetch{}, spotTokens: map[string][]byte{},
 	}
-	rows, err := db.QueryContext(ctx, marketsSQL)
-	if err != nil {
+	if err := p.reloadMarkets(ctx); err != nil {
 		return nil, err
+	}
+	for _, m := range metrics {
+		if err := m.Register(prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Name: perps_gateway_markets, Help: "Market symbols served by the websocket gateway.",
+		}, func() float64 { return float64(len(p.markets.Load().symbols)) })); err != nil {
+			return nil, fmt.Errorf("feeds: market metrics: %w", err)
+		}
+	}
+	return p, nil
+}
+
+func (p *Providers) reloadMarkets(ctx context.Context) error {
+	symbol, err := records.NewSymbol(p.db)
+	if err != nil {
+		return err
+	}
+	next := &topicMarkets{symbol: symbol, symbols: map[string]string{}, ids: map[string]string{}}
+	rows, err := p.db.QueryContext(ctx, marketsSQL)
+	if err != nil {
+		return err
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var id, sym string
 		if err := rows.Scan(&id, &sym); err != nil {
-			return nil, err
+			return err
 		}
-		p.symbols[sym], p.ids[id] = id, sym
-		p.order = append(p.order, sym)
+		next.symbols[sym], next.ids[id] = id, sym
+		next.order = append(next.order, sym)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	if len(p.order) == 0 {
-		return nil, errors.New("feeds: perps.markets is empty")
+	if len(next.order) == 0 {
+		return errors.New("feeds: perps.markets is empty")
 	}
-	return p, nil
+	p.markets.Store(next)
+	return nil
 }
 
 // parse splits a served symbol topic into its symbol and kind.
@@ -217,7 +241,7 @@ func (p *Providers) parse(topic string) (string, string, bool) {
 	if !ok {
 		return "", "", false
 	}
-	if _, known := p.symbols[sym]; !known {
+	if _, known := p.markets.Load().symbols[sym]; !known {
 		return "", "", false
 	}
 	switch kind {
@@ -259,7 +283,7 @@ func (p *Providers) SocketTopics(path string) ([]string, bool) {
 	}
 	lower, ok := strings.CutPrefix(path, "/ws/")
 	sym := strings.ToUpper(lower)
-	if _, known := p.symbols[sym]; !ok || !known || lower != strings.ToLower(lower) {
+	if _, known := p.markets.Load().symbols[sym]; !ok || !known || lower != strings.ToLower(lower) {
 		return nil, false
 	}
 	out := []string{sym + "@" + kindPerpBook, sym + "@" + kindPerpTrade, sym + "@" + kindPerpStats}
@@ -313,7 +337,7 @@ type load struct {
 func (p *Providers) build(ctx context.Context, topic string) (held, error) {
 	switch topic {
 	case TopicMarketsAll, TopicMarketsTotals:
-		recs, err := p.records(ctx, p.order)
+		recs, err := p.records(ctx, p.markets.Load().order)
 		if err != nil {
 			return held{}, err
 		}
@@ -546,7 +570,7 @@ func (p *Providers) Prepare(ctx context.Context, subject string, env delivery.En
 		tape = spot + "@" + kindTrade
 	case family != "chain" && family != "spot" && family != "user" && len(parts) == 4:
 		var ok bool
-		if sym, ok = p.ids[family]; !ok {
+		if sym, ok = p.markets.Load().ids[family]; !ok {
 			return
 		}
 		book = sym + "@" + kindPerpBook
@@ -635,7 +659,7 @@ func (p *Providers) Message(ctx context.Context, subject string, env delivery.En
 		}
 	case family == "user":
 	case len(parts) == 4:
-		sym, ok := p.ids[family]
+		sym, ok := p.markets.Load().ids[family]
 		if !ok {
 			return nil, nil, nil
 		}
@@ -775,9 +799,9 @@ func (p *Providers) trades(ctx context.Context, sym, kind string) ([]item, error
 		err  error
 	)
 	if kind == kindPerpTrade {
-		body, err = p.symbol.PerpTrades(ctx, sym, TradeSnapshot)
+		body, err = p.markets.Load().symbol.PerpTrades(ctx, sym, TradeSnapshot)
 	} else {
-		body, err = p.symbol.Trades(ctx, sym, TradeSnapshot)
+		body, err = p.markets.Load().symbol.Trades(ctx, sym, TradeSnapshot)
 	}
 	if err != nil {
 		return nil, err
@@ -815,13 +839,13 @@ func (p *Providers) trades(ctx context.Context, sym, kind string) ([]item, error
 // stats writes the @stats or @perp_stats body of sym.
 func (p *Providers) stats(ctx context.Context, sym, kind string) (json.RawMessage, error) {
 	if kind == kindStats {
-		s, err := p.symbol.Stats(ctx, sym)
+		s, err := p.markets.Load().symbol.Stats(ctx, sym)
 		if err != nil {
 			return nil, err
 		}
 		return json.Marshal(s)
 	}
-	s, err := p.symbol.PerpStats(ctx, sym)
+	s, err := p.markets.Load().symbol.PerpStats(ctx, sym)
 	if err != nil {
 		return nil, err
 	}
@@ -829,7 +853,7 @@ func (p *Providers) stats(ctx context.Context, sym, kind string) (json.RawMessag
 }
 
 func (p *Providers) marks(ctx context.Context, sym string) (marks, error) {
-	s, err := p.symbol.PerpStats(ctx, sym)
+	s, err := p.markets.Load().symbol.PerpStats(ctx, sym)
 	if err != nil {
 		return marks{}, err
 	}
@@ -875,7 +899,7 @@ func (p *Providers) spotSymbol(ctx context.Context, token string) (string, error
 }
 
 func (p *Providers) loadBook(ctx context.Context, sym, kind string) (*bookState, error) {
-	b := &bookState{symbol: sym, market: p.symbols[sym]}
+	b := &bookState{symbol: sym, market: p.markets.Load().symbols[sym]}
 	if kind == kindBook {
 		token, err := p.spotToken(ctx, sym)
 		if err != nil {
@@ -959,15 +983,26 @@ func (p *Providers) tick(ctx context.Context, now time.Time) []Frame {
 func (p *Providers) bodyFrames(ctx context.Context, now time.Time) []Frame {
 	var bodies []Frame
 	p.mu.Lock()
-	stats := now.Sub(p.lastStats) >= StatsInterval
 	markets := now.Sub(p.lastMarkets) >= MarketInterval
+	if markets {
+		p.lastMarkets = now
+	}
+	p.mu.Unlock()
+	if markets {
+		if err := p.reloadMarkets(ctx); err != nil {
+			p.logger.Error("feeds: reload markets", slog.Any("err", err))
+			return nil
+		}
+	}
+	order := p.markets.Load().order
+	p.mu.Lock()
+	stats := now.Sub(p.lastStats) >= StatsInterval
 	if stats {
 		p.lastStats = now
 	}
 	var watchedMarkets []string
 	if markets {
-		p.lastMarkets = now
-		for _, sym := range p.order {
+		for _, sym := range order {
 			if p.watched[sym+"@"+kindMarket] > 0 {
 				watchedMarkets = append(watchedMarkets, sym)
 			}
@@ -975,7 +1010,7 @@ func (p *Providers) bodyFrames(ctx context.Context, now time.Time) []Frame {
 	}
 	p.mu.Unlock()
 	if stats {
-		for _, sym := range p.order {
+		for _, sym := range order {
 			kinds := []string{kindPerpStats}
 			if _, spot := spotRank[sym]; spot {
 				kinds = append(kinds, kindStats)
@@ -1041,7 +1076,7 @@ func (p *Providers) bookFrames(ctx context.Context, now time.Time) []Frame {
 }
 
 func (p *Providers) marketFrames(ctx context.Context, watched []string) []Frame {
-	recs, err := p.records(ctx, p.order)
+	recs, err := p.records(ctx, p.markets.Load().order)
 	if err != nil {
 		p.logger.Error("feeds: market frames", slog.Any("err", err))
 		return nil
@@ -1175,7 +1210,7 @@ func (p *Providers) records(ctx context.Context, syms []string) ([]records.Marke
 	}
 	for i := range out {
 		r := &out[i]
-		s, err := p.symbol.PerpStats(ctx, r.Symbol)
+		s, err := p.markets.Load().symbol.PerpStats(ctx, r.Symbol)
 		if err != nil {
 			return nil, err
 		}

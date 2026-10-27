@@ -440,6 +440,36 @@ func TestGetLastMintAmountCoin(t *testing.T) {
 	require.Equal(t, sdk.DefaultBondDenom, coin.Denom)
 }
 
+func TestReleaseAmountAboveInt64IsNotNegative(t *testing.T) {
+	for _, amount := range []uint64{uint64(math.MaxInt64) + 1, math.MaxUint64} {
+		for _, currentTime := range []time.Time{
+			time.Date(2023, 4, 1, 0, 0, 0, 0, time.UTC),
+			time.Date(2023, 4, 2, 0, 0, 0, 0, time.UTC),
+			time.Date(2023, 4, 3, 0, 0, 0, 0, time.UTC),
+		} {
+			m := types.NewMinter("2023-04-01", "2023-04-02", sdk.DefaultBondDenom, amount)
+			coins := m.GetReleaseAmountToday(currentTime)
+
+			require.Len(t, coins, 1)
+			require.Equal(t, sdk.DefaultBondDenom, coins[0].Denom)
+			require.True(t, coins[0].Amount.IsPositive())
+			require.Equal(t, amount, coins[0].Amount.Uint64())
+		}
+	}
+}
+
+func TestLastMintAmountCoinAboveInt64(t *testing.T) {
+	for _, amount := range []uint64{uint64(math.MaxInt64) + 1, math.MaxUint64} {
+		m := types.InitialMinter()
+		m.LastMintAmount = amount
+		coin := m.GetLastMintAmountCoin()
+
+		require.Equal(t, sdk.DefaultBondDenom, coin.Denom)
+		require.True(t, coin.Amount.IsPositive())
+		require.Equal(t, amount, coin.Amount.Uint64())
+	}
+}
+
 func TestRecordSuccessfulMint(t *testing.T) {
 	minter := types.NewMinter(
 		time.Now().Format(types.TokenReleaseDateFormat),

@@ -26,12 +26,16 @@ MODULES := \
 	metadata \
 	social \
 	user \
+	discovery \
+	notifications \
+	security \
+	security/control
 
 
 # Money / correctness-critical modules: 90% coverage gate (others 85%).
 MONEY_MODULES := ../../sdk/launchpad/shared ../../sdk/launchpad/protocol indexer pnl-tracker trading-charts
 
-.PHONY: all ci build vet fmt fmt-check lint test race cover cover-check tidy sqlc clean help
+.PHONY: all ci build vet fmt fmt-check lint test test-module race cover cover-check tidy sqlc clean help
 
 all: build vet fmt-check lint race cover-check ## Run the full local verification gate
 
@@ -51,7 +55,7 @@ vet: ## go vet ./... in every module that has packages
 
 fmt: ## gofmt -w + goimports -w across the repo
 	@gofmt -w $(MODULES)
-	@command -v goimports >/dev/null && goimports -w $(MODULES) || true
+	@if command -v goimports >/dev/null; then goimports -w $(MODULES); fi
 
 fmt-check: ## fail if any file is not gofmt-clean
 	@out=$$(gofmt -l $(MODULES)); if [ -n "$$out" ]; then echo "gofmt needs to run on:"; echo "$$out"; exit 1; fi
@@ -62,6 +66,12 @@ lint: ## golangci-lint run in every module (zero warnings, SECTION 17)
 
 test: ## go test ./... in every module that has packages
 	@for m in $(MODULES); do if [ -z "$(call has_pkgs,$$m)" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> test $$m"; ( cd $$m && $(GO) test ./... ) || exit 1; done
+
+test-module: ## go test -count=1 one module with an anchored -run (MODULE=<dir> RUN=<regex>)
+	@valid=; for m in $(MODULES); do if [ "$$m" = '$(MODULE)' ]; then valid=1; break; fi; done; \
+		[ "$$valid" = 1 ] || { echo 'MODULE must be one of $(MODULES)'; exit 1; }
+	@case '$(RUN)' in ^*'$$') ;; *) echo 'RUN must be an anchored regex'; exit 1 ;; esac
+	cd $(MODULE) && $(GO) test -count=1 $(GOFLAGS) ./... -run '$(RUN)'
 
 race: ## go test -race ./... in every module (zero data races, SECTION 17)
 	@for m in $(MODULES); do if [ -z "$(call has_pkgs,$$m)" ]; then echo ">> skip $$m (no packages)"; continue; fi; echo ">> race $$m"; ( cd $$m && $(GO) test -race ./... ) || exit 1; done

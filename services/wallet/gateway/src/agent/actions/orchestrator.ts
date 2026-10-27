@@ -13,7 +13,6 @@ import {
 import { findPrincipal, getPolicy, listRules } from '../../db/agents.js';
 import { evaluateAgent } from '../../policy/agent.js';
 import { findWalletByAddress, getMigrationAwareSigningAccountForRow, type WalletRow } from '../../db/wallets.js';
-import { getDepositByTx, layerxEnabled } from '../../layerx/db.js';
 import { AttestorError, AttestorReauthorizationRequired, type AgentOriginalRequest, type AgentReauthorization } from '../../attestor/client.js';
 import { CustodyAuthorityError } from '../authority.js';
 import { withDistributedWalletLock } from './nonceLock.js';
@@ -325,7 +324,7 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
     if (leg === 'approval') {
       await updateAction(row.id, { status: 'approval_confirmed', phase: 'call_simulation', error_code: null, error: null });
     } else {
-      await finalizeCall(row, plan, outcome.receipt.tx_hash);
+      await finalizeCall(row);
     }
     return;
   }
@@ -367,39 +366,8 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
   });
 }
 
-/** On-chain call success → attempt bounded credit verification, then terminal. */
-async function finalizeCall(row: ActionRow, plan: ActionPlan, txHash: string): Promise<void> {
-  if (plan.verify.type === 'layerx_credit' && layerxEnabled()) {
-    const deposit = await getDepositByTx(txHash).catch(() => null);
-    if (deposit) {
-      await updateAction(row.id, {
-        status: 'confirmed',
-        phase: 'credit_verification',
-        credit_verified: true,
-        credit: {
-          did: deposit.did,
-          amount_usdx: deposit.amount_usdx,
-          deposit_tx: deposit.deposit_tx,
-          credited_at: deposit.created_at,
-        },
-        error_code: null,
-        error: null,
-      });
-      return;
-    }
-    // On-chain deposit succeeded; the sequencer credit is eventual. Mark the
-    // action confirmed (the deposit tx IS success) with credit_verified=false;
-    // the LayerX sync worker backfills the credit when the row lands.
-    await updateAction(row.id, {
-      status: 'confirmed',
-      phase: 'credit_verification',
-      credit_verified: false,
-      credit: { status: 'awaiting_sequencer', deposit_tx: txHash },
-      error_code: null,
-      error: null,
-    });
-    return;
-  }
+/** On-chain call success completes the action. */
+async function finalizeCall(row: ActionRow): Promise<void> {
   await updateAction(row.id, {
     status: 'confirmed',
     phase: 'call_confirmation',

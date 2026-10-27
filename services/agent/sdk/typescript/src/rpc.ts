@@ -4,9 +4,16 @@ import { createHash } from "node:crypto";
 import * as http from "node:http";
 import * as https from "node:https";
 import { LayerXKeyCredential } from "./agent-http.js";
+import { encodeUnsignedEip1559, type Eip1559Transaction as Eip1559Call } from "./evm-transaction.js";
+import { decodePxAccountBalances, decodePxAssetTable, type PxAssetBalance, type PxAssetEntry } from "./px.js";
 
-export type Commitment = "executed" | "batched" | "finalised";
+export type Commitment = "submitted" | "receipted" | "committed";
 export type RpcParam = string | number | null;
+interface AssetPage {
+  readonly assets: readonly PxAssetEntry[];
+  readonly nextCursor: string | null;
+  readonly joinedLimit: bigint;
+}
 export const LIST_ASSETS_DEFAULT_PAGE = 64;
 export const LIST_ASSETS_MAX_PAGE = 256;
 export interface IdentitySequenceSnapshot {
@@ -57,7 +64,13 @@ export class JsonRpcClient {
   }
   public wallet(nativeAsset: string) { return {
     accounts: (did: string): Promise<Record<string, unknown>> => this.getBalances(did),
-    balance: (did: string, asset: string): Promise<Record<string, unknown>> => this.getBalance(walletAccount(did, asset, nativeAsset)),
+    balance: async (did: string, asset: string): Promise<PxAssetBalance> => {
+      walletAccount(did, asset, nativeAsset);
+      const snapshot = decodePxAccountBalances(await this.getBalances(did));
+      const balance = snapshot.balances.find(value => value.assetId === asset);
+      if (balance === undefined) throw new Error("Asset balance unavailable");
+      return balance;
+    },
   }; }
   public subscribe(topic: SubscriptionTopic, account?: string, signal?: AbortSignal): AsyncGenerator<SubscriptionEvent> {
     return this.#subscribe(topic, account, undefined, signal);
@@ -70,53 +83,66 @@ export class JsonRpcClient {
     this.credential?.use(value => { authorization = value; });
     return subscribeRpc(this.#endpoint, authorization, (++this.#id).toString(), topic, account, cursor, signal);
   }
-  public getAccount(account: string): Promise<Record<string, unknown>> { return this.call("lx_getAccount", [account]); }
-  public getBalance(account: string): Promise<Record<string, unknown>> { return this.call("lx_getBalance", [account]); }
-  public getBalances(did: string): Promise<Record<string, unknown>> { return this.call("lx_getBalances", [did]); }
-  public getSequence(account: string): Promise<Record<string, unknown>> { return this.call("lx_getSequence", [account]); }
-  public getIdentitySequence(did: string): Promise<IdentitySequenceSnapshot> {
-    validDid(did);
-    return this.call("lx_getSequence", [did, "identity"]).then(value => {
-      const snapshot = decodeIdentitySequenceSnapshot(value);
-      if (snapshot.did !== did) throw new Error("Mismatched identity sequence");
-      return snapshot;
+  public getAccount(account: string): Promise<Record<string, unknown>> { return this.call("px_getAccount", [account], rpcObject); }
+  public getBalance(account: string): Promise<bigint> {
+    evmAddress(account);
+    return this.call("eth_getBalance", [account, "pending"], rpcQuantity);
+  }
+  public getBalances(did: string): Promise<Record<string, unknown>> { return this.call("px_getBalances", [did], rpcObject); }
+  public getSequence(account: string): Promise<bigint> { return this.getIdentitySequence(account); }
+  public getIdentitySequence(address: string): Promise<bigint> {
+    evmAddress(address);
+    return this.call("eth_getTransactionCount", [address, "pending"], rpcQuantity);
+  }
+  public sequencerReceipt(txHash: string): Promise<Record<string, unknown>> {
+    rpcHash(txHash);
+    return this.call("pax_sequencerReceipt", [txHash], rpcObject);
+  }
+  public getBatchHeader(block: string): Promise<Record<string, unknown>> {
+    blockSelector(block);
+    return this.call("eth_getBlockByNumber", [block, false], rpcObject);
+  }
+  public getNodeInfo(): Promise<Record<string, unknown>> { return this.call("px_getNetwork", [], rpcObject); }
+  public listAssets(): Promise<AssetPage> { return this.listAssetsPage(); }
+  public listAssetsPage(cursor?: string, limit?: number): Promise<AssetPage> {
+    listAssetsParams(cursor, limit);
+    return this.call("px_listAssets", [], decodePxAssetTable).then(table => {
+      const remaining = [...table.assets].sort((left, right) => left.assetId.localeCompare(right.assetId))
+        .filter(value => cursor === undefined || value.assetId > cursor);
+      const assets = Object.freeze(remaining.slice(0, limit ?? LIST_ASSETS_DEFAULT_PAGE));
+      const nextCursor = remaining.length > assets.length ? assets[assets.length - 1]!.assetId : null;
+      return Object.freeze({ assets, nextCursor, joinedLimit: table.joinedLimit });
     });
   }
-  public getReceipt(activity: string): Promise<Record<string, unknown>> { return this.call("lx_getReceipt", [activity]); }
-  public getActivityStatus(activity: string): Promise<Record<string, unknown>> { return this.call("lx_getActivityStatus", [activity]); }
-  public getBatchHeader(batch: string): Promise<Record<string, unknown>> { return this.call("lx_getBatchHeader", [batch]); }
-  public getCheckpoint(checkpoint: string): Promise<Record<string, unknown>> { return this.call("lx_getCheckpoint", [checkpoint]); }
-  public getNodeInfo(): Promise<Record<string, unknown>> { return this.call("lx_getNodeInfo", []); }
-  public listAssets(): Promise<AssetListSnapshot> { return this.listAssetsPage(); }
-  public listAssetsPage(cursor?: string, limit?: number): Promise<AssetListSnapshot> {
-    const params = listAssetsParams(cursor, limit);
-    return this.call("lx_listAssets", params).then(value => {
-      const snapshot = decodeAssetListSnapshot(value);
-      if (snapshot.assets.length > (limit ?? LIST_ASSETS_DEFAULT_PAGE)) throw new Error("Oversized asset page");
-      return snapshot;
-    });
-  }
-  public getAsset(asset: string): Promise<AssetSnapshot> {
+  public getAsset(asset: string): Promise<PxAssetEntry> {
     if (!/^[0-9a-f]{64}$/u.test(asset)) throw new Error("Invalid asset identifier");
-    return this.call("lx_getAsset", [asset]).then(value => {
-      const snapshot = decodeAssetSnapshot(value);
-      if (snapshot.asset.assetId !== asset) throw new Error("Mismatched asset identifier");
-      return snapshot;
+    return this.call("px_listAssets", [], decodePxAssetTable).then(table => {
+      const entry = table.assets.find(value => value.assetId === asset);
+      if (entry === undefined) throw new Error("Asset unavailable");
+      return entry;
     });
   }
-  public estimateFee(canonical: Uint8Array): Promise<Record<string, unknown>> {
-    if (canonical.length === 0 || canonical.length > 524288) throw new Error("Invalid activity length");
-    return this.call("lx_estimateFee", [Buffer.from(canonical).toString("hex")]);
+  public estimateFee(call: Eip1559Call): Promise<bigint> {
+    if (encodeUnsignedEip1559(call).length > 524288) throw new Error("Invalid transaction length");
+    return this.call("eth_estimateGas", [{
+      type: "0x2", chainId: quantity(call.chainId), nonce: quantity(call.nonce),
+      maxPriorityFeePerGas: quantity(call.maxPriorityFeePerGas), maxFeePerGas: quantity(call.maxFeePerGas),
+      gas: quantity(call.gasLimit), value: quantity(call.value), data: rpcBytes(call.data),
+      ...(call.to.length === 0 ? {} : { to: rpcBytes(call.to) }),
+      accessList: call.accessList.map(entry => ({ address: rpcBytes(entry.address), storageKeys: entry.storageKeys.map(rpcBytes) })),
+    }, "pending"], rpcQuantity);
   }
-  public getProof(kind: "activity" | "receipt" | "account", activity: string, account?: string): Promise<Record<string, unknown>> {
-    if ((kind === "account") !== (account !== undefined)) throw new Error("Invalid proof selector");
-    return this.call("lx_getProof", account === undefined ? [kind, activity] : [kind, activity, account]);
+  public getProof(address: string, storageKeys: readonly string[], block: string): Promise<Record<string, unknown>> {
+    evmAddress(address);
+    storageKeys.forEach(rpcHash);
+    blockSelector(block);
+    return this.call("eth_getProof", [address, storageKeys, block], rpcObject);
   }
-  public sendActivity(canonical: Uint8Array, commitment: Commitment): Promise<Record<string, unknown>> {
-    if (canonical.length === 0 || canonical.length > 524288 || !["executed", "batched", "finalised"].includes(commitment)) throw new Error("Invalid submission");
-    return this.call("lx_sendActivity", [Buffer.from(canonical).toString("hex"), commitment]);
+  public sendRawTransaction(raw: Uint8Array): Promise<string> {
+    if (raw.length === 0 || raw.length > 524288) throw new Error("Invalid submission");
+    return this.call("eth_sendRawTransaction", [rpcBytes(raw)], rpcHash);
   }
-  private async call(method: string, params: readonly RpcParam[]): Promise<Record<string, unknown>> {
+  private async call<T>(method: string, params: readonly RpcRequestParam[], decode: (value: unknown) => T): Promise<T> {
     const id = (++this.#id).toString();
     const body = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
     if (body.length > 1048576 + 4096) throw new Error("RPC request too large");
@@ -142,18 +168,42 @@ export class JsonRpcClient {
       request.on("error", reject);
       request.end(body);
     });
-    return decodeJsonRpcResponse(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), id);
+    return decode(jsonRpcResult(JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes)), id));
   }
 }
 
 export function decodeJsonRpcResponse(value: unknown, id: string): Record<string, unknown> {
+  return rpcObject(jsonRpcResult(value, id));
+}
+type RpcRequestParam = RpcParam | boolean | readonly RpcRequestParam[] | { readonly [key: string]: RpcRequestParam };
+function rpcBytes(bytes: Uint8Array): string { return `0x${Buffer.from(bytes).toString("hex")}`; }
+function quantity(value: bigint): string { return `0x${value.toString(16)}`; }
+function rpcQuantity(value: unknown): bigint {
+  if (typeof value !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]*)$/u.test(value) || value.length > 66) throw new Error("Invalid RPC quantity");
+  return BigInt(value);
+}
+function rpcHash(value: unknown): string {
+  if (typeof value !== "string" || !/^0x[0-9a-fA-F]{64}$/u.test(value)) throw new Error("Invalid RPC hash");
+  return value;
+}
+function evmAddress(value: string): void {
+  if (!/^0x[0-9a-fA-F]{40}$/u.test(value)) throw new Error("Invalid EVM address");
+}
+function blockSelector(value: string): void {
+  if (!["latest", "earliest", "pending", "safe", "finalized"].includes(value)) rpcQuantity(value);
+}
+function rpcObject(value: unknown): Record<string, unknown> {
+  if (!object(value)) throw new Error("Invalid RPC result");
+  return value;
+}
+function jsonRpcResult(value: unknown, id: string): unknown {
   if (!object(value) || Object.keys(value).length !== 3 || value.jsonrpc !== "2.0" || value.id !== id) throw new Error("Invalid RPC response");
   if ("error" in value) {
     const e = value.error;
     if (!object(e) || !Number.isSafeInteger(e.code) || typeof e.message !== "string") throw new Error("Invalid RPC error");
     throw new JsonRpcError(e.code as number, e.message, e.data);
   }
-  if (!object(value.result)) throw new Error("Invalid RPC result");
+  if (!("result" in value)) throw new Error("Invalid RPC result");
   return value.result;
 }
 function object(value: unknown): value is Record<string, unknown> { return typeof value === "object" && value !== null && !Array.isArray(value); }

@@ -26,3 +26,15 @@ func (i *NetAPI) Version(ctx context.Context) string {
 	defer recordMetrics(ctx, "net_version", i.connectionType, startTime)
 	return fmt.Sprintf("%d", i.keeper.ChainID(i.ctxProvider(LatestCtxHeight)).Uint64())
 }
+
+func (i *NetAPI) Listening(ctx context.Context) (listening bool, err error) {
+	startTime := time.Now()
+	defer func() {
+		recordMetricsWithError(ctx, "net_listening", i.connectionType, startTime, err, recover())
+	}()
+	info, err := i.tmClient.NetInfo(ctx)
+	if err != nil {
+		return false, err
+	}
+	return info.Listening, nil
+}

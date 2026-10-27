@@ -15,10 +15,10 @@
 
 enum {
     LXP_KERNEL_MAX_MODULE_REGISTRATIONS = 32,
-    LXP_KERNEL_MAX_MODULE_KV = 512,
+    LXP_KERNEL_MAX_MODULE_KV = 4096,
     LXP_MODULE_MAX_KEY_BYTES = 128,
     LXP_MODULE_MAX_VALUE_BYTES = 1024,
-    LXP_MODULE_MAX_STAGED_WRITES = 64,
+    LXP_MODULE_MAX_STAGED_WRITES = 512,
     LXP_MODULE_MAX_STAGED_ACCOUNTS = 16,
     LXP_KERNEL_MAX_BLOBS = 512,
     LXP_KERNEL_MAX_STAGED_BLOBS = 4,
@@ -234,6 +234,12 @@ typedef struct lxp_module_registration {
     bool enabled;
 } lxp_module_registration;
 
+typedef struct lxp_governance_authority {
+    bool enabled;
+    uint32_t network_id;
+    uint8_t governance_public_key[32];
+} lxp_governance_authority;
+
 typedef struct lxp_kernel {
     lxp_state_store *state;
     lxp_state_journal *journal;
@@ -247,6 +253,7 @@ typedef struct lxp_kernel {
     size_t blob_total_bytes;
     uint64_t epoch;
     lxp_handover_state handover;
+    lxp_governance_authority governance_authority;
     lxp_kernel_parameter_reader read_parameter;
     lxp_kernel_transfer_applier apply_transfer_set;
     lxp_kernel_fee_transaction fee_transaction;

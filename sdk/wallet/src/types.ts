@@ -48,6 +48,7 @@ export interface SendTxResponse {
   tx_hash: `0x${string}`;
   address: `0x${string}`;
   chain_id: number;
+  receipt?: SequencerReceiptAnswer;
 }
 
 export interface SignMessageResponse {
@@ -247,6 +248,38 @@ export interface UnifiedAccountDocument {
   bound: boolean;
 }
 
+export interface ChainAccount {
+  account: string;
+  paxeer: { address: string; balance: string; nonce: string; height: string };
+}
+
+export interface BankBalance {
+  denom: string;
+  amount: string;
+}
+
+export interface Balances {
+  account: string;
+  height: string;
+  balances: BankBalance[];
+}
+
+export interface BankAsset {
+  asset_id: string;
+  denom: string;
+  kind: string;
+  name: string;
+  symbol: string;
+  decimals: number;
+  supply: string;
+}
+
+export interface AssetPage {
+  height: string;
+  assets: BankAsset[];
+  joined_limit: number;
+}
+
 export interface PaxeerAccountHalf {
   address: `0x${string}`;
   balance: `0x${string}`;
@@ -338,6 +371,13 @@ export interface AnchorHead {
 
 export type AnchorStatusName = 'unknown' | 'submitted' | 'final';
 
+export interface ConsensusHead {
+  latest_height: string;
+  latest_block_hash: string;
+  latest_app_hash: string;
+  catching_up: boolean;
+}
+
 export interface NetworkHead {
   network_id: string;
   paxeer: { chain_id: `0x${string}`; latest_block: `0x${string}` };
@@ -374,13 +414,23 @@ export interface HistoryItem {
   final: boolean;
   decoded: unknown;
   asset_metadata: HistoryAssetMetadata | null;
+  /** @deprecated Use ChainHistoryItem, which has no side label. */
   side: 'layerx' | 'paxeer';
 }
 
 export interface HistoryPage {
   account: UnifiedAccountDocument;
+  /** @deprecated Use ChainHistoryPage for a single chain account. */
   accounts: { side: 'layerx' | 'paxeer'; account: string }[];
   items: HistoryItem[];
+  next_cursor: string | null;
+}
+
+export type ChainHistoryItem = Omit<HistoryItem, 'chain' | 'side'>;
+
+export interface ChainHistoryPage {
+  account: string;
+  items: ChainHistoryItem[];
   next_cursor: string | null;
 }
 
@@ -554,14 +604,41 @@ export interface HumanErrorBody {
   field?: string;
 }
 
-export type ExplorerRung = 'pending' | 'instant' | 'sealed' | 'final';
+export type ExplorerRung = SequencerRung;
+
+export type SequencerRung = 'submitted' | 'receipted' | 'committed';
+
+export interface SequencerReceiptAnswer {
+  rung: SequencerRung;
+  txHash: Hex;
+  nonce: Hex;
+  blockNumber?: Hex;
+  blockHash?: Hex;
+  seq?: Hex;
+  height?: Hex;
+  index?: Hex;
+  timestamp?: Hex;
+  status?: Hex;
+  returnData?: Hex;
+  logs?: { address: Hex; topics: Hex[]; data: Hex; logIndex: Hex }[];
+  gasUsed?: Hex;
+  cumulativeGasUsed?: Hex;
+  effectiveGasPrice?: Hex;
+  feeDenom?: string;
+  feeAmount?: Hex;
+  sponsor?: Hex;
+  from?: Hex;
+  to?: Hex;
+  contractAddress?: Hex;
+  vmError?: string;
+  keyId?: Hex;
+  receipt?: Hex;
+}
 
 export interface ExplorerTransactionStatus {
   rung: ExplorerRung;
   block_number: number | null;
-  sealed_batch_number: number | null;
-  finalized_batch_number: number | null;
-  checkpoint_id: string | null;
+  committed_height: number | null;
 }
 
 /* ============================================================================

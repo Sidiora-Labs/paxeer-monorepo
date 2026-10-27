@@ -1,0 +1,25 @@
+syntax = "proto3";
+package paxprotocol.paxchain.layerxpay;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types";
+
+service Msg {
+  rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
+}
+
+message Params {
+  bool paused = 1 [(gogoproto.jsontag) = "paused"];
+  bool escrow_enabled = 2 [(gogoproto.jsontag) = "escrow_enabled"];
+  bool budget_enabled = 3 [(gogoproto.jsontag) = "budget_enabled"];
+  bool stream_enabled = 4 [(gogoproto.jsontag) = "stream_enabled"];
+  bool service_enabled = 5 [(gogoproto.jsontag) = "service_enabled"];
+}
+
+message MsgUpdateParams {
+  string authority = 1;
+  Params params = 2 [(gogoproto.nullable) = false];
+}
+
+message MsgUpdateParamsResponse {}

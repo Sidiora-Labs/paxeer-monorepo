@@ -17,7 +17,7 @@ import {
   JourneyTimelineView,
 } from "../../journeys/custody/timeline.tsx";
 import { journeyTimeline } from "../../journeys/custody/model.ts";
-import { windowWalletProvider } from "../../journeys/custody/handoff.ts";
+import { windowWalletProvider } from "../../api/provider.ts";
 import { useNotificationCenter } from "../../journeys/notifications/store.tsx";
 import { errorPresentation, ErrorSurface } from "../../states/error.tsx";
 import { LoadingSurface, OfflineSurface } from "../../states/surfaces.tsx";

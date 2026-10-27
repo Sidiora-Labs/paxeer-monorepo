@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
@@ -673,6 +674,24 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		out.Spends = append(out.Spends, spend)
 	case call.Destination == "layerxcustody" && call.Method == "depositToken":
 		err = token("pointer", "amount")
+	case (call.Destination == "layerxpay" && (call.Method == "budgetFundNative" || call.Method == "budgetFund")) ||
+		(call.Destination == "layerxprograms" && call.Method == "sandboxFund"):
+		amount, ok := call.Args["amount"].(*big.Int)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "%s.%s amount is malformed", call.Destination, call.Method)
+		}
+		out.Spends = append(out.Spends, Spend{Asset: AssetNative, Amount: amount})
+	case call.Destination == "layerxprograms" && call.Method == "transfer":
+		type transferLeg struct {
+			From   [32]byte
+			Asset  [32]byte
+			To     [32]byte
+			Amount *big.Int
+		}
+		legs := *abi.ConvertType(call.Args["legs"], new([]transferLeg)).(*[]transferLeg)
+		for _, leg := range legs {
+			out.Spends = append(out.Spends, Spend{Asset: AssetNative, Amount: leg.Amount})
+		}
 	case call.Destination == "perps" && call.Method == "deposit":
 		err = token("token", "amount")
 	case call.Destination == "perps" && call.Method == "openPosition":

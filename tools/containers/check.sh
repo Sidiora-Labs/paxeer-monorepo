@@ -95,7 +95,6 @@ OUT_OF_SCOPE='
 .devcontainer/Dockerfile
 consensus/networks/local/localnode/Dockerfile
 consensus/spec/ivy-proofs/Dockerfile
-consensus/test/docker/Dockerfile
 consensus/test/e2e/docker/Dockerfile
 services/explorer/backend/.devcontainer/Dockerfile
 services/platform/hosted/human/Dockerfile

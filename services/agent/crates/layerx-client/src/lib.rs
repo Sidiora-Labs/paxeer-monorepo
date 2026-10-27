@@ -17,6 +17,9 @@ pub mod resolver;
 #[cfg(target_os = "linux")]
 pub mod runtime_clock;
 pub mod sequencer;
+pub mod rpc;
+pub mod px;
+pub mod subscription;
 pub mod stream;
 pub mod submit;
 

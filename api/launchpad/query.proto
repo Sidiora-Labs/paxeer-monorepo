@@ -1,0 +1,444 @@
+syntax = "proto3";
+package paxprotocol.paxchain.launchpad;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "launchpad/tx.proto";
+
+option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types";
+
+service Query {
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/params";
+  }
+
+  rpc Market(QueryMarketRequest) returns (QueryMarketResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/market";
+  }
+
+  rpc MarketByAddress(QueryMarketByAddressRequest) returns (QueryMarketByAddressResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/market_by_address/{address}";
+  }
+
+  rpc Markets(QueryMarketsRequest) returns (QueryMarketsResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/markets";
+  }
+
+  rpc MarketsByCreator(QueryMarketsByCreatorRequest) returns (QueryMarketsByCreatorResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/markets_by_creator/{creator}";
+  }
+
+  rpc PriceHistory(QueryPriceHistoryRequest) returns (QueryPriceHistoryResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/price_history";
+  }
+
+  rpc Quote(QueryQuoteRequest) returns (QueryQuoteResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/quote";
+  }
+
+  rpc Treasury(QueryTreasuryRequest) returns (QueryTreasuryResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/treasury/{token}";
+  }
+
+  rpc Surface(QuerySurfaceRequest) returns (QuerySurfaceResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/surface/{address}";
+  }
+
+  rpc Retired(QueryRetiredRequest) returns (QueryRetiredResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/retired/{address}";
+  }
+
+  rpc FeeRight(QueryFeeRightRequest) returns (QueryFeeRightResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/fee_right/{collection}/{id}";
+  }
+
+  rpc AirdropEpoch(QueryAirdropEpochRequest) returns (QueryAirdropEpochResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/airdrop_epoch/{pool}/{epoch}";
+  }
+
+  rpc AirdropClaimed(QueryAirdropClaimedRequest) returns (QueryAirdropClaimedResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/airdrop_claimed/{pool}/{holder}/{epoch}";
+  }
+
+  rpc HasRole(QueryHasRoleRequest) returns (QueryHasRoleResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/has_role/{contract}/{role}/{account}";
+  }
+
+  rpc QuoteLedger(QueryQuoteLedgerRequest) returns (QueryQuoteLedgerResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/quote_ledger/{kind}";
+  }
+
+  rpc FeeAccounting(QueryFeeAccountingRequest) returns (QueryFeeAccountingResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/fee_accounting";
+  }
+
+  rpc PoolMetadata(QueryPoolMetadataRequest) returns (QueryPoolMetadataResponse) {
+    option (google.api.http).get = "/pax-protocol/paxchain/launchpad/pool_metadata/{pool}";
+  }
+}
+
+enum QuoteLedgerKind {
+  QUOTE_LEDGER_KIND_UNSPECIFIED = 0;
+  QUOTE_LEDGER_KIND_HELD = 1;
+  QUOTE_LEDGER_KIND_FEE_HELD = 2;
+  QUOTE_LEDGER_KIND_TREASURY_HELD = 3;
+}
+
+message MarketInfo {
+  string denom = 1 [(gogoproto.customname) = "Denom"];
+  uint64 index = 2 [(gogoproto.customname) = "Index"];
+  string name = 3 [(gogoproto.customname) = "Name"];
+  string symbol = 4 [(gogoproto.customname) = "Symbol"];
+  string pointer = 5 [(gogoproto.customname) = "Pointer"];
+  string creator = 6 [(gogoproto.customname) = "Creator"];
+  string guardian = 7 [(gogoproto.customname) = "Guardian"];
+  string fee_rights_holder = 8 [(gogoproto.customname) = "FeeRightsHolder"];
+  uint32 fee_strategy = 9 [(gogoproto.customname) = "FeeStrategy"];
+  bool paused = 10 [(gogoproto.customname) = "Paused"];
+  string total_supply = 11 [
+    (gogoproto.customname) = "TotalSupply",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string virtual_quote_reserve = 12 [
+    (gogoproto.customname) = "VirtualQuoteReserve",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string real_quote_balance = 13 [
+    (gogoproto.customname) = "RealQuoteBalance",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string token_reserve = 14 [
+    (gogoproto.customname) = "TokenReserve",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  int64 creation_time = 15 [(gogoproto.customname) = "CreationTime"];
+  string cumulative_volume = 16 [
+    (gogoproto.customname) = "CumulativeVolume",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  repeated string price_snapshots = 17 [
+    (gogoproto.customname) = "PriceSnapshots",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  repeated uint64 snapshot_heights = 18 [(gogoproto.customname) = "SnapshotHeights"];
+  uint64 snapshot_index = 19 [(gogoproto.customname) = "SnapshotIndex"];
+  uint64 snapshot_count = 20 [(gogoproto.customname) = "SnapshotCount"];
+  string accumulated_quote_fees = 21 [
+    (gogoproto.customname) = "AccumulatedQuoteFees",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string accumulated_token_fees = 22 [
+    (gogoproto.customname) = "AccumulatedTokenFees",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string accumulated_fees = 23 [
+    (gogoproto.customname) = "AccumulatedFees",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  uint64 airdrop_epoch = 24 [(gogoproto.customname) = "AirdropEpoch"];
+  string airdrop_balance = 25 [
+    (gogoproto.customname) = "AirdropBalance",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  uint32 generation = 26 [(gogoproto.customname) = "Generation"];
+  string pool_address = 27 [(gogoproto.customname) = "PoolAddress"];
+  string token_address = 28 [(gogoproto.customname) = "TokenAddress"];
+  string optical = 29 [(gogoproto.customname) = "Optical"];
+  string factory = 30 [(gogoproto.customname) = "Factory"];
+  string fee_accumulator = 31 [(gogoproto.customname) = "FeeAccumulator"];
+  string protocol_config = 32 [(gogoproto.customname) = "ProtocolConfig"];
+  string event_emitter = 33 [(gogoproto.customname) = "EventEmitter"];
+  string pending_guardian = 34 [(gogoproto.customname) = "PendingGuardian"];
+  int64 last_snapshot_timestamp = 35 [(gogoproto.customname) = "LastSnapshotTimestamp"];
+  string cumulative_buy_quote_volume = 36 [
+    (gogoproto.customname) = "CumulativeBuyQuoteVolume",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string cumulative_sell_quote_volume = 37 [
+    (gogoproto.customname) = "CumulativeSellQuoteVolume",
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string fee_right_collection = 38 [(gogoproto.customname) = "FeeRightCollection"];
+  uint64 fee_right_id = 39 [(gogoproto.customname) = "FeeRightID"];
+}
+
+message PricePoint {
+  uint64 height = 1;
+  string price = 2 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+message SurfaceInfo {
+  string role = 1;
+  uint32 generation = 2;
+  string market = 3;
+}
+
+message RetiredInfo {
+  string address = 1;
+  string role = 2;
+  string replacement = 3;
+}
+
+message FeeRightInfo {
+  uint64 id = 1 [(gogoproto.customname) = "ID"];
+  string owner = 2;
+  string approved = 3;
+  uint32 strategy = 4;
+  string pool = 5;
+}
+
+message AirdropEpochInfo {
+  string pool = 1;
+  uint64 epoch = 2;
+  string amount = 3 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  uint64 snapshot_block = 4;
+  string eligible_supply = 5 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string remaining = 6 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string claimed_supply = 7 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string legacy_root = 8;
+  string legacy_remaining = 9 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+message FeeAccountingInfo {
+  string pending_protocol_fees = 1 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string total_liabilities = 2 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  bool accounting_initialized = 3;
+  uint64 accounting_migration_cursor = 4;
+  uint64 pool_count = 5;
+  uint64 epoch_count = 6;
+  uint64 claim_count = 7;
+}
+
+message PoolMetadataInfo {
+  string creator = 1;
+  string token = 2;
+  string optical = 3;
+  uint64 nft_id = 4 [(gogoproto.customname) = "NFTID"];
+  int64 created_at = 5;
+  int64 created_block = 6;
+}
+
+message SwapQuote {
+  string amount_in = 1 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string amount_out = 2 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string fee_bps = 3 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string fee_amount = 4 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string protocol_cut = 5 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string pool_cut = 6 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+message QueryParamsRequest {}
+
+message QueryParamsResponse {
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryMarketRequest {
+  string denom = 1;
+}
+
+message QueryMarketResponse {
+  MarketInfo market = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryMarketByAddressRequest {
+  string address = 1;
+}
+
+message QueryMarketByAddressResponse {
+  MarketInfo market = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryMarketsRequest {
+  uint64 offset = 1;
+  uint64 limit = 2;
+}
+
+message QueryMarketsResponse {
+  repeated MarketInfo markets = 1 [(gogoproto.nullable) = false];
+  uint64 total = 2;
+}
+
+message QueryMarketsByCreatorRequest {
+  string creator = 1;
+  uint64 offset = 2;
+  uint64 limit = 3;
+}
+
+message QueryMarketsByCreatorResponse {
+  repeated MarketInfo markets = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryPriceHistoryRequest {
+  string denom = 1;
+  uint64 from_height = 2;
+  uint64 to_height = 3;
+}
+
+message QueryPriceHistoryResponse {
+  repeated PricePoint points = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryQuoteRequest {
+  string denom = 1;
+  bool is_buy = 2;
+  string amount_in = 3;
+}
+
+message QueryQuoteResponse {
+  SwapQuote quote = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryTreasuryRequest {
+  string token = 1;
+}
+
+message QueryTreasuryResponse {
+  string balance = 1 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+  string held = 2 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+message QuerySurfaceRequest {
+  string address = 1;
+}
+
+message QuerySurfaceResponse {
+  bool found = 1;
+  SurfaceInfo surface = 2;
+}
+
+message QueryRetiredRequest {
+  string address = 1;
+}
+
+message QueryRetiredResponse {
+  bool found = 1;
+  RetiredInfo retired = 2;
+}
+
+message QueryFeeRightRequest {
+  string collection = 1;
+  uint64 id = 2;
+}
+
+message QueryFeeRightResponse {
+  bool found = 1;
+  FeeRightInfo fee_right = 2;
+}
+
+message QueryAirdropEpochRequest {
+  string pool = 1;
+  uint64 epoch = 2;
+}
+
+message QueryAirdropEpochResponse {
+  bool found = 1;
+  AirdropEpochInfo airdrop_epoch = 2;
+}
+
+message QueryAirdropClaimedRequest {
+  string pool = 1;
+  string holder = 2;
+  uint64 epoch = 3;
+}
+
+message QueryAirdropClaimedResponse {
+  bool claimed = 1;
+}
+
+message QueryHasRoleRequest {
+  string contract = 1;
+  string role = 2;
+  string account = 3;
+}
+
+message QueryHasRoleResponse {
+  bool has_role = 1;
+}
+
+message QueryQuoteLedgerRequest {
+  string kind = 1;
+  string address = 2;
+}
+
+message QueryQuoteLedgerResponse {
+  string amount = 1 [
+    (gogoproto.customtype) = "Int",
+    (gogoproto.nullable) = false
+  ];
+}
+
+message QueryFeeAccountingRequest {}
+
+message QueryFeeAccountingResponse {
+  FeeAccountingInfo accounting = 1 [(gogoproto.nullable) = false];
+}
+
+message QueryPoolMetadataRequest {
+  string pool = 1;
+}
+
+message QueryPoolMetadataResponse {
+  bool found = 1;
+  PoolMetadataInfo metadata = 2;
+}
