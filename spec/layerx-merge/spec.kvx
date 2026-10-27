@@ -153288,7 +153288,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.1]
 title = "Retire the custody methods from the SDK provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["12.34.10"]
@@ -156802,7 +156802,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.2]
 title = "Serve upgrade with its hook, interface and fee limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8", "13.28.1"]
