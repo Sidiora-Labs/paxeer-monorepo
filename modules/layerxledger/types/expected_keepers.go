@@ -17,3 +17,9 @@ type BankKeeper interface {
 type EVMKeeper interface {
 	GetLayerXDid(ctx sdk.Context, evmAddress common.Address) ([32]byte, bool)
 }
+
+type IssuerKeeper interface {
+	CreateDenom(ctx sdk.Context, creatorAddr, subdenom string) (string, error)
+	SetIssuerDid(ctx sdk.Context, denom, issuerDid string) error
+	SetDenomPausedByIssuer(ctx sdk.Context, denom string, paused bool) error
+}

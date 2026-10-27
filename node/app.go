@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -358,7 +359,6 @@ var (
 		epochmoduletypes.StoreKey,
 		tokenfactorytypes.StoreKey,
 		layerxcustodytypes.StoreKey,
-		layerxanchortypes.StoreKey,
 		layerxexchangetypes.StoreKey,
 		layerxbridgetypes.StoreKey,
 		launchpadtypes.StoreKey,
@@ -372,7 +372,7 @@ var (
 		storekeys.LayerXPayStoreKey,
 		storekeys.LayerXProgramsStoreKey,
 		storekeys.LayerXAgentStoreKey,
-		LayerXHostStoreKey,
+		storekeys.LayerXHostStoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	}
 
@@ -627,7 +627,7 @@ type App struct {
 	commitListener   func(height int64, appHash []byte)
 }
 
-const LayerXHostStoreKey = "layerxhost"
+const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
 
 func NewHost(storeKey sdk.StoreKey, networkID uint32) (*lxphost.Host, error) {
 	return lxphost.NewHost(lxphost.Config{
@@ -810,11 +810,8 @@ func New(
 		app.GetSubspace(tokenfactorytypes.ModuleName),
 		app.AccountKeeper,
 		app.BankKeeper.(bankkeeper.BaseKeeper).WithMintCoinsRestriction(tokenfactorytypes.NewTokenFactoryDenomMintCoinsRestriction()),
-		app.DistrKeeper,
 	)
 	app.BankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
-
-	app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(app.keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper)
 
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
@@ -876,15 +873,12 @@ func New(
 	app.BankKeeper.RegisterRecipientChecker(app.EvmKeeper.CanAddressReceive)
 	app.LayerXCustodyKeeper = layerxcustodykeeper.NewKeeper(appCodec, keys[layerxcustodytypes.StoreKey],
 		app.AccountKeeper, app.BankKeeper, &app.EvmKeeper, app.UpgradeKeeper)
-	// Custody trusts only anchor-finalized checkpoints and anchor sequencer
-	// authorizations; its own authority-registered checkpoints are unused.
-	app.LayerXCustodyKeeper.SetAnchorReader(layerxanchorkeeper.NewCustodyAnchor(app.LayerXAnchorKeeper))
 	authority := layerxgovtypes.GovernanceAuthority()
 	networkID := evmconfig.GetEVMChainID(app.ChainID)
 	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
 		panic(fmt.Sprintf("LayerX network ID out of range: %s", networkID))
 	}
-	app.LayerXHost, err = NewHost(keys[LayerXHostStoreKey], uint32(networkID.Uint64()))
+	app.LayerXHost, err = NewHost(keys[storekeys.LayerXHostStoreKey], uint32(networkID.Uint64()))
 	if err != nil {
 		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
 	}
@@ -897,19 +891,18 @@ func New(
 		host:   app.LayerXHost,
 	}
 	payKeeper, err := layerxpaykeeper.NewKeeper(appCodec, keys[storekeys.LayerXPayStoreKey],
-		keys[LayerXHostStoreKey], app.LayerXHost, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
+		keys[storekeys.LayerXHostStoreKey], app.LayerXHost, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
 	app.LayerXPayKeeper = &payKeeper
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
+	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
 	app.LayerXBridgeKeeper = layerxbridgekeeper.NewKeeper(keys[layerxbridgetypes.StoreKey], app.BankKeeper,
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
-	app.BankKeeper.(bankkeeper.BaseKeeper).RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
-	app.GigaBankKeeper.RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
@@ -988,6 +981,7 @@ func New(
 	app.GigaEvmKeeper.UseRegularStore = true
 	app.GigaBankKeeper.UseRegularStore = true
 	app.GigaBankKeeper.RegisterRecipientChecker(app.GigaEvmKeeper.CanAddressReceive)
+	app.GigaBankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
 	// Read Giga Executor config
 	gigaExecutorConfig, err := gigaconfig.ReadConfig(appOpts)
 	if err != nil {
@@ -1102,7 +1096,6 @@ func New(
 		transferModule,
 		epochModule,
 		tokenfactorymodule.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper),
-		layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		layerxcustodymodule.NewAppModule(app.LayerXCustodyKeeper),
 		layerxexchangemodule.NewAppModule(app.LayerXExchangeKeeper),
@@ -1201,7 +1194,6 @@ func New(
 		wasm.ModuleName,
 		evmtypes.ModuleName,
 		layerxcustodytypes.ModuleName,
-		layerxanchortypes.ModuleName,
 		layerxexchangetypes.ModuleName,
 		layerxbridgetypes.ModuleName,
 		launchpadtypes.ModuleName,
@@ -1278,6 +1270,7 @@ func New(
 			OracleKeeper:      &app.OracleKeeper,
 			PricefeedKeeper:   app.PricefeedKeeper,
 			EVMKeeper:         &app.EvmKeeper,
+			LayerXAuthKeeper:  app.LayerXAuthKeeper,
 			UpgradeKeeper:     &app.UpgradeKeeper,
 			TracingInfo:       app.GetBaseApp().TracingInfo,
 			LatestCtxGetter:   app.LatestCtx,
@@ -1543,6 +1536,8 @@ func (app *App) SetStoreUpgradeHandlers() {
 	}
 }
 
+const retiredAnchorStoreName = "layerxanchor"
+
 // layerxStoreUpgrades returns the store upgrades of the named LayerX upgrade plan.
 func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 	switch name {
@@ -1556,6 +1551,8 @@ func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 		return activationStoreUpgrades(), true
 	case MergeUpgrade:
 		return mergeStoreUpgrades(), true
+	case AnchorStoreDeleteUpgrade:
+		return storetypes.StoreUpgrades{Deleted: []string{retiredAnchorStoreName}}, true
 	case V6120Upgrade:
 		return v6120StoreUpgrades(), true
 	}
@@ -1782,7 +1779,44 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 
 	if completion != nil {
 		<-completion
+	}
 
+	sealed, err := app.sealedBlockForFinalize()
+	if err != nil {
+		return nil, err
+	}
+	if sealed != nil && sealed.Height == req.Header.Height && app.Sequenced(ctx, req.Header.Height) {
+		matches := len(sealed.Txs) == len(req.Txs)
+		for i := 0; matches && i < len(req.Txs); i++ {
+			matches = bytes.Equal(sealed.Txs[i], req.Txs[i])
+		}
+		if matches {
+			sealedCtx := sealed.ctx.WithBlockHeader(*req.Header).WithHeaderHash(req.Hash)
+			ms, ok := sealedCtx.MultiStore().(sdk.CacheMultiStore)
+			if !ok {
+				return nil, errors.New("sealed block context has no cache multistore")
+			}
+			if err := app.StoreVotes(sealedCtx, req.Header.Height, req.DecidedLastCommit.Votes); err != nil {
+				return nil, err
+			}
+			if err := app.SetSealedStateToCommit(sealedCtx, ms); err != nil {
+				return nil, err
+			}
+			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
+				return &abci.ResponseFinalizeBlock{}, nil
+			}
+			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
+			cms := app.WriteState()
+			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
+			if hasHeadNotifier {
+				headNotifier.Stash(req, &resp)
+			}
+			return &resp, nil
+		}
+	}
+
+	if completion != nil {
 		// Get the final state atomically after completion
 		app.optimisticProcessingInfoMutex.RLock()
 		aborted := app.optimisticProcessingInfo.Aborted
@@ -1792,7 +1826,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 		endBlockResp := app.optimisticProcessingInfo.EndBlockResp
 		app.optimisticProcessingInfoMutex.RUnlock()
 
-		if !aborted && bytes.Equal(finalHash, req.Hash) {
+		if app.sequencerSource == nil && !aborted && bytes.Equal(finalHash, req.Hash) {
 			utilmetrics.IncrementOptimisticProcessingCounter(true) // TODO(PLT-327): remove once app_optimistic_processing_total verified
 			appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 				otelmetric.WithAttributes(attribute.Bool("enabled", true)))
@@ -3153,6 +3187,58 @@ func (app *App) SetOpenBlock(ob OpenBlock) {
 	app.openBlock = ob
 }
 
+type sealedFinalizeBlock struct {
+	Height   int64
+	Txs      [][]byte
+	Results  []*abci.ExecTxResult
+	Events   []abci.Event
+	EndBlock abci.ResponseEndBlock
+	ctx      sdk.Context
+}
+
+func (app *App) sealedBlockForFinalize() (*sealedFinalizeBlock, error) {
+	if app.sequencerSource == nil {
+		return nil, nil
+	}
+	source := reflect.ValueOf(app.sequencerSource)
+	if source.Kind() == reflect.Ptr && source.IsNil() {
+		return nil, errors.New("nil installed sequencer source")
+	}
+	getSealed := source.MethodByName("Sealed")
+	if !getSealed.IsValid() {
+		return nil, nil
+	}
+	if getSealed.Type().NumIn() != 0 || getSealed.Type().NumOut() != 1 {
+		return nil, errors.New("invalid sequencer Sealed method")
+	}
+	layer := getSealed.Call(nil)[0]
+	if layer.Kind() != reflect.Ptr || layer.Type().Elem().Kind() != reflect.Struct {
+		return nil, errors.New("invalid sequencer sealed layer type")
+	}
+	if layer.IsNil() {
+		return nil, nil
+	}
+	contextLayer, ok := layer.Interface().(interface{ Context() sdk.Context })
+	if !ok {
+		return nil, errors.New("sequencer sealed layer has no context")
+	}
+	sealed := &sealedFinalizeBlock{ctx: contextLayer.Context()}
+	target := reflect.ValueOf(sealed).Elem()
+	for _, name := range []string{"Height", "Txs", "Results", "Events", "EndBlock"} {
+		field := layer.Elem().FieldByName(name)
+		dest := target.FieldByName(name)
+		if !field.IsValid() || !field.CanInterface() || !field.Type().AssignableTo(dest.Type()) {
+			return nil, fmt.Errorf("invalid sequencer sealed layer field %s", name)
+		}
+		dest.Set(field)
+	}
+	return sealed, nil
+}
+
+func (app *App) StoreVotes(ctx sdk.Context, height int64, votes []abci.VoteInfo) error {
+	return app.SequencerKeeper.StoreVotes(ctx, height, votes)
+}
+
 func (app *App) SetSequencerSource(src tmtypes.SequencerSource) {
 	app.sequencerSource = src
 }
@@ -3197,6 +3283,19 @@ func (app *App) PendingSnapshot() (sdk.Context, error) {
 		return sdk.Context{}, err
 	}
 	return isolatedRead(ctx).WithIsEVM(true).WithTraceMode(true).WithIsCheckTx(false).WithClosestUpgradeName(LatestUpgrade), nil
+}
+
+type rpcPendingSnapshot struct {
+	app    *App
+	source evmrpc.PendingSnapshot
+}
+
+func (s rpcPendingSnapshot) Snapshot() (sdk.Context, error) {
+	return s.app.PendingSnapshot()
+}
+
+func (s rpcPendingSnapshot) PendingTx(hash [32]byte) (evmrpc.PendingTx, bool) {
+	return s.source.PendingTx(hash)
 }
 
 // isolatedRead gives a branch of L_open its own gas meter and event managers so concurrent
@@ -3351,9 +3450,32 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 
 	rpcCtxProvider := app.RPCContextProvider
 	traceCtxProvider := app.SnapshotAwareRPCContextProvider()
+	var options []evmrpc.ServerOption
+	if app.sequencerRPC != (evmrpc.SequencerOption{}) {
+		options = append(options, app.sequencerRPC)
+	}
+	if app.openBlock != nil {
+		source, ok := app.openBlock.(evmrpc.PendingSnapshot)
+		if !ok {
+			panic("sequencer open block does not provide pending transactions")
+		}
+		pending, err := evmrpc.NewPendingOption(rpcPendingSnapshot{app: app, source: source})
+		if err != nil {
+			panic(err)
+		}
+		options = append(options, pending)
+	}
+	if app.sequencerReceipt.ForwardURL != nil {
+		forward, err := evmrpc.NewSequencerForwardOption(app.sequencerReceipt.ForwardURL.String())
+		if err != nil {
+			panic(err)
+		}
+		options = append(options, forward)
+	}
+	httpOptions := append([]evmrpc.ServerOption{traceCtxProvider, app.sequencerReceipt}, options...)
 	var evmHTTPServer, evmWSServer evmrpc.EVMServer
 	if app.evmRPCConfig.HTTPEnabled {
-		httpServer, err := evmrpc.NewEVMHTTPServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, app.RPCContextProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), traceCtxProvider)
+		httpServer, err := evmrpc.NewEVMHTTPServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, app.RPCContextProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), httpOptions...)
 		if err != nil {
 			panic(err)
 		}
@@ -3362,7 +3484,7 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 
 	if app.evmRPCConfig.WSEnabled {
 		headNotifier, _ := app.blockHeaderNotifier.Get()
-		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier)
+		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier, options...)
 		if err != nil {
 			panic(err)
 		}
@@ -3611,7 +3733,7 @@ func (app *App) v6120Contracts() (map[common.Address][2]vm.PrecompiledContract, 
 	if err != nil {
 		return nil, err
 	}
-	spot, err := spotprecompile.NewPrecompileSet(keepers)
+	spot, err := spotprecompile.NewServedSet(keepers)
 	if err != nil {
 		return nil, err
 	}

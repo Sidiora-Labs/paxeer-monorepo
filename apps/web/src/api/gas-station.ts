@@ -11,6 +11,7 @@ import {
   type SponsoredBatch,
 } from "../../../../services/agent/sdk/typescript/src/gas-station.ts";
 import type { PrecompileSendOutcome } from "./wallet.ts";
+import { ethTransactionReceipt } from "./gateway.ts";
 
 export interface SidioraGasQuote {
   readonly batch: SponsoredBatch;
@@ -20,6 +21,7 @@ export interface SidioraGasQuote {
 
 export type GasQuoteOutcome =
   | Readonly<{ ok: true; value: SidioraGasQuote }>
+  | Readonly<{ ok: false; failure: PrecompileSendOutcome; refusal: "budget_exhausted" }>
   | Readonly<{ ok: false; failure: PrecompileSendOutcome }>;
 
 function stationConfiguration(): GasStationConfig | undefined {
@@ -66,6 +68,7 @@ export async function requestSidioraGasQuote(request: GasQuoteRequest, chainId: 
   const result = await requestGasQuote(config, request);
   if (!result.ok) {
     const code = result.refusal.code;
+    if (code === "budget_exhausted") return { ok: false, failure: { outcome: "rejected" }, refusal: code };
     return { ok: false, failure: { outcome: code === "unavailable" || code === "cancelled" ? code : "rejected" } };
   }
   return {
@@ -117,7 +120,10 @@ export async function sendSponsoredBatch(
     const body: unknown = await response.json();
     if (typeof body === "object" && body !== null && "transactionHash" in body
       && typeof body.transactionHash === "string" && /^0x[0-9a-fA-F]{64}$/u.test(body.transactionHash)) {
-      return { outcome: "sent", transactionHash: body.transactionHash };
+      const transactionHash = body.transactionHash;
+      const receipt = await ethTransactionReceipt(transactionHash);
+      if (receipt === undefined) return { outcome: "sent", transactionHash };
+      return { outcome: receipt.status === "reverted" ? "reverted" : "sent", transactionHash, receipt };
     }
   } catch {
     return { outcome: "failed" };

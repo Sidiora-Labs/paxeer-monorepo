@@ -15,18 +15,19 @@ use layerx_paxeer_client::{
     TransactionHash,
 };
 use layerx_ramp_toolkit::clients::{
-    ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig, MutualTlsClient,
-    MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient, SecretFile, parse_hex32,
+    parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig,
+    MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient,
+    SecretFile,
 };
 use layerx_ramp_toolkit::engine::{InventoryRebalancer, RampEngine};
 use layerx_ramp_toolkit::journal::{Journal, WorkflowStage};
 use layerx_ramp_toolkit::migration::{
-    SOURCE_SETTLEMENT_VERSION, SourceSettlementConfig, SourceSettlementRequest,
-    SourceSettlementResult, SourceSettlementService, SourceSettlementState,
+    SourceSettlementConfig, SourceSettlementRequest, SourceSettlementResult,
+    SourceSettlementService, SourceSettlementState, SOURCE_SETTLEMENT_VERSION,
 };
 use layerx_ramp_toolkit::{
-    CreateOrder, EXTERNAL_CUSTODY_LABEL, OperatorIdentity, QuoteTerms, RampDirection, RampError,
-    RampOrder, platform_ramp_toolkit,
+    platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms, RampDirection, RampError,
+    RampOrder, EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use native_tls::{Identity, TlsAcceptor, TlsStream};
@@ -263,11 +264,11 @@ fn verify_receipt_command() -> Result<(), String> {
         json!({
             "verified": true,
             "order_digest": order.order_digest,
-            "activity_id": leg.activity_id,
+            "tx_hash": leg.tx_hash,
             "receipt_digest": leg.receipt_digest,
-            "batch_id": leg.batch_id,
-            "network_id": config.layerx.network_id,
-            "wire_version": config.layerx.protocol_version,
+            "height": leg.height,
+            "rung": leg.rung.name(),
+            "chain_id": config.layerx.chain_id,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL
         })
     );
@@ -342,9 +343,8 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.paxeer.poll_cadence_seconds == 0
         || config.paxeer.delayed_after_polls == 0
         || config.paxeer.operator_account != config.operator.account
-        || config.layerx.protocol_version != layerx_wire::limits::PROTOCOL_VERSION
-        || config.layerx.network_id == 0
-        || config.layerx.fee_limit == 0
+        || config.layerx.chain_id == 0
+        || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
         || !valid_service_path(&config.provider.status_path)
@@ -756,8 +756,7 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         let body = json!({
             "ready": ready,
             "journal": health,
-            "network_id": state.layerx.activity.network_id,
-            "wire_version": state.layerx.activity.protocol_version,
+            "chain_id": state.layerx.chain_id,
             "external_custody": true,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL,
             "readiness_scope": "local-journal",
@@ -1038,16 +1037,6 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     if work.canonical_receive_payload.is_some() && !matches!(work.action, WorkAction::SubmitLayerx)
     {
         return Err(error(400, "work_invalid"));
-    }
-    if matches!(work.action, WorkAction::SubmitLayerx)
-        && state.layerx.activity.protocol_version
-            == layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-        && journal
-            .order(&work.order_digest)
-            .is_some_and(|snapshot| snapshot.order.direction() == RampDirection::OffRamp)
-        && work.canonical_receive_payload.is_none()
-    {
-        return Err(error(400, "native_payer_grant_authorization_required"));
     }
     let mut engine = engine(state, &mut journal);
     match work.action {
@@ -1423,8 +1412,8 @@ pub const fn platform_reference_ramp() -> &'static str {
 
 #[cfg(test)]
 mod boundary_tests {
-    use std::sync::Arc;
     use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
     use super::ConnectionGate;
 

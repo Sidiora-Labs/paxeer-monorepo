@@ -954,12 +954,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StageInstruction>
     let manifest = [0; 32];
     let chunk_count = u32::try_from(archive.bytes().len().div_ceil(chunk_bytes))
         .map_err(|_| SolanaError::Transaction)?;
-    let block_hash = archive
-        .data()
-        .committed
-        .as_ref()
-        .ok_or(SolanaError::Transaction)?
-        .block_hash;
+    let block_hash = archive.data().committed.block_hash;
     let mut begin = Vec::new();
     begin.extend_from_slice(INSTRUCTION_MAGIC);
     begin.extend_from_slice(&INSTRUCTION_VERSION.to_be_bytes());
@@ -1511,7 +1506,7 @@ mod tests {
         };
         let archive = Archive::from_committed(&block, 77, NodeHead::new(block.header.height, None))
             .map_err(|error| format!("committed archive: {error:?}"))?;
-        assert!(archive.data().checkpoint.is_none());
+        assert_eq!(archive.data().committed.block_hash, block.header.block_hash);
         assert_ne!(&block.header.block_hash, archive.commitment().as_bytes());
         let instructions =
             stages(&archive, 720).map_err(|error| format!("committed instructions: {error:?}"))?;
@@ -1526,13 +1521,6 @@ mod tests {
         assert_eq!(&instructions[1].data[..7], b"LXMA\0\x04\x02");
         assert_eq!(&instructions[2].data[..7], b"LXMA\0\x04\x03");
 
-        let legacy = Archive::from_spool(ARCHIVE.to_vec(), NodeHead::new(1, None))
-            .map_err(|error| format!("legacy archive: {error:?}"))?;
-        assert!(legacy.data().committed.is_none());
-        assert!(matches!(
-            stages(&legacy, 720),
-            Err(SolanaError::Transaction)
-        ));
         Ok(())
     }
 

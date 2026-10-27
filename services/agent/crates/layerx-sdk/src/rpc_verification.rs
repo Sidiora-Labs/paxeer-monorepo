@@ -11,9 +11,11 @@ use layerx_proof::merkle::Proof;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode_batch_header, Receipt};
 use serde_json::Value;
-use sha2::{Digest as _, Sha256};
 
 use crate::rpc::{Commitment, RpcClient, RpcError};
+
+pub use layerx_agent_api::read::{ReadRequest, VerifiedRead};
+pub use layerx_agent_api::subscription::ReceiptReference;
 
 const MAX_ACCOUNT_VALUE_BYTES: usize = 4_096;
 const MAX_ACCOUNT_PROOF_BYTES: usize = 1_048_576;
@@ -465,12 +467,11 @@ impl RpcClient {
         timeout: Duration,
         history: Option<&layerx_client::handover::SequencerHistory>,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
+        if commitment == Commitment::Finalised {
+            return Err(RpcError::MissingFinalityTrust);
+        }
         if activity == [0; 32] || timeout > Duration::from_secs(300) {
             return Err(RpcError::InvalidRequest);
-        }
-        if commitment == Commitment::Finalised && policy.trusted_checkpoint_context_digest.is_none()
-        {
-            return Err(RpcError::MissingFinalityTrust);
         }
         let id = super::rpc::encode_hex(&activity);
         if timeout.is_zero() {
@@ -547,48 +548,6 @@ impl RpcClient {
             return Ok(None);
         }
         result.map(Some)
-    }
-
-    fn verify_finalised_checkpoint(
-        &self,
-        evidence: &VerifiedBatchEvidence,
-        policy: &ReceiptPolicy,
-        deadline: &mut Deadline,
-    ) -> Result<bool, RpcError> {
-        let clock = self.clock()?;
-        if deadline
-            .remaining(clock.as_ref())
-            .map_err(RpcError::Clock)?
-            .is_zero()
-        {
-            return Ok(false);
-        }
-        let Some(node) =
-            self.read_before_deadline("lx_getNodeInfo", &serde_json::json!([]), deadline)?
-        else {
-            return Ok(false);
-        };
-        let checkpoint_id = node
-            .get("latest_finalised_checkpoint")
-            .and_then(Value::as_str)
-            .ok_or(RpcError::InvalidResponse)?;
-        if deadline
-            .remaining(clock.as_ref())
-            .map_err(RpcError::Clock)?
-            .is_zero()
-        {
-            return Ok(false);
-        }
-        let Some(checkpoint) = self.read_before_deadline(
-            "lx_getCheckpoint",
-            &serde_json::json!([checkpoint_id]),
-            deadline,
-        )?
-        else {
-            return Ok(false);
-        };
-        verify_rpc_checkpoint(&checkpoint, evidence.canonical_header(), policy)?;
-        Ok(true)
     }
 
     fn receipt_at_commitment(
@@ -671,11 +630,6 @@ impl RpcClient {
                     .verify_header(evidence.canonical_header(), &evidence.header_signature())
                     .map_err(|_| RpcError::Verification)?;
             }
-            if commitment == Commitment::Finalised
-                && !self.verify_finalised_checkpoint(&evidence, policy, deadline)?
-            {
-                return Ok(None);
-            }
             Some(evidence)
         };
         if deadline
@@ -749,33 +703,6 @@ fn verify_rpc_inclusion(
     })
 }
 
-fn verify_rpc_checkpoint(
-    value: &Value,
-    header: &[u8],
-    policy: &ReceiptPolicy,
-) -> Result<(), RpcError> {
-    let context = hex_field(value, "context", 128 * 1024)?;
-    let digest: [u8; 32] = Sha256::digest(&context).into();
-    if Some(digest) != policy.trusted_checkpoint_context_digest {
-        return Err(RpcError::Verification);
-    }
-    let checkpoint = hex_field(value, "checkpoint", 1_048_576)?;
-    let candidate = layerx_client::evidence::FinalityEvidenceCandidate::from_exact_bytes(
-        checkpoint,
-        context,
-        policy.protocol_version,
-        policy.network_id,
-    )
-    .map_err(|_| RpcError::Verification)?;
-    if candidate.canonical_header() != header
-        || hex_field(value, "canonical_header", 65536)? != header
-        || hex_field(value, "checkpoint_id", 32)? != candidate.checkpoint_id()
-    {
-        return Err(RpcError::Verification);
-    }
-    Ok(())
-}
-
 fn hex_field(value: &Value, name: &str, maximum: usize) -> Result<Vec<u8>, RpcError> {
     decode_hex(
         value
@@ -809,46 +736,6 @@ fn decode_hex(value: &str, maximum: usize) -> Result<Vec<u8>, RpcError> {
 mod tests {
     use super::*;
     use serde_json::json;
-    #[test]
-    fn finality_requires_the_exact_trusted_context_and_header() -> Result<(), RpcError> {
-        let fields: std::collections::BTreeMap<_, _> =
-            include_str!("../../../../../tests/vectors/finality_evidence_v1.vec")
-                .lines()
-                .filter_map(|l| l.split_once('='))
-                .collect();
-        let get = |name| fields.get(name).copied().ok_or(RpcError::InvalidResponse);
-        let checkpoint = decode_hex(get("checkpoint_payload")?, 1_048_576)?;
-        let context = decode_hex(get("finality_proof")?, 131_072)?;
-        let protocol = get("protocol_version")?
-            .parse()
-            .map_err(|_| RpcError::InvalidResponse)?;
-        let network = get("network_id")?
-            .parse()
-            .map_err(|_| RpcError::InvalidResponse)?;
-        let candidate = layerx_client::evidence::FinalityEvidenceCandidate::from_exact_bytes(
-            checkpoint.clone(),
-            context.clone(),
-            protocol,
-            network,
-        )
-        .map_err(|_| RpcError::Verification)?;
-        let policy = ReceiptPolicy {
-            protocol_version: protocol,
-            network_id: network,
-            sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 100),
-            trusted_checkpoint_context_digest: Some(Sha256::digest(&context).into()),
-        };
-        let mut response = json!({"checkpoint":crate::rpc::encode_hex(&checkpoint),"context":crate::rpc::encode_hex(&context),"checkpoint_id":crate::rpc::encode_hex(&candidate.checkpoint_id()),"canonical_header":crate::rpc::encode_hex(candidate.canonical_header())});
-        verify_rpc_checkpoint(&response, candidate.canonical_header(), &policy)?;
-        response["checkpoint_id"] = json!("00".repeat(32));
-        assert!(verify_rpc_checkpoint(&response, candidate.canonical_header(), &policy).is_err());
-        response["checkpoint_id"] = json!(crate::rpc::encode_hex(&candidate.checkpoint_id()));
-        response["context"] = json!("00");
-        assert!(verify_rpc_checkpoint(&response, candidate.canonical_header(), &policy).is_err());
-        response["context"] = json!(crate::rpc::encode_hex(&context));
-        assert!(verify_rpc_checkpoint(&response, &[0; 32], &policy).is_err());
-        Ok(())
-    }
     #[test]
     fn acknowledgement_is_not_inclusion() {
         let policy = ReceiptPolicy {

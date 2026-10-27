@@ -2,10 +2,10 @@
 
 import { Skeleton } from "@/ui/atoms/skeleton";
 import {
-  PERPS_MARKETS,
   ANALYTICS_AXIS_FORMATTERS,
   TRACK_B_STRINGS,
 } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useMarketSnapshots } from "@/hooks/perps/useAnalytics";
 import { formatSignedFundingDecimalPct, fundingDecimalSign, fundingWadDecimal, parseFundingRateWad } from "@/core/perps/fundingRate";
 
@@ -27,12 +27,9 @@ function fmtPrice(price: number): string {
   return price.toLocaleString("en-US", { minimumFractionDigits: 4, maximumFractionDigits: 6 });
 }
 
-function getMarketSymbol(marketId: number): string {
-  return PERPS_MARKETS.find((m) => m.marketId === marketId)?.symbol ?? `MKT-${marketId}`;
-}
-
 export function MarketSnapshotTable({ marketId }: MarketSnapshotTableProps) {
   const { data, isLoading } = useMarketSnapshots(marketId, 20);
+  const { catalog } = usePerpsMarkets();
 
   if (isLoading || !data) {
     return (
@@ -62,7 +59,9 @@ export function MarketSnapshotTable({ marketId }: MarketSnapshotTableProps) {
     );
   }
 
-  const symbol = marketId !== undefined ? getMarketSymbol(marketId) : "All";
+  const symbol = marketId !== undefined
+    ? catalog.find((market) => market.marketId === marketId)?.symbol ?? String(marketId)
+    : "All";
 
   return (
     <div className="rounded-card bg-surface-1 overflow-hidden shadow-04 transition-colors ease-data duration-200">

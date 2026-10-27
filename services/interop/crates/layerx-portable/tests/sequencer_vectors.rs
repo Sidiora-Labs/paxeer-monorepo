@@ -130,7 +130,7 @@ fn a_pax_transfer_vector_exports_with_its_raw_transaction() {
     assert_eq!(verified.height(), case.height());
     assert_eq!(verified.inclusion_height(), case.height());
     assert_eq!(
-        verify_portable_json(&json, None, &keys),
+        verify_portable_json(&json, &keys),
         Ok(PortableVerified::V2(verified))
     );
 
@@ -190,7 +190,7 @@ fn a_raw_transaction_that_does_not_hash_to_the_activity_id_is_refused() {
         Err(PortableReceiptError::RawTransactionMismatch)
     );
     assert_eq!(
-        verify_portable_json(&json, None, &keys),
+        verify_portable_json(&json, &keys),
         Err(PortableReceiptError::RawTransactionMismatch)
     );
 }

@@ -64,6 +64,8 @@ type Testnet struct {
 	InitialHeight          int64
 	InitialState           map[string]string
 	Validators             map[*Node]int64
+	LeaderPin              []*Node
+	LeaderPinHeight        int64
 	ValidatorUpdates       map[int64]map[*Node]int64
 	Nodes                  []*Node
 	KeyType                string
@@ -136,6 +138,7 @@ func LoadTestnet(file string) (*Testnet, error) {
 		InitialHeight:          1,
 		InitialState:           manifest.InitialState,
 		Validators:             map[*Node]int64{},
+		LeaderPinHeight:        manifest.LeaderPinHeight,
 		ValidatorUpdates:       map[int64]map[*Node]int64{},
 		Nodes:                  []*Node{},
 		Evidence:               manifest.Evidence,
@@ -270,6 +273,14 @@ func LoadTestnet(file string) (*Testnet, error) {
 		}
 	}
 
+	for _, name := range manifest.LeaderPin {
+		node := testnet.LookupNode(name)
+		if node == nil {
+			return nil, fmt.Errorf("unknown leader_pin node %q", name)
+		}
+		testnet.LeaderPin = append(testnet.LeaderPin, node)
+	}
+
 	// Set up validator updates.
 	for heightStr, validators := range manifest.ValidatorUpdates {
 		height, err := strconv.Atoi(heightStr)
@@ -303,6 +314,28 @@ func (t Testnet) Validate() error {
 	}
 	if t.KeyType != "" && t.KeyType != types.ABCIPubKeyTypeEd25519 {
 		return errors.New("unsupported KeyType")
+	}
+	if len(t.LeaderPin) > 0 && t.LeaderPinHeight == 0 {
+		return errors.New("leader_pin requires a non-zero leader_pin_height")
+	}
+	if t.LeaderPinHeight != 0 && t.LeaderPinHeight < t.InitialHeight {
+		return fmt.Errorf("leader_pin_height %v is below initial height %v", t.LeaderPinHeight, t.InitialHeight)
+	}
+	leaders := make(map[string]struct{}, len(t.LeaderPin))
+	for _, node := range t.LeaderPin {
+		if node == nil {
+			return errors.New("unknown leader_pin node")
+		}
+		if t.LookupNode(node.Name) != node {
+			return fmt.Errorf("unknown leader_pin node %q", node.Name)
+		}
+		if node.Mode != ModeValidator {
+			return fmt.Errorf("leader_pin node %q is not a validator", node.Name)
+		}
+		if _, ok := leaders[node.Name]; ok {
+			return fmt.Errorf("duplicate leader_pin node %q", node.Name)
+		}
+		leaders[node.Name] = struct{}{}
 	}
 	switch t.ABCIProtocol {
 	case ProtocolBuiltin, ProtocolUNIX, ProtocolTCP, ProtocolGRPC:

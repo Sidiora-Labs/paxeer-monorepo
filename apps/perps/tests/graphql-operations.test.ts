@@ -15,6 +15,7 @@ interface Operation {
 interface GoldenOperation {
   name: string;
   roots: readonly string[];
+  marketFields?: readonly string[];
 }
 
 const root = new URL("../", import.meta.url);
@@ -28,7 +29,18 @@ export const GOLDEN_OPERATIONS: readonly GoldenOperation[] = [
   { name: "GetTrades", roots: ["trades"] },
   { name: "GetOrders", roots: ["orders"] },
   { name: "GetMarketInfo", roots: ["market", "marketStats"] },
-  { name: "GetMarkets", roots: ["markets"] },
+  {
+    name: "GetMarkets",
+    roots: ["markets"],
+    marketFields: [
+      "oracleSymbol",
+      "szDecimals",
+      "pxDecimals",
+      "tickSize",
+      "lotSize",
+      "tierClass",
+    ],
+  },
   { name: "GetGlobalStats", roots: ["globalStats"] },
   { name: "GetUserStats", roots: ["userStats"] },
   { name: "GetUserVault", roots: ["userVault"] },
@@ -263,6 +275,35 @@ function retiredSpotOperationsAbsent() {
 }
 
 test(retiredSpotOperationsAbsent);
+
+function gatewayMarketConfigFields() {
+  const operation = GOLDEN_OPERATIONS.find((op) => op.name === "GetMarkets");
+  assert.ok(operation?.marketFields);
+  const document = [...read(SUBGRAPH).matchAll(/\/\* GraphQL \*\/\s*`([^`]*)`/g)]
+    .map((match) => match[1]!)
+    .find((query) => parseOperation(query).name === "GetMarkets");
+  assert.ok(document);
+  const market = sdlFields(read("src/core/perps/perpetual.graphql")).get("Market");
+  assert.ok(market);
+  const expectedTypes: Record<string, string> = {
+    oracleSymbol: "String!",
+    szDecimals: "Int",
+    pxDecimals: "Int",
+    tickSize: "BigDecimal",
+    lotSize: "BigDecimal",
+    tierClass: "Int",
+  };
+  for (const field of operation.marketFields) {
+    assert.match(
+      document,
+      new RegExp(`\\b${field}\\b`),
+      `GetMarkets selects ${field}`,
+    );
+    assert.equal(market.get(field), expectedTypes[field], `Market.${field}`);
+  }
+}
+
+test(gatewayMarketConfigFields);
 
 describe("graphql operations", () => {
   it("subgraphOperationsMatchGolden", () => {

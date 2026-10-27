@@ -353,7 +353,6 @@ fn kernel_backend(method: &str) -> Option<KernelBackend> {
         | "lx_listAssets"
         | "lx_getAsset"
         | "lx_getNodeInfo"
-        | "px_getBalances"
         | "px_listAssets" => Some(KernelBackend::PublicCore),
         _ => None,
     }
