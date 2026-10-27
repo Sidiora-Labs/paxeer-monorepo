@@ -16,7 +16,7 @@ import (
 func TestUncleCountKnownBlockIsZero(t *testing.T) {
 	tmClient := &MockClient{latestOverride: MockHeight8}
 	watermarks := evmrpc.NewWatermarkManager(tmClient, nil, nil, nil)
-	api := evmrpc.NewUncleAPI(tmClient, watermarks)
+	api := evmrpc.NewUncleAPI(tmClient, watermarks, evmrpc.ConnectionTypeHTTP)
 	ctx := context.Background()
 
 	for _, number := range []rpc.BlockNumber{
@@ -57,7 +57,7 @@ func TestUncleCountKnownBlockIsZero(t *testing.T) {
 func TestUncleCountUnknownBlockIsNull(t *testing.T) {
 	tmClient := &MockClient{latestOverride: MockHeight8}
 	watermarks := evmrpc.NewWatermarkManager(tmClient, nil, nil, nil)
-	api := evmrpc.NewUncleAPI(tmClient, watermarks)
+	api := evmrpc.NewUncleAPI(tmClient, watermarks, evmrpc.ConnectionTypeHTTP)
 	ctx := context.Background()
 
 	t.Run("by_number", func(t *testing.T) {
