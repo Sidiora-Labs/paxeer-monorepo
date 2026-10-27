@@ -53,6 +53,7 @@ use crate::abi::{
 use crate::attestation::{
     assemble_signatures, recover_signer, OutboundAttestation, SignatureError,
 };
+use crate::attestation_api::AttestationView;
 use crate::cosign::CosignDirectory;
 use crate::hex;
 use crate::journal::{
@@ -418,6 +419,7 @@ pub struct Relayer {
     release: Option<SolanaRelease>,
     failures: Vec<ItemFailure>,
     journal_failure: Option<JournalError>,
+    thresholds: BTreeMap<u64, usize>,
 }
 
 fn malformed() -> RelayerError {
@@ -563,6 +565,7 @@ impl Relayer {
             release,
             failures: Vec::new(),
             journal_failure: None,
+            thresholds: BTreeMap::new(),
         })
     }
 
@@ -576,6 +579,46 @@ impl Relayer {
     #[must_use]
     pub fn failures(&self) -> &[ItemFailure] {
         &self.failures
+    }
+
+    #[must_use]
+    pub fn attestation_view(&self) -> AttestationView {
+        let mut view = AttestationView {
+            items: self.journal.state().items.clone(),
+            signatures: BTreeMap::new(),
+            thresholds: self.thresholds.clone(),
+        };
+        for item in view.items.values() {
+            let (Observation::Inbound { chain_id, .. } | Observation::Outbound { chain_id, .. }) =
+                &item.observation;
+            view.thresholds.entry(*chain_id).or_insert(1);
+            let digest = item
+                .observation
+                .inbound_attestation()
+                .map(|attestation| attestation.digest())
+                .or_else(|| {
+                    item.observation
+                        .outbound_attestation()
+                        .map(|attestation| attestation.digest())
+                });
+            if let Some(digest) = digest {
+                let mut by_signer = BTreeMap::new();
+                let collected = self
+                    .cosign
+                    .as_ref()
+                    .map(|cosign| cosign.collect(&digest))
+                    .into_iter()
+                    .flatten();
+                for signature in item.signature.iter().copied().chain(collected) {
+                    if let Ok(signer) = recover_signer(&digest, &signature) {
+                        by_signer.entry(signer).or_insert(signature);
+                    }
+                }
+                view.signatures
+                    .insert(digest, by_signer.into_values().collect());
+            }
+        }
+        view
     }
 
     /// One pass of every loop: inbound for each chain, inbound from Solana
@@ -1094,7 +1137,11 @@ impl Relayer {
     }
 
     /// The destination's current attestor set and threshold.
-    fn attestor_policy(&self, side: Side) -> Result<(Vec<[u8; 20]>, usize), RelayerError> {
+    fn attestor_policy(
+        &mut self,
+        side: Side,
+        chain_id: u64,
+    ) -> Result<(Vec<[u8; 20]>, usize), RelayerError> {
         let rpc = self.rpc(side);
         let (signers, threshold) = match side {
             Side::Paxeer => {
@@ -1115,6 +1162,7 @@ impl Relayer {
             }
         };
         let threshold = usize::try_from(threshold).map_err(|_| AbiError::OutOfRange)?;
+        self.thresholds.insert(chain_id, threshold);
         Ok((signers, threshold))
     }
 
@@ -1175,7 +1223,9 @@ impl Relayer {
             })?;
             return Ok(Progress::Refused);
         }
-        let (attestors, threshold) = self.attestor_policy(side)?;
+        let (Observation::Inbound { chain_id, .. } | Observation::Outbound { chain_id, .. }) =
+            observation;
+        let (attestors, threshold) = self.attestor_policy(side, chain_id)?;
         if !attestors.contains(&self.attestor.address()) {
             return Err(RelayerError::NotAttestor);
         }
@@ -1714,6 +1764,7 @@ impl Relayer {
             candidates.extend(cosign.collect(&digest));
         }
         let threshold = usize::from(config.threshold);
+        self.thresholds.insert(attestation.chain_id, threshold);
         let signatures =
             match assemble_signatures(&digest, candidates, &config.attestors, threshold) {
                 Ok(signatures) => signatures,

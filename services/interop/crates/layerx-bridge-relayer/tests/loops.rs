@@ -9,6 +9,7 @@ use layerx_bridge_relayer::abi::{encode_bridge_in, encode_release, LAYERX_BRIDGE
 use layerx_bridge_relayer::attestation::{
     to_attestor_signature, uint256_from_u64, InboundAttestation, OutboundAttestation,
 };
+use layerx_bridge_relayer::attestation_api::{deposit_answer, release_answer};
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
 use layerx_bridge_relayer::journal::{
@@ -229,6 +230,236 @@ fn assert_all_matched(recording: &Recording) {
 
 fn journal_path(directory: &Path, name: &str) -> PathBuf {
     directory.join(format!("{name}.jsonl"))
+}
+
+#[test]
+fn the_attestation_view_holds_every_item_after_a_tick() {
+    let signer = signer("attestation-view");
+    let directory = work_directory("attestation-view");
+    let mut document: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/inbound_threshold_one.json"))
+            .unwrap_or_else(|error| panic!("inbound fixture: {error}"));
+    let sequencer: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/inbound_sequencer_receipt.json"))
+            .unwrap_or_else(|error| panic!("sequencer fixture: {error}"));
+    let restart = &mut document["endpoints"]["paxeer"]["restart"];
+    restart[0] = sequencer["endpoints"]["paxeer"]["committed"][0].clone();
+    let pending_hash = restart[1]["params"].clone();
+    restart[1] = sequencer["endpoints"]["paxeer"]["unknown"][0].clone();
+    restart[1]["params"] = pending_hash;
+    let fixture = directory.join("attestation-recording.json");
+    std::fs::write(
+        &fixture,
+        serde_json::to_vec(&document).unwrap_or_else(|error| panic!("combined recording: {error}")),
+    )
+    .unwrap_or_else(|error| panic!("write recording: {error}"));
+    let recording = Recording::load(
+        fixture
+            .to_str()
+            .unwrap_or_else(|| panic!("recording path is not UTF-8")),
+    );
+    let instance = Instance {
+        attestor: ("attestor-1", ATTESTOR_1),
+        paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
+        journal: journal_path(&directory, "inbound"),
+        cosign: None,
+    };
+    recording.set_phase("scan");
+    let mut relayer = start(&recording, &signer, &instance);
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("scan: {error}"));
+    assert_eq!(report.observed, 3);
+    assert_eq!(report.submitted, 2);
+    assert_eq!(report.refused, 1);
+
+    recording.set_phase("restart");
+    let tick = relayer.tick();
+    assert_eq!(tick.len(), 2);
+    assert_eq!(
+        tick[0].1,
+        Ok(StepReport {
+            completed: 1,
+            waiting: 1,
+            ..StepReport::default()
+        })
+    );
+    assert_eq!(tick[1].1, Ok(StepReport::default()));
+    let view = relayer.attestation_view();
+    assert_eq!(view.items, relayer.journal().state().items);
+    assert_eq!(view.items.len(), 3);
+    assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
+    assert_eq!(view.signatures.len(), 3);
+    for attestation in [
+        deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000),
+        deposit(0xcc, 7, padded(0x88), 5),
+    ] {
+        let digest = attestation.digest();
+        assert_eq!(view.signatures[&digest], vec![attest(ATTESTOR_1, &digest)]);
+        let answer = deposit_answer(
+            &view,
+            attestation.chain_id,
+            &attestation.tx_hash,
+            attestation.log_index,
+        )
+        .unwrap_or_else(|| panic!("missing deposit"));
+        assert_eq!(answer["status"], "ready");
+    }
+    let refused = &view.items[&inbound_key(1, &[0xdd; 32], 0)];
+    assert!(refused.refusal.is_some());
+    assert_eq!(refused.signature, None);
+    let refused_digest = refused
+        .observation
+        .inbound_attestation()
+        .unwrap_or_else(|| panic!("missing refused deposit"))
+        .digest();
+    assert!(view.signatures[&refused_digest].is_empty());
+    assert_all_matched(&recording);
+
+    let recording = Recording::load("outbound_release.json");
+    let instance = Instance {
+        journal: journal_path(&directory, "outbound"),
+        ..instance
+    };
+    let mut journal =
+        Journal::open(&instance.journal).unwrap_or_else(|error| panic!("journal: {error}"));
+    journal
+        .append(&Entry::Cursor {
+            stream: "in:1".to_owned(),
+            next_block: 0x101,
+        })
+        .unwrap_or_else(|error| panic!("inbound cursor: {error}"));
+    drop(journal);
+    recording.set_phase("release");
+    let mut relayer = start(&recording, &signer, &instance);
+    assert_eq!(
+        relayer
+            .outbound_step()
+            .unwrap_or_else(|error| panic!("release: {error}"))
+            .submitted,
+        1
+    );
+    recording.set_phase("released");
+    let tick = relayer.tick();
+    assert_eq!(tick.len(), 2);
+    assert_eq!(tick[0].1, Ok(StepReport::default()));
+    assert_eq!(
+        tick[1].1,
+        Ok(StepReport {
+            completed: 1,
+            ..StepReport::default()
+        })
+    );
+    let view = relayer.attestation_view();
+    assert_eq!(view.items, relayer.journal().state().items);
+    assert_eq!(view.items.len(), 1);
+    let item = &view.items[&outbound_key(1, &[0x22; 32], 7)];
+    assert!(matches!(item.completion, Some(Completion::Included { .. })));
+    let digest = item
+        .observation
+        .outbound_attestation()
+        .unwrap_or_else(|| panic!("missing release"))
+        .digest();
+    assert_eq!(view.signatures[&digest], vec![attest(ATTESTOR_1, &digest)]);
+    assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
+    assert_eq!(
+        release_answer(&view, 1, &[0x22; 32], 7)
+            .unwrap_or_else(|| panic!("missing release answer"))["status"],
+        "ready"
+    );
+    assert_all_matched(&recording);
+}
+
+#[test]
+fn the_attestation_view_is_a_snapshot() {
+    let recording = Recording::load("cosign_threshold_two.json");
+    let signer = signer("attestation-snapshot");
+    let directory = work_directory("attestation-snapshot");
+    let cosign = directory.join("cosign");
+    let one = Instance {
+        attestor: ("attestor-1", ATTESTOR_1),
+        paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
+        journal: journal_path(&directory, "one"),
+        cosign: Some(cosign.clone()),
+    };
+    let two = Instance {
+        attestor: ("attestor-2", ATTESTOR_2),
+        paxeer_fees: ("paxeer-fees-2", FEES_2),
+        journal: journal_path(&directory, "two"),
+        cosign: Some(cosign),
+    };
+    recording.set_phase("pending");
+    let mut first = start(&recording, &signer, &one);
+    let empty = first.attestation_view();
+    let mut second = start(&recording, &signer, &two);
+    let attestation = deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000);
+    let digest = attestation.digest();
+    let item = inbound_key(1, &[0xaa; 32], 3);
+    assert_eq!(
+        first
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("first: {error}"))
+            .waiting,
+        1
+    );
+    let before = first.attestation_view();
+    assert_eq!(before.items, first.journal().state().items);
+    assert_eq!(
+        before.signatures[&digest],
+        vec![attest(ATTESTOR_1, &digest)]
+    );
+    assert_eq!(before.thresholds.get(&CHAIN.chain_id), Some(&2));
+    assert_eq!(before.items[&item].completion, None);
+    assert_eq!(
+        deposit_answer(&before, 1, &[0xaa; 32], 3).unwrap_or_else(|| panic!("missing deposit"))
+            ["status"],
+        "attesting"
+    );
+    let saved_items = before.items.clone();
+    let saved_signatures = before.signatures.clone();
+    let saved_thresholds = before.thresholds.clone();
+    assert_eq!(
+        second
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("second: {error}"))
+            .submitted,
+        1
+    );
+    recording.set_phase("bridged");
+    let tick = first.tick();
+    assert_eq!(tick.len(), 2);
+    assert_eq!(
+        tick[0].1,
+        Ok(StepReport {
+            completed: 1,
+            ..StepReport::default()
+        })
+    );
+    assert_eq!(tick[1].1, Ok(StepReport::default()));
+    let after = first.attestation_view();
+    assert_eq!(after.items, first.journal().state().items);
+    assert_eq!(
+        after.items[&item].completion,
+        Some(Completion::AlreadyBridged)
+    );
+    assert_eq!(
+        after.signatures[&digest],
+        vec![attest(ATTESTOR_2, &digest), attest(ATTESTOR_1, &digest)]
+    );
+    assert_eq!(after.thresholds.get(&CHAIN.chain_id), Some(&2));
+    assert_eq!(
+        deposit_answer(&after, 1, &[0xaa; 32], 3).unwrap_or_else(|| panic!("missing deposit"))
+            ["status"],
+        "ready"
+    );
+    assert_eq!(before.items, saved_items);
+    assert_eq!(before.signatures, saved_signatures);
+    assert_eq!(before.thresholds, saved_thresholds);
+    assert!(empty.items.is_empty());
+    assert!(empty.signatures.is_empty());
+    assert!(empty.thresholds.is_empty());
+    assert_eq!(recording.sent().len(), 1);
+    assert_all_matched(&recording);
 }
 
 /// Restart: the first transaction is final, the second is unknown to the node
