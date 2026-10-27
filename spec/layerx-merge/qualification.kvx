@@ -7781,3 +7781,67 @@ symbol = "test_search_location_clears_the_payer_did"
 observed = "At 5d00fc4e0 and 9f43cedcc the graph check refused symbol nginx.conf, a file name rather than a declared symbol."
 assumption = "The task's symbols now name the test function."
 severity = "minor"
+
+[finding.7.0.3]
+task = "7.0.3"
+file = "rpc/sequencer_options_integration_test.go"
+symbol = "TestSequencerOptionsServePendingAndReceipt"
+observed = "At 74ef5665a and 3dd51c036 both tests expected transaction index 0 for the first accepted transaction and the feed delivered 1."
+assumption = "The sequencer numbers accepted transactions from 1 (node/sequencer/accept.go:40) and 0 marks an invalid receipt (rpc/sequencer_receipt_test.go:515); the test expectations follow the sequencer (do_5)."
+severity = "minor"
+
+[finding.3.42.7]
+task = "3.42.7"
+file = "services/platform/perps-data/internal/markets/markets_test.go"
+symbol = "TestRefreshMarginTiers"
+observed = "At b37389c8c (and f0b09d8c5 for 3.42.6) the test failed with 'TestMarkets requires PERPS_DATA_TEST_RPC': the package's test client dials the node named by that variable, which a bare go test does not provide."
+assumption = "The verify commands of 3.42.3, 3.42.5, 3.42.6, 3.42.7, 3.54.1 and 3.54.4 now start the local node and source its environment first, as the done siblings 3.42.2 and 3.46.4 already do; the tests are unchanged."
+severity = "minor"
+
+[finding.3.54.6]
+task = "3.54.6"
+file = "tools/qualification/localnode/perps-gateway.sh"
+symbol = "perps-gateway"
+observed = "At a4799a92b (3.54.6), 3690b9f17 (3.54.5), 82ae1577f (3.54.2) and d0bc6cda6 (3.48.7) the verify command stopped at 'perps-gateway: nats-server is required'."
+assumption = "The script needs nats-server on PATH and PERPS_DATA_TEST_DATABASE_URL in the environment; the qualification environment now provides both when a verify command runs this script. The script and the tests are unchanged."
+severity = "minor"
+
+[finding.11.34.4]
+task = "11.34.4"
+file = "services/interop/crates/x-websearch/tests/binary.rs"
+symbol = "answer_rpc"
+observed = "At e63adffd8 both tests failed with 'x-websearch refused startup: kernel_network_id: evm endpoint unavailable': the loopback gateway answers only the events method and the binary probes getKernelNetworkId() through eth_call before the settlement check."
+assumption = "The harness in the task's own test file must answer the three startup calls (do_5); the binary is not relaxed."
+severity = "minor"
+
+[finding.11.1.4.2]
+task = "11.1.4"
+file = "services/interop/crates/layerx-migrate/src/lib.rs"
+symbol = "MigrationPlaneResult"
+observed = "At 9f3341181 the dependents build failed: layerx-migrate completes a migration through GatewayCore::settle_with_receipt (lib.rs:1020) with the AuthorizedBatch of MigrationPlaneResult (lib.rs:586-591), and no task migrates that path to the sequencer receipt."
+assumption = "Retiring the method orphans the migrate crate's completion; whether 11.1.4 ports MigrationPlaneResult to the signed sequencer receipt or a new task does is the owner's call. The task is held once its live attempt ends."
+severity = "major"
+
+[finding.11.0.4]
+task = "11.0.4"
+file = "services/interop/deploy/gateway/railway.env.example"
+symbol = "test_template_names_every_variable_the_service_reads"
+observed = "At aeddaac1d the graph check refused symbol railway.env.example, a file name rather than a declared symbol."
+assumption = "The task's symbols now name the test function; no other undone task declares a file name as a symbol."
+severity = "minor"
+
+[finding.11.26.4]
+task = "11.26.4"
+file = "services/interop/crates/layerx-mirror/src/ethereum.rs"
+symbol = "ArchivedCommittedBlock"
+observed = "At 5accfdd42 the build failed: ethereum.rs:865, runtime.rs:295 and solana.rs:960 call as_ref() on ArchiveData.committed, which do_2 turns from an Option into the struct."
+assumption = "The three publisher-side readers are part of the same change and join the task's touches (do_8); no behaviour outside the batch-era paths changes."
+severity = "minor"
+
+[finding.11.7.4]
+task = "11.7.4"
+file = "services/interop/crates/layerx-ap2/tests/mandates.rs"
+symbol = "mandate_payment_reference_is_the_recorded_digest"
+observed = "At a6b195a75 the test fails with Ap2Error::EvidenceMismatch: the gateway (gateway.rs:613-622) requires one PaymentExact log whose reference topic equals the mandate payment's idempotency key, and the recorded payExact receipt carries a recorded reference."
+assumption = "The test re-signs the recorded receipt with the payment's idempotency key as the reference under a fresh test key pinned to the recorded key id and heights, as tests/sequencer_settlement.rs:376-407 does; the recorded receiptDigest assertion stays on the unmodified bytes (do_5)."
+severity = "minor"
