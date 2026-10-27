@@ -7357,3 +7357,91 @@ symbol = "do_1"
 observed = "do_1 asked wave 14 to blank-import precompiles/layerxagent/oracle, scheduler and streams, packages created at waves 25 and 27 (2.36.1, 2.35.1) and registered at waves 26, 15 and 28 (2.36.2, 2.34.2, 2.35.2); the build of attempt e15bf0336 failed on the two missing packages while the keeper and host accessors and their two tests were complete. 2.34.2 and 13.22.1 wait on 5.94.2's accessors (finding.2.34.2, finding.13.22.1), so the edge cannot run the other way."
 assumption = "The imports and TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams move to the new task 5.94.4 at wave 29 with req.5965 ac_1; 5.94.2 keeps the accessors and reqs 5965.2 and 5965.3. Recorded once."
 severity = "major"
+
+[finding.5.0.3]
+task = "5.0.3"
+file = "node/app.go"
+symbol = "do_6"
+observed = "do_6 asked this wave-14 task to drop the DistrKeeper argument of tokenfactorykeeper.NewKeeper at node/app.go:807 and to build the anchor module with NewAppModule(keeper, &app.UpgradeKeeper) at node/app.go:1105, but those signatures only exist after 6.26.2 and 6.31.5, which require 5.0.3; attempt 51fe7c929 failed the build on both call sites and no requires edge can fix an order that breaks either way."
+assumption = "Each call-site change moves to the task that changes the signature (6.26.2 and 6.31.5, which now touch node/app.go and the test files that call the old signatures, with 6.96.1 ordered after 6.31.5); wiring.J35.5 and J35.7 now carry the live line numbers. Recorded once."
+severity = "major"
+
+[finding.5.19.4]
+task = "5.19.4"
+file = "node/precompiles.go"
+symbol = "do_1"
+observed = "Attempt 7a11a9665 imported precompiles/layerxpay, whose merge constructor needs the LayerXPayK accessor that task 5.94.2 adds, so node.New panicked without it; the attempt also added its own LayerXPayK and the precompiles/layerxprograms import whose constructor task 13.22.1 writes later."
+assumption = "5.19.4 requires 5.94.2 and imports no layerxprograms; the 0x101D import moves to 13.22.1 with req.5052 ac_1 adjusted. Same family as finding.5.94.2. Recorded once."
+severity = "major"
+
+[finding.8.5.1]
+task = "8.5.1"
+file = "services/platform/hosted/gateway/src/rpc.rs"
+symbol = "kernel_backend"
+observed = "Attempt cee5014da made px_getBalances read bank balances at one height, but kernel_backend at rpc.rs:356 still routes px_getBalances to the kernel and degraded.rs:582-585 asserts that refusal, so the balances test answered kernel_unavailable and the fix lay outside the declared touches."
+assumption = "Both files join the touches with a do_6 that removes the kernel routing and replaces the degraded assertion with the chain-state answer the task defines. Recorded once."
+severity = "major"
+
+[finding.6.2.2]
+task = "6.2.2"
+file = "spec/layerx-merge/contracts/address-table.md"
+symbol = "TestLXPRevertTable"
+observed = "TestLXPRevertTable fails at the base for 110 registered codes (LXP_LAUNCHPAD_*, LXP_PERPS_*, LXP_PRICEFEED_*, LXP_PAY_UNBOUND_CALLER, LXP_PAY_KERNEL_GATE_MISMATCH, LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE) that have no address-table row, while the three arbiter rows the task names already carry their values; attempt a08c12c6b could not add rows to a file outside its touches."
+assumption = "The address table joins the touches with a do_5 adding the missing rows in lxpRevertTable order; the test is unchanged. Recorded once."
+severity = "major"
+
+[finding.5.6.5]
+task = "5.6.5"
+file = "precompiles/setup.go"
+symbol = "MissingMergeConstructors"
+observed = "do_3 of 5.6.5 calls precompiles.MissingMergeConstructors, which task 6.6.5 writes, while 6.6.5 required 5.6.5; attempt 6a63762e6 failed the build on the missing symbol."
+assumption = "The edge is reversed: 5.6.5 requires 6.6.5 (published at 6ae4a9196) and 6.6.5 no longer requires 5.6.5. Recorded once."
+severity = "major"
+
+[finding.7.26.4]
+task = "7.26.4"
+file = "api/tokenfactory_rest_test.go"
+symbol = "CreateDenom"
+observed = "The api test package does not compile at the base: CreateDenom is declared at api/tokenfactory_rest_test.go:48 and api/bank_rest_test.go:21, so every go test -c of ./api/ fails (attempt 9d5ed51f6 of 7.26.4; 7.28.1, 7.28.2, 7.28.3, 7.29.1 and 7.29.2 would fail the same way)."
+assumption = "7.26.4 owns the rename of the tokenfactory helper and the five sibling tasks require 7.26.4. Recorded once."
+severity = "major"
+
+[finding.11.32.1]
+task = "11.32.1"
+file = "services/interop/Cargo.lock"
+symbol = "layerx-indexer"
+observed = "cargo build --locked failed at the base for every interop target because the lock file lacked the layerx-committed-proof entry in the layerx-indexer dependency list; attempt 5d645d98a of 11.32.1 could not reach its own change."
+assumption = "The lock file was regenerated offline and committed at ff91c687b; the 39 pending interop tasks build on that base and 11.32.1 continues from its first attempt. Recorded once."
+severity = "major"
+
+[finding.9.1.7.7]
+task = "9.1.7"
+file = "services/platform/tests/support/tls_boundary.rs"
+symbol = "start"
+observed = "The verify gate of 9.1.7 failed at 94f9d8f99 on rpc::rpc_subscription_private_ca_checks_the_actual_server_identity alone: the trusted-case probe got Connection refused from 127.0.0.1:<port> (tls_boundary.rs:229) although start() had just seen that port accept a connection (tls_boundary.rs:216); the same test passed on the two preceding runs of the same code and the other two boundary tests passed in the failing run."
+assumption = "A timing race in the test harness between the boundary's listen check and the probe process, independent of the SDK change under test; the candidate is requalified unchanged, and if it fails the same way again the harness needs an owner task that hands the boundary a port it already holds. Recorded once."
+severity = "major"
+
+[finding.14.4.1]
+task = "14.4.1"
+file = "apps/web/src/app/_markets/send-outcome.tsx"
+symbol = "SendOutcome"
+observed = "Both attempts (c5826aa96 and its predecessor) added the reverted arm to PrecompileSendOutcome as do_1 asks, and npm run typecheck then failed with TS7030 at send-outcome.tsx:4 because the switch over outcome.outcome has no return for reverted; the file belonged only to task 14.0.4 at wave 24."
+assumption = "14.4.1 now touches send-outcome.tsx and adds the minimal reverted case (do_6); 14.0.4 replaces it with the catalog copy and receipt line as its do_1 already says. Recorded once."
+severity = "major"
+
+[finding.3.9.5.1]
+task = "3.9.5"
+file = "modules/pricefeed/gov_disabled_market_test.go"
+symbol = "Aggregate"
+observed = "The pricefeed test package does not compile at the base: tasks 3.9.1 (a1c903c42) and 3.9.2 (37bb8e625) each landed a helper named Aggregate in package pricefeed_test (a type alias at gov_appended_market_test.go:26 and a func at gov_disabled_market_test.go:25), so every go test of ./modules/pricefeed/ fails with 'Aggregate redeclared'; attempt 52e5b3a5b of 3.9.5 never reached its own test."
+assumption = "3.9.5 owns the removal of the duplicate func in favour of the MidBlocker helper the other file provides, and 3.0.9 requires 3.9.5 so it builds on the repaired package. Recorded once."
+severity = "major"
+
+[finding.5.98.1.2]
+task = "5.98.1"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "validate-genesis"
+observed = "Attempt 15811bbb2 derived the validation genesis from node/testdata/v6120-halt-export.json as do_1 asks, and paxd validate-genesis failed with 'failed to unmarshal layerxledger genesis state: EOF' because the halt export predates the merged modules and carries no state for them."
+assumption = "do_1 now says to copy every module key the init genesis has and the export lacks from the init genesis defaults before validating; the next attempt continues from 15811bbb2. Recorded once."
+severity = "major"

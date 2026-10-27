@@ -372,7 +372,7 @@ var (
 		storekeys.LayerXPayStoreKey,
 		storekeys.LayerXProgramsStoreKey,
 		storekeys.LayerXAgentStoreKey,
-		LayerXHostStoreKey,
+		storekeys.LayerXHostStoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	}
 
@@ -627,7 +627,7 @@ type App struct {
 	commitListener   func(height int64, appHash []byte)
 }
 
-const LayerXHostStoreKey = "layerxhost"
+const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
 
 func NewHost(storeKey sdk.StoreKey, networkID uint32) (*lxphost.Host, error) {
 	return lxphost.NewHost(lxphost.Config{
@@ -884,7 +884,7 @@ func New(
 	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
 		panic(fmt.Sprintf("LayerX network ID out of range: %s", networkID))
 	}
-	app.LayerXHost, err = NewHost(keys[LayerXHostStoreKey], uint32(networkID.Uint64()))
+	app.LayerXHost, err = NewHost(keys[storekeys.LayerXHostStoreKey], uint32(networkID.Uint64()))
 	if err != nil {
 		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
 	}
@@ -897,7 +897,7 @@ func New(
 		host:   app.LayerXHost,
 	}
 	payKeeper, err := layerxpaykeeper.NewKeeper(appCodec, keys[storekeys.LayerXPayStoreKey],
-		keys[LayerXHostStoreKey], app.LayerXHost, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
+		keys[storekeys.LayerXHostStoreKey], app.LayerXHost, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
 	if err != nil {
 		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
 	}
@@ -1278,6 +1278,7 @@ func New(
 			OracleKeeper:      &app.OracleKeeper,
 			PricefeedKeeper:   app.PricefeedKeeper,
 			EVMKeeper:         &app.EvmKeeper,
+			LayerXAuthKeeper:  app.LayerXAuthKeeper,
 			UpgradeKeeper:     &app.UpgradeKeeper,
 			TracingInfo:       app.GetBaseApp().TracingInfo,
 			LatestCtxGetter:   app.LatestCtx,
