@@ -11,11 +11,17 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAnchorStoreDeletedAtStep(t *testing.T) {
+	require.Equal(t, "layerxanchor", retiredAnchorStoreName)
+	require.NotContains(t, storekeys.MemIAVLStoreKeys, retiredAnchorStoreName)
+	require.False(t, storekeys.IsMemIAVLStoreKey(retiredAnchorStoreName))
+	_, err := storekeys.AllModulesExcept(retiredAnchorStoreName)
+	require.EqualError(t, err, `module "layerxanchor" is not a member of MemIAVLStoreKeys`)
 	require.Equal(t, "v7.0-anchor-store-delete", AnchorStoreDeleteUpgrade)
 	plans := knownUpgradePlans()
 	require.Equal(t, []string{MergeUpgrade, AnchorStoreDeleteUpgrade}, plans[len(plans)-2:])

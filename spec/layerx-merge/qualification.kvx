@@ -7917,3 +7917,123 @@ symbol = "GatewayRpc"
 observed = "Attempt two (base 9b59add17) deleted GatewayRpc and RpcAnswer as do_4 asked and the crate failed to build: src/kernel.rs:25 and src/watch.rs:9 import them, kernel.rs goes only with task 11.36.1 and watch.rs uses GatewayRpc for its eth_ calls."
 assumption = "11.34.5 keeps the three items; 11.36.1 deletes the authorization path with the kernel and watch.rs keeps GatewayRpc as its eth_ client."
 severity = "major"
+
+[finding.11.22.4]
+task = "11.22.4"
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+symbol = "the_shared_sequencer_receipt_vector_decodes_and_verifies"
+observed = "Attempts two and three (cb9721556, 4d29b6079) treated every expected.refusedAt as a decode-or-verify refusal; the vector marks V3-activity-id-not-raw-hash and V3-seq-hash-mismatch verifier accepts because R4 and R6 need the raw transaction and prevSeqHash, which SequencerReceipt::verify never sees, so the test failed on those two cases."
+assumption = "The relayer verifier is right to accept them; the test applies R4 and R6 itself from the vector inputs (do_3, do_4)."
+severity = "major"
+
+[finding.11.37.3]
+task = "11.37.3"
+file = "services/interop/crates/layerx-mirror/src/verify.rs"
+symbol = "MirrorVerifier::admit_committed"
+observed = "Attempts two and three (02802b7cb, f4dc2da15) failed the build with E0624: the test calls the private MirrorVerifier::admit_committed because ObservedArchive has no public constructor and the only public route, MirrorSources::read, needs a live source."
+assumption = "Making admit_committed pub is the smallest public route for a fixture-driven test (do_4)."
+severity = "major"
+
+[finding.5.41.4]
+task = "5.41.4"
+file = "node/store_delete_test.go"
+symbol = "TestBankKeepersCarryNoLaunchpadBalanceHook"
+observed = "Attempt one (b6a5caf62) completed do_1 and do_2 but go test ./node/ failed to compile: store_delete_test.go registers a.LaunchpadKeeper.BeforeBalanceChange, which 27b1faa06 (task 4.8.4) retired, so package node had a second dead reference besides the anchor store key."
+assumption = "Registering a test-local hook value keeps the duplicate-registration assertions meaningful without the retired method (do_4)."
+severity = "major"
+
+[finding.11.26.5]
+task = "11.26.5"
+file = "services/agent/crates/layerx-sdk/src/production.rs"
+symbol = "verify_mirror_receipt_from_sources"
+observed = "Attempt one (75b0c7c14) refreshed all fourteen locks, then cargo build -p layerx-ramp-toolkit failed inside layerx-sdk: production.rs:13 imports layerx_mirror::SignedHeaderTrust and :818/:836 call MirrorVerifier::from_source, both deleted by 11.26.4 (edd77cf4a); 35 crates across services/agent, services/human, services/platform, services/interop and tools/platform depend on layerx-sdk and cannot build at main."
+assumption = "The lock refresh is gated on cargo metadata --locked alone and task 11.26.6 ports the SDK to from_committed_source and committed_receipt."
+severity = "critical"
+
+[finding.11.22.4.2]
+task = "11.22.4"
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+symbol = "the_shared_sequencer_receipt_vector_decodes_and_verifies"
+observed = "Attempt five (5f1d15163) read the vector verdict Decode as a failure of SequencerReceipt::decode on the JSON view; the view decodes, and the refusal is SequencerReceipt::verify returning ReceiptError::Verification with check Decode."
+assumption = "The test routes Decode cases through verify and asserts the check; the decoder and the vector stay as written."
+severity = "medium"
+
+[finding.11.37.3.2]
+task = "11.37.3"
+file = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"
+symbol = "every_shared_refusal_case_is_refused_by_the_mirror"
+observed = "Attempt five (0ecefcceb) expected MirrorVerifyError::Receipt for the R4, R6 and R5 cases, whose expected.verifier is accepts; the mirror correctly accepts canonical, correctly signed bytes and cannot see the raw transaction, prevSeqHash or JSON view those rules need."
+assumption = "The test asserts acceptance for those three cases and applies R4 and R6 itself from the vector fields; the mirror verifier stays as written."
+severity = "medium"
+
+[finding.11.34.5.2]
+task = "11.34.5"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "verify_receipt"
+observed = "Attempt four (ae3131562) saved leaf_hash of the signed receipt as PaymentRecord.receipt_digest while SellerOutcome::Settled carries canonical_receipt_digest from settle_with_sequencer_evidence, so PaymentStore::release compared unequal digests and settle_request answered receipt_consumed on the first receipted retry; its reverted-draw test retried twice and the second retry was answered payment_refused by Seller::settle for the already refused idempotency key."
+assumption = "verify_receipt returns canonical_receipt_digest and the reverted-draw test retries once; the seller and store stay as written."
+severity = "medium"
+
+[finding.13.22.1.3]
+task = "13.22.1"
+file = "precompiles/layerxprograms/submit.go"
+symbol = "Execute"
+observed = "do_8 let the published attempt e894c7ae4 skip the handler table of do_4 because Execute already dispatched, but Execute serves only registryRead and refuses every other method with LXP_PRECOMPILE_UNKNOWN_METHOD and every call under STATICCALL with ErrReadOnlyWrite, so the 21 wave-16 method and view tasks 13.23.1-13.28.7 (13.28.2 excepted) have no registration point and fail their gates on main at 5c37e7713."
+assumption = "New task 13.22.8 writes handlerTable, register, the gasTable Write gate and NewTestExecutorWithHandlers; the 21 tasks now require it and register from init() in their own files, and 13.23.3 relocates registryReadHandler."
+severity = "critical"
+
+[finding.11.36.1]
+task = "11.36.1"
+file = "services/interop/crates/x-websearch/src/kernel.rs"
+symbol = "KernelError"
+observed = "Attempt 7e33e03b4 deleted kernel.rs, lib.rs's pub mod kernel, tests/kernel.rs and the kernel paths of main.rs, payment.rs and tests/binary.rs as do_1-do_6 say, and the build failed with unresolved import crate::kernel at attest.rs:15, attest.rs:47, config.rs:1017 and program.rs:19, files the task did not touch."
+assumption = "do_7 now relocates request_topic to config.rs and KernelError to program.rs and repoints attest.rs at crate::program; attest.rs, config.rs and program.rs are added to touches."
+severity = "major"
+
+[finding.11.36.4]
+task = "11.36.4"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "verify_receipt"
+observed = "req.11404 ac_2 asked for receipt_unverified on every V3 case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, while req.11395 ac_3 and payment.rs:2231-2263 refuse a verified receipt whose content differs with receipt_mismatch; the vector file marks V3-activity-id-not-raw-hash, V3-seq-hash-mismatch and V3-tampered-log with verifier accepts, so attempt b58477b26 got receipt_mismatch for exactly those three."
+assumption = "The vector file's verifier field is the authority: req.11404 ac_2, acceptance.11.404.2 and task 11.36.4 do_4 now expect receipt_unverified for SequencerSignature and Decode cases and receipt_mismatch for accepts cases; payment.rs is unchanged."
+severity = "major"
+
+[finding.13.28.4.2]
+task = "13.28.4"
+file = "modules/lxphost/read.go"
+symbol = "ReadFeeScheduleAt"
+observed = "wiring.J52.8 asked for ReadFeeSchedule, ReadPendingFeeSchedule and ReadMeteringSchedule only, so read.go:1012-1020 serve the active rows and attempts 168293292 (13.28.4) and 8b7e20d5f (13.28.6) had no reader for getFeeSchedule(version) and getMeteringSchedule(version)."
+assumption = "13.28.4 adds ReadFeeScheduleAt and ReadMeteringScheduleAt over progfee/history/v1 and progmet/history/v1 and 13.28.6 now requires 13.28.4."
+severity = "major"
+
+[finding.13.28.7.2]
+task = "13.28.7"
+file = "modules/lxphost/read.go"
+symbol = "Host.Close"
+observed = "Attempt b480fc02c expected LXP_ERR_LENGTH_LIMIT from a read after Close; read.go:510 answers LXP_ERR_NON_CANONICAL and src/modules/programs/sandbox.c:741 emits LXP_ERR_LENGTH_LIMIT only for a length above INT32_MAX."
+assumption = "do_6 names the closed-host code; req.13278 is unchanged."
+severity = "minor"
+
+[finding.5.55.2.4]
+task = "5.55.2"
+file = "node/process_proposal_proposer.go"
+symbol = "checkSequencerProposer"
+observed = "Attempt 2484f85f7 pinned the validator key and recording stalled at height 2 with 'proposer ... is outside the pinned leader list': the check compares the 20-byte Header.ProposerAddress with each 32-byte pinned key, so no real proposal passes once the sequenced path is active."
+assumption = "New task 5.1.3 compares against crypto.AddressHash of each leader and 5.55.2 requires it; req.5004 ac_1 names the address."
+severity = "major"
+
+[finding.3.55.1]
+task = "3.55.1"
+file = "apps/perps/src/core/perps/config.ts"
+symbol = "PerpsMarket"
+observed = "Attempt da9ceb986 deleted maxLeverage from PerpsMarket and tsc failed at MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68, which read the field through MarketRow extends PerpsMarket and the mobile market prop."
+assumption = "do_5 moves the gateway-fed consumers onto a TradeableMarket type; the 1000 assertions in perps-config.test.ts go with the rows."
+severity = "major"
+
+[finding.11.36.1.2]
+task = "11.36.1"
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+symbol = "decode_request_record"
+observed = "Attempt 1d7eadbe8 applied do_7 and the build failed at tests/attest.rs:25 (unresolved import x_websearch::kernel); tests/program.rs:17 and tests/binary.rs:19 import the module too, and tests/program.rs needs decode_request_record, which only kernel.rs:172 defines."
+assumption = "do_8 repoints the three tests and moves decode_request_record into program.rs; the kernel binary tests go with do_3."
+severity = "major"

@@ -63,21 +63,26 @@ fn run() -> Result<(), u8> {
     if args.len() != 8
         || args[0] != "--config-file"
         || args[2] != "--order-file"
-        || args[4] != "--activity-id"
+        || args[4] != "--transaction-hash"
         || args[6] != "--output-file"
     {
+        eprintln!("usage: ramp-verify-receipt --config-file CONFIG --order-file ORDER --transaction-hash TRANSACTION_HASH --output-file OUTPUT");
         return Err(2);
     }
+    let transaction_hash = args[5]
+        .to_str()
+        .filter(|value| value.starts_with("0x") && value.len() == 66)
+        .and_then(|value| parse_hex32(value).ok())
+        .ok_or_else(|| {
+            eprintln!("--transaction-hash must be 0x followed by 64 hex digits");
+            2_u8
+        })?;
     let config: Config =
         serde_json::from_slice(&protected(Path::new(&args[1]))?).map_err(|_| 2_u8)?;
     let order: RampOrder =
         serde_json::from_slice(&protected(Path::new(&args[3]))?).map_err(|_| 2_u8)?;
     order.validate_bound().map_err(|_| 2_u8)?;
-    let activity = parse_hex32(args[5].to_str().ok_or(2_u8)?).map_err(|_| 2_u8)?;
-    if activity == [0; 32]
-        || config.layerx.network_id == 0
-        || !(1..=120).contains(&config.client_tls.timeout_seconds)
-    {
+    if !(1..=120).contains(&config.client_tls.timeout_seconds) {
         return Err(2);
     }
     let tls = MutualTlsFiles {
@@ -90,7 +95,7 @@ fn run() -> Result<(), u8> {
         .map_err(|_| 2_u8)?;
     let client = config.layerx.build(http).map_err(|_| 2_u8)?;
     let (submission, evidence, maintained_batch) = client
-        .resolve_with_evidence(&order, activity)
+        .resolve_with_evidence(&order, transaction_hash)
         .map_err(|_| 5_u8)?;
     let leg = match submission {
         LayerxSubmission::Verified { leg, .. } => leg,
@@ -108,8 +113,8 @@ fn run() -> Result<(), u8> {
     }
     let result = json!({
         "verified": true, "maintained_batch": maintained_batch, "order_digest": hex(&order.order_digest),
-        "tx_hash": hex(&leg.tx_hash), "receipt_digest": hex(&leg.receipt_digest),
-        "height": leg.height, "rung": leg.rung.name(),
+        "transaction_hash": format!("0x{}", hex(&leg.tx_hash)), "receipt_digest": hex(&leg.receipt_digest),
+        "height": leg.height, "rung": leg.rung.name(), "chain_id": client.chain_id,
         "external_custody_label": EXTERNAL_CUSTODY_LABEL,
         "build_revision": option_env!("LAYERX_RAMP_BUILD_REVISION"),
         "build_source_digest": option_env!("LAYERX_RAMP_BUILD_SOURCE_DIGEST")
