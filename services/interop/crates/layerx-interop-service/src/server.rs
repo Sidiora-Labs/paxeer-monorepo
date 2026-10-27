@@ -11,11 +11,12 @@ use layerx_ap2::{
     MandateVerifier, Merchant, ProtectedHeader, VerificationContext,
 };
 use layerx_fiat::{
-    EvidenceClass, ExternalId, FiatAdapter, FiatJourneyState, FiatRail, ProviderEvidence,
-    ProviderVerifier, TokenReference, VerifiedProviderFacts,
+    EvidenceClass, ExecutedFiatOutcome, ExternalId, FiatAdapter, FiatError, FiatIntent,
+    FiatIntentKind, FiatJourneyState, FiatPlane, FiatPlaneResult, FiatRail, PlaneFiatOutcome,
+    ProviderEvidence, ProviderVerifier, TokenReference, VerifiedProviderFacts,
 };
 use layerx_interop_gateway::adapter::AdapterId;
-use layerx_interop_gateway::evidence::SettlementRung;
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::server::{
@@ -44,7 +45,8 @@ use layerx_ucp::{
 };
 use layerx_visa_tap::{
     prepare_trusted_intent, AgentIntent, AgentPublicKey, CredentialBinding, CredentialBindingStore,
-    KeyStatus, RegisteredAgentKey, TapError, TapRequest, TapVerifier, TrustedAgentRegistry,
+    KeyStatus, MerchantOperationResult, RegisteredAgentKey, TapError, TapRequest, TapVerifier,
+    TrustedAgentRegistry,
 };
 use layerx_x402::buyer::{BuyerPaymentPlane, PaymentBuildRequest, SupportedKind};
 use layerx_x402::facilitator::{
@@ -2150,7 +2152,8 @@ struct VisaRequest {
 struct VisaActivityBinding {
     canonical: Vec<u8>,
     activity_id: [u8; 32],
-    idempotency_key: String,
+    transfer: PayExactCall,
+    sender: [u8; 20],
 }
 
 fn visa(
@@ -2207,7 +2210,7 @@ fn visa(
     if let Err(code) = require_visa_route(execute, verified.intent, &body.activity) {
         return Dispatch::error(400, "refused", code);
     }
-    let activity_binding = match visa_activity(config, &body.activity, execute, signer_public_key) {
+    let activity_binding = match visa_activity(&body.activity, execute) {
         Ok(binding) => binding,
         Err(refusal) => return refusal,
     };
@@ -2261,89 +2264,85 @@ fn visa(
         }
         Err(_) => return Dispatch::error(400, "refused", "visa_tap_refused"),
     }
-    visa_execute(config, request, record, trace, activity_binding)
+    let Ok(relay) = chain_relay(config) else {
+        return Dispatch::error(503, "pending", "settlement_unavailable");
+    };
+    visa_execute(&relay, activity_binding, observed_at)
 }
 
 fn visa_execute(
-    config: &Config,
-    request: &IncomingRequest,
-    record: &KeyRecord,
-    trace: &TraceId,
+    relay: &ChainRelay,
     activity_binding: Option<VisaActivityBinding>,
+    observed_at: u64,
 ) -> Dispatch {
     let Some(activity) = activity_binding else {
         return Dispatch::error(400, "refused", "typed_intent_required");
     };
-    let activity_id = activity.activity_id;
-    let idempotency_key = activity.idempotency_key;
-    let canonical = activity.canonical;
-    let authorization = request
-        .headers
-        .get("authorization")
-        .map_or("", String::as_str);
-    match (Execution {
-        config,
-        authorization,
-        activity: canonical,
-        idempotency: &idempotency_key,
-        expected_signer: &record.signer_public_key,
-        submitted_activity_id: Some(activity_id),
-        trace,
-    })
-    .submit()
-    {
-        Ok(PlaneOutcome::Pending) => Dispatch::result(
-            202,
-            "pending",
-            json!({ "state": ExternalState::Pending.label() }),
-        ),
-        Ok(PlaneOutcome::Refused) => Dispatch::result(
-            200,
-            "refused",
-            json!({ "state": ExternalState::Refused.label() }),
-        ),
-        Ok(PlaneOutcome::Executed(evidence)) => {
+    if observed_at > activity.transfer.expires_at {
+        return Dispatch::error(400, "refused", "activity_time_window_refused");
+    }
+    let evidence = match relay.relay(
+        &hex(&activity.transfer.reference),
+        &activity.canonical,
+        activity.sender,
+    ) {
+        Ok(RelayOutcome::Pending { tx_hash }) => return submitted_payment(tx_hash),
+        Ok(RelayOutcome::Executed(evidence)) => evidence,
+        Err(RelayError::Transaction(error)) => {
+            return Dispatch::error(400, "refused", error.code());
+        }
+        Err(RelayError::TransactionReplacementRefused) => {
+            return Dispatch::error(409, "refused", "transaction_replacement_refused");
+        }
+        Err(_) => return Dispatch::error(503, "pending", "settlement_unavailable"),
+    };
+    if evidence.transaction_hash != activity.activity_id {
+        return Dispatch::error(503, "pending", "receipt_intent_mismatch");
+    }
+    match MerchantOperationResult::from_receipt(
+        &evidence,
+        &relay.receipt_keys,
+        activity.transfer.reference,
+    ) {
+        Ok(MerchantOperationResult::ReceiptVerified {
+            receipt_digest,
+            from,
+            to,
+            asset,
+            amount,
+        }) if from == activity.transfer.from
+            && to == activity.transfer.to
+            && asset == activity.transfer.asset
+            && amount == activity.transfer.amount =>
+        {
             let mut result = Dispatch::result(
                 200,
                 "completed",
-                json!({ "state": ExternalState::ReceiptVerified.label(), "receipt_digest": hex(&evidence.verified.receipt_digest()) }),
+                json!({ "state": ExternalState::ReceiptVerified.label(), "receipt_digest": hex(&receipt_digest) }),
             );
-            result.receipt_hex = Some(hex(&evidence.receipt));
-            result.activity_id = Some(hex(&evidence.verified.activity_id()));
+            result.receipt_hex = Some(hex(&evidence.signed_receipt));
+            result.activity_id = Some(hex(&evidence.transaction_hash));
             result
         }
-        Err(_) => Dispatch::error(503, "pending", "settlement_unavailable"),
+        _ => Dispatch::error(503, "pending", "receipt_intent_mismatch"),
     }
 }
 
-fn visa_activity(
-    config: &Config,
-    activity: &str,
-    execute: bool,
-    signer_public_key: [u8; 32],
-) -> Result<Option<VisaActivityBinding>, Dispatch> {
+fn visa_activity(activity: &str, execute: bool) -> Result<Option<VisaActivityBinding>, Dispatch> {
     Ok(if execute {
         let canonical = match decode_hex(activity, MAX_BODY) {
             Ok(value) if !value.is_empty() => value,
             _ => return Err(Dispatch::error(400, "refused", "typed_intent_required")),
         };
-        let Ok(submission) = verify_submission(
-            &canonical,
-            &config.modules,
-            config.protocol_version,
-            config.protocol_network_id,
-            &signer_public_key,
-        ) else {
-            return Err(Dispatch::error(
-                400,
-                "refused",
-                "activity_authorization_refused",
-            ));
+        let (transfer, sender, activity_id) = match decode_pay_exact(&canonical) {
+            Ok(value) => value,
+            Err(error) => return Err(Dispatch::error(400, "refused", error.code())),
         };
         Some(VisaActivityBinding {
             canonical,
-            activity_id: submission.activity_id(),
-            idempotency_key: hex(&submission.idempotency_key()),
+            activity_id,
+            transfer,
+            sender,
         })
     } else {
         None
@@ -2525,11 +2524,83 @@ struct FiatCallback {
     activity: String,
 }
 
+struct FiatServicePlane {
+    relay: ChainRelay,
+    transaction: Vec<u8>,
+    observed_at: u64,
+    evidence: Option<SequencerEvidence>,
+    submitted: Option<[u8; 32]>,
+    refusal: Option<&'static str>,
+}
+
+impl FiatPlane for FiatServicePlane {
+    fn receipt_keys(&self) -> &[SequencerAuthorization] {
+        &self.relay.receipt_keys
+    }
+
+    fn execute(
+        &mut self,
+        intent: FiatIntent,
+        _trace: &TraceId,
+    ) -> Result<FiatPlaneResult, FiatError> {
+        self.evidence = None;
+        self.submitted = None;
+        self.refusal = None;
+        let (transfer, sender, _) = match decode_pay_exact(&self.transaction) {
+            Ok(value) => value,
+            Err(error) => {
+                self.refusal = Some(error.code());
+                return Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused));
+            }
+        };
+        let account_matches = match intent.kind {
+            FiatIntentKind::Credit => transfer.to == intent.destination,
+            FiatIntentKind::Reverse | FiatIntentKind::Chargeback => {
+                transfer.from == intent.destination
+            }
+        };
+        if transfer.reference != intent.idempotency_key
+            || transfer.asset != intent.asset
+            || transfer.amount != intent.amount
+            || !account_matches
+        {
+            self.refusal = Some("provider_payment_mismatch");
+            return Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused));
+        }
+        if self.observed_at > transfer.expires_at {
+            self.refusal = Some("activity_time_window_refused");
+            return Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused));
+        }
+        match self
+            .relay
+            .relay(&hex(&intent.idempotency_key), &self.transaction, sender)
+        {
+            Ok(RelayOutcome::Pending { tx_hash }) => {
+                self.submitted = Some(tx_hash);
+                Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Pending))
+            }
+            Ok(RelayOutcome::Executed(evidence)) => {
+                self.evidence = Some(evidence.clone());
+                Ok(FiatPlaneResult::Executed(ExecutedFiatOutcome { evidence }))
+            }
+            Err(RelayError::Transaction(error)) => {
+                self.refusal = Some(error.code());
+                Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused))
+            }
+            Err(RelayError::TransactionReplacementRefused) => {
+                self.refusal = Some("transaction_replacement_refused");
+                Ok(FiatPlaneResult::Open(PlaneFiatOutcome::Refused))
+            }
+            Err(_) => Err(FiatError::ReceiptRequired),
+        }
+    }
+}
+
 fn fiat(
     config: &Config,
     request: &IncomingRequest,
-    record: &KeyRecord,
-    _principal: &PrincipalId,
+    _record: &KeyRecord,
+    principal: &PrincipalId,
     trace: &TraceId,
     _operation: &str,
     adapter: HostedAdapter,
@@ -2551,13 +2622,6 @@ fn fiat(
         pins: &config.manifest.fiat_providers,
         expected_rail: adapter,
     };
-    let activity = decode_hex(&body.activity, MAX_BODY)
-        .ok()
-        .filter(|value| !value.is_empty());
-    let authorization = request
-        .headers
-        .get("authorization")
-        .map_or("", String::as_str);
     let Ok(facts) = FiatAdapter::verify_evidence(&token, &evidence, &evidence_verifier, trace)
     else {
         return Dispatch::error(400, "refused", "provider_callback_refused");
@@ -2570,71 +2634,82 @@ fn fiat(
             until: facts.hold_until.unwrap_or(facts.observed_at),
         }),
         EvidenceClass::Settled | EvidenceClass::Reversed | EvidenceClass::Chargeback => {
-            let Some(activity) = activity else {
-                return Dispatch::error(400, "refused", "typed_intent_required");
+            let activity = match decode_hex(&body.activity, MAX_BODY) {
+                Ok(value) if !value.is_empty() => value,
+                _ => return Dispatch::error(400, "refused", "typed_intent_required"),
             };
-            let protocol_idempotency = hex(&FiatAdapter::idempotency_key(&facts));
-            let execution = Execution {
-                config,
-                authorization,
-                activity,
-                idempotency: &protocol_idempotency,
-                expected_signer: &record.signer_public_key,
-                submitted_activity_id: None,
+            let Ok(observed_at) = now() else {
+                return Dispatch::error(503, "pending", "server_clock_unavailable");
+            };
+            let Ok(mut gateway) = gateway_core(config, trace, observed_at) else {
+                return Dispatch::error(503, "pending", "adapter_configuration_invalid");
+            };
+            let Ok(relay) = chain_relay(config) else {
+                return Dispatch::error(503, "pending", "settlement_unavailable");
+            };
+            let mut plane = FiatServicePlane {
+                relay,
+                transaction: activity,
+                observed_at,
+                evidence: None,
+                submitted: None,
+                refusal: None,
+            };
+            let outcome = FiatAdapter::apply(
+                &mut gateway,
+                principal,
+                &token,
+                &evidence,
+                &evidence_verifier,
+                &mut plane,
                 trace,
-            };
-            match execution.submit() {
-                Ok(PlaneOutcome::Pending) => fiat_state(&match facts.class {
-                    EvidenceClass::Settled => FiatJourneyState::CreditPending,
-                    EvidenceClass::Reversed => FiatJourneyState::ReversalPending {
-                        hold_until: facts.hold_until,
-                    },
-                    EvidenceClass::Chargeback => FiatJourneyState::ChargebackPending {
-                        hold_until: facts.hold_until,
-                    },
-                    EvidenceClass::Authorised | EvidenceClass::Clearing => {
-                        FiatJourneyState::Refused
-                    }
-                }),
-                Ok(PlaneOutcome::Refused) => fiat_state(&FiatJourneyState::Refused),
-                Ok(PlaneOutcome::Executed(executed)) => fiat_executed(&facts, &executed),
-                Err(_) => Dispatch::error(503, "pending", "settlement_unavailable"),
-            }
+                observed_at,
+            );
+            fiat_executed(outcome, &plane)
         }
     }
 }
 
-fn fiat_executed(facts: &VerifiedProviderFacts, executed: &ExecutionEvidence) -> Dispatch {
-    let Ok(verified) = verify(&executed.receipt, &executed.authorized) else {
-        return Dispatch::error(503, "pending", "receipt_verification_failed");
-    };
-    let Some(protocol) = verified.receipt().protocol() else {
-        return Dispatch::error(503, "pending", "receipt_verification_failed");
-    };
-    let account_matches = match facts.class {
-        EvidenceClass::Settled => protocol.to() == facts.destination,
-        EvidenceClass::Reversed | EvidenceClass::Chargeback => protocol.from() == facts.destination,
-        EvidenceClass::Authorised | EvidenceClass::Clearing => false,
-    };
-    if protocol.asset() != facts.asset || protocol.amount() != facts.amount || !account_matches {
-        return Dispatch::error(503, "pending", "receipt_intent_mismatch");
+fn fiat_executed(
+    outcome: Result<FiatJourneyState, layerx_interop_gateway::trace::Traced<FiatError>>,
+    plane: &FiatServicePlane,
+) -> Dispatch {
+    if let Some(code) = plane.refusal {
+        let status = if code == "transaction_replacement_refused" {
+            409
+        } else {
+            400
+        };
+        return Dispatch::error(status, "refused", code);
     }
-    let digest = executed.verified.receipt_digest();
-    let state = match facts.class {
-        EvidenceClass::Settled => FiatJourneyState::Credited {
-            receipt_digest: digest,
-        },
-        EvidenceClass::Reversed => FiatJourneyState::Reversed {
-            receipt_digest: digest,
-        },
-        EvidenceClass::Chargeback => FiatJourneyState::ChargedBack {
-            receipt_digest: digest,
-        },
-        EvidenceClass::Authorised | EvidenceClass::Clearing => FiatJourneyState::Refused,
+    let state = match outcome {
+        Ok(state) => state,
+        Err(error) => {
+            return Dispatch::error(
+                503,
+                "pending",
+                match error.into_error() {
+                    FiatError::ReceiptMismatch => "receipt_intent_mismatch",
+                    _ => "settlement_unavailable",
+                },
+            )
+        }
     };
+    if let Some(tx_hash) = plane.submitted {
+        return submitted_payment(tx_hash);
+    }
     let mut result = fiat_state(&state);
-    result.receipt_hex = Some(hex(&executed.receipt));
-    result.activity_id = Some(hex(&executed.verified.activity_id()));
+    if matches!(
+        state,
+        FiatJourneyState::Credited { .. }
+            | FiatJourneyState::Reversed { .. }
+            | FiatJourneyState::ChargedBack { .. }
+    ) {
+        if let Some(evidence) = &plane.evidence {
+            result.receipt_hex = Some(hex(&evidence.signed_receipt));
+            result.activity_id = Some(hex(&evidence.transaction_hash));
+        }
+    }
     result
 }
 
@@ -3769,6 +3844,201 @@ mod tests {
             "activity_idempotency_key": "33".repeat(32)
         });
         assert!(serde_json::from_value::<FiatCallback>(callback).is_err());
+    }
+
+    #[test]
+    fn visa_execute_refuses_a_transaction_to_another_contract() -> X402TestResult {
+        let fixtures: Value = serde_json::from_str(include_str!(
+            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))?;
+        let transfer = fixtures["cases"]
+            .as_array()
+            .ok_or("fixture cases")?
+            .iter()
+            .find(|case| case["id"] == "V1-pax-transfer")
+            .ok_or("recorded PAX transfer")?;
+        let transaction = transfer["rawTransaction"]
+            .as_str()
+            .and_then(|raw| raw.strip_prefix("0x"))
+            .ok_or("transaction hex")?;
+        let refusal = match visa_activity(transaction, true) {
+            Err(refusal) => refusal,
+            Ok(_) => panic!("Visa must refuse the recorded transaction to another contract"),
+        };
+        assert_eq!(refusal.status, 400);
+        assert_eq!(refusal.durable_state, "refused");
+        assert_eq!(refusal.error, Some("transaction_target_refused"));
+        assert!(refusal.receipt_hex.is_none());
+
+        let (raw, receipt, keys) = relay_fixture([0x71; 32])?;
+        let (_, _, hash) = decode_pay_exact(&raw)?;
+        let redis = X402RedisProcess::start()?;
+        let (relay, server) = payment_relay(&redis, &raw, &receipt, keys)?;
+        let binding = visa_activity(&hex(&raw), true)
+            .map_err(|dispatch| format!("valid Visa transaction: {:?}", dispatch.error))?;
+        let pending = visa_execute(&relay, binding, 1_700_000_000);
+        assert_eq!(pending.status, 202);
+        assert_eq!(pending.result["state"], "submitted");
+        assert_eq!(pending.result["transaction"], format!("0x{}", hex(&hash)));
+        assert!(pending.receipt_hex.is_none());
+        let binding = visa_activity(&hex(&raw), true)
+            .map_err(|dispatch| format!("valid Visa retry: {:?}", dispatch.error))?;
+        let completed = visa_execute(&relay, binding, 1_700_000_000);
+        server
+            .join()
+            .map_err(|_| "Visa sequencer fixture panicked")??;
+        let signed_receipt = decode_hex(
+            receipt["receipt"]
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .ok_or("receipt hex")?,
+            MAX_BODY,
+        )?;
+        assert_eq!(completed.status, 200);
+        assert_eq!(completed.durable_state, "completed");
+        assert_eq!(completed.result["state"], "receipt-verified");
+        assert_eq!(completed.receipt_hex, Some(hex(&signed_receipt)));
+        assert_eq!(completed.activity_id, Some(hex(&hash)));
+        assert_eq!(
+            completed.result["receipt_digest"],
+            hex(&layerx_interop_gateway::evidence::canonical_receipt_digest(
+                &signed_receipt
+            )?)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn fiat_callback_settles_through_the_relay() -> X402TestResult {
+        use layerx_interop_gateway::adapter::{PinnedSpec, SpecVersion};
+        let (recorded, _) = recorded_x402_request("V1-layerxledger-pay-exact")?;
+        let raw = recorded.payment_payload.payload["layerxTransaction"]
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .ok_or("raw transaction")?;
+        let (payment, _, _) = decode_pay_exact(&decode_hex(raw, MAX_BODY)?)?;
+        let token_text = "provider-relay-token";
+        let facts = FiatFacts {
+            provider: "provider-relay".into(),
+            settlement: "settlement-relay".into(),
+            token_reference_sha256: hex(&Sha256::digest(token_text.as_bytes())),
+            rail: "card".into(),
+            class: "settled".into(),
+            amount: payment.amount.to_string(),
+            asset: hex(&payment.asset),
+            destination: hex(&payment.to),
+            observed_at: 1_700_000_000,
+            hold_until: None,
+        };
+        let signing = SigningKey::from_bytes(&[0x72; 32]);
+        let mut signed = FIAT_EVIDENCE_SIGNATURE_DOMAIN.to_vec();
+        signed.extend_from_slice(&serde_json::to_vec(&facts)?);
+        let envelope = FiatEvidenceEnvelope {
+            facts,
+            signature: hex(&signing.sign(&signed).to_bytes()),
+        };
+        let pins = [FiatProviderPin {
+            provider: "provider-relay".into(),
+            public_key_ed25519: hex(signing.verifying_key().as_bytes()),
+        }];
+        let verifier = FiatEvidenceVerifier {
+            pins: &pins,
+            expected_rail: HostedAdapter::FiatCard,
+        };
+        let trace = TraceId::mint([0x73; 16]);
+        let token = TokenReference::new(token_text.as_bytes().to_vec())?;
+        let evidence = ProviderEvidence::new(serde_json::to_vec(&envelope)?)?;
+        let verified = FiatAdapter::verify_evidence(&token, &evidence, &verifier, &trace)
+            .map_err(|error| format!("provider evidence: {error:?}"))?;
+        let reference = FiatAdapter::idempotency_key(&verified);
+        let (raw, receipt, keys) = relay_fixture(reference)?;
+        let (_, _, hash) = decode_pay_exact(&raw)?;
+        let request = IncomingRequest {
+            method: "POST".into(),
+            path: "/v1/fiat/card/callbacks".into(),
+            headers: BTreeMap::from([("content-type".into(), "application/json".into())]),
+            body: serde_json::to_vec(&json!({
+                "token_reference": token_text, "evidence": envelope, "activity": hex(&raw),
+            }))?,
+        };
+        let callback: FiatCallback = direct_body(&request).map_err(|_| "callback body")?;
+        let token = TokenReference::new(callback.token_reference.into_bytes())?;
+        let evidence = ProviderEvidence::new(serde_json::to_vec(&callback.evidence)?)?;
+        let principal = PrincipalId::new("fiat-relay-principal")?;
+        let mut gateway = GatewayCore::new();
+        let spec = PinnedSpec::new(
+            AdapterId::new("fiat")?,
+            SpecVersion::parse("1")?,
+            [0x74; 32],
+        )?;
+        let suite = ConformanceSuite::new(AdapterId::new("fiat-relay-vectors")?, 1, [0x75; 32])?;
+        gateway
+            .register_adapter(
+                layerx_fiat::fiat_adapter_descriptor(spec, suite)?,
+                &trace,
+                1,
+            )
+            .map_err(|error| format!("register fiat: {error:?}"))?;
+        let redis = X402RedisProcess::start()?;
+        let (relay, server) = payment_relay(&redis, &raw, &receipt, keys)?;
+        let mut plane = FiatServicePlane {
+            relay,
+            transaction: decode_hex(&callback.activity, MAX_BODY)?,
+            observed_at: 1_700_000_000,
+            evidence: None,
+            submitted: None,
+            refusal: None,
+        };
+        let pending = FiatAdapter::apply(
+            &mut gateway,
+            &principal,
+            &token,
+            &evidence,
+            &verifier,
+            &mut plane,
+            &trace,
+            1_700_000_000,
+        );
+        let pending = fiat_executed(pending, &plane);
+        assert_eq!(pending.status, 202);
+        assert_eq!(pending.result["state"], "submitted");
+        assert_eq!(pending.result["transaction"], format!("0x{}", hex(&hash)));
+        assert!(pending.receipt_hex.is_none());
+        let completed = FiatAdapter::apply(
+            &mut gateway,
+            &principal,
+            &token,
+            &evidence,
+            &verifier,
+            &mut plane,
+            &trace,
+            1_700_000_000,
+        );
+        let completed = fiat_executed(completed, &plane);
+        server
+            .join()
+            .map_err(|_| "fiat sequencer fixture panicked")??;
+        let signed_receipt = decode_hex(
+            receipt["receipt"]
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .ok_or("receipt hex")?,
+            MAX_BODY,
+        )?;
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&signed_receipt)?;
+        assert_eq!(completed.status, 200);
+        assert_eq!(completed.durable_state, "completed");
+        assert_eq!(completed.result["state"], "receipt-verified");
+        assert_eq!(completed.result["receipt_digest"], hex(&digest));
+        assert_eq!(completed.receipt_hex, Some(hex(&signed_receipt)));
+        assert_eq!(completed.activity_id, Some(hex(&hash)));
+        assert_eq!(
+            gateway.translation(&principal, reference),
+            Some(TranslationStatus::ReceiptVerified {
+                receipt_digest: digest
+            })
+        );
+        Ok(())
     }
 
     fn relay_fixture(

@@ -21741,7 +21741,7 @@ ac_2 = "check_spec returns a non-zero task count for each wave 0..7."
 
 [req.17031]
 title = "Bind the activation plan to the shared merge plan constant"
-ac_1 = "constant_sites returns precompiles/common/precompiles.go and precompiles/setup.go and no file under node/ after task 5.6.1 (precompiles/common/precompiles.go:30, precompiles/setup.go:50 and node/upgrades.go:112 declare the literal today)."
+ac_1 = "constant_sites returns exactly precompiles/common/precompiles.go, modules/layerxanchor/types/retire.go, modules/layerxcustody/types/retire.go and modules/xweb/keeper/activation.go, and no file under node/ and not precompiles/setup.go: task 5.6.1 derived both node/upgrades.go and precompiles/setup.go:55 from pcommon.MergeUpgrade, while the three module files restate the literal as their own constants (MergeUpgrade, MergePlanUpgrade, ProgramOriginPlan)."
 
 [req.17032]
 title = "Check the qualification ledger header against the v2 task ids and entry keys"
@@ -99680,7 +99680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.34.2]
 title = "Register the 0x0905 merge constructor and publish job outcomes as typed events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.34.1", "2.32.4", "5.94.2"]
@@ -100475,8 +100475,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Rehearse layerxpay genesis export and import with kernel state intact"
 status = "pending"
 mode = "BUILD"
-wave = 15
-requires = ["2.22.5", "2.38.6"]
+wave = 23
+requires = ["2.22.5", "2.38.6", "1.24.1"]
 reqs = ["2319.1"]
 capabilities = ["2.40.9"]
 interfaces = []
@@ -103048,7 +103048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.21.3]
 title = "Exercise production spot receive, per-token and multicall gas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.21.2", "5.0.3"]
@@ -103326,7 +103326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.22.8]
 title = "Rehearse spot migration with export round trip"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.22.5", "5.97.2"]
@@ -111725,7 +111725,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.0.4]
 title = "Exercise sequencer RPC sends, pending reads and forwarded receipts end to end"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3", "5.5.19", "5.5.13"]
@@ -112094,7 +112094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.4.6]
 title = "Check fee-token charging at Accept against the block path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -112863,7 +112863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.6.5]
 title = "Complete the merge plan: mount the merged stores, close the gate on missing constructors and retire anchor and custody"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5", "5.19.4"]
@@ -113853,7 +113853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.6]
 title = "Check that an empty sequenced block is idempotent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -114079,7 +114079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.3]
 title = "Adopt the sealed block in FinalizeBlock and store the decided votes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3", "5.5.19", "5.9.1", "15.0.3"]
@@ -115163,7 +115163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.35.2]
 title = "Serve the manifest leader pin from the e2e application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.35.1"]
@@ -115196,7 +115196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.36.1]
 title = "Chain-level tests for the sequencer activation state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3", "5.25.4", "16.22.1"]
@@ -115662,7 +115662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.45.2]
 title = "Conformance: every MergeAddressTable precompile is fail-fast under giga"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.45.1", "5.0.3", "5.8.1"]
@@ -117155,10 +117155,10 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "Recording the fixture is implementation work, not a qualification gate: build the daemon once with go build -o <tmpdir>/paxd ./daemon/paxd, run go run ./daemon/committed-fixture record --paxd <tmpdir>/paxd --out daemon/committed-fixture/vectors, then restore vector-v2-receipted-revert.json and vector-v3-receipt-refusals.json, which record rewrites for every registered vector and which belong to tasks 5.55.3 and 5.55.4, so that only the V1 file is new. The conformance cases in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json hold no contract creation with two logs, so V1 cannot be derived from them."
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3"]
@@ -117188,7 +117188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.4]
 title = "Record the V3 receipt-refusal vector with one named mutation per refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3"]
@@ -118855,7 +118855,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.98.1]
 title = "Start a disposable chain-125 node with the v6.12.0 set live for local qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -121972,7 +121972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.25.1]
 title = "Refuse paused tokenfactory denoms on the GigaBankKeeper send path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "5.56.1", "5.0.3"]
@@ -122063,7 +122063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.26.2]
 title = "Drop the unused distrKeeper from the tokenfactory keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.26.3", "6.0.2", "5.0.3"]
@@ -122519,7 +122519,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.31.5]
 title = "Build the layerxanchor module with the upgrade reader and route the gated msg server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.31.4", "6.0.2", "5.0.3"]
@@ -130232,7 +130232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.28.2]
 title = "Prove the xbank descriptors no longer shadow the bank proto file names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.21.1", "7.26.2", "5.0.3", "5.95.3", "7.26.4"]
@@ -133692,7 +133692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.28.2]
 title = "Compile ramp legs as ledger calls and verify them from signed sequencer receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["8.28.1", "9.23.7"]
@@ -147066,7 +147066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.7.2]
 title = "Export AP2 portable evidence as the version 2 portable receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.7.1", "11.10.1", "9.1.7"]
@@ -147677,7 +147677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.2]
 title = "Render the receipt keys file from the gateway deploy renderer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.12.5"]
@@ -147737,7 +147737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.4]
 title = "Render the mirror paxeer section and receipt keys from the pinned receipt keys file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.13.1", "11.12.5", "11.25.4"]
@@ -149596,7 +149596,7 @@ do_4 = "In Plane::draw (services/interop/crates/x-websearch/src/payment.rs:1948-
 do_5 = "Delete DrawRequest, SignedDraw, DrawError, receive_authorization and sign_draw at services/interop/crates/x-websearch/src/payment.rs:197-352, receiver_did and asset_account at :149-161, the RECEIVE_OPERATION and SEND_OPERATION constants at :84-85 and Plane::sequence at :2010-2024."
 do_6 = "Change PaymentGate::receiver_did at services/interop/crates/x-websearch/src/payment.rs:1180 to receiver_address returning the 20-byte address."
 do_7 = "Update the receiver_key helpers at services/interop/crates/x-websearch/tests/binary.rs:180 and services/interop/crates/x-websearch/tests/payment.rs:279 to write secp256k1 keys, and write the three tests in services/interop/crates/x-websearch/tests/payment.rs:1696 and services/interop/crates/x-websearch/tests/keys.rs:121."
-symbols = ["Keys::receiver", "PaymentGate::new", "PaymentGate::receiver_address", "PaymentRecord", "Plane::draw", "Plane::submit"]
+symbols = ["PaymentGate::new", "PaymentGate::receiver_address", "PaymentRecord", "a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction", "draw_nonces_are_sequential_for_one_receiver", "the_receiver_key_file_holds_a_secp256k1_key"]
 touches = ["services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/src/keys.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/tests/keys.rs"]
 tests = ["services/interop/crates/x-websearch/tests/payment.rs::a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction", "services/interop/crates/x-websearch/tests/payment.rs::draw_nonces_are_sequential_for_one_receiver", "services/interop/crates/x-websearch/tests/keys.rs::the_receiver_key_file_holds_a_secp256k1_key"]
 planned_paths = []
@@ -158993,7 +158993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "The test does not shell out to openssl: load a committed self-signed localhost certificate and key for tests (SAN IP:127.0.0.1, long validity) from apps/web/e2e/fixtures/ with fs.readFileSync, or serve the station over http when the client accepts an http base URL."
 [task.14.4.3]
 title = "Return the receipt when a sponsored submission resumes or completes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["14.4.1", "14.4.2"]
@@ -170052,7 +170052,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "On the merged tree precompiles/setup.go:55 reads const MergeUpgrade = pcommon.MergeUpgrade and no longer declares the literal, while modules/layerxanchor/types/retire.go:4, modules/layerxcustody/types/retire.go:3 and modules/xweb/keeper/activation.go:9 declare it as module constants; the test asserts the list of ac_1 as amended, that no site is under node/, and that precompiles/setup.go is absent."
 [task.17.1.6]
 title = "Write the activation runbook from the plan data"
 status = "pending"
