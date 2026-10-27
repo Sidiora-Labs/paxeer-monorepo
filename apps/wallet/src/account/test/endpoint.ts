@@ -38,7 +38,6 @@ const SDK_ENDPOINT_DIR = path.resolve(
   '../../../../../sdk/wallet/test/fixtures/endpoint'
 );
 const GOLDEN_DIR = path.resolve(__dirname, '../../../../../services/human/schema/human-api/golden');
-const LOCAL_DIR = path.resolve(__dirname, 'fixtures');
 
 export const SCENARIOS = [
   'available',
@@ -63,12 +62,8 @@ export function golden(name: string): Golden {
 }
 
 export function recordings(scenario: Scenario): Exchange[] {
-  if (scenario === 'merged') return mergedRecordings();
-  const file =
-    scenario === 'deposit'
-      ? path.join(LOCAL_DIR, 'deposit.json')
-      : path.join(SDK_ENDPOINT_DIR, `${scenario}.json`);
-  return readJson<Exchange[]>(file);
+  if (scenario === 'merged' || scenario === 'deposit') return mergedRecordings();
+  return readJson<Exchange[]>(path.join(SDK_ENDPOINT_DIR, `${scenario}.json`));
 }
 
 function mergedRecordings(): Exchange[] {
@@ -145,10 +140,7 @@ function mergedRecordings(): Exchange[] {
 }
 
 export function explorerStatuses(): Record<string, unknown> {
-  return {
-    ...readJson<Record<string, unknown>>(path.join(SDK_ENDPOINT_DIR, 'explorer-status.json')),
-    ...readJson<Record<string, unknown>>(path.join(LOCAL_DIR, 'deposit-explorer-status.json')),
-  };
+  return readJson<Record<string, unknown>>(path.join(SDK_ENDPOINT_DIR, 'explorer-status.json'));
 }
 
 export function expectedSequence(): number {
@@ -232,7 +224,12 @@ export async function startAccountEndpoint(): Promise<AccountEndpoint> {
   const recorded = Object.fromEntries(
     SCENARIOS.map((scenario) => [
       scenario,
-      recordings(scenario).filter((entry) => !entry.request.method.startsWith('lx_')),
+      recordings(scenario).filter(
+        (entry) =>
+          !entry.request.method.startsWith('lx_') &&
+          entry.request.method !== 'paxeer_custodyStatus' &&
+          entry.request.method !== 'paxeer_prepareCustody'
+      ),
     ])
   ) as Record<Scenario, Exchange[]>;
   const statuses = explorerStatuses();
