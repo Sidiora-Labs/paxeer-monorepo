@@ -157,30 +157,6 @@ pub struct MirrorVerifier {
 }
 
 impl MirrorVerifier {
-    /// Verifies a retained native certificate through independently configured Paxeer authority.
-    ///
-    /// # Errors
-    /// Refuses legacy archives, invalid native evidence, wrong authority, non-FINAL state or reorgs.
-    pub fn checkpoint_with_native_authority(
-        &self,
-        policy: &crate::node::NativeCheckpointPolicy,
-    ) -> Result<CheckpointCoordinate, MirrorVerifyError> {
-        let trust = self.signed_header_trust()?;
-        let archived = self
-            .archive
-            .checkpoint
-            .as_ref()
-            .ok_or(MirrorVerifyError::CheckpointTrustUnavailable)?;
-        let candidate = crate::publisher::native_archive_candidate(&archived.canonical_certificate)
-            .map_err(MirrorVerifyError::Archive)?;
-        crate::node::native_candidate_publication(&candidate, policy, trust.sequencer_public_key)
-            .map_err(|_| MirrorVerifyError::CheckpointTrustUnavailable)?;
-        if candidate.checkpoint_id() != archived.coordinate.checkpoint_id {
-            return Err(MirrorVerifyError::CheckpointTrustUnavailable);
-        }
-        Ok(archived.coordinate)
-    }
-
     /// Admits one sealed source observation. Archive, chain identity,
     /// canonical position and freshness remain one indivisible source fact.
     ///
@@ -498,7 +474,7 @@ impl MirrorVerifier {
     /// checkpoint verifier. It must never be promoted to checkpoint level.
     ///
     /// # Errors
-    /// Returns `MirrorVerifyError::CheckpointTrustUnavailable` without independent authority; use `checkpoint_with_native_authority` for retained native evidence.
+    /// Returns `MirrorVerifyError::CheckpointTrustUnavailable` because the archive does not retain independent checkpoint authority.
     pub const fn checkpoint_level() -> Result<(), MirrorVerifyError> {
         Err(MirrorVerifyError::CheckpointTrustUnavailable)
     }
@@ -614,7 +590,6 @@ mod tests {
     }
 
     fn batch_era_archive() -> crate::Archive {
-        use layerx_client::availability::AvailabilityResult;
         use layerx_proof::availability::{reassemble, verify_chunk, Chunk};
         use layerx_proof::merkle::build_leaf_hash_proof;
 
@@ -661,16 +636,12 @@ mod tests {
             .collect::<Vec<_>>();
         let (records, _) = reassemble(&verified, data.record_roots)
             .unwrap_or_else(|error| panic!("native records: {error:?}"));
-        let availability = AvailabilityResult::from_verified(
-            "recorded-archive".to_owned(),
-            verified,
-            records,
-            data.record_roots,
-        )
-        .unwrap_or_else(|error| panic!("availability: {error:?}"));
+        records
+            .verify(&verified, data.record_roots)
+            .unwrap_or_else(|error| panic!("availability: {error:?}"));
         crate::Archive::from_node(
             &batch,
-            &availability,
+            &verified,
             None,
             crate::NodeHead {
                 latest_sealed_batch: data.batch_number,
