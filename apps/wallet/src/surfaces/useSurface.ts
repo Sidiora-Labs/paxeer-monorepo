@@ -230,6 +230,7 @@ export interface FeeSelection {
   readonly choice: FeeChoiceId;
   readonly setChoice: (choice: FeeChoiceId) => void;
   readonly feeDenom: string | null;
+  readonly preferenceRung: SequencerRung | null;
   readonly denomError: string | null;
   readonly updating: boolean;
   readonly blocked: string | null;
@@ -306,6 +307,7 @@ export function useFeeSelection(
     setSponsored(value);
   };
   const [feeDenom, setFeeDenom] = useState<string | null>(null);
+  const [preferenceRung, setPreferenceRung] = useState<SequencerRung | null>(null);
   const [denomError, setDenomError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const surfaceModule = useMemo(() => (provider ? feeToken(provider) : null), [provider]);
@@ -323,28 +325,33 @@ export function useFeeSelection(
 
   useEffect(() => {
     setFeeDenom(null);
+    setPreferenceRung(null);
     void read();
   }, [read]);
 
-  const applyPreference = useCallback(async () => {
-    if (!surfaceModule || !provider || !address || choice === 'sid_sponsored') return;
-    const tx =
-      choice === 'sid_native'
-        ? surfaceModule.setFeeDenom(SIDIORA_FEE_DENOM)
-        : surfaceModule.clearFeeDenom();
-    setUpdating(true);
-    try {
-      const hash = await surfaceModule.send(address, tx);
-      const receipt = await waitForReceipt(provider, hash);
-      if (receiptStatus(receipt) !== 'confirmed')
-        throw new Error('the fee token preference was not applied');
-      await read();
-    } catch (cause) {
-      setDenomError(errorMessage(cause));
-    } finally {
-      setUpdating(false);
-    }
-  }, [surfaceModule, provider, address, choice, read]);
+  const applyPreference = useCallback(
+    async function applyPreference() {
+      if (!surfaceModule || !provider || !address || choice === 'sid_sponsored') return;
+      const tx =
+        choice === 'sid_native'
+          ? surfaceModule.setFeeDenom(SIDIORA_FEE_DENOM)
+          : surfaceModule.clearFeeDenom();
+      setUpdating(true);
+      setPreferenceRung(null);
+      try {
+        const receipt = await sendModuleTransactionReceipted(provider, address, tx);
+        setPreferenceRung(receipt.rung);
+        if (receiptStatus(receipt) !== 'confirmed')
+          throw new Error('the fee token preference was not applied');
+        await read();
+      } catch (cause) {
+        setDenomError(errorMessage(cause));
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [surfaceModule, provider, address, choice, read]
+  );
 
   const station = useCallback((): GasStationModule => {
     if (!provider || !address || connection.mode !== 'embedded')
@@ -608,6 +615,7 @@ export function useFeeSelection(
     choice,
     setChoice,
     feeDenom,
+    preferenceRung,
     denomError,
     updating,
     blocked,
