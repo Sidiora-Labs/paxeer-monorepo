@@ -500,6 +500,8 @@ void lxp_programs_lifecycle_release(lxp_module_ctx *ctx, void *decoded);
  * the active lxp_module_ctx; it is never a Rust-owned handle or lookup key.
  * Byte payloads remain in the C activity until the callback bridge supplied by
  * the activity owner consumes them.
+ * The event log encoder takes this C activity handle as `call_token` and
+ * writes at most `out_len` bytes to `out`.
  */
 lxp_result layerx_programs_call_begin(
     uint64_t token, uint64_t occupancy_token,
@@ -531,6 +533,9 @@ lxp_result layerx_programs_call_begin(
     uint64_t storage_read_bytes, uint64_t storage_write_bytes,
     uint64_t output_values, uint64_t output_bytes,
     uint64_t table_elements);
+
+int32_t layerx_programs_event_log_encode(uint64_t call_token, uint32_t index,
+                                       uint8_t *out, uint32_t out_len);
 
 /* Returns one CALL-activity-owned byte (0 through 255) or a negative lxp_result.
  * The token only has meaning while its dispatch arena remains active. */
