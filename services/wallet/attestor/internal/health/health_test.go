@@ -246,7 +246,7 @@ func TestNewReporterRequiresEveryProvider(t *testing.T) {
 
 func TestMetricsHandlerServesRegisteredSeries(t *testing.T) {
 	registry := prometheus.NewRegistry()
-	m, err := NewMetrics(registry)
+	m, err := NewMetrics(registry, []string{"policy_denied"})
 	if err != nil {
 		t.Fatalf("NewMetrics: %v", err)
 	}
@@ -281,7 +281,55 @@ func TestMetricsHandlerServesRegisteredSeries(t *testing.T) {
 			t.Fatalf("metrics output missing %q:\n%s", series, text)
 		}
 	}
-	if _, err := NewMetrics(registry); err == nil {
+	if _, err := NewMetrics(registry, []string{"policy_denied"}); err == nil {
 		t.Fatalf("second NewMetrics on the same registry succeeded")
 	}
+}
+
+func TestRefusedFoldsUnknownReasonIntoOther(t *testing.T) {
+	registry := prometheus.NewRegistry()
+	codes := []string{"policy_denied"}
+	m, err := NewMetrics(registry, codes)
+	if err != nil {
+		t.Fatalf("NewMetrics: %v", err)
+	}
+	codes[0] = "x-random"
+
+	assertRefusals := func(want map[string]float64) {
+		t.Helper()
+		families, err := registry.Gather()
+		if err != nil {
+			t.Fatalf("Gather: %v", err)
+		}
+		for _, family := range families {
+			if family.GetName() != "attestor_refusals_total" {
+				continue
+			}
+			if len(family.Metric) != len(want) {
+				t.Fatalf("refusal series = %d, want %d: %v", len(family.Metric), len(want), family.Metric)
+			}
+			seen := make(map[string]bool)
+			for _, metric := range family.Metric {
+				if len(metric.Label) != 1 || metric.Label[0].GetName() != "reason" {
+					t.Fatalf("unexpected refusal labels: %v", metric.Label)
+				}
+				reason := metric.Label[0].GetValue()
+				value, ok := want[reason]
+				if !ok || seen[reason] || metric.GetCounter().GetValue() != value {
+					t.Fatalf("refusal reason %q = %v, want %v", reason, metric.GetCounter().GetValue(), want)
+				}
+				seen[reason] = true
+			}
+			return
+		}
+		t.Fatal("attestor_refusals_total is missing")
+	}
+
+	m.Refused("policy_denied")
+	m.Refused("x-random")
+	assertRefusals(map[string]float64{"policy_denied": 1, "other": 1})
+	for _, reason := range []string{"another-client-code", "", "other", "x-random"} {
+		m.Refused(reason)
+	}
+	assertRefusals(map[string]float64{"policy_denied": 1, "other": 5})
 }
