@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/ui/utils/cn";
-import { PERPS_MARKETS, coinLogoUrl, type PerpsMarket } from "@/core/perps/config";
+import { coinLogoUrl, type TradeableMarket } from "@/core/perps/config";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useEnrichedMarketStats } from "@/hooks/perps/useEnrichedStats";
 import {
@@ -24,7 +24,7 @@ function fmtCompact(val: number): string {
 }
 
 interface MobileTickerBarProps {
-  market: PerpsMarket;
+  market: TradeableMarket;
   onOpenSelector: () => void;
 }
 

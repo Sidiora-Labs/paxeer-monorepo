@@ -9542,3 +9542,33 @@ area = "spec"
 symptom = "A done task's late do item said a planned dispatch table was unnecessary because an existing Execute already dispatched; it dispatched one method, and 21 dependant tasks that add handlers in their own files found no seam and failed with LXP_PRECOMPILE_UNKNOWN_METHOD."
 cause = "The reading that excused the table checked the task's own tests, not the touches of its dependants."
 do = "Before excusing a planned registration or dispatch seam, list the dependants' touches; if they add handlers in separate files the seam is required, so add it as a small task in the dependants' wave and make them require it."
+
+[gotcha.1970]
+area = "spec"
+symptom = "A delete-the-module task listed the module, its tests and the files its do items named; the build failed because three other files imported the module's re-exports and one enum."
+cause = "The do items were written from the module's own callers, not from a grep of crate::<module> across the crate."
+do = "Before writing a module-deletion task, grep crate::<module>:: and <module>:: across the crate and every test, and give each surviving symbol a destination file in a do item and in touches."
+
+[gotcha.1971]
+area = "spec"
+symptom = "An acceptance criterion generalised a refusal reason to every negative case of a shared vector file, and three cases returned a different reason that another criterion in the same feature requires."
+cause = "The criterion was written from the three cases its parenthesis names and did not read the vector file's verifier column, which separates signature failures from content mismatches."
+do = "When a criterion ranges over the cases of a shared vector file, derive the expected outcome per case from the file's own classification fields and cite the sibling criterion that governs each class."
+
+[gotcha.1972]
+area = "precompiles/layerxprograms"
+symptom = "View tests that seeded kernel state by submitting a module activity were refused LXP_ERR_UNKNOWN_ACTIVITY, and versioned schedule views had no host reader for the history rows."
+cause = "The hosted programs registration does not route every module activity, and the host read wiring named only the active-row readers."
+do = "Seed module state in view tests with kv.Set under the kernel key layout, and when a view takes a version argument check modules/lxphost/read.go for a reader over the history prefix before writing the handler."
+
+[gotcha.1973]
+area = "node/abci"
+symptom = "A merged chain refused every proposal at height 2 with proposer ... is outside the pinned leader list although the validator key was pinned as a leader."
+cause = "Header.ProposerAddress is the 20-byte crypto.AddressHash of the validator key while the leader list stores 32-byte keys, and the check compared the two directly."
+do = "Compare the proposer with crypto.AddressHash(leader) for each pinned key, and drive ProcessProposal tests with the derived address, never the raw key."
+
+[gotcha.1974]
+area = "apps/perps"
+symptom = "Removing a field from the static PerpsMarket seed type broke tsc in widgets and tests that never read the seed list."
+cause = "MarketRow and the mobile market props extend PerpsMarket, so the gateway-fed consumers inherit every seed field."
+do = "Keep live-only fields on a type that extends the seed type (TradeableMarket) and point the gateway-fed consumers at it before deleting the seed field."

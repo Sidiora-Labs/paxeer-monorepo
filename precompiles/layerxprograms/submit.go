@@ -18,11 +18,35 @@ import (
 type PrecompileExecutor struct {
 	host      *lxphost.Host
 	evmKeeper *evmkeeper.Keeper
+	handlers  handlerTable
 }
 
 type callContext struct {
 	caller common.Address
 	method *abi.Method
+	evm    *vm.EVM
+}
+
+type handler func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error)
+
+type handlerTable map[string]handler
+
+func (t handlerTable) register(name string, h handler) {
+	if _, exists := t[name]; exists {
+		panic(fmt.Sprintf("layerxprograms: duplicate handler registration: %s", name))
+	}
+	t[name] = h
+}
+
+var handlers = handlerTable{}
+
+func register(name string, h handler) { handlers.register(name, h) }
+
+func (p *PrecompileExecutor) table() handlerTable {
+	if p.handlers != nil {
+		return p.handlers
+	}
+	return handlers
 }
 
 func submit(ctx sdk.Context, p *PrecompileExecutor, call callContext, activityType uint32, payload []byte, feeLimit [16]byte) (lxphost.Receipt, error) {
@@ -71,8 +95,11 @@ func (p *PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint6
 	return gasTable[method.Name].Gas(input)
 }
 
-func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller common.Address, _ common.Address, args []interface{}, value *big.Int, readOnly bool, _ *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
-	if readOnly {
+func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller common.Address, _ common.Address, args []interface{}, value *big.Int, readOnly bool, evm *vm.EVM, _ *tracing.Hooks) ([]byte, error) {
+	if method == nil {
+		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: missing ABI method")
+	}
+	if readOnly && gasTable[method.Name].Write {
 		return nil, ErrReadOnlyWrite
 	}
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
@@ -81,17 +108,26 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	if err := pcommon.ValidateNonPayable(value); err != nil {
 		return nil, err
 	}
-	decoded, err := decodeArgs(method, args)
+	h, ok := p.table()[method.Name]
+	if !ok {
+		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %s", method.Name)
+	}
+	return h(ctx, p, callContext{caller: caller, method: method, evm: evm}, args)
+}
+
+func registryReadHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
+	decoded, err := decodeArgs(call.method, args)
 	if err != nil {
 		return nil, err
-	}
-	if method.Name != "registryRead" {
-		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %s", method.Name)
 	}
 	payload, err := EncodeRegistryReadPayload(decoded[0].([32]byte), decoded[1].([]byte))
 	if err != nil {
 		return nil, err
 	}
-	_, err = submit(ctx, p, callContext{caller: caller, method: method}, 0x00090004, payload, [16]byte{})
+	_, err = submit(ctx, p, call, 0x00090004, payload, [16]byte{})
 	return nil, err
+}
+
+func init() {
+	register("registryRead", registryReadHandler)
 }
