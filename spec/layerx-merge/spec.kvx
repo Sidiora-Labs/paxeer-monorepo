@@ -31420,10 +31420,10 @@ symbols = ["LayerXAgentStoreKey", "LayerXProgramsStoreKey", "TestLayerXAgentStor
 [capability.5.41.2]
 title = "Mount the ledger, auth, pay, programs, agent and host stores in MemIAVLStoreKeys"
 reqs = ["5482.1", "5482.2"]
-touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go"]
+touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go", "node/app.go"]
 tests = ["storage/common/keys/store_keys_test.go::TestXWebStoreKeyFollowsTheV6120StoreKeys", "storage/common/keys/store_keys_test.go::TestMergeStoreKeysAreMemIAVLStoreKeys"]
 verification_contract = "contracts/sequencer.md#node-storage"
-do_1 = "Ensure LayerXHostStoreKey = \"lxphost\" at storage/common/keys/store_keys.go (task 5.19.2 adds it after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48; correct the value if it differs), fulfilling wiring.J23.7 (decision.557); the ledger and auth keepers locate the host store by that name (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24)."
+do_1 = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48, fulfilling wiring.J23.7 (decision.557), and make the node use it: delete the local const LayerXHostStoreKey = \"layerxhost\" at node/app.go:630 and reference the keys-package constant instead in kvStoreKeyNames at node/app.go:375, in the NewHost call at node/app.go:887 and in the pay keeper construction at node/app.go:900, the way the neighbouring merge keys there are referenced; the ledger and auth keepers locate the host store by the name lxphost (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), so the store the node mounts must carry that name."
 symbols = ["LayerXHostStoreKey", "MemIAVLStoreKeys", "IsMemIAVLStoreKey", "AllModulesExcept", "TestMergeStoreKeysAreMemIAVLStoreKeys"]
 
 [capability.5.41.3]
@@ -93201,7 +93201,7 @@ touches = ["tests/programs/test_terminal_v5.c"]
 tests = ["tests/programs/test_terminal_v5.c::v5_case", "tests/programs/test_terminal_v5.c::v5_refusal_detail"]
 planned_paths = []
 build_cmd = "make -C . build/liblayerx.a"
-verify_cmd = "export CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/programs/target}\" && d=\"$(mktemp -d)\" && m=\"$(python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$d\" | tail -n1)\" && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest \"$m\""
+verify_cmd = "d=$(mktemp -d) && git worktree add -q --detach $d/src HEAD && (cd $d/src && export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$d/target} && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output $d/out && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest $d/out/manifest.json); r=$?; git worktree remove --force $d/src > /dev/null 2>&1; exit $r"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-kernel"
@@ -99327,7 +99327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.8]
 title = "Serve the nine 0x101B service views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.26.5", "2.28.4"]
@@ -100063,7 +100063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.4]
 title = "Prove layerxpay params change through a LayerX governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.27.1", "2.27.3", "2.0.2", "6.95.1"]
@@ -102612,7 +102612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.14.1]
 title = "Route pricefeed MsgSetParams through a LayerX proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["3.11.1", "6.95.1"]
@@ -107471,7 +107471,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.1]
 title = "Prove Query/Markets and Query/PoolMetadata agree with the PoolRegistry views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -107561,7 +107561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.4]
 title = "Prove the launchpad ledger REST routes against a live network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -107651,7 +107651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.7]
 title = "Prove Query/PriceHistory agrees with the SidioraPool getPriceSnapshots view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -110580,7 +110580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.3]
 title = "Repoint mobile market reads to the served v2 pool and search routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110610,7 +110610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.4]
 title = "Repoint the mobile portfolio read to the served v2 portfolio route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110640,7 +110640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.5]
 title = "Repoint mobile notifications to the discovery notification routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110670,7 +110670,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.6]
 title = "Repoint mobile chat to the served v2 conversation and room message routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110763,7 +110763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.47.1]
 title = "Pin mobile native trading to the launchpad surface runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.1", "4.0.3"]
@@ -110794,7 +110794,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.47.2]
 title = "Quote mobile trades on chain through Quoter.quoteExactInput"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.1", "4.0.3", "4.46.2"]
@@ -114038,7 +114038,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.2]
 title = "Register the ledger, auth and agent modules and the shared host in the App"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["5.0.2", "5.10.1", "5.41.1", "2.0.2"]
@@ -115266,17 +115266,17 @@ capabilities = ["5.41.2"]
 interfaces = ["interface.5.go-storage-common-keys-layer-x-ledger-store-key", "interface.5.key-storage-common-keys-layer-x-ledger-store-key", "interface.5.go-storage-common-keys-layer-x-auth-store-key", "interface.5.key-storage-common-keys-layer-x-auth-store-key", "interface.5.go-storage-common-keys-layer-x-pay-store-key", "interface.5.key-storage-common-keys-layer-x-pay-store-key", "interface.5.go-storage-common-keys-layer-x-programs-store-key", "interface.5.key-storage-common-keys-layer-x-programs-store-key", "interface.5.go-storage-common-keys-mem-iavl-store-keys", "interface.5.go-storage-common-keys-layer-x-host-store-key-j33", "interface.5.key-storage-common-keys-layer-x-host-store-key-j33"]
 wiring = ["wiring.J33.1"]
 fulfils = ["wiring.J23.7"]
-do_1 = "Ensure LayerXHostStoreKey = \"lxphost\" at storage/common/keys/store_keys.go (task 5.19.2 adds it after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48; correct the value if it differs), fulfilling wiring.J23.7 (decision.557); the ledger and auth keepers locate the host store by that name (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24)."
+do_1 = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48, fulfilling wiring.J23.7 (decision.557), and make the node use it: delete the local const LayerXHostStoreKey = \"layerxhost\" at node/app.go:630 and reference the keys-package constant instead in kvStoreKeyNames at node/app.go:375, in the NewHost call at node/app.go:887 and in the pay keeper construction at node/app.go:900, the way the neighbouring merge keys there are referenced; the ledger and auth keepers locate the host store by the name lxphost (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), so the store the node mounts must carry that name."
 do_2 = "Append LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey after SequencerStoreKey at storage/common/keys/store_keys.go:84, inside the list at storage/common/keys/store_keys.go:54-85."
 do_3 = "Extend the exact list in TestXWebStoreKeyFollowsTheV6120StoreKeys (storage/common/keys/store_keys_test.go:87-97) with the six names after \"sequencer\" and replace the end-anchored checks at storage/common/keys/store_keys_test.go:99-102 by slices.Index checks that sequencer directly follows xweb and launchpad, perps, spot, pricefeed directly precede xweb (decision.545)."
 do_4 = "Add TestMergeStoreKeysAreMemIAVLStoreKeys after storage/common/keys/store_keys_test.go:139 asserting IsMemIAVLStoreKey (storage/common/keys/store_keys.go:99) and AllModulesExcept(BankStoreKey) (storage/common/keys/store_keys.go:107) for each merge key."
 do_5 = "Keep TestMergeStoreKeyConstants (storage/common/keys/store_keys_test.go:110-139) unchanged; its mounted-at-most-once check holds with the keys appended once."
 do_6 = "Depend on wiring.J33.1, which appends the same six store keys in the same order to kvStoreKeyNames at node/app.go:334 so TestKVStoreKeyNamesMatchMemIAVLStoreKeys (node/store_keys_test.go:15) holds."
 symbols = ["LayerXHostStoreKey", "MemIAVLStoreKeys", "IsMemIAVLStoreKey", "AllModulesExcept", "TestMergeStoreKeysAreMemIAVLStoreKeys"]
-touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go"]
+touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go", "node/app.go"]
 tests = ["storage/common/keys/store_keys_test.go::TestXWebStoreKeyFollowsTheV6120StoreKeys", "storage/common/keys/store_keys_test.go::TestMergeStoreKeysAreMemIAVLStoreKeys"]
 planned_paths = []
-build_cmd = "go build ./storage/common/keys/"
+build_cmd = "go build ./node/ && go build ./storage/common/keys/"
 verify_cmd = "go test -count=1 ./storage/common/keys/ -run '^(TestXWebStoreKeyFollowsTheV6120StoreKeys|TestMergeStoreKeysAreMemIAVLStoreKeys)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
@@ -130724,7 +130724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.2.1]
 title = "Serve px_requestFunds over the faucet claim path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "8.1.5"]
@@ -134623,7 +134623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.41.2]
 title = "Go SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.41.1", "8.0.2"]
@@ -134871,7 +134871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.2]
 title = "JVM SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.42.1", "8.0.2"]
@@ -135027,7 +135027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.7]
 title = "JVM SDK exports and verifies portable receipt v2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.42.2"]
@@ -135275,7 +135275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.7]
 title = ".NET SDK exports and verifies portable receipt v2 bundles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.43.2"]
@@ -136617,7 +136617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.93.1]
 title = "Drop custody and anchor from the proxied explorer capabilities answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "14.0.1", "8.1.5"]
@@ -152514,7 +152514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.3]
 title = "Read the chain account through px_getAccount in the endpoint client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.24.2", "8.0.2"]

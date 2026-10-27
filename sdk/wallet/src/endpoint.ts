@@ -5,6 +5,7 @@ import type {
   AssetMap,
   Balances,
   Capabilities,
+  ChainAccount,
   ChainHistoryPage,
   CompletedBalance,
   CompletionAsset,
@@ -55,6 +56,10 @@ export class EndpointClient {
 
   async getAccount(account: string): Promise<JoinedAccount> {
     return decodeJoinedAccount(await this.rpc.call('px_getAccount', [account]));
+  }
+
+  async getChainAccount(address: string): Promise<ChainAccount> {
+    return decodeChainAccount(await this.rpc.call('px_getAccount', [address]), address);
   }
 
   async listAssets(): Promise<AssetMap> {
@@ -243,6 +248,28 @@ export function decodeJoinedAccount(value: unknown): JoinedAccount {
     account: decodeAccountDocument(doc.account),
     paxeer,
     layerx: nullableRecord(doc.layerx, 'layerx half'),
+  };
+}
+
+function decodeChainAccount(value: unknown, address: string): ChainAccount {
+  const doc = record(value, 'chain account');
+  if (typeof doc.account !== 'string' || doc.account.length === 0) fail('chain account account');
+  const half = record(doc.paxeer, 'chain account paxeer');
+  const returnedAddress = evmAddress(half.address, 'chain account paxeer address');
+  if (returnedAddress.toLowerCase() !== address.toLowerCase()) fail('chain account paxeer address mismatch');
+  const text = (key: string): string => {
+    const field = half[key];
+    if (typeof field !== 'string' || field.length === 0) fail(`chain account paxeer ${key}`);
+    return field;
+  };
+  return {
+    account: doc.account,
+    paxeer: {
+      address: returnedAddress,
+      balance: text('balance'),
+      nonce: text('nonce'),
+      height: text('height'),
+    },
   };
 }
 

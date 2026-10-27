@@ -250,6 +250,9 @@ func payPayload(name string, a []interface{}, key [32]byte) ([]byte, [32]byte, e
 }
 
 func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
+	if output, handled, err := p.serviceViewHandlers(ctx, method, args); handled {
+		return output, err
+	}
 	id := args[0].([32]byte)
 	var record interface{}
 	found := true
@@ -275,29 +278,6 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 			return nil, e
 		}
 		return method.Outputs.Pack(accrued.BigInt(), unsettled.BigInt())
-	case "getOffer":
-		record, found = p.keeper.GetOffer(ctx, id)
-	case "getAgreement":
-		record, found = p.keeper.GetAgreement(ctx, id)
-	case "getCommitment":
-		record, found = p.keeper.GetCommitment(ctx, id)
-	case "getDelivery":
-		record, found = p.keeper.GetDelivery(ctx, id)
-	case "latestDelivery":
-		record, found = p.keeper.LatestDelivery(ctx, id)
-	case "getProgress":
-		record, found = p.keeper.GetProgress(ctx, id)
-	case "getDispute":
-		record, found = p.keeper.GetDispute(ctx, id)
-	case "progressHighWater":
-		value, _ := p.keeper.ProgressHighWater(ctx, id)
-		return method.Outputs.Pack(value)
-	case "getExecution":
-		r, ok := p.keeper.GetExecution(ctx, id)
-		if !ok {
-			return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: execution not found")
-		}
-		return method.Outputs.Pack(append(append([]byte{}, r.CanonicalPayload[:r.CanonicalPayloadLength]...), r.Signature[:]...))
 	case "getBudget", "budgetRemaining":
 		key := paytypes.KernelKVKey(paytypes.BudgetModuleID, append([]byte("budget:"), id[:]...))
 		found = false

@@ -29,9 +29,9 @@ const proxyHash = '0xb2f39d5c380b45131e836d4beb5254d4e5c410d35935bf270e8492755f7
 export const productionTradeDeployment: TradeDeployment = {
   revision: CORE_DEPLOYMENT.manifestSha256, router: CORE_DEPLOYMENT.router, quoter: CORE_DEPLOYMENT.quoter, registry: CORE_DEPLOYMENT.poolRegistry, emitter: CORE_DEPLOYMENT.eventEmitter, usdl: CORE_DEPLOYMENT.usdl,
   pins: [
-    {address: CORE_DEPLOYMENT.router,runtimeHash:proxyHash,implementation:'0xfcBce73f397dF65D5b18364dadDCaE86E95CdB96',implementationHash:'0x3377796c705ad082dfa476c61f25f9cbf64f39fb80dad47de4f5220a4e65190c'},
-    {address:CORE_DEPLOYMENT.quoter,runtimeHash:proxyHash,implementation:'0x49Fe29eaAcb16d3D1a8671dD4d6D9070E340B5B8',implementationHash:'0x26be23199e2a93fc8c3b83982ac9e9dca7e065664bc83b028bf5c804d2a5320c'},
-    {address:CORE_DEPLOYMENT.poolRegistry,runtimeHash:proxyHash,implementation:'0x0e4d66894321e7e29803eF63E618bF07B9772687',implementationHash:'0xc74db1081c5791cda0336d914cdc44cd31cfb656c8b8aaa0c2e200123503e216'},
+    {address: CORE_DEPLOYMENT.router,runtimeHash:CORE_DEPLOYMENT.roleIdentity.router.runtimeHash},
+    {address:CORE_DEPLOYMENT.quoter,runtimeHash:CORE_DEPLOYMENT.roleIdentity.quoter.runtimeHash},
+    {address:CORE_DEPLOYMENT.poolRegistry,runtimeHash:CORE_DEPLOYMENT.roleIdentity.poolRegistry.runtimeHash},
     {address:CORE_DEPLOYMENT.eventEmitter,runtimeHash:proxyHash,implementation:'0x6d48a32e313cc4F08acdeE1F39F7e6B56F03a1cB',implementationHash:'0xd0dc6f1aa54811dc2b9ea13e4519b6b6992ba0a082ac55c2d9e312443b289c08'},
   ],
 };
