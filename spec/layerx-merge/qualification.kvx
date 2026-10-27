@@ -7483,7 +7483,7 @@ task = "8.98.8"
 file = "services/platform/hosted/gateway/tests/local/Cargo.toml"
 symbol = "layerx-gateway-local-qualification"
 observed = "Attempts afabdc7e3 (8.98.8) and e43668a67 (8.98.7) failed at cargo build with 'package ID specification layerx-gateway-local-qualification did not match any packages' because that package is its own workspace (Cargo.toml:7) and not a member of services/platform/Cargo.toml."
-assumption = "Both tasks' build_cmd and verify_cmd now name services/platform/hosted/gateway/tests/local/Cargo.toml directly. Recorded once."
+assumption = "The manifest-path commands given on 2026-10-27 were also wrong: the local qualification package has a build.rs that requires a parent-built core binary (LAYERX_TEST_CORE_BIN) and asserts a boundary fixture path contract that core/tests/boundary.rs no longer meets, so the scan tests now live in the gateway crate itself. Recorded once."
 severity = "major"
 
 [finding.8.98.5]
@@ -7596,4 +7596,20 @@ file = "services/interop/crates/layerx-ap2/src/adapter.rs"
 symbol = "Ap2Adapter"
 observed = "Attempt 05597f7a3 passes both tests, then the done gate refuses Ap2Adapter::new and Ap2Adapter::execute as not defined in the graph: they are methods of a generic impl block, which the graph does not index."
 assumption = "The symbols list now names the two test functions, as recorded for the same refusal before; the attempt requalifies without a code change. Recorded once."
+severity = "major"
+
+[finding.9.32.2.1]
+task = "9.32.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+symbol = "decode_method"
+observed = "Attempts 369bff6bc and 530b343f8 fail open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure) because bind_call refuses the openAccount(bytes32) call: decode_method (call.rs:81) knows only send(bytes), issueGrant(bytes), draw and revokeGrant on 0x101A, so the account, registration, mint and burn calls do_2 asks for cannot be disclosed; task 9.31.1 covered four methods."
+assumption = "9.32.2 now extends the decoder for the methods it calls; the SDK code was not at fault. Recorded once."
+severity = "major"
+
+[finding.8.19.5]
+task = "8.19.5"
+file = "services/platform/hosted/gateway/tests/local/build.rs"
+symbol = "main"
+observed = "The local qualification package cannot be built on the merged tree: build.rs requires LAYERX_TEST_CORE_BIN (a parent-built layerx-core-boundary) and asserts that core/tests/boundary.rs contains the needle ../../../../tests/support/lxgb_metadata.rs exactly once, while boundary.rs:4 now reaches that file through five parent directories, so the fixture adapter panics with 'fixture path contract changed' even when the binary is supplied."
+assumption = "8.19.5 deletes build.rs and the lifecycle target it serves; until then no task builds that package on its own. Recorded once."
 severity = "major"
