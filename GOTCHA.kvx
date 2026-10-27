@@ -9291,3 +9291,15 @@ area = "kernel-programs"
 symptom = "a scheduler-width test over LX_PROGRAMS_CALL items never sees maximum_level 0 (every item lands in one chain)"
 cause = "under the OCCUPANCY and STATE_COMMITMENT protocol versions lxp_programs_call_schedule_item_prepare adds a write on the shared occupancy fee treasury to every CALL item (src/modules/programs/call.c:2569-2585)"
 do = "build width tests with LXP_PROTOCOL_VERSION_LEGACY items, or assert equality without a level-0 precondition when occupancy semantics are the subject"
+
+[gotcha.1928]
+area = "spec/layerx-merge/programme"
+symptom = "test_wave_<n>_gate fails with run-wave exit=2 and only the pytest assertion in the verify log"
+cause = "run_gate.py writes its stage logs to a mktemp directory and the test's wave-<n>.log under logs/waves/<n>/, neither of which the verify output quotes"
+do = "Read logs/waves/<n>/wave-<n>.log from the tree that ran the gate before classing the failure; the dry-run stage passing means a workspace-build, lint or test stage failed"
+
+[gotcha.1929]
+area = "spec-tooling"
+symptom = "A verify_cmd that quotes an environment value with escaped double quotes passes by hand and fails under cg spec done with a NotFound or is_file panic on the quoted path."
+cause = "The kvx reader keeps the backslash escapes (gotcha.111), so the quote characters become part of the value."
+do = "Write verify_cmd environment assignments without quotes; the repository paths contain no spaces, and $PWD and ${VAR:-default} expand unquoted."
