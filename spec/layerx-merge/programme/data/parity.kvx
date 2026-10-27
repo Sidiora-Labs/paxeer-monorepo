@@ -1,4 +1,5 @@
 [meta]
+format_version = 1
 source = "spec/layerx-merge/docs/parity-inventory.md"
 selector_policy = "Exact declared tests at HEAD or in a phase-2 task; fixtures and whole-suite filters are not executable selectors."
 mapping_policy = "Source paths retain the narrative inventory. Selectors name the current chain target; custody release follows decision.642, bond return follows task 6.33.1."

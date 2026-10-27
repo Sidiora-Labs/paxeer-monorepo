@@ -1,5 +1,6 @@
 [meta]
 format_version = 1
+name = "Programme decisions"
 
 [decision.1]
 carry = "rewritten"
