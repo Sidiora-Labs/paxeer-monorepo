@@ -3,6 +3,7 @@ import { Timestamp } from "../../google/protobuf/timestamp";
 import { Proof } from "../crypto/proof";
 import { Consensus } from "../version/types";
 import { ValidatorSet } from "./validator";
+import { EvidenceList } from "./evidence";
 import { BlockIDFlag, SignedMsgType } from "../../../types/tendermint/types";
 export const PartSetHeader = {
     $type: "tendermint.types.PartSetHeader",
@@ -851,53 +852,26 @@ export const CommitSig = {
         return message;
     }
 };
-export const ExtendedCommit = {
-    $type: "tendermint.types.ExtendedCommit",
+export const TxKey = {
+    $type: "tendermint.types.TxKey",
     encode(message, writer = new BinaryWriter()) {
-        if (message.height !== 0) {
-            writer.uint32(8).int64(message.height);
-        }
-        if (message.round !== 0) {
-            writer.uint32(16).int32(message.round);
-        }
-        if (message.block_id !== undefined) {
-            BlockID.encode(message.block_id, writer.uint32(26).fork()).join();
-        }
-        for (const v of message.extended_signatures) {
-            ExtendedCommitSig.encode(v, writer.uint32(34).fork()).join();
+        if (message.tx_key.length !== 0) {
+            writer.uint32(10).bytes(message.tx_key);
         }
         return writer;
     },
     decode(input, length) {
         const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
         const end = length === undefined ? reader.len : reader.pos + length;
-        const message = createBaseExtendedCommit();
+        const message = createBaseTxKey();
         while (reader.pos < end) {
             const tag = reader.uint32();
             switch (tag >>> 3) {
                 case 1:
-                    if (tag !== 8) {
+                    if (tag !== 10) {
                         break;
                     }
-                    message.height = longToNumber(reader.int64());
-                    continue;
-                case 2:
-                    if (tag !== 16) {
-                        break;
-                    }
-                    message.round = reader.int32();
-                    continue;
-                case 3:
-                    if (tag !== 26) {
-                        break;
-                    }
-                    message.block_id = BlockID.decode(reader, reader.uint32());
-                    continue;
-                case 4:
-                    if (tag !== 34) {
-                        break;
-                    }
-                    message.extended_signatures.push(ExtendedCommitSig.decode(reader, reader.uint32()));
+                    message.tx_key = reader.bytes();
                     continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
@@ -908,160 +882,21 @@ export const ExtendedCommit = {
         return message;
     },
     fromJSON(object) {
-        return {
-            height: isSet(object.height) ? globalThis.Number(object.height) : 0,
-            round: isSet(object.round) ? globalThis.Number(object.round) : 0,
-            block_id: isSet(object.block_id) ? BlockID.fromJSON(object.block_id) : undefined,
-            extended_signatures: globalThis.Array.isArray(object?.extended_signatures)
-                ? object.extended_signatures.map((e) => ExtendedCommitSig.fromJSON(e))
-                : []
-        };
+        return { tx_key: isSet(object.tx_key) ? bytesFromBase64(object.tx_key) : new Uint8Array(0) };
     },
     toJSON(message) {
         const obj = {};
-        if (message.height !== 0) {
-            obj.height = Math.round(message.height);
-        }
-        if (message.round !== 0) {
-            obj.round = Math.round(message.round);
-        }
-        if (message.block_id !== undefined) {
-            obj.block_id = BlockID.toJSON(message.block_id);
-        }
-        if (message.extended_signatures?.length) {
-            obj.extended_signatures = message.extended_signatures.map((e) => ExtendedCommitSig.toJSON(e));
+        if (message.tx_key.length !== 0) {
+            obj.tx_key = base64FromBytes(message.tx_key);
         }
         return obj;
     },
     create(base) {
-        return ExtendedCommit.fromPartial(base ?? {});
+        return TxKey.fromPartial(base ?? {});
     },
     fromPartial(object) {
-        const message = createBaseExtendedCommit();
-        message.height = object.height ?? 0;
-        message.round = object.round ?? 0;
-        message.block_id = object.block_id !== undefined && object.block_id !== null ? BlockID.fromPartial(object.block_id) : undefined;
-        message.extended_signatures = object.extended_signatures?.map((e) => ExtendedCommitSig.fromPartial(e)) || [];
-        return message;
-    }
-};
-export const ExtendedCommitSig = {
-    $type: "tendermint.types.ExtendedCommitSig",
-    encode(message, writer = new BinaryWriter()) {
-        if (message.block_id_flag !== 0) {
-            writer.uint32(8).int32(message.block_id_flag);
-        }
-        if (message.validator_address.length !== 0) {
-            writer.uint32(18).bytes(message.validator_address);
-        }
-        if (message.timestamp !== undefined) {
-            Timestamp.encode(toTimestamp(message.timestamp), writer.uint32(26).fork()).join();
-        }
-        if (message.signature.length !== 0) {
-            writer.uint32(34).bytes(message.signature);
-        }
-        if (message.extension.length !== 0) {
-            writer.uint32(42).bytes(message.extension);
-        }
-        if (message.extension_signature.length !== 0) {
-            writer.uint32(50).bytes(message.extension_signature);
-        }
-        return writer;
-    },
-    decode(input, length) {
-        const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
-        const end = length === undefined ? reader.len : reader.pos + length;
-        const message = createBaseExtendedCommitSig();
-        while (reader.pos < end) {
-            const tag = reader.uint32();
-            switch (tag >>> 3) {
-                case 1:
-                    if (tag !== 8) {
-                        break;
-                    }
-                    message.block_id_flag = reader.int32();
-                    continue;
-                case 2:
-                    if (tag !== 18) {
-                        break;
-                    }
-                    message.validator_address = reader.bytes();
-                    continue;
-                case 3:
-                    if (tag !== 26) {
-                        break;
-                    }
-                    message.timestamp = fromTimestamp(Timestamp.decode(reader, reader.uint32()));
-                    continue;
-                case 4:
-                    if (tag !== 34) {
-                        break;
-                    }
-                    message.signature = reader.bytes();
-                    continue;
-                case 5:
-                    if (tag !== 42) {
-                        break;
-                    }
-                    message.extension = reader.bytes();
-                    continue;
-                case 6:
-                    if (tag !== 50) {
-                        break;
-                    }
-                    message.extension_signature = reader.bytes();
-                    continue;
-            }
-            if ((tag & 7) === 4 || tag === 0) {
-                break;
-            }
-            reader.skip(tag & 7);
-        }
-        return message;
-    },
-    fromJSON(object) {
-        return {
-            block_id_flag: isSet(object.block_id_flag) ? blockIDFlagFromJSON(object.block_id_flag) : 0,
-            validator_address: isSet(object.validator_address) ? bytesFromBase64(object.validator_address) : new Uint8Array(0),
-            timestamp: isSet(object.timestamp) ? fromJsonTimestamp(object.timestamp) : undefined,
-            signature: isSet(object.signature) ? bytesFromBase64(object.signature) : new Uint8Array(0),
-            extension: isSet(object.extension) ? bytesFromBase64(object.extension) : new Uint8Array(0),
-            extension_signature: isSet(object.extension_signature) ? bytesFromBase64(object.extension_signature) : new Uint8Array(0)
-        };
-    },
-    toJSON(message) {
-        const obj = {};
-        if (message.block_id_flag !== 0) {
-            obj.block_id_flag = blockIDFlagToJSON(message.block_id_flag);
-        }
-        if (message.validator_address.length !== 0) {
-            obj.validator_address = base64FromBytes(message.validator_address);
-        }
-        if (message.timestamp !== undefined) {
-            obj.timestamp = message.timestamp.toISOString();
-        }
-        if (message.signature.length !== 0) {
-            obj.signature = base64FromBytes(message.signature);
-        }
-        if (message.extension.length !== 0) {
-            obj.extension = base64FromBytes(message.extension);
-        }
-        if (message.extension_signature.length !== 0) {
-            obj.extension_signature = base64FromBytes(message.extension_signature);
-        }
-        return obj;
-    },
-    create(base) {
-        return ExtendedCommitSig.fromPartial(base ?? {});
-    },
-    fromPartial(object) {
-        const message = createBaseExtendedCommitSig();
-        message.block_id_flag = object.block_id_flag ?? 0;
-        message.validator_address = object.validator_address ?? new Uint8Array(0);
-        message.timestamp = object.timestamp ?? undefined;
-        message.signature = object.signature ?? new Uint8Array(0);
-        message.extension = object.extension ?? new Uint8Array(0);
-        message.extension_signature = object.extension_signature ?? new Uint8Array(0);
+        const message = createBaseTxKey();
+        message.tx_key = object.tx_key ?? new Uint8Array(0);
         return message;
     }
 };
@@ -1088,6 +923,21 @@ export const Proposal = {
         }
         if (message.signature.length !== 0) {
             writer.uint32(58).bytes(message.signature);
+        }
+        for (const v of message.tx_keys) {
+            TxKey.encode(v, writer.uint32(66).fork()).join();
+        }
+        if (message.evidence !== undefined) {
+            EvidenceList.encode(message.evidence, writer.uint32(74).fork()).join();
+        }
+        if (message.last_commit !== undefined) {
+            Commit.encode(message.last_commit, writer.uint32(82).fork()).join();
+        }
+        if (message.header !== undefined) {
+            Header.encode(message.header, writer.uint32(90).fork()).join();
+        }
+        if (message.proposer_address.length !== 0) {
+            writer.uint32(98).bytes(message.proposer_address);
         }
         return writer;
     },
@@ -1140,6 +990,36 @@ export const Proposal = {
                     }
                     message.signature = reader.bytes();
                     continue;
+                case 8:
+                    if (tag !== 66) {
+                        break;
+                    }
+                    message.tx_keys.push(TxKey.decode(reader, reader.uint32()));
+                    continue;
+                case 9:
+                    if (tag !== 74) {
+                        break;
+                    }
+                    message.evidence = EvidenceList.decode(reader, reader.uint32());
+                    continue;
+                case 10:
+                    if (tag !== 82) {
+                        break;
+                    }
+                    message.last_commit = Commit.decode(reader, reader.uint32());
+                    continue;
+                case 11:
+                    if (tag !== 90) {
+                        break;
+                    }
+                    message.header = Header.decode(reader, reader.uint32());
+                    continue;
+                case 12:
+                    if (tag !== 98) {
+                        break;
+                    }
+                    message.proposer_address = reader.bytes();
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -1156,7 +1036,12 @@ export const Proposal = {
             pol_round: isSet(object.pol_round) ? globalThis.Number(object.pol_round) : 0,
             block_id: isSet(object.block_id) ? BlockID.fromJSON(object.block_id) : undefined,
             timestamp: isSet(object.timestamp) ? fromJsonTimestamp(object.timestamp) : undefined,
-            signature: isSet(object.signature) ? bytesFromBase64(object.signature) : new Uint8Array(0)
+            signature: isSet(object.signature) ? bytesFromBase64(object.signature) : new Uint8Array(0),
+            tx_keys: globalThis.Array.isArray(object?.tx_keys) ? object.tx_keys.map((e) => TxKey.fromJSON(e)) : [],
+            evidence: isSet(object.evidence) ? EvidenceList.fromJSON(object.evidence) : undefined,
+            last_commit: isSet(object.last_commit) ? Commit.fromJSON(object.last_commit) : undefined,
+            header: isSet(object.header) ? Header.fromJSON(object.header) : undefined,
+            proposer_address: isSet(object.proposer_address) ? bytesFromBase64(object.proposer_address) : new Uint8Array(0)
         };
     },
     toJSON(message) {
@@ -1182,6 +1067,21 @@ export const Proposal = {
         if (message.signature.length !== 0) {
             obj.signature = base64FromBytes(message.signature);
         }
+        if (message.tx_keys?.length) {
+            obj.tx_keys = message.tx_keys.map((e) => TxKey.toJSON(e));
+        }
+        if (message.evidence !== undefined) {
+            obj.evidence = EvidenceList.toJSON(message.evidence);
+        }
+        if (message.last_commit !== undefined) {
+            obj.last_commit = Commit.toJSON(message.last_commit);
+        }
+        if (message.header !== undefined) {
+            obj.header = Header.toJSON(message.header);
+        }
+        if (message.proposer_address.length !== 0) {
+            obj.proposer_address = base64FromBytes(message.proposer_address);
+        }
         return obj;
     },
     create(base) {
@@ -1196,6 +1096,11 @@ export const Proposal = {
         message.block_id = object.block_id !== undefined && object.block_id !== null ? BlockID.fromPartial(object.block_id) : undefined;
         message.timestamp = object.timestamp ?? undefined;
         message.signature = object.signature ?? new Uint8Array(0);
+        message.tx_keys = object.tx_keys?.map((e) => TxKey.fromPartial(e)) || [];
+        message.evidence = object.evidence !== undefined && object.evidence !== null ? EvidenceList.fromPartial(object.evidence) : undefined;
+        message.last_commit = object.last_commit !== undefined && object.last_commit !== null ? Commit.fromPartial(object.last_commit) : undefined;
+        message.header = object.header !== undefined && object.header !== null ? Header.fromPartial(object.header) : undefined;
+        message.proposer_address = object.proposer_address ?? new Uint8Array(0);
         return message;
     }
 };
@@ -1617,18 +1522,8 @@ function createBaseCommit() {
 function createBaseCommitSig() {
     return { block_id_flag: 0, validator_address: new Uint8Array(0), timestamp: undefined, signature: new Uint8Array(0) };
 }
-function createBaseExtendedCommit() {
-    return { height: 0, round: 0, block_id: undefined, extended_signatures: [] };
-}
-function createBaseExtendedCommitSig() {
-    return {
-        block_id_flag: 0,
-        validator_address: new Uint8Array(0),
-        timestamp: undefined,
-        signature: new Uint8Array(0),
-        extension: new Uint8Array(0),
-        extension_signature: new Uint8Array(0)
-    };
+function createBaseTxKey() {
+    return { tx_key: new Uint8Array(0) };
 }
 function createBaseProposal() {
     return {
@@ -1638,7 +1533,12 @@ function createBaseProposal() {
         pol_round: 0,
         block_id: undefined,
         timestamp: undefined,
-        signature: new Uint8Array(0)
+        signature: new Uint8Array(0),
+        tx_keys: [],
+        evidence: undefined,
+        last_commit: undefined,
+        header: undefined,
+        proposer_address: new Uint8Array(0)
     };
 }
 function createBaseSignedHeader() {
@@ -1721,8 +1621,7 @@ export const registry = [
     ["/tendermint.types.Vote", Vote],
     ["/tendermint.types.Commit", Commit],
     ["/tendermint.types.CommitSig", CommitSig],
-    ["/tendermint.types.ExtendedCommit", ExtendedCommit],
-    ["/tendermint.types.ExtendedCommitSig", ExtendedCommitSig],
+    ["/tendermint.types.TxKey", TxKey],
     ["/tendermint.types.Proposal", Proposal],
     ["/tendermint.types.SignedHeader", SignedHeader],
     ["/tendermint.types.LightBlock", LightBlock],
@@ -1770,13 +1669,8 @@ export const aminoConverters = {
         toAmino: (message) => ({ ...message }),
         fromAmino: (object) => ({ ...object })
     },
-    "/tendermint.types.ExtendedCommit": {
-        aminoType: "tendermint.types.ExtendedCommit",
-        toAmino: (message) => ({ ...message }),
-        fromAmino: (object) => ({ ...object })
-    },
-    "/tendermint.types.ExtendedCommitSig": {
-        aminoType: "tendermint.types.ExtendedCommitSig",
+    "/tendermint.types.TxKey": {
+        aminoType: "tendermint.types.TxKey",
         toAmino: (message) => ({ ...message }),
         fromAmino: (object) => ({ ...object })
     },
