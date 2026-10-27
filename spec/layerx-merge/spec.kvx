@@ -103512,7 +103512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.23.6]
 title = "Trade a governance-listed token through production PECOR"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["3.23.5", "3.21.3"]
