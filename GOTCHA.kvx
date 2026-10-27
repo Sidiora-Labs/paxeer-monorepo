@@ -8792,15 +8792,16 @@ summary = "The gateway binary cannot answer JSON-RPC in a test without a reachab
 detail = "Config construction requires LAYERX_GATEWAY_REDIS_URL with username and password files, so integration tests that post JSON-RPC to the real binary start a redis-server with tls-port and an openssl localhost certificate, as tests/paxeer_failover.rs and tests/unified_service_paths.rs do."
 
 [gotcha.1844]
-area = "spec/layerx-merge/contracts"
-summary = "Regenerating a specification document can overwrite a file that code parses at build time"
-detail = "services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests read contracts/address-table.md sections (a), (a2), (b) and (c) by heading text and column count; a generated inventory written under the same name made cargo build exit 101 for every crate depending on layerx-types and every cgo-linked Go package. Before replacing a contract file, grep the code for its path and keep generated inventories under their own names."
+area = "test"
+symptom = "A programme gate passes with ok and no test output even though no test ran"
+cause = "The go test -run selector matches no test, and Go still returns a successful exit status"
+do = "Run go test -json and count the run actions, as the zero-test detector of task 17.4.3 does"
 
 [gotcha.1845]
-area = "spec"
-symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
-cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
-do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
+area = "build"
+symptom = "go test of any package importing precompiles/setup.go (precompiles/setup.go:117) fails at link time"
+cause = "A clean checkout lacks build/liblayerx.a, which the kernel cgo link requires"
+do = "Use the go-cgo sandbox prebuild of task 17.6.1 to create build/liblayerx.a before running go test"
 
 [gotcha.1846]
 area = "tooling"
@@ -8957,3 +8958,14 @@ area = "spec"
 symptom = "a Go test keeps failing with <MODULE>_TEST_POSTGRES_URL or <MODULE>_TEST_REDIS_URL unset although the gate provisions database fixtures for tests that name them"
 cause = "Go test fixtures often read their database and cache URLs in a module-level test-support package (internal/internaltest) rather than in the package under test, so a gate that provisions fixtures by scanning only the task's own paths never sees the variable names"
 do = "scan the enclosing Go module (the directory of the nearest go.mod, including its internal test-support packages) for fixture variable names before deciding what to provision"
+
+[gotcha.1872]
+area = "spec/layerx-merge/contracts"
+summary = "Regenerating a specification document can overwrite a file that code parses at build time"
+detail = "services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests read contracts/address-table.md sections (a), (a2), (b) and (c) by heading text and column count; a generated inventory written under the same name made cargo build exit 101 for every crate depending on layerx-types and every cgo-linked Go package. Before replacing a contract file, grep the code for its path and keep generated inventories under their own names."
+
+[gotcha.1873]
+area = "spec"
+symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
+cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
+do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
