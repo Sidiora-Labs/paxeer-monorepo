@@ -132611,7 +132611,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.8]
 title = "Stop the beta cluster from building and deploying the relay archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -157220,7 +157220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.3]
 title = "Serve getWindDown and getExitRoute"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
