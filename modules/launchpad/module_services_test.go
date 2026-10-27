@@ -172,6 +172,15 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, sdk.ZeroInt(), amount)
 				require.Equal(t, amount.String(), result.Amount)
+			case "FeeAccounting":
+				require.NoError(t, err)
+				var result types.QueryFeeAccountingResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				liabilities, err := k.TotalLiabilities(ctx)
+				require.NoError(t, err)
+				require.Equal(t, sdk.ZeroInt(), liabilities)
+				require.Equal(t, liabilities, result.Accounting.TotalLiabilities)
+				require.Equal(t, sdk.ZeroInt(), result.Accounting.PendingProtocolFees)
 			case "Treasury":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})
