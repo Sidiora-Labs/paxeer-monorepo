@@ -239,6 +239,12 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	if err := p.guard(ctx.EVMPrecompileCalledFromDelegateCall(), method.Name, readOnly); err != nil {
 		return nil, err
 	}
+	switch method.Name {
+	case FulfilProgramMethod, GetProgramResultMethod, GetKernelNetworkIdMethod:
+		if !p.keeper.ProgramOriginActive(ctx) {
+			return nil, xwebkeeper.ErrProgramModuleDisabled
+		}
+	}
 	if method.Name != RequestMethod {
 		if err := pcommon.ValidateNonPayable(value); err != nil {
 			return nil, fmt.Errorf("LXP_PRECOMPILE_NON_PAYABLE: %w", err)
