@@ -153318,7 +153318,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.2]
 title = "Retire WalletInterface.signCustody from the SDK wallet interface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["12.28.1"]
