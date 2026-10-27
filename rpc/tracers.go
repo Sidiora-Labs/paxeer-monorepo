@@ -762,6 +762,10 @@ type StateAccessResponse struct {
 }
 
 func (api *DebugAPI) TraceStateAccess(ctx context.Context, hash common.Hash) (result interface{}, returnErr error) {
+	startTime := time.Now()
+	defer func(entryCtx context.Context) {
+		recordMetricsWithError(entryCtx, "debug_traceStateAccess", api.connectionType, startTime, returnErr, nil)
+	}(ctx)
 	defer func() {
 		if r := recover(); r != nil {
 			result = nil

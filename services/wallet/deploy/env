@@ -151,14 +151,11 @@ AGENT_DEFAULT_MAX_TX_VALUE_WEI - default per-transaction native value cap for ag
 AGENT_DEFAULT_MAX_DAILY_VALUE_WEI - default rolling daily native value cap for agent wallets
 AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE - default signing requests per agent per minute
 AGENT_DEFAULT_MAX_APPROVE_WEI - default cap on ERC-20 approval amounts for agent wallets
-LAYERX_VAULT_ADDRESS - LayerX custody vault contract targeted by agent deposit actions
-LAYER_X_DB_URI - read-only connection string of the LayerX sequencer database
 ACTION_CONFIRMATIONS - block confirmations before an agent action transaction is final
 ACTION_RECEIPT_TIMEOUT_MS - maximum wait for one agent action receipt
 ACTION_WORKER_INTERVAL_MS - tick interval of the agent action worker
 ACTION_RECONCILE_INTERVAL_MS - sweep interval of the agent action reconciler
 ACTION_FEE_BUMP_PERCENT - fee increase applied when replacing a stuck agent action transaction
-LAYERX_SYNC_INTERVAL_MS - interval of the LayerX mirror sync worker
 NEXT_PUBLIC_PAXEER_WALLET_API - wallet gateway base URL used by the demo
 NEXT_PUBLIC_SUPABASE_URL - Supabase project URL used by the demo for sign-in
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY - Supabase publishable key used by the demo for sign-in
@@ -196,7 +193,6 @@ AGENT_JWT_SECRET - platform secret signing the read-scoped agent token; unset di
 AGENT_TOKEN_TTL_SECONDS - lifetime of the read-scoped agent token in seconds
 AGENT_CHALLENGE_TTL_SECONDS - lifetime of an agent authentication challenge in seconds
 AGENT_REQUEST_MAX_TTL_SECONDS - furthest expiry in seconds an agent request signature or claim counter-signature may carry, default 300
-LAYERX_USDL_ADDRESS - USDL token address used by the kernel deposit action
 LAYERX_USDL_DECIMALS - USDL token decimals used when the token does not report them
 FUNDED_TREASURY_PRIVATE_KEY - removed with the funded lane; must not be set anywhere
 FUNDED_USDL_ADDRESS - removed; replaced by LAYERX_USDL_ADDRESS
