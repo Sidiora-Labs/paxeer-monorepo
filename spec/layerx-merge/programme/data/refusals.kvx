@@ -1,0 +1,29 @@
+[refusal.0x1012]
+expect = "LXP_MODULE_DISABLED"
+test = "precompiles/layerxverify/retire_gate_test.go::TestEveryLayerXVerifyMethodRevertsModuleDisabledAfterTheMerge"
+command = "go test -count=1 ./precompiles/layerxverify/ -run '^(TestEveryLayerXVerifyMethodRevertsModuleDisabledAfterTheMerge)$'"
+
+[refusal.0x1013]
+expect = "LXP_MODULE_DISABLED"
+test = "precompiles/layerxcustody/retire_test.go::TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight"
+command = "go test -count=1 ./precompiles/layerxcustody/ -run '^(TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight)$'"
+
+[refusal.0x1014]
+expect = "LXP_MODULE_DISABLED"
+test = "precompiles/layerxanchor/retired_surface_test.go::TestEveryAnchorSelectorRetired"
+command = "go test -count=1 ./precompiles/layerxanchor/ -run '^(TestEveryAnchorSelectorRetired)$'"
+
+[refusal.merge-plan]
+expect = "LXP_MODULE_DISABLED"
+test = "precompiles/common/retire_test.go::TestRetiredAtMergePlan"
+command = "go test -count=1 ./precompiles/common/ -run '^(TestRetiredAtMergePlan)$'"
+
+[refusal.custody-release]
+expect = "ErrModuleRetired code 29 (decision.654)"
+test = "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight"
+command = "go test -count=1 ./modules/layerxcustody/keeper/ -run '^(TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight)$'"
+
+[refusal.exchange-intents]
+expect = "LXP_EXCHANGE_RETIRED code 14"
+test = "modules/layerxexchange/keeper/keeper_test.go::TestRecordIntentRefusedAfterRetirement"
+command = "go test -count=1 ./modules/layerxexchange/keeper/ -run '^(TestRecordIntentRefusedAfterRetirement)$'"

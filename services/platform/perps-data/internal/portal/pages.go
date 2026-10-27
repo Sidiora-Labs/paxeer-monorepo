@@ -232,9 +232,9 @@ func (p *Pages) Market(ctx context.Context, w io.Writer, symbol string) error {
 	if err := p.get(ctx, "/api/markets/"+url.PathEscape(upper), nil, &record); err != nil {
 		return err
 	}
-	marketID, ok := records.MarketIDs[upper]
-	if !ok {
-		return ErrNotFound
+	marketID, err := strconv.ParseInt(record.Market.MarketID, 10, 32)
+	if err != nil {
+		return fmt.Errorf("market %s id: %w", upper, err)
 	}
 	var fills records.Trades[records.PerpTrade]
 	if err := p.get(ctx, "/api/"+url.PathEscape(strings.ToLower(symbol))+"/perp_trades",

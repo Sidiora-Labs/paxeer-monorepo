@@ -88,3 +88,11 @@ def load(path: str | PathLike[str]) -> dict[str, dict[str, KvxValue]]:
                 raise KvxError(f"{location}: duplicate key {key}")
             current[key] = _value(text.strip(), location)
     return sections
+
+
+def check_format(path: str | PathLike[str]) -> dict[str, dict[str, KvxValue]]:
+    sections = load(path)
+    version = sections.get("meta", {}).get("format_version")
+    if type(version) is not int or version != 1:
+        raise KvxError(f"{path}: [meta] format_version must be integer 1")
+    return sections
