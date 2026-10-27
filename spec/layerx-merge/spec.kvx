@@ -141042,7 +141042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.32.2]
 title = "Build Wallet writes as signed layerxledger EIP-1559 calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.32.1", "9.31.2", "9.31.3", "9.26.2", "9.1.7"]
@@ -170025,7 +170025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.1.5]
 title = "Bind the activation plan to the shared merge plan constant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["17.1.4", "5.0.3"]
