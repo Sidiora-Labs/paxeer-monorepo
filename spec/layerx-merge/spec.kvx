@@ -913,7 +913,7 @@ affects = ["1.26.1", "1.17.4"]
 
 [decision.201]
 title = "One shared kernel host over its own host store key; module stores hold params only"
-value = "node/app.go constructs one lxphost.Host over a new layerxhost store key shared by the layerxledger and layerxauth keepers; each module store keeps only ParamsKey 0x01 and KernelKVPrefix is retired."
+value = "node/app.go constructs one lxphost.Host over a new lxphost store key shared by the layerxledger and layerxauth keepers; each module store keeps only ParamsKey 0x01 and KernelKVPrefix is retired."
 basis = "Host prefixes 0x01..0x06 at modules/lxphost/ctx.go:62-66 overlap the layerxledger ParamsKey and KernelKVPrefix at modules/layerxledger/types/keys.go:18-21, and NewHost (modules/lxphost/host.go:600) has no production caller."
 affects = ["2.3.1", "2.6.1", "2.14.4", "2.14.5"]
 
@@ -13713,7 +13713,7 @@ ac_2 = "Node.Start installs the open block, the sequencer source, the RPC option
 
 [req.5049]
 title = "The merge plan mounts every merged store and retires anchor and custody"
-ac_1 = "mergeStoreUpgrades (node/upgrades.go:418) adds the sequencer, layerxledger, layerxauth, layerxpay, layerxprograms, layerxagent and layerxhost stores."
+ac_1 = "mergeStoreUpgrades (node/upgrades.go:418) adds the sequencer, layerxledger, layerxauth, layerxpay, layerxprograms, layerxagent and lxphost stores."
 ac_2 = "mergePrecompileGate (node/upgrades.go:521) gates 0x101B and 0x0906 on layerxpaytypes.ModuleName and 0x0901-0x0905, 0x0907, 0x0908 on the layerxagent module name constant."
 ac_3 = "The merge activation refuses to start when a gated address has no registered merge constructor (node/upgrades.go:521)."
 ac_4 = "mergeUpgradePlan (node/upgrades.go:432) returns every bond held by the anchor module through RetireAtMerge."
@@ -14049,8 +14049,8 @@ ac_1 = "storage/common/keys/store_keys.go declares LayerXAgentStoreKey = \"layer
 
 [req.5482]
 title = "Mount the ledger, auth, pay, programs, agent and host stores in MemIAVLStoreKeys"
-ac_1 = "The exact MemIAVLStoreKeys list asserted at storage/common/keys/store_keys_test.go:87-108 ends with \"xweb\", \"sequencer\", \"layerxledger\", \"layerxauth\", \"layerxpay\", \"layerxprograms\", \"layerxagent\", \"layerxhost\", with sequencer directly after xweb."
-ac_2 = "IsMemIAVLStoreKey (storage/common/keys/store_keys.go:99) is true and AllModulesExcept(BankStoreKey) (storage/common/keys/store_keys.go:107) contains each of layerxledger, layerxauth, layerxpay, layerxprograms, layerxagent and layerxhost."
+ac_1 = "The exact MemIAVLStoreKeys list asserted at storage/common/keys/store_keys_test.go:87-108 ends with \"xweb\", \"sequencer\", \"layerxledger\", \"layerxauth\", \"layerxpay\", \"layerxprograms\", \"layerxagent\", \"lxphost\", with sequencer directly after xweb."
+ac_2 = "IsMemIAVLStoreKey (storage/common/keys/store_keys.go:99) is true and AllModulesExcept(BankStoreKey) (storage/common/keys/store_keys.go:107) contains each of layerxledger, layerxauth, layerxpay, layerxprograms, layerxagent and lxphost."
 
 [req.5483]
 title = "Retire LayerXAnchorStoreKey from the store-key list"
@@ -30880,7 +30880,7 @@ symbols = ["Accept"]
 [capability.5.14.3]
 title = "Run the layerxauth revocation decorator in the ante chain"
 reqs = ["5042.1"]
-touches = ["node/ante.go", "node/ante_revocation_test.go"]
+touches = ["node/ante.go", "node/ante_revocation_test.go", "node/app.go"]
 tests = ["node/ante_revocation_test.go::TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
 verification_contract = "go test -count=1 ./node/ -run '^(TestAnteChainRunsRevocationDecoratorAfterAuthzNested)$'"
 do_1 = "Add LayerXAuthKeeper to HandlerOptions (node/ante.go:25-39) and refuse a nil keeper in NewAnteHandler beside the other nil checks."
@@ -31033,10 +31033,10 @@ symbols = ["New", "GetCustomPrecompilesE"]
 [capability.5.19.2]
 title = "Register the ledger, auth and agent modules and the shared host in the App"
 reqs = ["5043.1", "5043.2", "5043.3", "5043.4"]
-touches = ["node/app.go", "node/app_merge_modules_test.go"]
+touches = ["node/app.go", "node/app_merge_modules_test.go", "storage/common/keys/store_keys.go"]
 tests = ["node/app_merge_modules_test.go::TestAppMountsMergedModuleStores", "node/app_merge_modules_test.go::TestAppRegistersLedgerAuthModules", "node/app_merge_modules_test.go::TestAppLedgerModuleAccountPerms", "node/app_merge_modules_test.go::TestAppEndBlockKeepersCarryAgentScheduler"]
 verification_contract = "go test -count=1 ./node/ -run '^(TestAppMountsMergedModuleStores|TestAppRegistersLedgerAuthModules|TestAppLedgerModuleAccountPerms|TestAppEndBlockKeepersCarryAgentScheduler)$'"
-do_1 = "Append keys.LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey in that order to kvStoreKeyNames at node/app.go:334-352."
+do_1 = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48, the name the ledger and auth keepers look the host store up by (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), then append keys.LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey in that order to kvStoreKeyNames at node/app.go:334-352."
 symbols = ["kvStoreKeyNames", "ModuleBasics", "maccPerms", "NewHost"]
 
 [capability.5.19.3]
@@ -31423,7 +31423,7 @@ reqs = ["5482.1", "5482.2"]
 touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go"]
 tests = ["storage/common/keys/store_keys_test.go::TestXWebStoreKeyFollowsTheV6120StoreKeys", "storage/common/keys/store_keys_test.go::TestMergeStoreKeysAreMemIAVLStoreKeys"]
 verification_contract = "contracts/sequencer.md#node-storage"
-do_1 = "Add LayerXHostStoreKey = \"layerxhost\" after LayerXAuthStoreKey at storage/common/keys/store_keys.go:44, fulfilling wiring.J23.7 (decision.557)."
+do_1 = "Ensure LayerXHostStoreKey = \"lxphost\" at storage/common/keys/store_keys.go (task 5.19.2 adds it after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48; correct the value if it differs), fulfilling wiring.J23.7 (decision.557); the ledger and auth keepers locate the host store by that name (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24)."
 symbols = ["LayerXHostStoreKey", "MemIAVLStoreKeys", "IsMemIAVLStoreKey", "AllModulesExcept", "TestMergeStoreKeysAreMemIAVLStoreKeys"]
 
 [capability.5.41.3]
@@ -80918,7 +80918,7 @@ interfaces = ["interface.2.cli-layerxagent-query-job-j24", "interface.2.cli-laye
 
 [contract_context.2.layerxauth-0x101c]
 interface = "Precompile 0x000000000000000000000000000000000000101C named layerxauth: 10 ABI methods and 5 events of precompiles/layerxauth/abi.json (planned)"
-storage = "Kernel authority grants, identity sequences and idempotency records in the shared layerxhost store; layerxauth module store holds ParamsKey 0x01 only; capability grants mirrored as authz LayerXScopeAuthorization grants"
+storage = "Kernel authority grants, identity sequences and idempotency records in the shared lxphost store; layerxauth module store holds ParamsKey 0x01 only; capability grants mirrored as authz LayerXScopeAuthorization grants"
 errors = "Error(string) reasons LXP_<CODE> from the layerxauth registrations of modules/layerxauth/types/errors.go:8-16, kernel names through LXPCodeName and LXP_PAUSED_SCOPE 735 from layerxgov"
 events = "SessionGranted, GrantBody, CapabilityGranted, GrantRevoked, IdentityStateUpdated from kernel events 0x7145, 0x7105 and 0x7125, 0x7148, 0x7108 and 0x7128, 0x7106 and 0x7110 (GrantBody carries the 256-byte body chunks 0x7105/0x7125 of a session and 0x7108/0x7128 of a capability)"
 gas = "Fixed surcharge per method plus DefaultGasCost of the input: grantSession 36680, grantSessionSuccessor 38600, grantCapability 34760, revokeGrant 5000, resultByIdempotency 1204, getGrant 1108, isLive 1300, sessionKey 1108, capabilityScope 1108, checkActivity 1396"
@@ -80929,7 +80929,7 @@ interfaces = ["interface.6.pc-0x101c-grantsession", "interface.6.pc-0x101c-grant
 
 [contract_context.2.layerxledger-0x101a]
 interface = "Precompile 0x000000000000000000000000000000000000101A named layerxledger: 18 ABI methods and 9 events of precompiles/layerxledger/abi.json (planned)"
-storage = "Kernel asset, account and grant records in the shared layerxhost store under the host prefixes of modules/lxphost/ctx.go:62-66; layerxledger module store holds ParamsKey 0x01 only; bank mirror under layerx/<asset hex>"
+storage = "Kernel asset, account and grant records in the shared lxphost store under the host prefixes of modules/lxphost/ctx.go:62-66; layerxledger module store holds ParamsKey 0x01 only; bank mirror under layerx/<asset hex>"
 errors = "Error(string) reasons LXP_<CODE> from the layerxledger registrations of modules/layerxledger/types/errors.go:14-30, kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320) and LXP_PAUSED_SCOPE 735 from layerxgov"
 events = "AssetRegistered, AssetPaused, AssetUnpaused, AccountOpened, Transfer, PayerGrantIssued, PayerGrantRevoked, PaymentDrawn, PaymentExact"
 gas = "Fixed surcharge per method plus DefaultGasCost of the input: register 18440, pause 3080, unpause 3080, openAccount 3080, send 17480, draw 8840, payExact 7880, issueGrant 16520, revokeGrant 4040, mint 5000, burn 5000, getAsset 1108, balanceOf 1204, totalUnits 1108, accountId 1204, accountOwner 1108, nextSequence 1204, getPayerGrant 1108"
@@ -80940,7 +80940,7 @@ interfaces = ["interface.6.pc-0x101a-register", "interface.6.pc-0x101a-pause", "
 
 [contract_context.2.layerxpay-0x101b]
 interface = "Precompile 0x000000000000000000000000000000000000101B named layerxpay: 57 ABI methods of precompiles/layerxpay/abi.json over the escrow, budget, stream and service kernel modules 2 to 5, and its Solidity binding"
-storage = "No precompile-owned state; every write submits one kernel activity through the pay keeper on the shared layerxhost store (decision.221) and every view decodes the kernel record read back through the host"
+storage = "No precompile-owned state; every write submits one kernel activity through the pay keeper on the shared lxphost store (decision.221) and every view decodes the kernel record read back through the host"
 errors = "Error(string) reasons LXP_<CODE> from kernel names through LXPCodeName (precompiles/common/lxp_errors.go:320), the layerxpay codespace codes 4 to 6 through PayRevertCode and LXP_PAUSED_SCOPE 735 from layerxgov"
 events = "One 0x101B log per successful write as listed in the events context layerxpay-0x101b-events"
 gas = "methodGas rows of precompiles/layerxpay/gas.go:18-76 charged by the framework WithGasTable (decision.235): escrow writes 60000 except escrowDisputeResolve 80000 (precompiles/layerxpay/gas.go:25), dispute open 30000, plus DefaultGasCost of the input; views charge the read rows"
@@ -81567,7 +81567,7 @@ interfaces = ["interface.5.cli-layerxctl-submit"]
 
 [contract_context.5.merge-store-keys-j33]
 interface = "storage/common/keys/store_keys.go MemIAVLStoreKeys"
-storage = "Mounted stores layerxledger, layerxauth, layerxpay, layerxprograms, layerxagent, layerxhost appended after sequencer; layerxanchor deleted at the retirement upgrade."
+storage = "Mounted stores layerxledger, layerxauth, layerxpay, layerxprograms, layerxagent, lxphost appended after sequencer; layerxanchor deleted at the retirement upgrade."
 errors = "AllModulesExcept returns an error for an unknown module (storage/common/keys/store_keys.go:107)."
 events = "none"
 gas = "none"
@@ -87846,21 +87846,21 @@ requester = "2.7.4"
 path = "storage/common/keys/store_keys.go"
 domain = 5
 wave_needed = 4
-what = "Add LayerXHostStoreKey = \"layerxhost\" after LayerXAuthStoreKey (storage/common/keys/store_keys.go:44) and list the ledger, auth and host keys in MemIAVLStoreKeys (storage/common/keys/store_keys.go:54)."
+what = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAuthStoreKey (storage/common/keys/store_keys.go:44) and list the ledger, auth and host keys in MemIAVLStoreKeys (storage/common/keys/store_keys.go:54)."
 requester = "2.12.1"
 
 [wiring.J23.8]
 path = "node/app.go"
 domain = 5
 wave_needed = 4
-what = "Add layerxledgertypes.StoreKey, layerxauthtypes.StoreKey and the layerxhost key to the store key list before node/app.go:352."
+what = "Add layerxledgertypes.StoreKey, layerxauthtypes.StoreKey and the lxphost key to the store key list before node/app.go:352."
 requester = "2.12.1"
 
 [wiring.J23.9]
 path = "node/app.go"
 domain = 5
 wave_needed = 4
-what = "Construct one lxphost.Host over the layerxhost key and the layerxledger and layerxauth keepers with the governance authority next to the exchange keeper at node/app.go:833."
+what = "Construct one lxphost.Host over the lxphost key and the layerxledger and layerxauth keepers with the governance authority next to the exchange keeper at node/app.go:833."
 requester = "2.12.1"
 
 [wiring.J23.10]
@@ -87888,7 +87888,7 @@ requester = "2.12.1"
 path = "node/upgrades.go"
 domain = 5
 wave_needed = 4
-what = "Add the layerxledger, layerxauth and layerxhost store keys to Added of mergeStoreUpgrades at node/upgrades.go:420."
+what = "Add the layerxledger, layerxauth and lxphost store keys to Added of mergeStoreUpgrades at node/upgrades.go:420."
 requester = "2.12.1"
 
 [wiring.J23.14]
@@ -93193,15 +93193,15 @@ reqs = ["1065.1", "1065.2", "1065.3"]
 capabilities = ["1.18.4"]
 interfaces = []
 wiring = []
-do_1 = "Replace v5_callback_module (tests/programs/test_terminal_v5.c:36-80), whose PAXEERX_WEB_REQUEST_V1 event no longer reaches an intake since task 1.18.1 removed web_request_capture from src/modules/programs/call.c, with a module whose layerx_v1.event_emit the kernel event callback still refuses (a bound or canonicality refusal of layerx_programs_call_event_byte or layerx_programs_call_event_emit), so the runtime writes the stage-4 LXP/programs/callback-failure/v1 detail (programs/crates/layerx-programs-runtime/src/ffi_call.rs:3426) and the call ends LXP_ERR_PROGRAM_REFUSED with terminal kind FAILURE, no effects and a zero transfer root."
-do_2 = "v5_refusal_detail (tests/programs/test_terminal_v5.c:89-110) checks stage 4 and the exact status the kernel event callback returns for the new module instead of LXP_ERR_FEE_UNPAYABLE; the five corpus roles (success, failure, resource, callback, settlement), the ten case names and the corpus shape stay, so the corpus checks of services/agent/crates/layerx-sdk/src/program_http.rs:2493, :2588 and :2654 need no change."
+do_1 = "Replace v5_callback_module (tests/programs/test_terminal_v5.c:33-81), whose PAXEERX_WEB_REQUEST_V1 event no longer reaches an intake since task 1.18.1 removed web_request_capture from src/modules/programs/call.c, with a module that imports only layerx_v1.event_emit(i32,i32,i32,i32)->i32 (programs/crates/layerx-programs-runtime/src/lib.rs:118), keeps the one-page memory and the layerx_reserve, layerx_call and memory exports, and whose layerx_call loops fifteen times over event_emit(topic_ptr 0, topic_len 1, data_ptr 0, data_len 65536) before returning 0; v5_case re-initialises the fixture arena with lxp_arena_init(&f->arena, f->arena_bytes, <capacity>) for variant 5 after the deploy v5_execute and before the call, with a capacity (start at 655360) under which the kernel's layerx_programs_call_event_begin (src/modules/programs/call.c:1738-1743) returns LXP_ERR_ARENA_EXHAUSTED from lxp_ctx_arena_alloc for one of the fifteen events while the runtime (programs/crates/layerx-programs-runtime/src/host/events.rs:23-44) has accepted all of them within the 1048576 output_bytes budget of call_payload_with_capabilities; emit_events (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2123-2170) then writes the stage-4 LXP/programs/callback-failure/v1 detail (ffi_call.rs:3426) and the call ends LXP_ERR_PROGRAM_REFUSED with terminal kind FAILURE, no effects and a zero transfer root."
+do_2 = "v5_refusal_detail (tests/programs/test_terminal_v5.c:90-111) checks stage byte 4U and v5_u32(detail + sizeof(callback) + 1U) == (uint32_t)LXP_ERR_ARENA_EXHAUSTED instead of LXP_ERR_FEE_UNPAYABLE; the five corpus roles (success, failure, resource, callback, settlement), the ten case names, the {0U, 1U, 3U} capability bytes of variant 5 and the corpus shape stay, so the corpus checks of services/agent/crates/layerx-sdk/src/program_http.rs:2493, :2588 and :2654 need no change."
 do_3 = "tests/programs/test_terminal_v5.c no longer includes lx_web.h or uses LX_WEB_KIND_FETCH, LX_WEB_REQUEST_TOPIC or LX_WEB_REQUEST_TOPIC_BYTES, so task 1.18.2's deletion of include/layerx/lx_web.h does not break it; every other V5_CHECK of the file stays as written."
 symbols = ["v5_callback_module", "v5_refusal_detail"]
 touches = ["tests/programs/test_terminal_v5.c"]
-tests = ["tests/programs/test_terminal_v5.c::v5_case"]
+tests = ["tests/programs/test_terminal_v5.c::v5_case", "tests/programs/test_terminal_v5.c::v5_refusal_detail"]
 planned_paths = []
 build_cmd = "make -C . build/liblayerx.a"
-verify_cmd = "python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$(mktemp -d)\""
+verify_cmd = "export CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/programs/target}\" && d=\"$(mktemp -d)\" && m=\"$(python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$d\" | tail -n1)\" && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest \"$m\""
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-kernel"
@@ -97699,14 +97699,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove a governance pause refuses 0x101A writes and 0x101C grants in the node"
 status = "pending"
 mode = "BUILD"
-wave = 12
-requires = ["2.0.2"]
+wave = 15
+requires = ["2.0.2", "5.19.2", "5.19.4", "5.41.2"]
 reqs = ["2062.1", "2062.2"]
 capabilities = ["2.12.3"]
 interfaces = []
 do_1 = "Write TestGovernancePauseRefusesLedgerWrites in precompiles/layerxledger/pause_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Write TestGovernancePauseRefusesAuthGrants in precompiles/layerxauth/pause_test.go (planned)."
-do_3 = "Drive the pause through MsgUpdateParams of api/layerxledger/tx.proto:11 and api/layerxauth/tx.proto:9 signed by the governance module authority."
+do_3 = "Drive the pause through MsgUpdateParams of api/layerxledger/tx.proto:11 and api/layerxauth/tx.proto:9 signed by the governance module authority. Obtain both keepers from a.GetPrecompileKeepers() asserted to layerxledger.LedgerKeepers and layerxauth.AuthKeepers (precompiles/layerxledger/layerxledger.go:24, precompiles/layerxauth/layerxauth.go:23), and take the host store key from the App under the name task 5.19.2 registers rather than a literal."
 symbols = ["TestGovernancePauseRefusesLedgerWrites", "TestGovernancePauseRefusesAuthGrants"]
 touches = ["precompiles/layerxledger/pause_test.go", "precompiles/layerxauth/pause_test.go"]
 tests = ["precompiles/layerxledger/pause_test.go::TestGovernancePauseRefusesLedgerWrites", "precompiles/layerxauth/pause_test.go::TestGovernancePauseRefusesAuthGrants"]
@@ -97729,7 +97729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove authz MsgExec under LayerXScopeAuthorization is refused after a kernel revoke"
 status = "pending"
 mode = "BUILD"
-wave = 13
+wave = 15
 requires = ["2.0.2", "2.8.2", "5.14.3"]
 reqs = ["2063.1"]
 capabilities = ["2.12.4"]
@@ -97760,14 +97760,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove layerxledger and layerxauth genesis export and import through the node"
 status = "pending"
 mode = "BUILD"
-wave = 12
-requires = ["2.0.2"]
+wave = 15
+requires = ["2.0.2", "5.19.2", "5.41.2"]
 reqs = ["2064.1"]
 capabilities = ["2.12.5"]
 interfaces = []
 do_1 = "Write TestLedgerAuthGenesisExportImport in modules/layerxledger/keeper/app_genesis_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Export with the app export path and decode the layerxledger and layerxauth entries with ModuleCdc (modules/layerxledger/types/codec.go:23)."
-do_3 = "Initialise a second app from the export with app.Setup (node/test_helpers.go:433) and compare GetParams of both keepers."
+do_3 = "Initialise a second app from the export with app.Setup (node/test_helpers.go:433) and compare GetParams of both keepers. The keepers are the App.LayerXLedgerKeeper and App.LayerXAuthKeeper fields task 5.19.2 declares; compare the imported state through GetParams (modules/layerxledger/keeper/keeper.go:25, modules/layerxauth/keeper/keeper.go:28)."
 symbols = ["TestLedgerAuthGenesisExportImport"]
 touches = ["modules/layerxledger/keeper/app_genesis_test.go"]
 tests = ["modules/layerxledger/keeper/app_genesis_test.go::TestLedgerAuthGenesisExportImport"]
@@ -98536,7 +98536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.3]
 title = "Implement budget pull against a payer grant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.21.3", "2.24.6", "1.98.1"]
@@ -99196,7 +99196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.4]
 title = "Serve the ten 0x101B escrow methods and seven escrow events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.23.1", "2.23.2", "2.23.3"]
@@ -99327,7 +99327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.8]
 title = "Serve the nine 0x101B service views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.26.5", "2.28.4"]
@@ -105946,7 +105946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.0.3]
 title = "Expose the launchpad query commands and prove the Query service on a live domain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2", "4.5.2", "4.5.3", "4.5.4", "4.5.5", "4.5.6", "4.5.7", "4.5.8", "4.5.9"]
@@ -105977,7 +105977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.0.4]
 title = "Report native surfaces as healthy identities in the production health check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.12.1", "4.0.3"]
@@ -107471,7 +107471,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.1]
 title = "Prove Query/Markets and Query/PoolMetadata agree with the PoolRegistry views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -107561,7 +107561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.4]
 title = "Prove the launchpad ledger REST routes against a live network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -108905,7 +108905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.28.1]
 title = "Pin the indexer market creation topic to the factory ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2"]
@@ -108935,7 +108935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.28.2]
 title = "Pin the indexer pool reserves read to the pool ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2"]
@@ -109723,7 +109723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.35.1]
 title = "Pin the development symbol reads to the launchpad ERC20 ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2"]
@@ -110580,7 +110580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.3]
 title = "Repoint mobile market reads to the served v2 pool and search routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110610,7 +110610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.4]
 title = "Repoint the mobile portfolio read to the served v2 portfolio route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110702,7 +110702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.7]
 title = "Repoint mobile stream list and receipt reads to served v2 routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110763,7 +110763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.47.1]
 title = "Pin mobile native trading to the launchpad surface runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.1", "4.0.3"]
@@ -113177,7 +113177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.10.2]
 title = "Check agent scheduler parity between SealBatch and ProcessBlock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["5.10.1"]
@@ -113514,8 +113514,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the layerxauth revocation decorator in the ante chain"
 status = "pending"
 mode = "BUILD"
-wave = 12
-requires = ["5.14.1", "2.0.2"]
+wave = 15
+requires = ["5.14.1", "2.0.2", "5.19.2", "5.41.2"]
 reqs = ["5042.1"]
 capabilities = ["5.14.3"]
 interfaces = []
@@ -113524,8 +113524,9 @@ do_1 = "Add LayerXAuthKeeper to HandlerOptions (node/ante.go:25-39) and refuse a
 do_2 = "Insert layerxauthante.NewRevocationDecorator (modules/layerxauth/ante/revocation.go, planned) after antedecorators.NewAuthzNestedMessageDecorator at node/ante.go:100."
 do_3 = "Keep the order of every other decorator of the chain at node/ante.go:78-126."
 do_4 = "Write node/ante_revocation_test.go (planned) in package app_test with TestAnteChainRunsRevocationDecoratorAfterAuthzNested."
+do_5 = "Pass app.LayerXAuthKeeper (created by task 5.19.2) as LayerXAuthKeeper in the HandlerOptions literal New builds at node/app.go:1182-1202 so New (node/app.go:1205) no longer refuses a nil keeper; insert the decorator by calling layerxauthante.NewRevocationDecorator(options.LayerXAuthKeeper, options.EVMKeeper) directly where do_2 places it, without adding a HandlerOptions method."
 symbols = ["NewAnteHandler", "NewRevocationDecorator", "TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
-touches = ["node/ante.go", "node/ante_revocation_test.go"]
+touches = ["node/ante.go", "node/ante_revocation_test.go", "node/app.go"]
 tests = ["node/ante_revocation_test.go::TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
 planned_paths = ["node/ante_revocation_test.go"]
 build_cmd = "go build ./node/..."
@@ -113533,7 +113534,7 @@ verify_cmd = "go test -count=1 ./node/ -run '^(TestAnteChainRunsRevocationDecora
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
-rollback = "Revert the files in touches; the change is confined to them and to the activation-gated sequenced path."
+rollback = "Revert the files in touches; the change is confined to them and to the activation-gated sequenced path; restore the HandlerOptions literal in node/app.go."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -114040,17 +114041,17 @@ title = "Register the ledger, auth and agent modules and the shared host in the 
 status = "pending"
 mode = "BUILD"
 wave = 13
-requires = ["5.0.2", "5.10.1", "5.14.3", "5.41.1", "2.0.2"]
+requires = ["5.0.2", "5.10.1", "5.41.1", "2.0.2"]
 reqs = ["5043.1", "5043.2", "5043.3", "5043.4", "5975.1", "5975.2"]
 capabilities = ["5.19.2"]
 interfaces = []
 fulfils = ["wiring.J23.8", "wiring.J23.9", "wiring.J23.10", "wiring.J23.11", "wiring.J23.12", "wiring.J33.1", "wiring.J24.9", "wiring.J24.10"]
-do_1 = "Append keys.LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey in that order to kvStoreKeyNames at node/app.go:334-352."
+do_1 = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48, the name the ledger and auth keepers look the host store up by (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), then append keys.LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey in that order to kvStoreKeyNames at node/app.go:334-352."
 do_2 = "Add LayerXLedgerKeeper, LayerXAuthKeeper and LayerXAgentKeeper fields beside LayerXAnchorKeeper (node/app.go:497) and construct them over their store keys; build the agent keeper with NewKeeper (modules/layerxagent/keeper/keeper.go:104) and MergeUpgrade."
-do_3 = "Construct one lxphost.Host with NewHost (modules/lxphost/host.go:600) over the layerxhost key and the ledger and auth keepers with the governance authority, next to the exchange keeper at node/app.go:833."
+do_3 = "Construct one lxphost.Host with NewHost (modules/lxphost/host.go:600) over keys[keys.LayerXHostStoreKey] (the lxphost store) and the ledger and auth keepers with the governance authority, next to the exchange keeper at node/app.go:833."
 do_4 = "Add layerxledger.AppModuleBasic{} and layerxauth.AppModuleBasic{} to ModuleBasics before node/app.go:295 and their NewAppModule entries before node/app.go:1040."
 do_5 = "Add layerxledgertypes.ModuleName and layerxauthtypes.ModuleName to SetOrderInitGenesis at node/app.go:1095, and layerxledgertypes.ModuleName with authtypes.Minter and authtypes.Burner to maccPerms at node/app.go:300."
-do_6 = "Set AgentKeeper and MergeLive (a Sequenced-height check) in the EndBlockKeepers literal at node/app.go:1054, and pass the auth keeper as LayerXAuthKeeper in the HandlerOptions literal at node/app.go:1175."
+do_6 = "Set AgentKeeper and MergeLive (a Sequenced-height check) in the EndBlockKeepers literal at node/app.go:1054,."
 do_7 = "Write node/app_merge_modules_test.go (planned) in package app_test with the four tests below."
 do_8 = "Add a LayerXPayKeeper field beside LayerXAnchorKeeper (node/app.go:497) and construct it after the custody keeper at node/app.go:828-829 with the layerxpay keeper constructor of domain 2 (modules/layerxpay/keeper, planned) over keys[keys.LayerXPayStoreKey], the store key task 5.19.2 appends to kvStoreKeyNames at node/app.go:334, and the shared lxphost.Host that task 5.19.2 builds next to node/app.go:833."
 do_9 = "Add layerxpay.AppModuleBasic{} and layerxagent.AppModuleBasic{} (modules/layerxpay and modules/layerxagent, planned by domain 2) after sequencermodule.AppModuleBasic{} at node/app.go:295, and their NewAppModule entries over app.LayerXPayKeeper and app.LayerXAgentKeeper to module.NewManager at node/app.go:1004."
@@ -114058,7 +114059,7 @@ do_10 = "Add layerxpaytypes.ModuleName and layerxagenttypes.ModuleName after the
 do_11 = "Leave LayerXAgentStoreKey (task 5.41.1, after storage/common/keys/store_keys.go:47), its kvStoreKeyNames entry at node/app.go:334 and the agent keeper construction of task 5.19.2 unchanged. The edit shares wave 3 with the node/app.go owner task 5.19.2 under the 19:24 coordinator ruling."
 do_12 = "Write node/app_pay_agent_modules_test.go (planned) in package app_test with the two tests below."
 symbols = ["kvStoreKeyNames", "ModuleBasics", "maccPerms", "NewHost", "TestAppMountsMergedModuleStores", "TestAppRegistersLedgerAuthModules", "TestAppLedgerModuleAccountPerms", "TestAppEndBlockKeepersCarryAgentScheduler", "TestAppBuildsPayKeeperOverSharedHost", "TestAppRegistersPayAndAgentModulesInGenesisOrder"]
-touches = ["node/app.go", "node/app_merge_modules_test.go", "node/app_pay_agent_modules_test.go"]
+touches = ["node/app.go", "node/app_merge_modules_test.go", "node/app_pay_agent_modules_test.go", "storage/common/keys/store_keys.go"]
 tests = ["node/app_merge_modules_test.go::TestAppMountsMergedModuleStores", "node/app_merge_modules_test.go::TestAppRegistersLedgerAuthModules", "node/app_merge_modules_test.go::TestAppLedgerModuleAccountPerms", "node/app_merge_modules_test.go::TestAppEndBlockKeepersCarryAgentScheduler", "node/app_pay_agent_modules_test.go::TestAppBuildsPayKeeperOverSharedHost", "node/app_pay_agent_modules_test.go::TestAppRegistersPayAndAgentModulesInGenesisOrder"]
 planned_paths = ["node/app_merge_modules_test.go", "node/app_pay_agent_modules_test.go"]
 build_cmd = "go build ./node/..."
@@ -115265,7 +115266,7 @@ capabilities = ["5.41.2"]
 interfaces = ["interface.5.go-storage-common-keys-layer-x-ledger-store-key", "interface.5.key-storage-common-keys-layer-x-ledger-store-key", "interface.5.go-storage-common-keys-layer-x-auth-store-key", "interface.5.key-storage-common-keys-layer-x-auth-store-key", "interface.5.go-storage-common-keys-layer-x-pay-store-key", "interface.5.key-storage-common-keys-layer-x-pay-store-key", "interface.5.go-storage-common-keys-layer-x-programs-store-key", "interface.5.key-storage-common-keys-layer-x-programs-store-key", "interface.5.go-storage-common-keys-mem-iavl-store-keys", "interface.5.go-storage-common-keys-layer-x-host-store-key-j33", "interface.5.key-storage-common-keys-layer-x-host-store-key-j33"]
 wiring = ["wiring.J33.1"]
 fulfils = ["wiring.J23.7"]
-do_1 = "Add LayerXHostStoreKey = \"layerxhost\" after LayerXAuthStoreKey at storage/common/keys/store_keys.go:44, fulfilling wiring.J23.7 (decision.557)."
+do_1 = "Ensure LayerXHostStoreKey = \"lxphost\" at storage/common/keys/store_keys.go (task 5.19.2 adds it after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48; correct the value if it differs), fulfilling wiring.J23.7 (decision.557); the ledger and auth keepers locate the host store by that name (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24)."
 do_2 = "Append LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey after SequencerStoreKey at storage/common/keys/store_keys.go:84, inside the list at storage/common/keys/store_keys.go:54-85."
 do_3 = "Extend the exact list in TestXWebStoreKeyFollowsTheV6120StoreKeys (storage/common/keys/store_keys_test.go:87-97) with the six names after \"sequencer\" and replace the end-anchored checks at storage/common/keys/store_keys_test.go:99-102 by slices.Index checks that sequencer directly follows xweb and launchpad, perps, spot, pricefeed directly precede xweb (decision.545)."
 do_4 = "Add TestMergeStoreKeysAreMemIAVLStoreKeys after storage/common/keys/store_keys_test.go:139 asserting IsMemIAVLStoreKey (storage/common/keys/store_keys.go:99) and AllModulesExcept(BankStoreKey) (storage/common/keys/store_keys.go:107) for each merge key."
@@ -118570,7 +118571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.95.1]
 title = "Charge the agent RunDue gas to the block gas before the EVM end block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["5.10.1", "5.0.2", "2.0.2"]
@@ -126545,7 +126546,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.95.1]
 title = "Route the pay, agent, perps, pricefeed and spot authority messages through layerxgov"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["6.28.2", "2.0.2", "3.0.2"]
@@ -130723,7 +130724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.2.1]
 title = "Serve px_requestFunds over the faucet claim path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "8.1.5"]
@@ -130755,7 +130756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.2.2]
 title = "Read the history asset registry from the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "8.1.5"]
@@ -131103,7 +131104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.1]
 title = "Report the consensus endpoint in gateway readiness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["8.1.3", "8.1.5"]
@@ -134870,7 +134871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.2]
 title = "JVM SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.42.1", "8.0.2"]
@@ -135119,7 +135120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.43.2]
 title = ".NET SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.43.1", "8.0.2"]
@@ -151105,7 +151106,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.8.2]
 title = "Count layerxledger sends and layerxauth grant allowances as spends"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["12.2.2", "12.8.1"]
@@ -152483,7 +152484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.2]
 title = "Read bank balances through px_getBalances in the endpoint client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.21.1", "8.0.2"]
