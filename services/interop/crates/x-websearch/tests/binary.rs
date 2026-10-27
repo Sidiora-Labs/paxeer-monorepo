@@ -316,9 +316,9 @@ impl Gateway {
                 .iter()
                 .filter(|call| {
                     call["method"] == "eth_call"
-                        && call["params"][0]["data"]
-                            .as_str()
-                            .is_some_and(|data| data.starts_with("0x3f050cbc"))
+                        && call["params"][0]["data"].as_str().is_some_and(|data| {
+                            data.starts_with("0x3f050cbc") || data.starts_with("0xd3600b24")
+                        })
                 })
                 .cloned()
                 .collect::<Vec<_>>()
