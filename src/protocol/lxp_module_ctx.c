@@ -890,9 +890,11 @@ lxp_result lxp_ctx_account_stage_module_custody(lxp_module_ctx *ctx,
     case LXP_MODULE_STREAM: segment = ":stream:"; kind = LX_ACCOUNT_AGENT_STREAM; break;
     default: return LXP_ERR_UNAUTHORIZED_DEBIT;
     }
+    const lx_asset_runtime *asset_runtime = ctx->kernel->module_runtime[LXP_MODULE_ASSET];
     mark = lxp_arena_mark(ctx->arena);
     status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK && (asset_runtime == NULL || !asset_runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK) status = lxp_activity_encode(activity, ctx->arena, &encoded);
     if (status == LXP_OK) status = lxp_activity_id(encoded.bytes, encoded.length, activity_id);
     if (status == LXP_OK && lxp_ct_memcmp(activity_id, ctx->activity_id, 32U) != 0)
