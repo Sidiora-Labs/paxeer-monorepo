@@ -111725,7 +111725,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.0.4]
 title = "Exercise sequencer RPC sends, pending reads and forwarded receipts end to end"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3", "5.5.19", "5.5.13"]
@@ -112094,7 +112094,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.4.6]
 title = "Check fee-token charging at Accept against the block path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -114079,7 +114079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.3]
 title = "Adopt the sealed block in FinalizeBlock and store the decided votes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3", "5.5.19", "5.9.1", "15.0.3"]
@@ -115196,7 +115196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.36.1]
 title = "Chain-level tests for the sequencer activation state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3", "5.25.4", "16.22.1"]
@@ -115662,7 +115662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.45.2]
 title = "Conformance: every MergeAddressTable precompile is fail-fast under giga"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.45.1", "5.0.3", "5.8.1"]
@@ -117158,7 +117158,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3"]
@@ -117188,7 +117188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.4]
 title = "Record the V3 receipt-refusal vector with one named mutation per refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3"]
@@ -118855,7 +118855,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.98.1]
 title = "Start a disposable chain-125 node with the v6.12.0 set live for local qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = []
@@ -122519,7 +122519,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.31.5]
 title = "Build the layerxanchor module with the upgrade reader and route the gated msg server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.31.4", "6.0.2", "5.0.3"]
@@ -147677,7 +147677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.2]
 title = "Render the receipt keys file from the gateway deploy renderer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.12.5"]
