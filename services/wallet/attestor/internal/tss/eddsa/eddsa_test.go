@@ -262,7 +262,7 @@ func TestKeygenSignAndVerify(t *testing.T) {
 	if err := verify.Ed25519Digest(publicKey, receiptSignature, digest); err != nil {
 		t.Fatalf("receipt signature rejected by the strict verifier: %v", err)
 	}
-	if err := verify.Ed25519Domain(publicKey, receiptSignature, codec.DomainReceipt, canonical); err != nil {
+	if err := verify.Ed25519Digest(publicKey, receiptSignature, domainDigest); err != nil {
 		t.Fatalf("receipt signature rejected by the strict domain verifier: %v", err)
 	}
 }
