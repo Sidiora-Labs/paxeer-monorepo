@@ -4,11 +4,13 @@
 #include "layerx/lxp_module.h"
 #include "layerx/lxp_ledger.h"
 #include "layerx/lxp_transfer.h"
-#include "layerx/lxp_replica.h"
+#include "layerx/lxp_batch.h"
 
 #include <pthread.h>
 #include <stdint.h>
 
+typedef struct lxp_replay_engine lxp_replay_engine;
+typedef struct lxp_replay_activity_output lxp_replay_activity_output;
 typedef struct lxp_kernel lxp_kernel;
 typedef struct lxp_log lxp_log;
 typedef struct lxp_history lxp_history;
