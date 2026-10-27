@@ -100663,7 +100663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.0.3]
 title = "Route perps governance Msgs through a LayerX proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["3.0.2", "6.95.1"]
@@ -102145,7 +102145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.2]
 title = "Stale a pricefeed market disabled by a governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -152670,7 +152670,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.25.2]
 title = "Move KernelClient account and balance reads off lx_getAccount and lx_getBalances"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["12.24.3", "8.0.2"]
