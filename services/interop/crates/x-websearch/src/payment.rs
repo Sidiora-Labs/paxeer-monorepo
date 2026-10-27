@@ -73,7 +73,6 @@ const PRINCIPAL_DOMAIN: &[u8] = b"LayerX/x-websearch/v1/principal\0";
 const TRACE_DOMAIN: &[u8] = b"LayerX/x-websearch/v1/trace\0";
 const ANONYMOUS_PRINCIPAL: &str = "anonymous-buyer";
 const RPC_TIMEOUT: Duration = Duration::from_secs(10);
-const PENDING_CODE: i64 = -32001;
 const RPC_RESPONSE_LIMIT: usize = 4_194_304;
 const RECEIPT_HEX_LIMIT: usize = 2_097_152;
 const MAX_HOST_BYTES: usize = 255;
@@ -336,18 +335,6 @@ pub enum RpcAnswer {
     Error { code: i64, data: Value },
 }
 
-impl RpcAnswer {
-    fn pending(&self) -> bool {
-        match self {
-            Self::Error { code, data } => {
-                *code == PENDING_CODE
-                    && data.get("state").and_then(Value::as_str) == Some("pending")
-            }
-            Self::Result(value) => value.get("state").and_then(Value::as_str) == Some("pending"),
-        }
-    }
-}
-
 /// A JSON-RPC client for the configured gateway endpoint: TLS for https and
 /// plain HTTP for the loopback endpoints the configuration allows.
 #[derive(Clone, Debug)]
@@ -357,7 +344,6 @@ pub struct GatewayRpc {
     port: u16,
     authority: String,
     path: String,
-    authorization_file: Option<PathBuf>,
 }
 
 impl GatewayRpc {
@@ -402,25 +388,7 @@ impl GatewayRpc {
             port,
             authority: authority.to_owned(),
             path,
-            authorization_file: None,
         })
-    }
-
-    pub fn with_authorization_file(mut self, path: &Path) -> Result<Self, GateError> {
-        if !self.tls
-            && self
-                .host
-                .parse::<std::net::IpAddr>()
-                .is_ok_and(|ip| !ip.is_loopback())
-        {
-            return Err(GateError::Authorization);
-        }
-        if !self.tls && self.host.parse::<std::net::IpAddr>().is_err() && self.host != "localhost" {
-            return Err(GateError::Authorization);
-        }
-        let _ = gateway_authorization(path)?;
-        self.authorization_file = Some(path.to_owned());
-        Ok(self)
     }
 
     /// Calls one method. `None` means the answer is unknown: the gateway was
@@ -429,16 +397,8 @@ impl GatewayRpc {
     pub fn call(&self, method: &str, params: &Value) -> Option<RpcAnswer> {
         let body =
             json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
-        let authorization = match &self.authorization_file {
-            Some(path) => Some(gateway_authorization(path).ok()?),
-            None => None,
-        };
-        let header = Zeroizing::new(authorization.as_ref().map_or_else(String::new, |value| {
-            format!("Authorization: {}\r\n", value.as_str())
-        }));
-        let authorization_header = header.as_str();
         let request = Zeroizing::new(format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\n{authorization_header}Content-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
+            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
             self.path,
             self.authority,
             body.len()
@@ -447,9 +407,6 @@ impl GatewayRpc {
             .to_socket_addrs()
             .ok()?
             .next()?;
-        if self.authorization_file.is_some() && !self.tls && !address.ip().is_loopback() {
-            return None;
-        }
         let stream = TcpStream::connect_timeout(&address, RPC_TIMEOUT).ok()?;
         stream.set_read_timeout(Some(RPC_TIMEOUT)).ok()?;
         stream.set_write_timeout(Some(RPC_TIMEOUT)).ok()?;
@@ -463,70 +420,6 @@ impl GatewayRpc {
         };
         decode_answer(&decode_http(&raw)?)
     }
-}
-
-fn gateway_authorization(path: &Path) -> Result<Zeroizing<String>, GateError> {
-    use std::os::unix::fs::MetadataExt as _;
-    if !path.is_absolute()
-        || path.components().any(|part| {
-            part.as_os_str()
-                .to_str()
-                .is_some_and(|part| part == ".env" || part.starts_with(".env."))
-        })
-    {
-        return Err(GateError::Authorization);
-    }
-    if fs::canonicalize(path).map_err(|_| GateError::Authorization)? != path {
-        return Err(GateError::Authorization);
-    }
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(0x20000 | 0x800)
-        .open(path)
-        .map_err(|_| GateError::Authorization)?;
-    let metadata = file.metadata().map_err(|_| GateError::Authorization)?;
-    let owner = fs::metadata("/proc/self")
-        .map_err(|_| GateError::Authorization)?
-        .uid();
-    if !metadata.is_file()
-        || metadata.nlink() != 1
-        || metadata.uid() != owner
-        || metadata.mode() & 0o077 != 0
-        || metadata.len() > 256
-    {
-        return Err(GateError::Authorization);
-    }
-    let mut bytes = Zeroizing::new(Vec::new());
-    file.take(257)
-        .read_to_end(&mut bytes)
-        .map_err(|_| GateError::Authorization)?;
-    if bytes.len() > 256 {
-        return Err(GateError::Authorization);
-    }
-    let text = std::str::from_utf8(&bytes).map_err(|_| GateError::Authorization)?;
-    let text = text
-        .strip_suffix("\r\n")
-        .or_else(|| text.strip_suffix('\n'))
-        .unwrap_or(text);
-    let (id, secret) = text
-        .strip_prefix("LayerX-Key ")
-        .and_then(|value| value.split_once(':'))
-        .ok_or(GateError::Authorization)?;
-    if id.is_empty()
-        || id.len() > 64
-        || !id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-        || !secret.strip_prefix("lxp_live_").is_some_and(|value| {
-            value.len() == 64
-                && value
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        })
-    {
-        return Err(GateError::Authorization);
-    }
-    Ok(Zeroizing::new(text.to_owned()))
 }
 
 fn exchange(stream: &mut (impl io::Read + io::Write), request: &[u8]) -> Option<Vec<u8>> {

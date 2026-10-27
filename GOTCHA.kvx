@@ -9590,3 +9590,39 @@ area = "services/interop/x-websearch"
 symptom = "Every V3 conformance case was refused invalid_payment_payload instead of a receipt refusal."
 cause = "The V3 vectors carry no txHash and the exact payload parser now requires one before fetching the receipt."
 do = "Derive the payload txHash as keccak of the case rawTransaction and script the gateway receipt answer for it; the receipt refusals come only after the payload parses."
+
+[gotcha.1978]
+area = "services/platform/perps-data"
+symptom = "A test that expects a chain-backed refresh to land and the refreshed height to advance within a few hundred milliseconds fails with the column still NULL."
+cause = "One refresh against the started node takes longer than the bound and two consecutive refreshes can read the same height."
+do = "Prove a second refresh by clearing the rows after the first one lands and waiting for them to be refilled, with bounds in seconds."
+
+[gotcha.1979]
+area = "kernel-host"
+symptom = "Programs account, wind-down, sandbox or storage-retirement activities submitted through the hosted kernel revert LXP_ERR_UNKNOWN_ACTIVITY while deploy, call and transfer work."
+cause = "modules/lxphost/host.go:159 and read.go:216 register programs_module_registration(), whose activity list (src/modules/programs/registration.c:18-24) is the five original types."
+do = "Check the list lxp_kernel_module_for_activity consults before suspecting the payload codec; register the variant that lists the activity (task 1.23.5)."
+
+[gotcha.1980]
+area = "kernel-host"
+symptom = "Every non-zero fee limit through Host.Execute or Host.Simulate is LXP_ERR_FEE_UNPAYABLE, and Host.Simulate of an unsigned host-bound activity is LXP_ERR_BAD_SIGNATURE."
+cause = "lxphost_execute and lxphost_simulate never fill execution->fee_balance, and lxphost_simulate never sets execution->binding_authority."
+do = "Fill fee_balance from the payer's agent main account as cmd/layerxd/lxp_daemon_lni.c:2300-2346 does and mirror host.go:536-537 in simulate (task 1.23.6); tests need a funded main account."
+
+[gotcha.1981]
+area = "precompiles"
+symptom = "Asserting a revert reason equal to a bare LXP_ code fails with actual 'LXP_CODE: detail'."
+cause = "pcommon.RevertReason joins code and detail with ': ' (precompiles/layerxprograms/errors_test.go:68)."
+do = "Compare with pcommon.LXPRevert(code, detail) as gate_test.go:102 does, or ErrorContains \"LXP_CODE:\"."
+
+[gotcha.1982]
+area = "spec"
+symptom = "Spec lines citing include/layerx/programs.h:171-179 for Programs activity types point two lines early."
+cause = "LX_PROGRAMS_FEE_GOVERNANCE was inserted into the enum, shifting ACCOUNT to :176, WIND_DOWN to :177, SANDBOX to :179 and STORAGE_RETIREMENT to :181."
+do = "Cite the enum by value (0x0009000N) and re-read the header before trusting a line number."
+
+[gotcha.1983]
+area = "ramps"
+symptom = "Removing the reference ramp's PaxeerConfig RPC fields or State tracker fields fails to build with E0609, E0061 and E0063."
+cause = "rebalance, rebalance_presentation, verify_recovery_settlement's sixth argument and RampEngine.registry still read them until later tasks remove those readers."
+do = "Remove the fields in the task that removes the last reader (8.31.2), not in the configuration task."

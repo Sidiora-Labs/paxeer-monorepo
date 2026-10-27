@@ -12,7 +12,7 @@ use crate::api::{self, ApiClient, ApiError, ApiPayload, KIND_API};
 use crate::content::{ContentStore, PEER_HEADER};
 use crate::fetch::{FetchError, Fetcher, HttpClient, Url};
 use crate::index::WebIndex;
-use crate::kernel::ProgramRequest;
+use crate::program::ProgramRequest;
 use crate::search;
 use crate::server::{Response, RouteError, RouteTable};
 use crate::watch::{hex0x, keccak, unhex0x, EvmError, EvmRpc, WebRequest, XWEB_PRECOMPILE};
@@ -44,7 +44,7 @@ const PEER_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const PEER_TOTAL_TIMEOUT: Duration = Duration::from_secs(10);
 const DISCARD_LOG: &str = "discarded.jsonl";
 const ANSWERS_DIR: &str = "answers";
-const MAX_PROGRAM_SIGNATURES: usize = crate::kernel::MAX_OBSERVATION_SIGNATURES;
+const MAX_PROGRAM_SIGNATURES: usize = crate::program::MAX_OBSERVATION_SIGNATURES;
 const MAX_EVM_SIGNATURES: usize = 64;
 
 /// What attestors sign for one request's answer, laid out byte for byte as

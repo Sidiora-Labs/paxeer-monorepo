@@ -160,21 +160,22 @@ impl Workspace {
                 "status_path": "/layerx-ramp-v1/settlements"
             },
             "layerx": {
-                "gateway_endpoint": "https://gateway.example.test",
-                "receipt_authority_endpoint": "https://authority.example.test",
+                "rpc_endpoint": "https://rpc.example.test:8545",
+                "rpc_trust_anchor_der": p("anchor.der"),
+                "chain_id": 125,
+                "operator_address": format!("0x{}", "12".repeat(20)),
+                "receipt_keys": [{
+                    "keyId": "01".repeat(32),
+                    "publicKey": "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a",
+                    "firstHeight": 1,
+                    "lastHeight": 10
+                }],
+                "max_fee_per_gas": 1000,
+                "max_priority_fee_per_gas": 2,
+                "gas_limit_cap": 100000,
                 "signer_endpoint": "https://signer.example.test",
-                "gateway_key_file": p("gateway-key"),
-                "authority_token_file": p("authority-token"),
                 "signer_token_file": p("signer-token"),
-                "actor_did": did,
-                "protocol_version": layerx_wire::limits::PROTOCOL_VERSION,
-                "network_id": 1,
-                "fee_limit": 1000,
-                "signer_public_key": "33".repeat(32),
-                "sequencer_id": "01".repeat(32),
-                "sequencer_public_key": format!("58{}", "66".repeat(31)),
-                "sequencer_first_batch": "1",
-                "sequencer_last_batch": "10"
+                "actor_did": did
             },
             "paxeer": {
                 "custody_endpoint": "https://custody.example.test",
@@ -215,6 +216,7 @@ impl Workspace {
         let path = self.path(&format!("config-{port}.json"));
         fs::write(&path, serde_json::to_vec(&config).expect("encode config"))
             .expect("write config");
+        self.private(&path);
         path
     }
 }
