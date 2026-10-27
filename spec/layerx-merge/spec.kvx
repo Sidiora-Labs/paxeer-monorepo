@@ -158993,7 +158993,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "The test does not shell out to openssl: load a committed self-signed localhost certificate and key for tests (SAN IP:127.0.0.1, long validity) from apps/web/e2e/fixtures/ with fs.readFileSync, or serve the station over http when the client accepts an http base URL."
 [task.14.4.3]
 title = "Return the receipt when a sponsored submission resumes or completes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["14.4.1", "14.4.2"]
