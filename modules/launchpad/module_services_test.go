@@ -84,6 +84,19 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.NoError(t, cdc.Unmarshal(response.Value, &result))
 				require.Empty(t, result.Markets)
 				require.Equal(t, k.GetMarketCount(ctx), result.Total)
+			case "MarketsByCreator":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				creator := sdk.AccAddress([]byte("launchpad creator 01"))
+				data, err := cdc.Marshal(&types.QueryMarketsByCreatorRequest{Creator: creator.String(), Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsByCreatorResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
 			default:
 				require.Equal(t, codes.Unimplemented, status.Code(err))
 				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())

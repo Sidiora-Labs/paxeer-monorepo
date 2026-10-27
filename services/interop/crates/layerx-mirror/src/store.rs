@@ -887,8 +887,8 @@ fn write_head(directory: &Path, path: &Path, head: JournalHead) -> Result<(), St
 fn encode_spool(bytes: &[u8], head: NodeHead) -> Result<Vec<u8>, StoreError> {
     let mut output = Vec::with_capacity(96 + bytes.len());
     output.extend_from_slice(SPOOL_MAGIC);
-    output.extend_from_slice(&head.latest_sealed_batch.to_be_bytes());
-    encode_checkpoint(&mut output, head.latest_finalised_checkpoint);
+    output.extend_from_slice(&head.sealed_height().to_be_bytes());
+    encode_checkpoint(&mut output, head.committed_checkpoint());
     push_bytes(&mut output, bytes, MAX_ARCHIVE_BYTES)?;
     let digest: [u8; 32] = Sha256::digest(&output).into();
     output.extend_from_slice(&digest);
@@ -908,8 +908,8 @@ fn decode_spool(bytes: &[u8], commitment: ArchiveCommitment) -> Result<SpooledAr
     if reader.take(8)? != SPOOL_MAGIC {
         return Err(StoreError::Corrupt);
     }
-    let latest_sealed_batch = reader.u64()?;
-    let latest_finalised_checkpoint = decode_checkpoint(&mut reader)?;
+    let sealed_height = reader.u64()?;
+    let committed_checkpoint = decode_checkpoint(&mut reader)?;
     let archive = reader.bytes(MAX_ARCHIVE_BYTES)?.to_vec();
     reader.finish()?;
     if crate::archive_commitment(&archive) != commitment {
@@ -917,10 +917,7 @@ fn decode_spool(bytes: &[u8], commitment: ArchiveCommitment) -> Result<SpooledAr
     }
     Ok(SpooledArchive {
         bytes: archive,
-        node_head: NodeHead {
-            latest_sealed_batch,
-            latest_finalised_checkpoint,
-        },
+        node_head: NodeHead::new(sealed_height, committed_checkpoint),
     })
 }
 
