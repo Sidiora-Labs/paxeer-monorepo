@@ -18,8 +18,7 @@ use layerx_migrate::{AccountMappingStoreV2, JournalConfig};
 use layerx_platform_gateway::http::{Client, Endpoint};
 use layerx_platform_gateway::store::{RedisEndpoint, RedisStore};
 use layerx_platform_gateway::{
-    configured_sequencer, ActivityType, ModuleId, ModuleRegistration, ModuleRegistry,
-    SequencerAuthorization,
+    ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, SequencerAuthorization,
 };
 use layerx_ucp::{ucp_adapter_descriptor, PaymentHandler, UCP_CHECKOUT_SPEC_SHA256};
 use layerx_visa_tap::{
@@ -53,12 +52,7 @@ pub struct Config {
     pub listen: SocketAddr,
     pub listener: Listener,
     pub client: Client,
-    pub hosted_gateway: Endpoint,
-    pub receipt_authority: Endpoint,
-    pub receipt_authority_token: Zeroizing<String>,
     pub store: RedisStore,
-    pub trusted_sequencer_key: [u8; 32],
-    pub sequencer_authorization: SequencerAuthorization,
     pub sequencer: SequencerEndpoint,
     pub receipt_keys: Vec<SequencerAuthorization>,
     pub network_id: String,
@@ -242,7 +236,7 @@ struct ModuleDeclaration {
 }
 
 pub fn load() -> Result<Config, String> {
-    let hosted_gateway = hosted_gateway_endpoint()?;
+    let sequencer_url = sequencer_url()?;
     let manifest_path = env::var("LAYERX_INTEROP_CONFIG")
         .map_err(|_| "LAYERX_INTEROP_CONFIG is required".to_owned())?;
     let manifest_bytes = fs::read(manifest_path).map_err(|error| error.to_string())?;
@@ -267,20 +261,8 @@ pub fn load() -> Result<Config, String> {
         &env::var("LAYERX_INTEROP_REDIS_URL")
             .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?,
     )?;
-    let trusted_key = read_secret("LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE")?;
-    let trusted_sequencer_key = parse_hex32(trusted_key.as_str())?;
-    let sequencer_authorization = configured_sequencer(
-        read_secret("LAYERX_INTEROP_SEQUENCER_ID_FILE")?.as_str(),
-        trusted_key.as_str(),
-        read_secret("LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE")?.as_str(),
-        read_secret("LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE")?.as_str(),
-    )
-    .map_err(|error| format!("interop sequencer authorization is invalid: {error}"))?;
-    let sequencer = SequencerEndpoint::new(
-        &required_label("LAYERX_INTEROP_SEQUENCER_URL", 4096)?,
-        &[outbound_ca_der.as_slice()],
-    )
-    .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
+    let sequencer = SequencerEndpoint::new(&sequencer_url, &[outbound_ca_der.as_slice()])
+        .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
     let receipt_keys =
         parse_receipt_keys(&read_file("LAYERX_INTEROP_RECEIPT_KEYS_FILE", 64 * 1024)?)?;
     let published_receipt_keys = sequencer
@@ -323,11 +305,7 @@ pub fn load() -> Result<Config, String> {
     if !(1..=30_000).contains(&readiness_max_age_ms) {
         return Err("interop readiness maximum age exceeds its bound".to_owned());
     }
-    validate_x402_binding(
-        &manifest.x402_supported,
-        &network_id,
-        &trusted_sequencer_key,
-    )?;
+    validate_x402_binding(&manifest.x402_supported, &network_id, &receipt_keys)?;
     let modules = module_registry()?;
     let tap_clock_skew_seconds = env::var("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS")
         .map_err(|_| "LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS is required".to_owned())?
@@ -343,15 +321,7 @@ pub fn load() -> Result<Config, String> {
             .map_err(|_| "interop listen address is invalid".to_owned())?,
         listener: listener_config()?,
         client: Client::new(outbound_ca.clone(), identity),
-        hosted_gateway,
-        receipt_authority: Endpoint::parse(
-            &env::var("LAYERX_INTEROP_RECEIPT_AUTHORITY_URL")
-                .map_err(|_| "LAYERX_INTEROP_RECEIPT_AUTHORITY_URL is required".to_owned())?,
-        )?,
-        receipt_authority_token: read_secret("LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE")?,
         store: RedisStore::new(redis, outbound_ca, redis_username, redis_password),
-        trusted_sequencer_key,
-        sequencer_authorization,
         sequencer,
         receipt_keys,
         network_id,
@@ -444,9 +414,8 @@ fn check_receipt_keys(
     Ok(())
 }
 
-fn hosted_gateway_endpoint() -> Result<Endpoint, String> {
-    let value = env::var("LAYERX_INTEROP_HOSTED_GATEWAY_URL")
-        .map_err(|_| "LAYERX_INTEROP_HOSTED_GATEWAY_URL is required".to_owned())?;
+fn sequencer_url() -> Result<String, String> {
+    let value = required_label("LAYERX_INTEROP_SEQUENCER_URL", 4096)?;
     let private_network = match env::var("LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK") {
         Err(env::VarError::NotPresent) => false,
         Ok(flag) if flag == "0" => false,
@@ -454,14 +423,20 @@ fn hosted_gateway_endpoint() -> Result<Endpoint, String> {
         _ => return Err("LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK must be 0 or 1".to_owned()),
     };
     match value.strip_prefix("http://") {
-        Some(authority) if private_network => railway_private_endpoint(authority),
-        _ => Endpoint::parse(&value),
-    }
+        Some(_) if SequencerEndpoint::new(&value, &[]).is_ok() => {}
+        Some(authority) if private_network => {
+            railway_private_endpoint(authority)?;
+        }
+        _ => {
+            Endpoint::parse(&value)?;
+        }
+    };
+    Ok(value)
 }
 
 fn railway_private_endpoint(authority: &str) -> Result<Endpoint, String> {
     let refused = || {
-        "LAYERX_INTEROP_HOSTED_GATEWAY_URL may use http:// only as http://<name>.railway.internal:<port>"
+        "LAYERX_INTEROP_SEQUENCER_URL may use http:// only as http://<name>.railway.internal:<port>"
             .to_owned()
     };
     let (host, port) = authority.rsplit_once(':').ok_or_else(refused)?;
@@ -721,26 +696,35 @@ fn runtime_manifest(file: ManifestFile) -> Result<RuntimeManifest, String> {
 fn validate_x402_binding(
     supported: &SupportedResponse,
     network_id: &str,
-    sequencer_key: &[u8; 32],
+    receipt_keys: &[SequencerAuthorization],
 ) -> Result<(), String> {
     let (namespace, reference) = network_id
         .split_once('-')
         .ok_or_else(|| "interop network identifier cannot bind a CAIP-2 network".to_owned())?;
     let network = format!("{namespace}:{reference}");
-    let signer = format!(
-        "did:layerx:{}",
-        sequencer_key
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
-    if *sequencer_key == [0; 32]
+    let signers: BTreeSet<_> = receipt_keys
+        .iter()
+        .map(|key| {
+            format!(
+                "did:layerx:{}",
+                key.public_key()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            )
+        })
+        .collect();
+    let signers: Vec<_> = signers.into_iter().collect();
+    let mut declared = supported.signers.get(&network).cloned().unwrap_or_default();
+    declared.sort();
+    if receipt_keys.is_empty()
+        || receipt_keys.iter().any(|key| key.public_key() == [0; 32])
         || supported.kinds.len() != 1
         || supported.kinds[0].x402_version != 2
         || supported.kinds[0].scheme != "exact"
         || supported.kinds[0].network != network
         || supported.signers.len() != 1
-        || supported.signers.get(&network) != Some(&vec![signer])
+        || declared != signers
     {
         return Err(
             "x402 support must bind exact settlement to the configured network and sequencer"

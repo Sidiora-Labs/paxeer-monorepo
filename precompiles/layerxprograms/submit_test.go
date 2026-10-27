@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"testing"
@@ -6,6 +6,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -16,12 +17,12 @@ import (
 func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 	h := newHarness(t)
 	ctx := h.stateDB.Ctx()
-	method := programsABI.Methods["registryRead"]
-	call := callContext{caller: h.caller, method: &method}
+	method := lp.ProgramsABI.Methods["registryRead"]
+	call := lp.NewCallContext(h.caller, &method)
 	program := [32]byte{0xa1}
-	payload, err := EncodeRegistryReadPayload(program, []byte("manifest"))
+	payload, err := lp.EncodeRegistryReadPayload(program, []byte("manifest"))
 	require.NoError(t, err)
-	authority, did, err := principalOf(ctx, h.executor.evmKeeper, h.caller)
+	authority, did, err := lp.PrincipalOf(ctx, h.executor.TestEVMKeeper(), h.caller)
 	require.NoError(t, err)
 	require.Equal(t, []byte(evmtypes.LayerXDid(h.publicKey)), did)
 	actorID, err := lxphost.DIDID(did)
@@ -31,7 +32,7 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 	for _, limit := range [][16]byte{{15: 9}, {0: 1}, {7: 1}, {8: 1}} {
 		branch, _ := ctx.CacheContext()
 		before := h.dump(branch)
-		receipt, err := submit(branch, h.executor, call, 0x00090004, payload, limit)
+		receipt, err := lp.Submit(branch, h.executor, call, 0x00090004, payload, limit)
 		require.ErrorIs(t, err, lxphost.Code(-602))
 		require.Equal(t, lxphost.Receipt{}, receipt)
 		require.Equal(t, before, h.dump(branch))
@@ -39,11 +40,11 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 
 	for ordinal := uint32(0); ordinal < 3; ordinal++ {
 		if ordinal == 2 {
-			method = programsABI.Methods["transfer"]
+			method = lp.ProgramsABI.Methods["transfer"]
 		}
 		var selector [4]byte
 		copy(selector[:], method.ID)
-		key := IdempotencyKey([32]byte(ctx.EVMTxHash()), ordinal, selector)
+		key := lp.IdempotencyKey([32]byte(ctx.EVMTxHash()), ordinal, selector)
 		reference, _ := ctx.CacheContext()
 		timestamp := uint64(ctx.BlockTime().UnixMilli())
 		expected, err := h.host.Execute(lxphost.WithSequence(reference, uint64(ordinal)+1), lxphost.Activity{
@@ -53,7 +54,7 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 		}, authority)
 		require.NoError(t, err)
 		require.Zero(t, expected.ResultCode)
-		receipt, err := submit(ctx, h.executor, call, 0x00090004, payload, [16]byte{})
+		receipt, err := lp.Submit(ctx, h.executor, call, 0x00090004, payload, [16]byte{})
 		require.NoError(t, err)
 		require.Equal(t, expected, receipt)
 		require.Zero(t, receipt.ResultCode)
@@ -71,7 +72,7 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 	ctx = ctx.WithEVMTxHash(common.HexToHash("0xfedcba"))
 	var selector [4]byte
 	copy(selector[:], method.ID)
-	key := IdempotencyKey([32]byte(ctx.EVMTxHash()), 0, selector)
+	key := lp.IdempotencyKey([32]byte(ctx.EVMTxHash()), 0, selector)
 	reference, _ := ctx.CacheContext()
 	timestamp := uint64(ctx.BlockTime().UnixMilli())
 	expected, err := h.host.Execute(lxphost.WithSequence(reference, 4), lxphost.Activity{
@@ -81,7 +82,7 @@ func TestProgramsSubmitCarriesFeeLimitAndKey(t *testing.T) {
 	}, authority)
 	require.NoError(t, err)
 	require.Zero(t, expected.ResultCode)
-	receipt, err := submit(ctx, h.executor, call, 0x00090004, payload, [16]byte{})
+	receipt, err := lp.Submit(ctx, h.executor, call, 0x00090004, payload, [16]byte{})
 	require.NoError(t, err)
 	require.Equal(t, expected, receipt)
 	require.Equal(t, uint64(4), receipt.GlobalSequence)
@@ -94,46 +95,46 @@ func TestProgramsSubmitKernelRefusalReverts(t *testing.T) {
 	h := newHarness(t)
 	ctx := h.stateDB.Ctx()
 	before := h.dump(ctx)
-	method := programsABI.Methods["registryRead"]
-	call := callContext{caller: h.caller, method: &method}
+	method := lp.ProgramsABI.Methods["registryRead"]
+	call := lp.NewCallContext(h.caller, &method)
 	branch, _ := ctx.CacheContext()
-	receipt, err := submit(branch, h.executor, call, 0x00090004, make([]byte, 32), [16]byte{})
+	receipt, err := lp.Submit(branch, h.executor, call, 0x00090004, make([]byte, 32), [16]byte{})
 	require.ErrorIs(t, err, lxphost.Code(-7))
 	require.Equal(t, lxphost.Code(-7), receipt.ResultCode)
-	require.EqualError(t, err, kernelError(receipt.ResultCode, method.Name).Error())
+	require.EqualError(t, err, lp.KernelError(receipt.ResultCode, method.Name).Error())
 	require.NotEqual(t, before, h.dump(branch))
 	require.Equal(t, before, h.dump(ctx))
 
-	h.executor.host = h.newHost(1)
-	payload, err := EncodeRegistryReadPayload([32]byte{0xa1}, []byte("manifest"))
+	h.executor.SetTestHost(h.newHost(1))
+	payload, err := lp.EncodeRegistryReadPayload([32]byte{0xa1}, []byte("manifest"))
 	require.NoError(t, err)
 	branch, _ = ctx.CacheContext()
-	receipt, err = submit(branch, h.executor, call, 0x00090004, payload, [16]byte{})
+	receipt, err = lp.Submit(branch, h.executor, call, 0x00090004, payload, [16]byte{})
 	require.Equal(t, lxphost.Code(-601), receipt.ResultCode)
 	require.ErrorIs(t, err, receipt.ResultCode)
 	require.NotEqual(t, before, h.dump(branch))
-	input, err := programsABI.Pack("registryRead", [32]byte{0xa1}, []byte("manifest"))
+	input, err := lp.ProgramsABI.Pack("registryRead", [32]byte{0xa1}, []byte("manifest"))
 	require.NoError(t, err)
 	data, _, err := h.evm.Call(h.caller, h.precompile.Address(), input, 2000000, uint256.NewInt(0))
 	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	reason, err := abi.UnpackRevert(data)
 	require.NoError(t, err)
-	require.Equal(t, kernelError(lxphost.Code(-601), "registryRead").Error(), reason)
+	require.Equal(t, lp.KernelError(lxphost.Code(-601), "registryRead").Error(), reason)
 	require.ErrorIs(t, h.stateDB.GetPrecompileError(), lxphost.Code(-601))
 	require.Equal(t, before, h.dump(h.stateDB.Ctx()))
 	ordinalBranch, _ := h.stateDB.Ctx().CacheContext()
-	require.Zero(t, nextOrdinal(ordinalBranch, [32]byte(ctx.EVMTxHash())))
-	h.executor.host = h.host
+	require.Zero(t, lp.NextOrdinal(ordinalBranch, [32]byte(ctx.EVMTxHash())))
+	h.executor.SetTestHost(h.host)
 	var selector [4]byte
 	copy(selector[:], method.ID)
-	authority, did, err := principalOf(h.stateDB.Ctx(), h.executor.evmKeeper, h.caller)
+	authority, did, err := lp.PrincipalOf(h.stateDB.Ctx(), h.executor.TestEVMKeeper(), h.caller)
 	require.NoError(t, err)
 	reference, _ := h.stateDB.Ctx().CacheContext()
 	timestamp := uint64(ctx.BlockTime().UnixMilli())
 	expected, err := h.host.Execute(lxphost.WithSequence(reference, 1), lxphost.Activity{
 		ProtocolVersion: 3, Type: 0x00090004, ActorDID: did, AuthorityKey: h.publicKey,
 		NotBefore: timestamp, NotAfter: timestamp,
-		IdempotencyKey: IdempotencyKey([32]byte(ctx.EVMTxHash()), 0, selector), Payload: payload,
+		IdempotencyKey: lp.IdempotencyKey([32]byte(ctx.EVMTxHash()), 0, selector), Payload: payload,
 	}, authority)
 	require.NoError(t, err)
 	require.Zero(t, expected.ResultCode)

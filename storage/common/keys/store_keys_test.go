@@ -92,7 +92,7 @@ func TestXWebStoreKeyFollowsTheV6120StoreKeys(t *testing.T) {
 		"acc", "authz", "bank", "staking", "mint", "distribution", "slashing",
 		"gov", "params", "ibc", "upgrade", "feegrant", "evidence", "transfer",
 		"capability", "oracle", "evm", "wasm", "epoch", "tokenfactory",
-		"layerxcustody", "layerxanchor", "layerxexchange", "layerxbridge", "launchpad",
+		"layerxcustody", "layerxexchange", "layerxbridge", "launchpad",
 		"perps", "spot", "pricefeed",
 		"xweb",
 		"sequencer",
@@ -140,6 +140,15 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 	require.Len(t, seen, 5)
 }
 
+func TestAnchorStoreKeyIsNotMounted(t *testing.T) {
+	require.NotContains(t, MemIAVLStoreKeys, "layerxanchor")
+	require.False(t, IsMemIAVLStoreKey("layerxanchor"))
+
+	got, err := AllModulesExcept("layerxanchor")
+	require.EqualError(t, err, `module "layerxanchor" is not a member of MemIAVLStoreKeys`)
+	require.Nil(t, got)
+}
+
 func TestMergeStoreKeysAreMemIAVLStoreKeys(t *testing.T) {
 	got, err := AllModulesExcept(BankStoreKey)
 	require.NoError(t, err)
@@ -184,7 +193,7 @@ func TestLayerXAgentStoreKeyMatchesAgentKeeper(t *testing.T) {
 		EpochStoreKey,
 		TokenfactoryStoreKey,
 		LayerXCustodyStoreKey,
-		LayerXAnchorStoreKey,
+		"layerxanchor",
 		LayerXExchangeStoreKey,
 		LayerXBridgeStoreKey,
 		LaunchpadStoreKey,
