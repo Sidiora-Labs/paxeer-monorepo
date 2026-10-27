@@ -7949,3 +7949,19 @@ symbol = "verify_mirror_receipt_from_sources"
 observed = "Attempt one (75b0c7c14) refreshed all fourteen locks, then cargo build -p layerx-ramp-toolkit failed inside layerx-sdk: production.rs:13 imports layerx_mirror::SignedHeaderTrust and :818/:836 call MirrorVerifier::from_source, both deleted by 11.26.4 (edd77cf4a); 35 crates across services/agent, services/human, services/platform, services/interop and tools/platform depend on layerx-sdk and cannot build at main."
 assumption = "The lock refresh is gated on cargo metadata --locked alone and task 11.26.6 ports the SDK to from_committed_source and committed_receipt."
 severity = "critical"
+
+[finding.11.22.4.2]
+task = "11.22.4"
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+symbol = "the_shared_sequencer_receipt_vector_decodes_and_verifies"
+observed = "Attempt five (5f1d15163) read the vector verdict Decode as a failure of SequencerReceipt::decode on the JSON view; the view decodes, and the refusal is SequencerReceipt::verify returning ReceiptError::Verification with check Decode."
+assumption = "The test routes Decode cases through verify and asserts the check; the decoder and the vector stay as written."
+severity = "medium"
+
+[finding.11.37.3.2]
+task = "11.37.3"
+file = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"
+symbol = "every_shared_refusal_case_is_refused_by_the_mirror"
+observed = "Attempt five (0ecefcceb) expected MirrorVerifyError::Receipt for the R4, R6 and R5 cases, whose expected.verifier is accepts; the mirror correctly accepts canonical, correctly signed bytes and cannot see the raw transaction, prevSeqHash or JSON view those rules need."
+assumption = "The test asserts acceptance for those three cases and applies R4 and R6 itself from the vector fields; the mirror verifier stays as written."
+severity = "medium"

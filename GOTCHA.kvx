@@ -9524,3 +9524,9 @@ area = "cargo workspaces"
 symptom = "a lock-refresh task fails its build with E0432/E0599 inside a path dependency, not in the lock"
 cause = "a crate in another workspace deleted public items (SignedHeaderTrust, MirrorVerifier::from_source) that a shared library crate still uses, so every workspace depending on that library stops building"
 do = "before deleting a pub item from a crate other workspaces depend on, git grep the item across services/ and tools/ and put the dependents' port in the same task or a required follow-up; gate lock-only tasks with cargo metadata --locked rather than a compile"
+
+[gotcha.1967]
+area = "conformance vectors"
+symptom = "a vector-driven test fails on cases whose expected.verifier is accepts or Decode even though the component under test behaves per the vector"
+cause = "expected.verifier is the signature verifier's verdict over the signed bytes: Decode is raised by verify_sequencer_signature, not by a JSON view decoder, and accepts means the refusal (R4, R5, R6) is a client rule that a bytes-only verifier such as the mirror cannot and must not raise"
+do = "classify cases by expected.verifier; for accepts cases assert the verifier accepts and apply the client rule in the test from rawTransaction, prevSeqHash and the JSON view; for Decode cases call the verifier and assert ReceiptCheck::Decode"
