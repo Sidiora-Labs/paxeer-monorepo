@@ -810,7 +810,6 @@ func New(
 		app.GetSubspace(tokenfactorytypes.ModuleName),
 		app.AccountKeeper,
 		app.BankKeeper.(bankkeeper.BaseKeeper).WithMintCoinsRestriction(tokenfactorytypes.NewTokenFactoryDenomMintCoinsRestriction()),
-		app.DistrKeeper,
 	)
 	app.BankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
 
