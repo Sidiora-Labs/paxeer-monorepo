@@ -676,7 +676,10 @@ pub fn register(
 ) -> Result<(), RouteError> {
     let exchange = Arc::clone(exchange);
     routes.set_program_attestations(move |program_id, request_id| {
-        exchange.handle((program_id, request_id))
+        match exchange.answer((program_id, request_id)) {
+            Some(answer) => Response::json(200, program_record(&answer).to_string().into_bytes()),
+            None => Response::error(404, "not_found"),
+        }
     })
 }
 

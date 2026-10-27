@@ -30,7 +30,6 @@ var (
 	lxpRootOriginForTest     = regexp.MustCompile(`^Err\w+ \(root codespace "sdk", code (\d+)\)`)
 	lxpBindingOriginForTest  = regexp.MustCompile(`^ErrLayerX\w+, modules/evm/types/layerx_binding\.go:\d+`)
 	lxpHeaderResultForTest   = regexp.MustCompile(`X\((LXP_[A-Z_]+), (-?\d+)\)`)
-	lxpRustResultForTest     = regexp.MustCompile(`^\s*(\w+) = (-?\d+), (?:Terminal|Retriable);$`)
 	lxpRevertSelectorForTest = []byte{0x08, 0xc3, 0x79, 0xa0}
 )
 
@@ -74,35 +73,27 @@ func lxpHeaderResultsForTest(t *testing.T) []lxpKernelResultForTest {
 	return results
 }
 
-func lxpRustResultsForTest(t *testing.T) []lxpKernelResultForTest {
+func lxpRustResultsForTest(t *testing.T) {
 	t.Helper()
+	build := lxpReadRepoFileForTest(t, "services/agent/crates/layerx-types/build.rs")
+	require.Contains(t, build, `let header = crate_dir.join("../../../../include/layerx/lxp_result.h");`)
+	require.Contains(t, build, `let registry = crate_dir.join("../../../../spec/layerx-merge/contracts/address-table.md");`)
+	require.Contains(t, build, `let declared = header_codes(&read_file(&header))`)
+	require.Contains(t, build, `let rows = registry_retryable(&read_file(&registry))`)
+	require.Contains(t, build, `let table = result_codes_body(&declared, &rows)`)
+	require.Regexp(t, `(?s)fn result_codes_body\(header: &\[HeaderCode\], registry: &\[RegistryRow\]\) -> Result<String, String> \{\s*`+
+		`let mut entries = String::new\(\);\s*for code in header \{\s*`+
+		`let class = retriability\(code, registry\)\?;\s*`+
+		`writeln!\(\s*entries,\s*"    \{\} = \{\}, \{class\};",\s*code\.code\.name, code\.code\.value\s*\)\s*`+
+		`\.map_err\(\|error\| format!\("failed to format the result-code table: \{error\}"\)\)\?;\s*\}`, build)
+	require.Contains(t, build, `protocol_result_codes! {{\n{entries}}}`)
+	require.Contains(t, build, `let generated_codes = mirror_codes(&table)`)
+	require.Contains(t, build, `let header_list: Vec<Code> = declared.into_iter().map(|code| code.code).collect();`)
+	require.Contains(t, build, `parity(&header_list, &generated_codes)`)
+	require.Contains(t, build, `let generated = out_dir.join("result_codes.rs");`)
+	require.Contains(t, build, `fs::write(&generated, table)`)
 	source := lxpReadRepoFileForTest(t, "services/agent/crates/layerx-types/src/result.rs")
-	start := strings.Index(source, "protocol_result_codes! {")
-	require.True(t, start >= 0, "protocol_result_codes! invocation not found")
-	end := strings.Index(source[start:], "\n}")
-	require.True(t, end > 0)
-	var results []lxpKernelResultForTest
-	for _, line := range strings.Split(source[start:start+end], "\n") {
-		match := lxpRustResultForTest.FindStringSubmatch(line)
-		if match == nil {
-			continue
-		}
-		value, err := strconv.ParseInt(match[2], 10, 32)
-		require.NoError(t, err)
-		results = append(results, lxpKernelResultForTest{name: match[1], value: int32(value)})
-	}
-	return results
-}
-
-// lxpCamelForTest turns a header enum name into the Rust mirror's variant name.
-func lxpCamelForTest(name string) string {
-	name = strings.TrimPrefix(strings.TrimPrefix(name, "LXP_ERR_"), "LXP_")
-	var out strings.Builder
-	for _, word := range strings.Split(name, "_") {
-		out.WriteString(word[:1])
-		out.WriteString(strings.ToLower(word[1:]))
-	}
-	return out.String()
+	require.Contains(t, source, `include!(concat!(env!("OUT_DIR"), "/result_codes.rs"));`)
 }
 
 func lxpDecodeRevertForTest(t *testing.T, data []byte) string {
@@ -199,14 +190,25 @@ func TestLXPRevertTable(t *testing.T) {
 		require.True(t, headerValues[value], "%s keyed by %d, which the header does not declare", code, value)
 	}
 
-	rust := lxpRustResultsForTest(t)
-	require.Len(t, rust, len(header))
-	for i, result := range header {
-		require.Equal(t, result.value, rust[i].value, result.name)
-		require.Equal(t, lxpCamelForTest(result.name), rust[i].name, result.name)
+	lxpRustResultsForTest(t)
+
+	for _, arbiter := range []struct {
+		value   int32
+		code    string
+		message string
+	}{
+		{value: -737, code: "LXP_ARBITER_REQUIRED", message: "arbiter required"},
+		{value: -738, code: "LXP_UNAUTHORIZED_ARBITER", message: "unauthorized arbiter"},
+		{value: -739, code: "LXP_ESCROW_LINK_MISMATCH", message: "escrow link mismatch"},
+	} {
+		t.Run(arbiter.code, func(t *testing.T) {
+			require.Equal(t, arbiter.code, LXPCodeName(arbiter.value))
+			require.Equal(t, arbiter.code+": "+arbiter.message,
+				lxpDecodeRevertForTest(t, LXPRevert(LXPCodeName(arbiter.value), "")))
+		})
 	}
 
-	for _, value := range []int32{1, -9, -99, -737, -999} {
+	for _, value := range []int32{1, -9, -99, -740, -999} {
 		require.Equal(t, "LXP_UNKNOWN", LXPCodeName(value), "value %d", value)
 	}
 	for _, value := range []int32{-1000, -1004, -2147483648} {
