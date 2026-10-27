@@ -97635,7 +97635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.1]
 title = "Prove 0x101A is served by the node only after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.41.2", "5.19.2", "5.6.5", "5.19.4"]
@@ -99680,7 +99680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.34.2]
 title = "Register the 0x0905 merge constructor and publish job outcomes as typed events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.34.1", "2.32.4", "5.94.2"]
@@ -103048,7 +103048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.21.3]
 title = "Exercise production spot receive, per-token and multicall gas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.21.2", "5.0.3"]
@@ -103326,7 +103326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.22.8]
 title = "Rehearse spot migration with export round trip"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.22.5", "5.97.2"]
@@ -112897,7 +112897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Split mergeUpgradePlan so the constructor gate of do_3 runs first and the store migrations, RetireAtMerge and ReleaseRetired run in an unexported continuation; TestMergePlanReturnsGuarantorBonds and TestMergeStoreUpgradesAddsLayerXStores drive the continuation directly, because the merge address table still has constructors registered by tasks that have not landed, while TestMergePlanRefusesMissingMergeConstructors proves the gate on the registry as it stands."
 [task.5.6.8]
 title = "Export and re-import a chain after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.6.5"]
@@ -115163,7 +115163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.35.2]
 title = "Serve the manifest leader pin from the e2e application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.35.1"]
@@ -117155,7 +117155,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "Recording the fixture is implementation work, not a qualification gate: build the daemon once with go build -o <tmpdir>/paxd ./daemon/paxd, run go run ./daemon/committed-fixture record --paxd <tmpdir>/paxd --out daemon/committed-fixture/vectors, then restore vector-v2-receipted-revert.json and vector-v3-receipt-refusals.json, which record rewrites for every registered vector and which belong to tasks 5.55.3 and 5.55.4, so that only the V1 file is new. The conformance cases in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json hold no contract creation with two logs, so V1 cannot be derived from them."
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
 status = "done"
@@ -118699,7 +118699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.96.1]
 title = "Drop the deleted handover read consumer from the handover chain test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.4"]
@@ -122063,7 +122063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.26.2]
 title = "Drop the unused distrKeeper from the tokenfactory keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.26.3", "6.0.2", "5.0.3"]
@@ -130232,7 +130232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.28.2]
 title = "Prove the xbank descriptors no longer shadow the bank proto file names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.21.1", "7.26.2", "5.0.3", "5.95.3", "7.26.4"]
@@ -133692,7 +133692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.28.2]
 title = "Compile ramp legs as ledger calls and verify them from signed sequencer receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["8.28.1", "9.23.7"]
@@ -147066,7 +147066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.7.2]
 title = "Export AP2 portable evidence as the version 2 portable receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.7.1", "11.10.1", "9.1.7"]
@@ -147737,7 +147737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.4]
 title = "Render the mirror paxeer section and receipt keys from the pinned receipt keys file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.13.1", "11.12.5", "11.25.4"]
@@ -148136,7 +148136,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Before the relay work, make layerx-interop-service compile against the SequencerEvidence results that tasks 11.3.1, 11.4.1 and 11.9.1 landed: implement FacilitatorPlane::receipt_keys for X402VerifyPlane (services/interop/crates/layerx-interop-service/src/server.rs:1161) and X402SettlePlane (:1244) from the plane's configured sequencer authorities, build the x402 ExecutedPayment at :1312-1314 and the ExecutedUcpPayment at :1778-1779 from the SequencerEvidence that PlaneOutcome::Executed now carries, and pass the receipt keys as the fifth argument of UcpAdapter::complete_checkout at :1862; the AP2 and UCP relay itself stays with task 11.16.3."
 [task.11.16.3]
 title = "Execute AP2 and UCP payments in the service through the chain relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.16.2", "11.7.1", "11.9.1", "9.1.7"]

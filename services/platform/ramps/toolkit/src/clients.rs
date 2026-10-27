@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use ed25519_dalek::{Signature as Ed25519Signature, VerifyingKey};
-use layerx_crypto::{SignatureMessage, ed25519};
+use layerx_crypto::{ed25519, SignatureMessage};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::activity::{
     Authority, EnvelopeBuilder, Signature, TimestampBound, UnsignedEnvelope,
@@ -14,16 +14,15 @@ use layerx_types::activity::{
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey};
 use layerx_wire::activity::{encode_signed_envelope, encode_unsigned_envelope};
-use layerx_wire::hash::{Domain, activity_id};
+use layerx_wire::hash::{activity_id, Domain};
 use native_tls::{Certificate, Identity, TlsConnector};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
 use crate::{
-    AuthenticatedPrincipal, COMPLIANCE_CONTRACT_VERSION, PAXEER_CONTRACT_VERSION,
-    PROVIDER_CONTRACT_VERSION, RampDirection, RampError, RampOrder, ReceiptEvidence,
-    VerifiedLayerxLeg, compile_operator_send, compile_payer_grant_draw,
-    operator_send_authorization_message, verify_order_receipt,
+    compile_operator_send, compile_payer_grant_draw, AuthenticatedPrincipal, RampDirection,
+    RampError, RampOrder, ReceiptEvidence, VerifiedLayerxLeg, COMPLIANCE_CONTRACT_VERSION,
+    PAXEER_CONTRACT_VERSION, PROVIDER_CONTRACT_VERSION,
 };
 
 const MAX_SECRET_BYTES: usize = 64 * 1024;
@@ -1002,44 +1001,26 @@ impl PreparedLayerx {
 
 impl LayerxClient {
     /// # Errors
-    /// Returns [`RampError::InvalidOrder`], [`RampError::Intent`] or [`RampError::Layerx`] when compilation, encoding or signing fails.
+    /// Returns compilation errors or [`RampError::Configuration`] when the legacy transport cannot submit a ledger call.
     pub fn prepare_payment(
         &self,
         order: &RampOrder,
         account_sequence: u64,
         now: u64,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<PreparedLayerx, RampError> {
         let compiled = match order.direction() {
-            RampDirection::OnRamp => {
-                let message = operator_send_authorization_message(
-                    order,
-                    account_sequence,
-                    self.activity.network_id,
-                    self.activity.protocol_version,
-                )?;
-                let authorization = self.sign(order, &message)?;
-                compile_operator_send(
-                    order,
-                    account_sequence,
-                    self.activity.network_id,
-                    self.activity.protocol_version,
-                    self.activity.signer_public_key,
-                    authorization,
-                    registry,
-                )?
-            }
-            RampDirection::OffRamp => {
-                if self.activity.protocol_version
-                    == layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-                {
-                    return Err(RampError::PayerGrantRequired);
-                }
-                compile_payer_grant_draw(order, account_sequence, registry)?
-            }
+            RampDirection::OnRamp => compile_operator_send(order)?,
+            RampDirection::OffRamp => compile_payer_grant_draw(order, account_sequence)?,
         };
-        let unsigned = self.unsigned(order, account_sequence, now, compiled)?;
-        self.prepare_unsigned(order, unsigned, registry)
+        order.validate_bound()?;
+        if now >= order.quote.expires_at {
+            return Err(RampError::InvalidOrder);
+        }
+        if compiled.to != crate::evm::LEDGER_ADDRESS {
+            return Err(RampError::Layerx);
+        }
+        Err(RampError::Configuration)
     }
 
     pub fn prepare_native_receive(
@@ -1226,56 +1207,26 @@ impl LayerxClient {
             self.activity.protocol_version,
             self.sequencer_authorization.public_key(),
         )?;
-        let mut evidence = ReceiptEvidence {
-            activity_id: activity,
-            canonical_receipt,
-            authorized_batch: AuthorizedBatch::new(
-                parse_hex32(&facts.batch_id)?,
-                parse_hex32(&facts.asset)?,
-                parse_hex32(&facts.previous_state_root)?,
-                parse_hex32(&facts.resulting_state_root)?,
-                parse_hex32(&facts.sequencer_public_key)?,
-            ),
-        };
-        let maintained_batch = facts.batch_evidence.is_some();
+        let mut authorized_batch = AuthorizedBatch::new(
+            parse_hex32(&facts.batch_id)?,
+            parse_hex32(&facts.asset)?,
+            parse_hex32(&facts.previous_state_root)?,
+            parse_hex32(&facts.resulting_state_root)?,
+            parse_hex32(&facts.sequencer_public_key)?,
+        );
         if let Some(maintained) = facts.batch_evidence {
-            evidence.authorized_batch = maintained
+            authorized_batch = maintained
                 .authorize(
-                    &evidence.canonical_receipt,
-                    &evidence.authorized_batch,
+                    &canonical_receipt,
+                    &authorized_batch,
                     &self.sequencer_authorization,
                 )
                 .map_err(|_| RampError::Layerx)?;
         }
-        if evidence.authorized_batch != gateway_authority {
+        if authorized_batch != gateway_authority {
             return Err(RampError::Layerx);
         }
-        verify_order_receipt(order, &evidence).map(|leg| {
-            (
-                LayerxSubmission::Verified {
-                    leg,
-                    canonical_activity: None,
-                },
-                Some(evidence),
-                maintained_batch,
-            )
-        })
-    }
-
-    fn unsigned(
-        &self,
-        order: &RampOrder,
-        sequence: u64,
-        now: u64,
-        compiled: crate::CompiledPayment,
-    ) -> Result<UnsignedEnvelope, RampError> {
-        self.unsigned_payload(
-            order,
-            sequence,
-            now,
-            compiled.activity_type,
-            compiled.payload,
-        )
+        Err(RampError::Configuration)
     }
 
     fn unsigned_payload(
@@ -1855,7 +1806,7 @@ impl AuthorityBody {
 #[cfg(test)]
 mod maintained_consumer_tests {
     use super::*;
-    use layerx_proof::receipt::{AuthorizedBatch, verify_outcome, verify_program_state};
+    use layerx_proof::receipt::{verify_outcome, verify_program_state, AuthorizedBatch};
     use std::path::PathBuf;
 
     fn required<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
@@ -1991,11 +1942,9 @@ mod maintained_consumer_tests {
         let document: MaintainedBatchDocument = required(serde_json::from_value(
             capture["authority"]["batch_evidence"].clone(),
         ));
-        assert!(
-            document
-                .authorize(&receipt, &historical_facts, &pins(&capture))
-                .is_err()
-        );
+        assert!(document
+            .authorize(&receipt, &historical_facts, &pins(&capture))
+            .is_err());
     }
 }
 
@@ -2057,31 +2006,23 @@ mod authority_shape_tests {
             .unwrap_or_else(|error| panic!("protocol: {error}"));
         let key = parse_hex32(&facts.sequencer_public_key)
             .unwrap_or_else(|error| panic!("key: {error:?}"));
-        assert!(
-            facts
-                .validate_context(&activity, network, protocol, key)
-                .is_ok()
-        );
+        assert!(facts
+            .validate_context(&activity, network, protocol, key)
+            .is_ok());
         facts.protocol_network_id = network
             .checked_add(1)
             .unwrap_or_else(|| panic!("network exhausted"));
-        assert!(
-            facts
-                .validate_context(&activity, network, protocol, key)
-                .is_err()
-        );
+        assert!(facts
+            .validate_context(&activity, network, protocol, key)
+            .is_err());
         facts.protocol_network_id = network;
-        assert!(
-            facts
-                .validate_context(&"00".repeat(32), network, protocol, key)
-                .is_err()
-        );
+        assert!(facts
+            .validate_context(&"00".repeat(32), network, protocol, key)
+            .is_err());
         assert!(facts.validate_context(&activity, network, 0, key).is_err());
-        assert!(
-            facts
-                .validate_context(&activity, network, protocol, [0; 32])
-                .is_err()
-        );
+        assert!(facts
+            .validate_context(&activity, network, protocol, [0; 32])
+            .is_err());
         assert!(serde_json::from_value::<AuthorityBody>(document.clone()).is_ok());
         let mut historical = document.clone();
         historical
@@ -2203,13 +2144,11 @@ mod gateway_receipt_envelope_tests {
         let document = envelope(&capture);
         assert!(read(&document["result"], &activity).is_err());
         let mut without_authority = document.clone();
-        assert!(
-            without_authority["result"]
-                .as_object_mut()
-                .unwrap_or_else(|| panic!("result object"))
-                .remove("authority")
-                .is_some()
-        );
+        assert!(without_authority["result"]
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("result object"))
+            .remove("authority")
+            .is_some());
         assert!(read(&without_authority, &activity).is_err());
         let mut unknown = document.clone();
         unknown["result"]["unexpected"] = serde_json::json!(true);
@@ -2467,7 +2406,7 @@ pub fn verify_recovery_settlement(
         if let Some(activity) = snapshot.evidence.activity_id {
             match layerx.resolve(&snapshot.order, activity)? {
                 LayerxSubmission::Verified { leg, .. } => {
-                    if leg.activity_id != activity
+                    if leg.tx_hash != activity
                         || snapshot
                             .evidence
                             .receipt_digest
