@@ -298,8 +298,7 @@ func programTransfer(t *testing.T, pub ed25519.PublicKey, sequence uint64, amoun
 	return pending.envelope(t), pending.digest(t)
 }
 
-// signKernel authorizes a send, then exercises the retained completed-send policy
-// and replication path so ledger durability checks still account for a real debit.
+// signKernel authorizes a send, then records and replicates the accepted debit.
 func signKernel(t *testing.T, c *testCluster, keyID, session string, signers []string, unsigned []byte) []apiResult {
 	t.Helper()
 	disclosure, approval := approvedActivity(t, c, unsigned, keyID, session, testOwner)
@@ -357,7 +356,7 @@ func acceptKernelSend(t *testing.T, c *testCluster, keyID, session, nodeID strin
 	if err != nil {
 		t.Fatal(err)
 	}
-	preimage, err := lxwire.SignaturePreimage(a)
+	digest, err := send.AuthorizationDigest()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,13 +364,33 @@ func acceptKernelSend(t *testing.T, c *testCluster, keyID, session, nodeID strin
 	copy(pub[:], rec.PublicKey)
 	disclosure := lx.Disclosure{Account: effect.Account, Module: "asset", Operation: a.Type.Ordinal(),
 		Amounts: effect.Amounts, Destinations: effect.Destinations, Sequence: a.AccountSequence, NotBefore: a.NotBefore, NotAfter: a.NotAfter}
-	decision := node.server.opts.Kernel.EvaluateActivity(common.HexToAddress(held.Account),
-		&lx.ActivityRequest{Envelope: completed, Digest: preimage, PublicKey: pub, Disclosure: disclosure},
+	send.Signature = [64]byte{}
+	a.Payload, err = send.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.PayloadHash = lxwire.PayloadHash(a.Payload)
+	unsigned, err := lxwire.EncodeUnsignedActivity(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	decision := node.server.opts.Kernel.EvaluateSendAuthorization(common.HexToAddress(held.Account),
+		&lx.SendAuthorizationRequest{Envelope: unsigned, Digest: digest, PublicKey: pub, Disclosure: disclosure},
 		node.server.spends.ForRequest(requestID(keyID, session)))
 	if !decision.Allowed {
 		t.Fatalf("completed send policy refused: %s: %s", decision.Code, decision.Reason)
 	}
-	if acked, silent := node.server.Announce(context.Background(), keyID, session, held.Account, rec.Participants, decision.Spends); acked != len(rec.Participants) {
+	if len(decision.Spends) != 0 {
+		t.Fatalf("send authorization recorded spends: %+v", decision.Spends)
+	}
+	spends := make([]policy.Spend, 0, len(effect.Amounts))
+	for _, amount := range effect.Amounts {
+		spends = append(spends, policy.Spend{Asset: "lx:" + hex.EncodeToString(amount.Asset[:]), Amount: amount.Amount})
+	}
+	if err := node.server.spends.Apply(policy.AccountKey(held.Account), requestID(keyID, session), spends, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if acked, silent := node.server.Announce(context.Background(), keyID, session, held.Account, rec.Participants, spends); acked != len(rec.Participants) {
 		t.Fatalf("completed send replicated to %d participants, silent %v", acked, silent)
 	}
 }

@@ -209,6 +209,7 @@ func NewEVMHTTPServer(
 		if seq != nil {
 			api.setReceiptLogFeed(seq.receiptLogs)
 		}
+		httpServer.addStopHook(api.shutdown)
 		return api
 	}
 	apis := []rpc.API{

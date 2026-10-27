@@ -1,9 +1,13 @@
+import { encodeFunctionData, encodePacked, keccak256 } from 'viem';
 import { expect, test } from 'vitest';
 
 import type { DepositAttestation, ReleaseAttestation } from '@/lib/bridge/attestation-api';
+import { paxeerXVaultAbi } from '@/lib/bridge/contracts';
+import { releaseNullifier } from '@/lib/bridge/digests';
 import type { BridgeTransfer } from '@/lib/bridge/transfers';
 
-import { assertClaimMatches, assertReleaseMatches } from './transfer-actions';
+import { assertClaimMatches, assertReleaseMatches, releaseCheckOf, settledRefusal } from './transfer-actions';
+import type { TransferLive } from './transfer-actions';
 
 const deposit: BridgeTransfer = {
   id: 'deposit:0',
@@ -103,7 +107,60 @@ function assertReleaseMatchesRefusesAnotherAsset() {
   })).toThrow('The backend attestation does not match this withdrawal.');
 }
 
+function releaseCheckOfBuildsTheVaultNullifiedCall() {
+  const request = releaseCheckOf(withdrawal);
+  const nullifier = keccak256(encodePacked([ 'bytes32', 'uint64' ], [ withdrawal.sourceTxHash, BigInt(7) ]));
+  expect(request).toEqual({
+    abi: paxeerXVaultAbi,
+    address: withdrawal.vault,
+    functionName: 'nullified',
+    args: [ nullifier ],
+    chainId: 8453,
+  });
+  if (!request) throw new Error('A withdrawal with a nonce must have a release check.');
+  expect(encodeFunctionData(request)).toBe(encodeFunctionData({
+    abi: paxeerXVaultAbi,
+    functionName: 'nullified',
+    args: [ releaseNullifier(withdrawal.sourceTxHash, BigInt(7)) ],
+  }));
+  expect(releaseCheckOf({ ...withdrawal, bridgeOutNonce: '0' })?.args).toEqual([
+    releaseNullifier(withdrawal.sourceTxHash, BigInt(0)),
+  ]);
+}
+
+function releaseCheckOfWaitsForTheNonce() {
+  const { bridgeOutNonce, ...pendingWithdrawal } = withdrawal;
+  expect(bridgeOutNonce).toBe('7');
+  expect(releaseCheckOf(pendingWithdrawal)).toBeUndefined();
+  expect(releaseCheckOf({ ...pendingWithdrawal, bridgeOutNonce })).toBeDefined();
+  expect(releaseCheckOf(deposit)).toBeUndefined();
+  expect(releaseCheckOf({ ...withdrawal, vault: undefined })).toBeUndefined();
+  expect(releaseCheckOf({ ...withdrawal, foreignChainKey: 'solana' })).toBeUndefined();
+}
+
+function settledRefusalNamesTheCreditedDeposit() {
+  const live: TransferLive = {
+    confirmations: 12,
+    requiredConfirmations: 12,
+    credited: true,
+    released: false,
+    attestationReady: true,
+    sourceFailed: false,
+  };
+  expect(deposit.claimTxHash).toBeUndefined();
+  expect(settledRefusal(deposit, live)).toBe('This deposit is already credited on Paxeer.');
+  expect(settledRefusal(deposit, { ...live, credited: false })).toBeUndefined();
+  expect(settledRefusal(deposit, undefined)).toBeUndefined();
+  expect(settledRefusal(withdrawal, live)).toBeUndefined();
+  expect(settledRefusal(withdrawal, { ...live, credited: false, released: true }))
+    .toBe('This withdrawal is already released from the vault.');
+  expect(settledRefusal(deposit, { ...live, credited: false, released: true })).toBeUndefined();
+}
+
 test(assertClaimMatchesRefusesAnotherRecipient);
 test(assertClaimMatchesRefusesAnotherAsset);
 test(assertClaimMatchesRefusesAnotherChainId);
 test(assertReleaseMatchesRefusesAnotherAsset);
+test(releaseCheckOfBuildsTheVaultNullifiedCall);
+test(releaseCheckOfWaitsForTheNonce);
+test(settledRefusalNamesTheCreditedDeposit);

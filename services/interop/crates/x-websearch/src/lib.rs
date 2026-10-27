@@ -20,6 +20,7 @@ pub mod index;
 pub mod kernel;
 pub mod keys;
 pub mod payment;
+pub mod program;
 pub mod robots;
 pub mod search;
 pub mod server;
