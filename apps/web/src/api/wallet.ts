@@ -12,6 +12,7 @@ import {
 
 export type PrecompileSendOutcome =
   | Readonly<{ outcome: "sent"; transactionHash: string; receipt?: GatewayReceipt }>
+  | Readonly<{ outcome: "unconfirmed"; transactionHash: string }>
   | Readonly<{ outcome: "reverted"; transactionHash: string; receipt: GatewayReceipt }>
   | Readonly<{ outcome: "cancelled" | "rejected" | "unavailable" | "failed"; detail?: string }>;
 
@@ -64,6 +65,7 @@ export async function sendWalletPrecompileCall(
   if (wallet === undefined) {
     return { outcome: "unavailable" };
   }
+  let transactionHash: string | undefined;
   try {
     const preference = walletFeePreference();
     if (preference.currency === "sidiora") {
@@ -90,7 +92,7 @@ export async function sendWalletPrecompileCall(
       const consent = typeof window !== "undefined" && window.confirm(`${review.consent}\nAccount: ${quoted.value.batch.account}\nNetwork: ${quoted.value.batch.chainId}`);
       return await sendWalletSponsoredBatch(quoted.value, consent ? review.identity : undefined);
     }
-    const transactionHash = await sendPrecompileCall(wallet, from, build());
+    transactionHash = await sendPrecompileCall(wallet, from, build());
     for (let attempt = 0; attempt < RECEIPT_POLL_LIMIT; attempt += 1) {
       if (attempt > 0) await sleep(RECEIPT_POLL_INTERVAL_MS);
       const receipt = await ethTransactionReceipt(transactionHash);
@@ -100,7 +102,7 @@ export async function sendWalletPrecompileCall(
     }
     return { outcome: "sent", transactionHash };
   } catch (error) {
-    return walletSendFailure(error);
+    return transactionHash === undefined ? walletSendFailure(error) : { outcome: "unconfirmed", transactionHash };
   }
 }
 
@@ -178,9 +180,15 @@ function sponsoredContextKey(account: string): string {
 async function statusOutcome(report: SponsoredSubmissionEvidence): Promise<PrecompileSendOutcome> {
   if (report.status === "cancelled") return { outcome: "rejected" };
   if (report.tx_hash === null) return { outcome: report.status === "reverted" ? "rejected" : "unavailable" };
-  const receipt = await ethTransactionReceipt(report.tx_hash);
-  if (receipt === undefined) return report.status === "reverted" ? { outcome: "rejected" } : { outcome: "sent", transactionHash: report.tx_hash };
-  return { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash: report.tx_hash, receipt };
+  try {
+    const receipt = await ethTransactionReceipt(report.tx_hash);
+    if (receipt === undefined) {
+      return { outcome: report.status === "reverted" ? "unconfirmed" : "sent", transactionHash: report.tx_hash };
+    }
+    return { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash: report.tx_hash, receipt };
+  } catch {
+    return { outcome: "unconfirmed", transactionHash: report.tx_hash };
+  }
 }
 
 function sameCalls(calls: readonly PrecompileCall[], call: PrecompileCall): boolean {
@@ -229,6 +237,7 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
   if (review === undefined || review.identity !== consentIdentity) return { outcome: "rejected" };
   const wallet = windowWalletProvider();
   if (wallet === undefined) return { outcome: "unavailable" };
+  let transactionHash: string | undefined;
   try {
     const storage = browserSubmissionStore();
     const module = sponsoredWalletModule(snapshot, wallet, storage);
@@ -245,7 +254,7 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
     const existing = storage.getItem(key);
     if (existing !== null && existing !== JSON.stringify(context)) return { outcome: "rejected" };
     storage.setItem(key, JSON.stringify(context));
-    const transactionHash = await module.submitFirstUse(snapshot.batch, snapshot.relayerSignature, {
+    transactionHash = await module.submitFirstUse(snapshot.batch, snapshot.relayerSignature, {
       confirm: consent => {
         const current = sidioraQuotePresentation(snapshot);
         const digest = sponsoredBatchDigest(snapshot.batch);
@@ -256,6 +265,6 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
     return receipt === undefined ? { outcome: "sent", transactionHash }
       : { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
   } catch (error) {
-    return walletSendFailure(error);
+    return transactionHash === undefined ? walletSendFailure(error) : { outcome: "unconfirmed", transactionHash };
   }
 }
