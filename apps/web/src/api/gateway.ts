@@ -136,6 +136,71 @@ export interface GatewayLog extends PrecompileLog {
   readonly logIndex: bigint;
 }
 
+export interface GatewayReceipt {
+  readonly transactionHash: string;
+  readonly blockNumber: bigint;
+  readonly status: "success" | "reverted";
+  readonly logs: readonly GatewayLog[];
+}
+
+function gatewayLog(entry: unknown, method: string): GatewayLog {
+  if (
+    !isObject(entry) ||
+    typeof entry.address !== "string" ||
+    !Array.isArray(entry.topics) ||
+    typeof entry.data !== "string" ||
+    typeof entry.blockNumber !== "string" ||
+    !QUANTITY.test(entry.blockNumber) ||
+    typeof entry.transactionHash !== "string" ||
+    !HASH.test(entry.transactionHash) ||
+    typeof entry.logIndex !== "string" ||
+    !QUANTITY.test(entry.logIndex)
+  ) {
+    throw new GatewayUnavailableError(`${method} answered a malformed log`);
+  }
+  const topics = entry.topics.map((topic: unknown) => {
+    if (typeof topic !== "string") {
+      throw new GatewayUnavailableError(`${method} answered a malformed topic`);
+    }
+    return topic;
+  });
+  return {
+    address: entry.address,
+    topics,
+    data: entry.data,
+    blockNumber: BigInt(entry.blockNumber),
+    transactionHash: entry.transactionHash,
+    logIndex: BigInt(entry.logIndex),
+  };
+}
+
+export async function ethTransactionReceipt(hash: string): Promise<GatewayReceipt | undefined> {
+  if (!HASH.test(hash)) {
+    throw new TypeError("eth_getTransactionReceipt takes a 32-byte transaction hash");
+  }
+  const result = await rpc("eth_getTransactionReceipt", [hash]);
+  if (result === null) {
+    return undefined;
+  }
+  if (
+    !isObject(result) ||
+    typeof result.transactionHash !== "string" ||
+    !HASH.test(result.transactionHash) ||
+    typeof result.blockNumber !== "string" ||
+    !QUANTITY.test(result.blockNumber) ||
+    (result.status !== "0x0" && result.status !== "0x1") ||
+    !Array.isArray(result.logs)
+  ) {
+    throw new GatewayUnavailableError("eth_getTransactionReceipt answered a malformed receipt");
+  }
+  return {
+    transactionHash: result.transactionHash,
+    blockNumber: BigInt(result.blockNumber),
+    status: result.status === "0x1" ? "success" : "reverted",
+    logs: result.logs.map((entry: unknown) => gatewayLog(entry, "eth_getTransactionReceipt")),
+  };
+}
+
 export async function ethGetLogs(
   filter: Readonly<{ address: string; topics: readonly (string | null)[]; fromBlock: bigint }>,
 ): Promise<readonly GatewayLog[]> {
@@ -150,36 +215,7 @@ export async function ethGetLogs(
   if (!Array.isArray(result)) {
     throw new GatewayUnavailableError("eth_getLogs answered a malformed list");
   }
-  return result.map((entry: unknown): GatewayLog => {
-    if (
-      !isObject(entry) ||
-      typeof entry.address !== "string" ||
-      !Array.isArray(entry.topics) ||
-      typeof entry.data !== "string" ||
-      typeof entry.blockNumber !== "string" ||
-      !QUANTITY.test(entry.blockNumber) ||
-      typeof entry.transactionHash !== "string" ||
-      !HASH.test(entry.transactionHash) ||
-      typeof entry.logIndex !== "string" ||
-      !QUANTITY.test(entry.logIndex)
-    ) {
-      throw new GatewayUnavailableError("eth_getLogs answered a malformed log");
-    }
-    const topics = entry.topics.map((topic: unknown) => {
-      if (typeof topic !== "string") {
-        throw new GatewayUnavailableError("eth_getLogs answered a malformed topic");
-      }
-      return topic;
-    });
-    return {
-      address: entry.address,
-      topics,
-      data: entry.data,
-      blockNumber: BigInt(entry.blockNumber),
-      transactionHash: entry.transactionHash,
-      logIndex: BigInt(entry.logIndex),
-    };
-  });
+  return result.map((entry: unknown) => gatewayLog(entry, "eth_getLogs"));
 }
 
 /** The Paxeer X fork surfaces the gateway probes with `eth_getCode`. */
