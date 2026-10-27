@@ -1,6 +1,8 @@
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::TranslationStatus;
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
@@ -182,6 +184,44 @@ fn registered_gateway(trace: &TraceId) -> GatewayCore {
         .register_adapter(descriptor, trace, 1)
         .unwrap_or_else(|error| panic!("register: {error}"));
     gateway
+}
+
+#[test]
+fn ucp_order_digest_is_the_recorded_receipt_digest() {
+    let case = fixture_case();
+    let submission = submission(&case);
+    let keys = receipt_keys(&case);
+    let signed_receipt = hex(&case["signedReceipt"]);
+    let receipt_digest = array(&case["receiptDigest"]);
+    assert_eq!(
+        canonical_receipt_digest(&signed_receipt),
+        Ok(receipt_digest)
+    );
+    let mut payment = checkout_payment(&case, &submission);
+    let principal = PrincipalId::new("buyer").unwrap_or_else(|error| panic!("principal: {error}"));
+    let trace = TraceId::mint([0x21; 16]);
+    let mut gateway = registered_gateway(&trace);
+    let outcome = UcpAdapter::complete_checkout(
+        &mut gateway,
+        &principal,
+        &submission,
+        &mut payment,
+        &keys,
+        &trace,
+        2,
+    )
+    .unwrap_or_else(|error| panic!("recorded checkout: {error}"));
+    assert_eq!(outcome.status, CheckoutStatus::Completed);
+    let order = outcome.order.unwrap_or_else(|| panic!("missing UCP order"));
+    assert_eq!(
+        Ok(order.receipt_digest),
+        canonical_receipt_digest(&payment.evidence.signed_receipt)
+    );
+    let stored = outcome
+        .stored_order
+        .unwrap_or_else(|| panic!("missing stored order"));
+    assert_eq!(stored.signed_receipt, payment.evidence.signed_receipt);
+    assert_eq!(UcpAdapter::read_order(&stored, &keys), Ok(order));
 }
 
 #[test]
