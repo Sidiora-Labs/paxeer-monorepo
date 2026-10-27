@@ -15,6 +15,97 @@ import (
 
 const ethereumRecordPath = "../tests/fixtures/records/ethereum.json"
 
+func TestCheckReportsAVaultThatDiffers(t *testing.T) {
+	record, err := LoadRecord(ethereumRecordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	raw, err := os.ReadFile(ethereumRecordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ethereum.json"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		env  string
+	}{
+		{"different", "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=0x0000000000000000000000000000000000000001\n"},
+		{"missing", "UNRELATED=value\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			envPath := filepath.Join(t.TempDir(), ".env")
+			if err := os.WriteFile(envPath, []byte(tc.env), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err := Check(envPath, []Record{record})
+			if err == nil || !strings.Contains(err.Error(), "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM") {
+				t.Fatalf("Check must report the vault key: %v", err)
+			}
+			var output bytes.Buffer
+			err = Run([]string{"--check", envPath, dir}, &output)
+			if err == nil || !strings.Contains(err.Error(), "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM") {
+				t.Fatalf("Run --check must report the vault key: %v", err)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("Run --check wrote environment output: %q", output.String())
+			}
+		})
+	}
+}
+
+func TestCheckAcceptsAMatchingEnv(t *testing.T) {
+	var records []Record
+	dir := t.TempDir()
+	for _, name := range []string{"ethereum", "solana"} {
+		path := filepath.Join("../tests/fixtures/records", name+".json")
+		record, err := LoadRecord(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		records = append(records, record)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+".json"), raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, vault := range []string{records[0].Vault, "0x" + strings.ToUpper(records[0].Vault[2:])} {
+		t.Run(vault, func(t *testing.T) {
+			envPath := filepath.Join(t.TempDir(), ".env")
+			env := "# App environment\r\nUNRELATED=some=value\r\n\r\nNEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + vault + "\r\nNEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + records[1].ProgramID
+			if err := os.WriteFile(envPath, []byte(env), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := Check(envPath, records); err != nil {
+				t.Fatalf("Check rejected matching environment: %v", err)
+			}
+			var output bytes.Buffer
+			if err := Run([]string{"--check", envPath, dir}, &output); err != nil {
+				t.Fatalf("Run --check rejected matching environment: %v", err)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("Run --check wrote environment output: %q", output.String())
+			}
+		})
+	}
+	t.Run("program_id_case_is_significant", func(t *testing.T) {
+		envPath := filepath.Join(t.TempDir(), ".env")
+		env := "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + records[0].Vault + "\nNEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + strings.ToLower(records[1].ProgramID) + "\n"
+		if err := os.WriteFile(envPath, []byte(env), 0600); err != nil {
+			t.Fatal(err)
+		}
+		err := Check(envPath, records)
+		if err == nil || !strings.Contains(err.Error(), "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID") {
+			t.Fatalf("Check must reject a changed program ID: %v", err)
+		}
+	})
+}
+
 func recordCopy(t *testing.T, fields map[string]any) string {
 	t.Helper()
 	raw, err := os.ReadFile(ethereumRecordPath)
@@ -86,17 +177,72 @@ func TestEnvLinesFromEVMRecords(t *testing.T) {
 		t.Fatalf("LoadRecord(solana).ProgramID = %q", solana.ProgramID)
 	}
 	records = append(records, solana)
+	want = append(want, "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID="+solana.ProgramID)
 	if got := EnvLines(records); !reflect.DeepEqual(got, want) {
 		t.Fatalf("EnvLines(reversed records) = %q, want registry order %q", got, want)
 	}
-	if got := EnvLines([]Record{records[0]}); len(got) != 1 || got[0] != want[len(want)-1] {
-		t.Fatalf("EnvLines(subset) = %q, want %q", got, want[len(want)-1:])
+	if got := EnvLines([]Record{records[0]}); len(got) != 1 || got[0] != want[len(want)-2] {
+		t.Fatalf("EnvLines(subset) = %q, want %q", got, want[len(want)-2:len(want)-1])
 	}
 	if got := EnvLines(nil); len(got) != 0 {
 		t.Fatalf("EnvLines(nil) = %q, want no variables", got)
 	}
-	if got := EnvLines([]Record{solana}); len(got) != 0 {
-		t.Fatalf("EnvLines(solana) = %q, want no vault variables", got)
+	if got := EnvLines([]Record{solana}); !reflect.DeepEqual(got, want[len(want)-1:]) {
+		t.Fatalf("EnvLines(solana) = %q, want %q", got, want[len(want)-1:])
+	}
+}
+
+func TestSolanaRecordEmitsTheProgramID(t *testing.T) {
+	record, err := LoadRecord("../tests/fixtures/records/solana.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const programID = "A7SZbByPYuHpunZ9pyMDMrhMYvK44ANT1AVqb8U1FpM9"
+	wantRecord := Record{Chain: "solana", ChainID: 91600046870081, Kind: "solana", ProgramID: programID}
+	if record != wantRecord {
+		t.Fatalf("LoadRecord(solana) = %+v, want %+v", record, wantRecord)
+	}
+	want := []string{"NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + programID}
+	if got := EnvLines([]Record{record}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("EnvLines(solana) = %q, want %q", got, want)
+	}
+	evm, err := LoadRecord(ethereumRecordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantMixed := []string{"NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + evm.Vault, want[0]}
+	for _, records := range [][]Record{{record, evm}, {evm, record}} {
+		if got := EnvLines(records); !reflect.DeepEqual(got, wantMixed) {
+			t.Fatalf("EnvLines(%+v) = %q, want EVM lines followed by Solana %q", records, got, wantMixed)
+		}
+	}
+
+	for _, tc := range []struct {
+		name      string
+		programID string
+	}{
+		{"empty", ""},
+		{"non_base58", "0OIl"},
+		{"short", strings.Repeat("1", 31)},
+		{"long", strings.Repeat("1", 33)},
+		{"whitespace", programID + "\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := recordCopy(t, map[string]any{
+				"chain": record.Chain, "chain_id": record.ChainID, "kind": record.Kind,
+				"program_id": tc.programID,
+			})
+			invalid, err := LoadRecord(path)
+			if err == nil {
+				t.Fatalf("LoadRecord accepted program_id %q: %+v", tc.programID, invalid)
+			}
+			if !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "program_id") {
+				t.Fatalf("error must name file %q and program_id: %v", path, err)
+			}
+			if invalid != (Record{}) {
+				t.Fatalf("LoadRecord returned an invalid record: %+v", invalid)
+			}
+		})
 	}
 }
 

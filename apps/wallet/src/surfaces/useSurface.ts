@@ -24,6 +24,10 @@ import {
   type FeeChoiceId,
   type ModuleProvider,
   type ModuleTransaction,
+  sendModuleTransactionReceipted,
+  waitForSequencerReceipt,
+  type SequencerReceiptAnswer,
+  type SequencerRung,
 } from '@paxeer/wallet';
 import { ADDR_PRECOMPILE_ADDRESS } from '@sidiora/layerx-sdk/browser';
 import {
@@ -57,6 +61,7 @@ export type ReceiptStatus = 'pending' | 'confirmed' | 'reverted';
 
 export interface SentTransaction {
   readonly hash: string;
+  readonly rung: SequencerRung;
   readonly status: ReceiptStatus;
   readonly events: readonly SurfaceEvent[];
 }
@@ -95,20 +100,20 @@ function isLog(value: unknown): value is SurfaceLog {
 }
 
 export function receiptEvents(
-  receipt: unknown,
+  receipt: SequencerReceiptAnswer,
   surfaceModule: Pick<SurfaceModule, 'address' | 'decodeEvent'>
 ): SentTransaction['events'] {
-  if (!isRecord(receipt) || !Array.isArray(receipt.logs))
-    throw new Error('the receipt carries no logs');
+  if (!receipt.logs) throw new Error('the receipt carries no logs');
   return receipt.logs
-    .filter(isLog)
-    .filter((log) => log.address.toLowerCase() === surfaceModule.address)
+    .filter((log) => log.address.toLowerCase() === surfaceModule.address.toLowerCase())
     .map((log) => surfaceModule.decodeEvent(log));
 }
 
 export function receiptStatus(receipt: unknown): ReceiptStatus {
-  if (!isRecord(receipt)) return 'pending';
-  return receipt.status === '0x1' ? 'confirmed' : 'reverted';
+  if (!isRecord(receipt) || receipt.status === undefined) return 'pending';
+  if (receipt.status === '0x1') return 'confirmed';
+  if (receipt.status === '0x0') return 'reverted';
+  throw new Error('the receipt carries an invalid status');
 }
 
 export async function waitForReceipt(
@@ -173,30 +178,36 @@ export function useModuleSend(
       setError(null);
       setSent(null);
       try {
+        const submit = async (transaction: ModuleTransaction): Promise<SequencerReceiptAnswer> => {
+          let receipt: SequencerReceiptAnswer | undefined;
+          const direct = async () => {
+            receipt = await sendModuleTransactionReceipted(provider, address, transaction);
+            return receipt.txHash;
+          };
+          const hash = fee ? await fee.submit(transaction, direct) : await direct();
+          if (receipt) return receipt;
+          if (fee?.choice !== 'sid_sponsored')
+            throw new Error('the module send returned no sequencer receipt');
+          return waitForSequencerReceipt(
+            (method, params) => provider.request({ method, params }),
+            hash,
+            { rung: 'receipted' }
+          );
+        };
         const approve = approval ? await approval(address, tx) : undefined;
         if (approve) {
           if (fee?.choice === 'sid_sponsored') throw new Error(SPONSORED_APPROVE_UNSUPPORTED);
           if (alive.current) setApproving(true);
-          const approveHash = fee
-            ? await fee.submit(approve, () => surfaceModule.send(address, approve))
-            : await surfaceModule.send(address, approve);
-          const approved = await waitForReceipt(provider, approveHash);
+          const approved = await submit(approve);
           if (receiptStatus(approved) !== 'confirmed')
-            throw new Error(`the approve ${approveHash} did not confirm`);
+            throw new Error(`the approve ${approved.txHash} did not confirm`);
           if (alive.current) setApproving(false);
         }
-        const hash = fee
-          ? await fee.submit(tx, () => surfaceModule.send(address, tx))
-          : await surfaceModule.send(address, tx);
-        if (alive.current) setSent({ hash, status: 'pending', events: [] });
-        const receipt = await waitForReceipt(provider, hash);
+        const receipt = await submit(tx);
         if (!alive.current) return;
-        if (receipt === null) {
-          setSent({ hash, status: 'pending', events: [] });
-          return;
-        }
         setSent({
-          hash,
+          hash: receipt.txHash,
+          rung: receipt.rung,
           status: receiptStatus(receipt),
           events: receiptEvents(receipt, surfaceModule),
         });
@@ -219,6 +230,7 @@ export interface FeeSelection {
   readonly choice: FeeChoiceId;
   readonly setChoice: (choice: FeeChoiceId) => void;
   readonly feeDenom: string | null;
+  readonly preferenceRung: SequencerRung | null;
   readonly denomError: string | null;
   readonly updating: boolean;
   readonly blocked: string | null;
@@ -295,6 +307,7 @@ export function useFeeSelection(
     setSponsored(value);
   };
   const [feeDenom, setFeeDenom] = useState<string | null>(null);
+  const [preferenceRung, setPreferenceRung] = useState<SequencerRung | null>(null);
   const [denomError, setDenomError] = useState<string | null>(null);
   const [updating, setUpdating] = useState(false);
   const surfaceModule = useMemo(() => (provider ? feeToken(provider) : null), [provider]);
@@ -312,28 +325,33 @@ export function useFeeSelection(
 
   useEffect(() => {
     setFeeDenom(null);
+    setPreferenceRung(null);
     void read();
   }, [read]);
 
-  const applyPreference = useCallback(async () => {
-    if (!surfaceModule || !provider || !address || choice === 'sid_sponsored') return;
-    const tx =
-      choice === 'sid_native'
-        ? surfaceModule.setFeeDenom(SIDIORA_FEE_DENOM)
-        : surfaceModule.clearFeeDenom();
-    setUpdating(true);
-    try {
-      const hash = await surfaceModule.send(address, tx);
-      const receipt = await waitForReceipt(provider, hash);
-      if (receiptStatus(receipt) !== 'confirmed')
-        throw new Error('the fee token preference was not applied');
-      await read();
-    } catch (cause) {
-      setDenomError(errorMessage(cause));
-    } finally {
-      setUpdating(false);
-    }
-  }, [surfaceModule, provider, address, choice, read]);
+  const applyPreference = useCallback(
+    async function applyPreference() {
+      if (!surfaceModule || !provider || !address || choice === 'sid_sponsored') return;
+      const tx =
+        choice === 'sid_native'
+          ? surfaceModule.setFeeDenom(SIDIORA_FEE_DENOM)
+          : surfaceModule.clearFeeDenom();
+      setUpdating(true);
+      setPreferenceRung(null);
+      try {
+        const receipt = await sendModuleTransactionReceipted(provider, address, tx);
+        setPreferenceRung(receipt.rung);
+        if (receiptStatus(receipt) !== 'confirmed')
+          throw new Error('the fee token preference was not applied');
+        await read();
+      } catch (cause) {
+        setDenomError(errorMessage(cause));
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [surfaceModule, provider, address, choice, read]
+  );
 
   const station = useCallback((): GasStationModule => {
     if (!provider || !address || connection.mode !== 'embedded')
@@ -597,6 +615,7 @@ export function useFeeSelection(
     choice,
     setChoice,
     feeDenom,
+    preferenceRung,
     denomError,
     updating,
     blocked,
@@ -846,26 +865,24 @@ export async function readGrantCaps(
     },
     history,
     budgets: [],
-    grants: owned.map(
-      (grant): WalletGrantCap => ({
-        id: grant.grantId.slice(2),
-        owner: grant.from.slice(2),
-        recipient: grant.recipient.slice(2),
-        asset: grant.asset.slice(2),
-        per_draw_maximum: grant.perDrawMaximum.toString(),
-        allowance: grant.allowance.toString(),
-        drawn_total: grant.drawnTotal.toString(),
-        drawn_this_period: grant.drawnThisPeriod.toString(),
-        recurring: grant.recurring,
-        window_length: grant.windowLength.toString(),
-        window_start: grant.windowStart.toString(),
-        expiration: grant.expiration.toString(),
-        revocation_height: grant.revocationSequence.toString(),
-        revoked_at_height: grant.revokedAt.toString(),
-        revoked: grant.revoked,
-        invoice_settled: grant.invoiceSettled,
-      })
-    ),
+    grants: owned.map((grant): WalletGrantCap => ({
+      id: grant.grantId.slice(2),
+      owner: grant.from.slice(2),
+      recipient: grant.recipient.slice(2),
+      asset: grant.asset.slice(2),
+      per_draw_maximum: grant.perDrawMaximum.toString(),
+      allowance: grant.allowance.toString(),
+      drawn_total: grant.drawnTotal.toString(),
+      drawn_this_period: grant.drawnThisPeriod.toString(),
+      recurring: grant.recurring,
+      window_length: grant.windowLength.toString(),
+      window_start: grant.windowStart.toString(),
+      expiration: grant.expiration.toString(),
+      revocation_height: grant.revocationSequence.toString(),
+      revoked_at_height: grant.revokedAt.toString(),
+      revoked: grant.revoked,
+      invoice_settled: grant.invoiceSettled,
+    })),
   };
 }
 

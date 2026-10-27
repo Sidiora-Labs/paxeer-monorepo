@@ -66,11 +66,55 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "Quote":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "amount_in must be a positive base-10 integer", status.Convert(err).Message())
+				data, err := cdc.Marshal(&types.QueryQuoteRequest{Denom: "unknown-market", IsBuy: true, AmountIn: "1000000"})
+				require.NoError(t, err)
+				_, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.ErrorIs(t, err, types.ErrUnknownMarket)
+				var launchpadErr *sdkerrors.Error
+				require.ErrorAs(t, err, &launchpadErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(launchpadErr, false)
+				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
+				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
+			case "PriceHistory":
+				require.ErrorIs(t, err, types.ErrUnknownMarket)
+				require.Equal(t, ": "+types.ErrUnknownMarket.Error(), err.Error())
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
+				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
 			case "MarketByAddress":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
 				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+			case "Markets":
+				require.ErrorIs(t, err, types.ErrInvalidRange)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, types.ErrInvalidRange.Codespace(), codespace)
+				require.Equal(t, types.ErrInvalidRange.ABCICode(), code)
+				data, err := cdc.Marshal(&types.QueryMarketsRequest{Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
+				require.Equal(t, k.GetMarketCount(ctx), result.Total)
+			case "MarketsByCreator":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				creator := sdk.AccAddress([]byte("launchpad creator 01"))
+				data, err := cdc.Marshal(&types.QueryMarketsByCreatorRequest{Creator: creator.String(), Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsByCreatorResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
 			default:
 				require.Equal(t, codes.Unimplemented, status.Code(err))
 				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())

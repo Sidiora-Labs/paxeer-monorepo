@@ -9081,3 +9081,111 @@ area = "spec / task dependencies"
 symptom = "every build of a package fails after a landed deletion task removed types it still imports (9.34.2 removed SDK types still imported by seller/src/checkpoint.ts), and the task that deletes the importer never becomes eligible"
 cause = "the importer is deleted only by a late task (8.22.6 at wave 29) that requires the very package tasks whose builds fail on it, so a requires edge to it deadlocks"
 do = "split the deletion into a dependency-free early task (8.22.7) and make the package tasks require it"
+
+[gotcha.1893]
+area = "Rust gate tests"
+symptom = "a Rust task whose library builds clean fails its verify_cmd `cargo test -p <crate> --no-run` on integration tests outside touches (9.1.7: tests/sdk.rs and tests/offline_export.rs)"
+cause = "`cargo test -p <crate> --no-run` compiles every integration test target of the crate, and those tests/ files still build the public shapes the task renamed"
+do = "a task that renames a crate's public shapes owns and ports the tests/ files that build them and lists them in touches (9.1.7)"
+
+[gotcha.1894]
+area = "kernel / C structs"
+symptom = "binaries and test fixtures stop compiling under -Werror=missing-field-initializers after a trailing struct member is added (1.11.1: lx_asset_runtime.binding_authority, lxp_send_environment.binding_authority)"
+cause = "every positional compound literal of the struct, in the binaries and in 44 test fixtures, lacks an initializer for the new member"
+do = "the task that adds the member greps `(<struct>){` across cmd/, src/ and tests/ and lists every file in touches, or a repair task follows (1.11.4)"
+
+[gotcha.1895]
+area = "Go tests / go generate"
+symptom = "a Go test that depends on a shared object fetched by `go generate` (engine/executor/lib) fails with a nil engine (GigaEvmKeeper.EvmoneVM)"
+cause = "the shared object is untracked and absent, and neither the build_cmd nor the verify_cmd ran the go generate step that downloads it"
+do = "put the go generate step in build_cmd so the gate produces its own input (5.16.4)"
+
+[gotcha.1896]
+area = "spec / task dependencies"
+symptom = "a removal task and the test task whose build links the removed call site both stay ineligible (5.49.2 required 16.23.1)"
+cause = "a requires edge from the task that removes a call site to the test task whose build links that call site deadlocks when the test task also waits on the removal"
+do = "the removal task comes first and the test task requires it (5.49.2 before 16.23.1)"
+
+[gotcha.1897]
+area = "Rust / Cargo.lock"
+symptom = "every later `--locked` cargo build that resolves a crate stops before compiling after a dependency was added to the crate's Cargo.toml (11.2.6: serde_json.workspace = true in services/interop/crates/layerx-committed-proof)"
+cause = "the dependency landed without the Cargo.lock of every workspace that contains the crate (services/interop, services/agent, services/agent/fuzz, services/agent/tests/isolation, tools/platform)"
+do = "land the manifest edit with every containing workspace's Cargo.lock and list those lock files in the task's touches"
+
+[gotcha.1898]
+area = "C build / static archive"
+symptom = "the link of build/liblayerx.a duplicates a symbol (1.4.3: lxp_batch_verify_signature between lxp_batch_seal.o and lxp_batch_header.o)"
+cause = "the archive rule `ar rcsD` (Makefile:203) adds and replaces members but never removes a member whose source left LIB_SOURCES (lxp_batch_seal.o after f2a8c304f)"
+do = "delete build/liblayerx.a before rebuilding when LIB_SOURCES shrinks"
+
+[gotcha.1899]
+area = "code graph / symbols"
+symptom = "a qualified geth name (ethclient.Client) in a symbols list is always `not defined in the graph`"
+cause = ".cgignore:45 (`/core`) excludes core/deps/geth from the code graph"
+do = "bind rpc client tasks by their test function names under rpc/"
+
+[gotcha.1900]
+area = "spec / done evidence"
+symptom = "`cg spec done` refuses a candidate whose build and verify evidence sits at an earlier revision (1.23.3: the fixture repair committed as 041f841c2 after verifying 89b201c0b)"
+cause = "the repair commit was never built or verified at its own revision"
+do = "give a repair commit its own build and verify run within the task's budget"
+
+[gotcha.1901]
+area = "Go modules / error codes"
+symptom = "a registered error wrapped with fmt.Errorf(\"%w: ...\") keeps errors.Is but reaches the gRPC caller as codespace undefined, code 1 (4.4.6: modules/launchpad/keeper/price_history.go:13)"
+cause = "in the Cosmos SDK fork sdkerrors.ABCIInfo follows only the causer interface (sdk/types/errors/abci.go:142-158), which fmt.Errorf %w does not implement"
+do = "wrap a registered error with sdkerrors.Wrap so its codespace and code survive"
+
+[gotcha.1902]
+area = "spec / symbols"
+symptom = "`cg spec done` fails `symbol startLayerxSync — not defined in the graph` although build and tests pass (12.0.3)"
+cause = "the task deletes the symbol, and the gate resolves every listed symbol in the code graph after the change"
+do = "never list a symbol the task deletes in its symbols"
+
+[gotcha.1903]
+area = "rpc / JSON-RPC dispatch"
+symptom = "a retired <namespace>_unsubscribe name (lx_unsubscribe, 7.16.1) answers -32000 instead of -32601 over HTTP and WebSocket"
+cause = "the JSON-RPC library routes every <namespace>_unsubscribe method name to its built-in unsubscribe callback whether or not the namespace is registered"
+do = "refuse retired *_unsubscribe names through the pre-dispatch DenyList of rpc/server.go:336 and :517"
+
+[gotcha.1904]
+area = "rpc / metrics tests"
+symptom = "a test that installs a global meter provider sees no evmrpc_request_latency_seconds point for any method, and about 50 methods called with empty parameters never reach their handler (7.14.6)"
+cause = "the rpc package's metric instruments (rpc/metrics.go:42-43) are bound at package init, before an external test package can install a provider; argument decoding refuses empty parameters before any handler runs"
+do = "swap metrics.requestLatencySeconds through an internal test hook (rpc/info_metric_labels_test.go:22-28) and call each method with minimal valid arguments"
+
+[gotcha.1905]
+area = "Rust / cross-crate shapes"
+symptom = "layerx-indexer and layerx-platform-gateway stop compiling after a change confined to programs/crates/layerx-programs-ai-market/src/queries.rs (13.29.1)"
+cause = "those crates construct the changed query shapes, and the task's touches stayed inside the programs crate"
+do = "pair a query-shape change with a port task for its dependents and a requires edge to it (13.29.1 -> 8.1.5)"
+
+[gotcha.1906]
+area = "C build / static archive"
+symptom = "a freshly built build/liblayerx.a lacks link closure (25 undefined references at 1.4.3 a8) while a pre-existing build directory links, then collides with moved definitions (lxp_batch_verify_signature, 1.11.4 a2)"
+cause = "a source filtered out of LIB_SOURCES (Makefile:41-50) is still referenced by kept members, and `ar rcsD` (Makefile:203) never prunes the stale member that masks it"
+do = "keep LIB_SOURCES link-closed when filtering a source and build the archive from an empty build directory"
+
+[gotcha.1907]
+area = "C build / Makefile tests"
+symptom = "a Makefile verify passes while the library it shapes no longer links"
+cause = "a verify that runs only `make -n` (tools/ci/tests/test_makefile_wave1.py, test_makefile_wave2.py) proves that rules exist or are gone, never that the library links"
+do = "a task that removes sources from LIB_SOURCES links layerxd or another consumer in its gate (16.2.2, 16.0.2 vs 1.4.3 a8, 9.24.1 a6)"
+
+[gotcha.1908]
+area = "C build / archive symbol tests"
+symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
+cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
+do = "pair an archive symbol check with a link of a consumer built from an empty build directory"
+
+[gotcha.1909]
+area = "sdk/baseapp"
+symptom = "A module query error reaches the CLI with codespace sdk and code 18 although the keeper returned a registered module error."
+cause = "gRPCErrorToSDKError (sdk/baseapp/abci.go:646) rewraps every handler error that is not a gRPC status as ErrInvalidRequest before QueryResultWithDebug reads the ABCI info."
+do = "Return an error that already carries a registered codespace (sdkerrors.ABCIInfo codespace other than undefined) unchanged, before the gRPC status mapping (task 15.0.5)."
+
+[gotcha.1910]
+area = "apps/launchpad/mobile"
+symptom = "tsc over the mobile app reports dozens of errors inside react-native globals.d.ts, lib.dom.d.ts and @types/node, or, without the DOM lib, in the launchpad SDK sources."
+cause = "react-native's global declarations overlap the DOM lib the DOM-typed SDK sources need; the conflict sits only in declaration files."
+do = "Keep the default lib and set skipLibCheck true in tsconfig.json as @react-native/typescript-config does; never drop DOM or add a second tsconfig for the tests."
