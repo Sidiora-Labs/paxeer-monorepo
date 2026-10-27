@@ -8,12 +8,12 @@ use std::sync::Arc;
 
 use sha2::{Digest, Sha256};
 
-use crate::{ArchiveCommitment, CheckpointCoordinate, MirrorCursor, NodeHead};
+use crate::{ArchiveCommitment, CommittedCoordinate, MirrorCursor, NodeHead};
 
-const JOURNAL_MAGIC: &[u8; 8] = b"LXMJNL02";
-const HEAD_MAGIC: &[u8; 8] = b"LXMHED02";
-const SPOOL_MAGIC: &[u8; 8] = b"LXMSPL02";
-const RECORD_VERSION: u16 = 2;
+const JOURNAL_MAGIC: &[u8; 8] = b"LXMJNL03";
+const HEAD_MAGIC: &[u8; 8] = b"LXMHED03";
+const SPOOL_MAGIC: &[u8; 8] = b"LXMSPL03";
+const RECORD_VERSION: u16 = 3;
 const MAX_RECORD_BYTES: usize = 512 * 1024;
 const MAX_SIGNED_PAYLOAD_BYTES: usize = 384 * 1024;
 const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
@@ -129,7 +129,7 @@ pub struct PublicationRecord {
     pub chain: MirrorChain,
     pub batch_number: u64,
     pub commitment: ArchiveCommitment,
-    pub checkpoint: Option<CheckpointCoordinate>,
+    pub committed: Option<CommittedCoordinate>,
     pub stage: PublicationStage,
     pub phase: PublicationPhase,
     pub stage_payload_digest: [u8; 32],
@@ -339,7 +339,7 @@ impl PublicationJournal {
     #[must_use]
     pub fn cursor(&self) -> MirrorCursor {
         let mut next = self.first_batch_number;
-        let mut latest_checkpoint = None;
+        let mut latest_committed = None;
         loop {
             let confirmed = self.records.values().find(|record| {
                 record.batch_number == next
@@ -349,8 +349,8 @@ impl PublicationJournal {
             let Some(record) = confirmed else {
                 break;
             };
-            if let Some(checkpoint) = record.checkpoint {
-                latest_checkpoint = Some(checkpoint);
+            if let Some(committed) = record.committed {
+                latest_committed = Some(committed);
             }
             let Some(incremented) = next.checked_add(1) else {
                 break;
@@ -360,7 +360,7 @@ impl PublicationJournal {
         let latest_batch = (next > self.first_batch_number).then_some(next - 1);
         MirrorCursor {
             latest_batch,
-            latest_checkpoint,
+            latest_committed,
         }
     }
 
@@ -386,7 +386,7 @@ pub struct ArchiveSpool {
 impl ArchiveSpool {
     ///
     /// # Errors
-    /// Returns an error if the directory or lock cannot be opened or the spool is already locked.
+    /// Returns an error for an invalid stored object, filesystem failure or an already locked spool.
     pub fn open(directory: impl Into<PathBuf>) -> Result<Self, StoreError> {
         let directory = directory.into();
         fs::create_dir_all(&directory).map_err(StoreError::Io)?;
@@ -398,10 +398,14 @@ impl ArchiveSpool {
             .open(directory.join(".spool.lock"))
             .map_err(StoreError::Io)?;
         lock.try_lock().map_err(|_| StoreError::Conflict)?;
-        Ok(Self {
+        let spool = Self {
             directory,
             _lock: Arc::new(lock),
-        })
+        };
+        for commitment in spool.commitments()? {
+            spool.get(commitment)?;
+        }
+        Ok(spool)
     }
 
     /// Writes once by commitment using temp-file sync and atomic rename. An
@@ -534,7 +538,7 @@ fn validate_transition(
     if previous.chain != next.chain
         || previous.batch_number != next.batch_number
         || previous.commitment != next.commitment
-        || previous.checkpoint != next.checkpoint
+        || previous.committed != next.committed
         || previous.stage != next.stage
         || previous.stage_payload_digest != next.stage_payload_digest
     {
@@ -707,7 +711,7 @@ fn encode_record(record: &PublicationRecord) -> Result<Vec<u8>, StoreError> {
     bytes.push(record.chain.tag());
     bytes.extend_from_slice(&record.batch_number.to_be_bytes());
     bytes.extend_from_slice(record.commitment.as_bytes());
-    encode_checkpoint(&mut bytes, record.checkpoint);
+    encode_committed(&mut bytes, record.committed);
     match record.stage {
         PublicationStage::Manifest => bytes.push(1),
         PublicationStage::Chunk(index) => {
@@ -735,7 +739,7 @@ fn decode_record(bytes: &[u8]) -> Result<PublicationRecord, StoreError> {
     let chain = MirrorChain::from_tag(reader.u8()?)?;
     let batch_number = reader.u64()?;
     let commitment = ArchiveCommitment::from_bytes(reader.array()?);
-    let checkpoint = decode_checkpoint(&mut reader)?;
+    let committed = decode_committed(&mut reader)?;
     let stage = match reader.u8()? {
         1 => PublicationStage::Manifest,
         2 => PublicationStage::Chunk(reader.u32()?),
@@ -752,7 +756,7 @@ fn decode_record(bytes: &[u8]) -> Result<PublicationRecord, StoreError> {
         chain,
         batch_number,
         commitment,
-        checkpoint,
+        committed,
         stage,
         phase,
         stage_payload_digest,
@@ -764,22 +768,22 @@ fn decode_record(bytes: &[u8]) -> Result<PublicationRecord, StoreError> {
     Ok(record)
 }
 
-fn encode_checkpoint(output: &mut Vec<u8>, value: Option<CheckpointCoordinate>) {
+fn encode_committed(output: &mut Vec<u8>, value: Option<CommittedCoordinate>) {
     if let Some(value) = value {
         output.push(1);
-        output.extend_from_slice(&value.batch_number.to_be_bytes());
-        output.extend_from_slice(&value.checkpoint_id);
+        output.extend_from_slice(&value.height.to_be_bytes());
+        output.extend_from_slice(&value.block_hash);
     } else {
         output.push(0);
     }
 }
 
-fn decode_checkpoint(reader: &mut Reader<'_>) -> Result<Option<CheckpointCoordinate>, StoreError> {
+fn decode_committed(reader: &mut Reader<'_>) -> Result<Option<CommittedCoordinate>, StoreError> {
     match reader.u8()? {
         0 => Ok(None),
-        1 => Ok(Some(CheckpointCoordinate {
-            batch_number: reader.u64()?,
-            checkpoint_id: reader.array()?,
+        1 => Ok(Some(CommittedCoordinate {
+            height: reader.u64()?,
+            block_hash: reader.array()?,
         })),
         _ => Err(StoreError::Corrupt),
     }
@@ -887,8 +891,8 @@ fn write_head(directory: &Path, path: &Path, head: JournalHead) -> Result<(), St
 fn encode_spool(bytes: &[u8], head: NodeHead) -> Result<Vec<u8>, StoreError> {
     let mut output = Vec::with_capacity(96 + bytes.len());
     output.extend_from_slice(SPOOL_MAGIC);
-    output.extend_from_slice(&head.latest_sealed_batch.to_be_bytes());
-    encode_checkpoint(&mut output, head.latest_finalised_checkpoint);
+    output.extend_from_slice(&head.sealed_height().to_be_bytes());
+    encode_committed(&mut output, head.latest_committed);
     push_bytes(&mut output, bytes, MAX_ARCHIVE_BYTES)?;
     let digest: [u8; 32] = Sha256::digest(&output).into();
     output.extend_from_slice(&digest);
@@ -908,8 +912,8 @@ fn decode_spool(bytes: &[u8], commitment: ArchiveCommitment) -> Result<SpooledAr
     if reader.take(8)? != SPOOL_MAGIC {
         return Err(StoreError::Corrupt);
     }
-    let latest_sealed_batch = reader.u64()?;
-    let latest_finalised_checkpoint = decode_checkpoint(&mut reader)?;
+    let sealed_height = reader.u64()?;
+    let committed = decode_committed(&mut reader)?;
     let archive = reader.bytes(MAX_ARCHIVE_BYTES)?.to_vec();
     reader.finish()?;
     if crate::archive_commitment(&archive) != commitment {
@@ -917,10 +921,7 @@ fn decode_spool(bytes: &[u8], commitment: ArchiveCommitment) -> Result<SpooledAr
     }
     Ok(SpooledArchive {
         bytes: archive,
-        node_head: NodeHead {
-            latest_sealed_batch,
-            latest_finalised_checkpoint,
-        },
+        node_head: NodeHead::new(sealed_height, committed),
     })
 }
 

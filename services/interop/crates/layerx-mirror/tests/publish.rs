@@ -2,7 +2,7 @@
 // Ethereum and Solana test networks, including stall and reorg scenarios.
 //
 // The archives are built exclusively from the node boundary types
-// (VerifiedRead<BatchValue> and a fully verified AvailabilityResult), the
+// (an authorized batch and complete proof-gated availability chunks), the
 // Publisher drives the real chain-boundary traits, and the two networks are
 // genuine in-memory ledgers that store and return the exact archive bytes by
 // commitment. Only the external L1s are simulated; every LayerX code path -
@@ -13,10 +13,9 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use layerx_client::availability::AvailabilityResult;
 use layerx_mirror::{
     Archive, ArchiveCommitment, ArchiveData, BatchAuthorization, ChainFailure, ChainPosition,
-    CheckpointCoordinate, CheckpointFreshness, ConfigError, EthereumArchiveClient,
+    CommittedCoordinate, CommittedFreshness, ConfigError, EthereumArchiveClient,
     EthereumArchiveWrite, EthereumConfig, EthereumObservation, EthereumSubmission,
     GenericPublisher, MirrorDegradation, MirrorState, NodeBatch, NodeHead, PublicationId,
     RetrievalState, SignedHeaderTrust, SolanaArchiveClient, SolanaArchiveWrite, SolanaConfig,
@@ -171,19 +170,17 @@ fn build_archive(batch_number: u64, node_head: NodeHead) -> Archive {
     };
     let (records, _) = reassemble(&verified, roots)
         .unwrap_or_else(|error| panic!("canonical native record streams: {error:?}"));
-    let availability =
-        AvailabilityResult::from_verified("native-da-store".to_owned(), verified, records, roots)
-            .unwrap_or_else(|error| {
-                panic!("complete authenticated native availability: {error:?}")
-            });
-    Archive::from_node(&batch, &availability, None, node_head)
+    records
+        .verify(&verified, roots)
+        .unwrap_or_else(|error| panic!("complete authenticated native availability: {error:?}"));
+    Archive::from_node(&batch, &verified, None, node_head)
         .unwrap_or_else(|error| panic!("archive assembly failed: {error:?}"))
 }
 
 fn sealed_head(batch_number: u64) -> NodeHead {
     NodeHead {
         latest_sealed_batch: batch_number,
-        latest_finalised_checkpoint: None,
+        latest_committed: None,
     }
 }
 
@@ -214,7 +211,7 @@ struct EthAppend {
     commitment: ArchiveCommitment,
     network_id: u32,
     batch_number: u64,
-    checkpoint: Option<CheckpointCoordinate>,
+    checkpoint: Option<CommittedCoordinate>,
     archive: Vec<u8>,
 }
 
@@ -393,7 +390,7 @@ struct SolAppend {
     commitment: ArchiveCommitment,
     network_id: u32,
     batch_number: u64,
-    checkpoint: Option<CheckpointCoordinate>,
+    checkpoint: Option<CommittedCoordinate>,
     archive: Vec<u8>,
 }
 
@@ -980,33 +977,32 @@ fn retrieval_reports_missing_tampered_and_unavailable_mirrors() {
 }
 
 #[test]
-fn freshness_states_checkpoint_lag_honestly() {
-    // The node has no finalised checkpoint yet: the mirror says so rather than
-    // implying a checkpoint is mirrored.
-    let no_checkpoint = build_archive(5, sealed_head(5));
+fn freshness_states_committed_lag_honestly() {
+    // The node has no committed block yet, so the mirror reports its absence.
+    let no_committed = build_archive(5, sealed_head(5));
     let ethereum = Ethereum::new();
     let solana = Solana::new();
     ethereum.confirmed(REQUIRED_CONFIRMATIONS);
     solana.confirmed(REQUIRED_ROOTED_SLOTS);
     let mut publisher = new_publisher(&ethereum, &solana);
-    let report = publisher.publish(&no_checkpoint);
+    let report = publisher.publish(&no_committed);
     assert_eq!(
-        report.ethereum.freshness().checkpoint,
-        CheckpointFreshness::NodeHasNoCheckpoint
+        report.ethereum.freshness().committed,
+        CommittedFreshness::NodeHasNoCommittedBlock
     );
-    assert_eq!(report.ethereum.freshness().latest_checkpoint_mirrored, None);
+    assert_eq!(report.ethereum.freshness().latest_committed_mirrored, None);
 
-    // The node has finalised a checkpoint but no checkpoint-bearing archive has
-    // been mirrored yet: the mirror reports the target it must still reach.
-    let coordinate = CheckpointCoordinate {
-        batch_number: 5,
-        checkpoint_id: [0x7C; 32],
+    // The node has committed a block but its archive has not been mirrored yet:
+    // the mirror reports the target it must still reach.
+    let coordinate = CommittedCoordinate {
+        height: 5,
+        block_hash: [0x7C; 32],
     };
     let awaiting = build_archive(
         5,
         NodeHead {
             latest_sealed_batch: 5,
-            latest_finalised_checkpoint: Some(coordinate),
+            latest_committed: Some(coordinate),
         },
     );
     let fresh_eth = Ethereum::new();
@@ -1016,14 +1012,14 @@ fn freshness_states_checkpoint_lag_honestly() {
     let mut second = new_publisher(&fresh_eth, &fresh_sol);
     let report = second.publish(&awaiting);
     assert_eq!(
-        report.ethereum.freshness().checkpoint,
-        CheckpointFreshness::NotYetMirrored { target_batch: 5 }
+        report.ethereum.freshness().committed,
+        CommittedFreshness::NotYetMirrored { target_height: 5 }
     );
     assert_eq!(
-        report.ethereum.freshness().node_latest_finalised_checkpoint,
+        report.ethereum.freshness().node_latest_committed,
         Some(coordinate)
     );
-    assert_eq!(report.ethereum.freshness().latest_checkpoint_mirrored, None);
+    assert_eq!(report.ethereum.freshness().latest_committed_mirrored, None);
 }
 
 #[test]

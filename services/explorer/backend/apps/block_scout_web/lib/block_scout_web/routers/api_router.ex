@@ -190,6 +190,7 @@ defmodule BlockScoutWeb.Routers.ApiRouter do
       get("/:transaction_hash_param/state-changes", V2.TransactionController, :state_changes)
       get("/:transaction_hash_param/summary", V2.TransactionController, :summary)
       get("/:transaction_hash_param/status", V2.PaxeerX.TransactionStatusController, :status)
+      get("/:transaction_hash_param/signature", V2.PaxeerX.TransactionSignatureController, :signature)
 
       chain_scope :neon do
         get("/:transaction_hash_param/external-transactions", V2.TransactionController, :external_transactions)
@@ -271,6 +272,9 @@ defmodule BlockScoutWeb.Routers.ApiRouter do
     end
 
     scope "/paxeer-x" do
+      get("/archive/anchors", V2.PaxeerX.ArchiveController, :anchors)
+      get("/archive/receipts", V2.PaxeerX.ArchiveController, :receipts)
+      get("/archive/receipts/:id", V2.PaxeerX.ArchiveController, :receipt)
       get("/capabilities", V2.PaxeerX.CapabilitiesController, :capabilities)
       get("/anchors", V2.PaxeerX.AnchorController, :anchors)
       get("/receipts", V2.PaxeerX.ReceiptController, :receipts)

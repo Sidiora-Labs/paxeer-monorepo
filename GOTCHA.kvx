@@ -9057,3 +9057,285 @@ area = "spec"
 symptom = "`cg spec done` refuses a task symbol as not defined in the graph although the method exists (layerx-gas-station Service::report)"
 cause = "symbols of a task list declarations the graph indexes; a method of a generic `impl<...>` block was refused while methods of concrete impls in the same crate pass"
 do = "name the task's test function or a concrete declaration instead (11.23.3)"
+
+[gotcha.1889]
+area = "kernel / Makefile"
+symptom = "a kernel test links a duplicate lxp_batch_verify_signature (or an lxp_batch_sign) although the sources define it once and lxp_batch_seal.c is no longer in LIB_SOURCES"
+cause = "a reused build/liblayerx.a still carries members of object files dropped from LIB_SOURCES (lxp_batch_seal.o supplied lxp_batch_sign and an old lxp_batch_verify_signature)"
+do = "treat a clean archive as the authority: a duplicate-symbol link error after a Makefile source change means a stale member, not a second definition in the sources (1.15.1)"
+
+[gotcha.1890]
+area = "kernel tests"
+symptom = "a test encoding several activities into one arena fails lxp_activity_encode(...) == LXP_OK after a few encodes"
+cause = "lxp_activity_encode takes a full LXP_MAX_ACTIVITY_BYTES (1 MiB) writer from the arena it is given on every call and does not return it (src/protocol/lxp_activity.c:36)"
+do = "give a test encoding N activities N MiB of arena or a scratch arena reset per activity (1.4.3)"
+
+[gotcha.1891]
+area = "Rust gate tests"
+symptom = "a kept gate test that reads its input file from an environment variable (tests/committed_caps.rs:9, LAYERX_CAPS_VECTORS) fails under its declared verify_cmd although it passed when the input was prepared by hand"
+cause = "neither the build_cmd nor the verify_cmd produced the file or exported the variable, so the test only passed in a hand-prepared environment"
+do = "declare the producer in the gate: the build_cmd produces the file and the verify_cmd exports the variable, instead of relying on a hand-prepared environment (9.24.1)"
+
+[gotcha.1892]
+area = "spec / task dependencies"
+symptom = "every build of a package fails after a landed deletion task removed types it still imports (9.34.2 removed SDK types still imported by seller/src/checkpoint.ts), and the task that deletes the importer never becomes eligible"
+cause = "the importer is deleted only by a late task (8.22.6 at wave 29) that requires the very package tasks whose builds fail on it, so a requires edge to it deadlocks"
+do = "split the deletion into a dependency-free early task (8.22.7) and make the package tasks require it"
+
+[gotcha.1893]
+area = "Rust gate tests"
+symptom = "a Rust task whose library builds clean fails its verify_cmd `cargo test -p <crate> --no-run` on integration tests outside touches (9.1.7: tests/sdk.rs and tests/offline_export.rs)"
+cause = "`cargo test -p <crate> --no-run` compiles every integration test target of the crate, and those tests/ files still build the public shapes the task renamed"
+do = "a task that renames a crate's public shapes owns and ports the tests/ files that build them and lists them in touches (9.1.7)"
+
+[gotcha.1894]
+area = "kernel / C structs"
+symptom = "binaries and test fixtures stop compiling under -Werror=missing-field-initializers after a trailing struct member is added (1.11.1: lx_asset_runtime.binding_authority, lxp_send_environment.binding_authority)"
+cause = "every positional compound literal of the struct, in the binaries and in 44 test fixtures, lacks an initializer for the new member"
+do = "the task that adds the member greps `(<struct>){` across cmd/, src/ and tests/ and lists every file in touches, or a repair task follows (1.11.4)"
+
+[gotcha.1895]
+area = "Go tests / go generate"
+symptom = "a Go test that depends on a shared object fetched by `go generate` (engine/executor/lib) fails with a nil engine (GigaEvmKeeper.EvmoneVM)"
+cause = "the shared object is untracked and absent, and neither the build_cmd nor the verify_cmd ran the go generate step that downloads it"
+do = "put the go generate step in build_cmd so the gate produces its own input (5.16.4)"
+
+[gotcha.1896]
+area = "spec / task dependencies"
+symptom = "a removal task and the test task whose build links the removed call site both stay ineligible (5.49.2 required 16.23.1)"
+cause = "a requires edge from the task that removes a call site to the test task whose build links that call site deadlocks when the test task also waits on the removal"
+do = "the removal task comes first and the test task requires it (5.49.2 before 16.23.1)"
+
+[gotcha.1897]
+area = "Rust / Cargo.lock"
+symptom = "every later `--locked` cargo build that resolves a crate stops before compiling after a dependency was added to the crate's Cargo.toml (11.2.6: serde_json.workspace = true in services/interop/crates/layerx-committed-proof)"
+cause = "the dependency landed without the Cargo.lock of every workspace that contains the crate (services/interop, services/agent, services/agent/fuzz, services/agent/tests/isolation, tools/platform)"
+do = "land the manifest edit with every containing workspace's Cargo.lock and list those lock files in the task's touches"
+
+[gotcha.1898]
+area = "C build / static archive"
+symptom = "the link of build/liblayerx.a duplicates a symbol (1.4.3: lxp_batch_verify_signature between lxp_batch_seal.o and lxp_batch_header.o)"
+cause = "the archive rule `ar rcsD` (Makefile:203) adds and replaces members but never removes a member whose source left LIB_SOURCES (lxp_batch_seal.o after f2a8c304f)"
+do = "delete build/liblayerx.a before rebuilding when LIB_SOURCES shrinks"
+
+[gotcha.1899]
+area = "code graph / symbols"
+symptom = "a qualified geth name (ethclient.Client) in a symbols list is always `not defined in the graph`"
+cause = ".cgignore:45 (`/core`) excludes core/deps/geth from the code graph"
+do = "bind rpc client tasks by their test function names under rpc/"
+
+[gotcha.1900]
+area = "spec / done evidence"
+symptom = "`cg spec done` refuses a candidate whose build and verify evidence sits at an earlier revision (1.23.3: the fixture repair committed as 041f841c2 after verifying 89b201c0b)"
+cause = "the repair commit was never built or verified at its own revision"
+do = "give a repair commit its own build and verify run within the task's budget"
+
+[gotcha.1901]
+area = "Go modules / error codes"
+symptom = "a registered error wrapped with fmt.Errorf(\"%w: ...\") keeps errors.Is but reaches the gRPC caller as codespace undefined, code 1 (4.4.6: modules/launchpad/keeper/price_history.go:13)"
+cause = "in the Cosmos SDK fork sdkerrors.ABCIInfo follows only the causer interface (sdk/types/errors/abci.go:142-158), which fmt.Errorf %w does not implement"
+do = "wrap a registered error with sdkerrors.Wrap so its codespace and code survive"
+
+[gotcha.1902]
+area = "spec / symbols"
+symptom = "`cg spec done` fails `symbol startLayerxSync — not defined in the graph` although build and tests pass (12.0.3)"
+cause = "the task deletes the symbol, and the gate resolves every listed symbol in the code graph after the change"
+do = "never list a symbol the task deletes in its symbols"
+
+[gotcha.1903]
+area = "rpc / JSON-RPC dispatch"
+symptom = "a retired <namespace>_unsubscribe name (lx_unsubscribe, 7.16.1) answers -32000 instead of -32601 over HTTP and WebSocket"
+cause = "the JSON-RPC library routes every <namespace>_unsubscribe method name to its built-in unsubscribe callback whether or not the namespace is registered"
+do = "refuse retired *_unsubscribe names through the pre-dispatch DenyList of rpc/server.go:336 and :517"
+
+[gotcha.1904]
+area = "rpc / metrics tests"
+symptom = "a test that installs a global meter provider sees no evmrpc_request_latency_seconds point for any method, and about 50 methods called with empty parameters never reach their handler (7.14.6)"
+cause = "the rpc package's metric instruments (rpc/metrics.go:42-43) are bound at package init, before an external test package can install a provider; argument decoding refuses empty parameters before any handler runs"
+do = "swap metrics.requestLatencySeconds through an internal test hook (rpc/info_metric_labels_test.go:22-28) and call each method with minimal valid arguments"
+
+[gotcha.1905]
+area = "Rust / cross-crate shapes"
+symptom = "layerx-indexer and layerx-platform-gateway stop compiling after a change confined to programs/crates/layerx-programs-ai-market/src/queries.rs (13.29.1)"
+cause = "those crates construct the changed query shapes, and the task's touches stayed inside the programs crate"
+do = "pair a query-shape change with a port task for its dependents and a requires edge to it (13.29.1 -> 8.1.5)"
+
+[gotcha.1906]
+area = "C build / static archive"
+symptom = "a freshly built build/liblayerx.a lacks link closure (25 undefined references at 1.4.3 a8) while a pre-existing build directory links, then collides with moved definitions (lxp_batch_verify_signature, 1.11.4 a2)"
+cause = "a source filtered out of LIB_SOURCES (Makefile:41-50) is still referenced by kept members, and `ar rcsD` (Makefile:203) never prunes the stale member that masks it"
+do = "keep LIB_SOURCES link-closed when filtering a source and build the archive from an empty build directory"
+
+[gotcha.1907]
+area = "C build / Makefile tests"
+symptom = "a Makefile verify passes while the library it shapes no longer links"
+cause = "a verify that runs only `make -n` (tools/ci/tests/test_makefile_wave1.py, test_makefile_wave2.py) proves that rules exist or are gone, never that the library links"
+do = "a task that removes sources from LIB_SOURCES links layerxd or another consumer in its gate (16.2.2, 16.0.2 vs 1.4.3 a8, 9.24.1 a6)"
+
+[gotcha.1908]
+area = "C build / archive symbol tests"
+symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
+cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
+do = "pair an archive symbol check with a link of a consumer built from an empty build directory"
+
+[gotcha.1909]
+area = "sdk/baseapp"
+symptom = "A module query error reaches the CLI with codespace sdk and code 18 although the keeper returned a registered module error."
+cause = "gRPCErrorToSDKError (sdk/baseapp/abci.go:646) rewraps every handler error that is not a gRPC status as ErrInvalidRequest before QueryResultWithDebug reads the ABCI info."
+do = "Return an error that already carries a registered codespace (sdkerrors.ABCIInfo codespace other than undefined) unchanged, before the gRPC status mapping (task 15.0.5)."
+
+[gotcha.1910]
+area = "apps/launchpad/mobile"
+symptom = "tsc over the mobile app reports dozens of errors inside react-native globals.d.ts, lib.dom.d.ts and @types/node, or, without the DOM lib, in the launchpad SDK sources."
+cause = "react-native's global declarations overlap the DOM lib the DOM-typed SDK sources need; the conflict sits only in declaration files."
+do = "Keep the default lib and set skipLibCheck true in tsconfig.json as @react-native/typescript-config does; never drop DOM or add a second tsconfig for the tests."
+
+[gotcha.1911]
+area = "spec task symbols"
+symptom = "cg spec done reports N graph check(s) failed — symbol X not defined in the graph — although verify_cmd passed"
+cause = "symbols named things the code graph never indexes (Elixir modules and functions, ExUnit test names, env vars, Makefile variables, Python Class.method paths, script or file names, metric strings) or definitions the task itself deletes"
+do = "list in symbols only functions, methods, types, macros and test functions, by bare name, that exist after the change in a language the graph parses (C, Go, Rust, TypeScript, Python, Solidity); Elixir tasks use symbols = []; test names belong in tests; a deletion task lists only what it keeps or rewrites"
+
+[gotcha.1912]
+area = "kernel C structs"
+symptom = "-Werror=missing-field-initializers refuses the lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor after the struct gained a member"
+cause = "positional compound literals stop at the old last member; the task that appended the member built only its own test"
+do = "a task that appends a struct member updates every positional literal of that struct in the same change (grep for `(type){`) or names the task that will"
+
+[gotcha.1913]
+area = "launchpad gRPC queries"
+symptom = "a Query handler test panics `invalid Go type types.Int for field ...Response.<field>` although the handler returns the right value"
+cause = "sdk/baseapp/grpcrouter.go:100 marshals query responses with the grpc default proto codec, which cannot reflect a top-level non-pointer gogoproto customtype Int field; nested messages go through the gogo Marshal method and pass"
+do = "declare top-level amounts in query responses as plain decimal strings (wire and JSON unchanged) or nest them in a message"
+
+[gotcha.1914]
+area = "launchpad mobile tests"
+symptom = "vitest fails `Cannot find module './validators-v1.gen.js'` from sdk/launchpad/packages/sdk/src/validate.ts even after the SDK build"
+cause = "compile-validators.mjs emits the generated validator modules only into dist/; the repository tracks only their .d.ts declarations, so importing the SDK from src finds no runtime module"
+do = "alias the three ./validators-*.gen.js specifiers to the built dist files in the consumer's vitest config and build sdk-v2 then sdk before the test"
+
+[gotcha.1915]
+area = "kernel activity envelope"
+symptom = "every HostExecute from a keeper is refused LXP_ERR_MALFORMED_ENVELOPE and the refusal receipt carries code 0"
+cause = "the activity's NotBefore/NotAfter bound was wider than the admission window (src/sequencer/lxp_admission.c:13-15), or AccountSequence was set to identity sequence + 1 although the host already stores the next admitted sequence"
+do = "set NotBefore = block time, NotAfter = block time + TimestampWindowMs and AccountSequence = ReadIdentitySequence unchanged"
+
+[gotcha.1916]
+area = "kernel module custody"
+symptom = "an unsigned bound escrow, budget or stream activity is refused LXP_ERR_BAD_SIGNATURE at execution although admission accepted it"
+cause = "lxp_ctx_account_stage_module_custody (src/protocol/lxp_module_ctx.c:895) verifies the activity signature unconditionally; only the asset issuance and account staging calls honour the asset runtime's binding_authority"
+do = "read ctx->kernel->module_runtime[LXP_MODULE_ASSET] and skip only the signature check when binding_authority is set (task 1.11.6)"
+
+[gotcha.1917]
+area = "kernel authority grants"
+symptom = "every fee-bearing session or capability grant is refused LXP_ERR_AUTH_SCOPE although its fee asset is the governed occupancy asset"
+cause = "grant_scope_validate (src/modules/governance/lxp_governance.c:480) compares the fee asset with the static runtime->occupancy_asset_id, which no node fills; the charge path resolves the asset through resolve_occupancy_parameters instead"
+do = "resolve the governed asset through the runtime resolver (version 0 is the active record) as src/state/lxp_authority.c:1041-1047 does (task 1.14.6)"
+
+[gotcha.1918]
+area = "kernel budget module"
+symptom = "after a budget defund the per-period limit read back is lower than the limit the budget was created with"
+cause = "lx_budget_defund_limit (src/modules/budget/lx_budget_close.c:62-82) lowers per_period_limit to spent_this_period plus the resulting balance whenever the remaining allowance exceeds the post-defund balance"
+do = "expect limit = spent + balance after a defund that leaves less than the remaining allowance; do not assert the creation limit"
+
+[gotcha.1919]
+area = "Makefile CI tests"
+symptom = "test_aggregates_dry_run_clean reports a retired member in a compile or archive line under build-repro-a/, build-repro-b/ or build/<sanitizer>/"
+cause = "the aggregate dry run recurses into the reproducible (Makefile:220-225) and sanitizer (Makefile:1588-1596) build directories, which relink the same members"
+do = "classify library lines with a pattern that accepts the build, build-repro-[ab] and build/(crypto-)?(a|t|ub)san prefixes before asserting retired substrings"
+
+[gotcha.1920]
+area = "cosmos module errors"
+symptom = "a gRPC query that returns a registered module error reaches the client as code 3 InvalidArgument instead of the module code"
+cause = "sdkerrors.ABCIInfo (sdk/types/errors/abci.go:117-160) unwraps through Cause() only; an fmt.Errorf %w wrap has no Cause(), so gRPCErrorToSDKError (sdk/baseapp/abci.go:645-652) rewraps the error as ErrInvalidRequest"
+do = "wrap registered errors with a type that implements both Unwrap() and Cause(), or return the registered error itself"
+
+[gotcha.1921]
+area = "TypeScript workspace typecheck"
+symptom = "apps/web typecheck fails TS2412 inside sdk/wallet/src/index.ts although sdk/wallet's own typecheck passes"
+cause = "apps/web compiles the wallet SDK source with exactOptionalPropertyTypes (apps/web/tsconfig.json:16), which refuses assigning a possibly undefined value to an optional field, and sdk/wallet's tsconfig does not set it"
+do = "assign optional fields only inside a presence check in SDK sources that apps/web compiles, and typecheck through apps/web before qualifying a wallet SDK change"
+
+[gotcha.1922]
+area = "explorer indexer ABI conformance"
+symptom = "kept_topics_match_precompile_abis reports a launchpad topic absent from precompiles/launchpad/abi.json although the indexer decodes it from chain logs"
+cause = "precompiles/launchpad/abi.json is the v6.12.0 surface; the indexer's launchpad definitions are the v6.10 events of precompiles/launchpad/legacy/v610/abi.json, and precompiles/launchpad/setup.go:11-18 serves both versions at 0x…1017"
+do = "compare launchpad topics against the union of the two served ABI files, and add v6.12.0 definitions in their own task"
+
+[gotcha.1923]
+area = "agent crates settlement document"
+symptom = "a layerx-sdk or layerx-client test that verifies a checkpoint certificate fails Verification although the vector is unchanged"
+cause = "layerx-proof embeds contracts/config/checkpoint-settlement.json via include_str! and b284707f6 replaced that document with an unrelated offline_export map, so every certificate verification returns Configuration; the whole path is retired (req.6496 ac_3, 9.27.4)"
+do = "do not restore the document; retire the certificate callers top-down (client and SDK before layerx-proof) and gate SDK tasks on that retirement"
+
+[gotcha.1924]
+area = "spec retirement ordering"
+symptom = "a module deletion task is scheduled in an earlier wave than the tasks that remove its callers, so the wave would not compile"
+cause = "the deletion task's requires list names the tasks that produced the replacement, not the tasks that remove the remaining consumers"
+do = "before scheduling a deletion, grep every consumer of the deleted symbols and add a requires edge to each consumer's remover; a consumer with no remover is a finding"
+
+[gotcha.1925]
+area = "explorer indexer market events"
+symptom = "adding a launchpad definition to PaxeerXLogs makes market_event_test.exs fail although the new rows parse"
+cause = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs:138-145 asserts that @market_signatures equals the launchpad definitions' signatures exactly"
+do = "extend the @market_signatures launchpad list in the same change as the definitions"
+
+[gotcha.1926]
+area = "rust-crates"
+symptom = "a dependant crate fails E0432 on `use <crate>::<module>` for a module the crate just added"
+cause = "the module was declared inside a private parent module and never re-exported from lib.rs, and the crate's own tests reach it through the parent"
+do = "when a task adds a module under a private parent, also add it to the crate root's `pub use` line, and list lib.rs in touches"
+
+[gotcha.1927]
+area = "kernel-programs"
+symptom = "a scheduler-width test over LX_PROGRAMS_CALL items never sees maximum_level 0 (every item lands in one chain)"
+cause = "under the OCCUPANCY and STATE_COMMITMENT protocol versions lxp_programs_call_schedule_item_prepare adds a write on the shared occupancy fee treasury to every CALL item (src/modules/programs/call.c:2569-2585)"
+do = "build width tests with LXP_PROTOCOL_VERSION_LEGACY items, or assert equality without a level-0 precondition when occupancy semantics are the subject"
+
+[gotcha.1928]
+area = "spec/layerx-merge/programme"
+symptom = "test_wave_<n>_gate fails with run-wave exit=2 and only the pytest assertion in the verify log"
+cause = "run_gate.py writes its stage logs to a mktemp directory and the test's wave-<n>.log under logs/waves/<n>/, neither of which the verify output quotes"
+do = "Read logs/waves/<n>/wave-<n>.log from the tree that ran the gate before classing the failure; the dry-run stage passing means a workspace-build, lint or test stage failed"
+
+[gotcha.1929]
+area = "spec-tooling"
+symptom = "A verify_cmd that quotes an environment value with escaped double quotes passes by hand and fails under cg spec done with a NotFound or is_file panic on the quoted path."
+cause = "The kvx reader keeps the backslash escapes (gotcha.111), so the quote characters become part of the value."
+do = "Write verify_cmd environment assignments without quotes; the repository paths contain no spaces, and $PWD and ${VAR:-default} expand unquoted."
+
+[gotcha.1930]
+area = "sig-provider"
+symptom = "cargo check --all-targets -p sig-provider-server fails with missing field precompiles in the SourcesSettings initializer in tests/mock.rs"
+cause = "a settings field added with a Default impl is not picked up by a struct literal in a test; the crate's own unit tests compile without --all-targets"
+do = "when adding a field to SourcesSettings, update tests/mock.rs and run cargo check --all-targets for sig-provider-server"
+
+[gotcha.1931]
+area = "precompiles/layerxpay"
+symptom = "a 0x101B family handler file compiles and its unit tests pass, yet the precompile emits no family event and constant views revert LXP_NON_CANONICAL"
+cause = "Executor.Execute and Executor.view in layerxpay.go dispatch by family only where a hook exists; a new family file is dead code until its methods are routed there"
+do = "every family task owns the hook lines in layerxpay.go as well as its family file, and the edits to layerxpay.go are serialised through requires"
+
+[gotcha.1932]
+area = "local node"
+symptom = "tests reading LOCAL_NODE_RPC or PERPS_DATA_TEST_RPC fail with connection refused in a clean environment"
+cause = "the perps and spot precompiles, the 18 markets and the 3 spot tokens exist only after the v6.12.0 upgrade handler; a fresh genesis cannot run it"
+do = "start tools/qualification/localnode/v6120-node.sh (task 5.98.1) first and source its env file"
+
+[gotcha.1933]
+area = "layerxpay keeper tests"
+symptom = "budget activities submitted through paySubmitExecute fail with LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE"
+cause = "payActor.authority() (modules/layerxpay/keeper/harness_test.go:39) binds the DID id as principal and budget_authorized_signer (src/modules/budget/lx_budget_module.c:292) resolves principals through lxp_ctx_account_find"
+do = "submit budget activities through Keeper.Submit, which binds the main account as principal"
+
+[gotcha.1934]
+area = "terminal v5 corpus"
+symptom = "program-terminal-v5.py refuses with `native signed corpus was not emitted` although the native build passed"
+cause = "test_terminal_v5 --dump-corpus exited non-zero on a V5_CHECK; the producer parses its truncated stdout and raises before printing the case names"
+do = "read native-result.json next to the producer output: stderr names the failing fixture line and the receipt codes of the completed cases"
+
+[gotcha.1935]
+area = "lxphost receipts"
+symptom = "a keeper or precompile test reads a write's receipt back with Host.ReadIdempotentReceipt and fails with LXP_ERR_UNKNOWN_FIELD although the write itself succeeded"
+cause = "since task 1.2.1 the kernel records no idempotency entry, so lxphost_read_receipt (modules/lxphost/read.go:164) finds no row for the key"
+do = "assert the write through the receipt the call returns, the stored record and the emitted event; do not read receipts back by key"
