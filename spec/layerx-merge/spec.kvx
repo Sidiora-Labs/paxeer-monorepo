@@ -105946,7 +105946,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.0.3]
 title = "Expose the launchpad query commands and prove the Query service on a live domain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2", "4.5.2", "4.5.3", "4.5.4", "4.5.5", "4.5.6", "4.5.7", "4.5.8", "4.5.9"]
@@ -108905,7 +108905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.28.1]
 title = "Pin the indexer market creation topic to the factory ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2"]
@@ -108935,7 +108935,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.28.2]
 title = "Pin the indexer pool reserves read to the pool ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2"]
@@ -113177,7 +113177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.10.2]
 title = "Check agent scheduler parity between SealBatch and ProcessBlock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["5.10.1"]
