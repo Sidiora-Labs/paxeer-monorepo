@@ -7453,3 +7453,43 @@ symbol = "lxpRustResultsForTest"
 observed = "Attempt bd8f005c6 passed every Go-side assertion of TestLXPRevertTable and failed at lxp_errors_test.go:81 because the Rust half of the test looks for a protocol_result_codes! invocation in layerx-types/src/result.rs; since 3422bafe2 that invocation is generated into OUT_DIR by layerx-types/build.rs from include/layerx/lxp_result.h and checked for header parity there (build.rs:529), so the test could not pass on main before this task touched it."
 assumption = "6.2.2 already owns the test file; its new do item rewrites the Rust half for the generated design (assert the build script's header input and entry format) and keeps every Go-side assertion. Recorded once."
 severity = "major"
+
+[finding.11.11.4]
+task = "11.11.4"
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+symbol = "X402SettlePlane"
+observed = "Attempts b7316adc8 (11.11.4) and be4a7cae6 (11.12.5) failed at cargo build because layerx-interop-service does not compile on main: server.rs still builds ExecutedPayment and ExecutedUcpPayment with canonical_receipt and authorised_batch, lacks FacilitatorPlane::receipt_keys at :1161 and :1244 and calls the six-argument complete_checkout at :1862, after tasks 11.3.1, 11.4.1 and 11.9.1 reshaped those types."
+assumption = "11.16.2, the first pending owner of server.rs, now carries the compile fixes as a do item and 11.11.4 and 11.12.5 require it; the other builders of the crate already follow 11.16.2 transitively. Recorded once."
+severity = "major"
+
+[finding.2.12.4]
+task = "2.12.4"
+file = "modules/layerxauth/ante/integration_test.go"
+symbol = "TestAuthzExecRefusedAfterKernelRevoke"
+observed = "Attempt 381c801a8 ran on a base before 1542220c2 (task 5.19.4), so layerxauth.NewPrecompile found no AuthKeepers provider and grantCapability reverted with LXP_PRECOMPILE_NO_CONTEXT; the test itself passes the keeper the way the current NewPrecompile expects."
+assumption = "2.12.4 now requires 5.19.4; the next attempt continues from 381c801a8 on a base that includes it. Recorded once."
+severity = "major"
+
+[finding.5.6.5.1]
+task = "5.6.5"
+file = "node/upgrades_merge_bonds_test.go"
+symbol = "TestMergePlanReturnsGuarantorBonds"
+observed = "Attempt f61886fb7 ran on a base before 1542220c2 (task 5.19.4, which imports the merge precompile packages into node/precompiles.go), so precompiles.MissingMergeConstructors listed every merge address and the gate test refused before activation."
+assumption = "5.6.5 now requires 5.19.4; the fourth attempt was already live on the same older base and the fifth continues from its result. Recorded once."
+severity = "major"
+
+[finding.8.98.8]
+task = "8.98.8"
+file = "services/platform/hosted/gateway/tests/local/Cargo.toml"
+symbol = "layerx-gateway-local-qualification"
+observed = "Attempts afabdc7e3 (8.98.8) and e43668a67 (8.98.7) failed at cargo build with 'package ID specification layerx-gateway-local-qualification did not match any packages' because that package is its own workspace (Cargo.toml:7) and not a member of services/platform/Cargo.toml."
+assumption = "Both tasks' build_cmd and verify_cmd now name services/platform/hosted/gateway/tests/local/Cargo.toml directly. Recorded once."
+severity = "major"
+
+[finding.8.98.5]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs"
+symbol = "wiring.J44.20"
+observed = "Attempts 92c2e4599 (8.98.5), 53ed2b963 (8.98.6), 76d14c2c2 (8.98.10) and the earlier 8.98.11 result show that wiring.J44.20 is not a rename: the retired modules (lni frame transport, read, evidence, caps, head, batch, payments, withdrawal) have no same-shaped counterparts under layerx_client::sequencer, px or rpc (rpc::account::account, rpc::module_state::module_state and rpc::evidence::proof_bundle take a Rung-based ReadContext over the sequencer endpoint instead of an LNI FrameTransport and RootSelector), so 'change only import paths and call names' cannot be satisfied; workers either invented paths that do not exist or left the uses in place and failed their own scan test."
+assumption = "The thirteen 8.98.x tasks need an owner decision on the migration shape (a replacement mapping or per-consumer ports as real tasks) before another attempt; recorded once for the family."
+severity = "major"
