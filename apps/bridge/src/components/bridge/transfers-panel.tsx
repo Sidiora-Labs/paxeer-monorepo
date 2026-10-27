@@ -30,6 +30,7 @@ import {
   useReleaseAttestation,
 } from '@/lib/bridge/use-bridge-state';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
+import { ImportTransfer } from './import-transfer';
 import {
   bridgeOutNonceFromReceipt,
   buildVerifiedClaim,
@@ -210,7 +211,7 @@ function TransferRow({
 
   return (
     <div className="flex flex-col gap-2">
-      <DepositStatus items={[ statusItem ]} explorerUrl={() => sourceUrl} defaultOpen={phase === 'ready'} />
+      <DepositStatus items={[ statusItem ]} explorerUrl={() => sourceUrl} defaultOpen={phase === 'ready'}/>
       {phase === 'attesting' && !attestationApiConfigured ? (
         <p className="px-1 text-[11px] text-muted-foreground">
           Finality reached. The signature bundle comes from the bridge backend, which is not configured in this
@@ -219,13 +220,13 @@ function TransferRow({
       ) : null}
       {phase === 'attesting' && attestationApiConfigured ? (
         <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
-          <Spinner className="size-3" /> Waiting for the attestor threshold…
+          <Spinner className="size-3"/> Waiting for the attestor threshold…
         </p>
       ) : null}
       {phase === 'ready' ? (
         onSettleChain ? (
           <Button size="sm" className="self-start" disabled={settle.isPending} onClick={() => void runSettle()}>
-            {settle.isPending ? <Spinner /> : null}
+            {settle.isPending ? <Spinner/> : null}
             {transfer.direction === 'in' ? 'Claim on Paxeer' : `Release on ${ chain?.label ?? 'destination' }`}
           </Button>
         ) : (
@@ -301,10 +302,11 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
         </Alert>
       ) : (
         <>
+          <ImportTransfer onImported={onChanged}/>
           {pending.length > 0 ? (
             <div className="flex flex-col gap-3">
               {pending.map((transfer) => (
-                <TransferRow key={transfer.id} transfer={transfer} onChanged={onChanged} />
+                <TransferRow key={transfer.id} transfer={transfer} onChanged={onChanged}/>
               ))}
             </div>
           ) : null}
