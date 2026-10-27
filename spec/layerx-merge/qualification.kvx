@@ -7317,3 +7317,43 @@ symbol = "req.4058.1"
 observed = "The first attempt (c6000a56e) builds and starts the test network with sdk/testutil/network.New and UnmarshalAsJSON, covers all seven REST routes, and passes the found-false and REST-equals-gRPC comparisons; only the malformed-address subtests fail because AirdropClaimed and HasRole return errors.Unwrap(err) and FeeRight maps its Cause to ErrInvalidAddress, so the gateway answers HTTP 500 with gRPC Unknown, which the qualified CLI tests pin."
 assumption = "req.4058.1 (a malformed address answers a 400-class error body) contradicts the keeper behaviour that qualified tests lock in; the owner either amends the criterion to the gRPC status of the same request or adds a keeper task that returns InvalidArgument and updates the CLI tests. 4.10.3 shares the same stale do_1 and do_2 symbols, now corrected. Held for the ruling; recorded once."
 severity = "blocker"
+
+[finding.8.47.3]
+task = "8.47.3"
+file = "sdk/platform/conformance/README.md"
+symbol = "verify_cmd"
+observed = "The seven Python conformance gates (8.47.1, 8.47.2, 8.47.3, 8.47.4, 8.47.5, 8.47.6, 8.47.9) were written as a bare python3 -m pytest over hyphenated .test.py modules; under pytest's default import mode such a module name cannot be imported (No module named streaming-resumability) and layerx_sdk is not on the path, so the attempts that passed (8.47.1, 8.47.2, 8.47.9) did so only with PYTEST_ADDOPTS=--import-mode=importlib and PYTHONPATH=services/agent/sdk/python exported in the qualifying shell, while 8.47.3's second attempt failed at collection with the same code change."
+assumption = "The README (line 37) documents the runner as PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib; the seven verify_cmds now carry that prefix verbatim. The three done tasks keep their done records (their gates passed in their qualifying shells); the release gate reruns them with the stated command. Recorded once."
+severity = "major"
+
+[finding.2.38.6]
+task = "2.38.6"
+file = "node/precompiles.go"
+symbol = "LXP_PRECOMPILE_NO_CONTEXT"
+observed = "Reading the first attempts of 2.38.6 (def7dcffe) and 2.38.7 (d975e2e04): the integration proofs assumed the application already serves the pay precompile at 0x101B and the agent scheduler at 0x0905, but those come from 5.19.4, 5.94.2 and 2.34.2, which the tasks did not require, so the pay genesis test panicked with LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required and the agent genesis test compared against a precompile map without the scheduler. 2.38.5 passed on its second attempt once 5.19.2 had landed."
+assumption = "The proofs test the application's served precompiles rather than ones built locally in the test, so 2.38.7 requires 2.34.2 and 2.38.6 requires 5.94.2 and 5.19.4, with waves following. Their candidates are kept as continue seeds. Recorded once."
+severity = "major"
+
+[finding.4.10.3]
+task = "4.10.3"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "req.4056.ac_1"
+observed = "The criterion named the unknown-market error by its ABCI code 12, but the REST body the gateway writes carries the gRPC status (code 2 with message LXP_LAUNCHPAD_UNKNOWN_MARKET), so the attempt cea9188ca failed only on the literal expectation at line 157 of its test while the gRPC comparison above it passed; the keeper returns ErrUnknownMarket as its own tests pin."
+assumption = "The criterion now asks for the ErrUnknownMarket error body whose code and message equal the gRPC status of the same request, and the stale tests/testutil/network symbol is corrected to sdk/testutil/network.New; this is distinct from finding.4.10.5, where req.4058.1 demands a different HTTP class. Recorded once."
+severity = "major"
+
+[finding.3.9.5]
+task = "3.9.5"
+file = "modules/pricefeed/keeper/mark.go"
+symbol = "markPrice"
+observed = "req.3009 ac_5 expected a lower MarkEmaTauMs to move the next mark further toward the index, but markPrice (mark.go:14-30) moves the stored basis toward the observed mark median by dt/(dt+tau) and clamps the mark between the index and that median, so a smaller tau always moves the mark toward the median and away from the index; attempt ed9f122a0 reproduced the formula exactly (1050e18 against 1099.3377e18) and failed only on that direction."
+assumption = "The criterion and do_3 now state the real direction with the worked values; the code is unchanged. Recorded once."
+severity = "major"
+
+[finding.5.94.2]
+task = "5.94.2"
+file = "node/precompiles.go"
+symbol = "do_1"
+observed = "do_1 asked wave 14 to blank-import precompiles/layerxagent/oracle, scheduler and streams, packages created at waves 25 and 27 (2.36.1, 2.35.1) and registered at waves 26, 15 and 28 (2.36.2, 2.34.2, 2.35.2); the build of attempt e15bf0336 failed on the two missing packages while the keeper and host accessors and their two tests were complete. 2.34.2 and 13.22.1 wait on 5.94.2's accessors (finding.2.34.2, finding.13.22.1), so the edge cannot run the other way."
+assumption = "The imports and TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams move to the new task 5.94.4 at wave 29 with req.5965 ac_1; 5.94.2 keeps the accessors and reqs 5965.2 and 5965.3. Recorded once."
+severity = "major"
