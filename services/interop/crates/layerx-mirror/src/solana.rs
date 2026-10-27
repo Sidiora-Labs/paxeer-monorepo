@@ -477,11 +477,7 @@ impl SolanaArchiveClient {
             chain: MirrorChain::Solana,
             batch_number: archive.data().batch_number,
             commitment: archive.commitment(),
-            checkpoint: archive
-                .data()
-                .checkpoint
-                .as_ref()
-                .map(|value| value.coordinate),
+            committed: archive.data().committed_coordinate(),
             stage: stage.stage,
             phase: PublicationPhase::Prepared,
             stage_payload_digest: digest,
@@ -957,11 +953,12 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StageInstruction>
     let manifest = [0; 32];
     let chunk_count = u32::try_from(archive.bytes().len().div_ceil(chunk_bytes))
         .map_err(|_| SolanaError::Transaction)?;
-    let checkpoint = archive
+    let block_hash = archive
         .data()
-        .checkpoint
+        .committed
         .as_ref()
-        .map_or([0; 32], |value| value.coordinate.checkpoint_id);
+        .ok_or(SolanaError::Transaction)?
+        .block_hash;
     let mut begin = Vec::new();
     begin.extend_from_slice(INSTRUCTION_MAGIC);
     begin.extend_from_slice(&INSTRUCTION_VERSION.to_be_bytes());
@@ -969,7 +966,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StageInstruction>
     begin.extend_from_slice(commitment.as_bytes());
     begin.extend_from_slice(&archive.data().network_id.to_be_bytes());
     begin.extend_from_slice(&archive.data().batch_number.to_be_bytes());
-    begin.extend_from_slice(&checkpoint);
+    begin.extend_from_slice(&block_hash);
     begin.extend_from_slice(
         &u64::try_from(archive.bytes().len())
             .map_err(|_| SolanaError::Transaction)?

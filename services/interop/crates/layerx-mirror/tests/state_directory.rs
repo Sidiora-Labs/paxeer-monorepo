@@ -4,12 +4,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use layerx_mirror::committed::CommittedCoordinate;
 use layerx_mirror::store::{
     ArchiveSpool, FinalityPosition, MirrorChain, PublicationJournal, PublicationPhase,
     PublicationRecord, PublicationStage, StoreError, TransactionIdentity,
 };
-use layerx_mirror::{archive_commitment, ArchiveCommitment, CheckpointCoordinate, NodeHead};
+use layerx_mirror::{archive_commitment, ArchiveCommitment, CommittedCoordinate, NodeHead};
 use sha2::{Digest, Sha256};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
@@ -38,13 +37,6 @@ fn succeed<T, E: Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("state directory operation: {error:?}"))
 }
 
-fn checkpoint(value: CommittedCoordinate) -> CheckpointCoordinate {
-    CheckpointCoordinate {
-        batch_number: value.height,
-        checkpoint_id: value.block_hash,
-    }
-}
-
 fn snapshot(directory: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     succeed(fs::read_dir(directory))
         .map(|entry| {
@@ -64,7 +56,7 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
     };
     let node_head = NodeHead {
         latest_sealed_batch: 43,
-        latest_finalised_checkpoint: Some(checkpoint(committed)),
+        latest_committed: Some(committed),
     };
     let spool_path = directory.0.join("spool");
     let archives = [
@@ -79,7 +71,7 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
             } else {
                 NodeHead {
                     latest_sealed_batch: 44,
-                    latest_finalised_checkpoint: None,
+                    latest_committed: None,
                 }
             };
             succeed(spool.put(archive_commitment(bytes), bytes, head));
@@ -90,12 +82,8 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
         let stored = succeed(spool.get(archive_commitment(bytes)));
         assert_eq!(stored.bytes, *bytes);
         assert_eq!(
-            stored.node_head.latest_finalised_checkpoint,
-            if index == 0 {
-                Some(checkpoint(committed))
-            } else {
-                None
-            }
+            stored.node_head.latest_committed,
+            if index == 0 { Some(committed) } else { None }
         );
         assert_eq!(stored.node_head.latest_sealed_batch, 43 + index as u64);
     }
@@ -123,17 +111,13 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
         {
             let mut journal = succeed(PublicationJournal::open(&lane_path, chain, 7));
             assert_eq!(journal.cursor().latest_batch, None);
-            assert_eq!(journal.cursor().latest_checkpoint, None);
+            assert_eq!(journal.cursor().latest_committed, None);
             for (index, bytes) in archives.iter().enumerate() {
                 let mut record = PublicationRecord {
                     chain,
                     batch_number: 7 + index as u64,
                     commitment: archive_commitment(bytes),
-                    checkpoint: if index == 0 {
-                        Some(checkpoint(committed))
-                    } else {
-                        None
-                    },
+                    committed: if index == 0 { Some(committed) } else { None },
                     stage: PublicationStage::Finalize,
                     phase: PublicationPhase::Prepared,
                     stage_payload_digest: [0x33; 32],
@@ -171,21 +155,12 @@ fn a_v3_journal_round_trips_a_committed_cursor() {
                 expected_records.push(record);
             }
             assert_eq!(journal.cursor().latest_batch, Some(8));
-            assert_eq!(
-                journal.cursor().latest_checkpoint,
-                Some(checkpoint(committed))
-            );
+            assert_eq!(journal.cursor().latest_committed, Some(committed));
         }
         let before = snapshot(&lane_path);
         let journal = succeed(PublicationJournal::open(&lane_path, chain, 7));
         assert_eq!(journal.cursor().latest_batch, Some(8));
-        let restored = journal
-            .cursor()
-            .latest_checkpoint
-            .map(|value| CommittedCoordinate {
-                height: value.batch_number,
-                block_hash: value.checkpoint_id,
-            });
+        let restored = journal.cursor().latest_committed;
         assert_eq!(restored, Some(committed));
         for record in expected_records {
             assert_eq!(

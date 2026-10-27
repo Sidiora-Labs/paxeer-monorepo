@@ -323,13 +323,7 @@ fn spool_committed(
         height: block.header.height,
         block_hash: block.header.block_hash,
     };
-    let head = crate::NodeHead::new(
-        coordinate.height,
-        Some(crate::CheckpointCoordinate {
-            batch_number: coordinate.height,
-            checkpoint_id: coordinate.block_hash,
-        }),
-    );
+    let head = crate::NodeHead::new(coordinate.height, Some(coordinate));
     let archive =
         Archive::from_committed(block, network_id, head).map_err(|_| "archive_evidence")?;
     spool
@@ -844,7 +838,7 @@ fn apply_progress(
     publication_error: Option<&'static str>,
 ) {
     status.latest_batch_mirrored = progress.mirrored.latest_batch;
-    set_checkpoint_status(status, progress.mirrored.latest_checkpoint);
+    set_committed_status(status, progress.mirrored.latest_committed);
     verified.apply(status);
     if let Some(error_class) = progress
         .refusal
@@ -854,7 +848,7 @@ fn apply_progress(
         status.ready = false;
         status.error_class = Some(error_class);
     } else {
-        status.ready = progress.mirrored.latest_checkpoint.is_some()
+        status.ready = progress.mirrored.latest_committed.is_some()
             && !matches!(status.phase, Some("permanent_refusal" | "reorged"));
         status.error_class = None;
     }
@@ -880,12 +874,12 @@ fn update_status(status: &Arc<Mutex<RuntimeStatus>>, update: impl FnOnce(&mut Ru
     }
 }
 
-fn set_checkpoint_status(
+fn set_committed_status(
     status: &mut ComponentStatus,
-    checkpoint: Option<crate::CheckpointCoordinate>,
+    committed: Option<crate::CommittedCoordinate>,
 ) {
-    status.latest_checkpoint_batch_mirrored = checkpoint.map(|value| value.batch_number);
-    status.latest_checkpoint_id_mirrored = checkpoint.map(|value| hex_bytes(&value.checkpoint_id));
+    status.latest_checkpoint_batch_mirrored = committed.map(|value| value.height);
+    status.latest_checkpoint_id_mirrored = committed.map(|value| hex_bytes(&value.block_hash));
 }
 
 fn hex_bytes(bytes: &[u8]) -> String {
@@ -1442,9 +1436,9 @@ mod tests {
                 archive.node_head(),
                 NodeHead::new(
                     block.header.height,
-                    Some(crate::CheckpointCoordinate {
-                        batch_number: block.header.height,
-                        checkpoint_id: block.header.block_hash,
+                    Some(crate::CommittedCoordinate {
+                        height: block.header.height,
+                        block_hash: block.header.block_hash,
                     })
                 )
             );
