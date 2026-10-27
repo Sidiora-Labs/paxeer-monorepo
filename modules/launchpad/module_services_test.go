@@ -160,6 +160,18 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.NoError(t, cdc.Unmarshal(response.Value, &result))
 				require.False(t, result.HasRole)
 				require.Equal(t, k.HasRole(ctx, contract, keeper.PoolRole, account), result.HasRole)
+			case "QuoteLedger":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidRequest)
+				data, err := cdc.Marshal(&types.QueryQuoteLedgerRequest{Kind: "treasury-held"})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryQuoteLedgerResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				amount, err := k.GetQuoteLedger(ctx, keeper.TreasuryHeldLedger())
+				require.NoError(t, err)
+				require.Equal(t, sdk.ZeroInt(), amount)
+				require.Equal(t, amount.String(), result.Amount)
 			case "Treasury":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})

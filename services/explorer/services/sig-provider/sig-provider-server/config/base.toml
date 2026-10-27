@@ -19,6 +19,9 @@ addr = "0.0.0.0:8051"
 fourbyte = "https://www.4byte.directory/"
 sigeth = "https://sig.eth.samczsun.com/"
 
+[sources.precompiles]
+enabled = true
+
 [sources.eth_bytecode_db]
 enabled = true
 url = "https://eth-bytecode-db.services.blockscout.com/"

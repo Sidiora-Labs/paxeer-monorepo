@@ -11,13 +11,11 @@ import {
   decodeUnifiedAccount,
   decodeUnifiedAccountAvailability,
   decodeUnifiedAccountUnavailable,
-  decodeVerificationReport,
   parseAccountIdentifier,
   validExplorerCoordinate,
   validExplorerIdentifier,
   validExplorerName,
   type AccountActivityRecord,
-  type EvidenceVerificationReport,
   type ExplorerPage,
   type ExplorerRecord,
   type NameResolutionRecord,
@@ -274,35 +272,6 @@ export async function resolveName(name: string): Promise<NameResolutionRecord | 
       throw new TypeError("Name projection names another name");
     }
     return resolution;
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw error;
-    }
-    throw new ExplorerUnavailableError();
-  }
-}
-
-export async function verifyEvidenceUpstream(
-  request: Readonly<Record<string, unknown>>,
-): Promise<EvidenceVerificationReport> {
-  const url = new URL("/v1/explorer/verify", explorerOrigin());
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  if (!response.ok) {
-    throw new TypeError("Evidence did not verify");
-  }
-  try {
-    return decodeVerificationReport(await response.json());
   } catch (error) {
     if (error instanceof TypeError) {
       throw error;
