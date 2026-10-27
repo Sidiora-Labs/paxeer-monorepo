@@ -114111,7 +114111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.4]
 title = "Import the merge precompile packages and expose the ledger and auth keepers to precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.19.2", "2.0.2", "6.0.2", "5.94.2"]
@@ -141108,7 +141108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.32.4]
 title = "Verify SDK receipts against pinned ReceiptKeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.27.1", "9.1.7"]
@@ -158928,7 +158928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.4.1]
 title = "Report the verified receipt with every wallet precompile send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["14.0.2"]
