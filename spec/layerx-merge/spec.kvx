@@ -119541,7 +119541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.4]
 title = "Add GetPrecompileInfoE and keep merge precompiles out of the VM tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "6.6.3"]
@@ -121416,7 +121416,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.21.5]
 title = "Prove an app export and re-import keeps paused tokenfactory denoms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.21.4", "6.0.2"]
@@ -132056,7 +132056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.5]
 title = "Load the perps and price feed ABIs from their nested directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["8.16.1", "6.0.2", "8.1.5"]
