@@ -79,8 +79,11 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "Markets",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.Markets(goCtx, &types.QueryMarketsRequest{})
-				require.Nil(t, response)
+				response, err := client.Markets(goCtx, &types.QueryMarketsRequest{Limit: 1})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Empty(t, response.Markets)
+				require.Equal(t, querier.GetMarketCount(ctx), response.Total)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -285,12 +288,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params":
+			case "Params", "Markets":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
-			case "MarketByAddress":
+			case "MarketByAddress", "MarketsByCreator":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)

@@ -34967,7 +34967,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientBlockByNum
 do_1 = "Write rpc/ethclient_blocks_test.go (planned) dialling ethclient.Dial over the TestPort HTTP server of the package setup."
 do_2 = "Call BlockByNumber (core/deps/geth/ethclient/ethclient.go:105) for block 2 and assert the decode passes getBlock (core/deps/geth/ethclient/ethclient.go:140)."
 do_3 = "Call HeaderByHash (core/deps/geth/ethclient/ethclient.go:216) and compare it with the block header (planned)."
-symbols = ["ethclient.Client", "TestEthclientBlockByNumberDecodes", "TestEthclientHeaderByHashMatchesBlock"]
+symbols = ["TestEthclientBlockByNumberDecodes", "TestEthclientHeaderByHashMatchesBlock"]
 
 [capability.7.19.2]
 title = "Check ethclient decodes transactions from the node"
@@ -34978,7 +34978,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientTransactio
 do_1 = "Write rpc/ethclient_transactions_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call TransactionByHash (core/deps/geth/ethclient/ethclient.go:268) for a committed transfer (planned)."
 do_3 = "Call TransactionInBlock (core/deps/geth/ethclient/ethclient.go:319) for block 2 index 0 (planned)."
-symbols = ["ethclient.Client", "TestEthclientTransactionByHash", "TestEthclientTransactionInBlock"]
+symbols = ["TestEthclientTransactionByHash", "TestEthclientTransactionInBlock"]
 
 [capability.7.19.3]
 title = "Check ethclient decodes receipts from the node"
@@ -34989,7 +34989,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientTransactio
 do_1 = "Write rpc/ethclient_receipts_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call TransactionReceipt (core/deps/geth/ethclient/ethclient.go:338) for a committed transfer (planned)."
 do_3 = "Call BlockReceipts (core/deps/geth/ethclient/ethclient.go:124) for block 2 (planned)."
-symbols = ["ethclient.Client", "TestEthclientTransactionReceiptDecodes", "TestEthclientBlockReceiptsDecode"]
+symbols = ["TestEthclientTransactionReceiptDecodes", "TestEthclientBlockReceiptsDecode"]
 
 [capability.7.19.4]
 title = "Check ethclient reads balance, nonce, code and storage"
@@ -35000,7 +35000,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientBalanceAnd
 do_1 = "Write rpc/ethclient_state_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call BalanceAt (core/deps/geth/ethclient/ethclient.go:396) and NonceAt (core/deps/geth/ethclient/ethclient.go:441) (planned)."
 do_3 = "Call CodeAt (core/deps/geth/ethclient/ethclient.go:426) and StorageAt (core/deps/geth/ethclient/ethclient.go:411) (planned)."
-symbols = ["ethclient.Client", "TestEthclientBalanceAndNonceAt", "TestEthclientCodeAndStorageAt"]
+symbols = ["TestEthclientBalanceAndNonceAt", "TestEthclientCodeAndStorageAt"]
 
 [capability.7.19.5]
 title = "Check ethclient call and gas estimation against the node"
@@ -35011,7 +35011,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientCallContra
 do_1 = "Write rpc/ethclient_call_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call CallContract (core/deps/geth/ethclient/ethclient.go:550) on the test contract (planned)."
 do_3 = "Call EstimateGas (core/deps/geth/ethclient/ethclient.go:650) for a value transfer (planned)."
-symbols = ["ethclient.Client", "TestEthclientCallContract", "TestEthclientEstimateGas"]
+symbols = ["TestEthclientCallContract", "TestEthclientEstimateGas"]
 
 [capability.7.19.6]
 title = "Check ethclient fee suggestions and fee history"
@@ -35022,7 +35022,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientSuggestGas
 do_1 = "Write rpc/ethclient_fees_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call SuggestGasPrice (core/deps/geth/ethclient/ethclient.go:583) and SuggestGasTipCap (core/deps/geth/ethclient/ethclient.go:593) (planned)."
 do_3 = "Call FeeHistory (core/deps/geth/ethclient/ethclient.go:618) with blockCount 2 (planned)."
-symbols = ["ethclient.Client", "TestEthclientSuggestGasPriceAndTip", "TestEthclientFeeHistory"]
+symbols = ["TestEthclientSuggestGasPriceAndTip", "TestEthclientFeeHistory"]
 
 [capability.7.19.7]
 title = "Check ethclient chain id, network id and sync progress"
@@ -35033,7 +35033,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientChainIDAnd
 do_1 = "Write rpc/ethclient_chain_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call ChainID (core/deps/geth/ethclient/ethclient.go:71) and NetworkID (core/deps/geth/ethclient/ethclient.go:382) (planned)."
 do_3 = "Call SyncProgress (core/deps/geth/ethclient/ethclient.go:349) (planned)."
-symbols = ["ethclient.Client", "TestEthclientChainIDAndNetworkID", "TestEthclientSyncProgress"]
+symbols = ["TestEthclientChainIDAndNetworkID", "TestEthclientSyncProgress"]
 
 [capability.7.19.8]
 title = "Check ethclient filter logs against the node"
@@ -35044,7 +35044,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientFilterLogs
 do_1 = "Write rpc/ethclient_logs_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call FilterLogs (core/deps/geth/ethclient/ethclient.go:457) with FromBlock and ToBlock 2 (planned)."
 do_3 = "Call FilterLogs with BlockHash of block 2 and compare both results (planned)."
-symbols = ["ethclient.Client", "TestEthclientFilterLogs"]
+symbols = ["TestEthclientFilterLogs"]
 
 [capability.7.19.9]
 title = "Check ethclient newHead subscription hashes match blocks"
@@ -35055,7 +35055,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientSubscribeN
 do_1 = "Write rpc/ethclient_newhead_test.go (planned) dialling the WebSocket server on TestWSPort (rpc/setup_test.go:51)."
 do_2 = "Subscribe with SubscribeNewHead (core/deps/geth/ethclient/ethclient.go:368) and wait for one head from the notifier fixture (planned)."
 do_3 = "Compare header.Hash() with the hash of the block at the same height over HTTP (planned)."
-symbols = ["ethclient.Client", "TestEthclientSubscribeNewHeadHashMatchesBlock"]
+symbols = ["TestEthclientSubscribeNewHeadHashMatchesBlock"]
 
 [capability.7.19.10]
 title = "Check an ethclient send round trip from transaction to receipt"
@@ -35066,7 +35066,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientSendTransa
 do_1 = "Write rpc/ethclient_send_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Sign a transfer with the test key and call SendTransaction (core/deps/geth/ethclient/ethclient.go:685) (planned)."
 do_3 = "Read it back with TransactionByHash (core/deps/geth/ethclient/ethclient.go:268) and TransactionReceipt (core/deps/geth/ethclient/ethclient.go:338) (planned)."
-symbols = ["ethclient.Client", "TestEthclientSendTransactionRoundTrip"]
+symbols = ["TestEthclientSendTransactionRoundTrip"]
 
 [capability.7.19.11]
 title = "Check ethclient pending reads against a sequencer server"
@@ -35077,7 +35077,7 @@ verification_contract = "go test -count=1 ./rpc/ -run '^(TestEthclientPendingNon
 do_1 = "Write rpc/ethclient_pending_test.go (planned) building an HTTP server with SequencerOption and PendingOption over the pending sequencer fixture."
 do_2 = "Call PendingNonceAt (core/deps/geth/ethclient/ethclient.go:529) for the sender (planned)."
 do_3 = "Read eth_getBlockByNumber pending through the ethclient rpc client and check the transfer hash (planned)."
-symbols = ["ethclient.Client", "TestEthclientPendingNonceAndPendingBlock"]
+symbols = ["TestEthclientPendingNonceAndPendingBlock"]
 
 [capability.7.20.1]
 title = "Freeze the JSON-RPC error code registry"
@@ -62087,7 +62087,7 @@ qualification = "UNRUN"
 [acceptance.7.1.9]
 feature = "7"
 req = "7001.9"
-scenario = "Given the HTTP server of the package test setup, when its pax_ and pax2_ names are compared with PaxLegacyAllGatedMethodNames, then both sets are equal and pax_sequencerReceipt is absent"
+scenario = "Given the HTTP server of the package test setup, when its pax_ and pax2_ names are compared with PaxLegacyAllGatedMethodNames, then both sets are equal"
 contract = "contracts/evm-rpc.md#retirements"
 test = "rpc/pax_served_set_test.go::TestPaxServedSetEqualsGatedSet (planned)"
 qualification = "UNRUN"
@@ -91356,7 +91356,7 @@ symbols = ["lxp_kernel_prepare_activity_batch", "prepare_one_vs_four_workers_equ
 touches = ["tests/fuzz/lxp_prop_prepare_workers.c"]
 tests = ["tests/fuzz/lxp_prop_prepare_workers.c::prepare_one_vs_four_workers_equal"]
 planned_paths = ["tests/fuzz/lxp_prop_prepare_workers.c"]
-build_cmd = "make -C . build/liblayerx.a"
+build_cmd = "rm -f build/liblayerx.a && make -C . build/liblayerx.a"
 verify_cmd = "make -C . build/tests/kernel/fuzz/lxp_prop_prepare_workers && ./build/tests/kernel/fuzz/lxp_prop_prepare_workers prepare_one_vs_four_workers_equal"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -91372,7 +91372,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.4]
 title = "Prove global_sequence gaps and reuse are refused at execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -91751,7 +91751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.7.2]
 title = "Prove stream payload codecs are canonical"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["1.0.1", "16.2.1"]
@@ -92419,7 +92419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.2]
 title = "Reserve staging for native sandbox fund and activate before lifecycle validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.14.1", "16.2.1", "9.23.7"]
@@ -92496,7 +92496,7 @@ fulfils = ["wiring.J51.5"]
 do_1 = "Change MAX_EXPIRIES_PER_BATCH from 6 to 128 at src/modules/programs/sandbox_expiry.c:14, the limit the batch hook passes at src/modules/programs/sandbox_expiry.c:341-350, as wiring.J51.5 requests."
 do_2 = "Keep the limit check at src/modules/programs/sandbox_expiry.c:365 and the cursor format checked at src/modules/programs/sandbox_expiry.c:345-348 unchanged."
 do_3 = "Write tests/codec/lxp_test_sandbox_expiry_bound.c (planned) with sweep_limit_128_accepted and sweep_limit_above_bound_refused."
-symbols = ["MAX_EXPIRIES_PER_BATCH", "layerx_programs_sandbox_sweep_host", "sweep_limit_128_accepted", "sweep_limit_above_bound_refused"]
+symbols = ["layerx_programs_sandbox_sweep_host", "sweep_limit_128_accepted", "sweep_limit_above_bound_refused"]
 touches = ["src/modules/programs/sandbox_expiry.c", "tests/codec/lxp_test_sandbox_expiry_bound.c"]
 tests = ["tests/codec/lxp_test_sandbox_expiry_bound.c::sweep_limit_128_accepted", "tests/codec/lxp_test_sandbox_expiry_bound.c::sweep_limit_above_bound_refused"]
 planned_paths = ["tests/codec/lxp_test_sandbox_expiry_bound.c"]
@@ -92548,7 +92548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.15.1]
 title = "Stop the kernel binding and requiring the Programs state feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -93330,7 +93330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.2]
 title = "Add ExecuteActivity and ResultError for EVM-bound kernel activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.23.1"]
@@ -93552,7 +93552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.26.3]
 title = "Check kernel Ed25519 verification against Go crypto/ed25519 through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.23.1"]
@@ -95231,6 +95231,7 @@ do_1 = "Create modules/lxphost/simulate.go (planned) with (h *Host) Simulate(ctx
 do_2 = "Call lxp_kernel_simulate_activity (src/protocol/lxp_kernel.c:6193) on a cache branch of the host store that is discarded after the call, so no store write survives, and decode the receipt with the decoder HostExecute uses at modules/lxphost/host.go:678."
 do_3 = "Keep modules/lxphost/simulate.go (planned) free of host.go edits: host.go is owned in every wave by other domain-1 tasks, and the Programs transfer runtime that lxp_kernel_simulate_activity needs is bound there by task 1.23.1 do_6, which this task requires."
 do_4 = "Write modules/lxphost/simulate_test.go (planned) with the two tests below, each simulating an LX_PROGRAMS_CALL activity, the only type lxp_kernel_simulate_activity accepts (src/protocol/lxp_kernel.c:6129), instead of an identity registration."
+do_5 = "modules/lxphost/simulate_test.go submits every activity with FeeLimit zero as modules/lxphost/execute_test.go does: lxphost_execute (modules/lxphost/host.go:496) zeroes the execution and carries no payer balance, so the kernel refuses any non-zero fee limit with LXP_ERR_FEE_UNPAYABLE (src/protocol/lxp_kernel.c:7036, asserted by modules/lxphost/activity_fields_test.go:36)."
 symbols = ["TestSimulateMatchesExecuteReceipt", "TestSimulateLeavesStoreUnchanged"]
 touches = ["modules/lxphost/simulate.go", "modules/lxphost/simulate_test.go"]
 tests = ["modules/lxphost/simulate_test.go::TestSimulateMatchesExecuteReceipt", "modules/lxphost/simulate_test.go::TestSimulateLeavesStoreUnchanged"]
@@ -96028,7 +96029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.3.4]
 title = "Submit ledger activities to the kernel host with global sequencing and idempotency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["2.3.2", "1.91.1", "1.23.1"]
@@ -96106,8 +96107,9 @@ do_1 = "Create modules/layerxledger/keeper/events.go (planned) with type Event {
 do_2 = "Add LedgerEvents(activityType uint32, receipt lxphost.Receipt, args EventArgs) ([]Event, error) switching on the activity types of include/layerx/lx_asset.h:21-31."
 do_3 = "Read transfer legs and grant ids from the receipt Events of wiring J23.2 (modules/lxphost/host.go:574)."
 do_4 = "Write TestDecodeLedgerEvents in modules/layerxledger/keeper/events_test.go (planned)."
+do_5 = "Delete the alias `type Event = lxphost.ReceiptEvent` that 2.3.4 left at modules/layerxledger/keeper/execute.go:12 and type Result.Events (execute.go:16) as []lxphost.ReceiptEvent, so the three Result literals at execute.go:68, :74 and :77 and execute_test.go:93 keep compiling beside the events.go Event of do_1."
 symbols = ["Event", "EventArgs", "LedgerEvents", "TestDecodeLedgerEvents"]
-touches = ["modules/layerxledger/keeper/events.go", "modules/layerxledger/keeper/events_test.go"]
+touches = ["modules/layerxledger/keeper/events.go", "modules/layerxledger/keeper/events_test.go", "modules/layerxledger/keeper/execute.go"]
 tests = ["modules/layerxledger/keeper/events_test.go::TestDecodeLedgerEvents"]
 planned_paths = ["modules/layerxledger/keeper/events.go", "modules/layerxledger/keeper/events_test.go"]
 build_cmd = "go build ./modules/layerxledger/..."
@@ -96160,7 +96162,7 @@ title = "Mint and burn kernel asset units from the ledger keeper"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["2.3.3", "2.3.5"]
+requires = ["2.3.3", "2.3.5", "2.3.6"]
 reqs = ["2024.1", "2024.2"]
 capabilities = ["2.4.2"]
 interfaces = ["interface.2.go-layerxledger-mint-j23", "interface.2.go-layerxledger-burn-j23"]
@@ -96191,7 +96193,7 @@ title = "Open per-asset kernel accounts and derive their ids"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["2.3.3", "2.3.5"]
+requires = ["2.3.3", "2.3.5", "2.3.6"]
 reqs = ["2025.1", "2025.2"]
 capabilities = ["2.4.3"]
 interfaces = ["interface.2.go-layerxledger-openaccount-j23", "interface.2.go-layerxledger-accountid-j23"]
@@ -96222,7 +96224,7 @@ title = "Send kernel asset units between DID accounts"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["2.3.3", "2.3.5"]
+requires = ["2.3.3", "2.3.5", "2.3.6"]
 reqs = ["2026.1", "2026.2"]
 capabilities = ["2.4.4"]
 interfaces = ["interface.2.go-layerxledger-send-j23"]
@@ -96253,7 +96255,7 @@ title = "Pay an exact amount bound to a derived context hash"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["2.3.3", "2.3.5"]
+requires = ["2.3.3", "2.3.5", "2.3.6"]
 reqs = ["2027.1", "2027.2"]
 capabilities = ["2.4.5"]
 interfaces = ["interface.2.go-layerxledger-payexact-j23"]
@@ -96285,7 +96287,7 @@ title = "Issue and revoke payer grants from the ledger keeper"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["2.3.3", "2.3.5"]
+requires = ["2.3.3", "2.3.5", "2.3.6"]
 reqs = ["2028.1", "2028.2"]
 capabilities = ["2.4.6"]
 interfaces = ["interface.2.go-layerxledger-issuegrant-j23", "interface.2.go-layerxledger-revokegrant-j23"]
@@ -96316,7 +96318,7 @@ title = "Draw against a payer grant with the typed receive form"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["2.3.3", "2.3.5"]
+requires = ["2.3.3", "2.3.5", "2.3.6"]
 reqs = ["2029.1", "2029.2"]
 capabilities = ["2.4.7"]
 interfaces = ["interface.2.go-layerxledger-draw-j23"]
@@ -96695,7 +96697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.7.3]
 title = "Revoke grants through governance sub-op 6 and advance the grantor revocation sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.6.3", "2.6.5"]
@@ -112198,7 +112200,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.21]
 title = "Check that receipts over TCP wait for the standby ack"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["5.5.12"]
@@ -113126,7 +113128,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.15.5]
 title = "Rehearse a failover under load without losing a receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.15.4", "5.27.4"]
@@ -118898,7 +118900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.3]
 title = "Record perps, pricefeed and spot names in PrecompileNamesToInfo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["6.0.1", "6.6.2", "3.0.2", "3.93.2"]
@@ -126191,7 +126193,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.0.2]
 title = "Freeze the wave-2 served HTTP and WebSocket method sets as goldens"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.0.1", "7.2.1", "7.2.2", "7.2.3", "7.3.1", "7.3.2", "7.4.1", "7.4.2", "7.4.3", "7.5.1", "7.5.2", "7.6.1", "7.6.2", "7.7.1", "7.8.1", "7.9.2"]
@@ -126326,7 +126328,7 @@ capabilities = ["7.1.1"]
 interfaces = []
 do_1 = "Write rpc/pax_served_set_test.go (planned) reading the pax_ and pax2_ names of HTTPMethods for the server started by the package setup (rpc/setup_test.go:673)."
 do_2 = "Compare that set with PaxLegacyAllGatedMethodNames (rpc/pax_legacy.go:99), the 36 names of paxLegacyGatedMethods at rpc/pax_legacy.go:42-79."
-do_3 = "Exclude pax_sequencerReceipt, which paxLegacyIsGatedNamespaceMethod leaves ungated (rpc/pax_legacy.go:144), and assert it is served only on a server built with SequencerReceiptOption."
+do_3 = "Exclude pax_sequencerReceipt, which paxLegacyIsGatedNamespaceMethod leaves ungated (rpc/pax_legacy.go:145), and assert it is registered on the server built with and without SequencerReceiptOption, the zero option answering -32000 \"served by sequencer\" (rpc/sequencer_receipt.go:99)."
 do_4 = "Write TestPaxServedSetEqualsGatedSet (planned) failing with the names served but not gated and the names gated but not served."
 symbols = ["PaxLegacyAllGatedMethodNames", "HTTPMethods", "TestPaxServedSetEqualsGatedSet"]
 touches = ["rpc/pax_served_set_test.go"]
@@ -126817,7 +126819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.9.1]
 title = "Bind the WebSocket listener to http_address and apply the deny list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.9.2", "7.2.1"]
@@ -127884,7 +127886,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_blocks_test.go (planned) dialling ethclient.Dial over the TestPort HTTP server of the package setup."
 do_2 = "Call BlockByNumber (core/deps/geth/ethclient/ethclient.go:105) for block 2 and assert the decode passes getBlock (core/deps/geth/ethclient/ethclient.go:140)."
 do_3 = "Call HeaderByHash (core/deps/geth/ethclient/ethclient.go:216) and compare it with the block header (planned)."
-symbols = ["ethclient.Client", "TestEthclientBlockByNumberDecodes", "TestEthclientHeaderByHashMatchesBlock"]
+symbols = ["TestEthclientBlockByNumberDecodes", "TestEthclientHeaderByHashMatchesBlock"]
 touches = ["rpc/ethclient_blocks_test.go"]
 tests = ["rpc/ethclient_blocks_test.go::TestEthclientBlockByNumberDecodes", "rpc/ethclient_blocks_test.go::TestEthclientHeaderByHashMatchesBlock"]
 planned_paths = ["rpc/ethclient_blocks_test.go"]
@@ -127914,7 +127916,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_transactions_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call TransactionByHash (core/deps/geth/ethclient/ethclient.go:268) for a committed transfer (planned)."
 do_3 = "Call TransactionInBlock (core/deps/geth/ethclient/ethclient.go:319) for block 2 index 0 (planned)."
-symbols = ["ethclient.Client", "TestEthclientTransactionByHash", "TestEthclientTransactionInBlock"]
+symbols = ["TestEthclientTransactionByHash", "TestEthclientTransactionInBlock"]
 touches = ["rpc/ethclient_transactions_test.go"]
 tests = ["rpc/ethclient_transactions_test.go::TestEthclientTransactionByHash", "rpc/ethclient_transactions_test.go::TestEthclientTransactionInBlock"]
 planned_paths = ["rpc/ethclient_transactions_test.go"]
@@ -127944,7 +127946,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_receipts_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call TransactionReceipt (core/deps/geth/ethclient/ethclient.go:338) for a committed transfer (planned)."
 do_3 = "Call BlockReceipts (core/deps/geth/ethclient/ethclient.go:124) for block 2 (planned)."
-symbols = ["ethclient.Client", "TestEthclientTransactionReceiptDecodes", "TestEthclientBlockReceiptsDecode"]
+symbols = ["TestEthclientTransactionReceiptDecodes", "TestEthclientBlockReceiptsDecode"]
 touches = ["rpc/ethclient_receipts_test.go"]
 tests = ["rpc/ethclient_receipts_test.go::TestEthclientTransactionReceiptDecodes", "rpc/ethclient_receipts_test.go::TestEthclientBlockReceiptsDecode"]
 planned_paths = ["rpc/ethclient_receipts_test.go"]
@@ -127974,7 +127976,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_state_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call BalanceAt (core/deps/geth/ethclient/ethclient.go:396) and NonceAt (core/deps/geth/ethclient/ethclient.go:441) (planned)."
 do_3 = "Call CodeAt (core/deps/geth/ethclient/ethclient.go:426) and StorageAt (core/deps/geth/ethclient/ethclient.go:411) (planned)."
-symbols = ["ethclient.Client", "TestEthclientBalanceAndNonceAt", "TestEthclientCodeAndStorageAt"]
+symbols = ["TestEthclientBalanceAndNonceAt", "TestEthclientCodeAndStorageAt"]
 touches = ["rpc/ethclient_state_test.go"]
 tests = ["rpc/ethclient_state_test.go::TestEthclientBalanceAndNonceAt", "rpc/ethclient_state_test.go::TestEthclientCodeAndStorageAt"]
 planned_paths = ["rpc/ethclient_state_test.go"]
@@ -128004,7 +128006,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_call_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call CallContract (core/deps/geth/ethclient/ethclient.go:550) on the test contract (planned)."
 do_3 = "Call EstimateGas (core/deps/geth/ethclient/ethclient.go:650) for a value transfer (planned)."
-symbols = ["ethclient.Client", "TestEthclientCallContract", "TestEthclientEstimateGas"]
+symbols = ["TestEthclientCallContract", "TestEthclientEstimateGas"]
 touches = ["rpc/ethclient_call_test.go"]
 tests = ["rpc/ethclient_call_test.go::TestEthclientCallContract", "rpc/ethclient_call_test.go::TestEthclientEstimateGas"]
 planned_paths = ["rpc/ethclient_call_test.go"]
@@ -128034,7 +128036,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_fees_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call SuggestGasPrice (core/deps/geth/ethclient/ethclient.go:583) and SuggestGasTipCap (core/deps/geth/ethclient/ethclient.go:593) (planned)."
 do_3 = "Call FeeHistory (core/deps/geth/ethclient/ethclient.go:618) with blockCount 2 (planned)."
-symbols = ["ethclient.Client", "TestEthclientSuggestGasPriceAndTip", "TestEthclientFeeHistory"]
+symbols = ["TestEthclientSuggestGasPriceAndTip", "TestEthclientFeeHistory"]
 touches = ["rpc/ethclient_fees_test.go"]
 tests = ["rpc/ethclient_fees_test.go::TestEthclientSuggestGasPriceAndTip", "rpc/ethclient_fees_test.go::TestEthclientFeeHistory"]
 planned_paths = ["rpc/ethclient_fees_test.go"]
@@ -128064,7 +128066,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_chain_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call ChainID (core/deps/geth/ethclient/ethclient.go:71) and NetworkID (core/deps/geth/ethclient/ethclient.go:382) (planned)."
 do_3 = "Call SyncProgress (core/deps/geth/ethclient/ethclient.go:349) (planned)."
-symbols = ["ethclient.Client", "TestEthclientChainIDAndNetworkID", "TestEthclientSyncProgress"]
+symbols = ["TestEthclientChainIDAndNetworkID", "TestEthclientSyncProgress"]
 touches = ["rpc/ethclient_chain_test.go"]
 tests = ["rpc/ethclient_chain_test.go::TestEthclientChainIDAndNetworkID", "rpc/ethclient_chain_test.go::TestEthclientSyncProgress"]
 planned_paths = ["rpc/ethclient_chain_test.go"]
@@ -128094,7 +128096,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_logs_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call FilterLogs (core/deps/geth/ethclient/ethclient.go:457) with FromBlock and ToBlock 2 (planned)."
 do_3 = "Call FilterLogs with BlockHash of block 2 and compare both results (planned)."
-symbols = ["ethclient.Client", "TestEthclientFilterLogs"]
+symbols = ["TestEthclientFilterLogs"]
 touches = ["rpc/ethclient_logs_test.go"]
 tests = ["rpc/ethclient_logs_test.go::TestEthclientFilterLogs"]
 planned_paths = ["rpc/ethclient_logs_test.go"]
@@ -128124,7 +128126,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_newhead_test.go (planned) dialling the WebSocket server on TestWSPort (rpc/setup_test.go:51)."
 do_2 = "Subscribe with SubscribeNewHead (core/deps/geth/ethclient/ethclient.go:368) and wait for one head from the notifier fixture (planned)."
 do_3 = "Compare header.Hash() with the hash of the block at the same height over HTTP (planned)."
-symbols = ["ethclient.Client", "TestEthclientSubscribeNewHeadHashMatchesBlock"]
+symbols = ["TestEthclientSubscribeNewHeadHashMatchesBlock"]
 touches = ["rpc/ethclient_newhead_test.go"]
 tests = ["rpc/ethclient_newhead_test.go::TestEthclientSubscribeNewHeadHashMatchesBlock"]
 planned_paths = ["rpc/ethclient_newhead_test.go"]
@@ -128154,7 +128156,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_send_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Sign a transfer with the test key and call SendTransaction (core/deps/geth/ethclient/ethclient.go:685) (planned)."
 do_3 = "Read it back with TransactionByHash (core/deps/geth/ethclient/ethclient.go:268) and TransactionReceipt (core/deps/geth/ethclient/ethclient.go:338) (planned)."
-symbols = ["ethclient.Client", "TestEthclientSendTransactionRoundTrip"]
+symbols = ["TestEthclientSendTransactionRoundTrip"]
 touches = ["rpc/ethclient_send_test.go"]
 tests = ["rpc/ethclient_send_test.go::TestEthclientSendTransactionRoundTrip"]
 planned_paths = ["rpc/ethclient_send_test.go"]
@@ -128184,7 +128186,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_pending_test.go (planned) building an HTTP server with SequencerOption and PendingOption over the pending sequencer fixture."
 do_2 = "Call PendingNonceAt (core/deps/geth/ethclient/ethclient.go:529) for the sender (planned)."
 do_3 = "Read eth_getBlockByNumber pending through the ethclient rpc client and check the transfer hash (planned)."
-symbols = ["ethclient.Client", "TestEthclientPendingNonceAndPendingBlock"]
+symbols = ["TestEthclientPendingNonceAndPendingBlock"]
 touches = ["rpc/ethclient_pending_test.go"]
 tests = ["rpc/ethclient_pending_test.go::TestEthclientPendingNonceAndPendingBlock"]
 planned_paths = ["rpc/ethclient_pending_test.go"]
@@ -139194,7 +139196,7 @@ title = "Read assets through px_listAssets and fees through eth_estimateGas"
 status = "pending"
 mode = "BUILD"
 wave = 10
-requires = ["9.21.7", "9.21.4"]
+requires = ["9.21.7", "9.21.4", "11.2.7"]
 reqs = ["9254.1", "9254.2"]
 capabilities = ["9.22.4"]
 interfaces = ["interface.9.rs-client-payments-list-assets", "interface.9.rs-client-payments-get-asset", "interface.9.rs-client-payments-estimate-fee"]
@@ -145858,7 +145860,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.6]
 title = "Verify the receipted rung rules R4 to R6 against the recorded receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.2.4"]
@@ -145887,12 +145889,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.11.2.7]
+title = "Refresh the lock entries of layerx-committed-proof for its serde_json dependency"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["11.2.6"]
+reqs = ["11049.1"]
+capabilities = []
+interfaces = ["interface.11.rs-committed-proof-verify-receipted-j47"]
+do_1 = "11.2.6 added `serde_json.workspace = true` to services/interop/crates/layerx-committed-proof/Cargo.toml:11 without the lock edits: run `cargo metadata --format-version 1 --manifest-path <ws>/Cargo.toml >/dev/null` (no --locked) for services/interop/Cargo.toml, services/agent/Cargo.toml, services/agent/fuzz/Cargo.toml, services/agent/tests/isolation/Cargo.toml and tools/platform/Cargo.toml so the layerx-committed-proof [[package]] entry of each Cargo.lock (services/interop/Cargo.lock:1257 lists only ed25519-dalek and sha2) gains \"serde_json\"."
+do_2 = "Assert with `git diff --stat` that only the five Cargo.lock files changed and that each diff adds the one dependency line to that entry (and a serde_json [[package]] block only where the lock had none), no other package or version moving; `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --tests` then compiles again."
+symbols = []
+touches = ["services/interop/Cargo.lock", "services/agent/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/interop/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/fuzz/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/isolation/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path tools/platform/Cargo.toml >/dev/null"
+verify_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --tests"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Restore the five Cargo.lock files; every --locked cargo build that resolves layerx-committed-proof stops before compiling again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.11.3.1]
 title = "Settle the x402 seller plane on SequencerEvidence and report the transaction hash"
 status = "pending"
 mode = "BUILD"
-wave = 4
-requires = ["11.1.1", "11.6.1", "11.4.1", "11.31.2"]
+wave = 5
+requires = ["11.1.1", "11.6.1", "11.4.1", "11.31.2", "11.2.7"]
 reqs = ["11017.1", "11017.2"]
 capabilities = ["11.3.1"]
 interfaces = ["interface.11.rs-x402-executed-payment", "interface.11.rs-x402-seller-settle"]
@@ -147554,7 +147585,7 @@ title = "Run PaxeerRpc majority reads over the relayer transport"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["11.21.1", "9.1.6"]
+requires = ["11.21.1", "9.1.6", "11.2.7"]
 reqs = ["11241.5", "11241.6", "11241.7"]
 capabilities = ["11.21.2"]
 interfaces = ["interface.11.rs-relayer-json-rpc", "interface.11.rs-relayer-paxeer-rpc", "interface.11.rs-relayer-paxeer-rpc-new"]
@@ -148103,7 +148134,7 @@ title = "Encode and decode mirror archive v4 for one committed block"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["11.25.1", "9.1.6", "11.25.2"]
+requires = ["11.25.1", "9.1.6", "11.25.2", "11.2.7"]
 reqs = ["11286.1", "11286.2", "11286.3"]
 capabilities = ["11.26.1"]
 interfaces = ["interface.11.fmt-mirror-archive", "interface.11.rs-mirror-archive-data", "interface.11.rs-mirror-archive-data-decode", "interface.11.rs-mirror-archive-from-committed-j48", "interface.11.rs-mirror-archived-committed-block-j48"]
@@ -152635,7 +152666,7 @@ title = "Read the transaction ladder from the sequencer receipt before the explo
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["12.34.1", "12.22.4", "12.33.1"]
+requires = ["12.34.1", "12.22.4", "12.33.1", "12.33.8"]
 reqs = ["12284.1"]
 capabilities = ["12.34.2"]
 interfaces = ["interface.12.ts-app-transaction-ladder"]
@@ -157324,7 +157355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.1]
 title = "Delete types encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1, part a"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157356,7 +157387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.2]
 title = "Delete types encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1, part b"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157388,7 +157419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.3]
 title = "Delete the esm encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157421,7 +157452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.4]
 title = "Delete the cjs encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157454,7 +157485,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.5]
 title = "Delete types encoding files of accesscontrol_x, part a"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157486,7 +157517,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.6]
 title = "Delete types encoding files of accesscontrol_x, part b"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157518,7 +157549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.7]
 title = "Delete the esm encoding files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157549,7 +157580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.8]
 title = "Delete the cjs encoding files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157804,7 +157835,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.2]
 title = "Align tendermint types and version encoders in sdk/js with consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157868,7 +157899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.4]
 title = "Add the evm Params fee-token and pointer fields of api/evm to the sdk/js encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157900,7 +157931,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.5]
 title = "Add issuer_did and pagination to the sdk/js tokenfactory encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157996,7 +158027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.8]
 title = "Drop the 21 remaining tendermint.abci encoders absent from consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.1"]
@@ -158029,7 +158060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.9]
 title = "Align the sdk/js evm and tokenfactory type declarations with api/ protos"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.4", "14.3.10", "14.3.5"]
@@ -158061,7 +158092,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.10]
 title = "Add the ChainConfig and Asset fields of api/evm to the sdk/js encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -158609,8 +158640,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Send the home add and withdraw actions to the bridge page"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["14.0.1"]
+wave = 4
+requires = ["14.0.1", "12.33.8"]
 reqs = ["14048.1", "14048.2"]
 capabilities = ["14.7.2"]
 interfaces = ["interface.14.ts-web-journeys-home-model-home-destinations"]
@@ -159068,7 +159099,7 @@ do_1 = "Delete @custody_precompile and @anchor_precompile at services/explorer/b
 do_2 = "Narrow @type surface at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:98 and the snapshot type at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:100-108 to :exchange | :bridge | :launchpad | :unified_account and drop :custody and :anchor from the moduledoc list at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:39-41."
 do_3 = "Keep address/1 at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex:125-130 raising FunctionClauseError for :custody and :anchor, which falls out of the narrowed @code_surface_names guard."
 do_4 = "Create services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs (planned) with surfaces_omit_retired_precompiles, which asserts Capabilities.surfaces() == [:unified_account, :exchange, :bridge, :launchpad], and address_refuses_retired_surfaces, which asserts address(:custody) and address(:anchor) raise FunctionClauseError."
-symbols = ["Explorer.Chain.PaxeerX.Capabilities", "surfaces", "address", "surfaces_omit_retired_precompiles", "address_refuses_retired_surfaces"]
+symbols = []
 touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/capabilities.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs"]
 tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs::surfaces_omit_retired_precompiles", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs::address_refuses_retired_surfaces"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_retired_probe_test.exs"]
@@ -159286,7 +159317,7 @@ do_1 = "Add get(\"/:transaction_hash_param/signature\", V2.PaxeerX.TransactionSi
 do_2 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex (planned) whose signature/2 fetches pax_sequencerReceipt the way services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex:85-102 does, runs SequencerReceipt.verify/4 (services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:170) and answers 404 unless the result is receipted or committed."
 do_3 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/transaction_signature_view.ex (planned) rendering the PaxeerXTransactionSignature body from services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/transaction_signature.ex (planned): rung, receipt, receipt_key and signature."
 do_4 = "Create services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs (planned) with signature_route_returns_verified_receipt and signature_route_404_when_unverified."
-symbols = ["BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureController", "signature", "BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureView", "signature_route_returns_verified_receipt", "signature_route_404_when_unverified"]
+symbols = []
 touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/transaction_signature_view.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"]
 tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs::signature_route_returns_verified_receipt", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs::signature_route_404_when_unverified"]
 planned_paths = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/transaction_signature_view.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"]
@@ -159593,7 +159624,7 @@ do_2 = "Delete the definitions bound to 0x1013 and 0x1014 at services/explorer/b
 do_3 = "Drop the custody_events, deposit_roots, anchors, guarantor_events and receipts keys from @empty_rows at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:111-117 and the row clauses that build them inside services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:798-877."
 do_4 = "Rewrite the moduledoc at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:14-33 to list the addr, exchange, bridge and launchpad precompiles only."
 do_5 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs (planned) with retired_precompile_logs_yield_no_rows, which parses one log from 0x...1013 and one from 0x...1014 with known topics and asserts PaxeerXLogs.parse/1 (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:704) returns only account_bindings and market_events keys, both empty."
-symbols = ["Indexer.Transform.PaxeerXLogs", "parse", "retired_precompile_logs_yield_no_rows"]
+symbols = []
 touches = ["services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs"]
 tests = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs::retired_precompile_logs_yield_no_rows"]
 planned_paths = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs"]
@@ -159746,7 +159777,7 @@ interfaces = []
 do_1 = "Delete the Explorer.Chain.PaxeerX.Finality.Anchor module at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/finality.ex:1-43, which nothing constructs."
 do_2 = "Keep Finality.Heights at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/finality.ex:45-51 and Finality.heights/1 at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/finality.ex:62-71 unchanged."
 do_3 = "Create services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs (planned) with finality_anchor_struct_is_gone and heights_reads_max_consensus_block; the second inserts consensus blocks 7 and 9 and a non-consensus block 11 and asserts heights/1 returns committed_height 9."
-symbols = ["Explorer.Chain.PaxeerX.Finality", "heights", "finality_anchor_struct_is_gone", "heights_reads_max_consensus_block"]
+symbols = []
 touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/finality.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs"]
 tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs::finality_anchor_struct_is_gone", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs::heights_reads_max_consensus_block"]
 planned_paths = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/finality_heights_test.exs"]
@@ -159808,7 +159839,7 @@ do_1 = "Delete the kernel_account property and its required entry at services/ex
 do_2 = "Delete the parts property at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/balance.ex:21-34 so a balance is {asset, total}."
 do_3 = "Replace the CustodyEvent.kinds enum at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/activity_item.ex:25 with the chain-side kinds, delete the side property at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/activity_item.ex:33-35 and drop :side from the required list at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/activity_item.ex:48."
 do_4 = "Create services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_shape_test.exs (planned) with unified_answer_casts_against_schema, which requests GET /api/v2/addresses/:hash/unified (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex:261) for a seeded address and casts the body through PaxeerXUnifiedAccount."
-symbols = ["BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.Identities", "BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.Balance", "BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.ActivityItem", "unified_answer_casts_against_schema"]
+symbols = []
 touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/identities.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/balance.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/unified_account/activity_item.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_shape_test.exs"]
 tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_shape_test.exs::unified_answer_casts_against_schema"]
 planned_paths = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_shape_test.exs"]
@@ -161620,7 +161651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.2]
 title = "Add the paxeer-bridge-app-env command that writes the app env from a records directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.53.1"]
@@ -170480,7 +170511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.9.1]
 title = "Write the off-chain service catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.0.2"]

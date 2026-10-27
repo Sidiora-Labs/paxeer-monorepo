@@ -86,17 +86,72 @@ func TestEnvLinesFromEVMRecords(t *testing.T) {
 		t.Fatalf("LoadRecord(solana).ProgramID = %q", solana.ProgramID)
 	}
 	records = append(records, solana)
+	want = append(want, "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID="+solana.ProgramID)
 	if got := EnvLines(records); !reflect.DeepEqual(got, want) {
 		t.Fatalf("EnvLines(reversed records) = %q, want registry order %q", got, want)
 	}
-	if got := EnvLines([]Record{records[0]}); len(got) != 1 || got[0] != want[len(want)-1] {
-		t.Fatalf("EnvLines(subset) = %q, want %q", got, want[len(want)-1:])
+	if got := EnvLines([]Record{records[0]}); len(got) != 1 || got[0] != want[len(want)-2] {
+		t.Fatalf("EnvLines(subset) = %q, want %q", got, want[len(want)-2:len(want)-1])
 	}
 	if got := EnvLines(nil); len(got) != 0 {
 		t.Fatalf("EnvLines(nil) = %q, want no variables", got)
 	}
-	if got := EnvLines([]Record{solana}); len(got) != 0 {
-		t.Fatalf("EnvLines(solana) = %q, want no vault variables", got)
+	if got := EnvLines([]Record{solana}); !reflect.DeepEqual(got, want[len(want)-1:]) {
+		t.Fatalf("EnvLines(solana) = %q, want %q", got, want[len(want)-1:])
+	}
+}
+
+func TestSolanaRecordEmitsTheProgramID(t *testing.T) {
+	record, err := LoadRecord("../tests/fixtures/records/solana.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	const programID = "A7SZbByPYuHpunZ9pyMDMrhMYvK44ANT1AVqb8U1FpM9"
+	wantRecord := Record{Chain: "solana", ChainID: 91600046870081, Kind: "solana", ProgramID: programID}
+	if record != wantRecord {
+		t.Fatalf("LoadRecord(solana) = %+v, want %+v", record, wantRecord)
+	}
+	want := []string{"NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + programID}
+	if got := EnvLines([]Record{record}); !reflect.DeepEqual(got, want) {
+		t.Fatalf("EnvLines(solana) = %q, want %q", got, want)
+	}
+	evm, err := LoadRecord(ethereumRecordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantMixed := []string{"NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + evm.Vault, want[0]}
+	for _, records := range [][]Record{{record, evm}, {evm, record}} {
+		if got := EnvLines(records); !reflect.DeepEqual(got, wantMixed) {
+			t.Fatalf("EnvLines(%+v) = %q, want EVM lines followed by Solana %q", records, got, wantMixed)
+		}
+	}
+
+	for _, tc := range []struct {
+		name      string
+		programID string
+	}{
+		{"empty", ""},
+		{"non_base58", "0OIl"},
+		{"short", strings.Repeat("1", 31)},
+		{"long", strings.Repeat("1", 33)},
+		{"whitespace", programID + "\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			path := recordCopy(t, map[string]any{
+				"chain": record.Chain, "chain_id": record.ChainID, "kind": record.Kind,
+				"program_id": tc.programID,
+			})
+			invalid, err := LoadRecord(path)
+			if err == nil {
+				t.Fatalf("LoadRecord accepted program_id %q: %+v", tc.programID, invalid)
+			}
+			if !strings.Contains(err.Error(), path) || !strings.Contains(err.Error(), "program_id") {
+				t.Fatalf("error must name file %q and program_id: %v", path, err)
+			}
+			if invalid != (Record{}) {
+				t.Fatalf("LoadRecord returned an invalid record: %+v", invalid)
+			}
+		})
 	}
 }
 
