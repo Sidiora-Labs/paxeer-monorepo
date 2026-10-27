@@ -105916,7 +105916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.0.2]
 title = "Freeze the launchpad module Msg and Query surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["4.4.1", "4.4.2", "4.4.3", "4.4.4", "4.4.5", "4.4.6", "4.4.7", "4.4.8", "4.4.9", "4.4.10", "4.4.11", "4.4.12", "4.4.13", "4.4.14", "4.4.15", "4.4.16", "4.4.17", "4.5.1", "4.5.2", "4.5.3", "4.5.4", "4.5.5", "4.5.6", "4.5.7", "4.5.8", "4.5.9", "4.6.1", "4.7.1", "4.9.3"]
@@ -122212,7 +122212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.2]
 title = "Route the layerxpay MsgUpdateParams pause through LayerXProposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["6.28.1", "6.0.1", "2.0.2"]
@@ -130388,7 +130388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.2]
 title = "Publish every router method in the OpenRPC document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["8.0.1", "7.0.2", "8.1.2", "8.1.4", "8.1.5"]
@@ -149514,7 +149514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.34.2]
 title = "Encode the 0x101A draw call and read getPayerGrant before a metered draw"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["11.34.1", "11.31.1", "2.0.2"]
@@ -150459,7 +150459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.2.3]
 title = "Drop the layerxcustody and layerxanchor ABIs and the custody deposit spend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["12.14.1", "12.2.2"]
