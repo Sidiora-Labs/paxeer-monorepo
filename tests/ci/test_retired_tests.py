@@ -69,6 +69,40 @@ def test_assert_symbols_unreferenced_names_live_caller(tmp_path):
     )
 
 
+@pytest.mark.parametrize("excluded_root", ["sources/vendor", Path("sources/vendor")])
+def test_assert_symbols_unreferenced_skips_excluded_roots(tmp_path, excluded_root):
+    excluded = tmp_path / "sources/vendor/nested"
+    excluded.mkdir(parents=True)
+    excluded_file = excluded / "caller.c"
+    excluded_file.write_text("retired_call();\n", encoding="utf-8")
+    outside_file = tmp_path / "sources/vendor_live.c"
+    outside_file.write_text("retired_call();\n", encoding="utf-8")
+
+    with pytest.raises(AssertionError) as failure:
+        assert_symbols_unreferenced(["retired_call"], ["sources"], root=tmp_path)
+
+    assert str(failure.value).splitlines() == [
+        "Retired symbols still referenced:",
+        "sources/vendor/nested/caller.c:1: retired_call (column 1)",
+        "sources/vendor_live.c:1: retired_call (column 1)",
+    ]
+
+    assert_symbols_unreferenced(
+        ["retired_call"], ["sources/vendor", excluded_file], root=tmp_path,
+        exclude=(excluded_root,),
+    )
+    with pytest.raises(AssertionError) as failure:
+        assert_symbols_unreferenced(
+            ["retired_call"], ["sources", excluded_file], root=tmp_path,
+            exclude=(excluded_root,),
+        )
+
+    assert str(failure.value).splitlines() == [
+        "Retired symbols still referenced:",
+        "sources/vendor_live.c:1: retired_call (column 1)",
+    ]
+
+
 def test_build_and_run_c_suite_reports_exit_code(tmp_path):
     (tmp_path / "Makefile").write_text(
         "suite: suite.c\n\t$(CC) suite.c -o suite\n", encoding="utf-8"
