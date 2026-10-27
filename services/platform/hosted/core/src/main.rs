@@ -1,4 +1,5 @@
 mod caps_reads;
+mod chain_fund;
 mod program_accounts;
 mod program_lifecycle;
 mod public_reads;
@@ -92,6 +93,7 @@ struct Config {
     treasury: SocketSigner,
     treasury_did: String,
     treasury_asset: [u8; 32],
+    funding: Option<chain_fund::ChainFunding>,
     sequencer_id: [u8; 32],
     supervisor_socket: PathBuf,
     state_dir: PathBuf,
@@ -360,6 +362,7 @@ fn config() -> Result<Config, String> {
         treasury_did: did_for_public_key(&treasury.public_key()),
         treasury,
         treasury_asset,
+        funding: chain_fund::ChainFunding::from_env().ok(),
         sequencer_id,
         supervisor_socket: PathBuf::from(required("LAYERX_CORE_SUPERVISOR_SOCKET")?),
         state_dir,
@@ -1581,7 +1584,9 @@ fn gateway_readiness(config: &Config, request: &Request) -> Response {
     let Some(token) = &config.receipt_events_token else {
         return refusal(503, "gateway_readiness_not_configured", None);
     };
-    let supplied = request.headers.get("authorization")
+    let supplied = request
+        .headers
+        .get("authorization")
         .and_then(|value| value.strip_prefix("Bearer "))
         .unwrap_or("");
     if !bool::from(supplied.as_bytes().ct_eq(token.as_bytes())) {
@@ -2078,159 +2083,68 @@ fn fund(config: &Config, request: &Request, key: &str) -> Response {
 
 fn prepare_funding(
     config: &Config,
-    client: &mut Client,
     command: &FundingCommand,
     key: &str,
-) -> Result<PreparedFunding, Response> {
+) -> Result<chain_fund::SignedFunding, Response> {
     let stage_path = journal_path(config, "fund-canonical", key);
     let command_bytes =
         serde_json::to_vec(command).map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
     let command_digest = hex_encode(&Sha256::digest(&command_bytes));
     let staged =
         journal_read(&stage_path).map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    let signed = if let Some(entry) = staged {
+    if let Some(entry) = staged {
         if entry.request_digest != command_digest {
             return Err(refusal(409, "idempotency_conflict", None));
         }
-        serde_json::from_str::<PreparedFunding>(&entry.body)
-            .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?
-    } else {
-        let amount = u128::from(command.amount);
-        let actor = layerx_types::ids::Did::new(config.treasury_did.as_bytes())
-            .map_err(|_| refusal(503, "treasury_unavailable", Some(60)))?;
-        let identity_sequence = client
-            .preparation_state(&actor, 3)
-            .map_err(|error| {
-                eprintln!("layerx-core-boundary: treasury preparation failed: {error:?}");
-                refusal(503, "treasury_identity_unavailable", Some(5))
-            })?
-            .account_sequence;
-        client.reconnect().map_err(|error| {
-            eprintln!("layerx-core-boundary: treasury authority refresh failed: {error:?}");
-            refusal(503, "treasury_identity_unavailable", Some(5))
-        })?;
-        let sequence = treasury_sequence(config, client, amount)?;
-        let now = now_ms();
-        let signed = build_send_with_signer(
-            &config.treasury,
-            identity_sequence,
-            &SendRequest {
-                network_id: config.network_id,
-                source_did: config.treasury_did.clone(),
-                destination_did: command.did.clone(),
-                asset: config.treasury_asset,
-                amount,
-                account_sequence: sequence,
-                idempotency_key: send_idempotency(key),
-                not_before_ms: now.saturating_sub(60_000),
-                expires_at_ms: now.saturating_add(240_000),
-                fee_limit: config.fee_limit,
-            },
-        )
-        .map_err(send_refusal)?;
-        let staged = PreparedFunding {
-            canonical: signed.canonical,
-            activity_id: signed.activity_id,
-            signer_public_key: signed.signer_public_key,
-        };
-        journal_write(
-            &stage_path,
-            &JournalEntry {
-                request_digest: command_digest,
-                status: 202,
-                body: serde_json::to_string(&staged)
-                    .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?,
-                retry_after: Some(5),
-            },
-        )
-        .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-        staged
-    };
+        let signed: chain_fund::SignedFunding = serde_json::from_str(&entry.body)
+            .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
+        signed
+            .validate()
+            .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
+        return Ok(signed);
+    }
+    let funding = config
+        .funding
+        .as_ref()
+        .ok_or_else(|| refusal(503, "treasury_unavailable", Some(5)))?;
+    let public_key = fixed_hex::<32>("public_key", &command.public_key)
+        .map_err(|_| refusal(400, "invalid_argument", None))?;
+    let signed = funding.prepare(&public_key, command.amount)?;
+    journal_write(
+        &stage_path,
+        &JournalEntry {
+            request_digest: command_digest,
+            status: 202,
+            body: serde_json::to_string(&signed)
+                .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?,
+            retry_after: Some(5),
+        },
+    )
+    .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
     Ok(signed)
 }
 
 fn fund_send(
     config: &Config,
-    request: &Request,
+    _request: &Request,
     command: &FundingCommand,
     key: &str,
 ) -> Result<Response, Response> {
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    let signed = prepare_funding(config, &mut client, command, key)?;
-    let intent = FundingIntent {
-        version: 1,
-        key: key.to_owned(),
-        request_digest: request_digest(request),
-        request_body: request.body.clone(),
-        command: command.clone(),
-        network_id: config.network_id,
-        asset: config.treasury_asset,
-        sequencer_id: config.sequencer_id,
-        sequencer_key: client.handshake().node().authorised_sequencer_key,
-        signed: signed.clone(),
-    };
-    persist_funding_intent(config, &intent)
-        .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    match await_receipt(config, signed.activity_id, Duration::ZERO) {
-        Ok(Some(facts)) => return intent_funding_response(config, &intent, &facts, false),
-        Ok(None) => {}
-        Err(error) => {
-            eprintln!("layerx-core-boundary: retained funding receipt: {error}");
-            return Err(refusal(503, "receipt_unavailable", Some(5)));
-        }
-    }
-    let (registry, _) =
-        asset_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let submission = client
-        .submit_signed(&registry, signed.signer_public_key, 3, 1, &signed.canonical)
-        .map_err(|error| match error {
-            SubmitError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: funding submission refused class {class} result {}",
-                    result.raw()
-                );
-                refusal(422, "submission_refused", None)
-            }
-            SubmitError::UnavailableCapability => refusal(503, "capability_unavailable", Some(30)),
-            SubmitError::Disconnected => refusal(503, "node_unavailable", Some(5)),
-            other => {
-                eprintln!("layerx-core-boundary: funding submission failed: {other:?}");
-                refusal(422, "send_unbuildable", None)
-            }
-        })?;
-    drop(client);
-    let activity_id = match submission {
-        Submission::Acknowledged(acknowledgement) => acknowledgement.activity_id(),
-        Submission::Unknown(unknown) => unknown.activity_id(),
-    };
-    if activity_id != signed.activity_id {
-        return Err(refusal(422, "send_unbuildable", None));
-    }
-    let transaction_id = hex_encode(&activity_id);
-    match await_receipt(config, activity_id, config.receipt_deadline) {
-        Ok(Some(facts)) => intent_funding_response(config, &intent, &facts, true),
-        Ok(None) => {
-            let mut response = json_response(
-                202,
-                &serde_json::json!({
-                    "funding_id": command.funding_id,
-                    "state": "pending",
-                    "transaction_id": transaction_id,
-                }),
-            );
-            response.authoritative_replay = true;
-            Ok(response)
-        }
-        Err(error) => {
-            eprintln!("layerx-core-boundary: {error}");
-            let mut response = refusal(503, "receipt_unavailable", Some(5));
-            response.authoritative_replay = true;
-            Err(response)
-        }
-    }
+    let signed = prepare_funding(config, command, key)?;
+    let funding = config
+        .funding
+        .as_ref()
+        .ok_or_else(|| refusal(503, "treasury_unavailable", Some(5)))?;
+    funding.submit(&signed)?;
+    let funded = funding.funded(&signed)?;
+    Ok(json_response(
+        if funded { 200 } else { 202 },
+        &serde_json::json!({
+            "funding_id": command.funding_id,
+            "state": if funded { "funded" } else { "pending" },
+            "transaction_id": signed.transaction_hash,
+        }),
+    ))
 }
 
 fn funding_record_path(config: &Config, directory: &str, key: &str) -> PathBuf {
@@ -2267,7 +2181,10 @@ fn funding_read(path: &Path) -> Result<Option<Vec<u8>>, String> {
         || metadata.mode() & 0o400 == 0
         || metadata.len() > MAX_FUNDING_RECORD_BYTES
         || metadata.nlink() != 1
-        || metadata.uid() != fs::symlink_metadata(parent).map_err(|error| error.to_string())?.uid()
+        || metadata.uid()
+            != fs::symlink_metadata(parent)
+                .map_err(|error| error.to_string())?
+                .uid()
     {
         return Err("funding record is invalid or exceeds its bound".to_owned());
     }
@@ -2479,8 +2396,8 @@ fn intent_funding_response(
     facts: &ReceiptFacts,
     submitted: bool,
 ) -> Result<Response, Response> {
-    let verified = funding_intent_receipt_facts(config, intent, &facts.canonical)
-        .map_err(|_| {
+    let verified =
+        funding_intent_receipt_facts(config, intent, &facts.canonical).map_err(|_| {
             let mut response = refusal(503, "receipt_unavailable", Some(5));
             response.authoritative_replay = submitted;
             response
@@ -2542,11 +2459,14 @@ fn archived_funding_response(
         if prior.request_digest != intent.request_digest {
             return Err(refusal(409, "idempotency_conflict", None));
         }
-        if prior.status == 202 || prior.status == 409 || prior.status >= 500
+        if prior.status == 202
+            || prior.status == 409
+            || prior.status >= 500
             || prior.retry_after.is_some()
         {
             journal_write(&response_path, &prior).map_err(|_| unavailable())?;
-        } else if prior.status != response.status || prior.body != response.body
+        } else if prior.status != response.status
+            || prior.body != response.body
             || prior.retry_after != response.retry_after
         {
             return Err(unavailable());
@@ -2559,7 +2479,10 @@ fn funding_inventory(directory: &Path) -> Result<Vec<PathBuf>, String> {
     funding_directory(directory)?;
     let mut paths = Vec::new();
     let mut total = 0u64;
-    for (index, entry) in fs::read_dir(directory).map_err(|error| error.to_string())?.enumerate() {
+    for (index, entry) in fs::read_dir(directory)
+        .map_err(|error| error.to_string())?
+        .enumerate()
+    {
         if index >= MAX_FUNDING_RECORDS {
             return Err("funding inventory exceeds bound".to_owned());
         }
@@ -2754,28 +2677,39 @@ fn supervisor_exchange(
     request: &SupervisorRequest<'_>,
     attempted: &mut bool,
 ) -> Result<SupervisorReply, String> {
-    let mut stream = UnixStream::connect(&config.supervisor_socket)
+    let mut stream =
+        UnixStream::connect(&config.supervisor_socket).map_err(|error| error.to_string())?;
+    stream
+        .set_read_timeout(Some(RESET_TIMEOUT))
         .map_err(|error| error.to_string())?;
-    stream.set_read_timeout(Some(RESET_TIMEOUT)).map_err(|error| error.to_string())?;
-    stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|error| error.to_string())?;
+    stream
+        .set_write_timeout(Some(IO_TIMEOUT))
+        .map_err(|error| error.to_string())?;
     let mut bytes = serde_json::to_vec(request).map_err(|error| error.to_string())?;
     bytes.push(b'\n');
     *attempted = request.operation == "reset";
-    stream.write_all(&bytes).map_err(|error| error.to_string())?;
+    stream
+        .write_all(&bytes)
+        .map_err(|error| error.to_string())?;
     stream.flush().map_err(|error| error.to_string())?;
     let mut line = String::new();
-    BufReader::new(stream).take(4097).read_line(&mut line).map_err(|error| error.to_string())?;
+    BufReader::new(stream)
+        .take(4097)
+        .read_line(&mut line)
+        .map_err(|error| error.to_string())?;
     if line.len() > 4096 || !line.ends_with('\n') {
         return Err("supervisor response framing differs".to_owned());
     }
-    serde_json::from_str(line.trim_end_matches(['\r', '\n']))
-        .map_err(|error| error.to_string())
+    serde_json::from_str(line.trim_end_matches(['\r', '\n'])).map_err(|error| error.to_string())
 }
 
 fn reset_pending(reset_id: &str) -> Response {
-    let mut response = json_response(202, &serde_json::json!({
-        "state": "pending", "reset_id": reset_id,
-    }));
+    let mut response = json_response(
+        202,
+        &serde_json::json!({
+            "state": "pending", "reset_id": reset_id,
+        }),
+    );
     response.retry_after = Some(30);
     response.authoritative_replay = true;
     response
@@ -2784,15 +2718,20 @@ fn reset_pending(reset_id: &str) -> Response {
 fn reset_authoritative_reply(reply: &SupervisorReply, reset_id: &str) -> Option<Response> {
     if reply.error.is_some()
         || reply.reset_id.as_deref() != Some(reset_id)
-        || !reply.generation.is_some_and(|value| value > 0 && value <= i64::MAX as u64)
+        || !reply
+            .generation
+            .is_some_and(|value| value > 0 && value <= i64::MAX as u64)
     {
         return None;
     }
     match reply.state.as_deref()? {
         "reset" => {
-            let mut response = json_response(200, &serde_json::json!({
-                "state": "reset", "reset_id": reset_id,
-            }));
+            let mut response = json_response(
+                200,
+                &serde_json::json!({
+                    "state": "reset", "reset_id": reset_id,
+                }),
+            );
             response.authoritative_replay = true;
             Some(response)
         }
@@ -2812,11 +2751,18 @@ fn reset_pre_admission_refusal(reply: &SupervisorReply) -> Option<Response> {
         return None;
     }
     match error.code.as_str() {
-        "wrong_network" | "digest_mismatch" | "unsupported_version" | "unauthorized_peer"
-        | "identity_conflict" | "reset_in_progress" | "state_capacity" | "generation_exhausted"
-        | "invalid_request" | "invalid_operation" | "invalid_reset_id" | "invalid_digest" => {
-            Some(refusal(503, &error.code, None))
-        }
+        "wrong_network"
+        | "digest_mismatch"
+        | "unsupported_version"
+        | "unauthorized_peer"
+        | "identity_conflict"
+        | "reset_in_progress"
+        | "state_capacity"
+        | "generation_exhausted"
+        | "invalid_request"
+        | "invalid_operation"
+        | "invalid_reset_id"
+        | "invalid_digest" => Some(refusal(503, &error.code, None)),
         _ => None,
     }
 }
@@ -2824,8 +2770,11 @@ fn reset_pre_admission_refusal(reply: &SupervisorReply) -> Option<Response> {
 fn reset(config: &Config, request: &Request, key: &str) -> Response {
     let (reset_id, digest) = reset_identity(config, request, key);
     let status_request = SupervisorRequest {
-        version: 1, operation: "status", reset_id: &reset_id,
-        network: config.network_id, request_digest: &digest,
+        version: 1,
+        operation: "status",
+        reset_id: &reset_id,
+        network: config.network_id,
+        request_digest: &digest,
     };
     let path = journal_path(config, "reset", key);
     let previous_attempt = match journal_read(&path) {
@@ -2846,9 +2795,11 @@ fn reset(config: &Config, request: &Request, key: &str) -> Response {
             if let Some(response) = reset_pre_admission_refusal(&reply) {
                 return response;
             }
-            if !reply.error.as_ref().is_some_and(|error| error.code == "unknown_reset"
-                && error.retry == "never" && error.retry_after_seconds == Some(0))
-            {
+            if !reply.error.as_ref().is_some_and(|error| {
+                error.code == "unknown_reset"
+                    && error.retry == "never"
+                    && error.retry_after_seconds == Some(0)
+            }) {
                 return if previous_attempt {
                     reset_pending(&reset_id)
                 } else {
@@ -2871,13 +2822,23 @@ fn reset(config: &Config, request: &Request, key: &str) -> Response {
         }
     }
     let pending = reset_pending(&reset_id);
-    if journal_write(&path, &JournalEntry {
-        request_digest: request_digest(request), status: pending.status,
-        body: pending.body.clone(), retry_after: pending.retry_after,
-    }).is_err() {
+    if journal_write(
+        &path,
+        &JournalEntry {
+            request_digest: request_digest(request),
+            status: pending.status,
+            body: pending.body.clone(),
+            retry_after: pending.retry_after,
+        },
+    )
+    .is_err()
+    {
         return refusal(503, "journal_unavailable", Some(5));
     }
-    let admission = SupervisorRequest { operation: "reset", ..status_request };
+    let admission = SupervisorRequest {
+        operation: "reset",
+        ..status_request
+    };
     match supervisor_exchange(config, &admission, &mut attempted) {
         Ok(reply) => {
             if let Some(response) = reset_authoritative_reply(&reply, &reset_id) {
@@ -2951,9 +2912,7 @@ fn admin_route(config: &Config, request: &Request) -> Response {
                 Ok(None) => {}
                 Err(response) => return response,
             }
-            stateful(config, "fund", request, || {
-                admin_result(fund(config, request, &key))
-            })
+            stateful(config, "fund", request, || fund(config, request, &key))
         }
         "/admin/v1/testnet/reset" => {
             if request.body != b"{}" {
