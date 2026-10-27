@@ -112863,7 +112863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.6.5]
 title = "Complete the merge plan: mount the merged stores, close the gate on missing constructors and retire anchor and custody"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5", "5.19.4"]
@@ -113853,7 +113853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.6]
 title = "Check that an empty sequenced block is idempotent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -121972,7 +121972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.25.1]
 title = "Refuse paused tokenfactory denoms on the GigaBankKeeper send path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "5.56.1", "5.0.3"]
