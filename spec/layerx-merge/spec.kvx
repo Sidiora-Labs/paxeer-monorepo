@@ -120910,7 +120910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.12.2]
 title = "Serve 0x101B layerxpay from the merge plan height through the activation list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.0.2", "6.6.5", "2.0.3", "5.19.4"]
@@ -121240,7 +121240,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.12.12]
 title = "Serve 0x0908 eip712 from the merge plan height through the activation list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.0.2", "6.6.5", "2.0.3", "5.19.4"]
@@ -122286,7 +122286,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.3]
 title = "Prove a passed LayerXProposal pauses layerxpay through the app gov router"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.28.2", "6.0.2", "2.0.3"]
@@ -122316,7 +122316,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.4]
 title = "Prove a passed LayerXProposal pauses layerxledger and layerxauth live"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.0.2", "2.0.3"]
