@@ -148733,7 +148733,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.24.3]
 title = "Check the gas station decoder against the shared receipt vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.24.2", "11.0.4"]
@@ -149024,7 +149024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.26.4]
 title = "Delete batch-era archive types and the checkpoint vector test from the mirror"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.2", "11.26.3", "11.30.1", "11.34.3", "9.1.6"]
