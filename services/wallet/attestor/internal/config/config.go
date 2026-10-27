@@ -284,6 +284,9 @@ func ParseActivityTypes(v string) ([]uint32, error) {
 		if err != nil || n == 0 {
 			return nil, fmt.Errorf("config: %s: invalid activity type %q", EnvActivityTypes, entry)
 		}
+		if n != 0x10005 {
+			return nil, fmt.Errorf("config: %s: activity type %q is not the asset send", EnvActivityTypes, entry)
+		}
 		if seen[uint32(n)] {
 			return nil, fmt.Errorf("config: %s: duplicate activity type %q", EnvActivityTypes, entry)
 		}
