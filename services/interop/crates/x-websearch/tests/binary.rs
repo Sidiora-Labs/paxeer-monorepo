@@ -20,6 +20,7 @@ use x_websearch::kernel::{EVENTS_METHOD, PROGRAM_ATTESTATION_PATH, REQUEST_TOPIC
 use x_websearch::keys::{ATTESTOR_KEY_FILE, RECEIVER_KEY_FILE, SUBMITTER_KEY_FILE};
 use x_websearch::payment::{hex, PAYER_DID, PAYMENT_REQUIRED};
 use x_websearch::search::search;
+use x_websearch::watch::{hex0x, keccak, GET_KERNEL_NETWORK_ID_SIGNATURE, XWEB_PRECOMPILE};
 
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
@@ -205,7 +206,8 @@ fn attestor_key(scratch: &Scratch) -> TestResult<PathBuf> {
 
 /// A loopback JSON-RPC gateway recording every call. It answers
 /// `lx_getProgramEvents` with no events and the cursor it was asked from,
-/// and every other method with a method-not-found error.
+/// optionally serves the settlement chain and receipt probe, and rejects
+/// other methods with a method-not-found error.
 struct Gateway {
     address: SocketAddr,
     calls: Arc<Mutex<Vec<(String, Value)>>>,
@@ -236,7 +238,12 @@ fn read_body(stream: &mut TcpStream) -> Option<Vec<u8>> {
     }
 }
 
-fn answer_rpc(stream: &mut TcpStream, calls: &Mutex<Vec<(String, Value)>>) {
+fn answer_rpc(
+    stream: &mut TcpStream,
+    calls: &Mutex<Vec<(String, Value)>>,
+    chain_id: Option<u64>,
+    ledger_calls: &[Value],
+) {
     let Some(request) =
         read_body(stream).and_then(|body| serde_json::from_slice::<Value>(&body).ok())
     else {
@@ -244,7 +251,31 @@ fn answer_rpc(stream: &mut TcpStream, calls: &Mutex<Vec<(String, Value)>>) {
     };
     let method = request["method"].as_str().unwrap_or_default().to_owned();
     let params = request["params"].clone();
-    let reply = if method == EVENTS_METHOD {
+    let reply = if method == "eth_chainId" && chain_id.is_some() {
+        json!({
+            "jsonrpc": "2.0",
+            "id": request["id"],
+            "result": chain_id.map(|id| format!("0x{id:x}")),
+        })
+    } else if method == "pax_sequencerReceipt" && chain_id.is_some() {
+        json!({ "jsonrpc": "2.0", "id": request["id"], "result": null })
+    } else if method == "eth_call"
+        && chain_id.is_some()
+        && params
+            == json!([{
+            "to": hex0x(&XWEB_PRECOMPILE),
+            "data": hex0x(&keccak(GET_KERNEL_NETWORK_ID_SIGNATURE.as_bytes())[..4]),
+        }, "latest"])
+    {
+        let mut network_id = [0_u8; 32];
+        network_id[31] = 1;
+        json!({ "jsonrpc": "2.0", "id": request["id"], "result": hex0x(&network_id) })
+    } else if let Some(recorded) = ledger_calls
+        .iter()
+        .find(|recorded| recorded["method"] == method && recorded["params"] == params)
+    {
+        json!({ "jsonrpc": "2.0", "id": request["id"], "result": recorded["result"] })
+    } else if method == EVENTS_METHOD {
         json!({
             "jsonrpc": "2.0",
             "id": request["id"],
@@ -272,6 +303,28 @@ fn answer_rpc(stream: &mut TcpStream, calls: &Mutex<Vec<(String, Value)>>) {
 
 impl Gateway {
     fn start() -> std::io::Result<Self> {
+        Self::start_with_chain_id(None)
+    }
+
+    fn start_with_chain_id(chain_id: Option<u64>) -> std::io::Result<Self> {
+        let ledger_calls = if chain_id.is_some() {
+            let recording: Value =
+                serde_json::from_slice(&std::fs::read(fixtures().join("gateway/metered.json"))?)?;
+            recording["endpoints"]["gateway"]["*"]
+                .as_array()
+                .ok_or_else(|| std::io::Error::other("missing recorded ledger calls"))?
+                .iter()
+                .filter(|call| {
+                    call["method"] == "eth_call"
+                        && call["params"][0]["data"]
+                            .as_str()
+                            .is_some_and(|data| data.starts_with("0x3f050cbc"))
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        } else {
+            Vec::new()
+        };
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -283,7 +336,7 @@ impl Gateway {
                     break;
                 }
                 if let Ok(mut stream) = stream {
-                    answer_rpc(&mut stream, &thread_calls);
+                    answer_rpc(&mut stream, &thread_calls, chain_id, &ledger_calls);
                 }
             }
         });
@@ -563,6 +616,121 @@ fn assert_offers_every_asset(offers: &[Value], config: &Value, schemes: &[&str])
         })
         .collect();
     assert_eq!(found, expected);
+    Ok(())
+}
+
+fn wait_for_settlement(sidecar: &Sidecar) -> TestResult<(u16, Value, Value)> {
+    let deadline = Instant::now() + WAIT;
+    loop {
+        let (status, _, body) = sidecar.get("/readyz", "")?;
+        let readiness: Value = serde_json::from_slice(&body)?;
+        let role = readiness["roles"]
+            .as_array()
+            .and_then(|roles| roles.iter().find(|role| role["role"] == "paid_delivery"))
+            .ok_or("missing paid_delivery role")?;
+        let settlement = role["dependencies"]
+            .as_array()
+            .and_then(|dependencies| {
+                dependencies
+                    .iter()
+                    .find(|dependency| dependency["dependency"] == "settlement_authority")
+            })
+            .ok_or("missing settlement_authority dependency")?;
+        if settlement["state"] != "starting" {
+            return Ok((status, readiness.clone(), settlement.clone()));
+        }
+        if Instant::now() > deadline {
+            return Err(format!("settlement probe did not finish: {readiness}").into());
+        }
+        thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn settlement_settings(config: &mut Value, gateway: &Gateway) {
+    config["gateway"] = json!({
+        "endpoint": gateway.url(),
+        "receipt_keys": [{
+            "key_id": config["gateway"]["sequencer_id"],
+            "public_key": config["gateway"]["sequencer_public_key"],
+            "first_height": 0,
+            "last_height": u64::MAX,
+        }],
+    });
+    config["evm"]["chain_id"] = json!(125);
+    config["evm"]["endpoint"] = json!(gateway.url());
+}
+
+fn settlement_receiver_key(scratch: &Scratch) -> TestResult<PathBuf> {
+    let path = scratch.0.join("receiver.key");
+    let mut secret = [0_u8; 32];
+    secret[31] = 3;
+    let receiver = k256::ecdsa::SigningKey::from_slice(&secret)?;
+    std::fs::write(&path, hex(&receiver.to_bytes()))?;
+    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
+    Ok(path)
+}
+
+#[test]
+fn the_binary_refuses_a_settlement_endpoint_on_another_chain() -> TestResult {
+    let scratch = Scratch::new("settlement-wrong-chain")?;
+    let site = Site::start(&fixtures().join("binary/site"))?;
+    let gateway = Gateway::start_with_chain_id(Some(126))?;
+    let evm = Gateway::start_with_chain_id(Some(125))?;
+    let config = configure(&scratch, &site, |config| {
+        settlement_settings(config, &gateway);
+        config["evm"]["endpoint"] = json!(evm.url());
+    })?;
+    let receiver = settlement_receiver_key(&scratch)?;
+    let sidecar = Sidecar::start(&scratch, &config, &receiver)?;
+
+    let (status, readiness, settlement) = wait_for_settlement(&sidecar)?;
+    assert_eq!(status, 503, "{readiness}");
+    assert_eq!(readiness["ready"], false);
+    assert_eq!(settlement["state"], "unavailable", "{readiness}");
+    assert_eq!(settlement["critical"], true);
+    assert!(settlement["last_success_unix_ms"].is_null());
+    let (status, _, body) = sidecar.get("/search?q=lighthouse", "")?;
+    assert_eq!(status, 503);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body)?["error"],
+        "service_not_ready"
+    );
+    assert!(!gateway.params("eth_chainId").is_empty());
+    assert!(gateway
+        .params("eth_chainId")
+        .iter()
+        .all(|params| *params == json!([])));
+    assert!(gateway.params("pax_sequencerReceipt").is_empty());
+    assert!(gateway.params("lx_getNodeInfo").is_empty());
+    Ok(())
+}
+
+#[test]
+fn the_binary_reports_settlement_ready_on_the_configured_chain() -> TestResult {
+    let scratch = Scratch::new("settlement-configured-chain")?;
+    let site = Site::start(&fixtures().join("binary/site"))?;
+    let gateway = Gateway::start_with_chain_id(Some(125))?;
+    let config = configure(&scratch, &site, |config| {
+        settlement_settings(config, &gateway);
+    })?;
+    let receiver = settlement_receiver_key(&scratch)?;
+    let sidecar = Sidecar::start(&scratch, &config, &receiver)?;
+
+    let (_, readiness, settlement) = wait_for_settlement(&sidecar)?;
+    assert_eq!(settlement["state"], "ready", "{readiness}");
+    assert_eq!(settlement["critical"], true);
+    assert!(settlement["last_success_unix_ms"].as_u64().is_some());
+    assert!(!gateway.params("eth_chainId").is_empty());
+    assert!(gateway
+        .params("eth_chainId")
+        .iter()
+        .all(|params| *params == json!([])));
+    let probes = gateway.params("pax_sequencerReceipt");
+    assert!(!probes.is_empty());
+    assert!(probes
+        .iter()
+        .all(|params| *params == json!([format!("0x{}", "00".repeat(32))])));
+    assert!(gateway.params("lx_getNodeInfo").is_empty());
     Ok(())
 }
 
