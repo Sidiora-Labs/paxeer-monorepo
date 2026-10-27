@@ -22,6 +22,11 @@ fn hex32(value: &Value) -> [u8; 32] {
 
 #[test]
 fn documented_v2_example_parses_and_verifies() {
+    portability_v2_example_parses();
+}
+
+#[test]
+fn portability_v2_example_parses() {
     let section = GUIDE
         .split_once("### Example (v2)\n")
         .expect("v2 example heading")
