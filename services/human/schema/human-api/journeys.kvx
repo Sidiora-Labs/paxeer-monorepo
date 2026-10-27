@@ -6,6 +6,7 @@ spine = "Every operation on this contract speaks in journeys, stages, states and
 
 [type.JourneyKind]
 variants = ["onboarding","wallet-binding","deposit","withdraw","exit","move","agent-create","agent-fund","agent-pause","agent-retire"]
+retired_variants = ["wallet-binding","deposit","withdraw","exit"]
 boundary = "deposit, withdraw and exit name custody-boundary journeys exclusively. Every movement inside LayerX is move, resolved to fund, allocate, return or transfer by the route resolver."
 
 [type.JourneyState]
@@ -19,15 +20,19 @@ waiting-for-you.semantics = "A policy hold with deterministic expiry awaits the 
 
 [type.EvidenceClass]
 variants = ["local-journey-state","submission-record","layerx-receipt","checkpoint-proof","paxeer-finality","typed-refusal","approval-hold","wallet-ack"]
+retired_variants = ["paxeer-finality"]
 
 [type.VerificationLevel]
 variants = ["unverified","receipt-verified","checkpoint-finalised","paxeer-finalised","settlement-anchored"]
+retired_variants = ["paxeer-finalised","settlement-anchored"]
+rung_mapping = ["submitted:unverified","receipted:receipt-verified","committed:checkpoint-finalised"]
 ordering = "declaration_order"
 
 [type.EvidenceRef]
 required = ["evidence_id:EvidenceId","class:EvidenceClass","verification:VerificationLevel"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
+settlement_domain.retired = "true"
 export = "Every evidence reference is sufficient to fetch the receipt or proof material for export and independent verification."
 
 [type.JourneyStage]
@@ -45,6 +50,7 @@ required = ["journeys:Journey[]","next_cursor:Cursor"]
 required = ["evidence_id:EvidenceId","class:EvidenceClass","verification:VerificationLevel","content_type:string","bytes_base64:string"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
+settlement_domain.retired = "true"
 material = "The referenced receipt or proof in its canonical bytes, exactly as the protocol produced them, sufficient for export and for verification independent of this plane."
 
 [operation.evidence.get]

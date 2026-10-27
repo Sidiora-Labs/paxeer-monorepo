@@ -4,22 +4,21 @@ import {
   VerifiedWebhookConsumer,
   X402_VERSION,
   paymentCommitment,
-  protocolSelection,
-  requireProtocolVersion,
   verifyPaymentReceipt,
   type JsonValue,
   type PaymentRequired,
+  type PaymentReceiptVerification,
+  type PortableReceiptV2,
   type PaymentCommitmentResolver,
   type SellerDecision,
   type WebhookConsumeResult,
   type WebhookRequestHeaders,
 } from "@sidiora/layerx-seller-middleware";
-import type { ProtocolSelection, ReceiptVerification, SelectableProtocolVersion } from "@sidiora/layerx-sdk";
+import { keccak256, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
 
 const MAX_U128 = 340282366920938463463374607431768211455n;
 const MAX_LINES = 256;
 const MAX_QUANTITY = 1_000_000;
-const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
 
 export interface CatalogItem {
   readonly sku: string;
@@ -91,17 +90,13 @@ export interface MerchantOrderStore {
 }
 
 export interface MerchantSellerFactory {
-  create(
-    paymentRequired: PaymentRequired,
-    protocolVersion: SelectableProtocolVersion,
-  ): SellerMiddleware<MerchantOrder>;
+  create(paymentRequired: PaymentRequired): SellerMiddleware<MerchantOrder>;
 }
 
 export interface MerchantMiddlewareConfig {
   readonly catalog: CatalogProvider;
   readonly orders: MerchantOrderStore;
   readonly sellers: MerchantSellerFactory;
-  readonly protocolVersion: SelectableProtocolVersion;
   readonly resourceUrl: (checkoutKey: string) => string;
 }
 
@@ -112,7 +107,7 @@ export type MerchantCheckoutResult =
   | {
     readonly kind: "paid";
     readonly order: MerchantOrder;
-    readonly verification: ReceiptVerification;
+    readonly verification: PaymentReceiptVerification;
     readonly settlement: Extract<SellerDecision<MerchantOrder>, { readonly kind: "released" }>["settlement"];
   };
 
@@ -120,19 +115,13 @@ export class MerchantMiddleware {
   readonly #catalog: CatalogProvider;
   readonly #orders: MerchantOrderStore;
   readonly #sellers: MerchantSellerFactory;
-  readonly #protocolVersion: SelectableProtocolVersion;
   readonly #resourceUrl: (checkoutKey: string) => string;
 
   public constructor(config: MerchantMiddlewareConfig) {
     this.#catalog = config.catalog;
     this.#orders = config.orders;
     this.#sellers = config.sellers;
-    this.#protocolVersion = requireProtocolVersion(config.protocolVersion);
     this.#resourceUrl = config.resourceUrl;
-  }
-
-  public get protocolVersion(): SelectableProtocolVersion {
-    return this.#protocolVersion;
   }
 
   public async quote(checkoutKey: string, lines: readonly CartLine[]): Promise<MerchantQuote> {
@@ -234,10 +223,7 @@ export class MerchantMiddleware {
     if (paymentHeader === undefined && opened.state === "refused") {
       return { kind: "refused", order: opened };
     }
-    const seller = this.#sellers.create(quote.paymentRequired, this.#protocolVersion);
-    if (seller.protocolVersion !== this.#protocolVersion) {
-      throw new MerchantError("protocol-version-mismatch");
-    }
+    const seller = this.#sellers.create(quote.paymentRequired);
     const decision = await seller.handle(
       principal,
       paymentHeader,
@@ -290,16 +276,7 @@ export interface SettlementWebhookEvent {
   readonly verification: "receipted" | "committed";
 }
 
-export interface MerchantReceiptEvidence {
-  readonly canonicalReceipt: Uint8Array;
-  readonly authorizedBatch: {
-    readonly batchId: Uint8Array;
-    readonly asset: Uint8Array;
-    readonly previousStateRoot: Uint8Array;
-    readonly resultingStateRoot: Uint8Array;
-    readonly sequencerPublicKey: Uint8Array;
-  };
-}
+export interface MerchantReceiptEvidence extends PortableReceiptV2 {}
 
 export interface MerchantReceiptResolver {
   resolve(receiptRef: string): Promise<MerchantReceiptEvidence>;
@@ -309,7 +286,7 @@ export interface MerchantSettlementWebhooksConfig {
   readonly verifier: VerifiedWebhookConsumer;
   readonly orders: MerchantOrderStore;
   readonly receipts: MerchantReceiptResolver;
-  readonly protocolVersion: SelectableProtocolVersion;
+  readonly receiptKeys: readonly SequencerReceiptKey[];
   readonly commitments?: PaymentCommitmentResolver;
 }
 
@@ -317,21 +294,17 @@ export class MerchantSettlementWebhooks {
   readonly #verifier: VerifiedWebhookConsumer;
   readonly #orders: MerchantOrderStore;
   readonly #receipts: MerchantReceiptResolver;
-  readonly #protocolVersion: SelectableProtocolVersion;
-  readonly #protocol: ProtocolSelection;
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
   readonly #commitments: PaymentCommitmentResolver | undefined;
 
   public constructor(config: MerchantSettlementWebhooksConfig) {
     this.#verifier = config.verifier;
     this.#orders = config.orders;
     this.#receipts = config.receipts;
-    this.#protocolVersion = requireProtocolVersion(config.protocolVersion);
-    this.#protocol = protocolSelection(this.#protocolVersion);
+    this.#receiptKeys = config.receiptKeys.map((key) => ({
+      ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice(),
+    }));
     this.#commitments = config.commitments;
-  }
-
-  public get protocolVersion(): SelectableProtocolVersion {
-    return this.#protocolVersion;
   }
 
   public consume(rawBody: Uint8Array, headers: WebhookRequestHeaders): Promise<WebhookConsumeResult> {
@@ -347,24 +320,25 @@ export class MerchantSettlementWebhooks {
       }
       const evidence = await this.#receipts.resolve(event.receipt_ref);
       const requirements = current.quote.paymentRequired.accepts[0]!;
-      await verifyPaymentReceipt(
+      const verified = await verifyPaymentReceipt(
         evidence,
         requirements,
+        this.#receiptKeys,
         this.#commitments,
-        this.#protocol,
       );
       if (verificationRank(event.verification) > verificationRank(paymentCommitment(requirements.extra))) {
         throw new MerchantError("invalid-webhook");
       }
-      const receiptDigest = toHex(await settlementReceiptDigest(evidence.canonicalReceipt));
-      if (!constantTimeHex(receiptDigest, event.receipt_digest)) {
+      const signedReceipt = Uint8Array.from(evidence.signedReceipt.slice(2).match(/../gu)!, (pair) => Number.parseInt(pair, 16));
+      const receiptDigest = toHex(keccak256(signedReceipt));
+      if (!constantTimeHex(receiptDigest, event.receipt_digest) || event.transaction !== verified.txHash) {
         throw new MerchantError("invalid-webhook");
       }
       const paid = await this.#orders.markPaid(
         current.orderId,
         current.requestDigest,
         event.receipt_digest,
-        event.transaction,
+        verified.txHash,
       );
       requireMatchingOrder(paid, current.checkoutKey, current.requestDigest, current.quote);
       if (
@@ -385,7 +359,6 @@ export type MerchantErrorCode =
   | "mixed-payment-facts"
   | "amount-overflow"
   | "order-conflict"
-  | "protocol-version-mismatch"
   | "invalid-webhook";
 
 export class MerchantError extends Error {
@@ -506,13 +479,6 @@ function constantTimeHex(actual: string, expected: string): boolean {
 
 function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
-}
-
-async function settlementReceiptDigest(canonicalReceipt: Uint8Array): Promise<Uint8Array> {
-  const input = new Uint8Array(MERKLE_LEAF_DOMAIN.length + canonicalReceipt.length);
-  input.set(MERKLE_LEAF_DOMAIN);
-  input.set(canonicalReceipt, MERKLE_LEAF_DOMAIN.length);
-  return new Uint8Array(await globalThis.crypto.subtle.digest("SHA-256", input));
 }
 
 function layerXReceiptDigest(extensions: Readonly<Record<string, JsonValue>> | undefined): string {
