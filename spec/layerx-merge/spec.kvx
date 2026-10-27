@@ -95761,7 +95761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.0.3]
 title = "Integrated gate: bank mirror matches kernel balances through the node-served 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["2.12.1", "2.12.2", "2.12.3", "2.12.4", "2.12.5"]
@@ -112960,7 +112960,7 @@ do_4 = "At 666996bb3 the v7.0 handler panicked 'missing merge constructors or ac
 
 [task.5.7.1]
 title = "Delete the anchor store and module at a second plan after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.6.5", "5.7.2"]
@@ -146339,7 +146339,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.0.3]
 title = "Start the interop service against the sequencer endpoint and pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.16.3", "11.12.5", "11.11.4", "9.1.7"]
