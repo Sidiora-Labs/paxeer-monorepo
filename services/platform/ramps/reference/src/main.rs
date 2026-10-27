@@ -268,8 +268,7 @@ fn verify_receipt_command() -> Result<(), String> {
             "receipt_digest": leg.receipt_digest,
             "height": leg.height,
             "rung": leg.rung.name(),
-            "network_id": config.layerx.network_id,
-            "wire_version": config.layerx.protocol_version,
+            "chain_id": config.layerx.chain_id,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL
         })
     );
@@ -344,9 +343,8 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.paxeer.poll_cadence_seconds == 0
         || config.paxeer.delayed_after_polls == 0
         || config.paxeer.operator_account != config.operator.account
-        || config.layerx.protocol_version != layerx_wire::limits::PROTOCOL_VERSION
-        || config.layerx.network_id == 0
-        || config.layerx.fee_limit == 0
+        || config.layerx.chain_id == 0
+        || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
         || !valid_service_path(&config.provider.status_path)
@@ -758,8 +756,7 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         let body = json!({
             "ready": ready,
             "journal": health,
-            "network_id": state.layerx.activity.network_id,
-            "wire_version": state.layerx.activity.protocol_version,
+            "chain_id": state.layerx.chain_id,
             "external_custody": true,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL,
             "readiness_scope": "local-journal",
@@ -1040,16 +1037,6 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     if work.canonical_receive_payload.is_some() && !matches!(work.action, WorkAction::SubmitLayerx)
     {
         return Err(error(400, "work_invalid"));
-    }
-    if matches!(work.action, WorkAction::SubmitLayerx)
-        && state.layerx.activity.protocol_version
-            == layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-        && journal
-            .order(&work.order_digest)
-            .is_some_and(|snapshot| snapshot.order.direction() == RampDirection::OffRamp)
-        && work.canonical_receive_payload.is_none()
-    {
-        return Err(error(400, "native_payer_grant_authorization_required"));
     }
     let mut engine = engine(state, &mut journal);
     match work.action {
