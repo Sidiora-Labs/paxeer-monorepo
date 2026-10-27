@@ -67,11 +67,26 @@ type RPCEndpointConfig struct {
 	batchItemLimit         int
 	batchResponseSizeLimit int
 	readLimit              int64
+	ipRateLimitRPS         float64
+	ipRateLimitBurst       int
 }
 
 type rpcHandler struct {
 	http.Handler
-	server *rpc.Server
+	server  *rpc.Server
+	limiter *ipRateLimiter
+}
+
+func (l *ipRateLimiter) wrap(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.allow(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":null,"error":{"code":-32005,"message":"rate limit exceeded"}}`)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 type HTTPServer struct {
@@ -275,6 +290,8 @@ func (h *HTTPServer) Stop() {
 func (h *HTTPServer) doStop() {
 	defer func() { h.onStop = nil }()
 	if h.listener == nil {
+		h.disableRPC()
+		h.disableWS()
 		for _, hook := range h.onStop {
 			hook()
 		}
@@ -290,11 +307,13 @@ func (h *HTTPServer) doStop() {
 	if httpHandler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
+		httpHandler.limiter.stop()
 		h.apis = nil
 	}
 	if wsHandler != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		wsHandler.server.Stop()
+		wsHandler.limiter.stop()
 		h.wsAPIs = nil
 	}
 	for _, hook := range h.onStop {
@@ -344,9 +363,11 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	h.HTTPConfig = config
 	h.apis = registeredAPIs(apis, config.Modules)
 	base := NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
+	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.httpHandler.Store(&rpcHandler{
-		Handler: wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist),
+		Handler: limiter.wrap(wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist)),
 		server:  srv,
+		limiter: limiter,
 	})
 	return nil
 }
@@ -357,6 +378,7 @@ func (h *HTTPServer) disableRPC() bool {
 	if handler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		handler.server.Stop()
+		handler.limiter.stop()
 		h.apis = nil
 	}
 	return handler != nil
@@ -384,9 +406,11 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 	}
 	h.WsConfig = config
 	h.wsAPIs = registeredAPIs(apis, config.Modules)
+	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.wsHandler.Store(&rpcHandler{
-		Handler: NewWSHandlerStack(newDenyListWSHandler(srv, config), config.JwtSecret),
+		Handler: limiter.wrap(NewWSHandlerStack(newDenyListWSHandler(srv, config), config.JwtSecret)),
 		server:  srv,
+		limiter: limiter,
 	})
 	return nil
 }
@@ -455,12 +479,14 @@ func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 				if err := conn.ReadJSON(&raw); err != nil {
 					return err
 				}
-				requests := []json.RawMessage{raw}
+				var requests []json.RawMessage
 				batch := bytes.HasPrefix(bytes.TrimSpace(raw), []byte("["))
 				if batch {
 					if err := json.Unmarshal(raw, &requests); err != nil {
 						return err
 					}
+				} else {
+					requests = []json.RawMessage{raw}
 				}
 				var blocked *jsonrpcMessage
 				for _, request := range requests {
@@ -562,6 +588,7 @@ func (h *HTTPServer) disableWS() bool {
 	if ws != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		ws.server.Stop()
+		ws.limiter.stop()
 		h.wsAPIs = nil
 	}
 	return ws != nil
