@@ -119217,7 +119217,7 @@ verify_cmd = "go test -count=1 ./precompiles/common/ -run '^(TestLXPRevertTable)
 gate_kind = "existing"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
-rollback = "Revert precompiles/common/lxp_errors.go:151-153 to code-only rows."
+rollback = "Revert precompiles/common/lxp_errors.go:151-153 to code-only rows; the Rust-side rewrite of lxpRustResultsForTest is reverted with the test file."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -119226,6 +119226,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Add to section (b) of spec/layerx-merge/contracts/address-table.md, in lxpRevertTable order, the 110 rows precompiles/common/lxp_errors.go registers without a table row (LXP_LAUNCHPAD_*, LXP_PERPS_*, LXP_PRICEFEED_* from 6.92.1, LXP_PAY_UNBOUND_CALLER, LXP_PAY_KERNEL_GATE_MISMATCH, LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE), each with the five registry columns and its Go or site origin, so TestLXPRevertTable finds every registered code in the table."
+do_6 = "lxpRustResultsForTest (precompiles/common/lxp_errors_test.go:78) reads services/agent/crates/layerx-types/src/result.rs for a protocol_result_codes! invocation that has not lived there since the layerx-types build script began generating it: services/agent/crates/layerx-types/build.rs:229-236 writes the invocation to OUT_DIR/result_codes.rs from include/layerx/lxp_result.h and the Retryable column of address-table.md, result.rs:85 includes it, and build.rs:529 checks header parity at every build. Rewrite the Rust half of TestLXPRevertTable for that design: read build.rs, assert it names include/layerx/lxp_result.h as the header input (build.rs:515) and emits one name = value, class; entry per declared code (build.rs:214-216), and remove the row comparison against the hand-written mirror that no longer exists; keep every Go-side assertion of the test as it is."
 [task.6.2.3]
 title = "Check the Python SDK retryable map against the LXP registry"
 status = "pending"
