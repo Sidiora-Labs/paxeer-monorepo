@@ -8029,3 +8029,11 @@ symbol = "PerpsMarket"
 observed = "Attempt da9ceb986 deleted maxLeverage from PerpsMarket and tsc failed at MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68, which read the field through MarketRow extends PerpsMarket and the mobile market prop."
 assumption = "do_5 moves the gateway-fed consumers onto a TradeableMarket type; the 1000 assertions in perps-config.test.ts go with the rows."
 severity = "major"
+
+[finding.11.36.1.2]
+task = "11.36.1"
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+symbol = "decode_request_record"
+observed = "Attempt 1d7eadbe8 applied do_7 and the build failed at tests/attest.rs:25 (unresolved import x_websearch::kernel); tests/program.rs:17 and tests/binary.rs:19 import the module too, and tests/program.rs needs decode_request_record, which only kernel.rs:172 defines."
+assumption = "do_8 repoints the three tests and moves decode_request_record into program.rs; the kernel binary tests go with do_3."
+severity = "major"
