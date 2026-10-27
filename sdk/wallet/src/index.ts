@@ -107,7 +107,7 @@ export class PaxeerWallet {
         typeof config.evmReview.storage?.setItem !== 'function')
     )
       throw new TypeError('EVM review storage is required');
-    this.evmStorage = config.evmReview?.storage;
+    if (config.evmReview) this.evmStorage = config.evmReview.storage;
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: {
         persistSession: true,

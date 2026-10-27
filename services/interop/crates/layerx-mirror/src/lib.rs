@@ -12,5 +12,6 @@ pub mod store;
 mod publisher;
 mod verify;
 
+pub use crate::committed::CommittedCoordinate;
 pub use publisher::*;
 pub use verify::*;

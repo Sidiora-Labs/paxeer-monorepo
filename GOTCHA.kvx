@@ -9255,3 +9255,39 @@ area = "TypeScript workspace typecheck"
 symptom = "apps/web typecheck fails TS2412 inside sdk/wallet/src/index.ts although sdk/wallet's own typecheck passes"
 cause = "apps/web compiles the wallet SDK source with exactOptionalPropertyTypes (apps/web/tsconfig.json:16), which refuses assigning a possibly undefined value to an optional field, and sdk/wallet's tsconfig does not set it"
 do = "assign optional fields only inside a presence check in SDK sources that apps/web compiles, and typecheck through apps/web before qualifying a wallet SDK change"
+
+[gotcha.1922]
+area = "explorer indexer ABI conformance"
+symptom = "kept_topics_match_precompile_abis reports a launchpad topic absent from precompiles/launchpad/abi.json although the indexer decodes it from chain logs"
+cause = "precompiles/launchpad/abi.json is the v6.12.0 surface; the indexer's launchpad definitions are the v6.10 events of precompiles/launchpad/legacy/v610/abi.json, and precompiles/launchpad/setup.go:11-18 serves both versions at 0x…1017"
+do = "compare launchpad topics against the union of the two served ABI files, and add v6.12.0 definitions in their own task"
+
+[gotcha.1923]
+area = "agent crates settlement document"
+symptom = "a layerx-sdk or layerx-client test that verifies a checkpoint certificate fails Verification although the vector is unchanged"
+cause = "layerx-proof embeds contracts/config/checkpoint-settlement.json via include_str! and b284707f6 replaced that document with an unrelated offline_export map, so every certificate verification returns Configuration; the whole path is retired (req.6496 ac_3, 9.27.4)"
+do = "do not restore the document; retire the certificate callers top-down (client and SDK before layerx-proof) and gate SDK tasks on that retirement"
+
+[gotcha.1924]
+area = "spec retirement ordering"
+symptom = "a module deletion task is scheduled in an earlier wave than the tasks that remove its callers, so the wave would not compile"
+cause = "the deletion task's requires list names the tasks that produced the replacement, not the tasks that remove the remaining consumers"
+do = "before scheduling a deletion, grep every consumer of the deleted symbols and add a requires edge to each consumer's remover; a consumer with no remover is a finding"
+
+[gotcha.1925]
+area = "explorer indexer market events"
+symptom = "adding a launchpad definition to PaxeerXLogs makes market_event_test.exs fail although the new rows parse"
+cause = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs:138-145 asserts that @market_signatures equals the launchpad definitions' signatures exactly"
+do = "extend the @market_signatures launchpad list in the same change as the definitions"
+
+[gotcha.1926]
+area = "rust-crates"
+symptom = "a dependant crate fails E0432 on `use <crate>::<module>` for a module the crate just added"
+cause = "the module was declared inside a private parent module and never re-exported from lib.rs, and the crate's own tests reach it through the parent"
+do = "when a task adds a module under a private parent, also add it to the crate root's `pub use` line, and list lib.rs in touches"
+
+[gotcha.1927]
+area = "kernel-programs"
+symptom = "a scheduler-width test over LX_PROGRAMS_CALL items never sees maximum_level 0 (every item lands in one chain)"
+cause = "under the OCCUPANCY and STATE_COMMITMENT protocol versions lxp_programs_call_schedule_item_prepare adds a write on the shared occupancy fee treasury to every CALL item (src/modules/programs/call.c:2569-2585)"
+do = "build width tests with LXP_PROTOCOL_VERSION_LEGACY items, or assert equality without a level-0 precondition when occupancy semantics are the subject"
