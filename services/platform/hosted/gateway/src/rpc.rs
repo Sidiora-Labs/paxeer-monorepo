@@ -394,6 +394,9 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
     if let Some(result) = crate::history::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
+    if let Some(result) = crate::chain_reads::dispatch(config, method, &id, value.get("params")) {
+        return value.get("id").map(|_| result);
+    }
     if let Some(result) = crate::paxeer::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
