@@ -100567,7 +100567,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.95.2]
 title = "Bind each registered ledger asset to a tokenfactory denom and mirror its pause state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.3.1", "6.0.2"]
@@ -101961,7 +101961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.3]
 title = "Freeze the 0x1015 funding and fee view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
