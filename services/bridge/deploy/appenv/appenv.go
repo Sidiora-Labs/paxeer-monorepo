@@ -57,6 +57,14 @@ func LoadRecord(path string) (Record, error) {
 		if !nonzero {
 			return Record{}, fmt.Errorf("%s: vault: zero address is not a deployed vault", path)
 		}
+	} else if chain.Kind == chainconfig.KindSolana {
+		programID, err := chainconfig.DecodeBase58(record.ProgramID)
+		if err != nil {
+			return Record{}, fmt.Errorf("%s: program_id: expected a 32-byte base58 key: %w", path, err)
+		}
+		if len(programID) != 32 {
+			return Record{}, fmt.Errorf("%s: program_id: decoded to %d bytes, want 32", path, len(programID))
+		}
 	}
 	return record, nil
 }
@@ -71,6 +79,11 @@ func EnvLines(records []Record) []string {
 			if record.Chain == chain.Name && record.Kind == string(chainconfig.KindEVM) {
 				lines = append(lines, "NEXT_PUBLIC_BRIDGE_VAULT_"+strings.ToUpper(chain.Name)+"="+record.Vault)
 			}
+		}
+	}
+	for _, record := range records {
+		if record.Chain == "solana" && record.Kind == string(chainconfig.KindSolana) {
+			lines = append(lines, "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID="+record.ProgramID)
 		}
 	}
 	return lines
