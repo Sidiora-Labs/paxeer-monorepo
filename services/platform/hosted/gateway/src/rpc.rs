@@ -337,7 +337,7 @@ pub(super) fn invalid_request(value: &Value) -> Option<Value> {
 
 fn kernel_backend(method: &str) -> Option<KernelBackend> {
     match method {
-        "lx_requestFunds" => Some(KernelBackend::Identity),
+        crate::rpc_faucet::px_requestFunds | "lx_requestFunds" => Some(KernelBackend::Identity),
         "lx_sendActivity" => Some(KernelBackend::Component),
         "lx_getAccount"
         | "lx_getBalance"

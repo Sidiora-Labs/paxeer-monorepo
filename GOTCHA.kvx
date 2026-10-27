@@ -9339,3 +9339,9 @@ area = "lxphost receipts"
 symptom = "a keeper or precompile test reads a write's receipt back with Host.ReadIdempotentReceipt and fails with LXP_ERR_UNKNOWN_FIELD although the write itself succeeded"
 cause = "since task 1.2.1 the kernel records no idempotency entry, so lxphost_read_receipt (modules/lxphost/read.go:164) finds no row for the key"
 do = "assert the write through the receipt the call returns, the stored record and the emitted event; do not read receipts back by key"
+
+[gotcha.1936]
+area = "spec verify_cmd"
+symptom = "a verify_cmd fails before running anything: the shell reports a path such as /work/repo/\"\"\"\" or the first word is export CARGO_TARGET_DIR=\\\"..."
+cause = "cg hands the kvx string to the shell as written, so an escaped double quote in verify_cmd reaches the shell as a literal backslash and quote"
+do = "write verify_cmd without double quotes: single quotes for test patterns, bare $(...) and ${VAR:-default} expansions, and paths without spaces"
