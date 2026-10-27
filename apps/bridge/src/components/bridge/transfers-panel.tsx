@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { parseEventLogs } from 'viem';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
@@ -14,7 +13,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/sonner';
 import { formatAmount } from '@/lib/bridge/amount';
 import { bridgeChainByKey, finalityEstimate, paxeer } from '@/lib/bridge/chains';
-import { paxeerXVaultAbi } from '@/lib/bridge/contracts';
+import { enrichRecord } from '@/lib/bridge/enrich';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { foreignTxUrl, paxeerTxUrl } from '@/lib/bridge/explorer';
 import { phaseOf, settlementPatch } from '@/lib/bridge/settlement';
@@ -32,7 +31,6 @@ import {
 import { wagmiConfig } from '@/lib/bridge/wagmi';
 import { ImportTransfer } from './import-transfer';
 import {
-  bridgeOutNonceFromReceipt,
   buildVerifiedClaim,
   buildVerifiedRelease,
   readTransferLive,
@@ -63,30 +61,7 @@ async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]
       next.push(transfer);
       continue;
     }
-    let enriched = transfer;
-    if (needsLogIndex && transfer.vault) {
-      try {
-        const events = parseEventLogs({
-          abi: paxeerXVaultAbi,
-          logs: receipt.logs.filter((l) => l.address.toLowerCase() === transfer.vault!.toLowerCase()),
-          eventName: 'BridgeDeposit',
-        });
-        const hit = events.find(
-          (e) =>
-            (e.args.amount as bigint) === BigInt(transfer.amount) &&
-            (e.args.sender as string).toLowerCase() === transfer.account.toLowerCase(),
-        );
-        if (hit && hit.logIndex !== undefined) {
-          enriched = { ...enriched, logIndex: String(hit.logIndex), nonce: String(hit.args.nonce as bigint) };
-        }
-      } catch {
-        // Not a vault deposit log — leave unenriched; tracking still works.
-      }
-    }
-    if (needsNonce) {
-      const nonce = bridgeOutNonceFromReceipt(receipt.logs);
-      if (nonce !== undefined) enriched = { ...enriched, bridgeOutNonce: String(nonce) };
-    }
+    const enriched = enrichRecord(transfer, receipt);
     if (enriched !== transfer) {
       updateTransfer(enriched.id, {
         logIndex: enriched.logIndex,
