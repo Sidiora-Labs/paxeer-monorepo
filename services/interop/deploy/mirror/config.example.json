@@ -1,8 +1,45 @@
 {
   "state_directory": "/var/lib/layerx-mirror",
-  "first_batch_number": 1,
+  "first_height": 1,
   "poll_interval_ms": 5000,
   "status_listen": "127.0.0.1:9091",
+  "paxeer": {
+    "rpc": {
+      "endpoints": [
+        {
+          "url": "https://paxeer-a.example/rpc",
+          "ca_certificate_der": "/run/secrets/paxeer-a.ca.der",
+          "bearer_token_file": "/run/secrets/paxeer-a.token",
+          "independent_backend": "paxeer-a"
+        },
+        {
+          "url": "https://paxeer-b.example/rpc",
+          "ca_certificate_der": "/run/secrets/paxeer-b.ca.der",
+          "bearer_token_file": "/run/secrets/paxeer-b.token",
+          "independent_backend": "paxeer-b"
+        },
+        {
+          "url": "https://paxeer-c.example/rpc",
+          "ca_certificate_der": "/run/secrets/paxeer-c.ca.der",
+          "bearer_token_file": "/run/secrets/paxeer-c.token",
+          "independent_backend": "paxeer-c"
+        }
+      ],
+      "quorum": 2,
+      "connect_timeout_ms": 3000,
+      "request_timeout_ms": 15000,
+      "maximum_response_bytes": 16777216
+    },
+    "chain_id": 125,
+    "receipt_keys": [
+      {
+        "keyId": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+        "publicKey": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "firstHeight": 1000,
+        "lastHeight": 1999
+      }
+    ]
+  },
   "ethereum": {
     "rpc": {
       "endpoints": [
@@ -90,14 +127,10 @@
       "public_key": "11111111111111111111111111111115",
       "timeout_ms": 5000,
       "transport": {
-        "kind": "mutual_tls",
-        "endpoint": "signer.example:9443",
-        "server_name": "signer.example",
-        "trust_anchor": "/run/secrets/signer.ca.pem",
-        "client_certificate": "/run/secrets/signer.client.pem",
-        "client_private_key": "/run/secrets/signer.client-key.pem"
+        "kind": "uds",
+        "socket": "/run/signers/solana.sock"
       }
     }
   },
-  "checkpoint_freshness_budget_batches": 64
+  "freshness_budget_blocks": 64
 }

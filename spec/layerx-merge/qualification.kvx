@@ -7483,7 +7483,7 @@ task = "8.98.8"
 file = "services/platform/hosted/gateway/tests/local/Cargo.toml"
 symbol = "layerx-gateway-local-qualification"
 observed = "Attempts afabdc7e3 (8.98.8) and e43668a67 (8.98.7) failed at cargo build with 'package ID specification layerx-gateway-local-qualification did not match any packages' because that package is its own workspace (Cargo.toml:7) and not a member of services/platform/Cargo.toml."
-assumption = "Both tasks' build_cmd and verify_cmd now name services/platform/hosted/gateway/tests/local/Cargo.toml directly. Recorded once."
+assumption = "The manifest-path commands given on 2026-10-27 were also wrong: the local qualification package has a build.rs that requires a parent-built core binary (LAYERX_TEST_CORE_BIN) and asserts a boundary fixture path contract that core/tests/boundary.rs no longer meets, so the scan tests now live in the gateway crate itself. Recorded once."
 severity = "major"
 
 [finding.8.98.5]
@@ -7546,8 +7546,8 @@ severity = "major"
 task = "13.22.1"
 file = "precompiles/layerxprograms/layerxprograms.go"
 symbol = "Address"
-observed = "Attempt ff31f629c fails go build because tasks 13.22.4 to 13.22.6 landed submit.go and the event files first, referencing Address as a common.Address and a PrecompileExecutor with an evmKeeper field (submit.go:20,32), while do_1 declares Address as a string constant and the attempt's executor lacks the field."
-assumption = "A new do item makes the base file conform to the declarations the sibling files already use. Recorded once."
+observed = "Attempts ff31f629c and f1460932f fail go build with redeclarations: the package on the merged tree already declares Address (events.go:14), PrecompileExecutor, callContext, RequiredGas and Execute (submit.go:18-74) from tasks 13.22.2 to 13.22.6, while do_1 and do_4 asked 13.22.1 to declare them."
+assumption = "do_8 now limits layerxprograms.go to the constructors, the keepers interface, the merge registration and the tests; the handler table of do_4 is superseded by the Execute submit.go already carries. Recorded once."
 severity = "major"
 
 [finding.5.98.1.3]
@@ -7565,3 +7565,91 @@ symbol = "open_account"
 observed = "Attempt 369bff6bc fails open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure): Disclosure::validate_bytes (layerx-crypto signer.rs:302) finds the disclosure does not describe the canonical bytes handed to sign_disclosed_call."
 assumption = "Task-scoped: the ABI-call disclosure must cover the signed 0x101A payload as the send path does. Recorded once."
 severity = "major"
+
+[finding.8.28.2.1]
+task = "8.28.2"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "VerifiedLayerxLeg"
+observed = "Attempt 3f8072724 builds and passes its tests, then the dependents gate fails because layerx-reference-ramp reads leg.activity_id and leg.batch_id (main.rs:266-268) from the VerifiedLayerxLeg the task reshaped to tx_hash, height and rung."
+assumption = "The task now owns that report line pair; the reference-ramp port proper stays with 8.30.1. Recorded once."
+severity = "major"
+
+[finding.10.11.1.1]
+task = "10.11.1"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "ReadRequest"
+observed = "Attempt 6c8f358ff builds and passes its tests, then the dependents gate fails compiling layerx-agentd (78 errors against the reshaped layerx-agent-api read, availability and Freshness types), the same break finding.8.8.1 records."
+assumption = "10.11.1 now requires 9.1.8, the layerx-agentd port. Recorded once."
+severity = "major"
+
+[finding.10.25.3.2]
+task = "10.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "ReadRequest"
+observed = "Attempt b67f99438 fails its build because layerx-human-test-support compiles layerx-agentd, which does not compile against the reshaped layerx-agent-api types (78 errors), the break finding.8.8.1 records."
+assumption = "10.25.3 now requires 9.1.8. Recorded once."
+severity = "major"
+
+[finding.11.7.1.1]
+task = "11.7.1"
+file = "services/interop/crates/layerx-ap2/src/adapter.rs"
+symbol = "Ap2Adapter"
+observed = "Attempt 05597f7a3 passes both tests, then the done gate refuses Ap2Adapter::new and Ap2Adapter::execute as not defined in the graph: they are methods of a generic impl block, which the graph does not index."
+assumption = "The symbols list now names the two test functions, as recorded for the same refusal before; the attempt requalifies without a code change. Recorded once."
+severity = "major"
+
+[finding.9.32.2.1]
+task = "9.32.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+symbol = "decode_method"
+observed = "Attempts 369bff6bc and 530b343f8 fail open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure) because bind_call refuses the openAccount(bytes32) call: decode_method (call.rs:81) knows only send(bytes), issueGrant(bytes), draw and revokeGrant on 0x101A, so the account, registration, mint and burn calls do_2 asks for cannot be disclosed; task 9.31.1 covered four methods."
+assumption = "9.32.2 now extends the decoder for the methods it calls; the SDK code was not at fault. Recorded once."
+severity = "major"
+
+[finding.8.19.5]
+task = "8.19.5"
+file = "services/platform/hosted/gateway/tests/local/build.rs"
+symbol = "main"
+observed = "The local qualification package cannot be built on the merged tree: build.rs requires LAYERX_TEST_CORE_BIN (a parent-built layerx-core-boundary) and asserts that core/tests/boundary.rs contains the needle ../../../../tests/support/lxgb_metadata.rs exactly once, while boundary.rs:4 now reaches that file through five parent directories, so the fixture adapter panics with 'fixture path contract changed' even when the binary is supplied."
+assumption = "8.19.5 deletes build.rs and the lifecycle target it serves; until then no task builds that package on its own. Recorded once."
+severity = "major"
+
+[finding.17.1.5]
+task = "17.1.5"
+file = "spec/layerx-merge/programme/activation.py"
+symbol = "constant_sites"
+observed = "Attempts 148a90eff and 832af83d6 fail because ac_1 expected precompiles/setup.go to still declare the v7.0 literal after 5.6.1 and foresaw no module sites, while the merged tree derives setup.go:55 from pcommon.MergeUpgrade and declares the literal in modules/layerxanchor/types/retire.go, modules/layerxcustody/types/retire.go and modules/xweb/keeper/activation.go."
+assumption = "ac_1 is amended to the merged tree; whether the three module constants should be derived from pcommon.MergeUpgrade is a product decision for the owner, not a test matter. Recorded once."
+severity = "major"
+
+[finding.11.34.3]
+task = "11.34.3"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "Plane"
+observed = "Attempt 50f028c5f passes all three tests, then the done gate refuses Keys::receiver (a const fn of a concrete impl), Plane::draw and Plane::submit (methods of impl Plane<'_>) as not defined in the graph; the attempt's extra build to coax the index failed on the lifetime and left build_on_verified unmet."
+assumption = "The symbols list now names the three tests, as recorded for the same refusal; the candidate requalifies without a code change. Recorded once."
+severity = "major"
+
+[finding.2.40.9]
+task = "2.40.9"
+file = "modules/layerxpay/keeper/genesis_rehearsal_test.go"
+symbol = "TestPayGenesisRehearsalKeepsKernelState"
+observed = "Attempt 0991dc490 fails at :64 with LXP_MODULE_DISABLED: layerxpay streamOpen, because the hosted kernel registers no stream module until task 1.24.1 lands, the break the layerxpay_host_pending hold records."
+assumption = "2.40.9 now requires 1.24.1. Recorded once."
+severity = "major"
+
+[finding.5.55.2]
+task = "5.55.2"
+file = "daemon/committed-fixture/vectors/vector-v1-receipted-positive.json"
+symbol = "TestVectorV1ReceiptedPositiveVerifies"
+observed = "Attempt 8bba2b20d compiled the V1 recorder and test but wrote no vector file: it treated building paxd for the recording as a gate beyond its allowance and stopped, so the test fails on open."
+assumption = "do_4 states that the recording run is implementation work and names the build, the record command and the two sibling files to restore; a fresh recording is required because the conformance fixture holds no two-log contract creation. Recorded once."
+severity = "major"
+
+[finding.5.55.3]
+task = "5.55.3"
+file = "daemon/committed-fixture/vectors/vector-v2-receipted-revert.json"
+symbol = "recordV2"
+observed = "The published V2 vector carries the provenance of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json (generator rpc/sequencer_receipt_vectors_test.go) instead of a fresh recording through the committed-fixture recorder, which the attempt did not run for want of a paxd binary."
+assumption = "The vector verifies and is left as published; whether V2 and V3 must be re-recorded through the recorder once 5.55.2 proves the route is the owner's call. Recorded once."
+severity = "minor"
