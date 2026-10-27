@@ -131295,7 +131295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.2]
 title = "Stop proxying the kernel program explorer paths through the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.7.1", "8.0.3", "8.1.5"]
@@ -150014,7 +150014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.1]
 title = "Delete the x-websearch kernel module, its binary wiring and the kernel tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.32.3", "11.33.1", "11.34.5", "11.35.2"]
@@ -153889,7 +153889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.9]
 title = "Delete the custody deposit flow and the custody precompile helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["12.34.8"]
