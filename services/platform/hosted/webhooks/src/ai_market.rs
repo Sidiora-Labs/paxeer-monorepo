@@ -927,7 +927,7 @@ fn certify(
     )
     .map_err(|_| rejected())?;
     if report.level().wire_rank() < MINIMUM_PUBLICATION_RANK
-        || report.evidence().checkpoint_id() != Some(binding.checkpoint.bytes())
+        || report.evidence().checkpoint_id() != Some(binding.store_proof_digest.bytes())
     {
         return Err(rejected());
     }
@@ -966,7 +966,7 @@ fn identity(row: &CapturedEvent) -> [u8; 32] {
     hasher.update(row.source_activity_id);
     hasher.update(row.effect_ordinal.to_be_bytes());
     hasher.update(row.receipt_digest);
-    hasher.update(binding.checkpoint.bytes());
+    hasher.update(binding.store_proof_digest.bytes());
     hasher.finalize().into()
 }
 
@@ -1087,7 +1087,10 @@ fn market_event(
             "native_state_root",
             hex_encode(binding.native_state_root.as_bytes()),
         ),
-        ("checkpoint_id", hex_encode(binding.checkpoint.as_bytes())),
+        (
+            "checkpoint_id",
+            hex_encode(binding.store_proof_digest.as_bytes()),
+        ),
         ("achieved_rank", binding.rank.to_string()),
     ];
     let facts = values

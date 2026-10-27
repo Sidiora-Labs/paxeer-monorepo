@@ -281,7 +281,7 @@ impl Fixture {
         let (certificate, identifier) = certificate(network, root, last_sequence, signers);
         self.certificate = certificate;
         self.registered = identifier;
-        self.row.binding.checkpoint = digest(identifier);
+        self.row.binding.store_proof_digest = digest(identifier);
     }
 }
 
@@ -319,8 +319,10 @@ fn binding(observed: u64, state: &[u8], checkpoint: [u8; 32], rank: u8) -> Snaps
         config: ok(Version::new(2), "config"),
         policy: ok(PolicyDigest::new([0xab; 32]), "policy"),
         roster: Presence::Present(ok(RosterDigest::new([0xcd; 32]), "roster")),
-        checkpoint: digest(checkpoint),
-        settlement: Presence::Absent,
+        block_height: observed + 100,
+        block_hash: digest(batch(observed)),
+        app_hash: digest(root(observed)),
+        store_proof_digest: digest(checkpoint),
         rank,
         publication_time_ms: 1_700_000_000_000 + observed,
     }
