@@ -8029,3 +8029,59 @@ symbol = "PerpsMarket"
 observed = "Attempt da9ceb986 deleted maxLeverage from PerpsMarket and tsc failed at MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68, which read the field through MarketRow extends PerpsMarket and the mobile market prop."
 assumption = "do_5 moves the gateway-fed consumers onto a TradeableMarket type; the 1000 assertions in perps-config.test.ts go with the rows."
 severity = "major"
+
+[finding.11.36.1.2]
+task = "11.36.1"
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+symbol = "decode_request_record"
+observed = "Attempt 1d7eadbe8 applied do_7 and the build failed at tests/attest.rs:25 (unresolved import x_websearch::kernel); tests/program.rs:17 and tests/binary.rs:19 import the module too, and tests/program.rs needs decode_request_record, which only kernel.rs:172 defines."
+assumption = "do_8 repoints the three tests and moves decode_request_record into program.rs; the kernel binary tests go with do_3."
+severity = "major"
+
+[finding.2.14.4]
+task = "2.14.4"
+file = "modules/layerxauth/keeper/authority_test.go"
+symbol = "package keeper"
+observed = "Attempts 1a1e85319 (2.14.4) and 1bf3eb4c7 (2.14.5) failed at go test setup: six in-package test files import tests/testutil/keeper, which imports node, which imports the auth keeper, an import cycle present since 1e3c9243f."
+assumption = "New task 2.14.6 moves them to package keeper_test; 2.14.4 and 2.14.5 require it."
+severity = "major"
+
+[finding.2.14.2]
+task = "2.14.2"
+file = "precompiles/layerxauth"
+symbol = "0x101C"
+observed = "Attempt f7dd7a41b: the grant id 0x101C returns is the grant-body hash while grant.activity-id holds the outer activity id, and Host.ReadIdempotentReceipt answered LXP_ERR_UNKNOWN_FIELD in every case (finding.2.4.2.1)."
+assumption = "do_3 compares against codec.DomainHash(DomainAuthorityHash, grant body) and stops reading receipts by idempotency key."
+severity = "major"
+
+[finding.8.29.1]
+task = "8.29.1"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "submit_native_receive"
+observed = "Attempts 5ef277951 and eabd3e15b removed RampEngine::submit_native_receive and the dependents check failed at main.rs:1049, a file task 8.30.2 owns; a requires edge would form a cycle."
+assumption = "8.29.1 keeps the method; 8.30.2 removes it with engine.rs added to its touches."
+severity = "major"
+
+[finding.8.7.2]
+task = "8.7.2"
+file = "services/platform/hosted/gateway/tests/browser_profiles.rs"
+symbol = "native_explorer_public_route"
+observed = "Attempt 56e51091a passed its verify_cmd but the graph refused the two deleted names still in symbols, and browser_profiles.rs:11 and :290-393 still import and assert them, which neither the verify_cmd nor the dependents check compiles."
+assumption = "symbols drop the deleted names; touches gain browser_profiles.rs with do_5."
+severity = "major"
+
+[finding.11.36.4.2]
+task = "11.36.4"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "exact_payload"
+observed = "Attempt 5787209ee: all six V3 cases answered invalid_payment_payload because the fixture gives them an empty receiptJson and no txHash, and exact_payload (payment.rs:2661-2686, since e7e345ed7) requires a 32-byte txHash before the receipt check."
+assumption = "do_5 derives the hash from rawTransaction and scripts the gateway receipt answer; req.11404 is unchanged."
+severity = "major"
+
+[finding.3.42.3]
+task = "3.42.3"
+file = "services/platform/perps-data/internal/markets/markets_test.go"
+symbol = "TestRunRefreshesAgain"
+observed = "Attempt a81709267 bounded two refreshes and a height advance to 500 ms; one Refresh against the started node takes longer and consecutive heights may be equal, so refreshed_block stayed NULL."
+assumption = "do_4 observes the second refresh by reseeding after the first one lands, with 30 s bounds."
+severity = "minor"

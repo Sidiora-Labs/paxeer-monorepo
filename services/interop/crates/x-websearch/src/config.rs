@@ -998,6 +998,18 @@ fn decimal_u128(value: Value, path: &str) -> Result<u128, ConfigError> {
         .ok_or_else(|| ConfigError::new(path, Refusal::Invalid))
 }
 
+/// The topic every program web request record is emitted under.
+pub const REQUEST_TOPIC: &[u8] = b"PAXEERX_WEB_REQUEST_V1";
+
+/// The topics whose records the watcher decodes as program web requests.
+pub const REQUEST_TOPICS: [&[u8]; 1] = [REQUEST_TOPIC];
+
+/// Whether `topic` is one whose records the watcher decodes.
+#[must_use]
+pub fn request_topic(topic: &[u8]) -> bool {
+    REQUEST_TOPICS.contains(&topic)
+}
+
 fn topics(object: &mut Object) -> Result<Vec<String>, ConfigError> {
     let (value, path) = object.take("topics")?;
     let Value::Array(items) = value else {
@@ -1014,7 +1026,7 @@ fn topics(object: &mut Object) -> Result<Vec<String>, ConfigError> {
         if placeholder_text(&text) {
             return Err(ConfigError::new(path, Refusal::Placeholder));
         }
-        if !crate::kernel::request_topic(text.as_bytes()) || topics.contains(&text) {
+        if !request_topic(text.as_bytes()) || topics.contains(&text) {
             return Err(ConfigError::new(path, Refusal::Invalid));
         }
         topics.push(text);
