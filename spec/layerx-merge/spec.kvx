@@ -132560,7 +132560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.9]
 title = "Stop the hosted registry material from running the handover verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -132591,7 +132591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.10]
 title = "Drop the movement intervals from the human owner policy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -133847,7 +133847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.28.5]
 title = "Verify ramp receipts on the command line by transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["8.28.3"]
@@ -152702,7 +152702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.4]
 title = "List bank assets through px_listAssets in the endpoint client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["12.24.3", "8.0.3"]
@@ -156550,7 +156550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.22.8]
 title = "Dispatch 0x101D methods through a registered handler table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.4"]
