@@ -16656,6 +16656,7 @@ ac_1 = "No gateway test names BridgeWithdrawRequest and the gateway tests compil
 [req.8963]
 title = "Build AI market finality evidence v2 from the block commit in the indexer and webhooks"
 ac_1 = "The indexer builds FinalityEvidence v2 from a block commit that encodes to the shared snapshot-binding-v2 vector."
+ac_2 = "MarketOutbox::admit (services/platform/hosted/webhooks/src/ai_market.rs) publishes a rank-4 row only when verify_block_commit accepts its block commit against the pinned chain id and validator set and the commit's height, block hash, app hash and store proof digest equal the binding's execution_height/block_height, batch_id/block_hash, native_state_root/app_hash and store_proof_digest; a foreign chain id quarantines the stream, any other mismatch or verification failure refuses with nothing admitted, and the crate no longer depends on layerx-proof."
 
 [req.8964]
 title = "Drop the relay-archive plain listener from the platform make targets"
@@ -19611,6 +19612,7 @@ ac_2 = "getRetirementControl (precompiles/layerxprograms/abi.json:513) returns t
 title = "Bind AI market snapshots to block-commit finality instead of kernel checkpoints"
 ac_1 = "FinalityEvidence (programs/crates/layerx-programs-ai-market/src/queries.rs:275) carries native_state_root, block_height, block_hash, app_hash and store_proof_digest in place of checkpoint and settlement, and bind_snapshot (programs/crates/layerx-programs-ai-market/src/queries.rs:309) copies them into the binding only when native_state_root equals the capture root (decision.1332)."
 ac_2 = "bind_snapshot returns QueryError::BindingMismatch for evidence naming another native_state_root and NON_CANONICAL for a zero block_hash or app_hash, replacing the rank-above-4 refusal at programs/crates/layerx-programs-ai-market/src/queries.rs:322."
+ac_3 = "ProjectionStore::promote and ReputationProjector::admit accept a capture only with a block commit that verify_header and verify_commit (services/interop/crates/layerx-committed-proof) accept for the pinned chain id and validator set, whose header height, hash and app_hash equal the capture's execution height, block hash and native state root, and neither calls layerx_proof::checkpoint or layerx_proof::settlement."
 
 [req.13280]
 title = "Encode SnapshotBinding v2 with the block-commit section and keep the content id"
@@ -21017,7 +21019,7 @@ ac_1 = "scripts/ci/beta-ledger-check.sh, whose default ledger at scripts/ci/beta
 
 [req.16027]
 title = "Remove the retired daemon and credit paths from the xweb workflow check"
-ac_1 = "scripts/ci/xweb-workflow-check.sh exits 0 after the retired paths at scripts/ci/xweb-workflow-check.sh:72-76, :286-311 and :317-327 and the missing paths at :167 and :270 are removed."
+ac_1 = "scripts/ci/xweb-workflow-check.sh exits 0 after the retired paths at scripts/ci/xweb-workflow-check.sh:72-76, :286-311 and :317-327 and the missing paths at :167, :177 and :270 are removed."
 
 [req.16028]
 title = "Drop the retired root contracts from the Solidity state surface check"
@@ -48750,7 +48752,7 @@ qualification = "UNRUN"
 [acceptance.1.19.1]
 feature = "1"
 req = "1019.1"
-scenario = "Given 50 seeded batches of 16 independent asset sends, when each batch is prepared with 1 and with 4 workers, then the encoded receipts and roots are equal"
+scenario = "Given 50 seeded batches of 16 LX_PROGRAMS_CALL activities from distinct actors, principals, payers and programs under LXP_PROTOCOL_VERSION_LEGACY, when each batch is prepared with 1 and with 4 workers, then the encoded receipts and roots are equal"
 contract = "contracts/kernel.md#kernel-determinism"
 test = "tests/fuzz/lxp_prop_prepare_workers.c::prepare_one_vs_four_workers_equal (planned)"
 qualification = "UNRUN"
@@ -66179,6 +66181,14 @@ contract = "contracts/clients.md#wiring-integration"
 test = "services/platform/hosted/indexer/tests/finality_evidence_v2.rs::finality_evidence_v2_matches_vector (planned)"
 qualification = "UNRUN"
 
+[acceptance.8.963.2]
+feature = "8"
+req = "8963.2"
+scenario = "Given a finalized AI market row whose block commit verifies against the pinned chain id and validator set and matches the binding's height, block hash, app hash and store proof digest, when the outbox admits it, then it publishes at rank 4; a foreign chain id quarantines the stream and any other mismatch or verification failure refuses with nothing admitted"
+contract = "contracts/clients.md#wiring-integration"
+test = "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::bonded_guarantor_signatures_gate_finalized_publication"
+qualification = "UNRUN"
+
 [acceptance.8.964.1]
 feature = "8"
 req = "8964.1"
@@ -74697,6 +74707,14 @@ req = "13279.2"
 scenario = "Given a capture at root 0x07..07, when bind_snapshot runs with evidence for root 0x08..08 and once with a zero block_hash, then the first returns BindingMismatch and the second returns NON_CANONICAL"
 contract = "contracts/programs.md#ai-market-guest"
 test = "programs/crates/layerx-programs-ai-market/tests/view_binding.rs::a02_v2_refuses_evidence_for_another_root_or_empty_commit (planned)"
+qualification = "UNRUN"
+
+[acceptance.13.279.3]
+feature = "8"
+req = "13279.3"
+scenario = "Given a capture whose landing block carries a commit that verify_header and verify_commit accept for the pinned chain id and validator set, when the indexer promotes or admits it, then the binding carries the header height, hash, app_hash and store proof digest, and a tampered, under-powered, foreign-validator, foreign-chain or mismatched commit is refused without moving the cursor"
+contract = "contracts/programs.md#ai-market-guest"
+test = "services/platform/hosted/indexer/tests/ai_reputation_finality.rs::a09_invalid_certificates_never_move_the_cursor"
 qualification = "UNRUN"
 
 [acceptance.13.280.1]
@@ -91405,7 +91423,7 @@ reqs = ["1019.1"]
 capabilities = ["1.4.3"]
 interfaces = []
 wiring = ["wiring.J21.1"]
-do_1 = "Write tests/fuzz/lxp_prop_prepare_workers.c (planned) generating 50 deterministic batches of 16 independent LX_PROGRAMS_CALL activities; kernel_prepare_activity_batch prepares only leading LX_PROGRAMS_CALL activities (src/protocol/lxp_kernel.c:5728-5731) and refuses an LX_ASSET_SEND batch with LXP_ERR_UNKNOWN_ACTIVITY."
+do_1 = "Write tests/fuzz/lxp_prop_prepare_workers.c (planned) generating 50 deterministic batches of 16 LX_PROGRAMS_CALL activities from 16 distinct actors, principals, payers and programs with empty access declarations, carrying protocol_version LXP_PROTOCOL_VERSION_LEGACY (include/layerx/lxp_protocol.h:9); kernel_prepare_activity_batch prepares only leading LX_PROGRAMS_CALL activities (src/protocol/lxp_kernel.c:5728-5731) and refuses an LX_ASSET_SEND batch with LXP_ERR_UNKNOWN_ACTIVITY. Under LXP_PROTOCOL_VERSION_OCCUPANCY and LXP_PROTOCOL_VERSION_STATE_COMMITMENT lxp_programs_call_schedule_item_prepare (src/modules/programs/call.c:2569-2585) adds a write on the shared fee treasury of the occupancy asset to every CALL item, so layerx_programs_schedule_plan orders all 16 in one chain and maximum_level is never 0; the LEGACY version adds no treasury write, which is what gives one level of width 16; the kernel is not changed."
 do_2 = "Prepare each batch twice with lxp_kernel_prepare_activity_batch (include/layerx/lxp_kernel.h:508) from two kernels built from one genesis, maximum_workers 1 and 4."
 do_3 = "Compare receipts, resulting roots and retry_prefix_count of both prepared batches and release them with lxp_kernel_prepared_batch_destroy (include/layerx/lxp_kernel.h:629)."
 do_4 = "tests/programs/test_call_activity.c:1050-1072 is the reference construction of a signed LX_PROGRAMS_CALL execution (signature, lxp_activity_encode, lxp_batch_roots_compute, batch_id, then lxp_kernel_prepare_activity_batch(kernel, &signed_activity, execution, 1U, 4U, &prepared, &retry) at :1069-1071); build each activity of the 50 batches from it and prepare every batch with maximum_workers 1 and 4."
@@ -92317,7 +92335,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.11.4]
 title = "Initialise binding_authority in every positional asset runtime and send environment literal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["1.11.1", "1.4.6"]
@@ -96527,7 +96545,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.4.5]
 title = "Pay an exact amount bound to a derived context hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.3.3", "2.3.5", "2.3.6", "2.3.7"]
@@ -98169,7 +98187,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.22.4]
 title = "Submit one kernel activity per pay write through HostExecute"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["2.22.1", "2.22.2", "2.22.3", "2.21.3", "2.21.4", "1.92.1", "1.23.3", "1.11.6"]
@@ -98452,7 +98470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.5]
 title = "Serve getBudget and budgetRemaining from kernel records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.22.1", "2.21.5", "1.23.3"]
@@ -106763,7 +106781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.5]
 title = "Add the launchpad price query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["4.5.1", "4.4.6", "4.4.7", "15.0.5", "4.4.18"]
@@ -130266,7 +130284,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Load the receipt key list without the kernel backend set"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 3
 requires = ["8.0.1", "8.1.5"]
 reqs = ["8002.1"]
 capabilities = ["8.1.1"]
@@ -130297,7 +130315,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve px_getCommit, px_getValidators and px_getReceiptKeys from the router"
 status = "pending"
 mode = "BUILD"
-wave = 2
+wave = 3
 requires = ["8.1.1", "8.0.1", "5.93.1", "8.1.5"]
 reqs = ["8003.1", "8003.2", "8003.3"]
 capabilities = ["8.1.2"]
@@ -130393,22 +130411,34 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Port the indexer AI market and reputation projections to block-commit finality evidence"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["13.29.1"]
+wave = 3
+requires = ["13.29.1", "11.2.4"]
 reqs = ["13279.1", "13279.2"]
 capabilities = []
 interfaces = ["interface.13.rs-aim-queries-readproof", "interface.13.rs-aim-queries-finalityevidence", "interface.13.rs-aim-queries-snapshotbinding", "interface.13.rs-aim-queries-bind-snapshot"]
 do_1 = "In SnapshotRecord::facts (services/platform/hosted/indexer/src/ai_market.rs:333-350) fill ReadProof.block_hash from the stored batch id (`block_hash: self.batch_id` at :342); the SnapshotRecord.batch_id field (:313), the ai_snapshot batch_id column (:95, :841, :1310, :1321) and the RawRecord mapping (:853, :916) keep their names because SnapshotBinding.batch_id still carries that value."
 do_2 = "In content_identity (services/platform/hosted/indexer/src/ai_market.rs:811-820) build the provisional FinalityEvidence as `{ native_state_root: facts.proof.native_state_root, block_height: facts.proof.execution_height, block_hash: facts.proof.block_hash, app_hash: facts.proof.native_state_root, store_proof_digest: facts.proof.block_hash, rank: 0 }`; snapshot_id excludes the block-commit section (queries.rs:388-392), so the content identity of every capture is unchanged."
-do_3 = "In ProjectionStore::promote (services/platform/hosted/indexer/src/ai_market.rs:1366-1460) replace the FinalityEvidence literal at :1420-1425 with `{ native_state_root: record.native_state_root, block_height: record.execution_height, block_hash: record.batch_id, app_hash: Digest32::new(header.resulting_state_root())?, store_proof_digest: Digest32::new(checkpoint)?, rank: MINIMUM_PUBLICATION_RANK }`; the certificate checks at :1383-1419 (rank below CHECKPOINT_FINALISED, network, header sequence, root and batch id) stay as written, and the checkpoint column written at :1435-1450 keeps holding the checkpoint id."
+do_3 = "In ProjectionStore::promote (services/platform/hosted/indexer/src/ai_market.rs:1366-1460) replace the FinalityEvidence literal at :1420-1425 with `{ native_state_root: record.native_state_root, block_height: record.execution_height, block_hash: record.batch_id, app_hash: Digest32::new(verified.app_hash)?, store_proof_digest: Digest32::new(verified.store_proof_digest)? (see do_14), rank: MINIMUM_PUBLICATION_RANK }`; the certificate checks at :1383-1419 are replaced by the block-commit checks of do_12 and do_13, and the checkpoint column written at :1435-1450 keeps holding the checkpoint id."
 do_4 = "In rebind (services/platform/hosted/indexer/src/ai_market.rs:2010-2033) rebuild the same evidence from the record: block_height = record.execution_height, block_hash = record.batch_id, app_hash = record.native_state_root, store_proof_digest = record.checkpoint (still FinalityUnavailable when absent, :2011); the committed-bytes comparison at :2028-2030 stays, so every binding stored by do_3 re-encodes byte for byte without a schema change."
-do_5 = "In ReputationProjector::admit (services/platform/hosted/indexer/src/ai_reputation.rs:402-468) refuse with ReputationError::Refused(F07_FINALITY_UNAVAILABLE) when report.level().wire_rank() is below FINALIZED_RANK before binding, because bind_snapshot no longer rejects a sub-finalized rank, then replace the literal at :431-436 with `{ native_state_root: read.proof.native_state_root, block_height: report.batch_number(), block_hash: read.proof.block_hash, app_hash: Digest32::new(report.resulting_state_root())?, store_proof_digest: Digest32::new(checkpoint_id)?, rank: FINALIZED_RANK }`; the root and height check at :413-417 and FinalizedPoint.checkpoint_id (:464) stay."
+do_5 = "In ReputationProjector::admit (services/platform/hosted/indexer/src/ai_reputation.rs:402-468) admit verifies the block commit and binds as do_16 states; the root and height check at :413-417 and FinalizedPoint.checkpoint_id (:464) stay."
 do_6 = "In binding (services/platform/hosted/gateway/src/ai_views.rs:220-240), which layerx-platform-gateway compiles over layerx_indexer::ai_market::SnapshotBinding, replace the checkpoint and settlement keys at :235-236 with block_height (decimal string, as execution_height at :226), block_hash, app_hash and store_proof_digest (hex0x)."
 do_7 = "Port the test fixtures to the same shapes with every assertion kept: ReadProof literals at services/platform/hosted/indexer/tests/ai_reputation_finality.rs:327 and services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:257 name block_hash; expected_binding (services/platform/hosted/indexer/tests/ai_reputation_finality.rs:332-357) builds the evidence of do_5 from read.execution_height, read.block_hash, read.native_state_root and the checkpoint id; in a02_only_a_rank4_checkpoint_for_the_same_root_finalizes (services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:589-591) assert view.binding.store_proof_digest == Digest32::new(id)?, view.binding.block_hash == record.batch_id, view.binding.app_hash == record.native_state_root and view.binding.block_height == record.execution_height in place of the removed checkpoint and settlement fields, keeping view.binding.rank == 4."
 do_8 = "Port layerx-platform-webhooks to the same mapping the indexer uses (the checkpoint id travels in store_proof_digest), keeping every check and the checkpoint_id fact name: in certify (services/platform/hosted/webhooks/src/ai_market.rs:930) replace `report.evidence().checkpoint_id() != Some(binding.checkpoint.bytes())` with `report.evidence().checkpoint_id() != Some(binding.store_proof_digest.bytes())`; in identity (services/platform/hosted/webhooks/src/ai_market.rs:969) replace `hasher.update(binding.checkpoint.bytes())` with `hasher.update(binding.store_proof_digest.bytes())`; in market_event (services/platform/hosted/webhooks/src/ai_market.rs:1090) replace `(\"checkpoint_id\", hex_encode(binding.checkpoint.as_bytes()))` with `(\"checkpoint_id\", hex_encode(binding.store_proof_digest.as_bytes()))`, so the fact count (17) and every delivered value are unchanged."
 do_9 = "Port the webhooks test fixtures with every assertion kept: in Fixture::recertify (services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs:284) replace `self.row.binding.checkpoint = digest(identifier)` with `self.row.binding.store_proof_digest = digest(identifier)`; in binding (services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs:322-323) replace `checkpoint: digest(checkpoint), settlement: Presence::Absent,` with `block_height: observed + 100, block_hash: digest(batch(observed)), app_hash: digest(root(observed)), store_proof_digest: digest(checkpoint),` (execution_height, batch_id and native_state_root of the same literal, as do_4 rebuilds them); the facts[\"checkpoint_id\"] == hex_encode(&fixture.registered) assertion at :559 and the rank 5/6 refusal cases at :1297-1298 stay as written."
-symbols = ["SnapshotRecord::facts", "content_identity", "ProjectionStore::promote", "rebind", "ReputationProjector::admit", "binding", "proof", "expected_binding", "capture", "a02_only_a_rank4_checkpoint_for_the_same_root_finalizes"]
-touches = ["services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/indexer/src/ai_reputation.rs", "services/platform/hosted/gateway/src/ai_views.rs", "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs", "services/platform/hosted/indexer/tests/ai_reputation_finality.rs", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"]
+do_10 = "Add `layerx-committed-proof = { path = \"../../../../services/interop/crates/layerx-committed-proof\" }` to [dependencies] and `ed25519-dalek.workspace = true` to [dev-dependencies] of services/platform/hosted/indexer/Cargo.toml, and add the layerx-committed-proof 0.1.0 package (dependencies ed25519-dalek, serde_json, sha2 0.10.9, all already locked at those versions) and the two new layerx-indexer dependency entries to services/platform/Cargo.lock (:1249), so the --locked build resolves offline."
+do_11 = "In services/platform/hosted/indexer/src/ai_market.rs replace FinalityAuthority (:289-295) with `pub struct FinalityAuthority { pub chain_id: String, pub validators: Vec<layerx_committed_proof::header::Validator> }` and CheckpointProof (:297-303) with `pub struct BlockCommitProof<'a> { pub header: &'a Header, pub commit: &'a Commit, pub store_proof: &'a [u8] }`, add `pub struct VerifiedCommit { pub chain_id: String, pub height: u64, pub block_hash: [u8; 32], pub app_hash: [u8; 32], pub store_proof_digest: [u8; 32] }`, and remove the layerx_proof::checkpoint, layerx_types::verify::VerificationLevel, layerx_wire::hash::program_execution_batch_id and layerx_wire::receipt::decode_batch_header imports (:29-32), whose only users are the promote lines do_12 replaces."
+do_12 = "Add `pub fn verify_block_commit(proof: &BlockCommitProof<'_>, authority: &FinalityAuthority) -> Result<VerifiedCommit, ProofError>` to services/platform/hosted/indexer/src/ai_market.rs: refuse a header time outside -62135596800..=253402300799 seconds or nanos >= 1e9, a negative height, an app_hash that is not 32 bytes and an empty store_proof with ProofError::InvalidCommit / InvalidProof before hashing (Header::hash asserts the time range, services/interop/crates/layerx-committed-proof/src/header.rs:58), then block_hash = layerx_committed_proof::verify_header(proof.header, &authority.validators)? (ValidatorsHashMismatch for a header committing another validator set), then commit::verify_commit(&proof.header.chain_id, &authority.validators, block_hash, height, proof.commit)? (InvalidCommit for a commit naming another block hash or height, InvalidCommitSignature, InsufficientVotingPower at or below 2/3 power), and store_proof_digest = Sha256(store_proof) with the existing sha2 import (:34)."
+do_13 = "In ProjectionStore::promote (services/platform/hosted/indexer/src/ai_market.rs:1368-1460) take `proof: &BlockCommitProof<'_>, authority: &FinalityAuthority` and replace :1383-1419 (verify_certificate, the CHECKPOINT_FINALISED rank check, the network check, decode_batch_header and the program_execution_batch_id comparison) with: verify_block_commit(proof, authority) mapped to ViewError::FinalityUnavailable; verified.chain_id != authority.chain_id -> record_alert(&conn, record.market.as_bytes(), &verified.block_hash, &ViewError::WrongDomain) then Err(WrongDomain); verified.height != record.execution_height || verified.block_hash != record.batch_id.bytes() || verified.app_hash != record.native_state_root.bytes() -> Err(BindingMismatch); keep the quarantine, already-finalized and SequencerSigned checks before it unchanged."
+do_14 = "In the same promote build FinalityEvidence (:1422-1429) as `{ native_state_root: record.native_state_root, block_height: verified.height, block_hash: Digest32::new(verified.block_hash)?, app_hash: Digest32::new(verified.app_hash)?, store_proof_digest: Digest32::new(verified.store_proof_digest)?, rank: MINIMUM_PUBLICATION_RANK }` and write verified.store_proof_digest to the checkpoint column (:1437-1450); because do_13 enforces height == execution_height, block_hash == batch_id and app_hash == native_state_root, rebind (:2014-2023) as left by do_4 re-encodes every stored binding byte for byte and needs no change; update the promote doc comment (:1361-1366) and the module doc (:1-9) to name the verified block commit instead of the checkpoint certificate."
+do_15 = "In services/platform/hosted/indexer/src/ai_reputation.rs delete the layerx_proof imports (:29-30), replace ReputationError::Certificate(CheckpointError) (:73-74) with Commit(layerx_committed_proof::ProofError), replace FinalizedRead.certificate and registered_checkpoint_id (:162-168) with `pub commit: BlockCommitProof<'a>` (layerx_indexer::ai_market), replace ReputationProjector.domain (:189) with `authority: FinalityAuthority`, and change open (:374-393) to take `authority: FinalityAuthority`, refusing an empty chain_id or validator set with ReputationError::Commit(ProofError::InvalidValidatorSet) where declared_domain was called (:380); update the module doc (:1-7)."
+do_16 = "In ReputationProjector::admit (services/platform/hosted/indexer/src/ai_reputation.rs:403-470) replace verify_declared_certificate and the rank check the attempt added (:409-417) with `let verified = verify_block_commit(&read.commit, &self.authority).map_err(ReputationError::Commit)?`, refuse verified.chain_id != self.authority.chain_id with Refused(WRONG_DOMAIN), refuse verified.app_hash != read.proof.native_state_root.bytes() || verified.height != read.proof.execution_height || verified.block_hash != read.proof.block_hash.bytes() with Refused(F07_BINDING_MISMATCH), set checkpoint_id = verified.store_proof_digest, and build FinalityEvidence as `{ native_state_root: read.proof.native_state_root, block_height: verified.height, block_hash: read.proof.block_hash, app_hash: Digest32::new(verified.app_hash)?, store_proof_digest: Digest32::new(checkpoint_id)?, rank: FINALIZED_RANK }`; FinalizedPoint.checkpoint_id, ArchiveLocator.checkpoint_id, RootConflict.conflicting_checkpoint and the checkpoint_id columns keep their names and now hold the store proof digest."
+do_17 = "Replace the certificate fixtures of services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs (imports :10-14 and :33-38, constants NETWORK..DA_ROOT :46-53, batch_id :239-248, header/guarantor/attestation/authority/certificate :281-387) with block-commit fixtures over real ed25519 keys: four validators SigningKey::from_bytes(&[v; 32]) for v in 1..=4 at voting power 10; authority() = FinalityAuthority { chain_id: CHAIN_ID, validators }; commit_header(root, sequence, chain_id) = a Header at height sequence + 110 with validators_hash(&validators), app_hash [root; 32] and fixed other fields; store_proof(root, sequence) = bytes that encode root and sequence; signed(header, signers) = a Commit for header.hash() at round 0 whose present slots carry sha256(pub_key)[..20] and ed25519 signatures over the CanonicalVote sign bytes rebuilt in the test from the pub layerx_committed_proof::proto helpers (type 2, sfixed64 height, block id field 4, timestamp field 5, chain id field 6, varint length prefix, as commit.rs:128-166), absent slots CommitSig::absent(); capture (:250-279) sets ReadProof.block_hash = commit_header(root, sequence, CHAIN_ID).hash()."
+do_18 = "Port promote_with and finalize (services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:406-437) to sign commit_header(root, sequence, chain_id) with validators 1, 2 and 3 and call promote(&record.snapshot_id, &BlockCommitProof { header, commit, store_proof }, &authority(), PUBLISHED_AT_MS), the chain_id parameter replacing network; port every certificate-specific assertion as listed in the tests section of this plan, keeping each refusal variant and every other assertion as written, and replace CheckpointError, k256::ecdsa::Error and layerx_crypto::VerifyError in other_failure! (:85-95) with layerx_committed_proof::ProofError where the file no longer uses them."
+do_19 = "Replace the certificate fixtures of services/platform/hosted/indexer/tests/ai_reputation_finality.rs (imports :35-43, DOMAIN :50, Failure::Checkpoint and its From impl :61 and :82-86, Certified :113, header/guarantor/attest/certify_by/certify :361-457) with the do_17 block-commit fixtures at the same heights and roots: header(height, root) commits app_hash root at height `height`, proof(height, root) (:320-330) sets block_hash = header(height, root).hash() in place of digest(0xBB), certify_by(height, root, signers, ..) returns (BlockCommitProof material, Sha256(store_proof(height, root))) so Certified.1 is the store proof digest that FinalizedPoint.checkpoint_id now holds, offer (:459-473) passes `commit` instead of certificate/registered_checkpoint_id, and open (:492-499) passes authority() instead of DOMAIN; expected_binding (:332-358) stays as do_7 left it."
+do_20 = "Port a09_invalid_certificates_never_move_the_cursor (services/platform/hosted/indexer/tests/ai_reputation_finality.rs:682-760) case by case with the cursor-stays-at-15000 assertion after each and the final Advanced { height: 16000 } kept: tampered validator-2 precommit -> Commit(ProofError::InvalidCommitSignature); two of four validators signing (exactly half the power) -> Commit(ProofError::InsufficientVotingPower); header committing a validator set that includes an unpinned validator 5 -> Commit(ProofError::ValidatorsHashMismatch); a valid 16000 commit paired with the 15000 header (commit names another block hash) -> Commit(ProofError::InvalidCommit); commit for root(16000, 2) -> Refused(F07_BINDING_MISMATCH); commit at height 16001 -> Refused(F07_BINDING_MISMATCH); program 99 -> Refused(WRONG_DOMAIN); and add one case, a valid commit signed for another chain id -> Refused(WRONG_DOMAIN), covering the domain check declared_domain used to give."
+do_21 = "Export verify_block_commit, BlockCommitProof, FinalityAuthority and VerifiedCommit as pub items of layerx_indexer::ai_market and derive Clone, Copy, Debug on BlockCommitProof, so services/platform/hosted/webhooks reuses them (task 8.1.6) and both publishers bind identical v2 snapshots."
+symbols = ["SnapshotRecord::facts", "content_identity", "ProjectionStore::promote", "rebind", "ReputationProjector::admit", "binding", "proof", "expected_binding", "capture", "a02_only_a_rank4_checkpoint_for_the_same_root_finalizes", "verify_block_commit", "BlockCommitProof", "FinalityAuthority", "ReputationProjector::open", "a09_invalid_certificates_never_move_the_cursor"]
+touches = ["services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/indexer/src/ai_reputation.rs", "services/platform/hosted/gateway/src/ai_views.rs", "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs", "services/platform/hosted/indexer/tests/ai_reputation_finality.rs", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs", "services/platform/hosted/indexer/Cargo.toml", "services/platform/Cargo.lock"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-gateway -p layerx-platform-webhooks"
@@ -130416,7 +130446,44 @@ verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
-rollback = "Revert the five touched files; layerx-indexer and every layerx-platform-gateway build stop compiling against the 13.29.1 query shapes again."
+rollback = "Revert the nine touched files (services/platform/hosted/indexer/src/ai_market.rs, services/platform/hosted/indexer/src/ai_reputation.rs, services/platform/hosted/gateway/src/ai_views.rs, services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs, services/platform/hosted/indexer/tests/ai_reputation_finality.rs, services/platform/hosted/webhooks/src/ai_market.rs, services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs, services/platform/hosted/indexer/Cargo.toml, services/platform/Cargo.lock); the layerx-indexer, layerx-platform-gateway and layerx-platform-webhooks builds fall back to the 13.29.1 query shapes and the certificate verifier."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.8.1.6]
+title = "Gate finalized AI market webhook delivery on a verified block commit instead of a guarantor certificate"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["8.1.5", "11.2.4"]
+reqs = ["8963.2"]
+capabilities = ["8.13.2"]
+interfaces = ["interface.8.rs-webhooks-layerx-platform-webhooks-events-verification"]
+do_1 = "Add `layerx-indexer = { path = \"../indexer\" }` to [dependencies] of services/platform/hosted/webhooks/Cargo.toml (no cycle: layerx-indexer does not depend on the gateway or webhooks, and layerx-platform-gateway already depends on it) and `layerx-committed-proof = { path = \"../../../../services/interop/crates/layerx-committed-proof\" }` to [dev-dependencies]; remove `layerx-proof.workspace = true` (:20) and the dev-dependencies k256 (:32) and layerx-crypto (:33), whose only users this task deletes; keep layerx-wire (still used at src/trusted.rs:243); update the layerx-platform-webhooks dependency list in services/platform/Cargo.lock (:1616-1633) to match (after 8.1.5, which adds the layerx-committed-proof package to that lock), so the --locked build resolves offline."
+do_2 = "In services/platform/hosted/webhooks/src/ai_market.rs delete the imports at :20-22 (layerx_proof::checkpoint, program_execution_batch_id, decode_batch_header) and import `layerx_indexer::ai_market::{verify_block_commit, BlockCommitProof, FinalityAuthority}` (after 8.1.5); replace CheckpointProof (:131-138) by using BlockCommitProof as Evidence.proof: `pub proof: Option<BlockCommitProof<'a>>` (:128), and replace FinalityPolicy (:140-148) with `pub struct FinalityPolicy { pub chain_domain: [u8; 32], pub authority: FinalityAuthority }`, documented as the deployment chain domain plus the pinned Comet chain id and validator set."
+do_3 = "Rename QuarantineCause::CheckpointNetwork (:176) to CommitChain with operator category commit_chain_mismatch (:192), and MarketEventError::CertificateRejected (:216-218) to CommitRejected documented as a block commit that does not verify against the pinned validator set or proves another block, height, app hash or store proof; update the admit doc (:597-610) and the module doc (:1-9) to name the verified block commit instead of the guarantor checkpoint certificate."
+do_4 = "In well_formed (:838-858) replace the validity-proof bound at :843-845 with `evidence.proof.map_or(!finalized, |proof| !proof.store_proof.is_empty() && proof.store_proof.len() <= MAXIMUM_EVIDENCE_BYTES && proof.commit.signatures.len() <= MAXIMUM_VALIDATORS)` with a new `pub const MAXIMUM_VALIDATORS: usize = 256;` beside MAXIMUM_EVIDENCE_BYTES (:51, whose doc becomes 'Largest store proof admitted per row'), so oversized evidence still refuses as InvalidRequest before any signature work."
+do_5 = "Rewrite certify (:910-954) over `proof: &BlockCommitProof<'_>`: `let verified = verify_block_commit(proof, &policy.authority).map_err(|_| rejected())?` (after 8.1.5; ValidatorsHashMismatch, InvalidCommit, InvalidCommitSignature, InsufficientVotingPower and the malformed-header pre-checks all map to CommitRejected); `verified.chain_id != policy.authority.chain_id` -> Stop::Quarantine(QuarantineCause::CommitChain); `verified.height == binding.execution_height && verified.app_hash != binding.native_state_root.bytes()` -> Stop::Quarantine(QuarantineCause::FinalityConflict); then refuse with rejected() unless verified.height == binding.execution_height == binding.block_height, verified.block_hash == binding.batch_id.bytes() == binding.block_hash.bytes(), verified.app_hash == binding.native_state_root.bytes() == binding.app_hash.bytes() and verified.store_proof_digest == binding.store_proof_digest.bytes() (the store-proof equality replaces the registered checkpoint id comparison at :929-932); the rank check stays in examine (:894-895) and in well_formed."
+do_6 = "In identity (:969) hash binding.store_proof_digest.bytes() and in market_event (:1090) publish (\"checkpoint_id\", hex_encode(binding.store_proof_digest.as_bytes())) when 8.1.5 do_8 has not already made these two replacements, so the fact count stays 17 and the checkpoint_id fact now carries the SHA-256 store proof digest the indexer binds (8.1.5 do_14)."
+do_7 = "Replace the certificate fixtures of services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs (imports :2-3, :20-25; constants NETWORK, SETTLEMENT_CHAIN, SETTLEMENT_CONTRACT, CHECKPOINT_EPOCH, BATCH_NUMBER, PREVIOUS_ROOT, ACTIVITY_ROOT, AVAILABILITY_ROOT, BONDED, SIGNED, THRESHOLD :42-52; header, guarantor, attestation, certificate :106-229) with the 8.1.5 do_17 block-commit fixtures: CHAIN_ID and FOREIGN_CHAIN_ID strings, four validators ed25519_dalek::SigningKey::from_bytes(&[v; 32]) for v in 1..=4 at voting power 10, commit_header(chain_id, observed, app_hash) = a layerx_committed_proof::header::Header at height observed + 100 with validators_hash(&validators) and fixed other fields, store_proof(observed) = bytes encoding observed, and signed(header, slots) = a layerx_committed_proof::commit::Commit for header.hash() at round 0 whose present slots carry sha256(pub_key)[..20] and ed25519 signatures over CanonicalVote sign bytes rebuilt from the pub layerx_committed_proof::proto helpers (as commit.rs:129-166), each slot naming (validator position, signing key) so a wrong key can be placed, absent slots CommitSig::absent()."
+do_8 = "Port Fixture (:251-286): hold `header: Header, commit: Commit, store_proof: Vec<u8>, registered: [u8; 32]` (registered = Sha256(store_proof)), evidence() returns `Some(BlockCommitProof { header: &self.header, commit: &self.commit, store_proof: &self.store_proof })`, and recertify(chain_id, root, observed, slots) re-signs commit_header(chain_id, observed, root) with the given slots and sets binding.store_proof_digest = digest(registered); batch(observed) (:294-305) becomes commit_header(CHAIN_ID, observed, root(observed)).hash(); binding() (:307-327) replaces `checkpoint`/`settlement` with `block_height: observed + 100, block_hash: digest(batch(observed)), app_hash: digest(root(observed)), store_proof_digest: digest(checkpoint)`; fixture() (:329-359) signs with validators 1, 2 and 3; policy() (:376-383) is `FinalityPolicy { chain_domain: CHAIN, authority: FinalityAuthority { chain_id: CHAIN_ID.to_owned(), validators } }`."
+do_9 = "Port bonded_guarantor_signatures_gate_finalized_publication (:617-662) case by case against MarketEventError::CommitRejected (refused_certificate :603-615 renamed refused_commit), keeping the nothing-admitted, no-quarantine and no-alert assertions (:652-654) and the final signed admission: unsigned -> all slots absent (InsufficientVotingPower); wrong key -> validator 2's slot signed by key 9 (InvalidCommitSignature); outside the pinned set -> header committing a set with an unpinned validator 5 (ValidatorsHashMismatch); below threshold -> validators 1 and 2 only, exactly half the power (InsufficientVotingPower); unregistered -> store_proof replaced so its digest differs from binding.store_proof_digest; another batch -> commit for observed 31 (height 131 != 130); malformed header -> header time.nanos = 1_000_000_000 (InvalidCommit before hashing); `signed.certificate.attestations().len() == 2` (:656) becomes three present slots."
+do_10 = "In conflicting_artifacts_quarantine_with_identifier_only_alerts port the network case (:882-888) to recertify(FOREIGN_CHAIN_ID, root(70), 70, validators 1-3) -> QuarantineCause::CommitChain and the root case (:889-895) to recertify(CHAIN_ID, [0x01; 32], 70, validators 1-3) -> FinalityConflict, keeping every alert assertion of quarantine_case (:801-848); in bounds_refuse_before_any_quarantine_or_cryptographic_work replace the evidence case (:1285-1296) with a 1_048_577-byte store_proof -> InvalidRequest; in finalized_event_carries_exact_identity_and_public_content_only the facts[checkpoint_id] == hex_encode(&fixture.registered) assertion (:559) stays and now checks the store proof digest; every other test changes only through the fixtures."
+symbols = ["FinalityPolicy", "Evidence", "certify", "well_formed", "identity", "market_event", "QuarantineCause::CommitChain", "MarketEventError::CommitRejected", "bonded_guarantor_signatures_gate_finalized_publication", "conflicting_artifacts_quarantine_with_identifier_only_alerts"]
+touches = ["services/platform/hosted/webhooks/Cargo.toml", "services/platform/Cargo.lock", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"]
+tests = ["services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::finalized_event_carries_exact_identity_and_public_content_only", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::missing_finality_delays_publication_and_retries_are_idempotent", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::bonded_guarantor_signatures_gate_finalized_publication", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::restart_after_commit_publishes_the_same_events_and_receiver_applies_once", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::rollback_removes_provisional_rows_and_refuses_crossing_finality", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::conflicting_artifacts_quarantine_with_identifier_only_alerts", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::reused_event_identifier_with_changed_content_quarantines", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::restored_rows_reproduce_canonical_events_without_new_entitlement", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::revoked_tenant_cannot_resume_with_an_unexpired_cursor", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::expired_cursor_answers_explicit_gap_and_snapshot_resync", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::receiver_refuses_wrong_body_key_and_timestamp", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::concurrent_retry_across_two_consumer_processes_creates_one_effect", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs::bounds_refuse_before_any_quarantine_or_cryptographic_work"]
+planned_paths = ["services/platform/hosted/webhooks/Cargo.toml", "services/platform/Cargo.lock", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-webhooks --test ai_finalized_delivery -- bonded_guarantor_signatures_gate_finalized_publication conflicting_artifacts_quarantine_with_identifier_only_alerts finalized_event_carries_exact_identity_and_public_content_only bounds_refuse_before_any_quarantine_or_cryptographic_work"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert services/platform/hosted/webhooks/Cargo.toml, services/platform/Cargo.lock (webhooks entry), services/platform/hosted/webhooks/src/ai_market.rs and services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs; finalized webhook delivery again depends on verify_certificate, which refuses every certificate while contracts/config/checkpoint-settlement.json holds no settlement schema."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -131412,7 +131479,7 @@ title = "Retire the checkpoint and anchor finality words of webhook events"
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.13.1", "8.0.4", "8.46.2"]
+requires = ["8.13.1", "8.0.4", "8.46.2", "8.1.6"]
 reqs = ["8146.1"]
 capabilities = ["8.13.2"]
 interfaces = ["interface.8.rs-webhooks-layerx-platform-webhooks-events-verification"]
@@ -136480,13 +136547,13 @@ title = "Build AI market finality evidence v2 from the block commit in the index
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.0.4", "13.0.4", "13.29.1", "8.1.5"]
+requires = ["8.0.4", "13.0.4", "13.29.1", "8.1.5", "8.1.6"]
 reqs = ["8963.1"]
 capabilities = []
 interfaces = []
 fulfils = ["wiring.J52.10"]
 do_1 = "Replace the checkpoint-rank evidence at services/platform/hosted/indexer/src/ai_market.rs:45 with FinalityEvidence v2 built from the committed block (height, block hash, app hash, store proof digest)."
-do_2 = "Make the same change at services/platform/hosted/webhooks/src/ai_market.rs:48 so both publishers bind the same v2 snapshot."
+do_2 = "Task 8.1.6 makes the same change at services/platform/hosted/webhooks/src/ai_market.rs:48 so both publishers bind the same v2 snapshot; confirm it is present on the base and do not re-port it."
 do_3 = "Write services/platform/hosted/indexer/tests/finality_evidence_v2.rs (planned) with the test below against programs/tests/vectors/snapshot-binding-v2.hex (planned by the domain-13 task of requester 13.29.3)."
 symbols = ["finality_evidence_v2_matches_vector"]
 touches = ["services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/webhooks/src/ai_market.rs", "services/platform/hosted/indexer/tests/finality_evidence_v2.rs"]
@@ -140294,7 +140361,7 @@ title = "Delete the guarantor certificate verifier and the embedded settlement d
 status = "pending"
 mode = "BUILD"
 wave = 37
-requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8"]
+requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8", "8.1.6"]
 reqs = ["9310.1"]
 capabilities = ["9.27.4"]
 interfaces = ["interface.9.rs-proof-checkpoint-checkpoint", "interface.9.rs-proof-checkpoint-attestation", "interface.9.rs-proof-checkpoint-guarantorkey", "interface.9.rs-proof-checkpoint-settlementdomain", "interface.9.rs-proof-checkpoint-certificate", "interface.9.rs-proof-checkpoint-thresholdreport", "interface.9.rs-proof-checkpoint-checkpointerror", "interface.9.rs-proof-checkpoint-checkpoint-id", "interface.9.rs-proof-checkpoint-verify-certificate", "interface.9.rs-proof-checkpoint-verify-declared-certificate", "interface.9.rs-proof-settlement-declareddomain", "interface.9.rs-proof-settlement-declared", "interface.9.rs-proof-settlement-maximum-attestation-delay-ms", "interface.9.rs-proof-settlement-declared-domain", "interface.9.rs-proof-settlement-declared-checkpoint-settlement-j44", "interface.9.rs-proof-evidence-evidence-j44", "interface.9.rs-proof-checkpoint-new-j70", "interface.9.rs-proof-checkpoint-header-bytes-j70", "interface.9.rs-proof-checkpoint-validity-proof-j70", "interface.9.rs-proof-attestation-new-j70", "interface.9.rs-proof-attestation-guarantor-id-j70", "interface.9.rs-proof-attestation-signature-j70", "interface.9.rs-proof-attestation-signer-j70", "interface.9.rs-proof-attestation-attested-at-ms-j70", "interface.9.rs-proof-attestation-canonical-statement-j70", "interface.9.rs-proof-settlementdomain-new-j70", "interface.9.rs-proof-settlementdomain-paxeer-chain-id-j70", "interface.9.rs-proof-settlementdomain-settlement-contract-j70", "interface.9.rs-proof-guarantorkey-new-j70", "interface.9.rs-proof-guarantorkey-guarantor-id-j70", "interface.9.rs-proof-guarantorkey-public-key-j70", "interface.9.rs-proof-certificate-new-j70", "interface.9.rs-proof-certificate-attestations-j70", "interface.9.rs-proof-certificate-threshold-j70", "interface.9.rs-proof-certificate-settlement-reference-j70", "interface.9.rs-proof-thresholdreport-level-j70", "interface.9.rs-proof-thresholdreport-evidence-j70", "interface.9.rs-proof-thresholdreport-protocol-version-j70", "interface.9.rs-proof-thresholdreport-network-id-j70", "interface.9.rs-proof-thresholdreport-batch-number-j70", "interface.9.rs-proof-thresholdreport-first-sequence-j70", "interface.9.rs-proof-thresholdreport-last-sequence-j70", "interface.9.rs-proof-thresholdreport-data-availability-root-j70", "interface.9.rs-proof-thresholdreport-record-roots-j70", "interface.9.rs-proof-thresholdreport-resulting-state-root-j70", "interface.9.rs-proof-evidence-checkpoint-id-j70", "interface.9.rs-proof-evidence-settlement-reference-j70", "interface.9.rs-proof-declareddomain-network-id-j70"]
@@ -148704,7 +148771,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.27.1]
 title = "Encode the Ethereum begin call with the committed height and block hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.26.2", "11.28.1", "9.1.6"]
@@ -148734,7 +148801,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.27.2]
 title = "Encode Solana mirror instructions at version 4 with the committed block hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.26.2", "11.28.2", "9.1.6"]
@@ -155960,7 +156027,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.22.4]
 title = "Submit kernel activities through the shared host with fee limit and idempotency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["13.21.8", "13.21.7", "1.22.1", "1.23.1", "1.23.4"]
@@ -159012,7 +159079,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.2]
 title = "Delete the deposit, withdraw and exit journeys and their browser specs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.7.1", "12.27.3"]
@@ -159141,7 +159208,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.8.1]
 title = "Remove the wallet payout binding from settings and keep the fee preference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.8.2", "14.11.2", "12.27.3"]
@@ -160024,7 +160091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.24.1]
 title = "Remove the kernel receipts fetcher and its INDEXER_PAXEER_X_KERNEL_RECEIPTS_* settings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.25.3"]
@@ -160717,8 +160784,9 @@ do_1 = "Add precompiles: PrecompilesSettings { enabled: bool } with default true
 do_2 = "Push PrecompileSource first into the source list at services/explorer/services/sig-provider/sig-provider-server/src/run.rs:45-46 when settings.sources.precompiles.enabled, so SourceAggregator::new (services/explorer/services/sig-provider/sig-provider/src/aggregator.rs:46) ranks it first."
 do_3 = "Add [sources.precompiles] enabled = true to services/explorer/services/sig-provider/sig-provider-server/config/base.toml:1."
 do_4 = "Add precompiles_source_enabled_by_default to services/explorer/services/sig-provider/sig-provider-server/tests/settings.rs:1, which loads the base settings and asserts sources.precompiles.enabled is true."
+do_5 = "Re-export the precompile source from the crate root: add precompiles to `pub use sources::{eth_bytecode_db, fourbyte, sigeth, CompleteSignatureSource, SignatureSource};` at services/explorer/services/sig-provider/sig-provider/src/lib.rs:5 so run.rs imports sig_provider::precompiles::PrecompileSource."
 symbols = ["PrecompilesSettings", "SourcesSettings", "precompiles_source_enabled_by_default"]
-touches = ["services/explorer/services/sig-provider/sig-provider-server/src/settings.rs", "services/explorer/services/sig-provider/sig-provider-server/src/run.rs", "services/explorer/services/sig-provider/sig-provider-server/config/base.toml", "services/explorer/services/sig-provider/sig-provider-server/tests/settings.rs"]
+touches = ["services/explorer/services/sig-provider/sig-provider-server/src/settings.rs", "services/explorer/services/sig-provider/sig-provider-server/src/run.rs", "services/explorer/services/sig-provider/sig-provider-server/config/base.toml", "services/explorer/services/sig-provider/sig-provider-server/tests/settings.rs", "services/explorer/services/sig-provider/sig-provider/src/lib.rs"]
 tests = ["services/explorer/services/sig-provider/sig-provider-server/tests/settings.rs::precompiles_source_enabled_by_default"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider-server"
@@ -165433,7 +165501,7 @@ title = "Remove the retired daemon and credit paths from the xweb workflow check
 status = "pending"
 mode = "BUILD"
 wave = 28
-requires = ["16.0.4"]
+requires = ["16.0.4", "9.27.7"]
 reqs = ["16027.1"]
 capabilities = ["16.5.2"]
 interfaces = ["interface.16.cli-scr-ci-xweb-workflow-check"]
@@ -165441,7 +165509,7 @@ fulfils = ["wiring.J33.14", "wiring.J33.16", "wiring.J33.19", "wiring.J33.27", "
 do_1 = "Delete the layerxd batch WAL, LNI and evidence paths at scripts/ci/xweb-workflow-check.sh:72, :73 and :76 (wiring.J33.16, wiring.J33.14, wiring.J33.19)."
 do_2 = "Delete the custody daemon test path at scripts/ci/xweb-workflow-check.sh:286, the bridge credit path at :309, the guarantor Python driver at :310 and the program admission daemon test at :311 (wiring.J33.62, wiring.J36.67, wiring.J33.50, wiring.J33.58)."
 do_3 = "Delete the stale entries scripts/ci/beta-contract-check.sh at scripts/ci/xweb-workflow-check.sh:167 and services/interop/deploy/x-websearch/Dockerfile at :270, which name files missing at HEAD."
-do_4 = "Delete the entries for test sources the tests owner deletes: tests/modules/test_web_intake.c at scripts/ci/xweb-workflow-check.sh:316, tests/network/test_web_adapter.c at :317, tests/sequencer/test_web_root.c at :324, tests/storage/lxp_test_finality_evidence.c at :325, tests/storage/lxp_test_maintenance_publication.c at :326 and tests/vectors/finality_evidence_v1.vec at :329."
+do_4 = "Delete the entries for test sources the tests owner deletes: tests/modules/test_web_intake.c at scripts/ci/xweb-workflow-check.sh:316, tests/network/test_web_adapter.c at :317, tests/sequencer/test_web_root.c at :324, tests/storage/lxp_test_finality_evidence.c at :325, tests/storage/lxp_test_maintenance_publication.c at :326 and tests/vectors/finality_evidence_v1.vec at :329 and services/agent/crates/layerx-client/tests/finality_evidence.rs at :177 (deleted by task 9.27.7)."
 do_5 = "Create tools/ci/tests/test_xweb_workflow_check.py (planned) with XwebWorkflowCheckTest.test_check_passes_against_head_tree, which runs scripts/ci/xweb-workflow-check.sh and asserts exit 0."
 symbols = ["XwebWorkflowCheckTest", "test_check_passes_against_head_tree"]
 touches = ["scripts/ci/xweb-workflow-check.sh", "tools/ci/tests/test_xweb_workflow_check.py"]
@@ -169629,7 +169697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.1.3]
 title = "Write the bring-up goldens of the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.1.1"]
