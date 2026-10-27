@@ -1035,6 +1035,7 @@ impl PaymentStore {
 #[derive(Debug)]
 pub enum GateError {
     Assets(AssetRefusal),
+    NetworkId,
     Endpoint,
     Authorization,
     Adapter,
@@ -1047,6 +1048,9 @@ impl std::fmt::Display for GateError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Assets(refusal) => write!(f, "payment assets refused: {refusal}"),
+            Self::NetworkId => f.write_str(
+                "kernel_network_id must be resolved to a nonzero value matching configuration",
+            ),
             Self::Endpoint => f.write_str("the gateway endpoint is not an http or https URL"),
             Self::Authorization => f.write_str("gateway authorization file or transport refused"),
             Self::Adapter => f.write_str("the 402LXP adapter cannot be registered"),
@@ -1101,6 +1105,29 @@ impl PaymentGate {
         conformance: ConformanceSuite,
         clock: Clock,
     ) -> Result<Self, GateError> {
+        Self::new_with_network_id(
+            config,
+            config.kernel_network_id.ok_or(GateError::NetworkId)?,
+            receiver,
+            conformance,
+            clock,
+        )
+    }
+
+    pub fn new_with_network_id(
+        config: &Config,
+        network_id: u32,
+        receiver: &SigningKey,
+        conformance: ConformanceSuite,
+        clock: Clock,
+    ) -> Result<Self, GateError> {
+        if network_id == 0
+            || config
+                .kernel_network_id
+                .is_some_and(|configured| configured != network_id)
+        {
+            return Err(GateError::NetworkId);
+        }
         let assets = AcceptedAssets::new(&config.assets).map_err(GateError::Assets)?;
         let payment = &config.payment;
         if let Some(payer) = payment.payer_did.as_deref() {
@@ -1159,7 +1186,7 @@ impl PaymentGate {
                 accounts,
             },
             network: format!("eip155:{}", config.evm.chain_id),
-            network_id: config.kernel_network_id,
+            network_id,
             receipt_keys: config.gateway.receipt_keys.clone(),
             payer: payment.payer_did.clone(),
             draw_fee_limit: payment.draw_fee_limit,
