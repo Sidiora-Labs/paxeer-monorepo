@@ -180,8 +180,11 @@ fn configure(scratch: &Scratch, site: &Site, edit: impl FnOnce(&mut Value)) -> T
 fn receiver_key(scratch: &Scratch) -> TestResult<(PathBuf, String)> {
     let mut secret = [0_u8; 32];
     File::open("/dev/urandom")?.read_exact(&mut secret)?;
+    secret[0] &= 0x7f;
+    secret[31] |= 1;
+    let receiver = k256::ecdsa::SigningKey::from_slice(&secret)?;
     let path = scratch.0.join("receiver.key");
-    let text = hex(&secret);
+    let text = hex(&receiver.to_bytes());
     std::fs::write(&path, &text)?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
     Ok((path, text))
@@ -331,7 +334,10 @@ fn gateway_authorization(scratch: &Scratch) -> TestResult<PathBuf> {
     let mut secret = [0_u8; 32];
     File::open("/dev/urandom")?.read_exact(&mut secret)?;
     let path = std::fs::canonicalize(&scratch.0)?.join("gateway.authorization");
-    std::fs::write(&path, format!("LayerX-Key relay-test:lxp_live_{}\n", hex(&secret)))?;
+    std::fs::write(
+        &path,
+        format!("LayerX-Key relay-test:lxp_live_{}\n", hex(&secret)),
+    )?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
     Ok(path)
 }
