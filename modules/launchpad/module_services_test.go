@@ -66,6 +66,18 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "Quote":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "amount_in must be a positive base-10 integer", status.Convert(err).Message())
+				data, err := cdc.Marshal(&types.QueryQuoteRequest{Denom: "unknown-market", IsBuy: true, AmountIn: "1000000"})
+				require.NoError(t, err)
+				_, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.ErrorIs(t, err, types.ErrUnknownMarket)
+				var launchpadErr *sdkerrors.Error
+				require.ErrorAs(t, err, &launchpadErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(launchpadErr, false)
+				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
+				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
 			case "PriceHistory":
 				require.ErrorIs(t, err, types.ErrUnknownMarket)
 				require.Equal(t, ": "+types.ErrUnknownMarket.Error(), err.Error())
