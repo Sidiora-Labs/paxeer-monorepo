@@ -23,7 +23,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesController do
   operation(:capabilities,
     summary: "Get the live Paxeer X Network surfaces",
     description:
-      "Returns one boolean per LayerX surface precompile — addr, custody, anchor, exchange, bridge, launchpad — " <>
+      "Returns one boolean per LayerX surface precompile — addr, exchange, bridge, launchpad — " <>
         "as of the last probe of the connected node. `addr` is true when the addr precompile answers " <>
         "getUnifiedAccount. A surface that the running chain does not carry yet reads as false. " <>
         "`price_feed` is present, and true, only while native price-feed submissions are served: the node " <>
@@ -47,11 +47,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesController do
     |> json(
       Map.merge(price_feed(), %{
         "addr" => snapshot.unified_account,
-        "custody" => snapshot.custody,
-        "anchor" => snapshot.anchor,
         "exchange" => snapshot.exchange,
         "bridge" => snapshot.bridge,
-        "launchpad" => snapshot.launchpad
+        "launchpad" => snapshot.launchpad,
+        "checked_at" => snapshot.checked_at
       })
     )
   end
