@@ -516,8 +516,6 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 
 func (s *Server) evaluate(account, policyKind string, view any, ledger policy.Ledger) policy.Decision {
 	switch v := view.(type) {
-	case *lx.ActivityRequest:
-		return s.opts.Kernel.EvaluateActivity(common.HexToAddress(account), v, ledger)
 	case *lx.SendAuthorizationRequest:
 		return s.opts.Kernel.EvaluateSendAuthorization(common.HexToAddress(account), v, ledger)
 	case *lx.BindRequest:
@@ -526,7 +524,7 @@ func (s *Server) evaluate(account, policyKind string, view any, ledger policy.Le
 		return s.opts.Kernel.EvaluateGrant(common.HexToAddress(account), v, ledger)
 	}
 	switch policyKind {
-	case policy.KindLXActivity, policy.KindLXBind, policy.KindLXGrant:
+	case policy.KindLXSendAuth, policy.KindLXBind, policy.KindLXGrant:
 		return policy.Decision{Allowed: false, Code: policy.CodeDecodeError, Reason: "kernel request has no kernel view"}
 	}
 	return s.opts.Policy.Evaluate(account, policy.Request{Kind: policyKind, View: view}, ledger)

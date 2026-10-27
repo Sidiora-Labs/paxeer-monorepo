@@ -35,13 +35,6 @@ import (
 	"google.golang.org/grpc"
 )
 
-// serviceRecorder records the services RegisterServices registers.
-type serviceRecorder struct{ services []string }
-
-func (r *serviceRecorder) RegisterService(sd *grpc.ServiceDesc, _ interface{}) {
-	r.services = append(r.services, sd.ServiceName)
-}
-
 // invariantRecorder records the routes RegisterInvariants registers.
 type invariantRecorder struct{ routes []string }
 
@@ -65,10 +58,21 @@ func TestModuleShape(t *testing.T) {
 	require.Nil(t, am.GetTxCmd())
 	require.Nil(t, am.GetQueryCmd())
 
-	msgServer, queryServer := &serviceRecorder{}, &serviceRecorder{}
+	msgServer, queryServer := grpc.NewServer(), grpc.NewServer()
+	t.Cleanup(msgServer.Stop)
+	t.Cleanup(queryServer.Stop)
 	am.RegisterServices(module.NewConfigurator(nil, msgServer, queryServer))
-	require.Empty(t, msgServer.services)
-	require.Empty(t, queryServer.services)
+	services := msgServer.GetServiceInfo()
+	require.Len(t, services, 1)
+	require.Contains(t, services, "paxprotocol.paxchain.perps.Msg")
+	var methods []string
+	for _, method := range services["paxprotocol.paxchain.perps.Msg"].Methods {
+		require.False(t, method.IsClientStream)
+		require.False(t, method.IsServerStream)
+		methods = append(methods, method.Name)
+	}
+	require.ElementsMatch(t, []string{"UpdateParams", "SetMarket", "SetPaused"}, methods)
+	require.Empty(t, queryServer.GetServiceInfo())
 
 	invariants := &invariantRecorder{}
 	am.RegisterInvariants(invariants)
