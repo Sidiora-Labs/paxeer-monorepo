@@ -149388,7 +149388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.1]
 title = "Decode XWebProgramRequested logs of 0x1019 in the request watcher"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["11.33.1", "6.0.2", "6.94.3"]
