@@ -23,6 +23,7 @@ import { cardState } from '@/lib/bridge/card-state';
 import { erc20Abi, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS } from '@/lib/bridge/contracts';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { isSolanaAddress, solanaRecipientHandle } from '@/lib/bridge/solana';
+import { solanaWithdrawalBlocker } from '@/lib/bridge/solana-route';
 import { planDeposit } from '@/lib/bridge/submission';
 import { depositRecord, withdrawalRecord } from '@/lib/bridge/submitted';
 import { saveTransfer } from '@/lib/bridge/transfers';
@@ -32,6 +33,7 @@ import {
   useBridgedBalance,
   useForeignBalance,
   usePaxeerPairState,
+  useRecipientRecord,
   useVaultState,
 } from '@/lib/bridge/use-bridge-state';
 import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react';
@@ -110,6 +112,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
 
   const destination = destTouched ? destOverride.trim() : (address ?? '');
   const isSolanaRoute = foreign.kind === 'solana';
+  const recipientRecord = useRecipientRecord(isSolanaRoute && direction === 'out' ? destination : '');
   const destinationValid =
     direction === 'in' || !isSolanaRoute ?
       isAddress(destination, { strict: false }) :
@@ -163,7 +166,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   const depositStep = depositPlan?.find((step) => step.functionName !== 'approve');
 
   const busy = deposit.isSigning || deposit.isConfirming || withdraw.isSigning || withdraw.isConfirming || approve.isSigning || approve.isConfirming;
-  const { inputError, blockers, maxAmount, ready } = cardState({
+  const { inputError, blockers, maxAmount, ready: cardReady } = cardState({
     direction,
     asset,
     amount,
@@ -181,6 +184,15 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     depositPlanAvailable: depositPlan !== undefined,
     busy,
   });
+  if (isSolanaRoute) {
+    if (direction === 'out') {
+      const blocker = solanaWithdrawalBlocker(recipientRecord.isError ? undefined : recipientRecord.data, destination);
+      if (blocker) blockers.push(blocker);
+    } else {
+      blockers.push('Deposits from Solana require a Solana wallet. This app currently supports EVM wallet connections only.');
+    }
+  }
+  const ready = cardReady && blockers.length === 0;
 
   const fire = (request: Parameters<typeof deposit.write.writeContract>[0], which: 'deposit' | 'withdraw') => {
     if (!address) return;

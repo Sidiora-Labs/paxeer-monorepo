@@ -1,6 +1,6 @@
 'use client';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQueries, useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
@@ -16,7 +16,8 @@ import { bridgeChainByKey, finalityEstimate, paxeer } from '@/lib/bridge/chains'
 import { enrichRecord } from '@/lib/bridge/enrich';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { foreignTxUrl, paxeerTxUrl } from '@/lib/bridge/explorer';
-import { phaseOf, settlementPatch } from '@/lib/bridge/settlement';
+import { historyStatusOf, phaseOf, stepOf } from '@/lib/bridge/phase';
+import { settlementPatch } from '@/lib/bridge/settlement';
 import {
   listTransfers,
   updateTransfer,
@@ -169,14 +170,7 @@ function TransferRow({
     token: transfer.symbol,
     amount: amountNumber,
     network: chain?.label,
-    step:
-      phase === 'settled' ?
-        'credited' :
-        phase === 'failed' ?
-          'failed' :
-          phase === 'confirming' ?
-            'confirming' :
-            'submitted',
+    step: stepOf(phase),
     confirmations: live?.confirmations,
     requiredConfirmations: live?.requiredConfirmations ?? transfer.requiredConfirmations,
     time: new Date(transfer.submittedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -235,12 +229,23 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
     refetchInterval: 30_000,
   });
   const transfers = useMemo(() => transfersQuery.data ?? [], [ transfersQuery.data ]);
+  const liveQueries = useQueries({
+    queries: transfers.map((transfer) => ({
+      queryKey: [
+        'transfer-live',
+        transfer.id,
+        (transfer.direction === 'in' && (transfer.claimTxHash !== undefined || transfer.claimedAt !== undefined)) ||
+          (transfer.direction === 'out' && transfer.releaseTxHash !== undefined),
+      ],
+      queryFn: () => readTransferLive(transfer),
+      enabled: false,
+    })),
+  });
 
-  const records: TransferRecord[] = transfers.map((t) => {
+  const records: TransferRecord[] = transfers.map((t, index) => {
     const chain = bridgeChainByKey(t.foreignChainKey);
-    const settled =
-      (t.direction === 'in' && (t.claimTxHash !== undefined || t.claimedAt !== undefined)) ||
-      (t.direction === 'out' && t.releaseTxHash !== undefined);
+    const live = liveQueries[index].data;
+    const phase = phaseOf(t, live, live?.attestationReady === true);
     return {
       id: t.id,
       type: t.direction === 'in' ? 'deposit' : 'withdraw',
@@ -249,7 +254,7 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
       decimals: Math.min(t.decimals, 6),
       fee: null,
       network: chain?.label,
-      status: settled ? 'completed' : 'processing',
+      status: historyStatusOf(phase),
       time: t.submittedAt,
       txHash: t.sourceTxHash,
     };

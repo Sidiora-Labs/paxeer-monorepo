@@ -1,17 +1,20 @@
 //! x402 v2 facilitator role. Verification is a read-only translation and
-//! settlement can report success only after the gateway verifies canonical
-//! `LayerX` receipt evidence returned by the plane authority.
+//! settlement can report success only after the gateway verifies signed
+//! sequencer evidence returned by the plane authority.
 
 use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use layerx_interop_gateway::adapter::AdapterId;
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
-use layerx_proof::receipt::verify;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::verify_logs;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
@@ -19,7 +22,7 @@ use sha2::{Digest as _, Sha256};
 use crate::model::{
     PaymentPayload, PaymentRequirements, SettlementResponse, X402Error, X402_VERSION,
 };
-use crate::seller::{payment_matches, validate_network, validate_transaction, ExecutedPayment};
+use crate::seller::{payment_matches, validate_network, validate_transaction};
 
 const ADAPTER_ID: &str = "x402";
 const VERIFY_DIGEST_DOMAIN: &[u8] = b"LayerX/x402/v2/facilitator/verify/digest\0";
@@ -178,13 +181,16 @@ pub enum FacilitatorSettlementOutcome {
         reason: &'static str,
         payer: Option<String>,
     },
-    Executed(ExecutedPayment),
+    Executed(SequencerEvidence),
 }
 
 /// The only authority boundary used by the facilitator. Verification and
 /// settlement are deliberately separate methods, making a state-changing
 /// implementation impossible to call through the read-only route by mistake.
 pub trait FacilitatorPlane {
+    /// Independently configured sequencer authority pins for settlement.
+    fn receipt_keys(&self) -> &[SequencerAuthorization];
+
     /// Validates without committing payment state.
     ///
     /// # Errors
@@ -206,6 +212,76 @@ pub trait FacilitatorPlane {
         request: FacilitatorPaymentRequest,
         trace: &TraceId,
     ) -> Result<FacilitatorSettlementOutcome, X402Error>;
+}
+
+/// A relay result awaiting the facilitator's local evidence checks.
+#[derive(Clone, Debug)]
+pub struct SequencerFacilitatorPlane {
+    evidence: SequencerEvidence,
+    receipt_keys: Vec<SequencerAuthorization>,
+}
+
+impl SequencerFacilitatorPlane {
+    #[must_use]
+    pub const fn new(
+        evidence: SequencerEvidence,
+        receipt_keys: Vec<SequencerAuthorization>,
+    ) -> Self {
+        Self {
+            evidence,
+            receipt_keys,
+        }
+    }
+}
+
+impl FacilitatorPlane for SequencerFacilitatorPlane {
+    fn receipt_keys(&self) -> &[SequencerAuthorization] {
+        &self.receipt_keys
+    }
+
+    fn verify(
+        &mut self,
+        request: &FacilitatorPaymentRequest,
+        _trace: &TraceId,
+    ) -> Result<PlaneVerifyOutcome, X402Error> {
+        let transaction = request
+            .payment_payload
+            .payload
+            .get("transaction")
+            .and_then(Value::as_str)
+            .ok_or(X402Error::TransactionForm)?;
+        validate_transaction(transaction)?;
+        Ok(PlaneVerifyOutcome::Valid {
+            payer: None,
+            extra: None,
+        })
+    }
+
+    fn settle(
+        &mut self,
+        request: FacilitatorPaymentRequest,
+        trace: &TraceId,
+    ) -> Result<FacilitatorSettlementOutcome, X402Error> {
+        if let PlaneVerifyOutcome::Invalid { reason, payer } = self.verify(&request, trace)? {
+            return Ok(FacilitatorSettlementOutcome::Refused { reason, payer });
+        }
+        if request.payment_payload.payload["transaction"]
+            != format!("0x{}", hex(&self.evidence.transaction_hash))
+        {
+            return Ok(FacilitatorSettlementOutcome::Refused {
+                reason: "transaction_mismatch",
+                payer: None,
+            });
+        }
+        if self.evidence.rung == SettlementRung::Submitted {
+            return Ok(FacilitatorSettlementOutcome::Pending {
+                transaction: format!("0x{}", hex(&self.evidence.transaction_hash)),
+            });
+        }
+        Ok(FacilitatorSettlementOutcome::Executed(
+            self.evidence.clone(),
+        ))
+    }
 }
 
 /// Receipt-backed implementation of the x402 v2 facilitator APIs.
@@ -271,7 +347,22 @@ impl Facilitator {
             request_digest,
             settlement_step: SettlementStep::Single,
         };
-        let outcome = plane.verify(&plane_request, trace).map_err(fail)?;
+        let outcome = request
+            .payment_payload
+            .payload
+            .get("transaction")
+            .and_then(Value::as_str)
+            .ok_or(X402Error::TransactionForm)
+            .and_then(validate_transaction)
+            .and_then(|()| plane.verify(&plane_request, trace));
+        let outcome = match outcome {
+            Ok(outcome) => outcome,
+            Err(X402Error::TransactionForm) => PlaneVerifyOutcome::Invalid {
+                reason: "transaction_form",
+                payer: None,
+            },
+            Err(error) => return Err(fail(error)),
+        };
         gateway
             .complete_read_only(principal, idempotency_key, trace, now)
             .map_err(|error| trace.wrap(X402Error::Gateway(error.into_error())))?;
@@ -347,6 +438,7 @@ impl Facilitator {
                 idempotency_key,
                 &request.payment_requirements,
                 &executed,
+                plane.receipt_keys(),
                 trace,
                 now,
             )
@@ -398,10 +490,10 @@ fn render_verify(outcome: PlaneVerifyOutcome) -> Result<VerifyResponse, X402Erro
 
 fn render_pending(
     requirements: &PaymentRequirements,
-    transaction: String,
+    transaction_hash: String,
 ) -> Result<SettlementResponse, X402Error> {
     validate_network(&requirements.network)?;
-    validate_transaction(&transaction)?;
+    validate_transaction(&transaction_hash)?;
     let mut extensions = BTreeMap::new();
     extensions.insert(
         "layerx".to_owned(),
@@ -411,7 +503,7 @@ fn render_pending(
         success: false,
         error_reason: Some("settlement_pending".to_owned()),
         payer: None,
-        transaction,
+        transaction: transaction_hash,
         network: requirements.network.clone(),
         amount: None,
         extensions,
@@ -445,32 +537,61 @@ fn settle_executed(
     principal: &PrincipalId,
     idempotency_key: [u8; 32],
     requirements: &PaymentRequirements,
-    executed: &ExecutedPayment,
+    executed: &SequencerEvidence,
+    receipt_keys: &[SequencerAuthorization],
     trace: &TraceId,
     now: u64,
 ) -> Result<SettlementResponse, X402Error> {
-    let verified = verify(&executed.canonical_receipt, &executed.authorised_batch)
+    if executed.rung == SettlementRung::Submitted {
+        return Err(X402Error::EvidenceMissing);
+    }
+    let verified = verify_sequencer_signature(&executed.signed_receipt, receipt_keys)
         .map_err(|_| X402Error::EvidenceMismatch)?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or(X402Error::EvidenceMismatch)?;
-    payment_matches(
-        requirements,
-        protocol.asset(),
-        protocol.to(),
-        protocol.amount(),
-    )?;
+    let protocol = verified.protocol().ok_or(X402Error::EvidenceMismatch)?;
+    if protocol.activity_id() != executed.transaction_hash || protocol.result_code() != 0 {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let logs =
+        verify_logs(&verified, executed.logs.clone()).map_err(|_| X402Error::EvidenceMismatch)?;
+    let mut payments = logs.logs().iter().filter(|log| {
+        log.address()
+            == [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+            ]
+            && log.topics().len() == 4
+            && hex(&log.topics()[0])
+                == "c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1"
+            && log.topics()[3] == idempotency_key
+    });
+    let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
+    if payments.next().is_some() || payment.data().len() != 64 || payment.data()[32..48] != [0; 16]
+    {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let asset = payment.data()[..32]
+        .try_into()
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+    let amount = u128::from_be_bytes(
+        payment.data()[48..]
+            .try_into()
+            .map_err(|_| X402Error::EvidenceMismatch)?,
+    );
+    payment_matches(requirements, asset, payment.topics()[2], amount)?;
     let status = gateway
-        .settle_with_receipt(
+        .settle_with_sequencer_evidence(
             principal,
             idempotency_key,
-            &executed.canonical_receipt,
-            &executed.authorised_batch,
+            executed,
+            receipt_keys,
             trace,
             now,
         )
-        .map_err(|error| X402Error::Gateway(error.into_error()))?;
+        .map_err(|error| match error.into_error() {
+            layerx_interop_gateway::gateway::SequencerSettlementError::Gateway(error) => {
+                X402Error::Gateway(error)
+            }
+            _ => X402Error::EvidenceMismatch,
+        })?;
     let TranslationStatus::ReceiptVerified { receipt_digest } = status else {
         return Err(X402Error::EvidenceMissing);
     };
@@ -479,7 +600,7 @@ fn settle_executed(
     extensions.insert(
         "layerx".to_owned(),
         json!({
-            "receipt": STANDARD.encode(&executed.canonical_receipt),
+            "receipt": STANDARD.encode(&executed.signed_receipt),
             "receiptDigest": digest_text,
             "verificationLevel": "receipted"
         }),
@@ -487,8 +608,8 @@ fn settle_executed(
     let response = SettlementResponse {
         success: true,
         error_reason: None,
-        payer: Some(hex(&protocol.from())),
-        transaction: format!("0x{}", hex(&protocol.activity_id())),
+        payer: Some(hex(&payment.topics()[1])),
+        transaction: format!("0x{}", hex(&executed.transaction_hash)),
         network: requirements.network.clone(),
         amount: Some(requirements.amount),
         extensions,
@@ -606,13 +727,120 @@ fn hex(bytes: &[u8; 32]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::seller::tests::{executed, opened_gateway, required};
+    use crate::seller::tests::{opened_gateway, required};
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_interop_gateway::evidence::canonical_receipt_digest;
+    use layerx_proof::sequencer_logs::SequencerLog;
+
+    fn executed(
+        accepted: &PaymentRequirements,
+    ) -> (SequencerEvidence, Vec<SequencerAuthorization>) {
+        fn bytes(value: &str) -> Vec<u8> {
+            let value = value.strip_prefix("0x").unwrap_or(value);
+            (0..value.len())
+                .step_by(2)
+                .map(|index| {
+                    u8::from_str_radix(&value[index..index + 2], 16)
+                        .unwrap_or_else(|error| panic!("hex: {error}"))
+                })
+                .collect()
+        }
+        fn replace(receipt: &mut [u8], old: &[u8], new: &[u8]) {
+            assert_eq!(old.len(), new.len());
+            let positions: Vec<_> = receipt
+                .windows(old.len())
+                .enumerate()
+                .filter_map(|(index, value)| (value == old).then_some(index))
+                .collect();
+            assert_eq!(positions.len(), 1);
+            receipt[positions[0]..positions[0] + old.len()].copy_from_slice(new);
+        }
+        let fixture: Value = serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .unwrap_or_else(|error| panic!("fixture: {error}"));
+        let case = fixture["cases"]
+            .as_array()
+            .unwrap_or_else(|| panic!("cases"))
+            .iter()
+            .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+            .unwrap_or_else(|| panic!("PaymentExact fixture"));
+        let text = |value: &Value| {
+            value
+                .as_str()
+                .unwrap_or_else(|| panic!("fixture string"))
+                .to_owned()
+        };
+        let mut receipt = bytes(&text(&case["signedReceipt"]));
+        let log = &case["receiptJson"]["logs"][0];
+        let mut topics: Vec<[u8; 32]> = log["topics"]
+            .as_array()
+            .unwrap_or_else(|| panic!("topics"))
+            .iter()
+            .map(|value| {
+                bytes(&text(value))
+                    .try_into()
+                    .unwrap_or_else(|_| panic!("topic"))
+            })
+            .collect();
+        let recipient: [u8; 32] = bytes(&accepted.pay_to)
+            .try_into()
+            .unwrap_or_else(|_| panic!("payee"));
+        replace(&mut receipt, &topics[2], &recipient);
+        topics[2] = recipient;
+        replace(&mut receipt, &topics[3], &[0x74; 32]);
+        topics[3] = [0x74; 32];
+        let old_data = bytes(&text(&log["data"]));
+        let mut data = bytes(&accepted.asset);
+        data.extend_from_slice(&[0; 16]);
+        data.extend_from_slice(&accepted.amount.value().to_be_bytes());
+        replace(
+            &mut receipt,
+            &Sha256::digest(&old_data),
+            &Sha256::digest(&data),
+        );
+        replace(
+            &mut receipt,
+            &bytes(&text(&case["receiptJson"]["txHash"])),
+            &[0x61; 32],
+        );
+        let key = SigningKey::from_bytes(&[0x72; 32]);
+        let digest =
+            canonical_receipt_digest(&receipt).unwrap_or_else(|error| panic!("digest: {error}"));
+        let signature_start = receipt.len() - 64;
+        receipt[signature_start..].copy_from_slice(&key.sign(&digest).to_bytes());
+        let key_id = bytes(&text(&case["pinnedKey"]["keyId"]))
+            .try_into()
+            .unwrap_or_else(|_| panic!("key id"));
+        (
+            SequencerEvidence {
+                transaction_hash: [0x61; 32],
+                signed_receipt: receipt,
+                logs: vec![SequencerLog::new(
+                    bytes(&text(&log["address"]))
+                        .try_into()
+                        .unwrap_or_else(|_| panic!("address")),
+                    topics,
+                    data,
+                    0,
+                )],
+                rung: SettlementRung::Receipted,
+            },
+            vec![SequencerAuthorization::new(
+                key_id,
+                key.verifying_key().to_bytes(),
+                1000,
+                1999,
+            )],
+        )
+    }
 
     #[test]
     fn settlement_transaction_is_tx_hash() {
         let required = required();
         let accepted = &required.accepts[0];
-        let executed = executed(accepted);
+        let (executed, receipt_keys) = executed(accepted);
         let (mut gateway, principal, trace) = opened_gateway();
         let response = settle_executed(
             &mut gateway,
@@ -620,6 +848,7 @@ mod tests {
             [0x74; 32],
             accepted,
             &executed,
+            &receipt_keys,
             &trace,
             1,
         )
@@ -651,7 +880,7 @@ mod tests {
         for transaction in ["lxp:abc", "0xabc", "", &format!("0x{}", "00".repeat(32))] {
             assert_eq!(
                 render_pending(accepted, transaction.to_owned()),
-                Err(X402Error::InvalidPayload)
+                Err(X402Error::TransactionForm)
             );
         }
     }

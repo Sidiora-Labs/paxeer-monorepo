@@ -2109,3 +2109,107 @@ symbol = "ucp_order_digest_is_the_recorded_receipt_digest"
 observed = "Spec contradiction: the unmodified recorded receipt carries reference 0x26fde3de…b9839, which no UUID's gateway_key yields, so the test as first worded could never pass and attempts one and three of `cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-ucp --test sequencer_checkout -- --exact ucp_order_digest_is_the_recorded_receipt_digest` exited 101 (logs-verify-1.log) at 4d77ba160 with \"LayerX receipt does not match the checkout\"."
 assumption = "The test asserts that `canonical_receipt_digest` of the fixture's signedReceipt equals its receiptDigest 0x07ca8892… and that a checkout completed on the `checkout_payment()` receipt re-signed with topics[3] = the gateway_key yields `order.receipt_digest == canonical_receipt_digest(&payment.evidence.signed_receipt)`, with `verify_sequencer_receipt` unchanged."
 severity = "blocker"
+
+[finding.14.22.3]
+task = "14.22.3"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex:73"
+symbol = "sequencer_verification"
+observed = "At 7f14b5551 the verifier `cg spec done 14.22.3` refused because the Elixir module BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController, the private function sequencer_verification and the ExUnit test name status_answers_committed_for_router_verified_hash are not in the graph, while the build and the focused test both passed (1 test, 0 failures; logs-verify-1.log)."
+assumption = "Elixir sources are not indexed, so the task declares symbols = [] and is checked on touches only."
+severity = "note"
+
+[finding.14.36.1]
+task = "14.36.1"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/settlement_rung.ex:12"
+symbol = "status_schema_enum_is_three_rungs"
+observed = "At 93f1c457d the verifier `cg spec done 14.36.1` refused because the Elixir schema module BlockScoutWeb.Schemas.API.V2.PaxeerX.SettlementRung and the ExUnit test name status_schema_enum_is_three_rungs are not in the graph, while the build and the focused test both passed (1 test, 0 failures; logs-verify-1.log)."
+assumption = "Elixir sources are not indexed, so the task declares symbols = [] and is checked on touches only."
+severity = "note"
+
+[finding.11.29.4]
+task = "11.29.4"
+file = "services/interop/crates/layerx-portable/tests/independent_verifier.rs:5"
+symbol = "PORTABLE_RECEIPT_FORMAT_V2"
+observed = "The first attempt (120c17500) removed PORTABLE_RECEIPT_FORMAT_V2 and the trusted_batch parameter as do_2 and do_3 require, and the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --all-targets` exited 101 (logs-build-1.log) on independent_verifier.rs:5 and sequencer_vectors.rs:133/193, outside the task's touches; layerx-ap2 adapter.rs (9/187/361, owned by 11.7.2) and tests/portability_v2.rs (owned by 11.10.2, whose do_2 keeps v1 documents readable) consume the same removed names."
+assumption = "The task widens to the three tests and lands after 11.7.2 and 11.10.2."
+severity = "blocker"
+
+[finding.17.1.2]
+task = "17.1.2"
+file = "spec/layerx-merge/programme/data/activation-plan.kvx:1"
+symbol = "check_gates"
+observed = "At 5f9c4e6be the verifier `cg spec done 17.1.2` exited 1 (logs-verify-1.log): test_unknown_plan_is_not_pending passed and test_gated_plans_name_their_gate failed with PlanError \"plan v6.9: precompile_gate must name activationPrecompileGate\" because the activation plan written by 17.1.1 declares no precompile_gate on any plan and the data file lies outside the task's touches."
+assumption = "The task adds the two gate names to the data file."
+severity = "blocker"
+
+[finding.8.26.4]
+task = "8.26.4"
+file = "services/platform/middleware/buyer/src/index.ts:23"
+symbol = "protocolSelection"
+observed = "The build of 8.26.4 compiles the buyer package, whose src/index.ts:23-34 still imports protocolSelection, requireProtocolVersion, AuthorizedBatchResolver and LayerXReceiptEvidence and at :361, :395 and :476 passes canonicalReceipt, all removed from the seller package by 8.22.1 (1923cc0b5); main 1b20d42f3 still has the break and both attempts (second at 1a8e5955c, logs-build-1.log, tsc exit 2) failed on it without touching buyer or seller."
+assumption = "8.23.2 (owner of buyer/src/index.ts) repairs the imports; 8.26.4's own work is complete and qualifies once the buyer compiles."
+severity = "blocker"
+
+[finding.9.27.2.1]
+task = "9.27.2"
+file = "services/agent/crates/layerx-agentd/src/export.rs:263"
+symbol = "verify_complete"
+observed = "9.27.2 (e493c1b61) changes verify_complete to take a requested rung and return CompleteVerificationReport, while layerx-agentd export.rs:263 still calls verify_complete(&artifact, context.trust, requested) with a VerificationLevel and compares report.achieved() to VerificationLevel::CHECKPOINT_FINALISED at :284; that file is owned by 9.1.8 and 9.6.1 and neither required 9.27.2."
+assumption = "Both owners land after 9.27.2 and adapt the caller."
+severity = "suspect"
+
+[finding.4.24.3.1]
+task = "4.24.3"
+file = "services/launchpad/api/internal/rest/production_integration_test.go:37"
+symbol = "productionReadsFixture"
+observed = "The eighth attempt (a42db283f) had both database variables provisioned, built, and `cg spec done 4.24.3` exited 1 (logs-verify-1.log) at frozen_response_schema_test.go:37 and :60 because productionReadsFixture reads launchpad/spec/production-system/integration/migrations/150002.sql, a directory absent from the tree at 1b20d42f3 and from its history although 21 files under services/launchpad read it (internaltest/runtime_database.go:99 also needs its registry.json and grants.json)."
+assumption = "The migrations directory (numbered .sql files, registry.json, grants.json) is imported at that path by a task of its own, which 4.24.3 and 4.24.7 then require; the test edit is complete and is requalified unchanged."
+severity = "blocker"
+
+[finding.3.54.3]
+task = "3.54.3"
+file = "apps/perps/tests/local-market-config.test.ts:17"
+symbol = "requireEnv"
+observed = "All four attempts of 3.54.3 (last c68faf33d) build and run the one named case, which fails \"LOCAL_NODE_RPC is not set\"; 3.54.5, 3.54.6 (and pending 3.48.7, 3.54.2) use the same pattern: the gate needs a running local node with the perps precompiles and the perps gateway reachable through LOCAL_NODE_RPC, LOCAL_NODE_KEY and NEXT_PUBLIC_PERPS_GATEWAY_URL, which the qualification environment does not provide."
+assumption = "The tests are correct by design (an unset variable fails with its name, never skips, as apps/perps/tests/e2e-local-node.test.ts:24-38 requires); the tasks qualify unchanged once a local node and gateway are provided."
+severity = "blocker"
+
+[finding.5.4.5.1]
+task = "5.4.5"
+file = "node/app.go:3088"
+symbol = "App.LastBlockID"
+observed = "The fourth attempt's App.LastBlockID (10d32cff2) returns the check-context header's LastBlockId, which after Commit of height H is the id of block H-1, not of the committed block H, and TestOpenHeaderCarriesLastBlockID passes only because it finalizes a block whose LastBlockID is set to that block's own id."
+assumption = "do_1/do_4 \"the committed header's block id\" is read as the committed header's LastBlockId field; if the Open header of H+1 must carry the id of block H, a source for the committed block id is needed and the test must stop self-referencing."
+severity = "suspect"
+
+[finding.9.23.7.1]
+task = "9.23.7"
+file = "services/agent/crates/layerx-client/tests/ai_market_client.rs:16"
+symbol = "CheckpointFinality"
+observed = "At c7e26937d (first attempt, base 4acd0e5d4) the library compiles again and the build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests` exited 101 (logs-build-1.log) only in tests/ai_market_client.rs: the CheckpointFinality import (:16) and record.checkpoint()/finality.checkpoint() (:1144) follow this task's do_2, while ReadProof.batch_id (:325) and SnapshotBinding.checkpoint/settlement (:659-660) were removed by 13.29.1, whose gate never compiled the test because the library itself did not compile; the file is outside the task's touches and is otherwise owned by 9.23.6 (wave 10), which deletes it."
+assumption = "9.23.7 widens to the test and updates it; 9.23.6 deletes it later."
+severity = "blocker"
+
+[finding.9.23.7.2]
+task = "9.23.7"
+file = "services/agent/crates/layerx-client/src/ai_market.rs:1069"
+symbol = "sign_disclosed"
+observed = "do_5 asked the operation signing path to call sign_disclosed_call (9.31.3, services/agent/crates/layerx-crypto/src/signer.rs:276), which takes an Eip1559Call, its Disclosure and a from address and signs the EIP-1559 preimage, while the operation sign method at ai_market.rs:1069 signs canonical activity bytes with ed25519 and the journal still submits them over LNI frames until 9.23.6 moves submission to rpc::submit::submit_signed; the first attempt left sign_disclosed in place and reported the mismatch."
+assumption = "The signing migration belongs to 9.23.6 (its new do_4) and 9.35.1, which deletes sign_disclosed, requires 9.23.6."
+severity = "suspect"
+
+[finding.13.7.4]
+task = "13.7.4"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs:614"
+symbol = "abi_payload"
+observed = "On unchanged main 1b20d42f3 the build `cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests` cannot pass: f29813a20 (13.7.1) added AbiError::EffectLimit (abi/mod.rs:710) and mapped it in abi/host_state.rs:71 and host/mod.rs:1269 but not in abi_payload, which compiles only under the host-ffi feature (lib.rs:46-48) that 13.7.1's build did not enable; both attempts of 13.7.4 (second at b3b92fef4, logs-build-1.log) exited 101 on that single E0004 with the export and both tests already written."
+assumption = "13.7.4 owns ffi_call.rs and adds the arm with tag 18; 13.0.3 and 13.7.5 inherit it through their existing requires."
+severity = "blocker"
+
+[finding.5.17.2.1]
+task = "5.17.2"
+file = "node/sequencer/limits.go:43"
+symbol = "admit"
+observed = "The fifth attempt (2fa906880, base 4acd0e5d4) built and both SealBatch tests failed at Accept with \"gas wanted 200000 (resp. 21000) exceeds Block.MaxGasWanted 0\" (logs-verify-1.log): the admission check of 5.4.3 (f3ef8c257) refuses gas above Block.MaxGasWanted, the tests build their chain with newSourceHarness whose app.DefaultConsensusParams (node/test_helpers.go:664) leave it at 0, and the test file was written on 6c0eca168 before 5.4.3 landed; the candidate's three files are unchanged since its second attempt and touch neither accept.go nor limits.go."
+assumption = "Both tests store a non-zero block gas bound in their setup as resolutionBlockGas and admissionParams already do in the package; limits.go stays unchanged."
+severity = "note"
