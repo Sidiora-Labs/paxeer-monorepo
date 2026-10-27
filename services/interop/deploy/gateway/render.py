@@ -885,7 +885,6 @@ def main(argv):
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--network-id")
-    parser.add_argument("--sequencer-public-key-file")
     parser.add_argument("--receipt-keys-file")
     parser.add_argument("--beta-roots-file")
     parser.add_argument("--out")
@@ -896,19 +895,23 @@ def main(argv):
         return self_test()
     root = pathlib.Path(arguments.repo_root)
     try:
-        if arguments.receipt_keys_file:
-            receipt_keys(arguments.receipt_keys_file)
+        keys = (
+            receipt_keys(arguments.receipt_keys_file) if arguments.receipt_keys_file else None
+        )
         if arguments.check:
             render(root, os.environ)
             return 0
-        if not arguments.network_id or not arguments.sequencer_public_key_file or not arguments.out:
-            parser.error("--network-id, --sequencer-public-key-file and --out are required")
+        if not arguments.network_id or not arguments.receipt_keys_file or not arguments.out:
+            parser.error("--network-id, --receipt-keys-file and --out are required")
+        public_keys = {entry["publicKey"][2:] for entry in keys}
+        if len(public_keys) != 1:
+            raise Refused(["x402 support requires one distinct receipt public key"])
         sources = {}
         document = render(
             root,
             os.environ,
             arguments.network_id,
-            sequencer_key(arguments.sequencer_public_key_file),
+            public_keys.pop(),
             arguments.beta_roots_file,
             sources,
         )
