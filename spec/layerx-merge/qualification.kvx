@@ -7474,8 +7474,8 @@ severity = "major"
 task = "5.6.5"
 file = "node/upgrades_merge_bonds_test.go"
 symbol = "TestMergePlanReturnsGuarantorBonds"
-observed = "Attempt f61886fb7 ran on a base before 1542220c2 (task 5.19.4, which imports the merge precompile packages into node/precompiles.go), so precompiles.MissingMergeConstructors listed every merge address and the gate test refused before activation."
-assumption = "5.6.5 now requires 5.19.4; the fourth attempt was already live on the same older base and the fifth continues from its result. Recorded once."
+observed = "Attempts f61886fb7 and 8cf4ead4a (the latter on a base that includes 1542220c2) fail TestMergePlanReturnsGuarantorBonds at node/upgrades_merge_bonds_test.go:22 because precompiles.MissingMergeConstructors lists layerxprograms 0x101D, the oracle aggregator 0x0903, the scheduler 0x0905 and other addresses whose registering tasks have not landed, so the whole plan refuses at the gate before the bond return runs."
+assumption = "The gate is a release-level condition on this tree; 5.6.5 now runs the gate first and tests the migrations, RetireAtMerge and ReleaseRetired through an unexported continuation while the gate keeps its own refusal test. Recorded once."
 severity = "major"
 
 [finding.8.98.8]
@@ -7492,4 +7492,76 @@ file = "services/platform/hosted/core/src/lib.rs"
 symbol = "wiring.J44.20"
 observed = "Attempts 92c2e4599 (8.98.5), 53ed2b963 (8.98.6), 76d14c2c2 (8.98.10) and the earlier 8.98.11 result show that wiring.J44.20 is not a rename: the retired modules (lni frame transport, read, evidence, caps, head, batch, payments, withdrawal) have no same-shaped counterparts under layerx_client::sequencer, px or rpc (rpc::account::account, rpc::module_state::module_state and rpc::evidence::proof_bundle take a Rung-based ReadContext over the sequencer endpoint instead of an LNI FrameTransport and RootSelector), so 'change only import paths and call names' cannot be satisfied; workers either invented paths that do not exist or left the uses in place and failed their own scan test."
 assumption = "The thirteen 8.98.x tasks need an owner decision on the migration shape (a replacement mapping or per-consumer ports as real tasks) before another attempt; recorded once for the family."
+severity = "major"
+
+[finding.2.34.2.1]
+task = "2.34.2"
+file = "precompiles/layerxagent/scheduler/merge.go"
+symbol = "LayerXAgentKeepers"
+observed = "Attempt 038baf1ce (base includes c833bda08) panics in every node.New with 'merge precompile scheduler at 0x0905: layerxagent keeper is unavailable' because do_1 asked for an accessor returning agentkeeper.Keeper by value while node/precompiles.go:148 exposes LayerXAgentK() *layerxagentkeeper.Keeper, so the keepers assertion never matches."
+assumption = "do_1 now names the pointer-returning method; the next attempt continues from 038baf1ce. Recorded once."
+severity = "major"
+
+[finding.2.12.4.1]
+task = "2.12.4"
+file = "modules/layerxauth/keeper/revoke.go"
+symbol = "DeleteGrant"
+observed = "Attempt 381c801a8 reaches the final assertion and receives authz 'authorization not found: unauthorized' instead of ErrAuthRevoked, because the kernel revoke deletes every authz grant bound to the kernel grant (revoke.go:41-74) before LayerXScopeAuthorization.Accept can report the stale epoch; req.2063 ac_1 names ErrAuthRevoked as the post-revoke error."
+assumption = "do_3 now proves the refusal after revoke as ErrUnauthorized with the grant gone and proves ErrAuthRevoked on a stale-epoch grant; whether ac_1 should name ErrUnauthorized instead is an owner decision. Recorded once."
+severity = "major"
+
+[finding.8.8.1]
+task = "8.8.1"
+file = "services/platform/hosted/agent-boundary/Cargo.toml"
+symbol = "layerx-agentd"
+observed = "Attempt 7fb495851 fails cargo test before the task's tests because layerx-platform-agent-boundary depends on layerx-agentd by path and layerx-agentd does not compile against the reshaped layerx-agent-api read, availability and Freshness types (errors in agent_rpc_adapters.rs, human_runtime.rs, export.rs, read/proof_bundle.rs)."
+assumption = "8.8.1 and 8.96.4 now require 9.1.8, the layerx-agentd port. Recorded once."
+severity = "major"
+
+[finding.4.10.3.1]
+task = "4.10.3"
+file = "modules/launchpad/client/rest/grpc_query_market_test.go"
+symbol = "TestRESTMarketRoutes"
+observed = "Attempts up to 325fd4b69 fail at :170 because the test compares the REST body's gRPC status code (2, codes.Unknown for an ABCI error) with 12, which is the ABCI code ErrUnknownMarket is registered with (modules/launchpad/types/errors.go:28); the body comparison with the gRPC status at :166 passes."
+assumption = "A new do item moves the code-12 assertion to abciResponse.Response.Code where that registry applies. Recorded once."
+severity = "major"
+
+[finding.5.0.3.1]
+task = "5.0.3"
+file = "node/app_merge_wiring_test.go"
+symbol = "TestV6120SpotServesThroughServedSet"
+observed = "Attempt aedd8d4f1 asserts left == supplied-cost-executionGas, but RunAndCalculateGas (precompiles/spot/spot.go:275) meters the keeper execution under a fresh Cosmos gas meter sized from supplied-charge and converts the remainder back through GetEVMGasLimitFromCtx, so the Cosmos gas of the inner reads (18025 and 3317 EVM gas in two subtests) is not the executionGas the test measured on its own context; TestEVMServerServesSequencerReceiptOption also fails because mergeRPCApp initialises the chain with Block.MaxGasWanted 0, which node/sequencer/limits.go:43 reads literally."
+assumption = "Both are test-fixture issues inside the task; the continue note names the out-of-gas boundary assertions and the consensus params to set. Recorded once."
+severity = "major"
+
+[finding.14.4.2]
+task = "14.4.2"
+file = "apps/web/e2e/gas-station-receipt.test.ts"
+symbol = "withStation"
+observed = "Attempt 07c8218b5 fails both tests at :99 because withStation shells out to 'openssl req' to mint a TLS certificate and the command exits 1 with no output in the qualification environment."
+assumption = "A new do item removes the openssl dependency (committed test certificate or an http station). Recorded once."
+severity = "major"
+
+[finding.13.22.1.1]
+task = "13.22.1"
+file = "precompiles/layerxprograms/layerxprograms.go"
+symbol = "Address"
+observed = "Attempt ff31f629c fails go build because tasks 13.22.4 to 13.22.6 landed submit.go and the event files first, referencing Address as a common.Address and a PrecompileExecutor with an evmKeeper field (submit.go:20,32), while do_1 declares Address as a string constant and the attempt's executor lacks the field."
+assumption = "A new do item makes the base file conform to the declarations the sibling files already use. Recorded once."
+severity = "major"
+
+[finding.5.98.1.3]
+task = "5.98.1"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "evm_call"
+observed = "Attempt a11f1e673 boots the node, applies v6.12.0 and validates genesis, then 'paxd tx evm call-contract' panics in getNonce (modules/evm/client/cli/tx.go:630 converts a null JSON result to string) right after the upgrade height."
+assumption = "The script needs to wait for a non-null eth_getTransactionCount result before each call and surface the RPC body on timeout; the CLI is untouched. Recorded once."
+severity = "major"
+
+[finding.9.32.2]
+task = "9.32.2"
+file = "services/agent/crates/layerx-sdk/src/wallet.rs"
+symbol = "open_account"
+observed = "Attempt 369bff6bc fails open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure): Disclosure::validate_bytes (layerx-crypto signer.rs:302) finds the disclosure does not describe the canonical bytes handed to sign_disclosed_call."
+assumption = "Task-scoped: the ABI-call disclosure must cover the signed 0x101A payload as the send path does. Recorded once."
 severity = "major"
