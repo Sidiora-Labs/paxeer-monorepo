@@ -1,4 +1,5 @@
 mod capabilities;
+mod chain_reads;
 mod explorer_proxy;
 mod history;
 mod native_call;
@@ -3990,6 +3991,7 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
             BackendAvailability::not_configured("event_producer")
         },
         paxeer_chain_readiness(config),
+        consensus_readiness(config),
     ];
     backends.extend(KernelBackend::ALL.into_iter().map(|backend| {
         kernel_availability(config, backend, |endpoint, token| match backend {
@@ -4028,6 +4030,54 @@ fn paxeer_chain_readiness(config: &Config) -> BackendAvailability {
             && document.get("error").is_none()
     });
     BackendAvailability::probed("paxeer_chain", ready)
+}
+
+fn consensus_readiness(config: &Config) -> BackendAvailability {
+    let Some(url) = env::var_os("LAYERX_GATEWAY_CONSENSUS_RPC_URL") else {
+        return BackendAvailability::not_configured("consensus");
+    };
+    let ready = (|| {
+        let mut endpoint = Endpoint::parse(url.to_str()?).ok()?;
+        let path = if endpoint.base_path.is_empty() {
+            "/".to_owned()
+        } else {
+            std::mem::take(&mut endpoint.base_path)
+        };
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "gateway-readiness-consensus",
+            "method": "status",
+            "params": {}
+        });
+        let body = serde_json::to_vec(&request).ok()?;
+        let response = config
+            .client
+            .request_unauthenticated(
+                &endpoint,
+                &http::OutboundRequest {
+                    method: "POST",
+                    path: &path,
+                    idempotency: None,
+                    content_type: "application/json",
+                    body: &body,
+                },
+            )
+            .ok()?;
+        if response.status != 200 || response.content_type != "application/json" {
+            return None;
+        }
+        let document: serde_json::Value = serde_json::from_slice(&response.body).ok()?;
+        Some(
+            document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0")
+                && document.get("id") == request.get("id")
+                && document.get("error").is_none()
+                && document
+                    .pointer("/result/sync_info/catching_up")
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(false),
+        )
+    })() == Some(true);
+    BackendAvailability::probed("consensus", ready)
 }
 
 fn layerx_activity_readiness(backends: &[BackendAvailability]) -> BackendAvailability {

@@ -1,12 +1,15 @@
 import { EndpointClient } from './endpoint.js';
+import { readSequencerReceipt } from './receipt.js';
 import { JsonRpcError, isRecord } from './rpc.js';
 import type {
+  Balances,
+  ChainAccount,
   KernelAvailabilityState,
   KernelBackendName,
-  KernelDocument,
   KernelRead,
   KernelStatus,
   KernelUnavailableState,
+  SequencerReceiptAnswer,
 } from './types.js';
 
 export const KERNEL_UNAVAILABLE_CODE = -32010;
@@ -91,48 +94,47 @@ export class KernelClient {
     this.availability = availability;
   }
 
-  getAccount(accountId: string): Promise<KernelRead<KernelDocument>> {
-    return this.read('lx_getAccount', [hex32(accountId, 'account id')]);
+  getAccount(address: string): Promise<KernelRead<ChainAccount>> {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new RangeError('account address is malformed');
+    return this.readEndpoint(() => this.endpoint.getChainAccount(address));
   }
 
-  getBalances(did: string): Promise<KernelRead<KernelDocument>> {
-    if (!/^[A-Za-z0-9._:-]{1,255}$/.test(did)) throw new RangeError('did is malformed');
-    return this.read('lx_getBalances', [did]);
+  getBalances(address: string): Promise<KernelRead<Balances>> {
+    if (!/^[A-Za-z0-9._:-]{1,255}$/.test(address)) throw new RangeError('account address is malformed');
+    return this.readEndpoint(() => this.endpoint.getBankBalances(address));
   }
 
-  getSequence(accountId: string): Promise<KernelRead<KernelDocument>> {
-    return this.read('lx_getSequence', [hex32(accountId, 'account id')]);
+  getSequence(address: string): Promise<KernelRead<string>> {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new RangeError('account address is malformed');
+    return this.readEndpoint(async () => {
+      const result: unknown = await this.endpoint.rpc.call('eth_getTransactionCount', [
+        address,
+        'pending',
+      ]);
+      if (typeof result !== 'string' || !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/.test(result))
+        throw new TypeError('eth_getTransactionCount answered a malformed nonce');
+      return BigInt(result).toString(10);
+    });
   }
 
-  getReceipt(activityId: string): Promise<KernelRead<KernelDocument>> {
-    return this.read('lx_getReceipt', [hex32(activityId, 'activity id')]);
+  getReceipt(hash: string): Promise<KernelRead<SequencerReceiptAnswer | null>> {
+    return this.readEndpoint(() =>
+      readSequencerReceipt((method, params) => this.endpoint.rpc.call(method, params), hash)
+    );
   }
 
-  getActivityStatus(activityId: string): Promise<KernelRead<KernelDocument>> {
-    return this.read('lx_getActivityStatus', [hex32(activityId, 'activity id')]);
-  }
-
-  private async read(method: string, params: readonly unknown[]): Promise<KernelRead<KernelDocument>> {
+  private async readEndpoint<T>(request: () => Promise<T>): Promise<KernelRead<T>> {
     const state = await this.availability.current();
     if (!state.available) return state;
-    let result: unknown;
     try {
-      result = await this.endpoint.rpc.call(method, params);
+      return { available: true, result: await request() };
     } catch (error) {
       const unavailable = kernelUnavailableFrom(error);
       if (unavailable === null) throw error;
       this.availability.record(unavailable);
       return unavailable;
     }
-    if (!isRecord(result)) throw new TypeError(`${method} answered a non-object result`);
-    return { available: true, result };
   }
-}
-
-function hex32(value: string, what: string): string {
-  if (!/^[0-9a-fA-F]{64}$/.test(value) || /^0{64}$/.test(value))
-    throw new RangeError(`${what} must be 32 bytes of hex`);
-  return value;
 }
 
 export interface WalletBudgetCap {
