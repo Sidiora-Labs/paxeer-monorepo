@@ -54,13 +54,13 @@ fn fixtures() -> Result<Vec<Eip1559Call>, Box<dyn std::error::Error>> {
     let revoke = hex(include_str!("fixtures/payments/1-8.hex"));
     let receive = hex(include_str!("fixtures/payments/1-6.hex"));
     let Payment::Receive {
-        from,
-        asset,
+        to,
         amount,
         grant,
         sequence,
         idempotency_key,
         context_hash,
+        payer_grant,
         ..
     } = Payment::decode(ModuleId::Asset, 6, &receive, b"did:layerx:alice")?
     else {
@@ -68,12 +68,12 @@ fn fixtures() -> Result<Vec<Eip1559Call>, Box<dyn std::error::Error>> {
     };
     let mut draw = Vec::new();
     for value in [
-        from,
-        asset,
-        word(amount),
         grant,
-        word(u128::from(sequence)),
+        to,
+        word(amount),
         idempotency_key,
+        word(u128::from(sequence)),
+        payer_grant.purpose_hash,
         context_hash,
     ] {
         draw.extend_from_slice(&value);
@@ -173,16 +173,18 @@ fn ledger_send_call_discloses_the_send_payload_fields() -> Result<(), Box<dyn st
             (
                 2,
                 ConstructMethod::LedgerDraw {
-                    from,
-                    asset,
+                    recipient,
                     amount,
                     receiver_sequence,
                     idempotency_key,
                     ..
                 },
             ) => {
-                assert_eq!(disclosure.asset, asset);
-                assert_eq!(disclosure.counterparties[0].account, from);
+                assert_eq!(disclosure.counterparties[0].account, recipient);
+                assert_eq!(
+                    disclosure.counterparties[0].role,
+                    CounterpartyRole::Recipient
+                );
                 assert_eq!(disclosure.amounts[0].value, amount);
                 assert_eq!(disclosure.payload_sequence()?, Some(receiver_sequence));
                 assert_eq!(disclosure.idempotency_key, idempotency_key);
@@ -326,6 +328,130 @@ fn trailing_calldata_is_refused() -> Result<(), Box<dyn std::error::Error>> {
             bind_call(&nonzero_padding, SENDER),
             Err(DisclosureError::MalformedPayload)
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn ledger_account_registration_mint_and_burn_are_bound() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_crypto::disclosure::call::{encode_payment_call, ledger_selector};
+    use layerx_crypto::payments::Registration;
+    let registration = Registration {
+        asset: [3; 32],
+        salt: [4; 32],
+        symbol: "USD".into(),
+        name: "Dollar".into(),
+        decimals: 6,
+        supply_cap: 1_000_000,
+        issuer_kind: 2,
+        custody_ref: vec![5; 17],
+    };
+    let cases = [
+        (
+            Payment::OpenAccount { asset: [3; 32] },
+            "openAccount(bytes32)",
+            4,
+        ),
+        (
+            Payment::Register(registration),
+            "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
+            1,
+        ),
+        (
+            Payment::Mint {
+                asset: [3; 32],
+                to: [2; 32],
+                amount: 71,
+            },
+            "mint(bytes32,bytes32,uint128)",
+            10,
+        ),
+        (
+            Payment::Burn {
+                asset: [3; 32],
+                from: [1; 32],
+                amount: 29,
+            },
+            "burn(bytes32,bytes32,uint128)",
+            11,
+        ),
+    ];
+    for (payment, signature, ordinal) in cases {
+        let data = encode_payment_call(&payment, b"did:layerx:alice")?;
+        assert_eq!(&data[..4], &ledger_selector(signature));
+        let transaction = call(0x101a, data[..4].try_into()?, &data[4..]);
+        let disclosure = bind_call(&transaction, SENDER)?;
+        assert_eq!(
+            disclosure.activity_type,
+            layerx_types::payload::ActivityType::new(ModuleId::Asset, ordinal)?
+        );
+        assert_eq!(disclosure.asset, [3; 32]);
+        assert_eq!(disclosure.payment, Some(payment.clone()));
+        assert_eq!(disclosure.signing_digest()?, transaction.signing_hash());
+        match payment {
+            Payment::OpenAccount { .. } => {
+                assert!(disclosure.amounts.is_empty());
+                assert!(disclosure.counterparties.is_empty());
+            }
+            Payment::Register(r) => {
+                assert_eq!(disclosure.amounts[0].role, AmountRole::SupplyCap);
+                assert_eq!(disclosure.amounts[0].value, r.supply_cap);
+            }
+            Payment::Mint { to, amount, .. } => {
+                assert_eq!(
+                    disclosure.counterparties[0].role,
+                    CounterpartyRole::Recipient
+                );
+                assert_eq!(disclosure.counterparties[0].account, to);
+                assert_eq!(disclosure.amounts[0].value, amount);
+            }
+            Payment::Burn { from, amount, .. } => {
+                assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
+                assert_eq!(disclosure.counterparties[0].account, from);
+                assert_eq!(disclosure.amounts[0].value, amount);
+            }
+            _ => unreachable!(),
+        }
+        for length in 0..transaction.data.len() {
+            let mut invalid = transaction.clone();
+            invalid.data.truncate(length);
+            assert_eq!(
+                bind_call(&invalid, SENDER),
+                Err(DisclosureError::MalformedPayload)
+            );
+        }
+        let mut invalid = transaction.clone();
+        invalid.data.push(0);
+        assert_eq!(
+            bind_call(&invalid, SENDER),
+            Err(DisclosureError::MalformedPayload)
+        );
+        let mut invalid = disclosure.clone();
+        invalid.asset[0] ^= 1;
+        assert!(invalid.signing_digest().is_err());
+        if ordinal == 1 {
+            for index in [2, 3, 7] {
+                let mut invalid = transaction.clone();
+                invalid.data[4 + index * 32..4 + (index + 1) * 32].fill(0);
+                assert_eq!(
+                    bind_call(&invalid, SENDER),
+                    Err(DisclosureError::MalformedPayload)
+                );
+            }
+            let mut invalid = transaction.clone();
+            *invalid.data.last_mut().expect("padding") = 1;
+            assert_eq!(
+                bind_call(&invalid, SENDER),
+                Err(DisclosureError::MalformedPayload)
+            );
+        } else if ordinal == 10 || ordinal == 11 {
+            let mut invalid = transaction.clone();
+            invalid.data[68] = 1;
+            assert_eq!(
+                bind_call(&invalid, SENDER),
+                Err(DisclosureError::MalformedPayload)
+            );
+        }
     }
     Ok(())
 }

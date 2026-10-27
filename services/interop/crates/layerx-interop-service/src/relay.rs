@@ -284,13 +284,16 @@ impl ChainRelay {
                 receipt,
                 block_number,
                 block_hash,
-            }) => (
-                receipt,
-                SettlementRung::Committed {
-                    block_number,
-                    block_hash,
-                },
-            ),
+            }) => {
+                let rung = match self.endpoint.block_by_number(block_number) {
+                    Ok(Some(block)) if block.hash == block_hash => SettlementRung::Committed {
+                        block_number,
+                        block_hash,
+                    },
+                    Ok(_) | Err(_) => SettlementRung::Receipted,
+                };
+                (receipt, rung)
+            }
             None => return Err(RelayError::Unknown),
         };
         let verified = verify_sequencer_signature(
@@ -486,6 +489,17 @@ mod tests {
         Arc<SequencerEndpoint>,
         thread::JoinHandle<Result<(), String>>,
     )> {
+        rpc_server_with_blocks(fixture, receipt_answers, Vec::new())
+    }
+
+    fn rpc_server_with_blocks(
+        fixture: &Value,
+        receipt_answers: Vec<Value>,
+        block_answers: Vec<(u64, Value)>,
+    ) -> TestResult<(
+        Arc<SequencerEndpoint>,
+        thread::JoinHandle<Result<(), String>>,
+    )> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         listener.set_nonblocking(true)?;
         let endpoint = SequencerEndpoint::new(&format!("http://{}", listener.local_addr()?), &[])
@@ -503,6 +517,13 @@ mod tests {
                 (
                     "pax_sequencerReceipt",
                     json!([tx_hash_json.clone()]),
+                    answer,
+                )
+            }))
+            .chain(block_answers.into_iter().map(|(height, answer)| {
+                (
+                    "eth_getBlockByNumber",
+                    json!([format!("{height:#x}"), true]),
                     answer,
                 )
             }));
@@ -747,6 +768,73 @@ mod tests {
         assert_eq!(evidence.logs[0].topics(), topics);
         assert_eq!(evidence.logs[0].data(), hex(&log["data"])?);
         assert_eq!(evidence.logs[0].log_index(), 0);
+        Ok(())
+    }
+
+    #[test]
+    fn a_committed_answer_with_another_block_hash_is_receipted() -> TestResult {
+        let fixture = fixture()?;
+        let redis = RedisProcess::start()?;
+        let raw = hex(&fixture["rawTransaction"])?;
+        let sender = fixed(&fixture["receiptJson"]["from"])?;
+        let tx_hash = fixed(&fixture["receiptJson"]["txHash"])?;
+        let block_number = 1001;
+        let block_hash = format!("0x{}", "ab".repeat(32));
+        let mut committed = fixture["receiptJson"].clone();
+        committed["rung"] = json!("committed");
+        committed["blockNumber"] = json!(format!("{block_number:#x}"));
+        committed["blockHash"] = json!(block_hash);
+        let block = json!({
+            "number": format!("{block_number:#x}"),
+            "hash": block_hash,
+            "parentHash": format!("0x{}", "00".repeat(32)),
+            "timestamp": "0x67a1b2c3",
+            "transactionsRoot": format!("0x{}", "00".repeat(32)),
+            "transactions": [],
+        });
+        let mut mismatched = block.clone();
+        mismatched["hash"] = json!(format!("0x{}", "cd".repeat(32)));
+        let mut wrong_height = block.clone();
+        wrong_height["number"] = json!("0x3ea");
+        for (idempotency_key, block_answer, expected_rung) in [
+            ("mismatched-block", mismatched, SettlementRung::Receipted),
+            (
+                "matching-block",
+                block,
+                SettlementRung::Committed {
+                    block_number,
+                    block_hash: fixed(&committed["blockHash"])?,
+                },
+            ),
+            ("missing-block", Value::Null, SettlementRung::Receipted),
+            ("wrong-height", wrong_height, SettlementRung::Receipted),
+        ] {
+            let (endpoint, server) = rpc_server_with_blocks(
+                &fixture,
+                vec![committed.clone()],
+                vec![(block_number, block_answer)],
+            )?;
+            let relay = ChainRelay {
+                endpoint,
+                receipt_keys: vec![pinned_key(&fixture)?],
+                journal: redis.journal()?,
+            };
+            let outcome = relay.relay(idempotency_key, &raw, sender);
+            server
+                .join()
+                .map_err(|_| "loopback JSON-RPC listener panicked")??;
+            let RelayOutcome::Executed(evidence) = outcome? else {
+                panic!("a committed answer must retain its verified receipt");
+            };
+            assert_eq!(evidence.rung, expected_rung, "{idempotency_key}");
+            assert_eq!(evidence.transaction_hash, tx_hash);
+            assert_eq!(evidence.signed_receipt, hex(&fixture["signedReceipt"])?);
+            assert_eq!(evidence.logs.len(), 1);
+            assert_eq!(
+                evidence.logs[0].data(),
+                hex(&fixture["receiptJson"]["logs"][0]["data"])?
+            );
+        }
         Ok(())
     }
 

@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -358,7 +359,6 @@ var (
 		epochmoduletypes.StoreKey,
 		tokenfactorytypes.StoreKey,
 		layerxcustodytypes.StoreKey,
-		layerxanchortypes.StoreKey,
 		layerxexchangetypes.StoreKey,
 		layerxbridgetypes.StoreKey,
 		launchpadtypes.StoreKey,
@@ -810,11 +810,8 @@ func New(
 		app.GetSubspace(tokenfactorytypes.ModuleName),
 		app.AccountKeeper,
 		app.BankKeeper.(bankkeeper.BaseKeeper).WithMintCoinsRestriction(tokenfactorytypes.NewTokenFactoryDenomMintCoinsRestriction()),
-		app.DistrKeeper,
 	)
 	app.BankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
-
-	app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(app.keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper)
 
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
@@ -876,9 +873,6 @@ func New(
 	app.BankKeeper.RegisterRecipientChecker(app.EvmKeeper.CanAddressReceive)
 	app.LayerXCustodyKeeper = layerxcustodykeeper.NewKeeper(appCodec, keys[layerxcustodytypes.StoreKey],
 		app.AccountKeeper, app.BankKeeper, &app.EvmKeeper, app.UpgradeKeeper)
-	// Custody trusts only anchor-finalized checkpoints and anchor sequencer
-	// authorizations; its own authority-registered checkpoints are unused.
-	app.LayerXCustodyKeeper.SetAnchorReader(layerxanchorkeeper.NewCustodyAnchor(app.LayerXAnchorKeeper))
 	authority := layerxgovtypes.GovernanceAuthority()
 	networkID := evmconfig.GetEVMChainID(app.ChainID)
 	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
@@ -909,8 +903,6 @@ func New(
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
-	app.BankKeeper.(bankkeeper.BaseKeeper).RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
-	app.GigaBankKeeper.RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
@@ -1104,7 +1096,6 @@ func New(
 		transferModule,
 		epochModule,
 		tokenfactorymodule.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper),
-		layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		layerxcustodymodule.NewAppModule(app.LayerXCustodyKeeper),
 		layerxexchangemodule.NewAppModule(app.LayerXExchangeKeeper),
@@ -1203,7 +1194,6 @@ func New(
 		wasm.ModuleName,
 		evmtypes.ModuleName,
 		layerxcustodytypes.ModuleName,
-		layerxanchortypes.ModuleName,
 		layerxexchangetypes.ModuleName,
 		layerxbridgetypes.ModuleName,
 		launchpadtypes.ModuleName,
@@ -1559,6 +1549,8 @@ func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 		return activationStoreUpgrades(), true
 	case MergeUpgrade:
 		return mergeStoreUpgrades(), true
+	case AnchorStoreDeleteUpgrade:
+		return storetypes.StoreUpgrades{Deleted: []string{storekeys.LayerXAnchorStoreKey}}, true
 	case V6120Upgrade:
 		return v6120StoreUpgrades(), true
 	}
@@ -1785,7 +1777,44 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 
 	if completion != nil {
 		<-completion
+	}
 
+	sealed, err := app.sealedBlockForFinalize()
+	if err != nil {
+		return nil, err
+	}
+	if sealed != nil && sealed.Height == req.Header.Height && app.Sequenced(ctx, req.Header.Height) {
+		matches := len(sealed.Txs) == len(req.Txs)
+		for i := 0; matches && i < len(req.Txs); i++ {
+			matches = bytes.Equal(sealed.Txs[i], req.Txs[i])
+		}
+		if matches {
+			sealedCtx := sealed.ctx.WithBlockHeader(*req.Header).WithHeaderHash(req.Hash)
+			ms, ok := sealedCtx.MultiStore().(sdk.CacheMultiStore)
+			if !ok {
+				return nil, errors.New("sealed block context has no cache multistore")
+			}
+			if err := app.StoreVotes(sealedCtx, req.Header.Height, req.DecidedLastCommit.Votes); err != nil {
+				return nil, err
+			}
+			if err := app.SetSealedStateToCommit(sealedCtx, ms); err != nil {
+				return nil, err
+			}
+			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
+				return &abci.ResponseFinalizeBlock{}, nil
+			}
+			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
+			cms := app.WriteState()
+			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
+			if hasHeadNotifier {
+				headNotifier.Stash(req, &resp)
+			}
+			return &resp, nil
+		}
+	}
+
+	if completion != nil {
 		// Get the final state atomically after completion
 		app.optimisticProcessingInfoMutex.RLock()
 		aborted := app.optimisticProcessingInfo.Aborted
@@ -1795,7 +1824,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 		endBlockResp := app.optimisticProcessingInfo.EndBlockResp
 		app.optimisticProcessingInfoMutex.RUnlock()
 
-		if !aborted && bytes.Equal(finalHash, req.Hash) {
+		if app.sequencerSource == nil && !aborted && bytes.Equal(finalHash, req.Hash) {
 			utilmetrics.IncrementOptimisticProcessingCounter(true) // TODO(PLT-327): remove once app_optimistic_processing_total verified
 			appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 				otelmetric.WithAttributes(attribute.Bool("enabled", true)))
@@ -3154,6 +3183,58 @@ type OpenBlock interface {
 // before the node serves ante or RPC reads.
 func (app *App) SetOpenBlock(ob OpenBlock) {
 	app.openBlock = ob
+}
+
+type sealedFinalizeBlock struct {
+	Height   int64
+	Txs      [][]byte
+	Results  []*abci.ExecTxResult
+	Events   []abci.Event
+	EndBlock abci.ResponseEndBlock
+	ctx      sdk.Context
+}
+
+func (app *App) sealedBlockForFinalize() (*sealedFinalizeBlock, error) {
+	if app.sequencerSource == nil {
+		return nil, nil
+	}
+	source := reflect.ValueOf(app.sequencerSource)
+	if source.Kind() == reflect.Ptr && source.IsNil() {
+		return nil, errors.New("nil installed sequencer source")
+	}
+	getSealed := source.MethodByName("Sealed")
+	if !getSealed.IsValid() {
+		return nil, nil
+	}
+	if getSealed.Type().NumIn() != 0 || getSealed.Type().NumOut() != 1 {
+		return nil, errors.New("invalid sequencer Sealed method")
+	}
+	layer := getSealed.Call(nil)[0]
+	if layer.Kind() != reflect.Ptr || layer.Type().Elem().Kind() != reflect.Struct {
+		return nil, errors.New("invalid sequencer sealed layer type")
+	}
+	if layer.IsNil() {
+		return nil, nil
+	}
+	contextLayer, ok := layer.Interface().(interface{ Context() sdk.Context })
+	if !ok {
+		return nil, errors.New("sequencer sealed layer has no context")
+	}
+	sealed := &sealedFinalizeBlock{ctx: contextLayer.Context()}
+	target := reflect.ValueOf(sealed).Elem()
+	for _, name := range []string{"Height", "Txs", "Results", "Events", "EndBlock"} {
+		field := layer.Elem().FieldByName(name)
+		dest := target.FieldByName(name)
+		if !field.IsValid() || !field.CanInterface() || !field.Type().AssignableTo(dest.Type()) {
+			return nil, fmt.Errorf("invalid sequencer sealed layer field %s", name)
+		}
+		dest.Set(field)
+	}
+	return sealed, nil
+}
+
+func (app *App) StoreVotes(ctx sdk.Context, height int64, votes []abci.VoteInfo) error {
+	return app.SequencerKeeper.StoreVotes(ctx, height, votes)
 }
 
 func (app *App) SetSequencerSource(src tmtypes.SequencerSource) {

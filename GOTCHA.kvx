@@ -9398,3 +9398,15 @@ area = "node tests"
 symptom = "a sequencer RPC test refuses every request with gas wanted above the block limit although the limit was never set"
 cause = "InitChain with default consensus params leaves Block.MaxGasWanted 0 and node/sequencer/limits.go:43 compares literally"
 do = "set Block.MaxGas and Block.MaxGasWanted in the test app's InitChain consensus params (node/genesis_sequenced_test.go:52 shows the shape)"
+
+[gotcha.1946]
+area = "layerx-crypto"
+symptom = "sign_disclosed_call of an 0x101A ABI call fails with InvalidDisclosure although the call is well formed"
+cause = "bind_call only discloses send(bytes), issueGrant(bytes), draw and revokeGrant (disclosure/call.rs:81 decode_method); every other selector is MalformedPayload, which the SDK maps to InvalidDisclosure"
+do = "extend ConstructMethod, decode_method and fields for the new method before calling it from the SDK; compute the selector from the Go ABI in precompiles/layerxledger"
+
+[gotcha.1947]
+area = "services/platform/hosted/gateway/tests/local"
+symptom = "cargo build of the local qualification package fails in its build script: 'parent-built core binary required' or 'fixture path contract changed'"
+cause = "the package adapts the core boundary fixture at build time: it needs LAYERX_TEST_CORE_BIN set to a built layerx-core-boundary and asserts three needles in core/tests/boundary.rs, one of which moved when platform moved"
+do = "do not give a task a build or verify command against that manifest; put stand-alone tests in the gateway crate's tests directory (include_str! the scanned file) and leave the package to the task that deletes its lifecycle target"

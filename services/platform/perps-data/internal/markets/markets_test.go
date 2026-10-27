@@ -160,6 +160,97 @@ func height(t *testing.T, client *ethclient.Client) int64 {
 	return int64(h)
 }
 
+func TestRefreshMarketConfig(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	client := testClient(t)
+	reseed(t, db)
+	insertedID := Seed[len(Seed)-1].ID
+	res, err := db.ExecContext(ctx, `DELETE FROM perps.markets WHERE market_id = $1`, insertedID)
+	if err != nil {
+		t.Fatalf("remove market for refresh insertion: %v", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		t.Fatalf("removed %d markets, want 1: %v", n, err)
+	}
+
+	for _, phase := range []string{"insert_and_update", "update"} {
+		t.Run(phase, func(t *testing.T) {
+			if _, err := db.ExecContext(ctx, `UPDATE perps.markets SET oracle_symbol = 'stale', sz_decimals = NULL, px_decimals = NULL, tick_size = NULL, lot_size = NULL, tier_class = NULL, impact_notional_usd = NULL, oi_cap_usd = NULL, funding_cap_ppm_per_hour = NULL, listed_at = to_timestamp(1)`); err != nil {
+				t.Fatalf("clear stored config: %v", err)
+			}
+			before := height(t, client)
+			if err := Refresh(ctx, db, client); err != nil {
+				t.Fatalf("Refresh: %v", err)
+			}
+			after := height(t, client)
+			got := readRows(t, db)
+			if len(got) == 0 {
+				t.Fatal("Refresh stored no markets")
+			}
+			block := got[0].refreshedBlock
+			if !block.Valid || block.Int64 < before || block.Int64 > after {
+				t.Fatalf("refreshed_block %v, want latest height in [%d, %d]", block, before, after)
+			}
+			c, _, err := latest(ctx, client)
+			if err != nil {
+				t.Fatalf("latest: %v", err)
+			}
+			c.at = big.NewInt(block.Int64)
+			out, err := c.call(ctx, "totalMarkets")
+			if err != nil {
+				t.Fatalf("totalMarkets: %v", err)
+			}
+			count, err := field[*big.Int](out, 0, "totalMarkets")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if count.Cmp(big.NewInt(int64(len(got)))) != 0 {
+				t.Fatalf("stored %d markets, chain has %s", len(got), count)
+			}
+			foundInserted := false
+			for _, r := range got {
+				out, err := c.call(ctx, "getMarketConfig", new(big.Int).SetUint64(r.id))
+				if err != nil {
+					t.Fatalf("getMarketConfig(%d) at %d: %v", r.id, block.Int64, err)
+				}
+				var decoded struct{ Config marketConfig }
+				if err := c.abi.Methods["getMarketConfig"].Outputs.Copy(&decoded, out); err != nil {
+					t.Fatalf("decode getMarketConfig(%d): %v", r.id, err)
+				}
+				want := decoded.Config
+				if want.MarketId.Cmp(new(big.Int).SetUint64(r.id)) != 0 || r.symbol != want.Symbol || r.name != want.Name || r.oracleSymbol != want.OracleSymbol ||
+					!r.szDecimals.Valid || r.szDecimals.Int16 != int16(want.SzDecimals) || !r.pxDecimals.Valid || r.pxDecimals.Int16 != int16(want.PxDecimals) ||
+					r.maxLeverage != want.MaxLeverage.String() || r.enabled != want.Enabled || r.source != "chain" || r.refreshedBlock != block {
+					t.Fatalf("market %d = %+v, want chain config %+v at %d", r.id, r, want, block.Int64)
+				}
+				var tick, lot, impact, oiCap, fundingCap string
+				var tierClass int16
+				var listedAt sql.NullInt64
+				if err := db.QueryRowContext(ctx, `SELECT tick_size::text, lot_size::text, tier_class, impact_notional_usd::text, oi_cap_usd::text, funding_cap_ppm_per_hour::text, EXTRACT(EPOCH FROM listed_at)::bigint FROM perps.markets WHERE market_id = $1`, r.id).
+					Scan(&tick, &lot, &tierClass, &impact, &oiCap, &fundingCap, &listedAt); err != nil {
+					t.Fatalf("read config for market %d: %v", r.id, err)
+				}
+				if tick != want.TickSize.String() || lot != want.LotSize.String() || tierClass != int16(want.TierClass) || impact != want.ImpactNotionalUsd.String() || oiCap != want.OiCapUsd.String() || fundingCap != want.FundingCapPpmPerHour.String() {
+					t.Fatalf("market %d config = (%s, %s, %d, %s, %s, %s), want %+v", r.id, tick, lot, tierClass, impact, oiCap, fundingCap, want)
+				}
+				if listedAt.Valid != (want.ListedAt != 0) || (listedAt.Valid && listedAt.Int64 != int64(want.ListedAt)) {
+					t.Fatalf("market %d listed_at = %v, want epoch %d (null for zero)", r.id, listedAt, want.ListedAt)
+				}
+				if r.id == insertedID {
+					foundInserted = true
+					if !r.szDecimals.Valid || !r.pxDecimals.Valid {
+						t.Fatalf("inserted market %d has null decimals", r.id)
+					}
+				}
+			}
+			if !foundInserted {
+				t.Fatalf("Refresh did not insert market %d", insertedID)
+			}
+		})
+	}
+}
+
 func TestMarkets(t *testing.T) {
 	t.Run("seed_eighteen", func(t *testing.T) {
 		db := testDB(t)
