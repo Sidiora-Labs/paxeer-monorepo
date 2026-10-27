@@ -1,6 +1,10 @@
 use super::SignatureSource;
 use std::{collections::HashMap, sync::OnceLock};
 
+#[cfg(test)]
+#[path = "precompiles_abi_test.rs"]
+mod precompiles_abi_test;
+
 #[derive(Default)]
 pub struct PrecompileSource;
 
