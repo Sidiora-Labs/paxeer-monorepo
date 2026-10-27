@@ -401,6 +401,7 @@ fn start(recording: &Recording, signers: &Signers, journal: &Path) -> Relayer {
         attestor: Attestor::new(secp.remote("attestor-1", &key(ATTESTOR)))
             .unwrap_or_else(|error| panic!("attestor: {error:?}")),
         paxeer: PaxeerLink {
+            receipt_keys: support::receipt_keys(),
             settings: PAXEER,
             rpc: recording.endpoint("paxeer"),
             submitter: Submitter::paxeer(secp.remote("paxeer-fees-1", &key(PAXEER_FEES)))
@@ -899,6 +900,7 @@ fn releases_need_the_custody_program_and_distinct_mints() {
         attestor: Attestor::new(signers.attestor.remote("attestor-1", &key(ATTESTOR)))
             .unwrap_or_else(|error| panic!("attestor: {error:?}")),
         paxeer: PaxeerLink {
+            receipt_keys: support::receipt_keys(),
             settings: PAXEER,
             rpc: recording.endpoint("paxeer"),
             submitter: Submitter::paxeer(

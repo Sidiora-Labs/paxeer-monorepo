@@ -13,9 +13,7 @@ use layerx_wire::receipt::{decode, decode_batch_header, Receipt};
 use crate::committed::CommittedCoordinate;
 
 use crate::source::{MirrorLag, MirrorObservation, MirrorSourceFreshness, ObservedArchive};
-use crate::{
-    ArchiveData, ArchiveError, CheckpointCoordinate, CheckpointFreshness, MirrorFreshness,
-};
+use crate::{ArchiveData, ArchiveError, CommittedFreshness, MirrorFreshness};
 
 /// Authority configured independently of mirror payloads. The public key and
 /// range are never accepted from an archive.
@@ -31,22 +29,22 @@ pub struct SignedHeaderTrust {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct MirrorVerificationFreshness {
     pub latest_batch_mirrored: Option<u64>,
-    pub latest_checkpoint_mirrored: Option<CheckpointCoordinate>,
+    pub latest_committed_mirrored: Option<CommittedCoordinate>,
     pub batch_lag: MirrorLag,
-    pub checkpoint: Option<CheckpointFreshness>,
+    pub committed: Option<CommittedFreshness>,
 }
 
 impl MirrorVerificationFreshness {
     #[must_use]
     pub const fn offline(
         latest_batch_mirrored: u64,
-        latest_checkpoint_mirrored: Option<CheckpointCoordinate>,
+        latest_committed_mirrored: Option<CommittedCoordinate>,
     ) -> Self {
         Self {
             latest_batch_mirrored: Some(latest_batch_mirrored),
-            latest_checkpoint_mirrored,
+            latest_committed_mirrored,
             batch_lag: MirrorLag::Unknown,
-            checkpoint: None,
+            committed: None,
         }
     }
 
@@ -54,9 +52,9 @@ impl MirrorVerificationFreshness {
     pub fn relative(value: MirrorFreshness) -> Self {
         Self {
             latest_batch_mirrored: value.latest_batch_mirrored,
-            latest_checkpoint_mirrored: value.latest_checkpoint_mirrored,
+            latest_committed_mirrored: value.latest_committed_mirrored,
             batch_lag: MirrorLag::Known(value.batch_lag),
-            checkpoint: Some(value.checkpoint),
+            committed: Some(value.committed),
         }
     }
 
@@ -64,9 +62,9 @@ impl MirrorVerificationFreshness {
     pub const fn from_source(value: MirrorSourceFreshness) -> Self {
         Self {
             latest_batch_mirrored: value.latest_batch,
-            latest_checkpoint_mirrored: value.latest_checkpoint,
+            latest_committed_mirrored: value.latest_committed,
             batch_lag: value.batch_lag,
-            checkpoint: None,
+            committed: None,
         }
     }
 }
@@ -157,30 +155,6 @@ pub struct MirrorVerifier {
 }
 
 impl MirrorVerifier {
-    /// Verifies a retained native certificate through independently configured Paxeer authority.
-    ///
-    /// # Errors
-    /// Refuses legacy archives, invalid native evidence, wrong authority, non-FINAL state or reorgs.
-    pub fn checkpoint_with_native_authority(
-        &self,
-        policy: &crate::node::NativeCheckpointPolicy,
-    ) -> Result<CheckpointCoordinate, MirrorVerifyError> {
-        let trust = self.signed_header_trust()?;
-        let archived = self
-            .archive
-            .checkpoint
-            .as_ref()
-            .ok_or(MirrorVerifyError::CheckpointTrustUnavailable)?;
-        let candidate = crate::publisher::native_archive_candidate(&archived.canonical_certificate)
-            .map_err(MirrorVerifyError::Archive)?;
-        crate::node::native_candidate_publication(&candidate, policy, trust.sequencer_public_key)
-            .map_err(|_| MirrorVerifyError::CheckpointTrustUnavailable)?;
-        if candidate.checkpoint_id() != archived.coordinate.checkpoint_id {
-            return Err(MirrorVerifyError::CheckpointTrustUnavailable);
-        }
-        Ok(archived.coordinate)
-    }
-
     /// Admits one sealed source observation. Archive, chain identity,
     /// canonical position and freshness remain one indivisible source fact.
     ///
@@ -498,7 +472,7 @@ impl MirrorVerifier {
     /// checkpoint verifier. It must never be promoted to checkpoint level.
     ///
     /// # Errors
-    /// Returns `MirrorVerifyError::CheckpointTrustUnavailable` without independent authority; use `checkpoint_with_native_authority` for retained native evidence.
+    /// Returns `MirrorVerifyError::CheckpointTrustUnavailable` because the archive does not retain independent checkpoint authority.
     pub const fn checkpoint_level() -> Result<(), MirrorVerifyError> {
         Err(MirrorVerifyError::CheckpointTrustUnavailable)
     }
@@ -570,7 +544,7 @@ mod tests {
             125,
             crate::NodeHead {
                 latest_sealed_batch: block.header.height,
-                latest_finalised_checkpoint: None,
+                latest_committed: None,
             },
         )
         .unwrap_or_else(|error| panic!("v4 archive: {error:?}"));
@@ -594,7 +568,7 @@ mod tests {
             },
             commitment: archive.commitment(),
             batch_number: archive.data().batch_number,
-            checkpoint: None,
+            committed: archive.data().committed_coordinate(),
             position: MirrorCanonicalPosition::Ethereum {
                 block_number: 50,
                 block_hash: [5; 32],
@@ -604,9 +578,9 @@ mod tests {
             provenance: MirrorProvenance::Canonical,
             freshness: MirrorSourceFreshness {
                 latest_batch: Some(archive.data().batch_number),
-                latest_checkpoint: None,
+                latest_committed: archive.data().committed_coordinate(),
                 batch_lag: MirrorLag::Known(0),
-                checkpoint_lag: MirrorLag::Unknown,
+                committed_lag: MirrorLag::Unknown,
             },
             failover_count: 0,
             agreeing_sources: 1,
@@ -614,7 +588,6 @@ mod tests {
     }
 
     fn batch_era_archive() -> crate::Archive {
-        use layerx_client::availability::AvailabilityResult;
         use layerx_proof::availability::{reassemble, verify_chunk, Chunk};
         use layerx_proof::merkle::build_leaf_hash_proof;
 
@@ -661,20 +634,16 @@ mod tests {
             .collect::<Vec<_>>();
         let (records, _) = reassemble(&verified, data.record_roots)
             .unwrap_or_else(|error| panic!("native records: {error:?}"));
-        let availability = AvailabilityResult::from_verified(
-            "recorded-archive".to_owned(),
-            verified,
-            records,
-            data.record_roots,
-        )
-        .unwrap_or_else(|error| panic!("availability: {error:?}"));
+        records
+            .verify(&verified, data.record_roots)
+            .unwrap_or_else(|error| panic!("availability: {error:?}"));
         crate::Archive::from_node(
             &batch,
-            &availability,
+            &verified,
             None,
             crate::NodeHead {
                 latest_sealed_batch: data.batch_number,
-                latest_finalised_checkpoint: None,
+                latest_committed: None,
             },
         )
         .unwrap_or_else(|error| panic!("batch-era archive: {error:?}"))
@@ -829,10 +798,7 @@ mod tests {
         };
         let freshness = MirrorVerificationFreshness::offline(
             archive.batch_number,
-            archive
-                .checkpoint
-                .as_ref()
-                .map(|checkpoint| checkpoint.coordinate),
+            archive.committed_coordinate(),
         );
         let verifier = MirrorVerifier::admit(ARCHIVE, trust, freshness, None)?;
         let canonical = archive

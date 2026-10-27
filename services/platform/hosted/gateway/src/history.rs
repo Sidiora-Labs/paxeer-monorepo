@@ -500,8 +500,47 @@ fn refusal(id: &Value, code: i32, message: &str, data: Value) -> Value {
     refusal
 }
 
-fn registry(config: &Config) -> Result<Vec<Value>, Failure> {
-    registry_result(super::rpc::read_result(config, "/v1/assets"))
+fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
+    let source = source.ok_or(Failure::Unavailable("registry_unavailable"))?;
+    let mut assets = Vec::new();
+    let mut cursor = 0;
+    loop {
+        let query = if cursor == 0 {
+            format!("limit={MAXIMUM_LIMIT}")
+        } else {
+            format!("limit={MAXIMUM_LIMIT}&cursor={cursor}")
+        };
+        let (status, body) = source
+            .get("/v1/assets", &query)
+            .map_err(|_| Failure::Unavailable("registry_unavailable"))?;
+        if status != 200 {
+            return registry_result(None);
+        }
+        let rows = body
+            .get("items")
+            .and_then(Value::as_array)
+            .ok_or(Failure::Unavailable("registry_unavailable"))?;
+        for row in rows
+            .iter()
+            .filter(|row| text(row, "kind") == Some("layerx"))
+        {
+            assets.push(json!({
+                "asset_id": row["asset"],
+                "denom": row["denom"],
+                "symbol": row["metadata"]["symbol"],
+                "decimals": row["metadata"]["decimals"],
+            }));
+        }
+        match body.get("next_cursor") {
+            Some(Value::Null) => return registry_result(Some(json!({"assets": assets}))),
+            Some(Value::String(next)) => {
+                cursor = decimal(next)
+                    .filter(|next| *next > cursor)
+                    .ok_or(Failure::Unavailable("invalid_registry_response"))?;
+            }
+            _ => return Err(Failure::Unavailable("invalid_registry_response")),
+        }
+    }
 }
 
 fn registry_result(result: Option<Value>) -> Result<Vec<Value>, Failure> {
@@ -521,7 +560,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
     served(
         &mut |request| super::paxeer::node(config, request),
         source.as_ref(),
-        &|| registry(config),
+        &|| registry(source.as_ref()),
         method,
         id,
         params,
@@ -1827,6 +1866,70 @@ mod tests {
             &json!(1),
             Some(params),
         )
+    }
+
+    #[test]
+    fn history_registry_reads_the_indexer_assets() {
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        let mut expected = Vec::new();
+        let mut rows = Vec::new();
+        for number in 0..=MAXIMUM_LIMIT {
+            let id = format!("{number:064x}");
+            let denom = format!("uasset{number}");
+            let symbol = format!("ASSET{number}");
+            rows.push(AssetRow {
+                metadata: json!({"symbol": symbol, "decimals": 6}),
+                ..asset(&id, "layerx", "layerx", None, Some(&denom))
+            });
+            expected.push(json!({
+                "asset_id": id, "denom": denom, "symbol": symbol, "decimals": 6,
+            }));
+        }
+        rows.push(asset(
+            &format!("evm:{POINTER}"),
+            "paxeer",
+            "pointer",
+            Some(POINTER),
+            Some("uasset0"),
+        ));
+        store
+            .register_assets(&rows)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let indexer = serve(store);
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        let registered =
+            super::registry(Some(&source)).unwrap_or_else(|failure| panic!("{failure:?}"));
+        assert_eq!(registered, expected);
+        let pointer = raw(&indexer, &format!("/v1/assets/evm%3A{POINTER}"), "");
+        let joined = asset_metadata(&format!("evm:{POINTER}"), &pointer["asset"], &registered);
+        assert_eq!(joined["symbol"], json!("ASSET0"));
+        assert_eq!(joined["decimals"], json!(6));
+        assert_eq!(joined["native_id"], json!(format!("{:064x}", 0)));
+        assert_eq!(
+            super::registry(None),
+            Err(Failure::Unavailable("registry_unavailable"))
+        );
+        let Indexer::Loopback {
+            address, authority, ..
+        } = indexer
+        else {
+            panic!("expected loopback indexer");
+        };
+        let missing = Indexer::Loopback {
+            address,
+            authority,
+            base_path: "/missing".to_owned(),
+        };
+        assert_eq!(
+            super::registry(Some(&Source {
+                indexer: &missing,
+                client: None
+            })),
+            Err(Failure::Unavailable("registry_unavailable"))
+        );
     }
 
     #[test]

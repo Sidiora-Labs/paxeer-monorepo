@@ -767,6 +767,11 @@ type Config struct {
 	GasLimit          uint64
 }
 
+// TimestampWindowMs returns the maximum activity timestamp window in milliseconds.
+func (h *Host) TimestampWindowMs() uint64 {
+	return h.cfg.TimestampWindowMs
+}
+
 type Activity struct {
 	ProtocolVersion uint16
 	Type            uint32
@@ -948,10 +953,20 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	modules := activityModules(module)
+	var keys [][]byte
+	if module == C.LXP_MODULE_GOVERNANCE {
+		activeKey := moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progfee/active/v1"))
+		keys = append(keys, activeKey)
+		active := branch.store.Get(activeKey)
+		if len(active) >= 9 && string(active[:5]) == "LXFR1" {
+			history := append([]byte("progfee/history/v1/"), active[5:9]...)
+			keys = append(keys, moduleKVKey(C.LXP_MODULE_PROGRAMS, history))
+		}
+	}
 	if err := lxphost_authority_write(h.node, authority); err != nil {
 		return Receipt{}, err
 	}
-	if err := branch.load(h, modules); err != nil {
+	if err := branch.load(h, modules, keys...); err != nil {
 		return Receipt{}, err
 	}
 	loadedBlobs, err := h.loadBlobs(branch.store, modules)

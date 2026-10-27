@@ -3,6 +3,7 @@ package legacyabci
 import (
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
+	layerxagentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle"
 	oraclekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/oracle/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps"
@@ -27,6 +28,8 @@ type EndBlockKeepers struct {
 	PerpsKeeper   *perpskeeper.Keeper
 	SpotKeeper    *spotkeeper.Keeper
 	V6120Live     func() bool
+	AgentKeeper   *layerxagentkeeper.Keeper
+	MergeLive     func() bool
 }
 
 func EndBlock(ctx sdk.Context, height int64, blockGasUsed int64, keepers EndBlockKeepers) []abci.ValidatorUpdate {
@@ -37,6 +40,13 @@ func EndBlock(ctx sdk.Context, height int64, blockGasUsed int64, keepers EndBloc
 		perps.EndBlocker(ctx, *keepers.PerpsKeeper)
 		if err := spot.EndBlocker(ctx, keepers.SpotKeeper); err != nil {
 			logger.Error("spot end block failed", "height", height, "err", err)
+		}
+	}
+	if keepers.AgentKeeper != nil && keepers.MergeLive != nil && keepers.MergeLive() {
+		gasUsed, err := keepers.AgentKeeper.RunDue(ctx)
+		blockGasUsed += int64(gasUsed)
+		if err != nil {
+			logger.Error("agent end block failed", "height", height, "err", err)
 		}
 	}
 	keepers.EvmKeeper.EndBlock(ctx, height, blockGasUsed)
