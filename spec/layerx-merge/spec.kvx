@@ -149119,7 +149119,7 @@ do_4 = "Compile nothing: the build gate is the lock-consistency check above. ser
 
 [task.11.26.6]
 title = "Port the SDK's mirror source verification to the committed archive verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.4", "11.26.5", "11.37.1"]
