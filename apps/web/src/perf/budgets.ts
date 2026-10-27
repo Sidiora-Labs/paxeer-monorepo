@@ -33,21 +33,15 @@ export const ROUTE_SCRIPT_BUDGETS = Object.freeze({
   "/app/agents/new": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/approvals": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/approvals/[approvalId]": APP_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/app/deposit": APP_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/app/journeys/[journeyId]": APP_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/app/journeys/[journeyId]/claim": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/move": APP_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/app/move/withdraw": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/notifications": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/security/devices": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/security/recovery": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/settings": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/settings/devices": APP_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/app/settings/exit": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/settings/security": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/settings/wallet": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/support": APP_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/app/withdraw": APP_ROUTE_SCRIPT_BUDGET_BYTES,
 } as const satisfies Readonly<Record<string, number>>);
 
 export type BudgetedApplicationRoute = keyof typeof ROUTE_SCRIPT_BUDGETS;
@@ -80,7 +74,20 @@ export function isPerformanceRoute(value: string): value is PerformanceRoute {
   return PERFORMANCE_ROUTES.some((route) => route === value);
 }
 
+const RETIRED_CUSTODY_ROUTE_PREFIXES = [
+  "/app/deposit",
+  "/app/withdraw",
+  "/app/move/withdraw",
+  "/app/journeys",
+  "/app/settings/exit",
+] as const;
+
 export function classifyPerformanceRoute(pathname: string): PerformanceRoute | undefined {
+  if (RETIRED_CUSTODY_ROUTE_PREFIXES.some(
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  )) {
+    return undefined;
+  }
   if (pathname === "/") {
     return "root";
   }
