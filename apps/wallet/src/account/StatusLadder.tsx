@@ -6,12 +6,15 @@ import { cn } from '@/lib/cn';
 import { useAccountClients } from './AccountProvider';
 import { errorMessage, useAsync } from './hooks';
 
-const RUNG_LABELS: Readonly<Record<LadderRung, string>> = { instant: 'Instant', sealed: 'Sealed', final: 'Final' };
+const RUNG_LABELS: Readonly<Record<LadderRung, string>> = {
+  submitted: 'Submitted',
+  receipted: 'Receipted',
+  committed: 'Committed',
+};
 const SOURCE_LABELS: Readonly<Record<LadderSource, string>> = {
-    receipt: 'receipt',
-    explorer: 'explorer',
-    journey: 'journey',
-    anchor: 'anchor',
+  receipt: 'receipt',
+  explorer: 'explorer',
+  journey: 'journey',
 };
 
 function rank(rung: LadderRung | null): number {

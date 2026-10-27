@@ -8985,3 +8985,27 @@ area = "spec"
 symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
 cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
 do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
+
+[gotcha.1877]
+area = "spec"
+symptom = "Retiring or re-signing a public item (a constant, a function parameter, a struct) builds in the task's crate and fails `cargo build --all-targets` on integration tests or sibling crates outside touches"
+cause = "--all-targets compiles every tests/*.rs of the crate and the dependents check compiles consumer crates, none of which the task owns"
+do = "Before retiring an item, `git grep` its name under the workspace and put every consumer file in touches, or add a requires edge to the task that owns it (11.29.4: PORTABLE_RECEIPT_FORMAT_V2 / trusted_batch)"
+
+[gotcha.1878]
+area = "rust"
+symptom = "adding an enum variant builds and tests clean, then the next task that builds the crate with a cargo feature fails E0004 on a match over that enum in a cfg(feature) file"
+cause = "the task's build_cmd ran without the feature, so rustc never compiled the gated match"
+do = "when adding a variant, grep the enum's match sites under every cfg feature and build once with each feature that compiles them, or put the arm in the task that owns the gated file (13.7.4: AbiError::EffectLimit in abi_payload)"
+
+[gotcha.1879]
+area = "go"
+symptom = "a requalified candidate's own tests fail on a refusal from a check that landed in the package after the candidate was written (`gas wanted N exceeds Block.MaxGasWanted 0`)"
+cause = "a requalify replays the result unchanged, so a fixture written before the check cannot set what the check now needs"
+do = "when the package gained an admission or validation check since the candidate's base, reseed as a continue with a do line naming the fixture call (5.17.2: resolutionBlockGas in the newSourceHarness setup)"
+
+[gotcha.1880]
+area = "tooling"
+symptom = "a do line moves a call site to a helper whose input type (Eip1559Call) does not exist on that path yet, and the implementer reports the mismatch instead of inventing the input"
+cause = "the migration was assigned to the task that touches the file rather than the task that produces the new input"
+do = "assign a signing or encoding migration to the task that changes the transport (9.23.7 -> 9.23.6) and give the task that deletes the old helper (9.35.1) a requires edge to it"
