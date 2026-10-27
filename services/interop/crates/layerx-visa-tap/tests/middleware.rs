@@ -1,3 +1,4 @@
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_proof::inclusion::SequencerAuthorization;
@@ -226,13 +227,14 @@ fn merchant_middleware_surfaces_operation_result_through_verified_receipts() {
     )];
 
     let result = MerchantOperationResult::from_receipt(
-        canonical_receipt,
+        &SequencerEvidence {
+            transaction_hash: [3; 32],
+            signed_receipt: canonical_receipt.to_vec(),
+            logs: Vec::new(),
+            rung: SettlementRung::Receipted,
+        },
         &receipt_keys,
         [0x66; 32],
-        [0x11; 32],
-        [0x22; 32],
-        [0x55; 32],
-        25,
     );
     assert_eq!(result, Err(TapError::ReceiptMismatch));
 
