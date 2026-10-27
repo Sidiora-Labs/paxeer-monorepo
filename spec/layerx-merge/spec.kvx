@@ -134188,7 +134188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.2]
 title = "Run reference ramp work and receipt verification on ledger calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.30.1", "8.28.5"]
@@ -150020,7 +150020,7 @@ do_11 = "Wherever Plane::exact still compares a receipt digest after do_1 and do
 
 [task.11.34.7]
 title = "Name the payer by EVM address in config and the LAYERX-PAYER-ADDRESS header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["11.34.6", "11.36.2"]
