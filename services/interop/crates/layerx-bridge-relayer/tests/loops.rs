@@ -11,11 +11,14 @@ use layerx_bridge_relayer::attestation::{
 };
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
-use layerx_bridge_relayer::journal::{inbound_key, outbound_key, Completion, Journal};
-use layerx_bridge_relayer::relayer::{
-    ChainLink, ChainSettings, GasPolicy, PaxeerLink, PaxeerSettings, Relayer, RelayerParts,
-    StepReport,
+use layerx_bridge_relayer::journal::{
+    inbound_key, outbound_key, Completion, Entry, Journal, SubmissionStatus,
 };
+use layerx_bridge_relayer::relayer::{
+    ChainLink, ChainSettings, GasPolicy, PaxeerLink, PaxeerSettings, Relayer, RelayerError,
+    RelayerParts, StepReport,
+};
+use layerx_bridge_relayer::rpc::RpcFault;
 use layerx_bridge_relayer::signer::{
     Attestor, Submitter, ATTEST_INBOUND_DOMAIN, ATTEST_OUTBOUND_DOMAIN,
     ETHEREUM_TRANSACTION_DOMAIN, PAXEER_TRANSACTION_DOMAIN,
@@ -99,6 +102,7 @@ fn start(recording: &Recording, signer: &SignerServer, instance: &Instance<'_>) 
         attestor: Attestor::new(signer.remote(instance.attestor.0, &key(instance.attestor.1)))
             .unwrap_or_else(|error| panic!("attestor: {error:?}")),
         paxeer: PaxeerLink {
+            receipt_keys: support::receipt_keys(),
             settings: PAXEER,
             rpc: recording.endpoint("paxeer"),
             submitter: Submitter::paxeer(
@@ -257,6 +261,296 @@ fn restart_and_rebroadcast_the_unknown_deposit(
     assert_eq!(recording.count("ethereum-1", "eth_getLogs"), 1);
     drop(relayer);
     sent
+}
+
+fn sequencer_submission(
+    name: &str,
+) -> (Recording, SignerServer, Instance<'static>, Relayer, String) {
+    let recording = Recording::load("inbound_sequencer_receipt.json");
+    let signer = signer(name);
+    let instance = Instance {
+        attestor: ("attestor-1", ATTESTOR_1),
+        paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
+        journal: journal_path(&work_directory(name), "relayer"),
+        cosign: None,
+    };
+    recording.set_phase("scan");
+    let mut relayer = start(&recording, &signer, &instance);
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("scan: {error}"));
+    assert_eq!(
+        report,
+        StepReport {
+            observed: 1,
+            submitted: 1,
+            completed: 0,
+            waiting: 0,
+            refused: 0
+        }
+    );
+    let raw = bridge_in(
+        5,
+        &deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000),
+        &[ATTESTOR_1],
+        PAXEER_FEES_1,
+    );
+    assert_eq!(recording.sent(), vec![("paxeer".to_owned(), raw.clone())]);
+    let document: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/inbound_sequencer_receipt.json"))
+            .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
+    assert_eq!(hex::prefixed(&hash(&raw)), document["transactionHash"]);
+    assert_all_matched(&recording);
+    (
+        recording,
+        signer,
+        instance,
+        relayer,
+        inbound_key(1, &[0xaa; 32], 3),
+    )
+}
+
+#[test]
+fn an_inbound_bridge_in_is_receipted_then_committed_from_the_sequencer_receipt() {
+    let (recording, signer, instance, mut relayer, item) = sequencer_submission("sequencer-rungs");
+    let initial = support::journal_entries(&instance.journal);
+    for phase in ["known", "unknown", "submitted"] {
+        recording.set_phase(phase);
+        let report = relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("{phase}: {error}"));
+        assert_eq!(report.waiting, 1);
+        assert_eq!(report.completed, 0);
+        assert_eq!(support::journal_entries(&instance.journal), initial);
+        assert_eq!(
+            relayer.journal().state().items[&item].submissions[0].status,
+            SubmissionStatus::Pending
+        );
+    }
+    let sent = recording.sent();
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[0], sent[1]);
+    assert_eq!(handle_requests(&signer, "paxeer-fees-1"), 1);
+    recording.set_phase("receipted");
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("receipted: {error}"));
+    assert_eq!(report.waiting, 1);
+    assert_eq!(report.completed, 0);
+    let receipted = SubmissionStatus::Receipted {
+        sequence: 2,
+        height: 1000,
+    };
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        receipted
+    );
+    assert_eq!(completion(&relayer, &item), None);
+    let entries = support::journal_entries(&instance.journal);
+    assert_eq!(entries.len(), initial.len() + 1);
+    assert_eq!(
+        entries.last(),
+        Some(&Entry::Receipted {
+            item: item.clone(),
+            tx_hash: hash(&sent[0].1),
+            sequence: 2,
+            height: 1000
+        })
+    );
+    drop(relayer);
+    let mut relayer = start(&recording, &signer, &instance);
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        receipted
+    );
+    assert_eq!(
+        relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("repeat receipt: {error}"))
+            .waiting,
+        1
+    );
+    assert_eq!(support::journal_entries(&instance.journal), entries);
+    recording.set_phase("committed");
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("committed: {error}"));
+    assert_eq!(report.completed, 1);
+    assert_eq!(report.waiting, 0);
+    assert_eq!(
+        completion(&relayer, &item),
+        Some(Completion::Included {
+            tx_hash: hash(&sent[0].1),
+            block_number: 1003
+        })
+    );
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Committed {
+            sequence: 2,
+            height: 1000
+        }
+    );
+    let replay = Journal::open(&instance.journal).unwrap_or_else(|error| panic!("replay: {error}"));
+    assert_eq!(replay.state(), relayer.journal().state());
+    assert_eq!(recording.count("paxeer", "eth_getTransactionReceipt"), 0);
+    assert_eq!(recording.count("paxeer", "eth_blockNumber"), 0);
+    assert_eq!(recording.count("paxeer", "pax_sequencerReceipt"), 6);
+    assert_eq!(recording.sent(), sent);
+    assert_all_matched(&recording);
+
+    let (recording, _signer, instance, mut relayer, item) =
+        sequencer_submission("sequencer-direct-commit");
+    recording.set_phase("committed");
+    assert_eq!(
+        relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("direct commit: {error}"))
+            .completed,
+        1
+    );
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Committed {
+            sequence: 2,
+            height: 1000
+        }
+    );
+    let entries = support::journal_entries(&instance.journal);
+    assert!(matches!(
+        entries[entries.len() - 2],
+        Entry::Receipted {
+            sequence: 2,
+            height: 1000,
+            ..
+        }
+    ));
+    assert!(matches!(
+        entries.last(),
+        Some(Entry::Completed {
+            completion: Completion::Included {
+                block_number: 1003,
+                ..
+            },
+            ..
+        })
+    ));
+    assert_all_matched(&recording);
+}
+
+#[test]
+fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
+    for (phase, name) in [
+        ("reverted", "sequencer-reverted"),
+        ("consumed", "sequencer-consumed"),
+    ] {
+        let (recording, _signer, instance, mut relayer, item) = sequencer_submission(name);
+        let before = support::journal_entries(&instance.journal);
+        let calls_before = recording.count("paxeer", "eth_call");
+        recording.set_phase(phase);
+        let report = relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("{phase}: {error}"));
+        let entries = support::journal_entries(&instance.journal);
+        assert_eq!(entries.len(), before.len() + 2);
+        assert!(matches!(
+            entries[before.len()],
+            Entry::Receipted {
+                sequence: 5,
+                height: 1002,
+                ..
+            }
+        ));
+        let tx_hash = hash(&recording.sent()[0].1);
+        if phase == "reverted" {
+            assert_eq!(report.waiting, 1);
+            assert_eq!(report.completed, 0);
+            assert_eq!(
+                entries.last(),
+                Some(&Entry::Reverted {
+                    item: item.clone(),
+                    tx_hash
+                })
+            );
+            assert_eq!(completion(&relayer, &item), None);
+            assert_eq!(
+                relayer.journal().state().items[&item].submissions[0].status,
+                SubmissionStatus::Reverted
+            );
+            assert!(relayer.journal().state().items[&item].pending().is_none());
+            assert!(relayer.journal().state().items[&item].is_open());
+        } else {
+            assert_eq!(report.completed, 1);
+            assert_eq!(report.waiting, 0);
+            assert_eq!(
+                completion(&relayer, &item),
+                Some(Completion::AlreadyBridged)
+            );
+            assert_eq!(
+                entries.last(),
+                Some(&Entry::Completed {
+                    item: item.clone(),
+                    completion: Completion::AlreadyBridged
+                })
+            );
+            assert!(!entries
+                .iter()
+                .any(|entry| matches!(entry, Entry::Reverted { .. })));
+        }
+        assert_eq!(recording.count("paxeer", "eth_call"), calls_before + 1);
+        assert_eq!(recording.sent().len(), 1);
+        let replay =
+            Journal::open(&instance.journal).unwrap_or_else(|error| panic!("replay: {error}"));
+        assert_eq!(replay.state(), relayer.journal().state());
+        assert_all_matched(&recording);
+    }
+}
+
+#[test]
+fn an_unverifiable_sequencer_receipt_leaves_the_submission_pending() {
+    let (recording, signer, instance, mut relayer, item) =
+        sequencer_submission("sequencer-invalid");
+    recording.set_phase("invalid");
+    let before =
+        std::fs::read(&instance.journal).unwrap_or_else(|error| panic!("journal: {error}"));
+    let state = relayer.journal().state().clone();
+    assert!(matches!(
+        relayer.inbound_step(0),
+        Err(RelayerError::Rpc(RpcFault::Malformed))
+    ));
+    assert_eq!(relayer.journal().state(), &state);
+    assert_eq!(
+        std::fs::read(&instance.journal).unwrap_or_else(|error| panic!("journal: {error}")),
+        before
+    );
+    assert_eq!(completion(&relayer, &item), None);
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Pending
+    );
+    assert_eq!(recording.sent().len(), 1);
+    assert_eq!(recording.count("paxeer", "pax_sequencerReceipt"), 1);
+    assert_eq!(recording.count("paxeer", "eth_getTransactionReceipt"), 0);
+    assert_eq!(handle_requests(&signer, "paxeer-fees-1"), 1);
+    drop(relayer);
+    let mut relayer = start(&recording, &signer, &instance);
+    assert_eq!(relayer.journal().state(), &state);
+    recording.set_phase("receipted");
+    assert_eq!(
+        relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("valid retry: {error}"))
+            .waiting,
+        1
+    );
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Receipted {
+            sequence: 2,
+            height: 1000
+        }
+    );
+    assert_all_matched(&recording);
 }
 
 #[test]
