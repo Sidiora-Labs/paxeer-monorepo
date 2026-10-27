@@ -19,12 +19,21 @@ func NewSchema(db *sql.DB) (*graphql.Schema, error) {
 
 const SDL = `scalar BigDecimal
 
+scalar BigInt
+
 scalar DateTime
 
 type Market {
   marketId: Int!
   name: String!
   symbol: String!
+  oracleSymbol: String!
+  szDecimals: Int
+  pxDecimals: Int
+  tickSize: BigInt
+  lotSize: BigInt
+  tierClass: Int
+  oiCapUsd: BigInt
   maxLeverage: BigDecimal!
   enabled: Boolean!
   createdAt: DateTime

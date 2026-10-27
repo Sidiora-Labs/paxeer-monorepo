@@ -9410,3 +9410,123 @@ area = "services/platform/hosted/gateway/tests/local"
 symptom = "cargo build of the local qualification package fails in its build script: 'parent-built core binary required' or 'fixture path contract changed'"
 cause = "the package adapts the core boundary fixture at build time: it needs LAYERX_TEST_CORE_BIN set to a built layerx-core-boundary and asserts three needles in core/tests/boundary.rs, one of which moved when platform moved"
 do = "do not give a task a build or verify command against that manifest; put stand-alone tests in the gateway crate's tests directory (include_str! the scanned file) and leave the package to the task that deletes its lifecycle target"
+
+[gotcha.1948]
+area = "precompiles/layerxprograms"
+symptom = "go test of a precompile package fails with 'import cycle not allowed in test' as soon as a test imports node or another package that imports the package under test"
+cause = "an in-package _test.go file is compiled into the package, so any import that reaches back to the package closes a cycle; Go only allows that from an external test package"
+do = "move the tests that need node or the app to package <name>_test and re-export the unexported identifiers they use through an export_test.go (precedent precompiles/spot/export_test.go)"
+
+[gotcha.1949]
+area = "node/sequencer"
+symptom = "starting a sequencer primary in a test or fixture recorder fails with ErrConfigStandbyAddress, or Replicator.Release returns a dial error before the first block"
+cause = "a primary requires a host:port standby address (node/sequencer/node.go:62) and a reachable standby; Release dials it on every accept (node/sequencer/node_start.go:111)"
+do = "start a standby with sequencer.StartStandby on a free loopback port first and point the primary's standby-address at it, as node/sequencer/tcp_ack_test.go:70-90 does"
+
+[gotcha.1950]
+area = "node/upgrades"
+symptom = "applying the v7.0 upgrade handler through the app in a test panics 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906'"
+cause = "validateMergePrecompiles (node/upgrades.go:584) requires the oracle, scheduler and streams precompiles to be registered, which only happens once node imports them"
+do = "order any test that applies the v7.0 handler after the task that wires those precompiles into node; do not register constructors from the test and do not relax the check"
+
+[gotcha.1951]
+area = "services/interop"
+symptom = "cargo build --tests of layerx-interop-gateway fails in tests/workspace_lock.rs with a missing Cargo.toml for a crate that no longer exists"
+cause = "workspace_lock.rs include_str!s every member crate's manifest; deleting a crate without removing its entry breaks every test target of the gateway"
+do = "when a crate is deleted, drop its entry from services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs in the same change"
+
+[gotcha.1952]
+area = "daemon/paxd/cmd"
+symptom = "validate-genesis reports 'receipt key list is empty' right after add-genesis-receipt-key succeeded"
+cause = "the command re-marshals the untagged sequencertypes.GenesisState (key ReceiptKeys) while the module decodes its wire object with receipt_keys and byte-string leaders (modules/sequencer/module.go:38-45)"
+do = "edit the module state as map[string]json.RawMessage in the module's wire encoding, as add-genesis-sequencer-leader (daemon/paxd/cmd/genseqleader.go) does"
+
+[gotcha.1953]
+area = "node/sequencer, rpc"
+symptom = "a test expects transactionIndex 0x0 or receipt Index 0 for the first accepted transaction and gets 1"
+cause = "the sequencer numbers accepted transactions from 1 within the open block (node/sequencer/accept.go:40, microbatch.go:333) and the receipt RPC reads that index verbatim; 0 marks an invalid receipt (rpc/sequencer_receipt_test.go:515)"
+do = "assert Index 1 and transactionIndex 0x1 for the first accepted transaction"
+
+[gotcha.1954]
+area = "services/platform/perps-data"
+symptom = "a go test in perps-data fails with 'TestMarkets requires PERPS_DATA_TEST_RPC' (or the e2e equivalent) in an environment without a node"
+cause = "the package test clients dial the node named by PERPS_DATA_TEST_RPC and fail rather than skip when it is unset"
+do = "run the test behind tools/qualification/localnode/v6120-node.sh --env-out <file> and source that file (set -a; . <file>; set +a) before go test, as the done markets tasks do"
+
+[gotcha.1955]
+area = "tools/qualification/localnode"
+symptom = "perps-gateway.sh stops with 'nats-server is required' although nats-server was installed with go install"
+cause = "the script checks command -v for nats-server and reads PERPS_DATA_TEST_DATABASE_URL from the environment; a GOPATH/bin binary is not on PATH by default"
+do = "put $(go env GOPATH)/bin on PATH and export PERPS_DATA_TEST_DATABASE_URL before running the script"
+
+[gotcha.1956]
+area = "tokenfactory"
+symptom = "CreateDenom returns \"subdenom too long, max length is 44 bytes\" when a layerxledger asset is bound"
+cause = "hex of a 32-byte asset id is 64 characters; MaxSubdenomLength is 44 (modules/tokenfactory/types/denoms.go:17) and sdk.ValidateDenom allows only [a-zA-Z0-9/-], so base64 is out too"
+do = "encode the asset id as the base-62 text of its big-endian integer zero-padded to 43 digits (big.Int.Text(62)); test against the real keeper, a recording IssuerKeeper never sees the cap"
+
+[gotcha.1957]
+area = "ramps toolkit"
+symptom = "cargo test -p layerx-ramp-toolkit fails compiling src/bin/ramp-verify-receipt.rs after a change to LayerxConfig"
+cause = "the crate's binaries compile together with its tests, and the reference ramp crate depends on the toolkit types"
+do = "when changing a shared config or client type, port the crate's bins and every dependent crate in the same task; a type change that leaves dependents uncompilable cannot be qualified alone"
+
+[gotcha.1958]
+area = "precompiles"
+symptom = "TestMergeServes0x0903/0x0905/0x0906 fail with \"node must register the ... constructor\""
+cause = "node/precompiles.go imports the agent oracle, scheduler and streams precompile packages only through task 5.94.4, so MissingMergeConstructors still lists them"
+do = "order activation tests for 0x0903, 0x0905 and 0x0906 after 5.94.4"
+
+[gotcha.1959]
+area = "committed-fixture recorder"
+symptom = "paxd panics \"validator ... not in committee\" (consensus/internal/consensus/state.go:2622) when a standby node is started next to the primary"
+cause = "the standby home was initialised with --mode validator and a fresh priv_validator_key that no gentx put in the validator set"
+do = "initialise the standby with --mode full, copy the primary genesis.json, set sequencer.role = standby and start it before the primary"
+
+[gotcha.1960]
+area = "interop gateway AP2"
+symptom = "Ap2Adapter::execute returns EvidenceMismatch for a recorded payExact receipt"
+cause = "settle_with_sequencer_evidence (gateway.rs:613-622) needs exactly one PaymentExact log whose reference topic equals the payment idempotency key; a recorded receipt carries a recorded reference"
+do = "rewrite topics[3] and the same 32 bytes of signed_receipt to payment.idempotency_key(), re-sign under a fresh Ed25519 key pinned to the recorded key id and heights (tests/sequencer_settlement.rs sign_payment_reference)"
+
+[gotcha.1961]
+area = "node store upgrades"
+symptom = "node/app.go:1553: undefined: storekeys.LayerXAnchorStoreKey; every Go test importing node fails at build"
+cause = "one task retired the store key constant while the store deletion upgrade and its tests from another task still named the store through it"
+do = "a deletion upgrade names a retired store by a literal of its historical name; when retiring a store key constant, grep node/ and storage/ tests for the constant and port them in the same change"
+
+[gotcha.1962]
+area = "cargo workspaces"
+symptom = "cargo --locked: the lock file <ws>/Cargo.lock needs to be updated, in workspaces the change never touched"
+cause = "a crate manifest changed its dependency list and only its own workspace lock was refreshed; other workspace locks pin that crate as a path dependency and record its dependency list"
+do = "after editing any crate manifest, run cargo metadata without --locked in every workspace whose Cargo.lock names the crate (grep -l 'name = \"<crate>\"' $(git ls-files '*Cargo.lock')) and commit those locks with the change"
+
+[gotcha.1963]
+area = "x-websearch"
+symptom = "error[E0432]: unresolved imports crate::payment::GatewayRpc, crate::payment::RpcAnswer after deleting them as a do item asked"
+cause = "the do item listed only the payment.rs sites; kernel.rs and watch.rs import the same items and neither is in the task"
+do = "before deleting a pub item, git grep its name across the crate and either add every importer to the task or keep the item and hand its deletion to the task that removes the last importer"
+
+[gotcha.1964]
+area = "sequencer-receipt vectors"
+symptom = "a vector test expects every expected.refusedAt case to be refused by decode or verify and fails on V3-activity-id-not-raw-hash and V3-seq-hash-mismatch"
+cause = "expected.verifier is the signature verifier's verdict; R4 and R6 are client rules over rawTransaction and prevSeqHash that a receipt verifier without those inputs cannot apply, so their verifier value is accepts"
+do = "classify by expected.verifier first (Decode, SequencerSignature, accepts) and apply R4 (keccak of rawTransaction) and R6 (sequence chain) in the test from the case inputs, as services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs does"
+
+[gotcha.1965]
+area = "node tests"
+symptom = "a task written to restore one retired symbol in node/store_delete_test.go fails because the same file references a second retired keeper method"
+cause = "the task was scoped from the first compile error only; go reports errors per package and stops at the first file set, hiding later dead references"
+do = "before publishing a compile-repair task, list every a.<Keeper>.<Method> reference in the test file and confirm each method still exists on the live keeper (git grep 'func (k *Keeper) <Method>('), then cover all of them in one task"
+
+[gotcha.1966]
+area = "cargo workspaces"
+symptom = "a lock-refresh task fails its build with E0432/E0599 inside a path dependency, not in the lock"
+cause = "a crate in another workspace deleted public items (SignedHeaderTrust, MirrorVerifier::from_source) that a shared library crate still uses, so every workspace depending on that library stops building"
+do = "before deleting a pub item from a crate other workspaces depend on, git grep the item across services/ and tools/ and put the dependents' port in the same task or a required follow-up; gate lock-only tasks with cargo metadata --locked rather than a compile"
+
+[gotcha.1967]
+area = "conformance vectors"
+symptom = "a vector-driven test fails on cases whose expected.verifier is accepts or Decode even though the component under test behaves per the vector"
+cause = "expected.verifier is the signature verifier's verdict over the signed bytes: Decode is raised by verify_sequencer_signature, not by a JSON view decoder, and accepts means the refusal (R4, R5, R6) is a client rule that a bytes-only verifier such as the mirror cannot and must not raise"
+do = "classify cases by expected.verifier; for accepts cases assert the verifier accepts and apply the client rule in the test from rawTransaction, prevSeqHash and the JSON view; for Decode cases call the verifier and assert ReceiptCheck::Decode"
