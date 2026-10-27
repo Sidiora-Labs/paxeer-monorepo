@@ -115330,7 +115330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.41.4]
 title = "Keep the anchor store deletion upgrade compiling after the store key constant retires"
-status = "pending"
+status = "done"
 wave = 17
 requires = ["5.7.1", "5.41.3"]
 reqs = ["5483.1", "5064.1"]
