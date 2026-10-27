@@ -9488,3 +9488,45 @@ area = "interop gateway AP2"
 symptom = "Ap2Adapter::execute returns EvidenceMismatch for a recorded payExact receipt"
 cause = "settle_with_sequencer_evidence (gateway.rs:613-622) needs exactly one PaymentExact log whose reference topic equals the payment idempotency key; a recorded receipt carries a recorded reference"
 do = "rewrite topics[3] and the same 32 bytes of signed_receipt to payment.idempotency_key(), re-sign under a fresh Ed25519 key pinned to the recorded key id and heights (tests/sequencer_settlement.rs sign_payment_reference)"
+
+[gotcha.1961]
+area = "node store upgrades"
+symptom = "node/app.go:1553: undefined: storekeys.LayerXAnchorStoreKey; every Go test importing node fails at build"
+cause = "one task retired the store key constant while the store deletion upgrade and its tests from another task still named the store through it"
+do = "a deletion upgrade names a retired store by a literal of its historical name; when retiring a store key constant, grep node/ and storage/ tests for the constant and port them in the same change"
+
+[gotcha.1962]
+area = "cargo workspaces"
+symptom = "cargo --locked: the lock file <ws>/Cargo.lock needs to be updated, in workspaces the change never touched"
+cause = "a crate manifest changed its dependency list and only its own workspace lock was refreshed; other workspace locks pin that crate as a path dependency and record its dependency list"
+do = "after editing any crate manifest, run cargo metadata without --locked in every workspace whose Cargo.lock names the crate (grep -l 'name = \"<crate>\"' $(git ls-files '*Cargo.lock')) and commit those locks with the change"
+
+[gotcha.1963]
+area = "x-websearch"
+symptom = "error[E0432]: unresolved imports crate::payment::GatewayRpc, crate::payment::RpcAnswer after deleting them as a do item asked"
+cause = "the do item listed only the payment.rs sites; kernel.rs and watch.rs import the same items and neither is in the task"
+do = "before deleting a pub item, git grep its name across the crate and either add every importer to the task or keep the item and hand its deletion to the task that removes the last importer"
+
+[gotcha.1964]
+area = "sequencer-receipt vectors"
+symptom = "a vector test expects every expected.refusedAt case to be refused by decode or verify and fails on V3-activity-id-not-raw-hash and V3-seq-hash-mismatch"
+cause = "expected.verifier is the signature verifier's verdict; R4 and R6 are client rules over rawTransaction and prevSeqHash that a receipt verifier without those inputs cannot apply, so their verifier value is accepts"
+do = "classify by expected.verifier first (Decode, SequencerSignature, accepts) and apply R4 (keccak of rawTransaction) and R6 (sequence chain) in the test from the case inputs, as services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs does"
+
+[gotcha.1965]
+area = "node tests"
+symptom = "a task written to restore one retired symbol in node/store_delete_test.go fails because the same file references a second retired keeper method"
+cause = "the task was scoped from the first compile error only; go reports errors per package and stops at the first file set, hiding later dead references"
+do = "before publishing a compile-repair task, list every a.<Keeper>.<Method> reference in the test file and confirm each method still exists on the live keeper (git grep 'func (k *Keeper) <Method>('), then cover all of them in one task"
+
+[gotcha.1966]
+area = "cargo workspaces"
+symptom = "a lock-refresh task fails its build with E0432/E0599 inside a path dependency, not in the lock"
+cause = "a crate in another workspace deleted public items (SignedHeaderTrust, MirrorVerifier::from_source) that a shared library crate still uses, so every workspace depending on that library stops building"
+do = "before deleting a pub item from a crate other workspaces depend on, git grep the item across services/ and tools/ and put the dependents' port in the same task or a required follow-up; gate lock-only tasks with cargo metadata --locked rather than a compile"
+
+[gotcha.1967]
+area = "conformance vectors"
+symptom = "a vector-driven test fails on cases whose expected.verifier is accepts or Decode even though the component under test behaves per the vector"
+cause = "expected.verifier is the signature verifier's verdict over the signed bytes: Decode is raised by verify_sequencer_signature, not by a JSON view decoder, and accepts means the refusal (R4, R5, R6) is a client rule that a bytes-only verifier such as the mirror cannot and must not raise"
+do = "classify cases by expected.verifier; for accepts cases assert the verifier accepts and apply the client rule in the test from rawTransaction, prevSeqHash and the JSON view; for Decode cases call the verifier and assert ReceiptCheck::Decode"

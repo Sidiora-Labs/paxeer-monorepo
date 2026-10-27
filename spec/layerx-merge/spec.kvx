@@ -115328,6 +115328,34 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.5.41.4]
+title = "Keep the anchor store deletion upgrade compiling after the store key constant retires"
+status = "pending"
+wave = 17
+requires = ["5.7.1", "5.41.3"]
+reqs = ["5483.1", "5064.1"]
+symbols = ["retiredAnchorStoreName", "TestAnchorStoreDeletedAtStep", "TestBankKeepersCarryNoLaunchpadBalanceHook"]
+touches = ["node/app.go", "node/store_delete_test.go", "storage/state_db/sc/composite/pending_store_test.go"]
+tests = ["node/store_delete_test.go::TestAnchorStoreDeletedAtStep", "node/store_delete_test.go::TestAnchorPrecompileStaysRegisteredWithoutModule"]
+build_cmd = "go build ./node/... && go vet ./storage/state_db/sc/composite/"
+verify_cmd = "go vet ./storage/state_db/sc/composite/ && go test -count=1 ./node/ -run '^(TestAnchorStoreDeletedAtStep|TestAnchorPrecompileStaysRegisteredWithoutModule)$'"
+rollback = "Revert the three files; main returns to the pair of 5.7.1 and 5.41.3 that does not compile together."
+do_1 = "Task 5.41.3 deleted storekeys.LayerXAnchorStoreKey (storage/common/keys/store_keys.go:35, value \"layerxanchor\") while node/app.go:1553 (the AnchorStoreDeleteUpgrade store upgrades) and node/store_delete_test.go:25, :31 and :36 from task 5.7.1 still read it, so package node does not compile and every Go test that imports it fails at build. Declare `const retiredAnchorStoreName = \"layerxanchor\"` in node/app.go next to the store upgrade switch and read it at :1553 and in the three test lines; a deletion upgrade must keep naming the store by its historical name after the constant is gone."
+do_2 = "storage/state_db/sc/composite/pending_store_test.go:19 lists keys.LayerXAnchorStoreKey in forkStoreKeys; remove that entry and keep the other five, so legacyStoreKeys still excludes exactly the fork stores the key list carries."
+do_3 = "Change nothing else beyond do_1, do_2 and do_4."
+mode = "BUILD"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-node-runtime"
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "TestBankKeepersCarryNoLaunchpadBalanceHook at node/store_delete_test.go:84-101 registers a.LaunchpadKeeper.BeforeBalanceChange at :94 and :97, a method 27b1faa06 (task 4.8.4) retired; the package test binary no longer compiles. Declare a test-local value `var launchpadHook bankkeeper.BalanceChangeHook = func(sdk.Context, sdk.AccAddress, string, func() sdk.Int) error { return nil }` inside that test and register it at both call sites in place of the retired method, keeping the two assertions (the first registration under launchpadtypes.ModuleName does not panic because the app registers no launchpad hook; the second panics with the duplicate message). The value is a registration token for the hook bookkeeping under test, not a double for any product code path."
+
 [task.5.42.1]
 title = "Serve the merge stores from the composite commit store in migration write modes"
 status = "done"
@@ -115391,7 +115419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.3]
 title = "Delete the anchor tree from memiavl at the retirement upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["5.42.2", "5.41.3"]
@@ -147729,7 +147757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.3]
 title = "Retire the intent-ingester deploy template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["11.18.1"]
@@ -147851,7 +147879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.7]
 title = "Retire the single sequencer key argument from the gateway deploy renderer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["11.13.2", "11.18.1"]
@@ -148551,7 +148579,7 @@ capabilities = ["11.22.4"]
 interfaces = []
 do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from the repository root in services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs (planned) and iterate its cases."
 do_2 = "Build SequencerAuthorization windows from the vector's key entries with SequencerAuthorization::new from services/agent/crates/layerx-proof/src/inclusion.rs:14-30."
-do_3 = "Assert decode and verify outcomes in services/interop/crates/layerx-bridge-relayer/src/receipt.rs (planned) per case without changing the vector file."
+do_3 = "Assert per case from expected.verifier in services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs (planned), without changing the vector file: verifier \"Decode\" (R2) means SequencerReceipt::decode fails; verifier \"SequencerSignature\" (R3) means decode succeeds and verify(&[pin]) fails; the R5 case (tampered log) means verify fails with a view mismatch; verifier \"accepts\" means decode and verify both succeed, including V3-activity-id-not-raw-hash (R4) and V3-seq-hash-mismatch (R6), whose rules need the raw transaction and prevSeqHash that SequencerReceipt::verify never sees."
 symbols = ["the_shared_sequencer_receipt_vector_decodes_and_verifies"]
 touches = ["services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"]
 tests = ["services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs::the_shared_sequencer_receipt_vector_decodes_and_verifies"]
@@ -148569,6 +148597,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "For every case whose verifier is \"accepts\", apply R4 and R6 in the test from the vector inputs: R4 holds when sha3::Keccak256 of rawTransaction equals receipt.tx_hash; R6 holds when the protocol receipt recovered with layerx_proof::receipt::verify_sequencer_signature(&view.receipt, ReceiptKeys::HeightRanges(&[pin])).protocol() has previous_state_root() == prevSeqHash and resulting_state_root() == Sha256(b\"PAXEER/v1/sequence\\0\" || prevSeqHash || global_sequence().to_be_bytes() || activity_id()) (the rule at services/interop/crates/layerx-ucp/src/lib.rs:746). Assert each rule fails exactly for the case whose expected.refusedAt names it and holds for every other accepted case; fail the test on a case id it does not classify."
+do_5 = "For expected.verifier == \"Decode\" (V3-non-canonical-bytes) SequencerReceipt::decode(&receiptJson) succeeds: the JSON view carries the signed bytes verbatim in receipt and JSON decoding does not inspect them. The R2 refusal comes from SequencerReceipt::verify(&[pin]) at services/interop/crates/layerx-bridge-relayer/src/receipt.rs:240-243, which must return Err(ReceiptError::Verification(failure)) with failure.check == ReceiptCheck::Decode (the wire decoder refuses the monetary flag 2 as NonCanonical at services/agent/crates/layerx-wire/src/receipt.rs:513-519 and verify_sequencer_signature maps it to ReceiptCheck::Decode at services/agent/crates/layerx-proof/src/receipt.rs:712). Assert that, not that the JSON decode fails."
 
 [task.11.23.1]
 title = "Refuse a failed DID read as DidUnavailable and answer it 503"
@@ -149058,6 +149088,66 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_8 = "The first build failed because do_2 makes ArchiveData.committed a plain ArchivedCommittedBlock while three readers still treat it as an Option: services/interop/crates/layerx-mirror/src/ethereum.rs:862-867, services/interop/crates/layerx-mirror/src/runtime.rs:292-296 and services/interop/crates/layerx-mirror/src/solana.rs:957-962 call .as_ref().ok_or(...) on it. Read committed.block_hash directly at those sites and drop the now-unreachable error arms; the in-file tests that build archives without a committed block (ethereum.rs:1229, :1333, :1387 and solana.rs:1531) describe batch-era archives and go with the types do_1 deletes, their intent being covered by batch_era_archive_versions_are_refused of do_6."
 
+[task.11.26.5]
+title = "Refresh the workspace locks that pin the mirror after it dropped its batch-era dependencies"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["11.26.4"]
+reqs = ["11289.1"]
+do_1 = "Task 11.26.4 (edd77cf4a) removed layerx-agent-api, layerx-client and the layerx-types dev-dependency from services/interop/crates/layerx-mirror/Cargo.toml and refreshed only services/interop/Cargo.lock. The fourteen other Cargo.lock files in touches pin layerx-mirror as a path dependency and still list those three crates in its [[package]] entry, so every `cargo --locked` command in those workspaces fails with \"the lock file needs to be updated but --locked was passed\". For each touched lock run `cargo metadata --format-version 1 --manifest-path <that workspace>/Cargo.toml >/dev/null` without --locked."
+do_2 = "Assert with `git diff --stat` that only the fourteen Cargo.lock files changed and that each diff removes dependency lines from the layerx-mirror entry, dropping a whole [[package]] block only where no workspace member reaches it any more; no other package or version moves and no Cargo.toml changes."
+do_3 = "Change nothing else; the published 11.26.4 stays as it is."
+symbols = []
+touches = ["services/agent/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/platform/Cargo.lock", "services/platform/docs/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml >/dev/null"
+verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/fuzz/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/isolation/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/parity/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/qualify/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tools/audit-verify/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tools/policy-harness/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path tools/platform/Cargo.toml >/dev/null"
+rollback = "Revert the fourteen lock files; every locked cargo command in those workspaces fails again until the locks are refreshed."
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Compile nothing: the build gate is the lock-consistency check above. services/agent/crates/layerx-sdk/src/production.rs:13 and :818/:836 still name SignedHeaderTrust and MirrorVerifier::from_source, which 11.26.4 deleted, so every crate depending on layerx-sdk fails to build until task 11.26.6 lands; that is not this task's scope."
+
+[task.11.26.6]
+title = "Port the SDK's mirror source verification to the committed archive verifier"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["11.26.4", "11.26.5", "11.37.1"]
+reqs = ["9334.1", "9334.2"]
+capabilities = ["11.26.6"]
+interfaces = ["interface.9.rs-sdk-production-verify-mirror-receipt-from-sources-j44", "interface.9.rs-sdk-production-verify-mirror-state-from-sources-j44"]
+symbols = ["verify_mirror_receipt_from_sources", "production_verifies_mirror_receipts_from_committed_sources"]
+touches = ["services/agent/crates/layerx-sdk/src/production.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/sdk.rs::production_verifies_mirror_receipts_from_committed_sources"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test sdk -- --exact production_verifies_mirror_receipts_from_committed_sources"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore services/agent/crates/layerx-sdk/src/production.rs and tests/sdk.rs from the pre-task revision."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_1 = "Remove SignedHeaderTrust from the layerx_mirror re-export at services/agent/crates/layerx-sdk/src/production.rs:11-14; 11.26.4 (edd77cf4a) deleted it, MirrorVerifier::from_source and MirrorVerifier::state from the mirror."
+do_2 = "Rewrite verify_mirror_receipt_from_sources at services/agent/crates/layerx-sdk/src/production.rs:810-819 as pub fn verify_mirror_receipt_from_sources(sources: &MirrorSources, batch_number: u64, policy: &MirrorReadPolicy, index: usize, keys: &[SequencerAuthorization]) -> Result<MirrorVerification<Receipt>, MirrorSdkError>, implemented as MirrorVerifier::from_committed_source(sources.read(batch_number, policy)?)?.committed_receipt(index, keys)? (services/interop/crates/layerx-mirror/src/verify.rs:128 and :179); Receipt is already imported at :25 and SequencerAuthorization at :16."
+do_3 = "Delete verify_mirror_state_from_sources at services/agent/crates/layerx-sdk/src/production.rs:821-837 together with its doc comment; drop the Proof and InclusionEvidence imports at :15-18 only if nothing else in the file uses them."
+do_4 = "Add production_verifies_mirror_receipts_from_committed_sources to services/agent/crates/layerx-sdk/tests/sdk.rs after sdk_crate_has_no_settlement_domain_or_activity_codec (:380): coerce verify_mirror_receipt_from_sources to the fn pointer type of do_2 so the signature is pinned at compile time, and assert over include_str!(\"../src/production.rs\") that the source names none of SignedHeaderTrust, from_source( or verify_mirror_state_from_sources."
+do_5 = "Change nothing else: no Cargo.toml or Cargo.lock edits (task 11.26.5 refreshes the locks), no other file."
+
 [task.11.27.1]
 title = "Encode the Ethereum begin call with the committed height and block hash"
 status = "done"
@@ -149281,7 +149371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.29.4]
 title = "Retire the v1 portable receipt and the batch-authority path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.29.3", "11.7.2", "11.10.2"]
@@ -149682,7 +149772,7 @@ fulfils = ["wiring.J44.27"]
 do_1 = "Rewrite Plane::recover and Plane::conclude at services/interop/crates/x-websearch/src/payment.rs:2045-2113 over SettlementRpc::sequencer_receipt, removing the lx_getActivityStatus and lx_getReceipt calls at :2063 and :2071."
 do_2 = "Rewrite verify_receipt at services/interop/crates/x-websearch/src/payment.rs:2158-2196 to verify SettlementReceipt.receipt with verify_sequencer_signature under ReceiptKeys::HeightRanges, compare seq, height and status with the answer, match the PaymentDrawn log, and drop the AuthorizedBatch construction at :2186-2192."
 do_3 = "Change Plane::finish (services/interop/crates/x-websearch/src/payment.rs:2115-2156) to claim the receipt digest and return ExecutedPayment without an authorised batch, and keep PaymentStore::release at services/interop/crates/x-websearch/src/payment.rs:1018 as the single release record."
-do_4 = "Delete GatewayRpc, RpcAnswer and gateway_authorization at services/interop/crates/x-websearch/src/payment.rs:353-640 and PROTOCOL_VERSION at :70, and replace PaymentGate.rpc at :1078 with SettlementRpc."
+do_4 = "Replace PaymentGate.rpc at services/interop/crates/x-websearch/src/payment.rs:1078 with SettlementRpc and delete PROTOCOL_VERSION at :70. Keep GatewayRpc, RpcAnswer and gateway_authorization at :353-640: src/kernel.rs:25 (eighteen uses, deleted by task 11.36.1) and src/watch.rs:9,127-146,784-926 (eth_blockNumber, eth_getLogs and eth_chainId through GatewayRpc) still import them, and neither file is in this task. Attempt two deleted them and failed the crate build with E0432 at those imports."
 do_5 = "Re-record services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json with eth_ and pax_sequencerReceipt answers and write the three tests in services/interop/crates/x-websearch/tests/payment.rs:729."
 do_6 = "Replace the layerx_crypto::send::encode_payment_envelope and layerx_crypto::signer::sign_disclosed imports at services/interop/crates/x-websearch/src/payment.rs:30-32 with ledger_payment_call and sign_disclosed_call, fulfilling wiring.J44.27 before task 9.35.1 deletes them."
 symbols = ["Plane::recover", "Plane::conclude", "Plane::finish", "verify_receipt"]
@@ -149849,7 +149939,7 @@ do_3 = "Delete services/interop/crates/x-websearch/tests/kernel.rs:1 and the ker
 do_4 = "Update the crate doc at services/interop/crates/x-websearch/src/lib.rs:7-8 to say /content is served before serving eligibility and that paid routes settle on the 0x101A ledger precompile."
 do_5 = "Write the two tests in services/interop/crates/x-websearch/tests/binary.rs:593."
 symbols = ["main", "RelayParts"]
-touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs"]
+touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/src/payment.rs"]
 tests = ["services/interop/crates/x-websearch/tests/binary.rs::the_binary_runs_the_evm_program_relay_without_a_kernel_section", "services/interop/crates/x-websearch/tests/binary.rs::readiness_lists_no_kernel_roles"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
@@ -149865,6 +149955,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Task 11.34.5 kept GatewayRpc, RpcAnswer and gateway_authorization in services/interop/crates/x-websearch/src/payment.rs:353-640 because kernel.rs used them. With kernel.rs deleted, delete gateway_authorization and GatewayRpc::with_authorization_file together with every lx_ helper only the kernel called; keep GatewayRpc, RpcAnswer and the eth_ helpers (call, block_number, quantity) that src/watch.rs:127-146 and :784-926 still use."
 
 [task.11.36.2]
 title = "Remove the kernel config section and gateway.authorization_file from x-websearch"
@@ -150064,7 +150155,7 @@ do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from 
 do_2 = "Build SequencerAuthorization windows from the pinned keys (services/agent/crates/layerx-proof/src/inclusion.rs:14-30) and call MirrorVerifier::committed_receipt on each case."
 do_3 = "Fail the test when sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 holds a case id the test does not classify."
 symbols = ["MirrorVerifier::committed_receipt"]
-touches = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"]
+touches = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs", "services/interop/crates/layerx-mirror/src/verify.rs"]
 tests = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_receipted_case_verifies_in_the_mirror", "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror"]
 planned_paths = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets"
@@ -150080,6 +150171,8 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Make admit_committed at services/interop/crates/layerx-mirror/src/verify.rs:133 pub with its name, signature and the from_committed_source caller at :130 unchanged, and build each case's MirrorVerifier with MirrorVerifier::admit_committed(archive_bytes, MirrorObservation::from_archive(..)) in the test. ObservedArchive (services/interop/crates/layerx-mirror/src/source.rs:145) has no public constructor and MirrorSources::read needs a live source, so a fixture-driven test has no other route; attempts two and three failed the build with E0624 at that call."
+do_5 = "In every_shared_refusal_case_is_refused_by_the_mirror classify by expected.verifier exactly as the vector does: V3-key-not-pinned and V3-height-outside-key-range must give Err(MirrorVerifyError::Receipt(ReceiptCheck::SequencerSignature)) and V3-non-canonical-bytes Err(MirrorVerifyError::Receipt(ReceiptCheck::Decode)) from committed_receipt(0, &keys). V3-activity-id-not-raw-hash (R4), V3-seq-hash-mismatch (R6) and V3-tampered-log (R5) carry expected.verifier \"accepts\": their bytes are canonical and correctly signed, the mirror has no raw transaction, previous sequence hash or JSON view, so committed_receipt must return Ok and verify_sequencer_signature must accept. For those three the test applies the client rule itself on verification.value().protocol(): R4 sha3::Keccak256(rawTransaction) != activity_id(); R6 resulting_state_root() != Sha256(b\"PAXEER/v1/sequence\\0\" || prevSeqHash || global_sequence().to_be_bytes() || activity_id()) or previous_state_root() != prevSeqHash (rule at services/interop/crates/layerx-ucp/src/lib.rs:746); R5 only asserts the mirror and signature verifier accept, because the JSON-view comparison belongs to RPC clients (task 11.22.4). Keep checked == 6 and the unclassified-id panic."
 
 [task.11.38.1]
 title = "Build the deposit attestation bundle from journal items and cosign signatures"

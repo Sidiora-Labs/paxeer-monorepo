@@ -7893,3 +7893,75 @@ symbol = "record"
 observed = "At 9eb233dec the recorder added a standby paxd initialised as a validator with its own key; consensus panicked with validator not in committee before the node was ready, so no V1 vector was written."
 assumption = "The standby runs as a full node sharing the primary genesis (do_6); the primary keeps its gentx validator."
 severity = "minor"
+
+[finding.5.41.3]
+task = "5.41.3"
+file = "node/app.go"
+symbol = "AnchorStoreDeleteUpgrade"
+observed = "At 2c845cf12 package node fails to build: app.go:1553 and store_delete_test.go:25,31,36 read storekeys.LayerXAnchorStoreKey, which 5.41.3 deleted; 13.23.1, 13.23.3, 13.26.2, 13.27.2 and 13.28.1 failed at build on it, and pending_store_test.go:19 lists the same key."
+assumption = "Integration task 5.41.4 names the retired store by its literal name and drops the fork-store entry; neither source task is reopened."
+severity = "major"
+
+[finding.11.26.4.2]
+task = "11.26.4"
+file = "services/interop/crates/layerx-mirror/Cargo.toml"
+symbol = "layerx-mirror"
+observed = "edd77cf4a dropped layerx-agent-api, layerx-client and the layerx-types dev-dependency from the mirror manifest and refreshed only services/interop/Cargo.lock; fourteen other workspace locks still list them in the layerx-mirror entry, so cargo --locked fails there (8.28.3 a7 at 3d1cd7584, services/platform)."
+assumption = "Integration task 11.26.5 refreshes the fourteen locks; 11.26.4 is not reopened."
+severity = "major"
+
+[finding.11.34.5]
+task = "11.34.5"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "GatewayRpc"
+observed = "Attempt two (base 9b59add17) deleted GatewayRpc and RpcAnswer as do_4 asked and the crate failed to build: src/kernel.rs:25 and src/watch.rs:9 import them, kernel.rs goes only with task 11.36.1 and watch.rs uses GatewayRpc for its eth_ calls."
+assumption = "11.34.5 keeps the three items; 11.36.1 deletes the authorization path with the kernel and watch.rs keeps GatewayRpc as its eth_ client."
+severity = "major"
+
+[finding.11.22.4]
+task = "11.22.4"
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+symbol = "the_shared_sequencer_receipt_vector_decodes_and_verifies"
+observed = "Attempts two and three (cb9721556, 4d29b6079) treated every expected.refusedAt as a decode-or-verify refusal; the vector marks V3-activity-id-not-raw-hash and V3-seq-hash-mismatch verifier accepts because R4 and R6 need the raw transaction and prevSeqHash, which SequencerReceipt::verify never sees, so the test failed on those two cases."
+assumption = "The relayer verifier is right to accept them; the test applies R4 and R6 itself from the vector inputs (do_3, do_4)."
+severity = "major"
+
+[finding.11.37.3]
+task = "11.37.3"
+file = "services/interop/crates/layerx-mirror/src/verify.rs"
+symbol = "MirrorVerifier::admit_committed"
+observed = "Attempts two and three (02802b7cb, f4dc2da15) failed the build with E0624: the test calls the private MirrorVerifier::admit_committed because ObservedArchive has no public constructor and the only public route, MirrorSources::read, needs a live source."
+assumption = "Making admit_committed pub is the smallest public route for a fixture-driven test (do_4)."
+severity = "major"
+
+[finding.5.41.4]
+task = "5.41.4"
+file = "node/store_delete_test.go"
+symbol = "TestBankKeepersCarryNoLaunchpadBalanceHook"
+observed = "Attempt one (b6a5caf62) completed do_1 and do_2 but go test ./node/ failed to compile: store_delete_test.go registers a.LaunchpadKeeper.BeforeBalanceChange, which 27b1faa06 (task 4.8.4) retired, so package node had a second dead reference besides the anchor store key."
+assumption = "Registering a test-local hook value keeps the duplicate-registration assertions meaningful without the retired method (do_4)."
+severity = "major"
+
+[finding.11.26.5]
+task = "11.26.5"
+file = "services/agent/crates/layerx-sdk/src/production.rs"
+symbol = "verify_mirror_receipt_from_sources"
+observed = "Attempt one (75b0c7c14) refreshed all fourteen locks, then cargo build -p layerx-ramp-toolkit failed inside layerx-sdk: production.rs:13 imports layerx_mirror::SignedHeaderTrust and :818/:836 call MirrorVerifier::from_source, both deleted by 11.26.4 (edd77cf4a); 35 crates across services/agent, services/human, services/platform, services/interop and tools/platform depend on layerx-sdk and cannot build at main."
+assumption = "The lock refresh is gated on cargo metadata --locked alone and task 11.26.6 ports the SDK to from_committed_source and committed_receipt."
+severity = "critical"
+
+[finding.11.22.4.2]
+task = "11.22.4"
+file = "services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"
+symbol = "the_shared_sequencer_receipt_vector_decodes_and_verifies"
+observed = "Attempt five (5f1d15163) read the vector verdict Decode as a failure of SequencerReceipt::decode on the JSON view; the view decodes, and the refusal is SequencerReceipt::verify returning ReceiptError::Verification with check Decode."
+assumption = "The test routes Decode cases through verify and asserts the check; the decoder and the vector stay as written."
+severity = "medium"
+
+[finding.11.37.3.2]
+task = "11.37.3"
+file = "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"
+symbol = "every_shared_refusal_case_is_refused_by_the_mirror"
+observed = "Attempt five (0ecefcceb) expected MirrorVerifyError::Receipt for the R4, R6 and R5 cases, whose expected.verifier is accepts; the mirror correctly accepts canonical, correctly signed bytes and cannot see the raw transaction, prevSeqHash or JSON view those rules need."
+assumption = "The test asserts acceptance for those three cases and applies R4 and R6 itself from the vector fields; the mirror verifier stays as written."
+severity = "medium"
