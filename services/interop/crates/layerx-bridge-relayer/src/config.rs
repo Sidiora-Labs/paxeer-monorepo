@@ -512,6 +512,7 @@ impl RelayerConfig {
         let attestor = Attestor::new(self.remote_signer(&self.attestor)?)
             .map_err(|error| invalid(format!("attestor: {error:?}")))?;
         let paxeer = PaxeerLink {
+            receipt_keys: self.receipt_keys()?,
             settings: PaxeerSettings {
                 chain_id: self.paxeer.chain_id,
                 finality_depth: self.paxeer.finality_depth,
