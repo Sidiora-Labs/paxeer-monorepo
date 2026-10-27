@@ -1,4 +1,5 @@
 mod capabilities;
+mod chain_reads;
 mod explorer_proxy;
 mod history;
 mod native_call;
