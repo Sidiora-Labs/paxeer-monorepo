@@ -1,6 +1,7 @@
 //! Generic Solidity event ABI loading and log decoding.
 //!
-//! [`AbiRegistry::load_dir`] reads every `<name>/abi.json` below a directory.
+//! [`AbiRegistry::load_dir`] reads every `<name>/abi.json` below a directory
+//! and the known nested precompile ABI paths.
 //! A precompile's emitter address comes from an `address` file next to its
 //! `abi.json` when present, otherwise from the known native precompile table;
 //! an ABI with neither is registered unbound and decodes a matching topic from
@@ -36,13 +37,19 @@ pub const KNOWN_PRECOMPILES: [(&str, u16); 23] = [
     ("layerxverify", 0x1012),
     ("layerxcustody", 0x1013),
     ("layerxanchor", 0x1014),
-    ("layerxexchange", 0x1015),
+    ("perps", 0x1015),
     ("layerxbridge", 0x1016),
     ("launchpad", 0x1017),
     ("feetoken", 0x1018),
     ("xweb", 0x1019),
     ("layerxpay", 0x101B),
     ("layerxprograms", 0x101D),
+];
+
+/// Native precompile ABIs stored below nested paths, with their addresses.
+pub const NESTED_PRECOMPILES: [(&str, &str, u16); 2] = [
+    ("perps", "perps/abi/abi.json", 0x1015),
+    ("pricefeed", "pricefeed/abi/abi.json", 0x1020),
 ];
 
 /// The 20-byte address of a native precompile numbered `number`.
@@ -326,7 +333,7 @@ impl AbiRegistry {
         self.abis.push(abi);
     }
 
-    /// Loads every `<name>/abi.json` directly below `root`.
+    /// Loads every `<name>/abi.json` directly below `root` and known nested ABIs.
     ///
     /// # Errors
     /// Refuses an unreadable directory, malformed JSON or a malformed
@@ -367,6 +374,22 @@ impl AbiRegistry {
             registry.insert(LoadedAbi {
                 contract,
                 address,
+                events,
+            });
+        }
+        for (contract, relative_path, number) in NESTED_PRECOMPILES {
+            let path = root.join(relative_path);
+            if !path.is_file() {
+                continue;
+            }
+            let text = fs::read_to_string(&path)
+                .map_err(|error| IndexError::Config(format!("{relative_path}: {error}")))?;
+            let document: Value = serde_json::from_str(&text)
+                .map_err(|error| IndexError::Config(format!("{relative_path}: {error}")))?;
+            let events = Self::parse_events(contract, &document)?;
+            registry.insert(LoadedAbi {
+                contract: contract.to_owned(),
+                address: Some(precompile_address(number)),
                 events,
             });
         }
@@ -721,6 +744,43 @@ mod tests {
                 "{contract} has the wrong precompile address"
             );
         }
+    }
+
+    #[test]
+    fn perps_and_pricefeed_abis_load_at_their_addresses() {
+        let registry = repository_precompiles();
+        for (contract, number, name, signature) in [
+            (
+                "perps",
+                0x1015,
+                "CollateralDeposited",
+                "CollateralDeposited(address,uint256,uint256)",
+            ),
+            (
+                "pricefeed",
+                0x1020,
+                "FeedKeyRegistered",
+                "FeedKeyRegistered(address,address,bytes,address)",
+            ),
+        ] {
+            let address = precompile_address(number);
+            let abi = registry
+                .abis()
+                .iter()
+                .find(|abi| abi.contract == contract)
+                .unwrap_or_else(|| panic!("{contract} ABI not loaded"));
+            assert_eq!(abi.address, Some(address));
+            assert!(abi.events.iter().any(|event| event.name == name));
+            let event = registry
+                .lookup(address, keccak(signature.as_bytes()))
+                .unwrap_or_else(|| panic!("{contract}.{name} not registered at {number:#x}"));
+            assert_eq!(event.contract, contract);
+            assert_eq!(event.name, name);
+            assert_eq!(event.signature, signature);
+        }
+        assert!(!registry.abis().iter().any(|abi| {
+            abi.contract == "layerxexchange" && abi.address == Some(precompile_address(0x1015))
+        }));
     }
 
     #[test]
