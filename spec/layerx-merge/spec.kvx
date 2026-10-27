@@ -99680,7 +99680,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.34.2]
 title = "Register the 0x0905 merge constructor and publish job outcomes as typed events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.34.1", "2.32.4", "5.94.2"]
@@ -115163,7 +115163,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.35.2]
 title = "Serve the manifest leader pin from the e2e application"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.35.1"]
@@ -122063,7 +122063,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.26.2]
 title = "Drop the unused distrKeeper from the tokenfactory keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.26.3", "6.0.2", "5.0.3"]
@@ -130232,7 +130232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.28.2]
 title = "Prove the xbank descriptors no longer shadow the bank proto file names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.21.1", "7.26.2", "5.0.3", "5.95.3", "7.26.4"]
@@ -133692,7 +133692,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.28.2]
 title = "Compile ramp legs as ledger calls and verify them from signed sequencer receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["8.28.1", "9.23.7"]
