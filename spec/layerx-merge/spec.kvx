@@ -150243,7 +150243,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.5]
 title = "Keep the x-websearch example configuration and README in step with the loader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["11.34.7", "11.36.2"]
