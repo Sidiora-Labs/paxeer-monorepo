@@ -52,8 +52,9 @@ fn main() -> ExitCode {
             return ExitCode::FAILURE;
         }
         let shared = Arc::clone(&view);
+        let origins = config.attestation_allowed_origins.clone();
         std::thread::spawn(move || {
-            if let Err(error) = serve(listener, shared, Vec::new()) {
+            if let Err(error) = serve(listener, shared, origins) {
                 eprintln!("layerx-bridge-relayer: attestation server: {error}");
                 std::process::exit(1);
             }
