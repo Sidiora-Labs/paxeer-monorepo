@@ -149798,7 +149798,7 @@ do_9 = "In a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once 
 
 [task.11.34.6]
 title = "Settle exact payments from the payExact transaction hash and keep kernel-era records loadable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.34.5"]
