@@ -1,0 +1,54 @@
+[profile.go]
+toolchains = ["go 1.25.6", "shell", "git", "python 3.12 (image-pinned patch)"]
+network = "locked Go module proxy only"
+prebuild = []
+
+[profile.go-cgo]
+toolchains = ["go 1.25.6 with CGO_ENABLED=1", "C17 compiler 13.3.0", "make", "rust 1.91.1", "cargo", "OpenSSL development libraries", "shell", "git"]
+network = "locked Go module proxy and locked crate registry only"
+prebuild = ["make build/liblayerx.a programs/target/debug/liblayerx_programs_sandbox.a"]
+
+[profile.rust]
+toolchains = ["rust 1.91.1", "cargo", "clippy", "rustfmt", "wasm32-unknown-unknown when declared", "native compiler", "crypto development libraries"]
+network = "locked crate registry only"
+prebuild = []
+
+[profile.node]
+toolchains = ["node 24 (image-pinned patch at least 24.3.0)", "pnpm (image-pinned version matching the task package)"]
+network = "pnpm store of services/wallet/pnpm-lock.yaml only"
+prebuild = []
+
+[profile.elixir]
+toolchains = ["elixir 1.19.4-otp-27", "erlang 27.3.4.6", "node 20.17.0", "mix"]
+network = "locked Hex dependencies only"
+prebuild = []
+
+[profile.solidity]
+toolchains = ["forge v1.7.1", "solc 0.8.27", "solc 0.8.30", "bash", "git"]
+network = "pinned libraries in contracts/bridge/evm/bootstrap-libs.sh and declared solc versions only"
+prebuild = ["bash contracts/bridge/evm/bootstrap-libs.sh"]
+
+[profile.python]
+toolchains = ["python 3.12 (image-pinned patch)", "pytest", "shell"]
+network = "locked Python package index only"
+prebuild = []
+
+[profile.jvm]
+toolchains = ["JDK 21 (image-pinned patch)", "maven", "kotlin 2.0.20 when declared"]
+network = "declared Maven dependencies only"
+prebuild = []
+
+[profile.dotnet]
+toolchains = ["dotnet SDK 8.0 (image-pinned patch)"]
+network = "locked NuGet dependencies only"
+prebuild = []
+
+[profile.swift]
+toolchains = ["swift 6.0.3", "SwiftPM"]
+network = "locked SwiftPM dependencies only"
+prebuild = []
+
+[profile.mixed]
+toolchains = ["python 3.12 (image-pinned patch)", "task-declared immutable union of required profile toolchains"]
+network = "union of the task-declared component profile dependency allowlists only"
+prebuild = []
