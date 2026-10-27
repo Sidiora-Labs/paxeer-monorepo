@@ -104309,7 +104309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.7]
 title = "Write the chain margin tiers into perps.market_tiers on refresh"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.42.2", "3.42.8"]
@@ -107321,7 +107321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.8.5]
 title = "Delete the generation 1 key builders and keep their prefixes reserved"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["4.8.4"]
@@ -121704,7 +121704,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.22.8]
 title = "Prove a layerxledger-registered denom carries its issuer DID and pause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.22.7", "6.0.2", "2.0.3", "2.95.2"]
@@ -126912,7 +126912,7 @@ do_5 = "Both attempts failed on the transaction index: the sequencer numbers acc
 
 [task.7.0.4]
 title = "Check every client-called method is served on the matching transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["7.0.3", "7.9.1"]
@@ -128837,7 +128837,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.11]
 title = "Check ethclient pending reads against a sequencer server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["7.0.3", "7.11.3"]
@@ -149119,7 +149119,7 @@ do_4 = "Compile nothing: the build gate is the lock-consistency check above. ser
 
 [task.11.26.6]
 title = "Port the SDK's mirror source verification to the committed archive verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.4", "11.26.5", "11.37.1"]
@@ -149761,7 +149761,7 @@ do_5 = "The first attempt's two tests failed before the settlement probe: the bi
 
 [task.11.34.5]
 title = "Recover metered draws from pax_sequencerReceipt and retire the gateway lx_ client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["11.34.3", "11.34.4"]
@@ -150148,7 +150148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.37.3]
 title = "Check mirror receipt verification against the shared sequencer-receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.37.1", "11.0.4", "9.1.6"]
@@ -157049,7 +157049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.2]
 title = "Serve the program account and value account views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1"]
