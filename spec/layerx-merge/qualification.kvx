@@ -7317,3 +7317,19 @@ symbol = "req.4058.1"
 observed = "The first attempt (c6000a56e) builds and starts the test network with sdk/testutil/network.New and UnmarshalAsJSON, covers all seven REST routes, and passes the found-false and REST-equals-gRPC comparisons; only the malformed-address subtests fail because AirdropClaimed and HasRole return errors.Unwrap(err) and FeeRight maps its Cause to ErrInvalidAddress, so the gateway answers HTTP 500 with gRPC Unknown, which the qualified CLI tests pin."
 assumption = "req.4058.1 (a malformed address answers a 400-class error body) contradicts the keeper behaviour that qualified tests lock in; the owner either amends the criterion to the gRPC status of the same request or adds a keeper task that returns InvalidArgument and updates the CLI tests. 4.10.3 shares the same stale do_1 and do_2 symbols, now corrected. Held for the ruling; recorded once."
 severity = "blocker"
+
+[finding.8.47.3]
+task = "8.47.3"
+file = "sdk/platform/conformance/README.md"
+symbol = "verify_cmd"
+observed = "The seven Python conformance gates (8.47.1, 8.47.2, 8.47.3, 8.47.4, 8.47.5, 8.47.6, 8.47.9) were written as a bare python3 -m pytest over hyphenated .test.py modules; under pytest's default import mode such a module name cannot be imported (No module named streaming-resumability) and layerx_sdk is not on the path, so the attempts that passed (8.47.1, 8.47.2, 8.47.9) did so only with PYTEST_ADDOPTS=--import-mode=importlib and PYTHONPATH=services/agent/sdk/python exported in the qualifying shell, while 8.47.3's second attempt failed at collection with the same code change."
+assumption = "The README (line 37) documents the runner as PYTHONPATH=services/agent/sdk/python python3 -m pytest --import-mode=importlib; the seven verify_cmds now carry that prefix verbatim. The three done tasks keep their done records (their gates passed in their qualifying shells); the release gate reruns them with the stated command. Recorded once."
+severity = "major"
+
+[finding.2.38.6]
+task = "2.38.6"
+file = "node/precompiles.go"
+symbol = "LXP_PRECOMPILE_NO_CONTEXT"
+observed = "Reading the first attempts of 2.38.6 (def7dcffe) and 2.38.7 (d975e2e04): the integration proofs assumed the application already serves the pay precompile at 0x101B and the agent scheduler at 0x0905, but those come from 5.19.4, 5.94.2 and 2.34.2, which the tasks did not require, so the pay genesis test panicked with LXP_PRECOMPILE_NO_CONTEXT: LayerXPayKeepers is required and the agent genesis test compared against a precompile map without the scheduler. 2.38.5 passed on its second attempt once 5.19.2 had landed."
+assumption = "The proofs test the application's served precompiles rather than ones built locally in the test, so 2.38.7 requires 2.34.2 and 2.38.6 requires 5.94.2 and 5.19.4, with waves following. Their candidates are kept as continue seeds. Recorded once."
+severity = "major"
