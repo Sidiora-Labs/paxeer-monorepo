@@ -303,6 +303,51 @@ fn complete_checkout_stores_the_transaction_hash() {
 }
 
 #[test]
+fn read_order_refuses_an_unpinned_receipt() {
+    let case = fixture_case();
+    let submission = submission(&case);
+    let principal = PrincipalId::new("buyer").unwrap_or_else(|error| panic!("principal: {error}"));
+    let trace = TraceId::mint([0x22; 16]);
+    for rung in [
+        SettlementRung::Receipted,
+        SettlementRung::Committed {
+            block_number: 1001,
+            block_hash: [0x42; 32],
+        },
+    ] {
+        let mut keys = receipt_keys(&case).to_vec();
+        let mut gateway = registered_gateway(&trace);
+        let mut payment = checkout_payment(&case, &submission);
+        payment.evidence.rung = rung;
+        let outcome = UcpAdapter::complete_checkout(
+            &mut gateway,
+            &principal,
+            &submission,
+            &mut payment,
+            &keys,
+            &trace,
+            2,
+        )
+        .unwrap_or_else(|error| panic!("complete checkout: {error}"));
+        assert_eq!(outcome.status, CheckoutStatus::Completed);
+        let stored = outcome
+            .stored_order
+            .unwrap_or_else(|| panic!("missing stored order"));
+        let order = outcome.order.unwrap_or_else(|| panic!("missing UCP order"));
+        assert_eq!(UcpAdapter::read_order(&stored, &keys), Ok(order.clone()));
+        keys.clear();
+        assert_eq!(
+            UcpAdapter::read_order(&stored, &keys),
+            Err(UcpError::ReceiptMismatch)
+        );
+        assert_eq!(
+            UcpAdapter::read_order(&stored, &receipt_keys(&case)),
+            Ok(order)
+        );
+    }
+}
+
+#[test]
 fn complete_checkout_on_a_submitted_rung_stays_open() {
     let case = fixture_case();
     let submission = submission(&case);
