@@ -4,6 +4,12 @@
 
 `@pax-js/cosmos` is a set of TypeScript libraries for interaction with Pax, using Cosmos standards and interfaces. It provides:
 
+## Provenance
+
+This package was taken from [Paxeer-Network/pax-js](https://github.com/Paxeer-Network/pax-js)
+at upstream tag `v1.0.6-pax.1`. It is now a first-party package, and its `dist`
+files are edited and maintained in this repository.
+
 > **For EVM Developers**: @pax-js/cosmos/types provides TypeScript types for all custom Pax modules, simplifying integration between Cosmos and EVM ecosystems.
 
 ### Installation
@@ -296,10 +302,16 @@ const { balances } = await Querier.cosmos.bank.v1beta1.AllBalances({ address: pa
 
 ## Local Package Development
 
-### Pre-requisites
-- Buf installed on your machine. https://buf.build/docs/installation
+Install the locked dependencies from the repository root:
 
-This package is generated using buf.build. To regenerate the types, run `yarn generate` which builds the types from proto files with the buf build `ts-proto` and `protoc-gen-grpc-gateway-ts` plugins. From there, typescript is used in a postprocessing script to extract the necessary types and perform any formatting required.
+```sh
+npm --prefix sdk/js ci
+```
 
-### Regenerating Packages
-To regenerate the packages, run `yarn generate`. This will rebuild the libraries using the scripts in this repo.
+Edit the checked-in `dist` files directly and run the package tests:
+
+```sh
+npm --prefix sdk/js test
+```
+
+The tests exercise the package's exported CommonJS entries and check its provenance.

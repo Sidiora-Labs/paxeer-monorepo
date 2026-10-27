@@ -31,12 +31,15 @@ var (
 	ErrSealHeight    = errors.New("sequencer: seal height is not the open height")
 	ErrSeqExhausted  = errors.New("sequencer: sequence number space exhausted")
 	ErrBeginBlock    = errors.New("sequencer: begin block failed")
+	ErrLeaseFenced   = errors.New("sequencer: executor fenced by a later lease")
 )
 
 var seqHashDomain = []byte(seqtypes.SeqHashDomain)
 
 // Executor executes transactions at receipt on the open speculative block.
 type Executor interface {
+	// Fence permanently refuses subsequent Open, Accept and Seal calls.
+	Fence() error
 	// Mode reports the execution mode the executor was built with.
 	Mode() Mode
 	// Open builds the open layer over the last committed state for height at
@@ -139,6 +142,7 @@ type openLayer struct {
 
 type sequential struct {
 	mu          sync.Mutex
+	fenced      bool
 	host        Host
 	chainID     string
 	proposer    []byte
@@ -224,9 +228,19 @@ func NewExecutor(host Host, opts Options) (Executor, error) {
 
 func (s *sequential) Mode() Mode { return ModeSequential }
 
+func (s *sequential) Fence() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.fenced = true
+	return nil
+}
+
 func (s *sequential) Open(height int64, timestampMs int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return ErrLeaseFenced
+	}
 	if s.open != nil {
 		return ErrLayerOpen
 	}
@@ -281,6 +295,9 @@ func (s *sequential) beginBlock(ctx sdk.Context, height int64) (events []abci.Ev
 func (s *sequential) Seal(height int64) (*Batch, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return nil, ErrLeaseFenced
+	}
 	if s.open == nil {
 		return nil, ErrLayerNotOpen
 	}
