@@ -12,7 +12,7 @@ use layerx_platform_gateway::evm;
 use layerx_platform_gateway::http::OutboundRequest;
 use serde_json::{json, Map, Value};
 
-/// Assets joined per `px_getBalances` and `px_listAssets` answer.
+/// Assets joined per `px_listAssets` answer.
 const MAX_JOINED_ASSETS: usize = 16;
 
 /// Paxeer RPC names the relay may fail over across.
@@ -252,7 +252,7 @@ impl Resolution {
             "pax_address": self.pax_address,
             "layerx_did": self.did_public_key.map(|key| format!("did:layerx:{}", hex32(&key))),
             "layerx_account": self.layerx_account.as_ref().map(hex32),
-            "bound": self.did_public_key.is_some()
+            "bound": self.evm.is_some() && self.did_public_key.is_some()
         })
     }
 
@@ -505,19 +505,66 @@ fn resolve_account(config: &Config, id: &Value, params: Option<&Value>) -> Value
     }
 }
 
-fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
-    let resolution = match resolved(config, id, params) {
+fn node_at_height(config: &Config, height: u64, request: &Value) -> Result<Value, &'static str> {
+    let mut request = request.clone();
+    if request["method"] == "eth_call" {
+        request["params"][1] = json!(format!("0x{height:x}"));
+    }
+    node(config, &request)
+}
+
+fn resolved_at_height(
+    config: &Config,
+    id: &Value,
+    params: Option<&Value>,
+) -> Result<(Resolution, u64), Value> {
+    if config.paxeer.is_none() {
+        return Err(unconfigured(id));
+    }
+    let selector =
+        account_selector(params).map_err(|code| super::rpc::error(id, code, "Invalid params"))?;
+    let height =
+        block_number(&mut |request| node(config, request)).map_err(|code| unavailable(id, code))?;
+    let resolution = match resolve(
+        &mut |request| node_at_height(config, height, request),
+        &selector,
+    ) {
         Ok(resolution) => resolution,
+        Err(UNBOUND_DID) => {
+            let Selector::Did(key) = selector else {
+                return Err(unavailable(id, UNBOUND_DID));
+            };
+            let name = format!("agent:did:layerx:{}:main", hex32(&key));
+            let account = layerx_types::account::AccountId::parse(&name)
+                .map_err(|_| unavailable(id, "conflicting_identity_binding"))?;
+            let account = layerx_wire::hash::account_id_for_protocol(&account, 3)
+                .map_err(|_| unavailable(id, "conflicting_identity_binding"))?;
+            Resolution {
+                evm: None,
+                pax_address: None,
+                did_public_key: Some(key),
+                layerx_account: Some(account),
+            }
+        }
+        Err(code) => return Err(unavailable(id, code)),
+    };
+    Ok((resolution, height))
+}
+
+fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
+    let (resolution, height) = match resolved_at_height(config, id, params) {
+        Ok(snapshot) => snapshot,
         Err(refusal) => return refusal,
     };
     let paxeer = match resolution.evm {
         None => Value::Null,
         Some(address) => {
             let address = evm::address_hex(&address);
+            let block = format!("0x{height:x}");
             let balance = match quantity(
                 &mut |request| node(config, request),
                 "eth_getBalance",
-                &json!([address.clone(), "latest"]),
+                &json!([address, block]),
             ) {
                 Ok(balance) => balance,
                 Err(code) => return unavailable(id, code),
@@ -525,33 +572,18 @@ fn get_account(config: &Config, id: &Value, params: Option<&Value>) -> Value {
             let nonce = match quantity(
                 &mut |request| node(config, request),
                 "eth_getTransactionCount",
-                &json!([address.clone(), "latest"]),
+                &json!([address, block]),
             ) {
                 Ok(nonce) => nonce,
                 Err(code) => return unavailable(id, code),
             };
-            json!({"address": address, "balance": balance, "nonce": nonce})
+            json!({"address": address, "balance": balance, "nonce": nonce, "height": height})
         }
     };
-    let layerx = resolution
-        .layerx_account
-        .and_then(|account| {
-            super::rpc::read_result(config, &format!("/v1/accounts/{}", hex32(&account)))
-        })
-        .unwrap_or(Value::Null);
-    if !layerx.is_null() {
-        let expected_id = resolution.layerx_account.as_ref().map(hex32);
-        let expected_name = resolution.did().map(|did| format!("agent:{did}:main"));
-        if layerx.get("account_id").and_then(Value::as_str) != expected_id.as_deref()
-            || layerx.get("name").and_then(Value::as_str) != expected_name.as_deref()
-        {
-            return unavailable(id, "conflicting_identity_binding");
-        }
-    }
     json!({
         "jsonrpc": "2.0",
         "id": id,
-        "result": {"account": resolution.document(), "paxeer": paxeer, "layerx": layerx}
+        "result": {"account": resolution.document(), "paxeer": paxeer}
     })
 }
 
@@ -645,83 +677,46 @@ fn list_assets(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     })
 }
 
-fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
-    let resolution = match resolved(config, id, params) {
-        Ok(resolution) => resolution,
-        Err(refusal) => return refusal,
-    };
-    let records = match layerx_assets(config, id) {
-        Ok(records) => records,
-        Err(refusal) => return refusal,
-    };
-    let layerx_accounts = resolution
-        .did()
-        .and_then(|did| super::rpc::read_result(config, &format!("/v1/dids/{did}/accounts")))
-        .unwrap_or(Value::Null);
-    if !layerx_accounts.is_null() {
-        if let Err(code) = validate_native_listing(&resolution, &layerx_accounts) {
-            return unavailable(id, code);
-        }
-    }
-    let mut balances = Vec::with_capacity(records.len());
-    for record in records {
-        let asset_id = record
-            .get("asset_id")
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned();
-        let custody = custody_asset(config, &asset_id);
-        let denom = custody
-            .get("denom")
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .or_else(|| {
-                record
-                    .get("denom")
-                    .and_then(Value::as_str)
-                    .map(str::to_owned)
-            });
-        let paxeer = match (resolution.evm, denom.as_deref()) {
-            (Some(address), Some(denom)) if !denom.is_empty() => {
-                match call(
-                    &mut |request| node(config, request),
-                    &evm::BANK_PRECOMPILE,
-                    &evm::calldata_address_string(evm::SELECTOR_BANK_BALANCE, &address, denom),
-                )
-                .ok()
-                .and_then(|answer| evm::decode_word(&answer).ok())
-                {
-                    Some(word) => json!({"denom": denom, "amount": evm::uint256_decimal(&word)}),
-                    None => Value::Null,
-                }
-            }
-            _ => Value::Null,
-        };
-        let layerx = layerx_accounts
-            .get("accounts")
-            .and_then(Value::as_array)
-            .and_then(|accounts| {
-                accounts.iter().find(|account| {
-                    account.get("asset_id").and_then(Value::as_str) == Some(&asset_id)
+fn decode_coins(answer: &[u8]) -> Result<Vec<Value>, &'static str> {
+    evm::decode_coins(answer)
+        .map(|coins| {
+            coins
+                .into_iter()
+                .map(|(denom, amount)| {
+                    json!({"denom": denom, "amount": evm::uint256_decimal(&amount)})
                 })
-            })
-            .cloned()
-            .unwrap_or(Value::Null);
-        balances.push(json!({
-            "asset_id": asset_id,
-            "denom": denom,
-            "custody": custody,
-            "paxeer": paxeer,
-            "layerx": layerx
-        }));
-    }
+                .collect()
+        })
+        .map_err(|_| "invalid_paxeer_response")
+}
+
+fn get_balances(config: &Config, id: &Value, params: Option<&Value>) -> Value {
+    let (resolution, height) = match resolved_at_height(config, id, params) {
+        Ok(snapshot) => snapshot,
+        Err(refusal) => return refusal,
+    };
+    let Some(address) = resolution.evm else {
+        return unavailable(id, UNBOUND_DID);
+    };
+    let answer = match call(
+        &mut |request| node_at_height(config, height, request),
+        &evm::BANK_PRECOMPILE,
+        &evm::calldata_address(evm::SELECTOR_BANK_ALL_BALANCES, &address),
+    ) {
+        Ok(answer) => answer,
+        Err(code) => return unavailable(id, code),
+    };
+    let balances = match decode_coins(&answer) {
+        Ok(balances) => balances,
+        Err(code) => return unavailable(id, code),
+    };
     json!({
         "jsonrpc": "2.0",
         "id": id,
         "result": {
             "account": resolution.document(),
-            "balances": balances,
-            "joined_limit": MAX_JOINED_ASSETS
+            "height": height,
+            "balances": balances
         }
     })
 }
