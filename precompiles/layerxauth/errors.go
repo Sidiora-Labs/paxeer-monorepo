@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 )
@@ -26,7 +27,7 @@ func RevertError(err error) error {
 		types.ErrNonCanonical,
 		types.ErrUnauthorizedDebit,
 		types.ErrIdempotentReplay,
-		types.ErrPausedScope,
+		govtypes.ErrPausedScope,
 	} {
 		if errors.Is(err, registered) {
 			return revertError{cause: err, code: registered.Error()}
