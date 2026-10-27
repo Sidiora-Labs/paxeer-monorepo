@@ -132087,7 +132087,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.6]
 title = "Register the spot order book contracts in the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["8.16.5", "6.0.2", "8.1.5"]
