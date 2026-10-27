@@ -104243,6 +104243,7 @@ interfaces = ["interface.3.go-perps-data-markets-run-j27", "interface.3.met-perp
 do_1 = "Add Run to services/platform/perps-data/internal/markets/markets.go calling Refresh (services/platform/perps-data/internal/markets/markets.go:114) every interval and after a failure every RetryInterval (services/platform/perps-data/internal/markets/markets.go:31), forever until ctx ends, because no ABI event announces a listing and Retry (services/platform/perps-data/internal/markets/markets.go:177) stops after the first success."
 do_2 = "Set the gauge perps_markets_refresh_height to the refreshed height and add one to perps_markets_refresh_failures_total per failed Refresh (services/platform/perps-data/internal/markets/markets.go:114) on the Metrics passed to Run."
 do_3 = "Write TestRunRefreshesAgain in services/platform/perps-data/internal/markets/markets_test.go on testDB (services/platform/perps-data/internal/markets/markets_test.go:46) and testClient (services/platform/perps-data/internal/markets/markets_test.go:67) with a 50 ms interval."
+do_4 = "Observe the second refresh independently of the chain: against the node the verify_cmd starts, one Refresh takes longer than 500 ms and two consecutive refreshes may read the same height, so attempt a81709267's 500 ms deadline on refreshed_block advancing never held (first and last both NULL). Wait up to 30 s for refreshed_block of market 0 to become non-null, call reseed(t, db) again (it deletes the rows and re-inserts the seed with refreshed_block NULL), then wait up to 30 s for it to become non-null again; keep the 50 ms interval and the cancellation assertions."
 symbols = ["Run", "perps_markets_refresh_height", "perps_markets_refresh_failures_total", "TestRunRefreshesAgain"]
 touches = ["services/platform/perps-data/internal/markets/markets.go", "services/platform/perps-data/internal/markets/markets_test.go"]
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestRunRefreshesAgain"]
@@ -105655,7 +105656,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.55.1]
 title = "Retire the spot-design exports and the static perps market list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["3.48.8", "3.48.11", "3.48.14", "3.0.4"]
@@ -111899,7 +111900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.1.3]
 title = "Compare the ProcessProposal proposer against the consensus address of each pinned leader key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.1.2"]
@@ -131294,7 +131295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.2]
 title = "Stop proxying the kernel program explorer paths through the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.7.1", "8.0.3", "8.1.5"]
@@ -132610,7 +132611,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.8]
 title = "Stop the beta cluster from building and deploying the relay archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -150013,7 +150014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.1]
 title = "Delete the x-websearch kernel module, its binary wiring and the kernel tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.32.3", "11.33.1", "11.34.5", "11.35.2"]
@@ -150110,7 +150111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.4]
 title = "Check x-websearch settlement decoding against the shared sequencer-receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.34.5"]
@@ -153858,7 +153859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.8]
 title = "Remove the account deposit route and its link"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["12.34.7"]
@@ -153888,7 +153889,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.9]
 title = "Delete the custody deposit flow and the custody precompile helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["12.34.8"]
@@ -156733,7 +156734,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.3]
 title = "Serve registryRead through the kernel registry activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8"]
@@ -157219,7 +157220,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.3]
 title = "Serve getWindDown and getExitRoute"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
@@ -157253,7 +157254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.4]
 title = "Serve the current, pending and versioned fee schedule views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8"]
@@ -157287,7 +157288,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.5]
 title = "Serve getWebRequest from the program web request record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8"]
@@ -157354,7 +157355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.7]
 title = "Serve getSandbox and getRetirementControl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]

@@ -50,29 +50,32 @@ export interface PerpsMarket {
   symbol: string;
   name: string;
   baseToken: string;
-  maxLeverage: number;
   description?: string;
 }
 
+export interface TradeableMarket extends PerpsMarket {
+  maxLeverage: number;
+}
+
 export const PERPS_MARKETS: PerpsMarket[] = [
-  { marketId: 0, symbol: "BTC", name: "Bitcoin", baseToken: "BTC", maxLeverage: 1000, description: "Bitcoin is the original cryptocurrency and the largest digital asset by market cap. Created in 2009, it operates on a decentralized network and is widely considered a store of value, often called digital gold." },
-  { marketId: 1, symbol: "ETH", name: "Ethereum", baseToken: "ETH", maxLeverage: 1000, description: "Ethereum is the leading smart contract platform powering thousands of decentralized applications, DeFi protocols, and NFTs. Its native token ETH is used to pay for transactions across the network." },
-  { marketId: 2, symbol: "SOL", name: "Solana", baseToken: "SOL", maxLeverage: 1000, description: "Solana is a high-performance blockchain known for fast transaction speeds and low fees. It has become a popular platform for DeFi, NFTs, and consumer-facing crypto apps." },
-  { marketId: 3, symbol: "AVAX", name: "Avalanche", baseToken: "AVAX", maxLeverage: 1000, description: "Avalanche is a fast, low-cost smart contract platform designed for DeFi and enterprise applications. It uses a novel consensus protocol that can process thousands of transactions per second." },
-  { marketId: 4, symbol: "LINK", name: "Chainlink", baseToken: "LINK", maxLeverage: 1000, description: "Chainlink is the leading decentralized oracle network, connecting smart contracts to real-world data like prices, weather, and events. It powers most of DeFi's price feeds." },
-  { marketId: 5, symbol: "TSLA", name: "Tesla", baseToken: "TSLA", maxLeverage: 1000, description: "Tesla is an electric vehicle and clean energy company led by Elon Musk. It designs and manufactures EVs, battery storage, and solar panels. TSLA is one of the most actively traded stocks globally." },
-  { marketId: 6, symbol: "NVDA", name: "NVIDIA", baseToken: "NVDA", maxLeverage: 1000, description: "NVIDIA designs graphics processing units (GPUs) used in gaming, data centers, and AI training. It is a dominant player in the AI hardware market and one of the most valuable companies in the world." },
-  { marketId: 7, symbol: "NAS100", name: "Nasdaq 100", baseToken: "NAS100", maxLeverage: 1000, description: "The Nasdaq 100 tracks the 100 largest non-financial companies listed on the Nasdaq exchange, heavily weighted toward technology giants like Apple, Microsoft, and NVIDIA." },
-  { marketId: 8, symbol: "XAU", name: "Gold", baseToken: "XAU", maxLeverage: 1000, description: "Gold is the world's oldest store of value and a traditional safe-haven asset. Investors turn to gold during economic uncertainty. It is priced per troy ounce in US dollars." },
-  { marketId: 9, symbol: "SPX500", name: "S&P 500", baseToken: "SPX500", maxLeverage: 1000, description: "The S&P 500 is an index of the 500 largest publicly traded companies in the United States. It is widely regarded as the best single gauge of the US stock market and economy." },
-  { marketId: 10, symbol: "GOOGL", name: "Alphabet", baseToken: "GOOGL", maxLeverage: 1000, description: "Alphabet is the parent company of Google, the world's largest search engine and advertising platform. It also operates YouTube, Google Cloud, Waymo, and DeepMind." },
-  { marketId: 11, symbol: "PAX", name: "Paxeer Network", baseToken: "PAX", maxLeverage: 1000, description: "Paxeer Network is a next-generation Layer 1 blockchain designed for high-throughput trading applications. It powers this exchange and provides near-instant transaction finality." },
-  { marketId: 12, symbol: "SID", name: "Sidiora Markets", baseToken: "SID", maxLeverage: 1000, description: "Sidiora Markets is the decentralized exchange protocol built on Paxeer Network. SID is the governance and utility token that accrues fees from all trading activity on the platform." },
-  { marketId: 13, symbol: "HYPE", name: "Hyperliquid", baseToken: "HYPE", maxLeverage: 1000, description: "Hyperliquid is a high-performance decentralized perpetual exchange running on its own L1 chain. It offers an order-book trading experience with deep liquidity and fast execution." },
-  { marketId: 14, symbol: "XRP", name: "XRP", baseToken: "XRP", maxLeverage: 1000, description: "XRP is a digital payment token created by Ripple Labs, designed for fast and cheap cross-border money transfers. It is one of the oldest and most well-known cryptocurrencies." },
-  { marketId: 15, symbol: "ASTER", name: "Aster", baseToken: "ASTER", maxLeverage: 1000, description: "Aster is an emerging blockchain project focused on modular infrastructure and developer tooling. It aims to simplify building decentralized applications with composable building blocks." },
-  { marketId: 16, symbol: "TRUMP", name: "Trump", baseToken: "TRUMP", maxLeverage: 1000, description: "TRUMP is a meme token associated with political and cultural events. It is a high-volatility speculative asset popular among retail traders looking for short-term momentum plays." },
-  { marketId: 17, symbol: "BNB", name: "Binance Smart Chain", baseToken: "BNB", maxLeverage: 1000, description: "BNB is the native token of the BNB Chain ecosystem, originally created as the utility token for the Binance exchange. It is used for transaction fees, staking, and governance." },
+  { marketId: 0, symbol: "BTC", name: "Bitcoin", baseToken: "BTC", description: "Bitcoin is the original cryptocurrency and the largest digital asset by market cap. Created in 2009, it operates on a decentralized network and is widely considered a store of value, often called digital gold." },
+  { marketId: 1, symbol: "ETH", name: "Ethereum", baseToken: "ETH", description: "Ethereum is the leading smart contract platform powering thousands of decentralized applications, DeFi protocols, and NFTs. Its native token ETH is used to pay for transactions across the network." },
+  { marketId: 2, symbol: "SOL", name: "Solana", baseToken: "SOL", description: "Solana is a high-performance blockchain known for fast transaction speeds and low fees. It has become a popular platform for DeFi, NFTs, and consumer-facing crypto apps." },
+  { marketId: 3, symbol: "AVAX", name: "Avalanche", baseToken: "AVAX", description: "Avalanche is a fast, low-cost smart contract platform designed for DeFi and enterprise applications. It uses a novel consensus protocol that can process thousands of transactions per second." },
+  { marketId: 4, symbol: "LINK", name: "Chainlink", baseToken: "LINK", description: "Chainlink is the leading decentralized oracle network, connecting smart contracts to real-world data like prices, weather, and events. It powers most of DeFi's price feeds." },
+  { marketId: 5, symbol: "TSLA", name: "Tesla", baseToken: "TSLA", description: "Tesla is an electric vehicle and clean energy company led by Elon Musk. It designs and manufactures EVs, battery storage, and solar panels. TSLA is one of the most actively traded stocks globally." },
+  { marketId: 6, symbol: "NVDA", name: "NVIDIA", baseToken: "NVDA", description: "NVIDIA designs graphics processing units (GPUs) used in gaming, data centers, and AI training. It is a dominant player in the AI hardware market and one of the most valuable companies in the world." },
+  { marketId: 7, symbol: "NAS100", name: "Nasdaq 100", baseToken: "NAS100", description: "The Nasdaq 100 tracks the 100 largest non-financial companies listed on the Nasdaq exchange, heavily weighted toward technology giants like Apple, Microsoft, and NVIDIA." },
+  { marketId: 8, symbol: "XAU", name: "Gold", baseToken: "XAU", description: "Gold is the world's oldest store of value and a traditional safe-haven asset. Investors turn to gold during economic uncertainty. It is priced per troy ounce in US dollars." },
+  { marketId: 9, symbol: "SPX500", name: "S&P 500", baseToken: "SPX500", description: "The S&P 500 is an index of the 500 largest publicly traded companies in the United States. It is widely regarded as the best single gauge of the US stock market and economy." },
+  { marketId: 10, symbol: "GOOGL", name: "Alphabet", baseToken: "GOOGL", description: "Alphabet is the parent company of Google, the world's largest search engine and advertising platform. It also operates YouTube, Google Cloud, Waymo, and DeepMind." },
+  { marketId: 11, symbol: "PAX", name: "Paxeer Network", baseToken: "PAX", description: "Paxeer Network is a next-generation Layer 1 blockchain designed for high-throughput trading applications. It powers this exchange and provides near-instant transaction finality." },
+  { marketId: 12, symbol: "SID", name: "Sidiora Markets", baseToken: "SID", description: "Sidiora Markets is the decentralized exchange protocol built on Paxeer Network. SID is the governance and utility token that accrues fees from all trading activity on the platform." },
+  { marketId: 13, symbol: "HYPE", name: "Hyperliquid", baseToken: "HYPE", description: "Hyperliquid is a high-performance decentralized perpetual exchange running on its own L1 chain. It offers an order-book trading experience with deep liquidity and fast execution." },
+  { marketId: 14, symbol: "XRP", name: "XRP", baseToken: "XRP", description: "XRP is a digital payment token created by Ripple Labs, designed for fast and cheap cross-border money transfers. It is one of the oldest and most well-known cryptocurrencies." },
+  { marketId: 15, symbol: "ASTER", name: "Aster", baseToken: "ASTER", description: "Aster is an emerging blockchain project focused on modular infrastructure and developer tooling. It aims to simplify building decentralized applications with composable building blocks." },
+  { marketId: 16, symbol: "TRUMP", name: "Trump", baseToken: "TRUMP", description: "TRUMP is a meme token associated with political and cultural events. It is a high-volatility speculative asset popular among retail traders looking for short-term momentum plays." },
+  { marketId: 17, symbol: "BNB", name: "Binance Smart Chain", baseToken: "BNB", description: "BNB is the native token of the BNB Chain ecosystem, originally created as the utility token for the Binance exchange. It is used for transaction fees, staking, and governance." },
 ];
 
 // ── Market Categories (V2) ──────────────────────────────────────────
@@ -159,12 +162,6 @@ export const SPOT_ORDER_TYPE_LABELS: Record<number, string> = {
   1: "Limit",
 };
 
-// ── Spot Trading Mode Labels ───────────────────────────────────────────
-export const SPOT_MODE_LABELS: Record<number, string> = {
-  0: "Continuous",
-  1: "Batch",
-};
-
 // ── Fee Type Labels (V5) ───────────────────────────────────────────────
 export const FEE_TYPE_LABELS: Record<number, string> = {
   0: "Trading",
@@ -183,14 +180,6 @@ export const TRADE_TYPE_LABELS: Record<number, string> = {
   4: "Increase",
   5: "ADL",
   6: "Backstop",
-};
-
-// ── PoFQ Tier Labels ──────────────────────────────────────────────────
-export const POFQ_TIER_LABELS: Record<number, string> = {
-  0: "Bronze",
-  1: "Silver",
-  2: "Gold",
-  3: "Platinum",
 };
 
 // ── Margin Mode Labels ────────────────────────────────────────────────
@@ -255,10 +244,6 @@ export const ANALYTICS_AXIS_FORMATTERS = {
 export const FEATURED_MARKET_SYMBOLS: readonly string[] = [
   "BTC", "ETH", "SOL", "PAX", "SID", "XRP",
 ] as const;
-
-// ── Spot mode banner copy ─────────────────────────────────────────────
-export const SPOT_MODE_BANNER_COPY =
-  "Batch mode active — orders settle at the next epoch boundary.";
 
 // ── Default slippage (bps) ────────────────────────────────────────────
 export const DEFAULT_SLIPPAGE_BPS = 50; // 0.5%

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -71,7 +72,7 @@ func TestProcessProposalRejectsBrokenSeqChain(t *testing.T) {
 	require.Equal(t, root[:], batch.TxRoot)
 	require.NoError(t, batch.VerifySignature(sequencedChainID, [32]byte(sequencerPublicKey())))
 
-	resp := processSequencedProposal(t, w, sequencerLeader, broken, tx1, tx2)
+	resp := processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), broken, tx1, tx2)
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status)
 	require.Nil(t, w.App.GetOptimisticProcessingInfo().Completion)
 	requireSequencerState(t, w, 0, zeroSeqHash)
@@ -81,12 +82,12 @@ func TestProcessProposalRejectsBrokenSeqChain(t *testing.T) {
 	gapBatch, err := app.DecodeSequenceBatch(gap)
 	require.NoError(t, err)
 	require.NoError(t, seqtypes.VerifyBatchTxs(gapBatch, ids))
-	resp = processSequencedProposal(t, w, sequencerLeader, gap, tx1, tx2)
+	resp = processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), gap, tx1, tx2)
 	require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status)
 	require.Nil(t, w.App.GetOptimisticProcessingInfo().Completion)
 
 	valid := signedBatchAt(t, 2, sequencerKeySeed, 1, 2, zeroSeqHash, last[:], root[:], sequencerKeyID)
-	resp = processSequencedProposal(t, w, sequencerLeader, valid, tx1, tx2)
+	resp = processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), valid, tx1, tx2)
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resp.Status)
 	stored, err := w.App.SequencerKeeper.LastSeq(w.App.GetProcessProposalCleanContext())
 	require.NoError(t, err)
@@ -100,13 +101,13 @@ func TestProcessProposalRejectsProposerOutsideLeaders(t *testing.T) {
 	outsider := bytes.Clone(sequencerLeader)
 	outsider[0] ^= 1
 
-	for _, proposer := range [][]byte{outsider, nil, sequencerLeader[:20]} {
+	for _, proposer := range [][]byte{outsider, nil, sequencerLeader[:20], sequencerLeader, crypto.AddressHash(outsider)} {
 		resp := processSequencedProposal(t, w, proposer, batch)
 		require.Equal(t, abci.ResponseProcessProposal_REJECT, resp.Status)
 		require.Nil(t, w.App.GetOptimisticProcessingInfo().Completion)
 	}
 	requireSequencerState(t, w, 0, zeroSeqHash)
-	resp := processSequencedProposal(t, w, sequencerLeader, batch)
+	resp := processSequencedProposal(t, w, crypto.AddressHash(sequencerLeader), batch)
 	require.Equal(t, abci.ResponseProcessProposal_ACCEPT, resp.Status)
 }
 
