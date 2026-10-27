@@ -672,6 +672,7 @@ func init() {
 	}
 	// Start good http server
 	goodConfig := evmrpcconfig.DefaultConfig
+	goodConfig.IPRateLimitRPS = 0
 	goodConfig.HTTPPort = TestPort
 	goodConfig.WSPort = TestWSPort
 	goodConfig.FilterTimeout = 500 * time.Millisecond

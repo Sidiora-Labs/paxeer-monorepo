@@ -1,18 +1,17 @@
 #include "layerx/lxp_kernel.h"
 
 #include "layerx/lxp_admission.h"
-#include "layerx/lxp_bridge_credit.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lx_budget.h"
 #include "layerx/lx_escrow.h"
 #include "layerx/lx_stream.h"
 #include "layerx/lx_service.h"
-#include "layerx/lx_web.h"
 #include "layerx/lxp_maintenance.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_state_proof.h"
 #include "layerx/programs.h"
+#include "layerx/lxp_replica.h"
 
 #include "../modules/programs/event.h"
 
@@ -1394,17 +1393,6 @@ static const char *const module_names[LXP_MODULE_RESERVED_COUNT] = {
     "governance", "bridge", "programs", "spot", "web"
 };
 
-/* The module whose context an activity of a registration executes in. Web
- * activities read the paid program requests and commit the answers web_read
- * serves, both of which live in Programs module storage, so they run in the
- * Programs module context. */
-static uint16_t registration_context_module(
-    const lxp_module_registration *registration)
-{
-    return registration->module_id == LXP_MODULE_WEB ?
-           (uint16_t)LXP_MODULE_PROGRAMS : registration->module_id;
-}
-
 static bool registration_active(const lxp_module_registration *registration,
                                 uint64_t epoch)
 {
@@ -1673,12 +1661,6 @@ lxp_result lxp_kernel_bind_module_runtime(lxp_kernel *kernel,
         status = lxp_state_store_bind_accounts(
             kernel->state, programs_runtime->accounts);
         if (status != LXP_OK) return status;
-    } else if (module_id == LXP_MODULE_WEB) {
-        const lx_web_store *store = (const lx_web_store *)runtime;
-        if (store->network_id == 0U ||
-            store->pending_count > LX_WEB_PENDING_CAPACITY ||
-            store->committed_count > LX_WEB_STORE_CAPACITY)
-            return LXP_ERR_NON_CANONICAL;
     }
     kernel->module_runtime[module_id] = runtime;
     if (module_id == LXP_MODULE_PROGRAMS &&
@@ -2301,9 +2283,6 @@ lxp_result lxp_kernel_dispatch(const lxp_module_registration *registration,
     if (registration == NULL || ctx == NULL || activity == NULL ||
         authority == NULL || effects == NULL || module_result == NULL)
         return LXP_ERR_NON_CANONICAL;
-    if (registration->module_id == LXP_MODULE_WEB &&
-        ctx->module_id != registration_context_module(registration))
-        return LXP_ERR_CONTEXT_MISMATCH;
     if (ctx->module_id == LXP_MODULE_ASSET) {
         if (lxp_activity_module_id(activity->activity_type) != LXP_MODULE_ASSET)
             return LXP_ERR_UNKNOWN_ACTIVITY;
@@ -2384,133 +2363,6 @@ static lxp_result receipt_state_root(const lxp_kernel *kernel,
     (void)memcpy(input + offset, module_root, sizeof(module_root));
     offset += sizeof(module_root);
     return lxp_hash_domain(LXP_DOMAIN_RECEIPT, input, offset, root);
-}
-
-lxp_result lxp_bridge_credit_bind_receipt(
-    lxp_receipt *receipt, const lxp_module_ctx *ctx)
-{
-    lxp_u128 before;
-    lxp_u128 after;
-    lxp_u128 expected;
-    lxp_u128 amount;
-    lxp_u128 reserve_before;
-    lxp_u128 reserve_after;
-    lxp_u128 recipient_before;
-    lxp_u128 recipient_after;
-    const lxp_effect *event;
-    const lxp_effect *balances;
-    const lx_account *reserve = NULL;
-    const lx_account *recipient = NULL;
-    bool recipient_bound = false;
-    bool supply_bound = false;
-    const uint8_t *stored = NULL;
-    size_t stored_length = 0U;
-    uint8_t supply_key[47] = "custody-issued:";
-    uint8_t previous_supply[16] = {0};
-    if (receipt == NULL || ctx == NULL || receipt->protocol_version != 3U ||
-        receipt->module_id != LXP_MODULE_BRIDGE || ctx->module_id != LXP_MODULE_BRIDGE ||
-        receipt->module_version != 1U || ctx->kernel == NULL || ctx->ledger_receipt_present ||
-        receipt->operation != 0U || !lxp_u128_is_zero(receipt->amount) ||
-        !lxp_ct_is_zero(receipt->asset, 32U) || !lxp_ct_is_zero(receipt->from, 32U) ||
-        !lxp_ct_is_zero(receipt->to, 32U) || receipt->from_sequence != 0U ||
-        !lxp_u128_is_zero(receipt->from_balance_before) ||
-        !lxp_u128_is_zero(receipt->from_balance_after) ||
-        !lxp_u128_is_zero(receipt->to_balance_before) ||
-        !lxp_u128_is_zero(receipt->to_balance_after) ||
-        !lxp_ct_is_zero(receipt->authorization_hash, 32U) ||
-        !lxp_ct_is_zero(receipt->context_hash, 32U) ||
-        !lxp_ct_is_zero(receipt->transfer_set_root, 32U))
-        return LXP_FATAL_INVARIANT;
-    if (receipt->result_code != LXP_OK)
-        return !ctx->ledger_receipt_present && receipt->effects.count == 0U ?
-            LXP_OK : LXP_FATAL_INVARIANT;
-    if (ctx->effects == NULL || ctx->effects->count != 3U || receipt->effects.count != 3U ||
-        !ctx->transfer_applied || ctx->transfer_snapshot_count == 0U ||
-        ctx->effects->effects[0].kind != LXP_EFFECT_TRANSFER ||
-        !ctx->effects->effects[0].monetary ||
-        ctx->effects->effects[0].module_id != LXP_MODULE_BRIDGE ||
-        lxp_ct_is_zero(ctx->effects->effects[0].transfer_set_root, 32U) ||
-        ctx->global_sequence != receipt->global_sequence ||
-        lxp_ct_memcmp(ctx->activity_id, receipt->activity_id, 32U) != 0)
-        return LXP_FATAL_INVARIANT;
-    for (size_t index = 0U; index < 3U; ++index)
-        if (memcmp(&receipt->effects.effects[index], &ctx->effects->effects[index],
-                   sizeof(lxp_effect)) != 0) return LXP_FATAL_INVARIANT;
-    event = &ctx->effects->effects[1];
-    balances = &ctx->effects->effects[2];
-    if (event->module_id != LXP_MODULE_BRIDGE || event->kind != LXP_EFFECT_EVENT ||
-        event->event_type != 1U || event->body_length != 208U ||
-        balances->module_id != LXP_MODULE_BRIDGE || balances->kind != LXP_EFFECT_EVENT ||
-        balances->event_type != 2U || balances->body_length != 112U ||
-        lxp_u128_from_be(event->body + 96U, &amount) != LXP_OK || lxp_u128_is_zero(amount) ||
-        lxp_u128_from_be(event->body + 176U, &before) != LXP_OK ||
-        lxp_u128_from_be(event->body + 192U, &after) != LXP_OK ||
-        lxp_u128_add(before, amount, &expected) != LXP_OK ||
-        lxp_u128_cmp(expected, after) != 0 ||
-        lxp_u128_from_be(balances->body + 32U, &reserve_before) != LXP_OK ||
-        lxp_u128_from_be(balances->body + 48U, &reserve_after) != LXP_OK ||
-        lxp_u128_cmp(reserve_before, reserve_after) != 0 ||
-        lxp_u128_from_be(balances->body + 64U, &recipient_before) != LXP_OK ||
-        lxp_u128_from_be(balances->body + 80U, &recipient_after) != LXP_OK ||
-        lxp_u128_add(recipient_before, amount, &expected) != LXP_OK ||
-        lxp_u128_cmp(expected, recipient_after) != 0)
-        return LXP_FATAL_SUPPLY_MISMATCH;
-    for (size_t index = 0U; index < ctx->transfer_snapshot_count; ++index) {
-        const lxp_module_account_snapshot *snapshot = &ctx->transfer_snapshots[index];
-        if (memcmp(snapshot->account->id, balances->body, 32U) == 0) {
-            reserve = snapshot->account;
-            if (lxp_u128_cmp(snapshot->balance, reserve_before) != 0 ||
-                snapshot->next_sequence == UINT64_MAX ||
-                reserve->next_sequence != snapshot->next_sequence + 1U)
-                return LXP_FATAL_INVARIANT;
-            for (size_t byte = 0U; byte < 8U; ++byte)
-                if (balances->body[96U + byte] != (uint8_t)(snapshot->next_sequence >> (56U - byte * 8U)) ||
-                    balances->body[104U + byte] != (uint8_t)(reserve->next_sequence >> (56U - byte * 8U)))
-                    return LXP_FATAL_INVARIANT;
-        }
-        if (memcmp(snapshot->account->id, event->body + 64U, 32U) == 0) {
-            recipient = snapshot->account;
-            recipient_bound = lxp_u128_cmp(snapshot->balance, recipient_before) == 0;
-        }
-    }
-    if (recipient == NULL) {
-        for (size_t index = 0U; index < ctx->staged_account_count; ++index) {
-            const lx_account *account = &ctx->staged_accounts[index].account;
-            if (memcmp(account->id, event->body + 64U, 32U) == 0) {
-                recipient = account;
-                recipient_bound = lxp_u128_is_zero(recipient_before) &&
-                    account->created_at_sequence == ctx->global_sequence;
-            }
-        }
-    }
-    if (reserve == NULL || recipient == NULL || !recipient_bound ||
-        lxp_u128_cmp(reserve->balance, reserve_after) != 0 ||
-        lxp_u128_cmp(recipient->balance, recipient_after) != 0 ||
-        memcmp(reserve->asset_id, event->body + 32U, 32U) != 0 ||
-        memcmp(recipient->asset_id, event->body + 32U, 32U) != 0)
-        return LXP_FATAL_INVARIANT;
-    (void)memcpy(supply_key + 15U, event->body + 32U, 32U);
-    for (size_t index = 0U; index < ctx->kernel->module_kv_count; ++index) {
-        const lxp_module_kv_entry *entry = &ctx->kernel->module_kv[index];
-        if (entry->module_id == LXP_MODULE_BRIDGE && entry->key_length == sizeof(supply_key) &&
-            memcmp(entry->key, supply_key, sizeof(supply_key)) == 0) {
-            if (entry->value_length != 16U) return LXP_FATAL_INVARIANT;
-            (void)memcpy(previous_supply, entry->value, 16U);
-            supply_bound = true;
-        }
-    }
-    for (size_t index = 0U; index < ctx->staged_count; ++index) {
-        const lxp_module_kv_change *change = &ctx->staged[index];
-        if (!change->deleted && change->key_length == sizeof(supply_key) &&
-            memcmp(change->key, supply_key, sizeof(supply_key)) == 0) {
-            stored = change->value;
-            stored_length = change->value_length;
-        }
-    }
-    if (!supply_bound || memcmp(previous_supply, event->body + 176U, 16U) != 0 || stored == NULL ||
-        stored_length != 16U || memcmp(stored, event->body + 192U, 16U) != 0)
-        return LXP_FATAL_SUPPLY_MISMATCH;
-    return LXP_OK;
 }
 
 static lxp_result receipt_bind_ledger_projection(
@@ -3200,35 +3052,6 @@ lxp_result lxp_kernel_idempotency_receipt_validate(
     return status;
 }
 
-static lxp_result receipt_store(lxp_state_journal *journal,
-                                const lxp_activity *activity,
-                                const lxp_receipt *receipt)
-{
-    uint8_t compact[LXP_STATE_MAX_RECEIPT_BYTES];
-    uint8_t *storage;
-    lxp_arena arena;
-    lxp_byte_span encoded;
-    size_t length = 0U;
-    lxp_result status = receipt_compact_projection(receipt, compact, &length);
-    if (status != LXP_OK) return status;
-    storage = malloc(LXP_MAX_ACTIVITY_BYTES);
-    if (storage == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    status = lxp_arena_init(&arena, storage, LXP_MAX_ACTIVITY_BYTES);
-    if (status == LXP_OK) status = lxp_receipt_encode(receipt, true, &arena, &encoded);
-    if (status == LXP_OK && encoded.length > LXP_STATE_MAX_RECEIPT_BYTES)
-        status = LXP_ERR_LENGTH_LIMIT;
-    if (status == LXP_OK)
-        status = lxp_idempotency_record(journal, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key, compact, length);
-    if (status == LXP_OK) {
-        journal->staged_idempotency.canonical_length = (uint32_t)encoded.length;
-        (void)memcpy(journal->staged_idempotency.canonical_receipt,
-                     encoded.bytes, encoded.length);
-    }
-    free(storage);
-    return status;
-}
-
 lxp_result lxp_kernel_idempotency_state_value(
     const uint8_t *bytes, size_t length, uint8_t *output, size_t capacity)
 {
@@ -3270,18 +3093,12 @@ static lxp_result receipt_composite_state_root(
     const lxp_activity *activity, const lxp_receipt *receipt,
     lxp_arena *arena, uint8_t root[32])
 {
-    lxp_state_journal *preview_journal;
     lxp_module_ctx *empty_ctx = NULL;
     bool empty_initialized = false;
-    lxp_result status;
+    lxp_result status = LXP_OK;
     if (kernel == NULL || kernel->journal == NULL || activity == NULL ||
-        receipt == NULL || root == NULL || !kernel->journal->open ||
-        kernel->journal->has_idempotency)
+        receipt == NULL || root == NULL || !kernel->journal->open)
         return LXP_FATAL_INVARIANT;
-    preview_journal = (lxp_state_journal *)malloc(sizeof(*preview_journal));
-    if (preview_journal == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    *preview_journal = *kernel->journal;
-    status = receipt_store(preview_journal, activity, receipt);
     if (status == LXP_OK && module_ctx == NULL) {
         empty_ctx = (lxp_module_ctx *)malloc(sizeof(*empty_ctx));
         if (empty_ctx == NULL) status = LXP_ERR_ARENA_EXHAUSTED;
@@ -3299,10 +3116,9 @@ static lxp_result receipt_composite_state_root(
         }
     }
     if (status == LXP_OK)
-        status = lxp_module_ctx_preview_state_root(module_ctx, preview_journal, root);
+        status = lxp_module_ctx_preview_state_root(module_ctx, kernel->journal, root);
     if (empty_initialized) lxp_module_ctx_rollback(empty_ctx);
     free(empty_ctx);
-    free(preview_journal);
     return status;
 }
 
@@ -3443,8 +3259,6 @@ lxp_result lxp_kernel_prepare_activity(
     lxp_kernel_execution private_execution;
     kernel_private_allowance private_allowance;
     lxp_identity *identity;
-    const uint8_t *prior_receipt;
-    size_t prior_receipt_length;
     lxp_admission_context admission_context;
     lxp_admission_result admission;
     lxp_fee_policy_decision admission_policy;
@@ -3508,11 +3322,6 @@ lxp_result lxp_kernel_prepare_activity(
                                       activity->actor_did.length, &identity);
     if (status == LXP_OK)
         status = kernel_program_signer_binding(activity, execution, identity);
-    if (status == LXP_OK)
-        status = lxp_idempotency_lookup(
-            work->kernel.state, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key,
-            &prior_receipt, &prior_receipt_length);
     if (status != LXP_OK) goto done;
     status = kernel_fee_admission(&work->kernel, activity, execution);
     if (status != LXP_OK) goto done;
@@ -4235,11 +4044,9 @@ lxp_result lxp_kernel_encode_arbiter_prestate(
     }
     if (status == LXP_OK) status = prestate_integer(&output, 2U, 2U);
     if (status == LXP_OK) status = prestate_blob(&output, legacy.bytes, legacy.length);
-    if (status == LXP_OK) status = prestate_integer(&output, 2U, 2U);
+    if (status == LXP_OK) status = prestate_integer(&output, 1U, 2U);
     if (status == LXP_OK) status = prestate_module(&output, &snapshot->kernel,
         LXP_MODULE_PERPS, witness, wire);
-    if (status == LXP_OK) status = prestate_module(&output, &snapshot->kernel,
-        LXP_MODULE_WEB, witness, wire);
     free((void *)legacy.bytes);
     free(wire);
     free(witness);
@@ -4602,9 +4409,7 @@ static lxp_result kernel_snapshot_apply_prepared_with_capture(
             receipt->module_version, receipt->parameter_version);
     if (status == LXP_OK) receipt->timestamp = execution->batch_timestamp_ms;
     if (status == LXP_OK && module_ctx_initialized)
-        status = receipt->module_id == LXP_MODULE_BRIDGE ?
-            lxp_bridge_credit_bind_receipt(receipt, &module_ctx) :
-            receipt_bind_ledger_projection(receipt, &module_ctx);
+        status = receipt_bind_ledger_projection(receipt, &module_ctx);
     if (status == LXP_OK)
         status = receipt_bind_program_operation(activity, receipt);
     if (status == LXP_OK && module_ctx_initialized) {
@@ -4645,8 +4450,6 @@ static lxp_result kernel_snapshot_apply_prepared_with_capture(
         status = LXP_ERR_IO;
 
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK)
-        status = receipt_store(candidate->kernel.journal, activity, receipt);
     if (status == LXP_OK && canonical_events != NULL)
         status = lxp_programs_project_receipt_events(
             receipt, execution->arena, &projected);
@@ -6785,20 +6588,6 @@ static lxp_result kernel_execute_prepared_call(
             lxp_arena_reset(execution->arena, arena_mark);
         if (status == LXP_OK) status = reset_status;
     }
-    if (status == LXP_ERR_IDEMPOTENT_REPLAY) {
-        const uint8_t *prior;
-        size_t prior_length;
-        lxp_result lookup = lxp_idempotency_canonical_lookup(
-            kernel->state, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key,
-            &prior, &prior_length);
-        if (lookup == LXP_ERR_IDEMPOTENT_REPLAY) {
-            lookup = lxp_receipt_decode(prior, prior_length, true, receipt);
-            status = lookup == LXP_OK ? LXP_ERR_IDEMPOTENT_REPLAY : lookup;
-        } else {
-            status = lookup;
-        }
-    }
     if (status == LXP_OK && execution->replay_witness_out != NULL &&
         prepared->replay_capture != NULL) {
         lxp_byte_span captured = {NULL, 0U};
@@ -6878,8 +6667,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                        lxp_receipt *receipt)
 {
     const lxp_module_registration *registration;
-    const uint8_t *prior_receipt;
-    size_t prior_receipt_length;
     lxp_identity *identity;
     lxp_admission_context admission_context;
     lxp_admission_result admission;
@@ -7014,18 +6801,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
     if (status == LXP_OK)
         status = kernel_program_signer_binding(activity, execution, identity);
     if (status != LXP_OK) return status;
-    status = lxp_idempotency_canonical_lookup(kernel->state,
-                                    activity->actor_did.bytes,
-                                    activity->actor_did.length,
-                                    activity->idempotency_key,
-                                    &prior_receipt,
-                                    &prior_receipt_length);
-    if (status == LXP_ERR_IDEMPOTENT_REPLAY) {
-        status = lxp_receipt_decode(prior_receipt,
-                                    prior_receipt_length, true, receipt);
-        return status == LXP_OK ? LXP_ERR_IDEMPOTENT_REPLAY : status;
-    }
-    if (status != LXP_OK) return status;
     status = kernel_fee_admission(kernel, activity, execution);
     if (status != LXP_OK) return status;
     admission_context = (lxp_admission_context){
@@ -7081,7 +6856,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
     module_result = fee_policy.result_code;
     if (status == LXP_OK && fee_policy.apply_module_effects) {
         status = lxp_module_ctx_init(
-            &module_ctx, kernel, registration_context_module(registration),
+            &module_ctx, kernel, registration->module_id,
             execution->batch_timestamp_ms, execution->epoch,
             execution->global_sequence, execution->gas_limit,
             execution->arena, false);
@@ -7299,9 +7074,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
     if (status == LXP_OK)
         receipt->timestamp = execution->batch_timestamp_ms;
     if (status == LXP_OK && module_ctx_initialized)
-        status = receipt->module_id == LXP_MODULE_BRIDGE ?
-            lxp_bridge_credit_bind_receipt(receipt, &module_ctx) :
-            receipt_bind_ledger_projection(receipt, &module_ctx);
+        status = receipt_bind_ledger_projection(receipt, &module_ctx);
     if (status == LXP_OK)
         status = receipt_bind_program_operation(activity, receipt);
     if (status == LXP_OK && programs_call &&
@@ -7318,8 +7091,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
             kernel, fee_policy.apply_module_effects ? &module_ctx : NULL,
             activity, receipt, execution->arena, receipt->resulting_state_root);
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK) status = receipt_store(kernel->journal, activity,
-                                                 receipt);
     if (status == LXP_OK && programs_call && fee_policy.apply_module_effects &&
         program_outcome != NULL &&
         program_outcome->terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS &&
@@ -7494,8 +7265,6 @@ lxp_result lxp_kernel_terminal_rejection(lxp_kernel *kernel,
                                     execution->arena,
                                     receipt->resulting_state_root);
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK)
-        status = receipt_store(kernel->journal, activity, receipt);
     if (status != LXP_OK) {
         (void)lxp_state_journal_rollback(kernel->journal);
         return status;

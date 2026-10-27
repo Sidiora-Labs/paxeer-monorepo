@@ -57,8 +57,6 @@ static const lxp_genesis_module_entry module_table[] = {
      lx_asset_module_iface},
     {LXP_MODULE_GOVERNANCE, LXP_GENESIS_MODULE_GATE_STATE_COMMITMENT, true,
      lxp_governance_module_iface},
-    {LXP_MODULE_BRIDGE, LXP_GENESIS_MODULE_GATE_CUSTODY_PROFILE, true,
-     lxp_bridge_module_iface},
     {LXP_MODULE_ESCROW, LXP_GENESIS_MODULE_GATE_ENABLE_FLAG, false,
      lx_escrow_module_iface},
     {LXP_MODULE_BUDGET, LXP_GENESIS_MODULE_GATE_ENABLE_FLAG, false,
@@ -70,9 +68,7 @@ static const lxp_genesis_module_entry module_table[] = {
     {LXP_MODULE_PERPS, LXP_GENESIS_MODULE_GATE_ENABLE_FLAG, false,
      lx_perps_module_iface},
     {LXP_MODULE_SPOT, LXP_GENESIS_MODULE_GATE_ENABLE_FLAG, false,
-     lx_spot_module_iface},
-    {LXP_MODULE_WEB, LXP_GENESIS_MODULE_GATE_ENABLE_FLAG, false,
-     lx_web_module_iface}
+     lx_spot_module_iface}
 };
 
 const lxp_genesis_module_entry *lxp_genesis_module_table(size_t *count)
@@ -212,6 +208,7 @@ lxp_result lxp_genesis_module_plan_default(
     lxp_result status;
     if (plan == NULL || !lxp_protocol_version_supported(protocol_version))
         return LXP_ERR_NON_CANONICAL;
+    if (custody_credit_enabled) return LXP_ERR_UNKNOWN_MODULE;
     status = module_table_validate();
     if (status != LXP_OK) return status;
     (void)memset(plan, 0, sizeof(*plan));
@@ -228,9 +225,6 @@ lxp_result lxp_genesis_module_plan_default(
         case LXP_GENESIS_MODULE_GATE_STATE_COMMITMENT:
             selected = protocol_version ==
                 LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-            break;
-        case LXP_GENESIS_MODULE_GATE_CUSTODY_PROFILE:
-            selected = custody_credit_enabled;
             break;
         case LXP_GENESIS_MODULE_GATE_ENABLE_FLAG:
             selected = entry->default_enabled;
@@ -308,8 +302,6 @@ static lxp_result genesis_governance_authority(
 lxp_result lxp_genesis_module_plan_resolve(
     const lxp_genesis_manifest *manifest, lxp_genesis_module_plan *plan)
 {
-    lxp_bridge_profile bridge;
-    bool bridge_present = false;
     bool oracle_transport = false;
     bool order_tif = false;
     bool perps_selected = false;
@@ -319,11 +311,15 @@ lxp_result lxp_genesis_module_plan_resolve(
     size_t position = 0U;
     lxp_result status;
     if (manifest == NULL || plan == NULL ||
-        !lxp_protocol_version_supported(manifest->protocol_version))
+        !lxp_protocol_version_supported(manifest->protocol_version) ||
+        manifest->parameter_count > LXP_GENESIS_MAX_PARAMETERS ||
+        manifest->module_value_count > LXP_GENESIS_MAX_MODULE_VALUES)
         return LXP_ERR_NON_CANONICAL;
+    for (index = 0U; index < manifest->module_value_count; ++index)
+        if (manifest->module_values[index].module_id == LXP_MODULE_BRIDGE ||
+            manifest->module_values[index].module_id == LXP_MODULE_WEB)
+            return LXP_ERR_UNKNOWN_MODULE;
     status = module_table_validate();
-    if (status == LXP_OK)
-        status = lxp_bridge_genesis_profile(manifest, &bridge, &bridge_present);
     if (status == LXP_OK) status = module_enable_flags_known(manifest);
     if (status == LXP_OK) status = perps_oracle_transport(manifest, &oracle_transport);
     if (status == LXP_OK) status = perps_order_tif(manifest, &order_tif);
@@ -345,9 +341,6 @@ lxp_result lxp_genesis_module_plan_resolve(
         case LXP_GENESIS_MODULE_GATE_STATE_COMMITMENT:
             selected = manifest->protocol_version ==
                 LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
-            break;
-        case LXP_GENESIS_MODULE_GATE_CUSTODY_PROFILE:
-            selected = bridge_present;
             break;
         case LXP_GENESIS_MODULE_GATE_ENABLE_FLAG: {
             bool present = false;

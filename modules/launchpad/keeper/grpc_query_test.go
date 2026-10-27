@@ -293,6 +293,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "PriceHistory":
+				require.ErrorIs(t, err, types.ErrUnknownMarket)
+				require.Equal(t, ": "+types.ErrUnknownMarket.Error(), err.Error())
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
+				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
 			case "MarketByAddress", "MarketsByCreator":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
