@@ -7845,3 +7845,51 @@ symbol = "mandate_payment_reference_is_the_recorded_digest"
 observed = "At a6b195a75 the test fails with Ap2Error::EvidenceMismatch: the gateway (gateway.rs:613-622) requires one PaymentExact log whose reference topic equals the mandate payment's idempotency key, and the recorded payExact receipt carries a recorded reference."
 assumption = "The test re-signs the recorded receipt with the payment's idempotency key as the reference under a fresh test key pinned to the recorded key id and heights, as tests/sequencer_settlement.rs:376-407 does; the recorded receiptDigest assertion stays on the unmodified bytes (do_5)."
 severity = "minor"
+
+[finding.6.12.7]
+task = "6.12.7"
+file = "precompiles/merge_serve_0x0903_test.go"
+symbol = "TestMergeServes0x0903"
+observed = "At attempt one the test failed in constructor_registered_by_node: the node registers no oracle aggregator constructor for 0x0903 because node/precompiles.go gains that import only through task 5.94.4."
+assumption = "The test is correct and the task waits for 5.94.4; requires now lists it."
+severity = "minor"
+
+[finding.6.12.9]
+task = "6.12.9"
+file = "precompiles/merge_serve_0x0905_test.go"
+symbol = "TestMergeServes0x0905"
+observed = "At attempt one the test failed in constructor_registered_by_node: the node registers no scheduler constructor for 0x0905 because node/precompiles.go gains that import only through task 5.94.4."
+assumption = "The test is correct and the task waits for 5.94.4; requires now lists it."
+severity = "minor"
+
+[finding.6.12.10]
+task = "6.12.10"
+file = "precompiles/merge_serve_0x0906_test.go"
+symbol = "TestMergeServes0x0906"
+observed = "At attempt one the test failed in constructor_registered_by_node: the node registers no streams constructor for 0x0906 because node/precompiles.go gains that import only through task 5.94.4."
+assumption = "The test is correct and the task waits for 5.94.4; requires now lists it."
+severity = "minor"
+
+[finding.8.28.3.3]
+task = "8.28.3"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "LayerxConfig"
+observed = "At 25a547c27 the toolkit library built but the crate binary ramp-verify-receipt.rs:78 and the dependent reference ramp (main.rs:272, 347-349, 761-762, 1045) still read network_id, protocol_version, fee_limit and LayerxClient.activity, so the dependents do not compile."
+assumption = "The two files join the task (do_13) with the minimal field port; 8.28.5 and 8.30.1 finish the reference ramp and its tests and their line references predate this port."
+severity = "minor"
+
+[finding.6.22.8]
+task = "6.22.8"
+file = "modules/layerxledger/keeper/issuer_binding.go"
+symbol = "bindIssuerDenom"
+observed = "At 9402007ea the real tokenfactory keeper refused the ledger subdenom: hex of a 32-byte asset id is 64 characters against the 44-character cap of denoms.go:17, and the denom alphabet [a-zA-Z0-9/-] excludes base64."
+assumption = "The subdenom becomes the 43-digit zero-padded base-62 text of the asset id (do_4); the encoding is an assumption for the owner to confirm, and the layerx/<hex> bank denom of decision.204 is untouched."
+severity = "major"
+
+[finding.5.55.2.3]
+task = "5.55.2"
+file = "daemon/committed-fixture/main.go"
+symbol = "record"
+observed = "At 9eb233dec the recorder added a standby paxd initialised as a validator with its own key; consensus panicked with validator not in committee before the node was ready, so no V1 vector was written."
+assumption = "The standby runs as a full node sharing the primary genesis (do_6); the primary keeps its gentx validator."
+severity = "minor"
