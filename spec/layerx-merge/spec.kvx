@@ -150110,7 +150110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.4]
 title = "Check x-websearch settlement decoding against the shared sequencer-receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.34.5"]
@@ -153858,7 +153858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.8]
 title = "Remove the account deposit route and its link"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["12.34.7"]
