@@ -3021,3 +3021,91 @@ symbol = "lxp_idempotency_canonical_lookup"
 observed = "1.2.3 (wave 26) deletes src/state/lxp_idempotency.c while the capacity-receipt call at lxp_kernel.c:7872 is removed only by 1.2.4 (wave 32), which 1.2.3 did not require although its do_4 names it; the reserve call at src/protocol/lxp_module_ctx.c:1463 (left by 1.2.1's preview deletion) and the lxp_idempotency_append use in tests/codec/lxp_test_snapshot_idempotency.c:39 (the 1.2.2 test) had no removing task; the lxp_snapshot.c calls do_3 names are already gone on main (a66af7c87, 1.2.2)."
 assumption = "1.2.3 moves behind 1.2.4 and takes the two remaining call sites into its scope; do_3 stays as written and finds nothing to remove."
 severity = "blocker"
+
+[finding.2.11.2.1]
+task = "2.11.2"
+file = "src/modules/governance/lxp_governance.c:328"
+symbol = "lxp_governance_grant_session_successor"
+observed = "The candidate's TestPrecompileGrantSessionSuccessor granted a successor to a live session as acceptance 2.56.2 described and the kernel refused it with LXP_ERR_AUTH_SCOPE: lxp_governance.c:328-341 and lxp_authority.c:976-978 accept a successor only for a fee-bearing session already revoked at a non-zero sequence, which modules/layerxauth/keeper/sessions_test.go:125 TestGrantSessionSuccessor also exercises."
+assumption = "The kernel rule is adopted as the product rule: req.2056 ac_2 and acceptance 2.56.2 now describe a revoked fee-bearing predecessor and do_6 shapes the test accordingly; the owner may reverse this and the candidate is continued under the restated acceptance."
+severity = "blocker"
+
+[finding.4.5.3]
+task = "4.5.3"
+file = "sdk/baseapp/abci.go:646"
+symbol = "gRPCErrorToSDKError"
+observed = "The third attempt (701e1452c) built and the verifier `cg spec done 4.5.3` exited 1 (logs-verify-1.log) because TestCmdQueryMarketNetwork/Market and /MarketByAddress (query_market_test.go:106) read codespace sdk: handleQueryGRPC passes every handler error through gRPCErrorToSDKError, which rewraps an error that is not a gRPC status as ErrInvalidRequest (sdk/baseapp/abci.go:646-650)."
+assumption = "Task 15.0.5 returns an error carrying a registered codespace unchanged; 4.5.3 requires it and 701e1452c is continued with its assertions as written."
+severity = "blocker"
+
+[finding.4.5.4]
+task = "4.5.4"
+file = "sdk/baseapp/abci.go:646"
+symbol = "gRPCErrorToSDKError"
+observed = "The second attempt (a1aff69bf) built and the verifier `cg spec done 4.5.4` exited 1 (logs-verify-2.log) because TestCmdQueryMarketsNetwork/invalid_range (query_markets_test.go:197) read code 18 instead of the launchpad ErrInvalidRange code 30 that grpc_query_markets.go:16 returns and gRPCErrorToSDKError (sdk/baseapp/abci.go:646-650) rewraps as ErrInvalidRequest."
+assumption = "Task 15.0.5 returns an error carrying a registered codespace unchanged; 4.5.4 requires it and a1aff69bf is requalified with its assertions as written."
+severity = "blocker"
+
+[finding.13.22.4.2]
+task = "13.22.4"
+file = "src/protocol/lxp_kernel.c:218"
+symbol = "kernel_program_signer_binding"
+observed = "At e2c7332f8 the verifier `cg spec done 13.22.4` exited 1 (logs-verify-2.log): TestProgramsSubmitCarriesFeeLimitAndKey and TestProgramsSubmitKernelRefusalReverts got LXP_ERR_BAD_SIGNATURE because kernel_program_signer_binding ends with lxp_activity_verify_signature, which refuses the empty signature at src/protocol/lxp_activity_signature.c:9-11 whatever execution->signature_valid says."
+assumption = "13.22.4 requires the new kernel task 1.23.4, which adds lxp_kernel_execution.binding_authority set by lxphost_execute and lets an unsigned bound activity skip only the ed25519 check, and e2c7332f8 is continued unchanged after it lands."
+severity = "blocker"
+
+[finding.1.93.2.2]
+task = "1.93.2"
+file = "src/modules/programs/call.c:2443"
+symbol = "lxp_programs_call_validate"
+observed = "The fourth attempt (d87f0a229, zero fee limits per do_5) built and the verifier `cg spec done 1.93.2` exited 1 (logs-verify-1.log) with Code(-3) at simulate_test.go:134 and :173, because lxp_programs_call_validate refuses a zero authority_hash with LXP_ERR_NON_CANONICAL and the test passes actor.authority(), which sets only Actor, Principal and VerifiedKey, while 1.23.3 added KernelAuthority.AuthorityHash (modules/lxphost/host.go:785) after the attempt's base."
+assumption = "The test passes a KernelAuthority with a non-zero AuthorityHash to both Execute and Simulate without any host.go edit; the -207 and -7 expectations stay as written and d87f0a229 is continued after 1.23.3."
+severity = "blocker"
+
+[finding.8.11.1]
+task = "8.11.1"
+file = "services/platform/hosted/authority/Cargo.toml:32"
+symbol = "layerx-agentd"
+observed = "Both attempts (49d755aa5, 087f16f17) built the authority binary but the verifier `cg spec done 8.11.1` exited 1 (logs-verify-1.log) before any test ran: the crate's dev-dependency layerx-agentd pulls layerx-sdk, which still fails with 40 errors against the layerx-agent-api read types re-shaped by 9.1.1 and 9.1.2 (ReadRequest has no requested_verification_level, read.rs:137, used at layerx-sdk/src/agent_envelope.rs:1327)."
+assumption = "8.11.1's own files stay as written; its test target compiles once 9.1.7 ports layerx-sdk and 9.1.8 ports layerx-agentd, so 8.11.1 requires 9.1.8 and 087f16f17 is continued after it."
+severity = "blocker"
+
+[finding.12.33.5]
+task = "12.33.5"
+file = "apps/wallet/src/widgets/swap/useSwapExecution.ts:68"
+symbol = "executeSwap"
+observed = "The first attempt (665d92740) changed executeSwap to return `{ hash, receipt }` as do_2 requires and the build `pnpm --dir apps/wallet run typecheck` exited 2 (logs-build-1.log) at useSwapExecution.ts(69,19) TS2345, because the caller still assigns the result to a string and passes it to setTxHash; interface.12.ts-app-lib-swap-executor-execute-swap lists this caller but no task's touches included the file."
+assumption = "12.33.5 takes useSwapExecution.ts into its touches and the caller reads the hash field of the awaited result; 665d92740 is continued."
+severity = "blocker"
+
+[finding.2.24.5.1]
+task = "2.24.5"
+file = "modules/layerxpay/keeper/budget_views.go:40"
+symbol = "BudgetRemaining"
+observed = "The fourth attempt (1436fe936) built and the verifier `cg spec done 2.24.5` exited 1 (logs-verify-2.log): BudgetRemaining builds the remaining amount with sdk.NewIntFromBigInt(new(big.Int).SetBytes(...)), which for an exhausted allowance yields a zero whose word slice is empty but non-nil, so require.Equal at budget_views_test.go:143 against sdk.ZeroInt() (sdk/types/int.go:153) fails."
+assumption = "BudgetRemaining returns the canonical sdk.ZeroInt() for a zero allowance and the test assertion stays unchanged; 1436fe936 is continued."
+severity = "suspect"
+
+[finding.5.16.4.1]
+task = "5.16.4"
+file = "node/test_helpers.go:593"
+symbol = "SetupWithSc"
+observed = "The fourth attempt (9a3749af9, go generate supplying libevmone) built and the verifier `cg spec done 5.16.4` exited 1 (logs-verify-1.log) at seal_giga_test.go:68 with `unexpected ChainID, got \"pax-test\", want \"\"` from FinalizeBlock (sdk/baseapp/abci.go:1077-1078), because SetupWithSc runs InitChain without a ChainId and sdk/baseapp/abci.go:39 resets app.ChainID to the empty string that NewGigaTestWrapper apps then carry."
+assumption = "The test sets each wrapper's app ChainID to testChainID before its first FinalizeBlock; SetupWithSc keeps its empty InitChain chain id until a helper task changes it, and 9a3749af9 is continued."
+severity = "suspect"
+
+[finding.9.1.7.2]
+task = "9.1.7"
+file = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs:954"
+symbol = "ProofBundle"
+observed = "The third attempt (794c856b3) built the crate and the verifier `cg spec done 9.1.7` exited 101 (logs-verify-1.log) because `cargo test -p layerx-sdk --no-run` compiles every integration test and tests/agent_operation_envelope.rs still uses the pre-9.1.1 ProofBundle::record and proofs (:954, :960, :1086, :1092, :1109), unsized [u8] frames (:1117) and ReadRequest.requested_verification_level (:1156); the ported sources and the two tests in touches compiled."
+assumption = "The envelope test is part of the port (do_6) and is added to touches with do_7; 794c856b3 is continued."
+severity = "blocker"
+
+[finding.4.46.2.2]
+task = "4.46.2"
+file = "apps/launchpad/mobile/tsconfig.json:1"
+symbol = "compilerOptions"
+observed = "At 248ae2b71 the build `pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.test.json` exited 2 (logs-build-1.log) with 94 errors, none in the route modules or their test: lib ES2022 without DOM breaks the DOM-typed SDK sources (reconnect.ts:54, transport.ts:50) and the existing throwIfAborted calls (session.ts:15, lifecycle.ts:23), while the default DOM lib at b6763f366 left 46 react-native globals.d.ts conflicts, all inside declaration files, plus the four source errors do_7 fixes."
+assumption = "tsconfig.json keeps main's lib and include and gains skipLibCheck, the preset setting of @react-native/typescript-config, so declaration files are not cross-checked while every source file is; 248ae2b71 is continued with tsconfig.json restored to main plus that key and tsconfig.test.json deleted."
+severity = "blocker"

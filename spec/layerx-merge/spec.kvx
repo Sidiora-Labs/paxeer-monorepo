@@ -11603,7 +11603,7 @@ ac_2 = "Execute refuses a state-changing method under staticcall, delegatecall, 
 [req.2056]
 title = "0x101C grants sessions and capabilities for the bound caller"
 ac_1 = "grantSession(bytes,uint64,bytes32) emits SessionGranted and GrantBody and sessionKey returns the granted key."
-ac_2 = "grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) replaces a live session; a wrong expected commitment reverts with the kernel reason."
+ac_2 = "grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) succeeds a fee-bearing session the owner revoked at an earlier sequence, carrying its fee counters; a wrong expected commitment reverts with LXP_AUTH_SCOPE."
 ac_3 = "grantCapability(bytes) emits CapabilityGranted and capabilityScope returns the scope."
 
 [req.2057]
@@ -51191,7 +51191,7 @@ qualification = "UNRUN"
 [acceptance.2.56.2]
 feature = "2"
 req = "2056.2"
-scenario = "Given a live session, when the owner grants a successor with the right and then a wrong commitment, then the first succeeds and the second reverts"
+scenario = "Given a fee-bearing session revoked by the owner, when the owner grants a successor with the right and then a wrong commitment, then the first succeeds and the second reverts"
 contract = "contracts/ledger-auth.md#layerxauth-0x101c"
 test = "precompiles/layerxauth/grants_test.go::TestPrecompileGrantSessionSuccessor (planned)"
 qualification = "UNRUN"
@@ -93428,6 +93428,43 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.1.23.4]
+title = "Let the Programs signer binding accept host binding authority for an unsigned protocol-3 activity"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["1.23.1"]
+reqs = ["13253.1", "13253.2"]
+capabilities = ["1.23.4"]
+interfaces = []
+wiring = []
+do_1 = "Add `bool binding_authority;` as the last member of lxp_kernel_execution, after replay_metadata_proof_out at include/layerx/lxp_kernel.h:423 (struct :389-424, beside signature_valid at :400); every zero-initialised execution keeps it false, so the daemon and guarantor sites that set signature_valid = true unconditionally (cmd/layerxd/lxp_daemon_process.c:1563, :1610, :3405, :3455, :3929, :4347, cmd/layerxd/lxp_daemon_lni.c:3752, cmd/layerx-guarantor/runtime.c:453) still have every Programs signature verified."
+do_2 = "In kernel_program_signer_binding (src/protocol/lxp_kernel.c:201-219) replace `return lxp_activity_verify_signature(activity);` at :218 with `if (activity->signature.length == 0U && execution->binding_authority && execution->signature_valid) return LXP_OK;` followed by `return lxp_activity_verify_signature(activity);`, after the actor, principal and verified_key == activity->authority checks at :209-213 and the owner key-validity check at :214-217, so binding authority substitutes only the ed25519 check; a signed activity is verified whatever the flag and an unsigned one without the flag is still refused with LXP_ERR_BAD_SIGNATURE by src/protocol/lxp_activity_signature.c:9-11, which stays unchanged."
+do_3 = "Leave both callers as they are (lxp_kernel_prepare_activity at src/protocol/lxp_kernel.c:3324 and lxp_kernel_execute_activity at :6802); the prepare path's private copy `*private_execution = *execution` at :1010 carries the new member."
+do_4 = "In kernel_execution_binding (src/protocol/lxp_kernel.c:1076) add `BIND_U64(execution->binding_authority ? 1U : 0U);` immediately after `BIND_U64(execution->signature_valid ? 1U : 0U);` at :1102, so a transition prepared under binding authority (:3463) does not match an apply-time execution without it (:4243)."
+do_5 = "In lxphost_execute (modules/lxphost/host.go:510-542) add `execution->binding_authority = node->envelope.activity.signature.length == 0U && binding_authority;` after the signature_valid assignment at :533-535, using the flag HostExecute derives at modules/lxphost/host.go:923 through binding_authority (:717: Bound, empty signature, VerifiedKey == AuthorityKey)."
+do_6 = "Create tests/codec/lxp_test_program_signer_binding.c (planned) over tests/codec/lxp_kernel_case.h with a fixture built as tests/codec/lxp_test_fee_meter_refused.c:56-241 and :316-345 build theirs (protocol-3 kernel, programs_module_registration, fee and metering genesis, principal = actor = did_id, LX_PROGRAMS_CALL with a one-byte payload, signature_valid = true), compiled by the pattern rule at Makefile:1430-1434."
+do_7 = "Case bound_unsigned_program_passes_signer_binding: with signature = {NULL, 0} and binding_authority = true, lxp_kernel_prepare_activity returns LXP_OK and lxp_kernel_snapshot_apply_prepared yields receipt.result_code LXP_ERR_TRUNCATED, as the signed twin does at tests/codec/lxp_test_fee_meter_refused.c:376-380; lxp_kernel_execute_activity on a fresh fixture returns the same status and receipt.result_code as the signed twin and neither is LXP_ERR_BAD_SIGNATURE."
+do_8 = "Case unbound_unsigned_program_refused: the unsigned activity with binding_authority = false (signature_valid = true), and with binding_authority = true but signature_valid = false, is refused with LXP_ERR_BAD_SIGNATURE by lxp_kernel_execute_activity and by lxp_kernel_prepare_activity (prepared stays NULL), and with binding_authority = true but authority.verified_key differing from activity->authority it is refused with LXP_ERR_AUTH_SCOPE; each refusal leaves the state root, journal and identity sequence unchanged as fee_state_unchanged (tests/codec/lxp_test_fee_meter_refused.c:253) checks."
+do_9 = "Case bound_signed_program_still_verified: a signed activity whose signature has one byte flipped is refused with LXP_ERR_BAD_SIGNATURE by lxp_kernel_execute_activity with binding_authority = true and with it false, and the correctly signed activity with binding_authority = true produces the same result as with it false."
+symbols = ["kernel_program_signer_binding", "kernel_execution_binding", "lxp_kernel_execution", "lxphost_execute", "bound_unsigned_program_passes_signer_binding", "unbound_unsigned_program_refused", "bound_signed_program_still_verified"]
+touches = ["include/layerx/lxp_kernel.h", "src/protocol/lxp_kernel.c", "modules/lxphost/host.go", "tests/codec/lxp_test_program_signer_binding.c"]
+tests = ["tests/codec/lxp_test_program_signer_binding.c::bound_unsigned_program_passes_signer_binding", "tests/codec/lxp_test_program_signer_binding.c::unbound_unsigned_program_refused", "tests/codec/lxp_test_program_signer_binding.c::bound_signed_program_still_verified"]
+planned_paths = ["tests/codec/lxp_test_program_signer_binding.c"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_program_signer_binding && ./build/tests/kernel/codec/lxp_test_program_signer_binding bound_unsigned_program_passes_signer_binding unbound_unsigned_program_refused bound_signed_program_still_verified"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the touched files; kernel_program_signer_binding verifies every protocol-3 Programs signature again and no execution sets binding_authority."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.1.24.1]
 title = "Register perps, spot, stream and service modules in the hosted kernel"
 status = "pending"
@@ -95270,8 +95307,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Add Host.Simulate over the kernel activity simulation in a new host file"
 status = "pending"
 mode = "BUILD"
-wave = 6
-requires = ["1.0.1", "1.23.1"]
+wave = 7
+requires = ["1.0.1", "1.23.1", "1.23.3"]
 reqs = ["1965.1", "1965.2"]
 capabilities = []
 interfaces = []
@@ -95281,6 +95318,7 @@ do_2 = "Call lxp_kernel_simulate_activity (src/protocol/lxp_kernel.c:6193) on a 
 do_3 = "Keep modules/lxphost/simulate.go (planned) free of host.go edits: host.go is owned in every wave by other domain-1 tasks, and the Programs transfer runtime that lxp_kernel_simulate_activity needs is bound there by task 1.23.1 do_6, which this task requires."
 do_4 = "Write modules/lxphost/simulate_test.go (planned) with the two tests below, each simulating an LX_PROGRAMS_CALL activity, the only type lxp_kernel_simulate_activity accepts (src/protocol/lxp_kernel.c:6129), instead of an identity registration."
 do_5 = "modules/lxphost/simulate_test.go submits every activity with FeeLimit zero as modules/lxphost/execute_test.go does: lxphost_execute (modules/lxphost/host.go:496) zeroes the execution and carries no payer balance, so the kernel refuses any non-zero fee limit with LXP_ERR_FEE_UNPAYABLE (src/protocol/lxp_kernel.c:7036, asserted by modules/lxphost/activity_fields_test.go:36)."
+do_6 = "modules/lxphost/simulate_test.go passes to both Execute and Simulate a KernelAuthority built from actor.authority() with a non-zero AuthorityHash (modules/lxphost/host.go:785, copied into the resolved authority at modules/lxphost/host.go:283), since lxp_programs_call_validate refuses a zero authority_hash with LXP_ERR_NON_CANONICAL (src/modules/programs/call.c:2441-2444); the -207 and -7 expectations of the two tests stay as written."
 symbols = ["TestSimulateMatchesExecuteReceipt", "TestSimulateLeavesStoreUnchanged"]
 touches = ["modules/lxphost/simulate.go", "modules/lxphost/simulate_test.go"]
 tests = ["modules/lxphost/simulate_test.go::TestSimulateMatchesExecuteReceipt", "modules/lxphost/simulate_test.go::TestSimulateLeavesStoreUnchanged"]
@@ -97173,6 +97211,7 @@ do_2 = "Call the keeper functions GrantSession, GrantSessionSuccessor, GrantCapa
 do_3 = "Emit the logs SessionGranted, GrantBody, CapabilityGranted from the keeper events with the log helper pattern of precompiles/layerxexchange/layerxexchange.go:313."
 do_4 = "Turn keeper errors into reverts with RevertError (precompiles/layerxauth/errors.go (planned))."
 do_5 = "Write TestPrecompileGrantSession, TestPrecompileGrantSessionSuccessor, TestPrecompileGrantCapability in precompiles/layerxauth/grants_test.go (planned)."
+do_6 = "TestPrecompileGrantSessionSuccessor in precompiles/layerxauth/grants_test.go grants version-2 session bodies with a fee block, revokes the predecessor through the keeper's RevokeGrant before granting the successor, sets the successor body's grantor revocation sequence to the sequence that revoke wrote (src/modules/governance/lxp_governance.c:631) and takes the expected commitment from the revoked grant as src/state/lxp_authority.c:969-987 computes it, because lxp_governance.c:328-341 refuses a successor for a live predecessor with LXP_ERR_AUTH_SCOPE; the wrong-commitment case keeps that same reason."
 symbols = ["grantSession", "grantSessionSuccessor", "grantCapability", "SessionGranted", "GrantBody", "CapabilityGranted", "TestPrecompileGrantSession", "TestPrecompileGrantSessionSuccessor", "TestPrecompileGrantCapability"]
 touches = ["precompiles/layerxauth/grants.go", "precompiles/layerxauth/grants_test.go"]
 tests = ["precompiles/layerxauth/grants_test.go::TestPrecompileGrantSession", "precompiles/layerxauth/grants_test.go::TestPrecompileGrantSessionSuccessor", "precompiles/layerxauth/grants_test.go::TestPrecompileGrantCapability"]
@@ -98231,6 +98270,7 @@ do_1 = "Write GetBudget and BudgetRemaining in modules/layerxpay/keeper/budget_v
 do_2 = "Build the 39-byte key with the layout of the kernel budget state key function (include/layerx/lx_budget.h:224)."
 do_3 = "Decode with DecodeBudgetRecord in modules/layerxpay/types/records_budget.go (planned) and return found=false with a zero record for an unknown id."
 do_4 = "Write TestBudgetViewsReadKernelRecord in modules/layerxpay/keeper/budget_views_test.go (planned)."
+do_5 = "In BudgetRemaining (modules/layerxpay/keeper/budget_views.go:40) return sdk.ZeroInt() when the allowance is zero, so an exhausted budget compares equal to sdk.ZeroInt() at budget_views_test.go:143; keep every assertion in budget_views_test.go as written."
 symbols = ["GetBudget", "BudgetRemaining", "TestBudgetViewsReadKernelRecord"]
 touches = ["modules/layerxpay/keeper/budget_views.go", "modules/layerxpay/keeper/budget_views_test.go"]
 tests = ["modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord"]
@@ -106438,7 +106478,7 @@ title = "Add the launchpad market query commands"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["4.5.1", "4.4.2", "4.4.3"]
+requires = ["4.5.1", "4.4.2", "4.4.3", "15.0.5"]
 reqs = ["4036.1", "4036.2"]
 capabilities = ["4.5.3"]
 interfaces = ["interface.4.cli-launchpad-query-market-j28", "interface.4.cli-launchpad-query-market-by-address-j28"]
@@ -106469,7 +106509,7 @@ title = "Add the launchpad markets query commands"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["4.5.1", "4.4.4", "4.4.5"]
+requires = ["4.5.1", "4.4.4", "4.4.5", "15.0.5"]
 reqs = ["4037.1", "4037.2"]
 capabilities = ["4.5.4"]
 interfaces = ["interface.4.cli-launchpad-query-markets-j28", "interface.4.cli-launchpad-query-markets-by-creator-j28"]
@@ -110077,13 +110117,13 @@ do_2 = "Change the eleven MobileServices methods at apps/launchpad/mobile/src/ru
 do_3 = "Route modules import only from sdk/launchpad/packages/sdk/src and never from src/platform, so they load without react-native (apps/launchpad/mobile/src/platform/protected-storage.ts:1)."
 do_4 = "Write apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts (planned) test routeModulesPreserveHeadPaths: serve a node:http loopback server, call each route function through a real SdkClient with production false and assert the eleven observed method and path pairs equal the HEAD pairs."
 do_5 = "Close the `{price && <Copyable …/>` JSX expression at apps/launchpad/mobile/src/screens/token.tsx:2 column 1180 with its missing `}` (TS1005, present since 145164d70) and change nothing else in Token."
-do_6 = "Set apps/launchpad/mobile/tsconfig.json compilerOptions \"lib\": [\"ES2022\"], \"types\": [\"react-native\"] and \"include\": [\"src\"], and add apps/launchpad/mobile/tsconfig.test.json extending it with \"types\": [\"node\"] and \"include\": [\"test\"], keeping strict true in both."
+do_6 = "Add \"skipLibCheck\": true to apps/launchpad/mobile/tsconfig.json compilerOptions and keep lib, types, include [\"src\", \"test\"], strict, module NodeNext, allowImportingTsExtensions, noEmit and jsx react-jsx as on main (no tsconfig.test.json): the default lib with DOM is what the launchpad SDK sources the app imports by relative path are typed against (sdk/launchpad/packages/sdk/tsconfig.json), and react-native's src/types/globals.d.ts conflicts with lib.dom.d.ts and @types/node only inside declaration files (46 positions at b6763f366), which skipLibCheck leaves unchecked while every source file stays checked."
 do_7 = "Type WalletProtocolStorage.load (apps/launchpad/mobile/src/platform/protected-storage.ts:15) as Promise<Record<string, unknown>>, assigning the parsed object to a local before storing it in this.values, and write the 204 return of service-client.ts (:48) as `undefined as unknown as ContractTypes[N]`."
 symbols = ["MobileServices", "marketRoutes", "routeModulesPreserveHeadPaths"]
-touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/tsconfig.test.json", "apps/launchpad/mobile/src/platform/protected-storage.ts"]
+touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/src/platform/protected-storage.ts"]
 tests = ["apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts::routeModulesPreserveHeadPaths"]
-planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/tsconfig.test.json"]
-build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.test.json"
+planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
 verify_cmd = "pnpm --dir apps/launchpad/mobile exec vitest run --config vitest.config.ts test/vitest/routes-scaffold.test.ts -t '(?:^|\\s)(routeModulesPreserveHeadPaths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -113319,7 +113359,8 @@ do_1 = "Write node/sequencer/seal_giga_test.go (planned) sealing a block of EVM 
 do_2 = "Replay it through ProcessBlock with the giga executor selected at node/app.go:2617."
 do_3 = "Assert identical app hashes and per-tx results of SealBatch (node/sequencer/seal.go:133) and ProcessBlock (node/app.go:2207)."
 do_4 = "engine/executor/lib/libevmone.0.12.0_linux_amd64.so is untracked and produced only by `go generate ./engine/executor/lib` (engine/executor/lib/evmlib.go:11 runs gen/main.go, which downloads the evmone 0.12.0 library and checks its sha256 0fec5d79f4c9a466bb680e8b0b9c770aea38f3dd6d2e4af23535c893d0d18d40); the build step runs it so GigaEvmKeeper.EvmoneVM is set when the test runs."
-symbols = ["TestSealBatchEqualsGigaProcessBlock", "TestSealBatchEqualsGigaProcessBlock"]
+do_5 = "NewGigaTestWrapper apps carry ChainID \"\" because SetupWithSc (node/test_helpers.go:593) runs InitChain without a ChainId and sdk/baseapp/abci.go:39 copies it, so FinalizeBlock refuses the header at sdk/baseapp/abci.go:1077 with `unexpected ChainID, got \"pax-test\", want \"\"`; in newApp of node/sequencer/seal_giga_test.go set w.App.ChainID = testChainID before the FinalizeBlock at committedTip and keep every assertion."
+symbols = ["TestSealBatchEqualsGigaProcessBlock"]
 touches = ["node/sequencer/seal_giga_test.go"]
 tests = ["node/sequencer/seal_giga_test.go::TestSealBatchEqualsGigaProcessBlock"]
 planned_paths = ["node/sequencer/seal_giga_test.go"]
@@ -130917,7 +130958,7 @@ title = "Look up receipts for the authority from pax_sequencerReceipt"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["7.0.2", "7.94.1"]
+requires = ["7.0.2", "7.94.1", "9.1.8"]
 reqs = ["8111.1", "8111.2"]
 capabilities = ["8.11.1"]
 interfaces = ["interface.8.env-authority-layerx-authority-chain-rpc-url-j40", "interface.8.env-authority-layerx-authority-receipt-keys-file-j40"]
@@ -137124,8 +137165,9 @@ do_3 = "services/agent/crates/layerx-sdk/src/rpc_export.rs, services/agent/crate
 do_4 = "services/agent/crates/layerx-sdk/tests/sdk.rs: freshness() (:74-84) builds the agent-api Freshness { chain_head: 20, value_height: 17, relative_to: RelativeTo::Block { height: 19, hash: [0x19; 32] } } (services/agent/crates/layerx-agent-api/src/read.rs:98-108) and the BalanceValue literal at :257 gains height: 17 (read.rs:182-188); every assertion of the file stays."
 do_5 = "services/agent/crates/layerx-sdk/tests/offline_export.rs: api() (:190-200) builds layerx_proof::export_codec::EncodedOfflineArtifact { facts: the fact strings, receipts, proofs, certificates: Vec::new(), headers } (export_codec.rs:1105), the tests decode it with decode_historical_offline_export(&export, &trust) (services/agent/crates/layerx-sdk/src/rpc_export.rs), whose CompleteOfflineArtifact is what verify_complete (services/agent/crates/layerx-proof/src/export.rs:937) and encode() take; Rung::Receipted replaces VerificationLevel::BATCH_INCLUDED; the settlement-anchoring case (:293-297) becomes the rung-claim case: verify_complete_historical_offline_export(&decoded, Rung::Committed, Rung::Receipted, &trust) returns Err(OfflineVerificationError::ClaimExceedsVerified { claimed: Rung::Committed, verified: Rung::Receipted }) for the fixture, which carries receipts and headers but no verified commit; the round-trip, misplaced-bucket, certificate and rogue-key refusals stay."
 do_6 = "verify_cmd compiles every integration test target of the crate (--no-run), so tests/offline_export.rs and tests/sdk.rs are part of this task and touches lists them; no test is deleted or skipped."
+do_7 = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs is ported to the agent-api read types: ProofBundle (services/agent/crates/layerx-agent-api/src/read.rs:214-226) has no record() method and no proofs field, so the checks at :954-960 and :1086-1119 compare the decoded bundle's fields (format, verification_level, raw_transaction, signed_receipt, receipt_digest, receipt_key and the optional block_header, receipt_inclusion, commit, validator_set, account_proof) with the response JSON and build the altered-response cases from Vec<u8> values instead of unsized [u8] frames at :1117, ProofBundleRecord (read.rs:306) is used only where a record is encoded, and :1156 sets requested_rung (read.rs:137-140) to the rung that replaces Level::CheckpointFinalised; every case keeps its intent (a disagreement between outer and inner verification levels and a promotion above the achieved rung are still refused) and no test is deleted or skipped."
 symbols = ["ProtocolBudgetView", "BudgetRecord", "ReadRequest", "VerifiedRead", "ReceiptReference", "OfflineExport", "HistorySelector", "FeeProjection"]
-touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk"
@@ -152650,8 +152692,9 @@ do_1 = "apps/wallet/src/lib/swap/executor.ts:80, apps/wallet/src/lib/swap/execut
 do_2 = "Throw `SwapRevertedError` (planned in apps/wallet/src/lib/swap/executor.ts:199) when the receipt status is 0 and return `{ hash, receipt }` otherwise."
 do_3 = "Keep parseUsdlReceived at apps/wallet/src/lib/swap/executor.ts:142 reading the awaited receipt."
 do_4 = "Create apps/wallet/src/lib/swap/executor.test.ts (planned) with the two tests below."
+do_5 = "In apps/wallet/src/widgets/swap/useSwapExecution.ts:68 destructure `const { hash } = await executeSwap(signer, bestQuote, params);` and keep `setTxHash(hash)` at line 69, since executeSwap now returns `{ hash, receipt }`."
 symbols = ["executeSwap", "SwapRevertedError"]
-touches = ["apps/wallet/src/lib/swap/executor.ts", "apps/wallet/src/lib/swap/executor.test.ts"]
+touches = ["apps/wallet/src/lib/swap/executor.ts", "apps/wallet/src/lib/swap/executor.test.ts", "apps/wallet/src/widgets/swap/useSwapExecution.ts"]
 tests = ["apps/wallet/src/lib/swap/executor.test.ts::execute_swap_returns_after_the_receipt", "apps/wallet/src/lib/swap/executor.test.ts::execute_swap_refuses_a_reverted_swap"]
 planned_paths = ["apps/wallet/src/lib/swap/executor.test.ts"]
 build_cmd = "pnpm --dir apps/wallet run typecheck"
@@ -155592,7 +155635,7 @@ title = "Submit kernel activities through the shared host with fee limit and ide
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["13.21.8", "13.21.7", "1.22.1", "1.23.1"]
+requires = ["13.21.8", "13.21.7", "1.22.1", "1.23.1", "1.23.4"]
 reqs = ["13253.1", "13253.2"]
 capabilities = ["13.22.4"]
 interfaces = []
@@ -162398,6 +162441,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.15.0.5]
+title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["15.0.3"]
+reqs = ["4036.2", "4037.2"]
+capabilities = ["15.0.5"]
+interfaces = []
+wiring = []
+do_1 = "In gRPCErrorToSDKError (sdk/baseapp/abci.go:646) insert, before `status, ok := grpcstatus.FromError(err)` at sdk/baseapp/abci.go:647, the three lines `if codespace, _, _ := sdkerrors.ABCIInfo(err, false); codespace != sdkerrors.UndefinedCodespace {` / `return err` / `}`, so an error that already carries a registered codespace (a *sdkerrors.Error from sdkerrors.Register, bare or under sdkerrors.Wrap) reaches sdkerrors.QueryResultWithDebug in handleQueryGRPC (sdk/baseapp/abci.go:638) with its own codespace and code; sdkerrors is already imported at sdk/baseapp/abci.go:24."
+do_2 = "Keep today's mapping for every other error unchanged: a gRPC status error keeps the switch of sdk/baseapp/abci.go:652-663 (codes.NotFound to ErrKeyNotFound, codes.InvalidArgument and codes.FailedPrecondition to ErrInvalidRequest, codes.Unauthenticated to ErrUnauthorized, default ErrUnknownRequest) and a plain error keeps `sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())` at sdk/baseapp/abci.go:648-650; errors in UndefinedCodespace (errInternal, ErrPanic, sdk/types/errors/errors.go:18,167) take that same path."
+do_3 = "Write sdk/baseapp/query_grpc_error_test.go (planned) in package baseapp with TestHandleQueryGRPCKeepsModuleCodespace: a package-level var registered with sdkerrors.Register(\"baseapptest\", 12, \"unknown market\"), a NewBaseApp over dbm.NewMemDB with &testutil.TestAppOpts{} committed at height 1 as TestBaseAppCreateQueryContext does (sdk/baseapp/abci_test.go:133-146), and app.handleQueryGRPC called with a GRPCQueryHandler (sdk/baseapp/grpcrouter.go:44) that returns each case's error for abci.RequestQuery{Height: 1}."
+do_4 = "The test asserts Codespace and Code of the returned abci.ResponseQuery for four cases: the bare registered error gives \"baseapptest\" and 12, sdkerrors.Wrap of it gives \"baseapptest\" and 12, errors.New(\"plain\") gives sdkerrors.ErrInvalidRequest.Codespace() and ErrInvalidRequest.ABCICode(), and grpcstatus.Error(codes.NotFound, \"missing\") gives sdkerrors.ErrKeyNotFound.Codespace() and ErrKeyNotFound.ABCICode()."
+symbols = ["gRPCErrorToSDKError", "TestHandleQueryGRPCKeepsModuleCodespace"]
+touches = ["sdk/baseapp/abci.go", "sdk/baseapp/query_grpc_error_test.go"]
+tests = ["sdk/baseapp/query_grpc_error_test.go::TestHandleQueryGRPCKeepsModuleCodespace"]
+planned_paths = ["sdk/baseapp/query_grpc_error_test.go"]
+build_cmd = "go build ./sdk/baseapp/..."
+verify_cmd = "go test -count=1 ./sdk/baseapp/ -run '^TestHandleQueryGRPCKeepsModuleCodespace$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert sdk/baseapp/abci.go and delete sdk/baseapp/query_grpc_error_test.go; node query responses carry codespace sdk for every handler error again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.15.0.9]
 title = "Gate domain 15 completion on its retired surfaces and planned paths"
 status = "pending"
@@ -163542,11 +163617,11 @@ title = "Delete the legacy telemetry calls of baseapp ABCI"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.15", "15.0.4"]
+requires = ["15.2.15", "15.0.4", "15.0.5"]
 reqs = ["15052.1"]
 capabilities = ["15.3.15"]
 interfaces = ["interface.15.met-legacy-baseapp-abci-111-j56", "interface.15.met-legacy-baseapp-abci-128-j56", "interface.15.met-legacy-baseapp-abci-188-j56", "interface.15.met-legacy-baseapp-abci-191-j56", "interface.15.met-legacy-baseapp-abci-194-j56", "interface.15.met-legacy-baseapp-abci-197-j56", "interface.15.met-legacy-baseapp-abci-200-j56", "interface.15.met-legacy-baseapp-abci-274-j56", "interface.15.met-legacy-baseapp-abci-440-j56", "interface.15.met-legacy-baseapp-abci-991-j56", "interface.15.met-legacy-baseapp-abci-1058-j56", "interface.15.met-legacy-baseapp-abci-1121-j56"]
-do_1 = "Delete the TODO comment and the legacy telemetry call at sdk/baseapp/abci.go:110-111, sdk/baseapp/abci.go:127-128, sdk/baseapp/abci.go:187-188, sdk/baseapp/abci.go:190-191, sdk/baseapp/abci.go:193-194, sdk/baseapp/abci.go:196-197, sdk/baseapp/abci.go:199-200, sdk/baseapp/abci.go:273-274, sdk/baseapp/abci.go:439-440, sdk/baseapp/abci.go:990-991, sdk/baseapp/abci.go:1057-1058, sdk/baseapp/abci.go:1120-1121, keeping the OTel Record or Add call on the line before each."
+do_1 = "Delete the TODO comment and the legacy telemetry call at sdk/baseapp/abci.go:110-111, sdk/baseapp/abci.go:127-128, sdk/baseapp/abci.go:187-188, sdk/baseapp/abci.go:190-191, sdk/baseapp/abci.go:193-194, sdk/baseapp/abci.go:196-197, sdk/baseapp/abci.go:199-200, sdk/baseapp/abci.go:273-274, sdk/baseapp/abci.go:439-440, sdk/baseapp/abci.go:993-994, sdk/baseapp/abci.go:1060-1061, sdk/baseapp/abci.go:1123-1124, keeping the OTel Record or Add call on the line before each."
 do_2 = "Drop the telemetry import at sdk/baseapp/abci.go:21 and the go-metrics import of sdk/baseapp/abci.go when no other use remains."
 do_3 = "Write TestBaseappAbciEmitsNoLegacyTelemetry in sdk/baseapp/legacy_abci_metrics_test.go (planned) using oteltest.InstallLegacySink from task 15.0.1 and the fixtures of the task 15.2.15 tests."
 symbols = ["TestBaseappAbciEmitsNoLegacyTelemetry", "baseapp_abci_query_duration", "baseapp_commit_duration", "baseapp_deliver_tx_duration", "baseapp_end_block_duration", "baseapp_finalize_block_duration", "baseapp_get_tx_priority_hint_duration", "baseapp_mid_block_duration", "baseapp_process_proposal_duration", "baseapp_tx_count", "baseapp_tx_gas_used", "baseapp_tx_gas_wanted", "baseapp_tx_result"]
