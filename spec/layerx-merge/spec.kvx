@@ -97635,7 +97635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.1]
 title = "Prove 0x101A is served by the node only after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.41.2", "5.19.2", "5.6.5", "5.19.4"]
@@ -112897,7 +112897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Split mergeUpgradePlan so the constructor gate of do_3 runs first and the store migrations, RetireAtMerge and ReleaseRetired run in an unexported continuation; TestMergePlanReturnsGuarantorBonds and TestMergeStoreUpgradesAddsLayerXStores drive the continuation directly, because the merge address table still has constructors registered by tasks that have not landed, while TestMergePlanRefusesMissingMergeConstructors proves the gate on the registry as it stands."
 [task.5.6.8]
 title = "Export and re-import a chain after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.6.5"]
@@ -118699,7 +118699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.96.1]
 title = "Drop the deleted handover read consumer from the handover chain test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.4"]
