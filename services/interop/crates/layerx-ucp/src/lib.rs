@@ -636,8 +636,10 @@ impl UcpAdapter {
                     };
                 }
                 metadata.validate().map_err(fail)?;
+                verify_order_evidence(&evidence, receipt_keys).map_err(fail)?;
                 let receipt_digest =
-                    verify_order_evidence(submission, &evidence, receipt_keys).map_err(fail)?;
+                    verify_sequencer_receipt(submission, &evidence.signed_receipt, receipt_keys)
+                        .map_err(fail)?;
                 let status = gateway
                     .settle_with_sequencer_evidence(
                         principal,
@@ -693,16 +695,17 @@ impl UcpAdapter {
             logs: stored.logs.clone(),
             rung: stored.rung,
         };
-        let receipt_digest = verify_order_evidence(&stored.submission, &evidence, receipt_keys)?;
+        verify_order_evidence(&evidence, receipt_keys)?;
+        let receipt_digest =
+            verify_sequencer_receipt(&stored.submission, &stored.signed_receipt, receipt_keys)?;
         Ok(order(stored, receipt_digest))
     }
 }
 
 fn verify_order_evidence(
-    submission: &CheckoutSubmission,
     evidence: &SequencerEvidence,
     receipt_keys: &[SequencerAuthorization],
-) -> Result<[u8; 32], UcpError> {
+) -> Result<(), UcpError> {
     if evidence.rung == SettlementRung::Submitted {
         return Err(UcpError::ReceiptRequired);
     }
@@ -713,7 +716,7 @@ fn verify_order_evidence(
         return Err(UcpError::ReceiptMismatch);
     }
     verify_logs(&verified, evidence.logs.clone()).map_err(|_| UcpError::ReceiptMismatch)?;
-    verify_sequencer_receipt(submission, &evidence.signed_receipt, receipt_keys)
+    Ok(())
 }
 
 pub fn verify_sequencer_receipt(
