@@ -11,7 +11,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	bankkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
-	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 )
@@ -22,18 +21,18 @@ func TestAnchorStoreDeletedAtStep(t *testing.T) {
 	require.Equal(t, []string{MergeUpgrade, AnchorStoreDeleteUpgrade}, plans[len(plans)-2:])
 	upgrades, ok := layerxStoreUpgrades(AnchorStoreDeleteUpgrade)
 	require.True(t, ok)
-	require.Equal(t, []string{storekeys.LayerXAnchorStoreKey}, upgrades.Deleted)
+	require.Equal(t, []string{retiredAnchorStoreName}, upgrades.Deleted)
 	require.Empty(t, upgrades.Added)
 	require.Empty(t, upgrades.Renamed)
 	merge, ok := layerxStoreUpgrades(MergeUpgrade)
 	require.True(t, ok)
 	require.Empty(t, merge.Deleted)
-	require.NotContains(t, kvStoreKeyNames, storekeys.LayerXAnchorStoreKey)
+	require.NotContains(t, kvStoreKeyNames, retiredAnchorStoreName)
 
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a, ctx := w.App, w.Ctx.WithBlockHeight(100)
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
-	require.Nil(t, a.GetKey(storekeys.LayerXAnchorStoreKey))
+	require.Nil(t, a.GetKey(retiredAnchorStoreName))
 	require.NotContains(t, a.mm.Modules, anchortypes.ModuleName)
 	require.NotContains(t, a.mm.OrderInitGenesis, anchortypes.ModuleName)
 	require.True(t, a.UpgradeKeeper.HasHandler(AnchorStoreDeleteUpgrade))
@@ -85,16 +84,19 @@ func TestBankKeepersCarryNoLaunchpadBalanceHook(t *testing.T) {
 	w := NewTestWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	a := w.App
 	t.Cleanup(func() { require.NoError(t, a.Close()) })
+	legacyLaunchpad := NewPrecompileKeepers(a).LaunchpadV610K()
+	require.NotNil(t, legacyLaunchpad)
+	hook := legacyLaunchpad.BeforeBalanceChange
 	for name, register := range map[string]RegisterBalanceChangeHook{
 		"BankKeeper":     a.BankKeeper.(bankkeeper.BaseKeeper).RegisterBalanceChangeHook,
 		"GigaBankKeeper": a.GigaBankKeeper.RegisterBalanceChangeHook,
 	} {
 		t.Run(name, func(t *testing.T) {
 			require.NotPanics(t, func() {
-				register(launchpadtypes.ModuleName, a.LaunchpadKeeper.BeforeBalanceChange)
+				register(launchpadtypes.ModuleName, hook)
 			})
 			require.PanicsWithValue(t, "bank: duplicate balance change hook \"launchpad\"", func() {
-				register(launchpadtypes.ModuleName, a.LaunchpadKeeper.BeforeBalanceChange)
+				register(launchpadtypes.ModuleName, hook)
 			})
 		})
 	}
