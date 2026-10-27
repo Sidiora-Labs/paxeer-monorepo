@@ -200,8 +200,20 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "FeeRight",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.FeeRight(goCtx, &types.QueryFeeRightRequest{})
-				require.Nil(t, response)
+				collection := querier.Generation2().SidioraNFT
+				owner, err := types.ParseHexAddress("owner", "0x0000000000000000000000000000000000001236")
+				require.NoError(t, err)
+				pool, err := types.ParseHexAddress("pool", "0x0000000000000000000000000000000000001237")
+				require.NoError(t, err)
+				id, err := querier.MintFeeRight(ctx, collection, owner, pool, types.FeeStrategyClaim)
+				require.NoError(t, err)
+				right, found, err := querier.GetFeeRight(ctx, collection, id)
+				require.NoError(t, err)
+				require.True(t, found)
+				response, err := client.FeeRight(goCtx, &types.QueryFeeRightRequest{Collection: collection.Hex(), Id: id})
+				require.NoError(t, err)
+				info := types.FeeRightInfoOf(right)
+				require.Equal(t, &types.QueryFeeRightResponse{Found: true, FeeRight: &info}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -213,8 +225,11 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "AirdropEpoch",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.AirdropEpoch(goCtx, &types.QueryAirdropEpochRequest{})
-				require.Nil(t, response)
+				response, err := client.AirdropEpoch(goCtx, &types.QueryAirdropEpochRequest{
+					Pool: "0x0000000000000000000000000000000000001238", Epoch: 1,
+				})
+				require.NoError(t, err)
+				require.Equal(t, &types.QueryAirdropEpochResponse{Found: false}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -226,8 +241,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "AirdropClaimed",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.AirdropClaimed(goCtx, &types.QueryAirdropClaimedRequest{})
-				require.Nil(t, response)
+				response, err := client.AirdropClaimed(goCtx, &types.QueryAirdropClaimedRequest{
+					Pool:   "0x0000000000000000000000000000000000001238",
+					Holder: "0x0000000000000000000000000000000000001239", Epoch: 1,
+				})
+				require.NoError(t, err)
+				require.Equal(t, &types.QueryAirdropClaimedResponse{Claimed: false}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -239,8 +258,15 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "HasRole",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.HasRole(goCtx, &types.QueryHasRoleRequest{})
-				require.Nil(t, response)
+				contract := querier.Generation2().FeeAccumulator
+				account := address("query router role account")
+				response, err := client.HasRole(goCtx, &types.QueryHasRoleRequest{
+					Contract: contract.Hex(), Role: keeper.PoolRole.Hex(), Account: account.Hex(),
+				})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.False(t, response.HasRole)
+				require.Equal(t, querier.Keeper.HasRole(ctx, contract, keeper.PoolRole, account), response.HasRole)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -252,8 +278,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "QuoteLedger",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.QuoteLedger(goCtx, &types.QueryQuoteLedgerRequest{})
-				require.Nil(t, response)
+				amount, err := querier.GetQuoteLedger(ctx, keeper.TreasuryHeldLedger())
+				require.NoError(t, err)
+				response, err := client.QuoteLedger(goCtx, &types.QueryQuoteLedgerRequest{Kind: "treasury-held"})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, amount.String(), response.Amount)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -265,8 +295,13 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "FeeAccounting",
 			call: func(t *testing.T, goCtx context.Context) error {
+				liabilities, err := querier.TotalLiabilities(ctx)
+				require.NoError(t, err)
 				response, err := client.FeeAccounting(goCtx, &types.QueryFeeAccountingRequest{})
-				require.Nil(t, response)
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, liabilities, response.Accounting.TotalLiabilities)
+				require.Equal(t, sdk.ZeroInt(), response.Accounting.PendingProtocolFees)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -315,7 +350,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface", "Retired":
+			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed", "HasRole", "QuoteLedger", "FeeAccounting":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
@@ -329,6 +364,13 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
 				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
+			case "PoolMetadata":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				var addressErr *sdkerrors.Error
+				require.ErrorAs(t, err, &addressErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
 			case "MarketByAddress", "MarketsByCreator":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)

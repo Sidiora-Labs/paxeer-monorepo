@@ -1,9 +1,9 @@
 //! Finality-bound delivery of AI market events.
 //!
 //! The producer side admits one captured market outbox row only after a
-//! checkpoint certificate signed by the bonded guarantor set reaches rank 4 and
-//! binds the exact view root and batch on the configured chain, maps it onto
-//! the existing program event family,
+//! verified block commit from the pinned validator set binds the rank-4 row
+//! to its exact block height, hash, app hash and store proof on the configured
+//! chain, maps it onto the existing program event family,
 //! and keeps a durable per-market outbox whose event identifiers, bodies and
 //! subject sequences survive restart. The receiver side verifies the published
 //! signature scheme and applies each event once, in subject order, durably.
@@ -14,12 +14,10 @@ use std::io::{ErrorKind, Write};
 use std::path::{Path, PathBuf};
 
 use ed25519_dalek::{Signer, SigningKey};
+use layerx_indexer::ai_market::{verify_block_commit, BlockCommitProof, FinalityAuthority};
 use layerx_programs_ai_market::codec::state_digest;
 use layerx_programs_ai_market::queries::{SnapshotBinding, BINDING_MAX_BYTES, FINALIZED_RANK};
 use layerx_programs_ai_market::{Digest32, Presence};
-use layerx_proof::checkpoint::{verify_certificate, Certificate, GuarantorKey, SettlementDomain};
-use layerx_wire::hash::program_execution_batch_id;
-use layerx_wire::receipt::decode_batch_header;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -48,8 +46,10 @@ pub const DECODER_VERSION: u16 = 1;
 pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;
 /// Largest exact serialized market state a snapshot binds.
 pub const MAXIMUM_STATE_BYTES: usize = 262_144;
-/// Largest checkpoint validity proof admitted per row.
+/// Largest store proof admitted per row.
 pub const MAXIMUM_EVIDENCE_BYTES: usize = 1_048_576;
+/// Largest validator signature set admitted per row.
+pub const MAXIMUM_VALIDATORS: usize = 256;
 /// Largest registered mutation operation name carried in an event topic.
 pub const MAXIMUM_ACTION_BYTES: usize = 55;
 /// Largest resume page.
@@ -121,30 +121,18 @@ pub struct CapturedEvent {
 }
 
 /// The exact state bytes a capture row binds and, once the binding claims
-/// finalized rank, the checkpoint proof for its root.
+/// finalized rank, the verified block commit for its root.
 #[derive(Clone, Copy, Debug)]
 pub struct Evidence<'a> {
     pub state: &'a [u8],
-    pub proof: Option<CheckpointProof<'a>>,
+    pub proof: Option<BlockCommitProof<'a>>,
 }
 
-/// A checkpoint certificate with the identifier and settlement reference
-/// registered for it on the settlement chain.
-#[derive(Clone, Copy, Debug)]
-pub struct CheckpointProof<'a> {
-    pub certificate: &'a Certificate,
-    pub registered_checkpoint_id: [u8; 32],
-    pub registered_settlement_reference: Option<&'a [u8]>,
-}
-
-/// The deployment a publisher is pinned to: chain, network, settlement domain
-/// and the bonded guarantor set that signs its checkpoints.
-#[derive(Clone, Debug, Eq, PartialEq)]
+/// The deployment chain domain plus the pinned Comet chain id and validator set.
+#[derive(Clone, Debug)]
 pub struct FinalityPolicy {
     pub chain_domain: [u8; 32],
-    pub network_id: u32,
-    pub settlement: SettlementDomain,
-    pub guarantors: Vec<GuarantorKey>,
+    pub authority: FinalityAuthority,
 }
 
 /// Proof that the caller presented a verified internal producer leaf.
@@ -173,7 +161,7 @@ pub enum QuarantineCause {
     StateDigest,
     SnapshotId,
     EventId,
-    CheckpointNetwork,
+    CommitChain,
     FinalityConflict,
     EventConflict,
     FinalityBoundary,
@@ -189,7 +177,7 @@ impl QuarantineCause {
             Self::StateDigest => "state_digest_mismatch",
             Self::SnapshotId => "snapshot_id_mismatch",
             Self::EventId => "event_id_mismatch",
-            Self::CheckpointNetwork => "checkpoint_network_mismatch",
+            Self::CommitChain => "commit_chain_mismatch",
             Self::FinalityConflict => "finality_conflict",
             Self::EventConflict => "event_conflict",
             Self::FinalityBoundary => "finality_boundary_crossed",
@@ -213,9 +201,9 @@ pub enum MarketEventError {
     InvalidRequest,
     /// The caller does not hold the internal producer role.
     ProducerRoleRequired,
-    /// The checkpoint certificate did not verify against the bonded guarantor
-    /// set or proves another checkpoint or batch; nothing was admitted.
-    CertificateRejected,
+    /// The block commit did not verify against the pinned validator set or
+    /// proves another block, height, app hash or store proof; nothing was admitted.
+    CommitRejected,
     /// This call quarantined the market stream.
     Quarantined(QuarantineCause),
     /// The market stream is quarantined and refuses finalized publication.
@@ -597,15 +585,15 @@ impl MarketOutbox {
 
     /// Admits one captured row. Rows below rank 4 wait; rows whose evidence
     /// does not bind the configured chain, exact state, snapshot, identifier,
-    /// decoder and checkpoint root quarantine the market stream.
+    /// decoder and committed root quarantine the market stream.
     ///
     /// # Errors
     /// Returns [`MarketEventError::InvalidRequest`] for an unbounded or
     /// malformed row, [`MarketEventError::Revoked`] without a current grant,
     /// [`MarketEventError::Quarantined`] for the quarantining cause,
     /// [`MarketEventError::StreamQuarantined`] once quarantined,
-    /// [`MarketEventError::CertificateRejected`] for a certificate that does
-    /// not verify or proves another checkpoint or batch,
+    /// [`MarketEventError::CommitRejected`] for a block commit that does
+    /// not verify or proves another block, height, app hash or store proof,
     /// [`MarketEventError::CaptureStopped`] when unpublished rows are full, and
     /// store failures.
     pub fn admit(
@@ -841,7 +829,9 @@ fn well_formed(row: &CapturedEvent, evidence: &Evidence<'_>) -> Result<(), Marke
     let shaped = row.binding.encode(&mut canonical).is_ok()
         && evidence.state.len() <= MAXIMUM_STATE_BYTES
         && evidence.proof.map_or(!finalized, |proof| {
-            proof.certificate.checkpoint().validity_proof().len() <= MAXIMUM_EVIDENCE_BYTES
+            !proof.store_proof.is_empty()
+                && proof.store_proof.len() <= MAXIMUM_EVIDENCE_BYTES
+                && proof.commit.signatures.len() <= MAXIMUM_VALIDATORS
         })
         && nonzero(&row.source_activity_id)
         && nonzero(&row.receipt_digest)
@@ -910,43 +900,25 @@ fn examine(
 fn certify(
     policy: &FinalityPolicy,
     binding: &SnapshotBinding,
-    proof: &CheckpointProof<'_>,
+    proof: &BlockCommitProof<'_>,
 ) -> Result<(), Stop> {
-    let rejected = || Stop::Refuse(MarketEventError::CertificateRejected);
-    let header = decode_batch_header(proof.certificate.checkpoint().header_bytes())
-        .map_err(|_| rejected())?;
-    if header.network_id() != policy.network_id {
-        return Err(Stop::Quarantine(QuarantineCause::CheckpointNetwork));
+    let rejected = || Stop::Refuse(MarketEventError::CommitRejected);
+    let verified = verify_block_commit(proof, &policy.authority).map_err(|_| rejected())?;
+    if verified.chain_id != policy.authority.chain_id {
+        return Err(Stop::Quarantine(QuarantineCause::CommitChain));
     }
-    let report = verify_certificate(
-        proof.certificate,
-        &policy.guarantors,
-        &proof.registered_checkpoint_id,
-        policy.settlement,
-        proof.registered_settlement_reference,
-    )
-    .map_err(|_| rejected())?;
-    if report.level().wire_rank() < MINIMUM_PUBLICATION_RANK
-        || report.evidence().checkpoint_id() != Some(binding.checkpoint.bytes())
-    {
-        return Err(rejected());
-    }
-    let root = binding.native_state_root.bytes();
-    if header.last_sequence() == binding.observed_sequence && report.resulting_state_root() != root
+    if verified.height == binding.execution_height
+        && verified.app_hash != binding.native_state_root.bytes()
     {
         return Err(Stop::Quarantine(QuarantineCause::FinalityConflict));
     }
-    let batch = program_execution_batch_id(
-        header.previous_state_root(),
-        header.activity_merkle_root(),
-        header.first_sequence(),
-        header.last_sequence(),
-        header.batch_number(),
-    )
-    .map_err(|_| rejected())?;
-    if header.last_sequence() != binding.observed_sequence
-        || report.resulting_state_root() != root
-        || batch != binding.batch_id.bytes()
+    if verified.height != binding.execution_height
+        || binding.execution_height != binding.block_height
+        || verified.block_hash != binding.batch_id.bytes()
+        || binding.batch_id != binding.block_hash
+        || verified.app_hash != binding.native_state_root.bytes()
+        || binding.native_state_root != binding.app_hash
+        || verified.store_proof_digest != binding.store_proof_digest.bytes()
     {
         return Err(rejected());
     }
@@ -966,7 +938,7 @@ fn identity(row: &CapturedEvent) -> [u8; 32] {
     hasher.update(row.source_activity_id);
     hasher.update(row.effect_ordinal.to_be_bytes());
     hasher.update(row.receipt_digest);
-    hasher.update(binding.checkpoint.bytes());
+    hasher.update(binding.store_proof_digest.bytes());
     hasher.finalize().into()
 }
 
@@ -1087,7 +1059,10 @@ fn market_event(
             "native_state_root",
             hex_encode(binding.native_state_root.as_bytes()),
         ),
-        ("checkpoint_id", hex_encode(binding.checkpoint.as_bytes())),
+        (
+            "checkpoint_id",
+            hex_encode(binding.store_proof_digest.as_bytes()),
+        ),
         ("achieved_rank", binding.rank.to_string()),
     ];
     let facts = values

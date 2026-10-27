@@ -416,10 +416,7 @@ message QueryQuoteLedgerRequest {
 }
 
 message QueryQuoteLedgerResponse {
-  string amount = 1 [
-    (gogoproto.customtype) = "Int",
-    (gogoproto.nullable) = false
-  ];
+  string amount = 1;
 }
 
 message QueryFeeAccountingRequest {}

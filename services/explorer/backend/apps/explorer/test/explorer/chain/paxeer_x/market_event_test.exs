@@ -38,7 +38,19 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       "AirdropExecuted(address,uint256,uint256)",
       "AirdropClaimed(address,address,uint256,uint256)",
       "LpRewardsExecuted(address,uint256)",
-      "PauseToggled(address,bool)"
+      "PauseToggled(address,bool)",
+      "ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)",
+      "FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)",
+      "FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)",
+      "MarketCreated(bytes32,address,address,address,address,uint256,uint256)",
+      "NftMint(uint256,address,address,uint8,uint256,uint256)",
+      "NftTransfer(address,address,address,uint256,uint256,uint256)",
+      "PoolRegistered(address,address,address,address,uint256,uint256,uint256)",
+      "PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
+      "Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)",
+      "TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)"
     ]
   }
 
@@ -151,7 +163,7 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       end
 
       keys = Enum.map(definitions, &{&1.address, &1.topic})
-      assert length(keys) == 17
+      assert length(keys) == 29
       assert Enum.uniq(keys) == keys
     end
 
