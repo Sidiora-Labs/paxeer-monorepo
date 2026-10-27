@@ -241,8 +241,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "AirdropClaimed",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.AirdropClaimed(goCtx, &types.QueryAirdropClaimedRequest{})
-				require.Nil(t, response)
+				response, err := client.AirdropClaimed(goCtx, &types.QueryAirdropClaimedRequest{
+					Pool:   "0x0000000000000000000000000000000000001238",
+					Holder: "0x0000000000000000000000000000000000001239", Epoch: 1,
+				})
+				require.NoError(t, err)
+				require.Equal(t, &types.QueryAirdropClaimedResponse{Claimed: false}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -330,7 +334,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch":
+			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
