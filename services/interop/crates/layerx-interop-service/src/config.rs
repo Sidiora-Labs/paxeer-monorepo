@@ -383,7 +383,8 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
     if keys.is_empty() {
         return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE must contain at least one key".to_owned());
     }
-    keys.into_iter()
+    let mut keys = keys
+        .into_iter()
         .map(|key| {
             let hex32 = |value: &str, field: &str| {
                 value
@@ -408,7 +409,15 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
                 key.last_height,
             ))
         })
-        .collect()
+        .collect::<Result<Vec<_>, String>>()?;
+    keys.sort_by_key(SequencerAuthorization::first_batch_number);
+    if keys
+        .windows(2)
+        .any(|pair| pair[1].first_batch_number() <= pair[0].last_batch_number())
+    {
+        return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE has overlapping height ranges".to_owned());
+    }
+    Ok(keys)
 }
 
 fn check_receipt_keys(
@@ -1131,6 +1140,70 @@ mod tests {
             error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn overlapping_receipt_key_ranges_are_refused() {
+        let fixture: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .expect("sequencer receipt fixture");
+        let parse = |ranges: &[(u64, u64)]| {
+            let entries: Vec<_> = ranges
+                .iter()
+                .enumerate()
+                .map(|(index, &(first, last))| {
+                    let mut entry = fixture["cases"][0]["pinnedKey"].clone();
+                    entry["keyId"] = format!("0x{:064x}", index + 1).into();
+                    entry["firstHeight"] = first.into();
+                    entry["lastHeight"] = last.into();
+                    entry
+                })
+                .collect();
+            let bytes = serde_json::to_vec(&entries).expect("receipt keys JSON array");
+            super::parse_receipt_keys(&bytes)
+        };
+
+        for ranges in [
+            vec![(10, 20), (15, 25)],
+            vec![(15, 25), (10, 20)],
+            vec![(10, 20), (20, 30)],
+            vec![(10, 30), (15, 20)],
+            vec![(10, 20), (10, 30)],
+            vec![(10, 20), (10, 20)],
+            vec![(30, 40), (10, 20), (15, 25)],
+            vec![(u64::MAX, u64::MAX), (0, u64::MAX)],
+        ] {
+            let error = parse(&ranges).expect_err("overlapping keys must be refused");
+            assert!(
+                error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
+                "{error}"
+            );
+            assert!(
+                error.contains("overlapping height ranges"),
+                "{ranges:?}: {error}"
+            );
+        }
+
+        let error = parse(&[(20, 10)]).expect_err("inverted range must be refused");
+        assert!(
+            error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
+            "{error}"
+        );
+        assert!(error.contains("reversed height range"), "{error}");
+
+        let keys = parse(&[(11, u64::MAX), (0, 0), (1, 10)])
+            .expect("unsorted disjoint ranges, including adjacent ranges, are accepted");
+        assert_eq!(keys.len(), 3);
+        for (key, (first, last, id)) in keys.iter().zip([(0, 0, 2), (1, 10, 3), (11, u64::MAX, 1)])
+        {
+            assert_eq!(key.first_batch_number(), first);
+            assert_eq!(key.last_batch_number(), last);
+            let mut expected_id = [0; 32];
+            expected_id[31] = id;
+            assert_eq!(key.sequencer_id(), expected_id);
+        }
     }
 
     fn receipt_key_pins() -> (Vec<super::SequencerAuthorization>, super::ReceiptKeyEntry) {

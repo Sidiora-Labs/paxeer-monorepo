@@ -1,0 +1,6 @@
+leader_pin = ["validator01", "validator02"]
+leader_pin_height = 3
+
+[node.validator01]
+[node.validator02]
+[node.validator03]
