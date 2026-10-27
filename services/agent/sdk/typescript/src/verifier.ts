@@ -1,4 +1,5 @@
 import { PlatformSdkError } from "./production.js";
+import { Rung } from "./generated/client.js";
 import { ed25519 } from "@noble/curves/ed25519.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 import {
@@ -9,16 +10,12 @@ import {
 
 const MERKLE_LEAF_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-leaf\0");
 const MERKLE_INTERNAL_DOMAIN = new TextEncoder().encode("LXP/v1/merkle-internal\0");
-const BATCH_HEADER_DOMAIN = new TextEncoder().encode("LXP/v1/batch-header\0");
 const RECEIPT_DOMAIN = new TextEncoder().encode("LXP/v1/receipt\0");
-const CHECKPOINT_DOMAIN = new TextEncoder().encode("LXP/v2/checkpoint-certificate\0");
-const GUARANTOR_ATTESTATION_DOMAIN = new TextEncoder().encode("LXP/v2/guarantor-attestation\0");
 const BATCH_HEADER_BYTES = 354;
 const MAX_MESSAGE_BYTES = 1_048_576;
 const MAX_EFFECTS = 512;
 const MAX_EFFECT_BODY = 256;
 const MAX_U128 = 0xffff_ffff_ffff_ffff_ffff_ffff_ffff_ffffn;
-const ALL_AVAILABILITY_CLASSES = 0x1f;
 export const LEGACY_PROTOCOL_VERSION = 1;
 export const DEFAULT_PROTOCOL_VERSION = 2;
 export const STATE_COMMITMENT_PROTOCOL_VERSION = 3;
@@ -106,56 +103,10 @@ export interface InclusionVerification {
   readonly root: Uint8Array;
 }
 
-export interface CheckpointAttestation {
-  readonly protocolVersion: number;
-  readonly networkId: number;
-  readonly paxeerChainId: bigint;
-  readonly settlementContract: Uint8Array;
-  readonly epoch: bigint;
-  readonly checkpointId: Uint8Array;
-  readonly checkpointHash: Uint8Array;
-  readonly guarantorId: Uint8Array;
-  readonly batchNumber: bigint;
-  readonly dataAvailabilityRoot: Uint8Array;
-  readonly replayed: boolean;
-  readonly dataPossessed: boolean;
-  readonly availabilityClassMask: number;
-  readonly attestedAtMs: bigint;
-  readonly signer: Uint8Array;
-  readonly signature: Uint8Array;
-  readonly signatureV: number;
-}
-
 export interface GuarantorKey {
   readonly guarantorId: Uint8Array;
   readonly publicKey: Uint8Array;
   readonly bonded: boolean;
-}
-
-export interface CheckpointCertificate {
-  readonly canonicalHeader: Uint8Array;
-  readonly validityProof: Uint8Array;
-  readonly attestations: readonly CheckpointAttestation[];
-  readonly threshold: number;
-  readonly settlementReference?: Uint8Array;
-}
-
-export interface CheckpointVerificationInput {
-  readonly certificate: CheckpointCertificate;
-  readonly bondedSet: readonly GuarantorKey[];
-  readonly registeredCheckpointId: Uint8Array;
-  readonly expectedPaxeerChainId: bigint;
-  readonly expectedSettlementContract: Uint8Array;
-  readonly registeredSettlementReference?: Uint8Array;
-  readonly availabilityObtained: boolean;
-}
-
-export interface CheckpointVerification {
-  readonly level: "checkpoint-finalised" | "settlement-anchored";
-  readonly checkpointId: Uint8Array;
-  readonly achieved: number;
-  readonly required: number;
-  readonly header: BatchHeader;
 }
 
 export interface LocalSignatureVerifier {
@@ -251,6 +202,10 @@ export interface ReceiptVerification {
   readonly receipt: ProtocolReceipt;
   readonly canonicalBytes: Uint8Array;
   readonly receiptDigest: Uint8Array;
+}
+
+export interface SubmittedReceiptVerification extends ReceiptVerification {
+  readonly rung: Rung.Submitted;
 }
 
 export class ReceiptVerificationError extends PlatformSdkError {
@@ -536,192 +491,6 @@ async function verifyEd25519(publicKey: Uint8Array, signature: Uint8Array, diges
   } catch {
     return false;
   }
-}
-
-function inclusionRoot(header: BatchHeader, kind: InclusionKind): Uint8Array {
-  switch (kind) {
-    case "activity":
-      return header.activityMerkleRoot;
-    case "receipt":
-      return header.receiptMerkleRoot;
-    case "event":
-      return header.eventMerkleRoot;
-    case "state":
-      return header.resultingStateRoot;
-  }
-}
-
-export async function verifyBatchInclusion(
-  kind: InclusionKind,
-  canonicalLeaf: Uint8Array,
-  proof: MerkleProof,
-  canonicalHeader: Uint8Array,
-  headerSignature: Uint8Array,
-  authorization: SequencerAuthorization,
-  selection?: ProtocolSelection,
-): Promise<InclusionVerification> {
-  const selected = selectedProtocolVersion(selection);
-  const header = decodeBatchHeader(canonicalHeader);
-  if (header.protocolVersion !== selected) return verificationFailure();
-  if (
-    header.batchNumber < authorization.firstBatchNumber
-    || header.batchNumber > authorization.lastBatchNumber
-    || !equal(header.sequencerId, exactBytes(authorization.sequencerId, 32))
-  ) {
-    return verificationFailure();
-  }
-  const digest = await sha256(BATCH_HEADER_DOMAIN, canonicalHeader);
-  if (!await verifyEd25519(authorization.publicKey, headerSignature, digest)) {
-    return verificationFailure();
-  }
-  const root = inclusionRoot(header, kind);
-  await verifyMerkleInclusion(canonicalLeaf, proof, root);
-  return Object.freeze({
-    level: kind === "state" ? "state-proven" : "batch-included",
-    header,
-    headerDigest: digest,
-    root,
-  });
-}
-
-function u32(value: number): Uint8Array {
-  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffff_ffff) {
-    return verificationFailure();
-  }
-  const result = new Uint8Array(4);
-  new DataView(result.buffer).setUint32(0, value, false);
-  return result;
-}
-
-function u16(value: number): Uint8Array {
-  if (!Number.isSafeInteger(value) || value < 0 || value > 0xffff) {
-    return verificationFailure();
-  }
-  const result = new Uint8Array(2);
-  new DataView(result.buffer).setUint16(0, value, false);
-  return result;
-}
-
-function u64(value: bigint): Uint8Array {
-  if (value < 0n || value > 0xffff_ffff_ffff_ffffn) {
-    return verificationFailure();
-  }
-  const result = new Uint8Array(8);
-  new DataView(result.buffer).setBigUint64(0, value, false);
-  return result;
-}
-
-function attestationMessage(attestation: CheckpointAttestation): Uint8Array {
-  return concatenate(
-    u16(attestation.protocolVersion),
-    u32(attestation.networkId),
-    u64(attestation.paxeerChainId),
-    exactBytes(attestation.settlementContract, 20),
-    u64(attestation.epoch),
-    exactBytes(attestation.checkpointId, 32),
-    exactBytes(attestation.checkpointHash, 32),
-    exactBytes(attestation.guarantorId, 32),
-    u64(attestation.batchNumber),
-    exactBytes(attestation.dataAvailabilityRoot, 32),
-    new Uint8Array([
-      attestation.replayed ? 1 : 0,
-      attestation.dataPossessed ? 1 : 0,
-      attestation.availabilityClassMask,
-    ]),
-    u64(attestation.attestedAtMs),
-  );
-}
-
-export async function verifyCheckpoint(
-  input: CheckpointVerificationInput,
-  signatures: LocalSignatureVerifier,
-  selection?: ProtocolSelection,
-): Promise<CheckpointVerification> {
-  const selected = selectedProtocolVersion(selection);
-  const { certificate } = input;
-  if (!input.availabilityObtained || certificate.validityProof.length > 0xffff_ffff) {
-    return verificationFailure();
-  }
-  const header = decodeBatchHeader(certificate.canonicalHeader);
-  if (header.protocolVersion !== selected) return verificationFailure();
-  const checkpointId = await sha256(
-    CHECKPOINT_DOMAIN,
-    certificate.canonicalHeader,
-    u32(certificate.validityProof.length),
-    certificate.validityProof,
-  );
-  if (!equal(checkpointId, exactBytes(input.registeredCheckpointId, 32))) {
-    return verificationFailure();
-  }
-  const expectedSettlementContract = exactBytes(input.expectedSettlementContract, 20);
-  if (
-    certificate.threshold <= 0
-    || !Number.isSafeInteger(certificate.threshold)
-    || input.expectedPaxeerChainId <= 0n
-    || expectedSettlementContract.every((byte) => byte === 0)
-  ) {
-    return verificationFailure();
-  }
-  const seen = new Set<string>();
-  let achieved = 0;
-  for (const attestation of certificate.attestations) {
-    const guarantorId = exactBytes(attestation.guarantorId, 32);
-    const identity = Array.from(guarantorId, (byte) => byte.toString(16).padStart(2, "0")).join("");
-    if (
-      seen.has(identity)
-      || attestation.protocolVersion !== header.protocolVersion
-      || attestation.networkId !== header.networkId
-      || attestation.epoch !== header.epoch
-      || attestation.paxeerChainId !== input.expectedPaxeerChainId
-      || !equal(exactBytes(attestation.settlementContract, 20), expectedSettlementContract)
-      || !equal(attestation.checkpointId, checkpointId)
-      || !equal(attestation.checkpointHash, checkpointId)
-      || attestation.batchNumber !== header.batchNumber
-      || !equal(attestation.dataAvailabilityRoot, header.dataAvailabilityRoot)
-      || !attestation.replayed
-      || !attestation.dataPossessed
-      || attestation.availabilityClassMask !== ALL_AVAILABILITY_CLASSES
-      || attestation.attestedAtMs <= 0n
-      || exactBytes(attestation.signer, 20).every((byte) => byte === 0)
-      || (attestation.signatureV !== 27 && attestation.signatureV !== 28)
-    ) {
-      return verificationFailure();
-    }
-    seen.add(identity);
-    const member = input.bondedSet.find((candidate) => candidate.bonded && equal(candidate.guarantorId, guarantorId));
-    if (member === undefined) {
-      return verificationFailure();
-    }
-    const digest = await sha256(GUARANTOR_ATTESTATION_DOMAIN, attestationMessage(attestation));
-    if (!await signatures.verifyRecoverableSecp256k1(
-      exactBytes(member.publicKey, 33),
-      exactBytes(attestation.signature, 64),
-      attestation.signatureV,
-      exactBytes(attestation.signer, 20),
-      digest,
-    )) {
-      return verificationFailure();
-    }
-    achieved += 1;
-  }
-  if (achieved < certificate.threshold) {
-    return verificationFailure();
-  }
-  const settlement = certificate.settlementReference;
-  if (settlement !== undefined && (
-    settlement.length === 0
-    || input.registeredSettlementReference === undefined
-    || !equal(settlement, input.registeredSettlementReference)
-  )) {
-    return verificationFailure();
-  }
-  return Object.freeze({
-    level: settlement === undefined ? "checkpoint-finalised" : "settlement-anchored",
-    checkpointId,
-    achieved,
-    required: certificate.threshold,
-    header,
-  });
 }
 
 interface DecodedReceipt {
@@ -1079,7 +848,7 @@ export async function verifyReceiptOutcome(
   canonicalReceipt: Uint8Array,
   authorized: AuthorizedReceiptBatch,
   selection?: ProtocolSelection,
-): Promise<ReceiptVerification> {
+): Promise<SubmittedReceiptVerification> {
   const selected = selectedProtocolVersion(selection);
   const canonical = canonicalReceipt.slice();
   const authority = Object.freeze({
@@ -1115,6 +884,7 @@ export async function verifyReceiptOutcome(
   }
   return Object.freeze({
     level: "sequencer-signed",
+    rung: Rung.Submitted,
     receipt,
     canonicalBytes: canonical,
     receiptDigest,
@@ -1171,7 +941,7 @@ export async function verifyReceipt(
   canonicalReceipt: Uint8Array,
   authorized: AuthorizedReceiptBatch,
   selection?: ProtocolSelection,
-): Promise<ReceiptVerification> {
+): Promise<SubmittedReceiptVerification> {
   const verified = await verifyReceiptOutcome(canonicalReceipt, authorized, selection);
   if (verified.receipt.resultCode !== 0) {
     return receiptFailure(ReceiptFailureCode.ResultCode);
