@@ -7,7 +7,7 @@ use serde_json::{json, Map, Value};
 
 use crate::config::ServiceConfig;
 use crate::journal::{Admission, Completion, JournalError, Key};
-use crate::policy::PolicyRefusal;
+use crate::policy::{PolicyRefusal, DID_BUDGET_INTERVAL_SECONDS};
 use crate::price::{PriceError, PriceSource};
 use crate::quote::{keccak, word, Address, Word};
 use crate::rpc::{
@@ -653,7 +653,7 @@ where
     }
 
     fn report(
-        &self,
+        &mut self,
         key: Key,
         account: Address,
         relayer: &[u8; 65],
@@ -662,6 +662,28 @@ where
             .station
             .status(key, account, relayer)
             .map_err(|error| ServiceError::from(&error))?;
+        let now = self.now()?;
+        let day = now / DID_BUDGET_INTERVAL_SECONDS;
+        let day_ends = day
+            .checked_add(1)
+            .and_then(|next| next.checked_mul(DID_BUDGET_INTERVAL_SECONDS))
+            .ok_or(ServiceError::Unavailable)?;
+        let budget_key = self
+            .station
+            .journal()
+            .state()
+            .items
+            .get(&key)
+            .and_then(|item| item.quote.as_ref())
+            .ok_or(ServiceError::Internal)?
+            .budget_key()
+            .map_err(|_| ServiceError::Internal)?;
+        let budget = self.station.policy().did_budget();
+        let used_gas = budget.used(budget_key.as_str(), day);
+        let remaining_gas = budget
+            .gas_limit
+            .checked_sub(used_gas)
+            .ok_or(ServiceError::Internal)?;
         let transaction = |pair: Option<(u64, Word)>| {
             pair.map_or(Value::Null, |(nonce, hash)| {
                 json!({"sponsorNonce": nonce.to_string(), "transactionHash": hex(&hash)})
@@ -714,10 +736,17 @@ where
             "deadline": status.deadline.to_string(),
             "submission": transaction(status.submission),
             "completion": outcome,
+            "budget": {
+                "key": budget_key.as_str(),
+                "gasLimit": budget.gas_limit.to_string(),
+                "usedGas": used_gas.to_string(),
+                "remainingGas": remaining_gas.to_string(),
+                "dayEnds": day_ends.to_string(),
+            },
         }))
     }
 
-    fn status(&self, body: &Value) -> Result<Value, ServiceError> {
+    fn status(&mut self, body: &Value) -> Result<Value, ServiceError> {
         let (key, account, relayer) = Self::identity(body)?;
         self.report(key, account, &relayer)
     }
