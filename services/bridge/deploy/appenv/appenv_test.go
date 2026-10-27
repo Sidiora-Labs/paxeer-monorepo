@@ -1,6 +1,7 @@
 package appenv
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -159,6 +160,80 @@ func TestRefusesAZeroVault(t *testing.T) {
 			}
 			if record.Vault != vault {
 				t.Fatalf("LoadRecord().Vault = %q, want %q", record.Vault, vault)
+			}
+		})
+	}
+}
+
+func TestRunWritesEveryRecordInChainOrder(t *testing.T) {
+	dir := t.TempDir()
+	var want []string
+	chains := chainconfig.Chains()
+	for i, chain := range chains {
+		if chain.Kind != chainconfig.KindEVM {
+			continue
+		}
+		vault := fmt.Sprintf("0x%040x", chain.ID)
+		path := recordCopy(t, map[string]any{"chain": chain.Name, "chain_id": chain.ID, "vault": vault})
+		name := fmt.Sprintf("%02d-%s.json", len(chains)-i, chain.Name)
+		if err := os.Rename(path, filepath.Join(dir, name)); err != nil {
+			t.Fatal(err)
+		}
+		want = append(want, "NEXT_PUBLIC_BRIDGE_VAULT_"+strings.ToUpper(chain.Name)+"="+vault)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("not a deployment record"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	if err := Run([]string{dir}, &output); err != nil {
+		t.Fatal(err)
+	}
+	if expected := strings.Join(want, "\n") + "\n"; output.String() != expected {
+		t.Fatalf("Run() output = %q, want %q in registry order", output.String(), expected)
+	}
+
+	t.Run("duplicate_chain", func(t *testing.T) {
+		path := recordCopy(t, map[string]any{"vault": "0x0000000000000000000000000000000000000001"})
+		duplicate := filepath.Join(dir, "zz-duplicate.json")
+		if err := os.Rename(path, duplicate); err != nil {
+			t.Fatal(err)
+		}
+		var output bytes.Buffer
+		err := Run([]string{dir}, &output)
+		if err == nil {
+			t.Fatal("Run accepted two records for ethereum")
+		}
+		if !strings.Contains(err.Error(), "duplicate chain") || !strings.Contains(err.Error(), "ethereum") || !strings.Contains(err.Error(), duplicate) {
+			t.Fatalf("error must name duplicate chain and file: %v", err)
+		}
+		if output.Len() != 0 {
+			t.Fatalf("Run wrote partial output for duplicate records: %q", output.String())
+		}
+	})
+}
+
+func TestRunRefusesAnEmptyDirectory(t *testing.T) {
+	for _, nonJSON := range []bool{false, true} {
+		t.Run(fmt.Sprintf("non_json_files_%t", nonJSON), func(t *testing.T) {
+			dir := t.TempDir()
+			if nonJSON {
+				if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("not JSON"), 0600); err != nil {
+					t.Fatal(err)
+				}
+				if err := os.Mkdir(filepath.Join(dir, "nested.json"), 0700); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var output bytes.Buffer
+			err := Run([]string{dir}, &output)
+			if err == nil {
+				t.Fatal("Run accepted a directory without JSON records")
+			}
+			if !strings.Contains(err.Error(), dir) {
+				t.Fatalf("error must name directory %q: %v", dir, err)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("Run wrote output for an empty directory: %q", output.String())
 			}
 		})
 	}

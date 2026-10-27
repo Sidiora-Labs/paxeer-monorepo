@@ -29,6 +29,27 @@ export const Params = {
         if (message.maximum_fee_per_gas !== "") {
             writer.uint32(106).string(message.maximum_fee_per_gas);
         }
+        if (message.register_pointer_disabled !== false) {
+            writer.uint32(112).bool(message.register_pointer_disabled);
+        }
+        if (message.pax_sstore_set_gas_eip2200 !== 0) {
+            writer.uint32(120).uint64(message.pax_sstore_set_gas_eip2200);
+        }
+        for (const v of message.allowed_fee_denoms) {
+            AllowedFeeDenom.encode(v, writer.uint32(130).fork()).join();
+        }
+        if (message.max_fee_token_spread !== "") {
+            writer.uint32(138).string(message.max_fee_token_spread);
+        }
+        if (message.fee_token_enabled !== false) {
+            writer.uint32(144).bool(message.fee_token_enabled);
+        }
+        if (message.fee_token_distribution !== false) {
+            writer.uint32(152).bool(message.fee_token_distribution);
+        }
+        if (message.max_fee_token_rate_age !== 0) {
+            writer.uint32(160).int64(message.max_fee_token_rate_age);
+        }
         return writer;
     },
     decode(input, length) {
@@ -92,6 +113,48 @@ export const Params = {
                     }
                     message.maximum_fee_per_gas = reader.string();
                     continue;
+                case 14:
+                    if (tag !== 112) {
+                        break;
+                    }
+                    message.register_pointer_disabled = reader.bool();
+                    continue;
+                case 15:
+                    if (tag !== 120) {
+                        break;
+                    }
+                    message.pax_sstore_set_gas_eip2200 = longToNumber(reader.uint64());
+                    continue;
+                case 16:
+                    if (tag !== 130) {
+                        break;
+                    }
+                    message.allowed_fee_denoms.push(AllowedFeeDenom.decode(reader, reader.uint32()));
+                    continue;
+                case 17:
+                    if (tag !== 138) {
+                        break;
+                    }
+                    message.max_fee_token_spread = reader.string();
+                    continue;
+                case 18:
+                    if (tag !== 144) {
+                        break;
+                    }
+                    message.fee_token_enabled = reader.bool();
+                    continue;
+                case 19:
+                    if (tag !== 152) {
+                        break;
+                    }
+                    message.fee_token_distribution = reader.bool();
+                    continue;
+                case 20:
+                    if (tag !== 160) {
+                        break;
+                    }
+                    message.max_fee_token_rate_age = longToNumber(reader.int64());
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -116,7 +179,16 @@ export const Params = {
                 ? globalThis.String(object.max_dynamic_base_fee_downward_adjustment)
                 : "",
             target_gas_used_per_block: isSet(object.target_gas_used_per_block) ? globalThis.Number(object.target_gas_used_per_block) : 0,
-            maximum_fee_per_gas: isSet(object.maximum_fee_per_gas) ? globalThis.String(object.maximum_fee_per_gas) : ""
+            maximum_fee_per_gas: isSet(object.maximum_fee_per_gas) ? globalThis.String(object.maximum_fee_per_gas) : "",
+            register_pointer_disabled: isSet(object.register_pointer_disabled) ? globalThis.Boolean(object.register_pointer_disabled) : false,
+            pax_sstore_set_gas_eip2200: isSet(object.pax_sstore_set_gas_eip2200) ? globalThis.Number(object.pax_sstore_set_gas_eip2200) : 0,
+            allowed_fee_denoms: globalThis.Array.isArray(object?.allowed_fee_denoms)
+                ? object.allowed_fee_denoms.map((e) => AllowedFeeDenom.fromJSON(e))
+                : [],
+            max_fee_token_spread: isSet(object.max_fee_token_spread) ? globalThis.String(object.max_fee_token_spread) : "",
+            fee_token_enabled: isSet(object.fee_token_enabled) ? globalThis.Boolean(object.fee_token_enabled) : false,
+            fee_token_distribution: isSet(object.fee_token_distribution) ? globalThis.Boolean(object.fee_token_distribution) : false,
+            max_fee_token_rate_age: isSet(object.max_fee_token_rate_age) ? globalThis.Number(object.max_fee_token_rate_age) : 0
         };
     },
     toJSON(message) {
@@ -148,6 +220,27 @@ export const Params = {
         if (message.maximum_fee_per_gas !== "") {
             obj.maximum_fee_per_gas = message.maximum_fee_per_gas;
         }
+        if (message.register_pointer_disabled !== false) {
+            obj.register_pointer_disabled = message.register_pointer_disabled;
+        }
+        if (message.pax_sstore_set_gas_eip2200 !== 0) {
+            obj.pax_sstore_set_gas_eip2200 = Math.round(message.pax_sstore_set_gas_eip2200);
+        }
+        if (message.allowed_fee_denoms?.length) {
+            obj.allowed_fee_denoms = message.allowed_fee_denoms.map((e) => AllowedFeeDenom.toJSON(e));
+        }
+        if (message.max_fee_token_spread !== "") {
+            obj.max_fee_token_spread = message.max_fee_token_spread;
+        }
+        if (message.fee_token_enabled !== false) {
+            obj.fee_token_enabled = message.fee_token_enabled;
+        }
+        if (message.fee_token_distribution !== false) {
+            obj.fee_token_distribution = message.fee_token_distribution;
+        }
+        if (message.max_fee_token_rate_age !== 0) {
+            obj.max_fee_token_rate_age = Math.round(message.max_fee_token_rate_age);
+        }
         return obj;
     },
     create(base) {
@@ -164,6 +257,13 @@ export const Params = {
         message.max_dynamic_base_fee_downward_adjustment = object.max_dynamic_base_fee_downward_adjustment ?? "";
         message.target_gas_used_per_block = object.target_gas_used_per_block ?? 0;
         message.maximum_fee_per_gas = object.maximum_fee_per_gas ?? "";
+        message.register_pointer_disabled = object.register_pointer_disabled ?? false;
+        message.pax_sstore_set_gas_eip2200 = object.pax_sstore_set_gas_eip2200 ?? 0;
+        message.allowed_fee_denoms = object.allowed_fee_denoms?.map((e) => AllowedFeeDenom.fromPartial(e)) || [];
+        message.max_fee_token_spread = object.max_fee_token_spread ?? "";
+        message.fee_token_enabled = object.fee_token_enabled ?? false;
+        message.fee_token_distribution = object.fee_token_distribution ?? false;
+        message.max_fee_token_rate_age = object.max_fee_token_rate_age ?? 0;
         return message;
     }
 };
@@ -261,6 +361,61 @@ export const ParamsPreV580 = {
         return message;
     }
 };
+export const AllowedFeeDenom = {
+    $type: "paxprotocol.paxchain.evm.AllowedFeeDenom",
+    encode(message, writer = new BinaryWriter()) {
+        if (message.denom !== "") {
+            writer.uint32(10).string(message.denom);
+        }
+        return writer;
+    },
+    decode(input, length) {
+        const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+        const end = length === undefined ? reader.len : reader.pos + length;
+        const message = createBaseAllowedFeeDenom();
+        while (reader.pos < end) {
+            const tag = reader.uint32();
+            switch (tag >>> 3) {
+                case 1:
+                    if (tag !== 10) {
+                        break;
+                    }
+                    message.denom = reader.string();
+                    continue;
+            }
+            if ((tag & 7) === 4 || tag === 0) {
+                break;
+            }
+            reader.skip(tag & 7);
+        }
+        return message;
+    },
+    fromJSON(object) {
+        return {
+            denom: isSet(object.denom) ? globalThis.String(object.denom) : ""
+        };
+    },
+    toJSON(message) {
+        const obj = {};
+        if (message.denom !== "") {
+            obj.denom = message.denom;
+        }
+        return obj;
+    },
+    create(base) {
+        return AllowedFeeDenom.fromPartial(base ?? {});
+    },
+    fromPartial(object) {
+        const message = createBaseAllowedFeeDenom();
+        message.denom = object.denom ?? "";
+        return message;
+    }
+};
+function createBaseAllowedFeeDenom() {
+    return {
+        denom: ""
+    };
+}
 function createBaseParams() {
     return {
         priority_normalizer: "",
@@ -271,7 +426,14 @@ function createBaseParams() {
         max_dynamic_base_fee_upward_adjustment: "",
         max_dynamic_base_fee_downward_adjustment: "",
         target_gas_used_per_block: 0,
-        maximum_fee_per_gas: ""
+        maximum_fee_per_gas: "",
+        register_pointer_disabled: false,
+        pax_sstore_set_gas_eip2200: 0,
+        allowed_fee_denoms: [],
+        max_fee_token_spread: "",
+        fee_token_enabled: false,
+        fee_token_distribution: false,
+        max_fee_token_rate_age: 0
     };
 }
 function createBaseParamsPreV580() {
@@ -322,9 +484,15 @@ function isSet(value) {
 }
 export const registry = [
     ["/paxprotocol.paxchain.evm.Params", Params],
-    ["/paxprotocol.paxchain.evm.ParamsPreV580", ParamsPreV580]
+    ["/paxprotocol.paxchain.evm.ParamsPreV580", ParamsPreV580],
+    ["/paxprotocol.paxchain.evm.AllowedFeeDenom", AllowedFeeDenom]
 ];
 export const aminoConverters = {
+    "/paxprotocol.paxchain.evm.AllowedFeeDenom": {
+        aminoType: "evm/AllowedFeeDenom",
+        toAmino: (message) => ({ ...message }),
+        fromAmino: (object) => ({ ...object })
+    },
     "/paxprotocol.paxchain.evm.Params": {
         aminoType: "evm/Params",
         toAmino: (message) => ({ ...message }),

@@ -4,7 +4,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/bridge/deploy/chainconfig"
@@ -72,4 +74,41 @@ func EnvLines(records []Record) []string {
 		}
 	}
 	return lines
+}
+
+func Run(args []string, w io.Writer) error {
+	if len(args) != 1 || args[0] == "" {
+		return fmt.Errorf("usage: paxeer-bridge-app-env <records-directory>")
+	}
+	dir := args[0]
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	var records []Record
+	seen := make(map[string]string)
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
+			continue
+		}
+		path := filepath.Join(dir, entry.Name())
+		record, err := LoadRecord(path)
+		if err != nil {
+			return err
+		}
+		if previous, ok := seen[record.Chain]; ok {
+			return fmt.Errorf("%s: duplicate chain %q, already recorded in %s", path, record.Chain, previous)
+		}
+		seen[record.Chain] = path
+		records = append(records, record)
+	}
+	if len(records) == 0 {
+		return fmt.Errorf("%s: no *.json deployment records", dir)
+	}
+	for _, line := range EnvLines(records) {
+		if _, err := fmt.Fprintln(w, line); err != nil {
+			return fmt.Errorf("write app environment: %w", err)
+		}
+	}
+	return nil
 }
