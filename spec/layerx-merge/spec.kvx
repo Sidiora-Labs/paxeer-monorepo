@@ -102202,7 +102202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.13.3]
 title = "Freeze the 0x1020 revert texts in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.13.2"]
@@ -102296,7 +102296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.15.1]
 title = "Freeze the 0x1020 view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.13.2"]
@@ -149366,7 +149366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.37.2]
 title = "Rename mirror reconcile refusals to committed_mirror codes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.26.1", "9.1.6"]
@@ -158844,7 +158844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.8.2]
 title = "Stop the settings screen reading the retired wallet binding and exit routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
