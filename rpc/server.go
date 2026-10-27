@@ -270,7 +270,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewUncleAPI(tmClient, watermarks),
+			Service:   NewUncleAPI(tmClient, watermarks, ConnectionTypeHTTP),
 		},
 		{
 			Namespace: "pax",
@@ -318,7 +318,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "web3",
-			Service:   &Web3API{},
+			Service:   &Web3API{connectionType: ConnectionTypeHTTP},
 		},
 		{
 			Namespace: "debug",
@@ -487,7 +487,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewUncleAPI(tmClient, watermarks),
+			Service:   NewUncleAPI(tmClient, watermarks, ConnectionTypeWS),
 		},
 		{
 			Namespace: "eth",
@@ -519,7 +519,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "web3",
-			Service:   &Web3API{},
+			Service:   &Web3API{connectionType: ConnectionTypeWS},
 		},
 	}
 
