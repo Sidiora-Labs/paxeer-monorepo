@@ -43,11 +43,14 @@ derivation = "action_key and signing_context are lowercase hexadecimal and are d
 
 [type.IntentPlan]
 required = ["plan_digest:string","journey_kind:string","total_fee:Money","legs:IntentLeg[]","signing_requirements:IntentSigningRequirement[]"]
+optional = ["tx_hash:WalletTxId"]
 digest = "plan_digest is the lowercase hexadecimal plan digest, unprefixed. It is what the caller signs and what submission re-checks."
+tx_hash = "Present only when an actual transaction hash is known; pure planning never invents one."
 
 [type.IntentLegBinding]
 required = ["leg_index:integer","action_key:string","actor:string","authority:string","relationship:string","account_sequence:integer","not_before:integer","not_after:integer","fee_limit:Money"]
 binding = "One binding per leg, carrying the action key it was signed against. A binding whose action key belongs to another plan is refused."
+account_sequence = "Per decision.1003, account_sequence keeps its existing name and integer type and carries the sender EVM nonce read at the pending tag."
 
 [type.SubmitPlanRequest]
 required = ["plan_digest:string","signed_digest:string","bindings:IntentLegBinding[]"]
@@ -56,7 +59,9 @@ replan = "The service re-plans the stated intent against the observed state at s
 
 [type.IntentSubmission]
 required = ["journey_id:JourneyId","plan_digest:string","state:string","state_copy_key:CopyKey"]
+optional = ["tx_hash:WalletTxId"]
 progress = "The journey is then read through GET /v1/journeys/{journey_id} like every other journey."
+tx_hash = "The actual submitted EVM transaction hash, when known. Submission alone does not establish a verified receipt."
 
 [operation.intent.plan]
 authorization_class = "money-movement"
