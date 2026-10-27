@@ -2,8 +2,8 @@ use layerx_paxeer_client::{FinalityReport, FinalityTracker, TransactionHash};
 use layerx_types::payload::ModuleRegistry;
 
 use crate::clients::{
-    ComplianceClient, ComplianceOutcome, LayerxClient, LayerxSubmission, PaxeerCustodyClient,
-    ProviderCallback, ProviderClient, ProviderResult, ProviderState, callback_evidence_digest,
+    callback_evidence_digest, ComplianceClient, ComplianceOutcome, LayerxClient, LayerxSubmission,
+    PaxeerCustodyClient, ProviderCallback, ProviderClient, ProviderResult, ProviderState,
 };
 use crate::journal::{
     Journal, OrderSnapshot, PaxeerObservation, ProviderCallbackWrite, TransitionEvidence,
@@ -328,7 +328,7 @@ impl RampEngine<'_> {
                 canonical_activity,
             } => {
                 let mut evidence = TransitionEvidence::empty();
-                evidence.activity_id = Some(verified.activity_id);
+                evidence.activity_id = Some(verified.tx_hash);
                 evidence.canonical_activity = canonical_activity;
                 evidence.receipt_digest = Some(verified.receipt_digest);
                 (WorkflowStage::LayerxVerified, evidence)

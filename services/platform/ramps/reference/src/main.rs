@@ -15,18 +15,19 @@ use layerx_paxeer_client::{
     TransactionHash,
 };
 use layerx_ramp_toolkit::clients::{
-    ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig, MutualTlsClient,
-    MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient, SecretFile, parse_hex32,
+    parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig,
+    MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient,
+    SecretFile,
 };
 use layerx_ramp_toolkit::engine::{InventoryRebalancer, RampEngine};
 use layerx_ramp_toolkit::journal::{Journal, WorkflowStage};
 use layerx_ramp_toolkit::migration::{
-    SOURCE_SETTLEMENT_VERSION, SourceSettlementConfig, SourceSettlementRequest,
-    SourceSettlementResult, SourceSettlementService, SourceSettlementState,
+    SourceSettlementConfig, SourceSettlementRequest, SourceSettlementResult,
+    SourceSettlementService, SourceSettlementState, SOURCE_SETTLEMENT_VERSION,
 };
 use layerx_ramp_toolkit::{
-    CreateOrder, EXTERNAL_CUSTODY_LABEL, OperatorIdentity, QuoteTerms, RampDirection, RampError,
-    RampOrder, platform_ramp_toolkit,
+    platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms, RampDirection, RampError,
+    RampOrder, EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use native_tls::{Identity, TlsAcceptor, TlsStream};
@@ -263,9 +264,10 @@ fn verify_receipt_command() -> Result<(), String> {
         json!({
             "verified": true,
             "order_digest": order.order_digest,
-            "activity_id": leg.activity_id,
+            "tx_hash": leg.tx_hash,
             "receipt_digest": leg.receipt_digest,
-            "batch_id": leg.batch_id,
+            "height": leg.height,
+            "rung": leg.rung.name(),
             "network_id": config.layerx.network_id,
             "wire_version": config.layerx.protocol_version,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL
@@ -1423,8 +1425,8 @@ pub const fn platform_reference_ramp() -> &'static str {
 
 #[cfg(test)]
 mod boundary_tests {
-    use std::sync::Arc;
     use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
     use super::ConnectionGate;
 
