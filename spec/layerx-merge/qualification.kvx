@@ -7413,3 +7413,11 @@ symbol = "layerx-indexer"
 observed = "cargo build --locked failed at the base for every interop target because the lock file lacked the layerx-committed-proof entry in the layerx-indexer dependency list; attempt 5d645d98a of 11.32.1 could not reach its own change."
 assumption = "The lock file was regenerated offline and committed at ff91c687b; the 39 pending interop tasks build on that base and 11.32.1 continues from its first attempt. Recorded once."
 severity = "major"
+
+[finding.9.1.7.7]
+task = "9.1.7"
+file = "services/platform/tests/support/tls_boundary.rs"
+symbol = "start"
+observed = "The verify gate of 9.1.7 failed at 94f9d8f99 on rpc::rpc_subscription_private_ca_checks_the_actual_server_identity alone: the trusted-case probe got Connection refused from 127.0.0.1:<port> (tls_boundary.rs:229) although start() had just seen that port accept a connection (tls_boundary.rs:216); the same test passed on the two preceding runs of the same code and the other two boundary tests passed in the failing run."
+assumption = "A timing race in the test harness between the boundary's listen check and the probe process, independent of the SDK change under test; the candidate is requalified unchanged, and if it fails the same way again the harness needs an owner task that hands the boundary a port it already holds. Recorded once."
+severity = "major"
