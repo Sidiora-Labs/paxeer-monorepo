@@ -49,14 +49,21 @@ repository sources and runs it as the non-root 4020 user, the same identity the
 hosted gateway image uses. `services/platform/hosted/interop/deployment.yaml` deploys it
 into the `layerx-testnet` namespace beside the hosted gateway: it mounts its
 server certificate, the internal CA, its outbound client identity, the gateway
-authority client secret (receipt authority token and the sequencer pins), its
+authority client secret (receipt authority token, sequencer pins and
+`receipt-keys.json` selected by `LAYERX_INTEROP_RECEIPT_KEYS_FILE`), its
 Redis credentials on the shared gateway keyspace, and the
 `layerx-interop-runtime` secret holding `config.json` and `registry.json`.
+At startup the service compares the receipt keys file with the sequencer's
+published `px_getReceiptKeys` list at `LAYERX_INTEROP_SEQUENCER_URL` and
+refuses to start if a pinned key is absent or differs.
 
 On Railway the same image runs as the `interop` service with the variables in
 `railway.env.example`: each file the service reads is a base64 variable that
 `layerx-env-files` writes to its `/run/layerx` path from
 `docker/interop-gateway/files.tsv` before the gateway starts.
+`INTEROP_RECEIPT_KEYS` holds the base64-encoded receipt keys JSON. Before
+deployment, `docker/interop-gateway/files.tsv` must map this variable to
+`/run/layerx/authority/receipt-keys.json` so the service can read it.
 
 `config.example.json` is the shape of the document `LAYERX_INTEROP_CONFIG`
 selects. Its derived fields, including all eight conformance suites, are the

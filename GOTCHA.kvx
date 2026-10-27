@@ -9410,3 +9410,51 @@ area = "services/platform/hosted/gateway/tests/local"
 symptom = "cargo build of the local qualification package fails in its build script: 'parent-built core binary required' or 'fixture path contract changed'"
 cause = "the package adapts the core boundary fixture at build time: it needs LAYERX_TEST_CORE_BIN set to a built layerx-core-boundary and asserts three needles in core/tests/boundary.rs, one of which moved when platform moved"
 do = "do not give a task a build or verify command against that manifest; put stand-alone tests in the gateway crate's tests directory (include_str! the scanned file) and leave the package to the task that deletes its lifecycle target"
+
+[gotcha.1948]
+area = "precompiles/layerxprograms"
+symptom = "go test of a precompile package fails with 'import cycle not allowed in test' as soon as a test imports node or another package that imports the package under test"
+cause = "an in-package _test.go file is compiled into the package, so any import that reaches back to the package closes a cycle; Go only allows that from an external test package"
+do = "move the tests that need node or the app to package <name>_test and re-export the unexported identifiers they use through an export_test.go (precedent precompiles/spot/export_test.go)"
+
+[gotcha.1949]
+area = "node/sequencer"
+symptom = "starting a sequencer primary in a test or fixture recorder fails with ErrConfigStandbyAddress, or Replicator.Release returns a dial error before the first block"
+cause = "a primary requires a host:port standby address (node/sequencer/node.go:62) and a reachable standby; Release dials it on every accept (node/sequencer/node_start.go:111)"
+do = "start a standby with sequencer.StartStandby on a free loopback port first and point the primary's standby-address at it, as node/sequencer/tcp_ack_test.go:70-90 does"
+
+[gotcha.1950]
+area = "node/upgrades"
+symptom = "applying the v7.0 upgrade handler through the app in a test panics 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906'"
+cause = "validateMergePrecompiles (node/upgrades.go:584) requires the oracle, scheduler and streams precompiles to be registered, which only happens once node imports them"
+do = "order any test that applies the v7.0 handler after the task that wires those precompiles into node; do not register constructors from the test and do not relax the check"
+
+[gotcha.1951]
+area = "services/interop"
+symptom = "cargo build --tests of layerx-interop-gateway fails in tests/workspace_lock.rs with a missing Cargo.toml for a crate that no longer exists"
+cause = "workspace_lock.rs include_str!s every member crate's manifest; deleting a crate without removing its entry breaks every test target of the gateway"
+do = "when a crate is deleted, drop its entry from services/interop/crates/layerx-interop-gateway/tests/workspace_lock.rs in the same change"
+
+[gotcha.1952]
+area = "daemon/paxd/cmd"
+symptom = "validate-genesis reports 'receipt key list is empty' right after add-genesis-receipt-key succeeded"
+cause = "the command re-marshals the untagged sequencertypes.GenesisState (key ReceiptKeys) while the module decodes its wire object with receipt_keys and byte-string leaders (modules/sequencer/module.go:38-45)"
+do = "edit the module state as map[string]json.RawMessage in the module's wire encoding, as add-genesis-sequencer-leader (daemon/paxd/cmd/genseqleader.go) does"
+
+[gotcha.1953]
+area = "node/sequencer, rpc"
+symptom = "a test expects transactionIndex 0x0 or receipt Index 0 for the first accepted transaction and gets 1"
+cause = "the sequencer numbers accepted transactions from 1 within the open block (node/sequencer/accept.go:40, microbatch.go:333) and the receipt RPC reads that index verbatim; 0 marks an invalid receipt (rpc/sequencer_receipt_test.go:515)"
+do = "assert Index 1 and transactionIndex 0x1 for the first accepted transaction"
+
+[gotcha.1954]
+area = "services/platform/perps-data"
+symptom = "a go test in perps-data fails with 'TestMarkets requires PERPS_DATA_TEST_RPC' (or the e2e equivalent) in an environment without a node"
+cause = "the package test clients dial the node named by PERPS_DATA_TEST_RPC and fail rather than skip when it is unset"
+do = "run the test behind tools/qualification/localnode/v6120-node.sh --env-out <file> and source that file (set -a; . <file>; set +a) before go test, as the done markets tasks do"
+
+[gotcha.1955]
+area = "tools/qualification/localnode"
+symptom = "perps-gateway.sh stops with 'nats-server is required' although nats-server was installed with go install"
+cause = "the script checks command -v for nats-server and reads PERPS_DATA_TEST_DATABASE_URL from the environment; a GOPATH/bin binary is not on PATH by default"
+do = "put $(go env GOPATH)/bin on PATH and export PERPS_DATA_TEST_DATABASE_URL before running the script"
