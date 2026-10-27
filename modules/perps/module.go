@@ -1,6 +1,6 @@
 // Package perps is the native perpetuals venue reached from the EVM through
-// the perps precompile at 0x…1015. It has no Msg service: every state change
-// enters through the precompile, governance and the end block.
+// the perps precompile at 0x…1015. State changes enter through the precompile,
+// the governance Msg service and the end block.
 package perps
 
 import (
@@ -31,11 +31,13 @@ func NewAppModuleBasic() AppModuleBasic { return AppModuleBasic{} }
 
 func (AppModuleBasic) Name() string { return types.ModuleName }
 
-// RegisterLegacyAminoCodec registers nothing: the module has no messages.
-func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {}
+func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
+	types.RegisterLegacyAminoCodec(cdc)
+}
 
-// RegisterInterfaces registers nothing: the module has no messages.
-func (AppModuleBasic) RegisterInterfaces(_ cdctypes.InterfaceRegistry) {}
+func (AppModuleBasic) RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
+	types.RegisterInterfaces(registry)
+}
 
 func mustMarshalGenesis(gs *types.GenesisState) json.RawMessage {
 	bz, err := json.Marshal(gs)
@@ -93,8 +95,10 @@ func (AppModule) QuerierRoute() string { return types.ModuleName }
 
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
-// RegisterServices registers no Msg or query service.
-func (AppModule) RegisterServices(_ module.Configurator) {}
+// RegisterServices registers the governance Msg service; reads use the precompile.
+func (am AppModule) RegisterServices(cfg module.Configurator) {
+	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+}
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
 	keeper.RegisterInvariants(registry, am.keeper)
