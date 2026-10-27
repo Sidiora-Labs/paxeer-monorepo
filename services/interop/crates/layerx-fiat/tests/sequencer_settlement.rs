@@ -1,10 +1,13 @@
+use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_fiat::{
     fiat_adapter_descriptor, EvidenceClass, ExternalId, FiatAdapter, FiatError, FiatJourneyState,
     FiatRail, VerifiedProviderFacts,
 };
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
 use layerx_interop_gateway::audit::AuditEventKind;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
@@ -154,6 +157,295 @@ fn pending_capture(key: [u8; 32]) -> (GatewayCore, PrincipalId, TraceId) {
         TranslationStatus::Pending,
     );
     (gateway, principal, trace)
+}
+
+fn signed_payment(
+    case: &Value,
+    transaction_hash: [u8; 32],
+    from: [u8; 32],
+    to: [u8; 32],
+    reference: [u8; 32],
+) -> SequencerEvidence {
+    let mut evidence = recorded_evidence(case);
+    let original = &evidence.logs[0];
+    let mut topics = original.topics().to_vec();
+    topics[1] = from;
+    topics[2] = to;
+    topics[3] = reference;
+    let payment = SequencerLog::new(original.address(), topics, original.data().to_vec(), 0);
+    let body = |log: &SequencerLog| {
+        let mut bytes = log.address().to_vec();
+        bytes.push(4);
+        for topic in log.topics() {
+            bytes.extend_from_slice(topic);
+        }
+        bytes.extend_from_slice(&Sha256::digest(log.data()));
+        bytes
+    };
+    let original_body = body(original);
+    let mut unsigned = evidence.signed_receipt[..evidence.signed_receipt.len() - 69].to_vec();
+    for (old, new) in [
+        (
+            evidence.transaction_hash.to_vec(),
+            transaction_hash.to_vec(),
+        ),
+        (original_body, body(&payment)),
+    ] {
+        let offsets: Vec<_> = unsigned
+            .windows(old.len())
+            .enumerate()
+            .filter_map(|(offset, bytes)| (bytes == old.as_slice()).then_some(offset))
+            .collect();
+        assert_eq!(offsets.len(), 1, "one canonical signed field");
+        unsigned[offsets[0]..offsets[0] + old.len()].copy_from_slice(&new);
+    }
+    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    assert_eq!(
+        signer.verifying_key().to_bytes(),
+        array(&case["pinnedKey"]["publicKey"])
+    );
+    let mut digest = Sha256::new();
+    digest.update(b"LXP/v1/receipt\0");
+    digest.update(&unsigned);
+    digest.update([0]);
+    let signature = signer.sign(&digest.finalize()).to_bytes();
+    unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
+    unsigned.extend_from_slice(&signature);
+    evidence.transaction_hash = transaction_hash;
+    evidence.signed_receipt = unsigned;
+    evidence.logs = vec![payment];
+    evidence
+}
+
+#[test]
+fn fiat_reversal_on_the_capture_receipt_is_refused() {
+    let case = recorded_case();
+    let original = recorded_evidence(&case);
+    let facts = capture_facts(&original);
+    let payer = original.logs[0].topics()[1];
+    let capture_key = FiatAdapter::idempotency_key(&facts);
+    let capture = signed_payment(
+        &case,
+        original.transaction_hash,
+        payer,
+        facts.destination,
+        capture_key,
+    );
+    let capture_digest = canonical_receipt_digest(&capture.signed_receipt).unwrap();
+    let keys = receipt_keys(&case);
+
+    for class in [EvidenceClass::Reversed, EvidenceClass::Chargeback] {
+        for rung in [
+            SettlementRung::Receipted,
+            SettlementRung::Committed {
+                block_number: 1001,
+                block_hash: [0x42; 32],
+            },
+        ] {
+            let (mut gateway, principal, trace) = pending_capture(capture_key);
+            assert_eq!(
+                FiatAdapter::settle_evidence(
+                    &mut gateway,
+                    &principal,
+                    capture_key,
+                    &facts,
+                    &capture,
+                    &keys,
+                    &trace,
+                    12,
+                )
+                .unwrap(),
+                FiatJourneyState::Credited {
+                    receipt_digest: capture_digest
+                }
+            );
+            let mut refund_facts = facts.clone();
+            refund_facts.class = class;
+            let refund_key = FiatAdapter::idempotency_key(&refund_facts);
+            let mut refund =
+                signed_payment(&case, [0x74; 32], facts.destination, payer, refund_key);
+            refund.rung = rung;
+            let request = TranslationRequest::new(
+                AdapterId::new("fiat").unwrap(),
+                TranslationKind::StateChanging,
+                refund_key,
+                [0x29; 32],
+            )
+            .unwrap();
+            assert_eq!(
+                gateway
+                    .begin_translation(&principal, &request, &trace, 13)
+                    .unwrap(),
+                TranslationStatus::Pending
+            );
+            let before = format!("{gateway:?}");
+
+            let mut same_transaction = signed_payment(
+                &case,
+                capture.transaction_hash,
+                facts.destination,
+                payer,
+                refund_key,
+            );
+            same_transaction.rung = rung;
+            assert_ne!(
+                canonical_receipt_digest(&same_transaction.signed_receipt).unwrap(),
+                capture_digest
+            );
+            let wrong_payer =
+                signed_payment(&case, [0x74; 32], facts.destination, [0x37; 32], refund_key);
+            let wrong_sender = signed_payment(&case, [0x74; 32], [0x37; 32], payer, refund_key);
+            let wrong_reference =
+                signed_payment(&case, [0x74; 32], facts.destination, payer, capture_key);
+            for invalid in [
+                &capture,
+                &same_transaction,
+                &wrong_payer,
+                &wrong_sender,
+                &wrong_reference,
+            ] {
+                let error = FiatAdapter::settle_refund_evidence(
+                    &mut gateway,
+                    &principal,
+                    refund_key,
+                    &refund_facts,
+                    invalid,
+                    &capture,
+                    &keys,
+                    &trace,
+                    14,
+                )
+                .unwrap_err();
+                assert_eq!(error.error(), &FiatError::ReceiptMismatch);
+                assert_eq!(error.trace(), &trace);
+                assert_eq!(format!("{gateway:?}"), before);
+                assert_eq!(
+                    gateway.translation(&principal, refund_key),
+                    Some(TranslationStatus::Pending)
+                );
+            }
+
+            let missing = FiatAdapter::settle_evidence(
+                &mut gateway,
+                &principal,
+                refund_key,
+                &refund_facts,
+                &refund,
+                &keys,
+                &trace,
+                14,
+            )
+            .unwrap_err();
+            assert_eq!(missing.error(), &FiatError::ReceiptMismatch);
+            assert_eq!(format!("{gateway:?}"), before);
+
+            let (mut uncaptured_gateway, uncaptured_principal, uncaptured_trace) =
+                pending_capture(refund_key);
+            let uncaptured_before = format!("{uncaptured_gateway:?}");
+            let error = FiatAdapter::settle_refund_evidence(
+                &mut uncaptured_gateway,
+                &uncaptured_principal,
+                refund_key,
+                &refund_facts,
+                &refund,
+                &capture,
+                &keys,
+                &uncaptured_trace,
+                14,
+            )
+            .unwrap_err();
+            assert_eq!(error.error(), &FiatError::ReceiptMismatch);
+            assert_eq!(format!("{uncaptured_gateway:?}"), uncaptured_before);
+
+            let mut bad_signature = capture.clone();
+            *bad_signature.signed_receipt.last_mut().unwrap() ^= 1;
+            let mut bad_hash = capture.clone();
+            bad_hash.transaction_hash[0] ^= 1;
+            let mut bad_logs = capture.clone();
+            bad_logs.logs = refund.logs.clone();
+            let mut submitted = capture.clone();
+            submitted.rung = SettlementRung::Submitted;
+            let other_capture =
+                signed_payment(&case, [0x49; 32], payer, facts.destination, capture_key);
+            for invalid_capture in [
+                &bad_signature,
+                &bad_hash,
+                &bad_logs,
+                &submitted,
+                &other_capture,
+            ] {
+                let error = FiatAdapter::settle_refund_evidence(
+                    &mut gateway,
+                    &principal,
+                    refund_key,
+                    &refund_facts,
+                    &refund,
+                    invalid_capture,
+                    &keys,
+                    &trace,
+                    14,
+                )
+                .unwrap_err();
+                assert_eq!(error.error(), &FiatError::ReceiptMismatch);
+                assert_eq!(format!("{gateway:?}"), before);
+            }
+
+            let digest = canonical_receipt_digest(&refund.signed_receipt).unwrap();
+            let expected = match class {
+                EvidenceClass::Reversed => FiatJourneyState::Reversed {
+                    receipt_digest: digest,
+                },
+                EvidenceClass::Chargeback => FiatJourneyState::ChargedBack {
+                    receipt_digest: digest,
+                },
+                _ => unreachable!(),
+            };
+            assert_eq!(
+                FiatAdapter::settle_refund_evidence(
+                    &mut gateway,
+                    &principal,
+                    refund_key,
+                    &refund_facts,
+                    &refund,
+                    &capture,
+                    &keys,
+                    &trace,
+                    15,
+                )
+                .unwrap(),
+                expected
+            );
+            assert_eq!(
+                gateway.translation(&principal, refund_key),
+                Some(TranslationStatus::ReceiptVerified {
+                    receipt_digest: digest
+                })
+            );
+            assert_eq!(
+                gateway.translation(&principal, capture_key),
+                Some(TranslationStatus::ReceiptVerified {
+                    receipt_digest: capture_digest
+                })
+            );
+            let settled = format!("{gateway:?}");
+            assert_eq!(
+                FiatAdapter::settle_refund_evidence(
+                    &mut gateway,
+                    &principal,
+                    refund_key,
+                    &refund_facts,
+                    &refund,
+                    &capture,
+                    &keys,
+                    &trace,
+                    16,
+                )
+                .unwrap(),
+                expected
+            );
+            assert_eq!(format!("{gateway:?}"), settled);
+        }
+    }
 }
 
 #[test]

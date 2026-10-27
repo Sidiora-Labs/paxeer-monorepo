@@ -3,6 +3,7 @@ export { decodeDaemonSubmission, decodeDaemonPrepared, signedActivityId } from "
 export type { DaemonPreparation, DaemonPrepareRequest } from "./daemon.js";
 import { paymentCommitment, verifyPaymentReceipt, ReceiptPayloadAuthority, LAYERX_LEDGER_ADDRESS, type PaymentReceiptVerification, type GrantDrawExecution, type SellerSettlementOutcome } from "@sidiora/layerx-seller-middleware";
 import { verifyPaymentCommitment, type PaymentCommitment, type PaymentCommitmentResolver } from "@sidiora/layerx-seller-middleware";
+import { decodePaymentDrawnLog, LEDGER_DRAW_SELECTOR } from "@sidiora/layerx-seller-middleware";
 import {
   PlatformSdkError,
   ProductionClient,
@@ -13,6 +14,7 @@ import {
   keccak256,
   verifySequencerReceipt,
   type SequencerReceiptKey,
+  type SequencerReceiptVerification,
   type ReceiptVerification,
   type RetryClass,
   type SdkErrorCode,
@@ -906,29 +908,110 @@ export class AgentGrantMiddleware implements GrantDrawExecution {
     if (commitment !== "receipted" && this.config.commitments === undefined) throw new AgentMiddlewareError("invalid-request");
     const amount = protocolAmount(requirements.amount).toString();
     if (!/^[0-9a-f]{64}$/u.test(request.requestDigest) || !/^[0-9a-f]{64}$/u.test(request.idempotencyKey)) throw new AgentMiddlewareError("invalid-request");
-    const facts = { amount, asset: requirements.asset, requestDigest: request.requestDigest };
+    if (!/^0x[0-9a-f]{64}$/u.test(requirements.asset) || !/^0x[0-9a-f]{64}$/u.test(requirements.payTo)) {
+      throw new AgentMiddlewareError("invalid-request");
+    }
+    const facts = { amount, asset: requirements.asset.slice(2), requestDigest: request.requestDigest };
     const result = await this.config.budgets.reserve({ tenant: this.config.tenant, idempotencyKey: request.idempotencyKey, ...facts });
     if (result.kind === "exhausted") return { kind: "refused", reason: "budget_refused" };
     if (result.kind === "conflict") throw new AgentMiddlewareError("budget-conflict");
     const reservation = validateBudgetReservation(result.reservation, facts);
+    let transaction: ReturnType<typeof decodeRawEip1559>;
+    try {
+      transaction = decodeRawEip1559(receiptBytes(request.rawTransaction));
+    } catch {
+      throw new AgentMiddlewareError("invalid-request");
+    }
+    const data = transaction.data;
+    if (toHex(transaction.to) !== LAYERX_LEDGER_ADDRESS.slice(2) || transaction.value !== 0n
+      || requirements.network !== `eip155:${transaction.chainId}`
+      || data.length !== 4 + 7 * 32 || toHex(data.subarray(0, 4)) !== toHex(LEDGER_DRAW_SELECTOR)
+      || toHex(data.subarray(36, 68)) !== reservation.asset
+      || BigInt(`0x${toHex(data.subarray(68, 100))}`) !== BigInt(reservation.amount)
+      || BigInt(`0x${toHex(data.subarray(132, 164))}`) >= 1n << 64n
+      || toHex(data.subarray(164, 196)) !== request.idempotencyKey) {
+      throw new AgentMiddlewareError("budget-conflict");
+    }
     if (reservation.state === "held") return { kind: "pending" };
     if (reservation.state === "released") return { kind: "refused", reason: "budget_released" };
     if (reservation.state === "committed") {
       const evidence = await this.config.receipts.resolve(reservation.receiptDigest);
-      const outcome: SellerSettlementOutcome = { kind: "settled", ...evidence };
-      const verification = await verifyPaymentReceipt(outcome, requirements, this.#receiptKeys, this.config.commitments);
+      const outcome: SellerSettlementOutcome = { ...evidence, kind: "settled" };
+      await this.#verifyDrawReceipt(outcome, request, data);
       if (toHex(keccak256(receiptBytes(evidence.signedReceipt))) !== reservation.receiptDigest) throw new AgentMiddlewareError("budget-conflict");
       return outcome;
     }
     const outcome = await this.config.draws.execute(request);
     if (outcome.kind !== "settled") return outcome;
-    const verification = await verifyPaymentReceipt(outcome, requirements, this.#receiptKeys, this.config.commitments);
+    await this.#verifyDrawReceipt(outcome, request, data);
     const receiptDigest = toHex(keccak256(receiptBytes(outcome.signedReceipt)));
     await this.config.receipts.retainVerified?.({
-      idempotencyKey: request.idempotencyKey, activityId: toHex(verification.receipt.activityId), receiptDigest,
+      idempotencyKey: request.idempotencyKey, activityId: `0x${toHex(keccak256(receiptBytes(outcome.rawTransaction)))}`, receiptDigest,
     });
     const committed = validateBudgetReservation(await this.config.budgets.commit({ reservationId: reservation.reservationId, ...facts, receiptDigest }), facts, reservation.reservationId);
     if (committed.state !== "committed" || committed.receiptDigest !== receiptDigest) throw new AgentMiddlewareError("budget-conflict");
     return outcome;
+  }
+
+  async #verifyDrawReceipt(
+    evidence: PortableReceiptV2,
+    request: Parameters<GrantDrawExecution["execute"]>[0],
+    data: Uint8Array,
+  ): Promise<SequencerReceiptVerification> {
+    try {
+      const proof = structuredClone(evidence);
+      const signedReceipt = receiptBytes(proof.signedReceipt);
+      const keys = this.#receiptKeys.filter((key) => `0x${toHex(key.keyId)}` === proof.receiptKey.keyId
+        && `0x${toHex(key.publicKey)}` === proof.receiptKey.publicKey
+        && /^0x(?:0|[1-9a-f][0-9a-f]*)$/u.test(proof.receiptKey.firstHeight)
+        && /^0x(?:0|[1-9a-f][0-9a-f]*)$/u.test(proof.receiptKey.lastHeight)
+        && key.first_height === BigInt(proof.receiptKey.firstHeight)
+        && key.last_height === BigInt(proof.receiptKey.lastHeight));
+      if (proof.format !== "layerx-receipt-proof-v2" || proof.rawTransaction !== request.rawTransaction
+        || (proof.verificationLevel !== "receipted" && proof.verificationLevel !== "committed")
+        || proof.receiptDigest !== `0x${toHex(keccak256(signedReceipt))}` || keys.length === 0
+        || (paymentCommitment(request.requirements.extra) === "committed" && proof.verificationLevel !== "committed")) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
+      const verified = await verifySequencerReceipt(signedReceipt, receiptBytes(proof.rawTransaction), keys);
+      const { receipt } = verified;
+      const summary = receipt.effects[0];
+      if (receipt.resultCode !== 0 || receipt.moduleId <= 11 || summary === undefined
+        || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0 || summary.kind !== 1
+        || summary.monetary || summary.eventType !== 0 || summary.body.length < 110
+        || summary.body[108] === 0 || summary.body[108]! > 64 || summary.body.length !== 109 + summary.body[108]!
+        || new DataView(new Uint8Array(summary.body).buffer).getUint32(104, false) !== receipt.effects.length - 1) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
+      const eventData = new Uint8Array(128);
+      eventData.set(data.subarray(36, 100));
+      eventData.set(data.subarray(164, 228), 64);
+      const digest = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", eventData)));
+      const topic = toHex(keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)")));
+      let matches = 0;
+      for (const [index, effect] of receipt.effects.slice(1).entries()) {
+        const body = effect.body;
+        const count = body[20];
+        if (effect.moduleId !== receipt.moduleId || effect.ordinal !== index + 1 || effect.kind !== 3
+          || effect.monetary || effect.eventType !== 0 || count === undefined || count > 4
+          || body.length !== 53 + count * 32) throw new AgentMiddlewareError("verification-failure");
+        if (toHex(body.subarray(0, 20)) !== LAYERX_LEDGER_ADDRESS.slice(2) || toHex(body.subarray(21, 53)) !== topic) continue;
+        if (toHex(body.subarray(body.length - 32)) !== digest) throw new AgentMiddlewareError("verification-failure");
+        const payment = decodePaymentDrawnLog({ address: LAYERX_LEDGER_ADDRESS, data: eventData,
+          topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
+        if (toHex(payment.grantId) !== toHex(data.subarray(100, 132))
+          || toHex(payment.from) !== toHex(data.subarray(4, 36))
+          || toHex(payment.to) !== request.requirements.payTo.slice(2)
+          || toHex(payment.assetId) !== request.requirements.asset.slice(2)
+          || payment.amount !== BigInt(request.requirements.amount)
+          || toHex(payment.idempotencyKey) !== request.idempotencyKey) throw new AgentMiddlewareError("verification-failure");
+        matches += 1;
+      }
+      if (matches !== 1) throw new AgentMiddlewareError("verification-failure");
+      await verifyPaymentCommitment(verified, request.requirements.network, proof.verificationLevel, this.config.commitments);
+      return verified;
+    } catch {
+      throw new AgentMiddlewareError("verification-failure");
+    }
   }
 }
