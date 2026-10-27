@@ -97958,7 +97958,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.2]
 title = "Auth parity: 0x101C grants match the native-session fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4"]
@@ -97988,7 +97988,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.3]
 title = "Gas conformance: 0x101A and 0x101C charge exactly their gas table rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4"]
@@ -104330,7 +104330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.3]
 title = "Refresh markets periodically with markets.Run and report height and failures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.42.2", "3.42.7"]
@@ -134155,7 +134155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.1]
 title = "Validate the reference ramp configuration for the merged chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["8.28.3", "8.29.3"]
@@ -154020,7 +154020,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.10]
 title = "Delete the paxeer_prepareCustody call path from the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["12.34.9"]
