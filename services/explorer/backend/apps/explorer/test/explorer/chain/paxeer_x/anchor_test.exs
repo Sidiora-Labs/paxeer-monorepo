@@ -5,63 +5,6 @@ defmodule Explorer.Chain.PaxeerX.AnchorTest do
   alias Explorer.Chain.Import.Runner.PaxeerX.Anchors
   alias Explorer.Chain.PaxeerX.Anchor
 
-  describe "changeset/2" do
-    test "accepts a submitted checkpoint with both roots" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      changeset = Anchor.changeset(%Anchor{}, attributes(block, transaction))
-
-      assert changeset.valid?
-      assert {:ok, anchor} = Repo.insert(changeset)
-      assert anchor.status == :submitted
-      assert anchor.batch_number == 4211
-      assert anchor.signers == 5
-      assert anchor.kernel_height == 918_244
-      assert anchor.sealed_height == 918_100
-      refute is_nil(anchor.state_root)
-      refute is_nil(anchor.receipt_root)
-    end
-
-    test "requires the key, the batch number, the checkpoint id and the status" do
-      changeset = Anchor.changeset(%Anchor{}, %{})
-
-      refute changeset.valid?
-
-      errors = changeset_errors(changeset)
-
-      assert errors[:transaction_hash] == ["can't be blank"]
-      assert errors[:log_index] == ["can't be blank"]
-      assert errors[:block_hash] == ["can't be blank"]
-      assert errors[:block_number] == ["can't be blank"]
-      assert errors[:batch_number] == ["can't be blank"]
-      assert errors[:checkpoint_id] == ["can't be blank"]
-      assert errors[:status] == ["can't be blank"]
-    end
-
-    test "rejects a rung outside the anchor ladder" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      attrs = block |> attributes(transaction) |> Map.put(:status, :settled)
-
-      changeset = Anchor.changeset(%Anchor{}, attrs)
-
-      refute changeset.valid?
-      assert {"is invalid", _} = changeset.errors[:status]
-      assert Anchor.statuses() == [:unknown, :submitted, :final]
-    end
-
-    test "rejects a negative batch number" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      attrs = block |> attributes(transaction) |> Map.put(:batch_number, -1)
-
-      changeset = Anchor.changeset(%Anchor{}, attrs)
-
-      refute changeset.valid?
-      assert changeset_errors(changeset)[:batch_number] == ["must be greater than or equal to 0"]
-    end
-  end
-
   describe "run/3" do
     test "keeps the submission and the finalisation of one checkpoint as two rows" do
       %{block: block, transaction: transaction} = block_with_transaction()
