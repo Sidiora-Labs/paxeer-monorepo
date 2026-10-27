@@ -2,12 +2,18 @@ use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine as _;
 use layerx_intents::CompiledIntent;
 use layerx_interop_gateway::adapter::AdapterId;
-use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
+use layerx_interop_gateway::gateway::{
+    SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
-use layerx_portable::PortableReceipt;
-use layerx_proof::receipt::{verify, AuthorizedBatch};
+use layerx_portable::PortableReceiptV2;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_types::payload::ModuleId;
 use p256::ecdsa::VerifyingKey;
 use serde::Serialize;
@@ -19,6 +25,13 @@ use crate::model::Merchant;
 use crate::verify::{MandateVerifier, VerificationContext, VerifiedMandates};
 
 const ADAPTER_ID: &str = "ap2";
+const LEDGER_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+];
+const PAYMENT_EXACT_TOPIC: [u8; 32] = [
+    0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e, 0x56,
+    0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
+];
 const IDEMPOTENCY_DOMAIN: &[u8] = b"LayerX/interop/AP2/idempotency/v1\0";
 const REQUEST_DOMAIN: &[u8] = b"LayerX/interop/AP2/request/v1\0";
 const TEXT_LIMIT: usize = 1_024;
@@ -154,8 +167,7 @@ pub trait LayerXIntentPlane {
 /// Core-produced execution evidence and the merchant's real order identifier.
 #[derive(Debug)]
 pub struct ExecutedPayment {
-    pub canonical_receipt: Vec<u8>,
-    pub authorised_batch: AuthorizedBatch,
+    pub evidence: SequencerEvidence,
     pub order_id: String,
 }
 
@@ -184,7 +196,7 @@ pub trait ReceiptSigner {
 
 /// Shared portable receipt format. Construction and external verification are
 /// owned by `layerx-portable`, so AP2 cannot drift into a private proof shape.
-pub type PortableLayerXEvidence = PortableReceipt;
+pub type PortableLayerXEvidence = PortableReceiptV2;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SignedAp2Evidence {
@@ -213,13 +225,15 @@ pub enum AdapterOutcome {
 /// reach success only through its receipt verifier.
 pub struct Ap2Adapter<'a, R> {
     verifier: MandateVerifier<'a, R>,
+    receipt_keys: &'a [SequencerAuthorization],
 }
 
 impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
     #[must_use]
-    pub const fn new(resolver: &'a R) -> Self {
+    pub const fn new(resolver: &'a R, receipt_keys: &'a [SequencerAuthorization]) -> Self {
         Self {
             verifier: MandateVerifier::new(resolver),
+            receipt_keys,
         }
     }
 
@@ -294,7 +308,7 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
                 refuse(gateway, principal, payment.idempotency_key, trace, now)?;
                 Ok(AdapterOutcome::Refused)
             }
-            PlaneOutcome::Executed(executed) => Self::finish(
+            PlaneOutcome::Executed(executed) => self.finish(
                 gateway,
                 principal,
                 &payment,
@@ -310,6 +324,7 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
 
     #[allow(clippy::too_many_arguments)]
     fn finish(
+        &self,
         gateway: &mut GatewayCore,
         principal: &PrincipalId,
         payment: &AuthorizedPayment,
@@ -330,37 +345,76 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
         {
             return Err(fail(Ap2Error::EvidenceMismatch));
         }
-        let verified = verify(&executed.canonical_receipt, &executed.authorised_batch)
+        let evidence = &executed.evidence;
+        if evidence.rung == SettlementRung::Submitted {
+            return Ok(AdapterOutcome::Pending);
+        }
+        let receipt = verify_sequencer_signature(&evidence.signed_receipt, self.receipt_keys)
             .map_err(|_| fail(Ap2Error::EvidenceMismatch))?;
-        let protocol = verified
-            .receipt()
+        let protocol = receipt
             .protocol()
             .ok_or_else(|| fail(Ap2Error::EvidenceMismatch))?;
-        if protocol.from() != payment.payer_receipt_account
-            || protocol.to() != payment.payee_receipt_account
-            || protocol.asset() != payment.asset
-            || protocol.amount() != payment.amount
+        if protocol.result_code() != 0 || protocol.activity_id() != evidence.transaction_hash {
+            return Err(fail(Ap2Error::EvidenceMismatch));
+        }
+        let mut payments = evidence.logs.iter().filter(|log| {
+            log.address() == LEDGER_ADDRESS && log.topics().first() == Some(&PAYMENT_EXACT_TOPIC)
+        });
+        let log = payments
+            .next()
+            .ok_or_else(|| fail(Ap2Error::EvidenceMismatch))?;
+        if payments.next().is_some()
+            || log.topics().len() != 4
+            || log.data().len() != 64
+            || log.topics()[1] != payment.payer_receipt_account
+            || log.topics()[2] != payment.payee_receipt_account
+            || log.data()[..32] != payment.asset
+            || log.data()[32..48] != [0; 16]
+            || log.data()[48..] != payment.amount.to_be_bytes()
         {
             return Err(fail(Ap2Error::EvidenceMismatch));
         }
+        let key = self
+            .receipt_keys
+            .iter()
+            .find(|key| key.sequencer_id() == protocol.context_hash())
+            .ok_or_else(|| fail(Ap2Error::EvidenceMismatch))?;
+        let height = u64::from_be_bytes(
+            protocol.batch_id()[24..]
+                .try_into()
+                .map_err(|_| fail(Ap2Error::EvidenceMismatch))?,
+        );
+        let inclusion_height = match evidence.rung {
+            SettlementRung::Receipted => height,
+            SettlementRung::Committed { block_number, .. } => block_number,
+            SettlementRung::Submitted => return Ok(AdapterOutcome::Pending),
+        };
+        let layerx = PortableReceiptV2::export(&evidence.signed_receipt, key, inclusion_height)
+            .map_err(|_| fail(Ap2Error::EvidenceMismatch))?;
         let status = gateway
-            .settle_with_receipt(
+            .settle_with_sequencer_evidence(
                 principal,
                 payment.idempotency_key,
-                &executed.canonical_receipt,
-                &executed.authorised_batch,
+                evidence,
+                self.receipt_keys,
                 trace,
                 now,
             )
-            .map_err(|error| trace.wrap(Ap2Error::Gateway(error.into_error())))?;
+            .map_err(|error| {
+                fail(match error.into_error() {
+                    SequencerSettlementError::Gateway(error) => Ap2Error::Gateway(error),
+                    SequencerSettlementError::Logs(_)
+                    | SequencerSettlementError::PaymentUnmatched => Ap2Error::EvidenceMismatch,
+                })
+            })?;
         let TranslationStatus::ReceiptVerified { receipt_digest } = status else {
             return Err(fail(Ap2Error::EvidenceMissing));
         };
         let status_label = settled_status_label(&status).map_err(fail)?;
-        let layerx =
-            PortableReceipt::export(&executed.canonical_receipt, &executed.authorised_batch)
-                .map_err(|_| fail(Ap2Error::EvidenceMismatch))?;
-        if layerx.receipt_digest() != URL_SAFE_NO_PAD.encode(receipt_digest) {
+        if canonical_receipt_digest(&evidence.signed_receipt)
+            .map_err(|_| fail(Ap2Error::EvidenceMismatch))?
+            != receipt_digest
+        {
             return Err(fail(Ap2Error::EvidenceMismatch));
         }
         let signed = sign_evidence(
