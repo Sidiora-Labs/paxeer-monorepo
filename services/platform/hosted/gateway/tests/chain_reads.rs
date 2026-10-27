@@ -264,7 +264,12 @@ impl Consensus {
                             .unwrap_or_else(|error| panic!("{error}"));
                         assert_eq!(call["jsonrpc"], "2.0");
                         assert_eq!(call["method"], method);
-                        assert_eq!(call["params"]["height"], "5");
+                        match method {
+                            "status" => assert_eq!(call["params"], json!({})),
+                            "eth_chainId" => assert_eq!(call["params"], json!([])),
+                            _ => assert_eq!(call["params"]["height"], "5"),
+                        }
+                        let hit = count.fetch_add(1, Ordering::AcqRel);
                         let page = if method == "validators" {
                             assert_eq!(call["params"]["per_page"], "100");
                             call["params"]["page"]
@@ -272,10 +277,11 @@ impl Consensus {
                                 .and_then(|page| page.parse::<usize>().ok())
                                 .unwrap_or_else(|| panic!("page required"))
                                 - 1
+                        } else if method == "status" {
+                            hit
                         } else {
                             0
                         };
-                        count.fetch_add(1, Ordering::AcqRel);
                         let response = http::json(
                             200,
                             &json!({
@@ -330,10 +336,20 @@ impl Drop for Gateway {
 
 impl Gateway {
     fn start(fixture: &Fixture, endpoint: Option<&str>) -> Self {
+        Self::start_with_chain(fixture, endpoint, None)
+    }
+
+    fn start_with_chain(fixture: &Fixture, endpoint: Option<&str>, chain: Option<&str>) -> Self {
         let port = free_port();
         let mut environment = fixture.environment(port);
         if let Some(endpoint) = endpoint {
             environment.push((RPC_URL.to_owned(), endpoint.to_owned()));
+        }
+        if let Some(chain) = chain {
+            environment.push((
+                "LAYERX_GATEWAY_PAXEER_RPC_URLS".to_owned(),
+                chain.to_owned(),
+            ));
         }
         let child = gateway_command(&environment)
             .stdout(Stdio::null())
@@ -436,6 +452,92 @@ fn assert_invalid_heights(gateway: &Gateway, method: &str) {
         );
         assert!(answer.get("result").is_none());
     }
+}
+
+#[test]
+fn readyz_reports_the_consensus_endpoint() {
+    let fixture = Fixture::start();
+    let chain = Consensus::start(&fixture.tls, "eth_chainId", vec![json!("0x7d")]);
+    let secondary = Consensus::start(&fixture.tls, "eth_chainId", vec![json!("0x7d")]);
+    let chain_urls = json!([chain.url(), secondary.url()]).to_string();
+    let consensus = Consensus::start(
+        &fixture.tls,
+        "status",
+        vec![
+            json!({"sync_info": {"catching_up": false}}),
+            json!({"sync_info": {"catching_up": true}}),
+            json!({"sync_info": {"catching_up": false}}),
+            json!({"sync_info": {}}),
+            json!({"sync_info": {"catching_up": "false"}}),
+        ],
+    );
+    let gateway = Gateway::start_with_chain(&fixture, Some(&consensus.url()), Some(&chain_urls));
+    for (expected_status, expected_state, expected_reason) in [
+        (200, "ready", "ready"),
+        (503, "unavailable", "unreachable"),
+        (200, "ready", "ready"),
+        (503, "unavailable", "unreachable"),
+        (503, "unavailable", "unreachable"),
+    ] {
+        let (status, body) = gateway
+            .exchange("GET", "/readyz", b"")
+            .unwrap_or_else(|error| panic!("readiness exchange: {error}"));
+        let document: Value = serde_json::from_slice(&body)
+            .unwrap_or_else(|error| panic!("readiness response: {error}"));
+        assert_eq!(status, expected_status, "{document}");
+        assert_eq!(
+            document["backends"]["consensus"],
+            json!({
+                "state": expected_state, "reason": expected_reason
+            }),
+            "{document}"
+        );
+        assert_eq!(
+            document["backends"]["paxeer_chain"]["state"], "ready",
+            "{document}"
+        );
+        assert_eq!(
+            document["capabilities"]["chain_serving"]["state"], "ready",
+            "{document}"
+        );
+    }
+    assert_eq!(consensus.hits.load(Ordering::Acquire), 5);
+    drop(gateway);
+
+    let unconfigured = Gateway::start_with_chain(&fixture, None, Some(&chain_urls));
+    let (status, body) = unconfigured
+        .exchange("GET", "/readyz", b"")
+        .unwrap_or_else(|error| panic!("unconfigured readiness exchange: {error}"));
+    let document: Value = serde_json::from_slice(&body)
+        .unwrap_or_else(|error| panic!("unconfigured readiness response: {error}"));
+    assert_eq!(status, 200, "{document}");
+    assert_eq!(
+        document["backends"]["consensus"],
+        json!({
+            "state": "unavailable", "reason": "not_configured"
+        }),
+        "{document}"
+    );
+    assert_eq!(
+        document["backends"]["paxeer_chain"]["state"], "ready",
+        "{document}"
+    );
+    drop(unconfigured);
+
+    let invalid = Gateway::start_with_chain(&fixture, Some(""), Some(&chain_urls));
+    let (status, body) = invalid
+        .exchange("GET", "/readyz", b"")
+        .unwrap_or_else(|error| panic!("invalid readiness exchange: {error}"));
+    let document: Value = serde_json::from_slice(&body)
+        .unwrap_or_else(|error| panic!("invalid readiness response: {error}"));
+    assert_eq!(status, 503, "{document}");
+    assert_eq!(
+        document["backends"]["consensus"],
+        json!({
+            "state": "unavailable", "reason": "unreachable"
+        }),
+        "{document}"
+    );
 }
 
 #[test]

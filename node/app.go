@@ -89,6 +89,7 @@ import (
 	upgradeclient "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/client"
 	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	paxdb "github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -161,9 +162,15 @@ import (
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	launchpadv610keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	layerxagentmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent"
+	layerxagentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
+	layerxagenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	layerxanchormodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor"
 	layerxanchorkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	layerxanchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
+	layerxauthmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth"
+	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
+	layerxauthtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	layerxbridgemodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge"
 	layerxbridgeclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/client/cli"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
@@ -177,6 +184,13 @@ import (
 	layerxgov "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov"
 	layerxgovclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/client/cli"
 	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
+	layerxledgermodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger"
+	layerxledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
+	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
+	layerxpaymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay"
+	layerxpaykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	layerxpaytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint"
 	mintclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/client/cli"
 	mintkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/keeper"
@@ -292,6 +306,10 @@ var (
 		pricefeedmodule.AppModuleBasic{},
 		xwebmodule.AppModuleBasic{},
 		sequencermodule.AppModuleBasic{},
+		layerxledgermodule.AppModuleBasic{},
+		layerxauthmodule.AppModuleBasic{},
+		layerxpaymodule.AppModuleBasic{},
+		layerxagentmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -311,6 +329,7 @@ var (
 		tokenfactorytypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		layerxcustodytypes.ModuleName:   nil,
 		layerxanchortypes.ModuleName:    {authtypes.Burner},
+		layerxledgertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		spottypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
 		// launchpad, launchpad_treasury and layerxbridge are deliberately absent:
 		// the bank keeper blocks every maccPerms address as a receiver, and each
@@ -348,6 +367,12 @@ var (
 		pricefeedtypes.StoreKey,
 		xwebtypes.StoreKey,
 		seqtypes.StoreKey,
+		storekeys.LayerXLedgerStoreKey,
+		storekeys.LayerXAuthStoreKey,
+		storekeys.LayerXPayStoreKey,
+		storekeys.LayerXProgramsStoreKey,
+		storekeys.LayerXAgentStoreKey,
+		LayerXHostStoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	}
 
@@ -494,6 +519,11 @@ type App struct {
 
 	TokenFactoryKeeper tokenfactorykeeper.Keeper
 	LayerXAnchorKeeper layerxanchorkeeper.Keeper
+	LayerXLedgerKeeper *layerxledgerkeeper.Keeper
+	LayerXAuthKeeper   *layerxauthkeeper.Keeper
+	LayerXAgentKeeper  LayerXAgentKeeper
+	LayerXPayKeeper    *layerxpaykeeper.Keeper
+	LayerXHost         *lxphost.Host
 
 	LayerXCustodyKeeper *layerxcustodykeeper.Keeper
 
@@ -596,6 +626,22 @@ type App struct {
 	sequencerReceipt evmrpc.SequencerReceiptOption
 	commitListener   func(height int64, appHash []byte)
 }
+
+const LayerXHostStoreKey = "layerxhost"
+
+func NewHost(storeKey sdk.StoreKey, networkID uint32) (*lxphost.Host, error) {
+	return lxphost.NewHost(lxphost.Config{
+		StoreKey: storeKey, NetworkID: networkID, Epoch: 1,
+		ParameterVersion: 1, TimestampWindowMs: 60_000, GasLimit: 10_000_000,
+	})
+}
+
+type LayerXAgentKeeper struct {
+	layerxagentkeeper.Keeper
+	host *lxphost.Host
+}
+
+func (k LayerXAgentKeeper) Host() *lxphost.Host { return k.host }
 
 type AppOption func(*App)
 
@@ -833,6 +879,29 @@ func New(
 	// Custody trusts only anchor-finalized checkpoints and anchor sequencer
 	// authorizations; its own authority-registered checkpoints are unused.
 	app.LayerXCustodyKeeper.SetAnchorReader(layerxanchorkeeper.NewCustodyAnchor(app.LayerXAnchorKeeper))
+	authority := layerxgovtypes.GovernanceAuthority()
+	networkID := evmconfig.GetEVMChainID(app.ChainID)
+	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
+		panic(fmt.Sprintf("LayerX network ID out of range: %s", networkID))
+	}
+	app.LayerXHost, err = NewHost(keys[LayerXHostStoreKey], uint32(networkID.Uint64()))
+	if err != nil {
+		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
+	}
+	app.LayerXLedgerKeeper = layerxledgerkeeper.NewKeeper(appCodec, keys[storekeys.LayerXLedgerStoreKey],
+		app.LayerXHost, app.BankKeeper, &app.EvmKeeper, authority)
+	app.LayerXAuthKeeper = layerxauthkeeper.NewKeeper(appCodec, keys[storekeys.LayerXAuthStoreKey],
+		app.LayerXHost, &app.AuthzKeeper, &app.EvmKeeper, authority)
+	app.LayerXAgentKeeper = LayerXAgentKeeper{
+		Keeper: layerxagentkeeper.NewKeeper(keys[storekeys.LayerXAgentStoreKey], &app.EvmKeeper, MergeUpgrade),
+		host:   app.LayerXHost,
+	}
+	payKeeper, err := layerxpaykeeper.NewKeeper(appCodec, keys[storekeys.LayerXPayStoreKey],
+		keys[LayerXHostStoreKey], app.LayerXHost, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
+	if err != nil {
+		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
+	}
+	app.LayerXPayKeeper = &payKeeper
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
 	app.LayerXBridgeKeeper = layerxbridgekeeper.NewKeeper(keys[layerxbridgetypes.StoreKey], app.BankKeeper,
@@ -1044,6 +1113,10 @@ func New(
 		pricefeedmodule.NewAppModule(app.PricefeedKeeper),
 		xwebmodule.NewAppModule(app.XWebKeeper),
 		sequencermodule.NewAppModule(app.SequencerKeeper, app.GetSubspace(seqtypes.ModuleName)),
+		layerxledgermodule.NewAppModule(app.LayerXLedgerKeeper),
+		layerxauthmodule.NewAppModule(app.LayerXAuthKeeper),
+		layerxpaymodule.NewAppModule(*app.LayerXPayKeeper),
+		layerxagentmodule.NewAppModule(app.LayerXAgentKeeper.Keeper, authority),
 		// this line is used by starport scaffolding # stargate/app/appModule
 	)
 
@@ -1066,6 +1139,11 @@ func New(
 		PerpsKeeper:   app.PerpsKeeper,
 		SpotKeeper:    app.SpotKeeper,
 		V6120Live:     func() bool { return app.v6120Live },
+		AgentKeeper:   &app.LayerXAgentKeeper.Keeper,
+		MergeLive: func() bool {
+			ctx := app.DeliverContext()
+			return ctx != nil && app.Sequenced(*ctx, ctx.BlockHeight())
+		},
 	}
 	app.CheckTxKeepers = legacyabci.CheckTxKeepers{
 		AccountKeeper:   app.AccountKeeper,
@@ -1132,6 +1210,10 @@ func New(
 		pricefeedtypes.ModuleName,
 		xwebtypes.ModuleName,
 		seqtypes.ModuleName,
+		layerxledgertypes.ModuleName,
+		layerxauthtypes.ModuleName,
+		layerxpaytypes.ModuleName,
+		layerxagenttypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	)
 
@@ -1338,6 +1420,9 @@ func (app *App) HandlePreCommit(ctx sdk.Context) error {
 // Close closes all items that needs closing (called by baseapp)
 func (app *App) HandleClose() error {
 	var errs []error
+	if app.LayerXHost != nil {
+		app.LayerXHost.Close()
+	}
 
 	// Close trace db so its WAL is flushed; baker writes use NoSync.
 	if tc := app.EvmKeeper.TraceDB(); tc != nil {
