@@ -152701,7 +152701,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.25.3]
 title = "Read the pending nonce and sequencer receipt in KernelClient and retire the lx reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["12.25.2", "12.23.1"]
