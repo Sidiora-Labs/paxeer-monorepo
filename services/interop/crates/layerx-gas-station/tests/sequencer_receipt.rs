@@ -236,6 +236,24 @@ struct TrustStore {
     previous: Option<std::ffi::OsString>,
 }
 
+impl TrustStore {
+    fn create(path: PathBuf, certificate: &[u8]) -> std::io::Result<Self> {
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)?;
+        let trust = Self {
+            path,
+            previous: std::env::var_os("SSL_CERT_FILE"),
+        };
+        let written = file.write_all(certificate);
+        drop(file);
+        written?;
+        std::env::set_var("SSL_CERT_FILE", &trust.path);
+        Ok(trust)
+    }
+}
+
 impl Drop for TrustStore {
     fn drop(&mut self) {
         if let Some(previous) = &self.previous {
@@ -245,6 +263,47 @@ impl Drop for TrustStore {
         }
         let _ = std::fs::remove_file(&self.path);
     }
+}
+
+struct TestDirectory(PathBuf);
+
+impl TestDirectory {
+    fn new() -> Result<Self, Box<dyn std::error::Error>> {
+        let path = std::env::temp_dir().join(format!(
+            "sequencer-receipt-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)?
+                .as_nanos()
+        ));
+        std::fs::create_dir(&path)?;
+        Ok(Self(path))
+    }
+}
+
+impl Drop for TestDirectory {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.0);
+    }
+}
+
+#[test]
+fn trust_store_preserves_a_preexisting_ca_file() -> TestResult {
+    let directory = TestDirectory::new()?;
+    let path = directory.0.join("existing-ca.pem");
+    let sentinel = b"preexisting CA file must survive";
+    std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)?
+        .write_all(sentinel)?;
+
+    let error = TrustStore::create(path.clone(), b"replacement CA")
+        .err()
+        .ok_or("creating an existing CA file unexpectedly succeeded")?;
+    assert_eq!(error.kind(), std::io::ErrorKind::AlreadyExists);
+    assert_eq!(std::fs::read(&path)?, sentinel);
+    Ok(())
 }
 
 #[test]
@@ -259,16 +318,10 @@ fn full_receipt_reads_pax_sequencer_receipt_by_hash() -> TestResult {
     let identity =
         native_tls::Identity::from_pkcs8(certificate.as_bytes(), private_key.as_bytes())?;
     let acceptor = native_tls::TlsAcceptor::new(identity)?;
-    let trust = TrustStore {
-        path: std::env::temp_dir().join(format!("sequencer-receipt-ca-{}.pem", std::process::id())),
-        previous: std::env::var_os("SSL_CERT_FILE"),
-    };
-    std::fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(&trust.path)?
-        .write_all(certificate.as_bytes())?;
-    std::env::set_var("SSL_CERT_FILE", &trust.path);
+    let directory = TestDirectory::new()?;
+    let path = directory.0.join("ca.pem");
+    let previous = std::env::var_os("SSL_CERT_FILE");
+    let trust = TrustStore::create(path.clone(), certificate.as_bytes())?;
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let endpoint = format!("https://{}", listener.local_addr()?);
     let hash: Word = fixed(&fixture["committed"]["txHash"])?;
@@ -372,5 +425,8 @@ fn full_receipt_reads_pax_sequencer_receipt_by_hash() -> TestResult {
         .join()
         .map_err(|_| "TLS server panicked")?
         .map_err(std::io::Error::other)?;
+    drop(trust);
+    assert_eq!(std::env::var_os("SSL_CERT_FILE"), previous);
+    assert!(!path.exists());
     Ok(())
 }
