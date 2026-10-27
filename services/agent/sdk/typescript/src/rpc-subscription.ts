@@ -1,8 +1,7 @@
 import WebSocket from "ws";
 import { JsonRpcError } from "./rpc.js";
-import { decodeBatchHeader } from "./verifier.js";
 
-export type SubscriptionTopic = "receipts" | "checkpoints" | "account";
+export type SubscriptionTopic = "heads" | "account";
 
 export interface SubscriptionEvent {
   readonly result: Record<string, unknown>;
@@ -43,36 +42,32 @@ export function unsubscribeAcknowledgement(value: unknown, requestId: string): t
 }
 
 export function subscriptionNotification(value: unknown, subscription: string): SubscriptionEvent {
-  if (!object(value) || Object.keys(value).length !== 3 || value.jsonrpc !== "2.0" || value.method !== "lx_subscription" || !object(value.params) || Object.keys(value.params).length !== 3 || value.params.subscription !== subscription || !object(value.params.result)) throw new Error("Invalid subscription notification");
-  return { result: value.params.result, cursor: subscriptionCursor(value.params.cursor) };
+  if (!object(value) || Object.keys(value).length !== 3 || value.jsonrpc !== "2.0" || value.method !== "eth_subscription" || !object(value.params) || Object.keys(value.params).length !== 2 || value.params.subscription !== subscription || !object(value.params.result)) throw new Error("Invalid subscription notification");
+  const result = value.params.result;
+  return { result, cursor: blockHeight("number" in result ? result.number : result.blockNumber) };
 }
 
-export function subscriptionSelector(topic: SubscriptionTopic, account?: string, cursor?: bigint): string[] {
-  if (!["receipts", "checkpoints", "account"].includes(topic) || (topic === "account") !== (account !== undefined) || (account !== undefined && !/^[0-9a-f]{64}$/u.test(account))) throw new Error("Invalid subscription selector");
+function blockHeight(value: unknown): bigint {
+  if (typeof value !== "string" || !/^0x(0|[1-9a-f][0-9a-f]*)$/u.test(value)) throw new Error("Invalid subscription block height");
+  const height = BigInt(value);
+  if (height > MAX_CURSOR) throw new Error("Invalid subscription block height");
+  return height;
+}
+
+export function subscriptionSelector(topic: SubscriptionTopic, account?: string, cursor?: bigint): ["newHeads"] | ["logs", { address: string; topics: string[] }] {
+  if (!["heads", "account"].includes(topic) || (topic === "account") !== (account !== undefined) || (account !== undefined && !/^0x[0-9a-fA-F]{40}$/u.test(account))) throw new Error("Invalid subscription selector");
   if (cursor !== undefined && (cursor < 0n || cursor > MAX_CURSOR)) throw new Error("Invalid subscription cursor");
-  const selector = account === undefined ? [topic] : [topic, account];
-  return cursor === undefined ? selector : [...selector, cursor.toString()];
+  return account === undefined ? ["newHeads"] : ["logs", { address: account, topics: [] }];
 }
 
 export class SubscriptionContinuity {
-  private lastCheckpointBatch: bigint | undefined;
-  private lastCheckpointId: string | undefined;
-
   public constructor(private readonly topic: SubscriptionTopic, private lastCursor?: bigint) {}
 
   public accept(event: SubscriptionEvent): void {
-    if (this.lastCursor !== undefined && event.cursor < this.lastCursor) throw new Error("Subscription cursor regression; reconcile through reads");
-    if (this.topic === "checkpoints") {
-      const header = event.result.canonical_header;
-      const checkpoint = event.result.checkpoint_id;
-      if (typeof header !== "string" || !/^[0-9a-f]{708}$/u.test(header) || typeof checkpoint !== "string" || !/^[0-9a-f]{64}$/u.test(checkpoint)) throw new Error("Invalid checkpoint notification");
-      const batch = decodeBatchHeader(Buffer.from(header, "hex")).batchNumber;
-      if ((this.lastCheckpointBatch !== undefined && batch <= this.lastCheckpointBatch) || checkpoint === this.lastCheckpointId) throw new Error("Checkpoint regression or duplicate; reconcile through reads");
-      this.lastCheckpointBatch = batch;
-      this.lastCheckpointId = checkpoint;
-    } else if (this.lastCursor !== undefined && (event.cursor === this.lastCursor || (this.topic === "receipts" && event.cursor !== this.lastCursor + 1n))) {
-      throw new Error("Subscription cursor discontinuity; reconcile through reads");
-    }
+    const height = blockHeight(this.topic === "heads" ? event.result.number : event.result.blockNumber);
+    if (event.cursor !== height) throw new Error("Subscription cursor does not match block height");
+    if (this.topic === "heads" && this.lastCursor !== undefined && height !== this.lastCursor + 1n) throw new Error("Subscription block height discontinuity; reconcile through reads");
+    if (this.lastCursor !== undefined && height < this.lastCursor) throw new Error("Subscription block height regression; reconcile through reads");
     this.lastCursor = event.cursor;
   }
 }
@@ -100,7 +95,7 @@ export async function* subscribeRpc(endpoint: URL, authorization: string | undef
   signal?.addEventListener("abort", abort, { once: true });
   socket.on("error", () => fail(new Error("Subscription transport failed")));
   socket.on("close", () => { failure ??= new Error("Subscription closed; reconnect from the last cursor and reconcile through reads"); rejectReady(failure); wake?.(); settleCancel?.(); });
-  socket.on("open", () => socket.send(JSON.stringify({ jsonrpc: "2.0", id: requestId, method: "lx_subscribe", params })));
+  socket.on("open", () => socket.send(JSON.stringify({ jsonrpc: "2.0", id: requestId, method: "eth_subscribe", params })));
   socket.on("message", (data, binary) => {
     try {
       if (binary) throw new Error("Binary subscription frame refused");
@@ -117,7 +112,7 @@ export async function* subscribeRpc(endpoint: URL, authorization: string | undef
   });
   const cancel = async (): Promise<void> => {
     if (subscription === undefined || socket.readyState !== WebSocket.OPEN) return;
-    socket.send(JSON.stringify({ jsonrpc: "2.0", id: cancelId, method: "lx_unsubscribe", params: [subscription] }), () => undefined);
+    socket.send(JSON.stringify({ jsonrpc: "2.0", id: cancelId, method: "eth_unsubscribe", params: [subscription] }), () => undefined);
     await new Promise<void>(resolve => {
       const deadline = setTimeout(() => { settleCancel = undefined; resolve(); }, 5000);
       settleCancel = () => { clearTimeout(deadline); settleCancel = undefined; resolve(); };

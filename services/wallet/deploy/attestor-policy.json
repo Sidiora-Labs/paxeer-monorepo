@@ -9,6 +9,7 @@
       "sponsored_batch",
       "eip7702_authorization",
       "lx_activity",
+      "lx_send_authorization",
       "lx_bind",
       "lx_grant"
     ],
@@ -62,6 +63,18 @@
       "0x0000000000000000000000000000000000001019": [
         "0x5f7c8e9b",
         "0xd7194ccb"
+      ],
+      "0x000000000000000000000000000000000000101b": [
+        "0xa863162b",
+        "0x5051eb50",
+        "0x10b28d90",
+        "0xa139eb39",
+        "0xa179121e",
+        "0x50e0d150"
+      ],
+      "0x000000000000000000000000000000000000101d": [
+        "0x54bd2b48",
+        "0x59849fe7"
       ]
     },
     "authorization_delegates": [],

@@ -864,6 +864,10 @@ func (b *Backend) getBlockByNumberOrHash(ctx context.Context, blockNrOrHash rpc.
 	return block, isLatestBlock, nil
 }
 
+func (b *Backend) GetNextBaseFeePerGas(height int64) *big.Int {
+	return b.keeper.GetNextBaseFeePerGas(b.ctxProvider(height)).TruncateInt().BigInt()
+}
+
 func (b *Backend) getHeader(ctx context.Context, tmBlock *coretypes.ResultBlock) (*ethtypes.Header, error) {
 	if tmBlock == nil || tmBlock.Block == nil {
 		return nil, errors.New("cannot construct EVM header from an empty consensus block")
@@ -876,11 +880,8 @@ func (b *Backend) getHeader(ctx context.Context, tmBlock *coretypes.ResultBlock)
 		return nil, fmt.Errorf("block %d timestamp predates Unix epoch", height)
 	}
 	zeroExcessBlobGas := uint64(0)
-	baseFee := b.keeper.GetNextBaseFeePerGas(b.ctxProvider(height - 1)).TruncateInt().BigInt()
+	baseFee := b.GetNextBaseFeePerGas(height - 1)
 	sdkCtx := b.ctxProvider(height)
-	if sdkCtx.ChainID() == "pacific-1" && sdkCtx.BlockHeight() < b.keeper.UpgradeKeeper().GetDoneHeight(sdkCtx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), "6.2.0") {
-		baseFee = nil
-	}
 	cp := sdkCtx.ConsensusParams()
 	if cp == nil || cp.Block == nil {
 		return nil, fmt.Errorf("consensus block parameters are unavailable at height %d", height)

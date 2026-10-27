@@ -32,7 +32,6 @@ const (
 	KindTypedData       = "eip712"
 	KindPersonalMessage = "personal_message"
 	KindEthSignDigest   = "eth_sign_digest"
-	KindLXActivity      = "lx_activity"
 	KindLXBind          = "lx_bind"
 	KindLXGrant         = "lx_grant"
 	KindLXSendAuth      = "lx_send_authorization"
@@ -49,14 +48,13 @@ var kindCurves = map[string]dealer.Curve{
 	KindTypedData:       dealer.Secp256k1,
 	KindPersonalMessage: dealer.Secp256k1,
 	KindEthSignDigest:   dealer.Secp256k1,
-	KindLXActivity:      dealer.Ed25519,
 	KindLXBind:          dealer.Ed25519,
 	KindLXGrant:         dealer.Ed25519,
 	KindLXSendAuth:      dealer.Ed25519,
 }
 
 func SignKinds() []string {
-	return []string{KindCustody, KindEVMTransaction, KindTypedData, KindPersonalMessage, KindEthSignDigest, KindLXActivity, KindLXBind, KindLXGrant, KindLXSendAuth}
+	return []string{KindCustody, KindEVMTransaction, KindTypedData, KindPersonalMessage, KindEthSignDigest, KindLXBind, KindLXGrant, KindLXSendAuth}
 }
 
 type GrantJSON struct {
@@ -579,11 +577,11 @@ func approved(req SignRequest, subject string, a *lxwire.Activity, digest [32]by
 
 func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]byte, any, string, *Error) {
 	if req.ClockProfile != "" && (req.ClockProfile != lx.NativeClockProfileV1 ||
-		(req.Kind != KindLXActivity && req.Kind != KindLXSendAuth && req.Kind != KindLXGrant)) {
+		(req.Kind != KindLXSendAuth && req.Kind != KindLXGrant)) {
 		return nil, nil, "", newError(CodeSessionBadRequest, "native clock profile is confined to native LayerX signing")
 	}
-	if req.Kind != KindLXActivity && req.Kind != KindLXSendAuth && (req.Disclosure != nil || req.Approval != nil) {
-		return nil, nil, "", newError(CodeSessionBadRequest, "disclosure and approval belong only to %s and %s", KindLXActivity, KindLXSendAuth)
+	if req.Kind != KindLXSendAuth && (req.Disclosure != nil || req.Approval != nil) {
+		return nil, nil, "", newError(CodeSessionBadRequest, "disclosure and approval belong only to %s", KindLXSendAuth)
 	}
 	if req.Kind == KindCustody && (req.Transaction != "" || req.TypedData != "" || req.Digest != "" || req.Activity != "" || req.Grant != nil || req.Construction != nil) {
 		return nil, nil, "", newError(CodeSessionBadRequest, "custody signs only its complete canonical bytes")
@@ -686,30 +684,6 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 			}
 		}
 		return d[:], view, policyKind, nil
-	case KindLXActivity:
-		raw, e := decodeHex("activity", req.Activity)
-		if e != nil {
-			return nil, nil, "", e
-		}
-		a, err := lxwire.DecodeUnsignedActivity(raw, s.opts.Activities)
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		pre, err := lxwire.SignaturePreimage(a)
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		effect, err := lx.DecodeEffect(a)
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		disclosure, e := approved(req, subject, a, pre, effect)
-		if e != nil {
-			return nil, nil, "", e
-		}
-		var pub [32]byte
-		copy(pub[:], pubBytes)
-		return pre[:], &lx.ActivityRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: pre, PublicKey: pub, Disclosure: disclosure}, policy.KindLXActivity, nil
 	case KindLXSendAuth:
 		raw, e := decodeHex("activity", req.Activity)
 		if e != nil {
@@ -736,7 +710,7 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		}
 		var pub [32]byte
 		copy(pub[:], pubBytes)
-		return digest[:], &lx.SendAuthorizationRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: digest, PublicKey: pub, Disclosure: disclosure}, policy.KindLXActivity, nil
+		return digest[:], &lx.SendAuthorizationRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: digest, PublicKey: pub, Disclosure: disclosure}, policy.KindLXSendAuth, nil
 	case KindLXBind:
 		raw, e := decodeHex("message", req.Message)
 		if e != nil {
@@ -818,10 +792,10 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 		return LXReviewResponse{}, newError(CodeSessionBadRequest, "unknown native clock profile")
 	}
 	if req.Kind == "" {
-		req.Kind = KindLXActivity
+		req.Kind = KindLXSendAuth
 	}
-	if req.Kind != KindLXActivity && req.Kind != KindLXSendAuth {
-		return LXReviewResponse{}, newError(CodeSessionKind, "review supports only lx_activity or lx_send_authorization")
+	if req.Kind != KindLXSendAuth {
+		return LXReviewResponse{}, newError(CodeSessionKind, "review supports only lx_send_authorization")
 	}
 	if e := requireIDs(req.SessionID, req.KeyID); e != nil {
 		return LXReviewResponse{}, e
@@ -880,9 +854,9 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 	var review *lx.ActivityReview
 	var err error
 	if req.ClockProfile == "" {
-		review, err = s.opts.Kernel.ReviewActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, s.spends, req.Kind == KindLXSendAuth)
+		review, err = s.opts.Kernel.ReviewActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, policy.ReadOnlyLedger(s.spends), true)
 	} else {
-		review, err = s.opts.Kernel.ReviewNativeActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, s.spends, req.Kind == KindLXSendAuth)
+		review, err = s.opts.Kernel.ReviewNativeActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, policy.ReadOnlyLedger(s.spends), true)
 	}
 	unlockAccount()
 	if err != nil {

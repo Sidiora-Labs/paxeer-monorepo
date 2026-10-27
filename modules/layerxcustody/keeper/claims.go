@@ -295,6 +295,9 @@ func (k *Keeper) withdrawalClaim(ctx sdk.Context, evidence WithdrawalEvidence) (
 // RequestWithdrawal verifies the evidence, reserves the nullifier and queues
 // the claim; it becomes payable after the withdrawal delay.
 func (k *Keeper) RequestWithdrawal(ctx sdk.Context, evidence WithdrawalEvidence) (types.Claim, error) {
+	if k.Retired(ctx) {
+		return types.Claim{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Claim, error) {
 		pending, err := k.withdrawalClaim(ctx, evidence)
 		if err != nil {
@@ -324,6 +327,9 @@ func (k *Keeper) finalise(ctx sdk.Context, pending pendingClaim) (ClaimResult, e
 // that was never requested is queued first, which succeeds in one call only
 // when the withdrawal delay is zero.
 func (k *Keeper) FinaliseWithdrawal(ctx sdk.Context, evidence WithdrawalEvidence) (ClaimResult, error) {
+	if k.Retired(ctx) {
+		return ClaimResult{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	pending, err := k.withdrawalClaim(ctx, evidence)
 	if err != nil {
 		return ClaimResult{}, err
@@ -468,6 +474,9 @@ func (k *Keeper) syncExitCheckpoint(ctx sdk.Context) {
 // RequestForcedExit verifies the evidence, marks the balance consumed at its
 // anchor and queues the exit; it becomes payable after the forced-exit delay.
 func (k *Keeper) RequestForcedExit(ctx sdk.Context, evidence ExitEvidence) (types.Claim, error) {
+	if k.Retired(ctx) {
+		return types.Claim{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Claim, error) {
 		pending, err := k.VerifyForcedExit(ctx, evidence)
 		if err != nil {
@@ -482,6 +491,9 @@ func (k *Keeper) RequestForcedExit(ctx sdk.Context, evidence ExitEvidence) (type
 // after newer checkpoints are finalized; a new exit is verified against the
 // exit checkpoint, or the latest checkpoint while no exit is live.
 func (k *Keeper) ExecuteForcedExit(ctx sdk.Context, evidence ExitEvidence) (ClaimResult, error) {
+	if k.Retired(ctx) {
+		return ClaimResult{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	return atomically(ctx, func(ctx sdk.Context) (ClaimResult, error) {
 		if claim, found := k.queuedExit(ctx, evidence); found {
 			paid, err := k.pay(ctx, claim)
@@ -525,6 +537,9 @@ func (k *Keeper) queuedExit(ctx sdk.Context, evidence ExitEvidence) (types.Claim
 // inside its window. The nullifier becomes terminally cancelled, exactly as
 // WithdrawalClaims.cancelChallengedClaim leaves it.
 func (k *Keeper) CancelClaim(ctx sdk.Context, claimID [32]byte) (types.Claim, error) {
+	if k.Retired(ctx) {
+		return types.Claim{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Claim, error) {
 		claim, found := k.GetClaim(ctx, claimID)
 		if !found || claim.Status != types.ClaimStatus_CLAIM_STATUS_PENDING {

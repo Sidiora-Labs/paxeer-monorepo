@@ -9,6 +9,7 @@ use layerx_proof::receipt::{
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
+use sha3::Keccak256;
 
 /// Stable media payload identifier shared with every interop adapter.
 pub const PORTABLE_RECEIPT_FORMAT: &str = "layerx-receipt-proof-v1";
@@ -251,9 +252,11 @@ pub enum PortableReceiptError {
     BatchAuthorizationMismatch,
     MissingReceiptDigest,
     ReceiptDigestMismatch,
+    RawTransactionMismatch,
     InvalidHex(&'static str),
     InvalidQuantity(&'static str),
     ReceiptKeyMismatch,
+    NotReceipted,
     InclusionHeight,
     MissingBatchAuthorization,
 }
@@ -284,6 +287,9 @@ impl Display for PortableReceiptError {
             Self::ReceiptDigestMismatch => {
                 formatter.write_str("portable receipt digest does not match the receipt")
             }
+            Self::RawTransactionMismatch => {
+                formatter.write_str("raw transaction hash does not match the receipt activity id")
+            }
             Self::InvalidHex(field) => write!(formatter, "{field} is not canonical 0x hex"),
             Self::InvalidQuantity(field) => {
                 write!(formatter, "{field} is not a canonical 0x quantity")
@@ -291,6 +297,7 @@ impl Display for PortableReceiptError {
             Self::ReceiptKeyMismatch => {
                 formatter.write_str("portable receipt key is not the pinned key that signed")
             }
+            Self::NotReceipted => formatter.write_str("transaction has not been receipted"),
             Self::InclusionHeight => {
                 formatter.write_str("inclusion height precedes the signed receipt height")
             }
@@ -352,6 +359,8 @@ pub struct PortableReceiptV2 {
     receipt_digest: String,
     receipt_key: PortableReceiptKey,
     inclusion_height: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    raw_transaction: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -364,6 +373,49 @@ struct PortableReceiptKey {
 }
 
 impl PortableReceiptV2 {
+    /// Exports the signed receipt of a receipted or committed RPC answer.
+    ///
+    /// # Errors
+    ///
+    /// Refuses submitted answers, malformed fields, unpinned keys and any
+    /// receipt, inclusion-height or raw-transaction verification failure.
+    pub fn from_sequencer_receipt(
+        answer: &serde_json::Value,
+        receipt_keys: &[ReceiptKeyEntry],
+        raw_transaction: Option<&[u8]>,
+    ) -> Result<Self, PortableReceiptError> {
+        let field = |name| {
+            answer
+                .get(name)
+                .and_then(serde_json::Value::as_str)
+                .ok_or(PortableReceiptError::JsonShape)
+        };
+        let rung = field("rung")?;
+        match rung {
+            "submitted" => return Err(PortableReceiptError::NotReceipted),
+            "receipted" | "committed" => {}
+            _ => return Err(PortableReceiptError::JsonShape),
+        }
+        let signed_receipt = decode_hex("receipt", field("receipt")?, 1, MAX_RECEIPT_BYTES)?;
+        let key_id: [u8; 32] = decode_hex_fixed("keyId", field("keyId")?)?;
+        let height = decode_quantity("height", field("height")?)?;
+        let inclusion_height = if rung == "committed" {
+            decode_quantity("blockNumber", field("blockNumber")?)?
+        } else {
+            height
+        };
+        let receipt_key = receipt_keys
+            .iter()
+            .find(|key| key.sequencer_id() == key_id)
+            .ok_or(PortableReceiptError::ReceiptKeyMismatch)?;
+        match raw_transaction {
+            Some(raw) => {
+                Self::export_with_transaction(&signed_receipt, receipt_key, inclusion_height, raw)
+            }
+            None => Self::export(&signed_receipt, receipt_key, inclusion_height),
+        }
+    }
+
     /// Exports one signed receipt only after it verifies against the given
     /// `ReceiptKeys` entry and the inclusion height is not below the signed
     /// receipt height.
@@ -393,7 +445,28 @@ impl PortableReceiptV2 {
                 last_height: encode_quantity(receipt_key.last_batch_number()),
             },
             inclusion_height: encode_quantity(inclusion_height),
+            raw_transaction: None,
         };
+        portable.verify_v2(std::slice::from_ref(receipt_key))?;
+        Ok(portable)
+    }
+
+    /// Exports a signed receipt with raw transaction bytes bound to its activity id.
+    ///
+    /// # Errors
+    ///
+    /// Returns an export refusal, invalid transaction length, or transaction hash mismatch.
+    pub fn export_with_transaction(
+        signed_receipt: &[u8],
+        receipt_key: &ReceiptKeyEntry,
+        inclusion_height: u64,
+        raw_transaction: &[u8],
+    ) -> Result<Self, PortableReceiptError> {
+        if raw_transaction.is_empty() || raw_transaction.len() > MAX_RECEIPT_BYTES {
+            return Err(PortableReceiptError::InvalidLength("rawTransaction"));
+        }
+        let mut portable = Self::export(signed_receipt, receipt_key, inclusion_height)?;
+        portable.raw_transaction = Some(encode_hex(raw_transaction));
         portable.verify_v2(std::slice::from_ref(receipt_key))?;
         Ok(portable)
     }
@@ -459,8 +532,15 @@ impl PortableReceiptV2 {
         if digest != decoded.receipt_digest {
             return Err(PortableReceiptError::ReceiptDigestMismatch);
         }
+        if let Some(raw_transaction) = &decoded.raw_transaction {
+            let transaction_hash: [u8; 32] = Keccak256::digest(raw_transaction).into();
+            if transaction_hash != protocol.activity_id() {
+                return Err(PortableReceiptError::RawTransactionMismatch);
+            }
+        }
         Ok(PortableVerifiedReceiptV2 {
             signed_receipt: decoded.signed_receipt,
+            raw_transaction: decoded.raw_transaction,
             receipt_digest: digest,
             receipt_key: *pinned,
             activity_id: protocol.activity_id(),
@@ -513,12 +593,18 @@ impl PortableReceiptV2 {
                 last,
             ),
             inclusion_height: decode_quantity("inclusionHeight", &self.inclusion_height)?,
+            raw_transaction: self
+                .raw_transaction
+                .as_deref()
+                .map(|encoded| decode_hex("rawTransaction", encoded, 1, MAX_RECEIPT_BYTES))
+                .transpose()?,
         })
     }
 }
 
 struct DecodedReceiptV2 {
     signed_receipt: Vec<u8>,
+    raw_transaction: Option<Vec<u8>>,
     receipt_digest: [u8; 32],
     receipt_key: ReceiptKeyEntry,
     inclusion_height: u64,
@@ -528,6 +614,7 @@ struct DecodedReceiptV2 {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PortableVerifiedReceiptV2 {
     signed_receipt: Vec<u8>,
+    raw_transaction: Option<Vec<u8>>,
     receipt_digest: [u8; 32],
     receipt_key: ReceiptKeyEntry,
     activity_id: [u8; 32],
@@ -538,6 +625,12 @@ pub struct PortableVerifiedReceiptV2 {
 }
 
 impl PortableVerifiedReceiptV2 {
+    /// Returns the raw transaction bytes verified against the activity id, if carried.
+    #[must_use]
+    pub fn raw_transaction(&self) -> Option<&[u8]> {
+        self.raw_transaction.as_deref()
+    }
+
     /// Returns the verified canonical signed receipt bytes.
     #[must_use]
     pub fn signed_receipt(&self) -> &[u8] {

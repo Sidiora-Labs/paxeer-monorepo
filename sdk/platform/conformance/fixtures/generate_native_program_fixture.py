@@ -1,30 +1,71 @@
-from hashlib import sha256
+import argparse
 import json
 from pathlib import Path
 import struct
-from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
-from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 
-def sized(value):
-    return struct.pack(">I", len(value)) + value
+PROGRAMS_ADDRESS = "0x000000000000000000000000000000000000101d"
+CALL_SELECTOR = "0x54bd2b48"
+CALL_HEADER = struct.Struct(">32sHHIHII7Q")
 
 
-entrypoint = b"layerx_call"
-capabilities = b"\0\0"
-access = b"LayerX/programs/access-declaration/v1\0\0"
-resources = [1_000_000, 16_777_216, 1_048_576, 1_048_576, 64, 1_048_576, 4096]
-payload = struct.pack(">32sHHIHII7Q", bytes([0x11]) * 32, 1, len(entrypoint), 0, len(capabilities), len(access), 16, *resources) + entrypoint + capabilities + access
-key = Ed25519PrivateKey.from_private_bytes(bytes([0x33]) * 32)
-public = key.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw)
-fields = (b"\1\0\3" + b"\2" + struct.pack(">I", 1) + b"\3" + struct.pack(">I", 0x90003)
-          + b"\4" + sized(b"did:lxp:native-fixture") + b"\5" + sized(public)
-          + b"\6" + bytes(8) + b"\7" + struct.pack(">QQ", 10, 20)
-          + b"\10" + sized(bytes([0x44]) * 32) + b"\11" + (1000).to_bytes(16, "big")
-          + b"\12" + sized(sha256(b"LXP/v1/payload-hash\0" + payload).digest()) + b"\13" + sized(payload))
-unsigned = bytes.fromhex("000310010b") + fields
-signature = key.sign(sha256(b"LXP/v1/signature-preimage\0" + unsigned).digest())
-signed = bytes.fromhex("000310010c") + fields + b"\14" + sized(signature)
-key.public_key().verify(signature, sha256(b"LXP/v1/signature-preimage\0" + unsigned).digest())
-fixture = {"name": "native-program-call-v3", "provenance": "Canonical native106 payload and real Ed25519-signed codec vector; no execution claim", "payload_hex": payload.hex(), "signed_activity_hex": signed.hex(), "public_key_hex": public.hex(), "fee_limit": "1000", "activity_id_hex": sha256(b"LXP/v1/activity-id\0" + signed).hexdigest(), "idempotency_key_hex": (bytes([0x44]) * 32).hex(), "resources": [str(value) for value in resources]}
-Path(__file__).with_name("native-program-call-v3.json").write_text(json.dumps(fixture, indent=2) + "\n")
+def calldata(payload, fee_limit):
+    if not 0 <= fee_limit < 2**128:
+        raise ValueError("fee limit exceeds uint128")
+    if len(payload) < CALL_HEADER.size:
+        raise ValueError("truncated native call header")
+    program, abi, entry_size, data_size, caps_size, access_size, capacity, *budget = (
+        CALL_HEADER.unpack_from(payload)
+    )
+    lengths = (entry_size, data_size, caps_size, access_size)
+    if len(payload) != CALL_HEADER.size + sum(lengths):
+        raise ValueError("native call payload length mismatch")
+    cursor = CALL_HEADER.size
+    dynamic = []
+    for length in lengths:
+        value = payload[cursor : cursor + length]
+        dynamic.append(value)
+        cursor += length
+    dynamic[0].decode("utf-8")
+    head_size = 15 * 32
+    offsets = []
+    tail = bytearray()
+    for value in dynamic:
+        offsets.append(head_size + len(tail))
+        tail.extend(len(value).to_bytes(32, "big"))
+        tail.extend(value)
+        tail.extend(bytes(-len(value) % 32))
+    words = [abi, *offsets, capacity, *budget, fee_limit]
+    head = program + b"".join(value.to_bytes(32, "big") for value in words)
+    return CALL_SELECTOR + (head + tail).hex()
+
+
+def evm(fixture):
+    return {
+        "to": PROGRAMS_ADDRESS,
+        "chainId": 125,
+        "selector": CALL_SELECTOR,
+        "calldata": calldata(
+            bytes.fromhex(fixture["payload_hex"]), int(fixture["fee_limit"])
+        ),
+    }
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true")
+    arguments = parser.parse_args()
+    for version in (3, 4):
+        path = Path(__file__).with_name(f"native-program-call-v{version}.json")
+        fixture = json.loads(path.read_text())
+        expected = evm(fixture)
+        if arguments.check:
+            if fixture.get("evm") != expected:
+                raise ValueError(f"EVM call fixture drift: {path}")
+        else:
+            fixture["evm"] = expected
+            path.write_text(json.dumps(fixture, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()

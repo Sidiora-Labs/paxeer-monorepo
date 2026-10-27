@@ -7,6 +7,8 @@ import {
 } from '@supabase/supabase-js';
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { sha256 } from '@noble/hashes/sha2.js';
+import { JsonRpcClient } from './rpc.js';
+import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import {
   PaxeerWalletError,
   FundedUnsupportedError,
@@ -28,6 +30,7 @@ export * from './endpoint.js';
 export * from './kernel.js';
 export * from './human.js';
 export * from './ladder.js';
+export * from './receipt.js';
 export * from './modules/index.js';
 export * from './errors.js';
 export * from './provider.js';
@@ -259,9 +262,29 @@ export class PaxeerWallet {
     return this.callJson<SignTxResponse>('POST', '/v1/wallet/sign', { tx: serialize(tx) });
   }
 
-  /** Sign + broadcast in one round-trip. Returns the tx hash. */
-  sendTransaction(tx: TxRequest): Promise<SendTxResponse> {
-    return this.callJson<SendTxResponse>('POST', '/v1/wallet/send', { tx: serialize(tx) });
+  /** Sign + broadcast and return the tx hash with its available sequencer receipt. */
+  async sendTransaction(tx: TxRequest): Promise<SendTxResponse> {
+    const response = await this.callJson<SendTxResponse>('POST', '/v1/wallet/send', { tx: serialize(tx) });
+    let receipt = response.receipt ? decodeSequencerReceipt(response.receipt) : null;
+    if (!receipt) {
+      const { chain } = await this.getWallet();
+      const rpc = new JsonRpcClient({ url: chain.rpc_url, fetch: this.fetchImpl });
+      try {
+        receipt = await readSequencerReceipt((method, params) => rpc.call(method, params), response.tx_hash);
+      } catch (error) {
+        if (error instanceof TypeError && error.message === 'sequencer receipt txHash differs from the asked hash') {
+          throw new TypeError('receipt does not match the sent transaction');
+        }
+        throw error;
+      }
+    }
+    if (receipt) {
+      if (receipt.txHash.toLowerCase() !== response.tx_hash.toLowerCase()) {
+        throw new TypeError('receipt does not match the sent transaction');
+      }
+      response.receipt = receipt;
+    }
+    return response;
   }
 
   /** EIP-191 personal_sign over a message string. */

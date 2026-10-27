@@ -54,7 +54,7 @@ struct Readiness {
 }
 
 impl Readiness {
-    fn new(config: &Config, evm: bool, kernel: bool) -> Self {
+    fn new(config: &Config, network_id: u32, evm: bool, kernel: bool) -> Self {
         let mut roles = BTreeMap::new();
         let mut add = |role, names: &[&'static str], budget| {
             roles.insert(
@@ -115,7 +115,7 @@ impl Readiness {
         }
         Self {
             roles: Mutex::new(roles),
-            network_id: config.kernel_network_id,
+            network_id,
             relay_lag: Mutex::new(None),
         }
     }
@@ -208,7 +208,7 @@ fn directory_usable(path: &std::path::Path) -> bool {
             .is_ok()
 }
 
-fn settlement_usable(config: &Config, endpoint: &str) -> bool {
+fn settlement_usable(config: &Config, network_id: u32, endpoint: &str) -> bool {
     let Ok(rpc) = GatewayRpc::new(endpoint) else {
         return false;
     };
@@ -222,21 +222,26 @@ fn settlement_usable(config: &Config, endpoint: &str) -> bool {
     let Some(RpcAnswer::Result(node)) = rpc.call("lx_getNodeInfo", &serde_json::json!([])) else {
         return false;
     };
-    node.get("network_id").and_then(serde_json::Value::as_u64)
-        == Some(u64::from(config.kernel_network_id))
+    node.get("network_id").and_then(serde_json::Value::as_u64) == Some(u64::from(network_id))
         && node
             .get("protocol_version")
             .and_then(serde_json::Value::as_u64)
             == Some(u64::from(x_websearch::payment::PROTOCOL_VERSION))
-        && node
-            .get("authorised_sequencer_key")
-            .and_then(serde_json::Value::as_str)
-            == Some(x_websearch::payment::hex(&config.gateway.sequencer.public_key).as_str())
-        && layerx_wire::handover::sequencer_id(&config.gateway.sequencer.public_key).ok()
-            == Some(config.gateway.sequencer.sequencer_id)
+        && config.gateway.receipt_keys.iter().any(|key| {
+            node.get("authorised_sequencer_key")
+                .and_then(serde_json::Value::as_str)
+                == Some(x_websearch::payment::hex(&key.public_key()).as_str())
+                && layerx_wire::handover::sequencer_id(&key.public_key()).ok()
+                    == Some(key.sequencer_id())
+        })
 }
 
-fn peer_quorum_usable(config: &Config, set: &attest::AttestorSet, signer: [u8; 20]) -> bool {
+fn peer_quorum_usable(
+    config: &Config,
+    network_id: u32,
+    set: &attest::AttestorSet,
+    signer: [u8; 20],
+) -> bool {
     use x_websearch::fetch::{HttpClient, Url};
     if set.threshold == 0 || !set.contains(&signer) || set.threshold as usize > set.signers.len() {
         return false;
@@ -302,18 +307,11 @@ fn peer_quorum_usable(config: &Config, set: &attest::AttestorSet, signer: [u8; 2
         if let (Some(checked), Some(signature)) = (checked, signature) {
             if set.contains(&peer_signer)
                 && value["peer_readiness"]["nonce"] == x_websearch::payment::hex(&nonce)
-                && value["peer_readiness"]["network_id"].as_u64()
-                    == Some(u64::from(config.kernel_network_id))
+                && value["peer_readiness"]["network_id"].as_u64() == Some(u64::from(network_id))
                 && now_ms() >= checked
                 && now_ms().saturating_sub(checked) <= 60_000
                 && attest::recover_signer(
-                    &peer_readiness_digest(
-                        config.kernel_network_id,
-                        peer_signer,
-                        nonce,
-                        true,
-                        checked,
-                    ),
+                    &peer_readiness_digest(network_id, peer_signer, nonce, true, checked),
                     &signature,
                 )
                 .ok()
@@ -369,7 +367,11 @@ impl ReadinessProbe {
         self.readiness.update(
             "paid_delivery",
             "settlement_authority",
-            settlement_usable(&self.config, &self.config.gateway.endpoint),
+            settlement_usable(
+                &self.config,
+                self.readiness.network_id,
+                &self.config.gateway.endpoint,
+            ),
         );
         if let Some(signer) = self.signer {
             let rpc = EvmRpc::new(&self.config.evm.endpoint);
@@ -382,7 +384,9 @@ impl ReadinessProbe {
                 .as_ref()
                 .ok()
                 .and_then(|rpc| submit::attestor_set(rpc).ok())
-                .is_some_and(|set| peer_quorum_usable(&self.config, &set, signer));
+                .is_some_and(|set| {
+                    peer_quorum_usable(&self.config, self.readiness.network_id, &set, signer)
+                });
             for role in ["evm_attestor", "kernel_relay"] {
                 self.readiness.update(role, "evm_chain", chain);
                 self.readiness
@@ -399,7 +403,7 @@ impl ReadinessProbe {
             self.readiness.update(
                 "kernel_relay",
                 "kernel_authority",
-                settlement_usable(&self.config, &kernel.endpoint),
+                settlement_usable(&self.config, self.readiness.network_id, &kernel.endpoint),
             );
             self.readiness.update(
                 "kernel_relay",
@@ -412,7 +416,9 @@ impl ReadinessProbe {
 }
 use x_websearch::server::Stopper;
 use x_websearch::submit::{self, Outcome, Submitter};
-use x_websearch::watch::{Canonical, EvmRpc, RequestWatcher, WebRequest, WorkStage};
+use x_websearch::watch::{
+    kernel_network_id, Canonical, EvmRpc, RequestWatcher, WebRequest, WorkStage,
+};
 use x_websearch::{search, Config, KeyFiles, Keys, Limits, RouteTable, Server};
 
 /// How long after the start of one attestation round the next one starts.
@@ -458,11 +464,31 @@ struct Assembled {
 /// The routes and the crawler built from the configuration and the keys.
 /// Every refusal names the configuration field or key it concerns.
 fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
+    let rpc =
+        EvmRpc::new(&config.evm.endpoint).map_err(|error| format!("evm.endpoint: {error}"))?;
+    let network_id =
+        kernel_network_id(&rpc).map_err(|error| format!("kernel_network_id: {error}"))?;
+    if network_id == 0 {
+        return Err("kernel_network_id: the chain returned zero".to_owned());
+    }
+    if let Some(configured) = config.kernel_network_id {
+        if configured != network_id {
+            return Err(format!(
+                "kernel_network_id: configured {configured} differs from chain {network_id}"
+            ));
+        }
+    }
     let conformance = x_websearch::conformance_suite()
         .map_err(|error| format!("payment conformance suite: {error}"))?;
     let gate = Arc::new(
-        PaymentGate::new(config, keys.receiver(), conformance, system_clock)
-            .map_err(|error| format!("assets, gateway or data_dir: {error}"))?,
+        PaymentGate::new_with_network_id(
+            config,
+            network_id,
+            keys.receiver(),
+            conformance,
+            system_clock,
+        )
+        .map_err(|error| format!("assets, gateway or data_dir: {error}"))?,
     );
     gate.recover_pending_deliveries()
         .map_err(|error| format!("payment delivery recovery in data_dir: {error}"))?;
@@ -485,8 +511,21 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
     content::register(&mut routes, &gate, &fetcher, &store)
         .map_err(|error| format!("route /fetch or /content: {error}"))?;
     let pipeline = pipeline(config, keys, &mut routes, &fetcher, &index, &store)?;
-    let relay = relay(config, keys, &mut routes, &fetcher, &index, &store)?;
-    let readiness = Arc::new(Readiness::new(config, pipeline.is_some(), relay.is_some()));
+    let relay = relay(
+        config,
+        network_id,
+        keys,
+        &mut routes,
+        &fetcher,
+        &index,
+        &store,
+    )?;
+    let readiness = Arc::new(Readiness::new(
+        config,
+        network_id,
+        pipeline.is_some(),
+        relay.is_some(),
+    ));
     let eligibility = Arc::clone(&readiness);
     routes
         .set_serving_eligibility(move || eligibility.snapshot().0)
@@ -506,7 +545,7 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         "live": true,
         "readiness_scope": "process-liveness",
         "upstream_payment_verified": false,
-        "network_id": config.kernel_network_id,
+        "network_id": network_id,
         "wire_version": x_websearch::payment::PROTOCOL_VERSION.to_string(),
         "protocol_version": x_websearch::payment::PROTOCOL_VERSION,
         "source_revision": option_env!("PAXEER_X_SOURCE_REVISION"),
@@ -519,7 +558,7 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         serde_json::json!(x_websearch::payment::hex(&signer))
     });
     let health_view = Arc::clone(&readiness);
-    let network = config.kernel_network_id;
+    let network = network_id;
     routes
         .set_health(move |request| {
             let mut body = health.clone();
@@ -566,6 +605,7 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
 /// survive a restart; a journal that cannot be read refuses startup.
 fn relay(
     config: &Config,
+    network_id: u32,
     keys: &Keys,
     routes: &mut RouteTable,
     fetcher: &Arc<Fetcher>,
@@ -600,7 +640,7 @@ fn relay(
         .map_err(|error| format!("route /program-attestations: {error}"))?;
     let attestor = KernelAttestor::new(
         attestor_key.clone(),
-        config.kernel_network_id,
+        network_id,
         Arc::clone(fetcher),
         Arc::clone(index),
         Arc::clone(store),
@@ -609,13 +649,13 @@ fn relay(
         &settings.endpoint,
         keys.receiver().clone(),
         settings.submitter_did.clone(),
-        config.kernel_network_id,
+        network_id,
         settings.fee_limit,
     )
     .map_err(|error| format!("kernel.endpoint: {error}"))?
     .with_authorization_file(authorization_file)
     .map_err(|error| format!("gateway.authorization_file: {error}"))?
-    .with_receipt_key(config.gateway.sequencer.public_key);
+    .with_receipt_keys(config.gateway.receipt_keys.clone());
     let relay = KernelRelay::open(
         watcher,
         attestor,

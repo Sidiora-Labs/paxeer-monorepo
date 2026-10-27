@@ -5,6 +5,7 @@
 package pricefeed
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 )
@@ -46,30 +48,13 @@ func (AppModuleBasic) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
 	return encoded
 }
 
-// ValidateGenesis checks the params and refuses a feed key repeated for an
-// operator or a feed account registered to two operators.
+// ValidateGenesis checks the decoded state with the keeper's genesis checks.
 func (AppModuleBasic) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, bz json.RawMessage) error {
 	var genesis types.GenesisState
 	if err := json.Unmarshal(bz, &genesis); err != nil {
 		return types.ErrInvalidGenesis.Wrapf("failed to unmarshal %s genesis state: %v", types.ModuleName, err)
 	}
-	if err := genesis.Params.Validate(); err != nil {
-		return err
-	}
-	operators := make(map[string]struct{}, len(genesis.FeedKeys))
-	feedAccounts := make(map[string]struct{}, len(genesis.FeedKeys))
-	for _, entry := range genesis.FeedKeys {
-		operator := entry.Operator.String()
-		if _, seen := operators[operator]; seen {
-			return types.ErrInvalidGenesis.Wrapf("duplicate feed key for operator %s", operator)
-		}
-		operators[operator] = struct{}{}
-		if _, seen := feedAccounts[entry.FeedKey.FeedAccount]; seen {
-			return types.ErrInvalidGenesis.Wrapf("duplicate feed account %s", entry.FeedKey.FeedAccount)
-		}
-		feedAccounts[entry.FeedKey.FeedAccount] = struct{}{}
-	}
-	return nil
+	return keeper.ValidateGenesis(genesis)
 }
 
 func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config client.TxEncodingConfig, genesisCh <-chan json.RawMessage) error {
@@ -83,11 +68,15 @@ func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config clien
 
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {}
 
-func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
+		panic(err)
+	}
+}
 
 func (AppModuleBasic) GetTxCmd() *cobra.Command { return nil }
 
-func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
+func (AppModuleBasic) GetQueryCmd() *cobra.Command { return cli.GetQueryCmd() }
 
 type AppModule struct {
 	AppModuleBasic
@@ -102,9 +91,10 @@ func (AppModule) QuerierRoute() string { return types.ModuleName }
 
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
-// RegisterServices routes MsgSubmitPrices and MsgSetParams to the keeper.
+// RegisterServices routes messages and queries to the keeper.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServerImpl(am.keeper))
 }
 
 func (AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
@@ -143,8 +133,8 @@ func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-
 
 func (AppModule) ConsensusVersion() uint64 { return 1 }
 
-// MidBlock aggregates the block's observations after every transaction and
-// before the end block.
+// MidBlock aggregates observations once per block after the block's
+// transactions and before the end block.
 func (am AppModule) MidBlock(ctx sdk.Context, _ int64) {
 	MidBlocker(ctx, am.keeper)
 }

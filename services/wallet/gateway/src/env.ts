@@ -30,7 +30,7 @@ export function parseTrustedProxies(value: string): string[] {
  * Environment schema. Validated once at startup; every other module imports
  * the parsed `env` object instead of touching `process.env` directly.
  */
-const Env = z
+export const EnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(8787),
@@ -153,22 +153,10 @@ const Env = z
     // -- Agent durable actions (high-level intent orchestrator) ---------------
     //
     // The agent-actions lane turns a one-shot signing request into a durable,
-    // server-driven, idempotent operation: one POST (e.g. layerx/deposit) whose
-    // approve → confirm → deposit → confirm → verify sequence is owned by the
+    // server-driven, idempotent operation: one POST (allowance-and-call) whose
+    // approve → confirm → call → confirm sequence is owned by the
     // wallet, survives a client disconnect, and is polled via GET
     // /v1/agent/actions/:id. Every knob below is safe to leave at its default.
-
-    // LayerX custody vault (depositUSDL target + approve spender). Required only
-    // for the /v1/agent/actions/layerx/deposit route; unset → that route 503s.
-    LAYERX_VAULT_ADDRESS: z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'LAYERX_VAULT_ADDRESS must be a 20-byte hex address')
-      .optional(),
-    LAYERX_USDL_ADDRESS: z
-      .string()
-      .regex(/^0x[0-9a-fA-F]{40}$/, 'LAYERX_USDL_ADDRESS must be a 20-byte hex address')
-      .default('0x7c69c84daAEe90B21eeCABDb8f0387897E9B7B37'),
-    LAYERX_USDL_DECIMALS: z.coerce.number().int().nonnegative().default(6),
 
     // Read-only connection to the LayerX sequencer Postgres (whitelisted). Used
     // to (a) authoritatively verify a deposit credited (deposits.deposit_tx =
@@ -235,6 +223,11 @@ const Env = z
         (urls) => urls.length > 0 && urls.every((u) => /^https?:\/\/[^\s/]+/.test(u)),
         'RPC_URLS must be a non-empty comma-separated list of http(s) URLs'
       ),
+    SEQUENCER_RPC_URL: z
+      .string()
+      .url('SEQUENCER_RPC_URL must be an http(s) URL')
+      .refine((url) => /^https?:\/\/\S+$/i.test(url), 'SEQUENCER_RPC_URL must be an http(s) URL')
+      .optional(),
     RPC_LAG_THRESHOLD_BLOCKS: z.coerce.number().int().nonnegative().default(20),
     RPC_HEALTH_INTERVAL_MS: z.coerce.number().int().positive().default(5_000),
     RPC_TIMEOUT_MS: z.coerce.number().int().positive().default(8_000),
@@ -281,15 +274,19 @@ const Env = z
         message: 'wallet custody requires exactly five endpoints and threshold three',
       });
     }
-  });
+  })
+  .transform((v) => ({
+    ...v,
+    SEQUENCER_RPC_URL: v.SEQUENCER_RPC_URL ?? v.RPC_URLS[0]!,
+  }));
 
-export type Env = z.infer<typeof Env>;
+export type Env = z.infer<typeof EnvSchema>;
 
 let parsed: Env | null = null;
 
 export function loadEnv(): Env {
   if (parsed) return parsed;
-  const result = Env.safeParse(process.env);
+  const result = EnvSchema.safeParse(process.env);
   if (!result.success) {
     const issues = result.error.issues
       .map((i) => `  - ${i.path.join('.')}: ${i.message}`)

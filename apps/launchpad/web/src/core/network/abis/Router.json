@@ -30,6 +30,16 @@
     "type": "error"
   },
   {
+    "inputs": [],
+    "name": "InvalidRoleAccount",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "LastDefaultAdmin",
+    "type": "error"
+  },
+  {
     "inputs": [
       {
         "internalType": "address",
@@ -59,6 +69,11 @@
       }
     ],
     "name": "MulticallFailed",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "NonPayableUpgrade",
     "type": "error"
   },
   {
@@ -104,6 +119,11 @@
   {
     "inputs": [],
     "name": "UnauthorizedUpgrade",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "UpgradeInitializationFailed",
     "type": "error"
   },
   {
@@ -746,6 +766,19 @@
         "internalType": "bytes32",
         "name": "",
         "type": "bytes32"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "registeredDefaultAdminCount",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",

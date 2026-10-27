@@ -322,6 +322,81 @@ await test("network_finality_from_commit", () => {
   );
 });
 
+function px_network_head_carries_the_commit_finality_and_no_anchor() {
+  const network = decodePxNetworkHead(networkDocument);
+  assert.deepEqual(network, {
+    networkId: "eip155:125",
+    paxeer: { chainId: 125n, latestBlock: 11111n },
+    layerx: { node_info: { network: "eip155:125" } },
+    latestCommittedHeight: 11110n,
+  });
+  assert.equal("anchor" in network, false);
+  assert.equal(Object.isFrozen(network), true);
+  assert.equal(Object.isFrozen(network.paxeer), true);
+  assert.equal(decodePxNetworkHead(networkCases[1]).latestCommittedHeight, 0n);
+  assert.equal(
+    decodePxNetworkHead(networkCases[2]).latestCommittedHeight,
+    11111n,
+  );
+  assert.equal(
+    decodePxNetworkHead(networkCases[3]).latestCommittedHeight,
+    18446744073709551615n,
+  );
+  for (const anchor of [
+    null,
+    undefined,
+    {
+      latest_finalized_batch: "11110",
+      status: 3,
+      status_name: "finalized",
+      status_ladder: { "3": "finalized" },
+    },
+  ]) {
+    assert.throws(() => decodePxNetworkHead({ ...networkDocument, anchor }), {
+      message: "Invalid gateway finality",
+    });
+  }
+  for (const { value, ts } of invalidNetworks)
+    assert.throws(() => decodePxNetworkHead(value), { message: ts });
+}
+
+await test(px_network_head_carries_the_commit_finality_and_no_anchor);
+
+async function px_methods_list_is_the_router_px_set() {
+  assert.deepEqual(PX_METHODS, [
+    "px_resolveAccount",
+    "px_getAccount",
+    "px_getBalances",
+    "px_listAssets",
+    "px_getNetwork",
+    "px_getReceiptKeys",
+    "px_getHistory",
+    "px_getUnifiedHistory",
+  ]);
+  const client = new PxClient({ endpoint: "http://127.0.0.1:1/rpc" });
+  const call = Reflect.get(client, "call");
+  assert.equal(typeof call, "function");
+  for (const method of [
+    ...PX_METHODS.map((name) => name.replace(/^px_/u, "lx_")),
+    "lx_getNodeInfo",
+    "lx_getSequence",
+  ]) {
+    assert.equal(
+      PX_METHODS.some((name) => name === method),
+      false,
+    );
+    assert.throws(
+      () => decodePxNetworkHead({ ...networkDocument, [method]: null }),
+      { message: "Invalid gateway network field" },
+    );
+    await assert.rejects(() => Reflect.apply(call, client, [method, []]), {
+      message: "Invalid gateway method",
+    });
+  }
+}
+
+await test(px_methods_list_is_the_router_px_set);
+
 const receiptFixture = JSON.parse(
   readFileSync(
     new URL(
@@ -669,7 +744,9 @@ const recordedUnified = (
       ),
       "utf8",
     ),
-  ) as { result: Record<string, unknown> & { items: Record<string, unknown>[] } }
+  ) as {
+    result: Record<string, unknown> & { items: Record<string, unknown>[] };
+  }
 ).result;
 const EVE = `0x${"ee".repeat(20)}`;
 const CURSOR = "0000000000000000000000000000000c";
@@ -729,7 +806,10 @@ assert.equal(unifiedPage.items[0]!.direction, "out");
 assert.equal(unifiedPage.items[0]!.amount, 1000000000000000000n);
 assert.equal(unifiedPage.items[0]!.assetMetadata?.decimals, 18);
 assert.equal(unifiedPage.items[0]!.assetMetadata?.symbol, null);
-assert.equal(unifiedPage.items[1]!.assetMetadata?.pointer, `0x${"cc".repeat(20)}`);
+assert.equal(
+  unifiedPage.items[1]!.assetMetadata?.pointer,
+  `0x${"cc".repeat(20)}`,
+);
 assert.equal(unifiedPage.items[1]!.assetMetadata?.denom, "ulxp");
 assert.equal(unifiedPage.items[1]!.assetMetadata?.symbol, "LXP");
 assert.equal(unifiedPage.items[3]!.assetMetadata, null);
@@ -752,7 +832,8 @@ assert.equal(
   0,
 );
 assert.equal(
-  decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: CURSOR }).nextCursor,
+  decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: CURSOR })
+    .nextCursor,
   CURSOR,
 );
 
@@ -781,7 +862,11 @@ for (const refused of [
   () => decodePaxeerHistoryPage({ ...recordedPaxeer, account: DID }),
   () => decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: "9" }),
   () =>
-    decodePaxeerHistoryPage({ ...recordedPaxeer, items: [], next_cursor: CURSOR }),
+    decodePaxeerHistoryPage({
+      ...recordedPaxeer,
+      items: [],
+      next_cursor: CURSOR,
+    }),
   () =>
     decodeUnifiedHistoryPage({
       ...recordedUnified,

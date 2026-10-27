@@ -130,6 +130,21 @@ func (a *BlockAPI) GetBlockTransactionCountByNumber(ctx context.Context, number 
 	defer func() {
 		recordMetricsWithError(ctx, fmt.Sprintf("%s_getBlockTransactionCountByNumber", a.namespace), a.connectionType, startTime, returnErr, recover())
 	}()
+	if number == rpc.PendingBlockNumber {
+		if a.watermarks == nil || a.watermarks.pending == nil {
+			return nil, nil
+		}
+		snapshot, err := a.watermarks.pending.Snapshot()
+		if err != nil {
+			return nil, fmt.Errorf("pending block unavailable: %w", err)
+		}
+		hashes, err := pendingBlockTxHashes(snapshot)
+		if err != nil {
+			return nil, err
+		}
+		count := hexutil.Uint(len(hashes))
+		return &count, nil
+	}
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
 		return nil, err
@@ -198,12 +213,6 @@ func (a *BlockAPI) getBlockByHash(ctx context.Context, blockHash common.Hash, fu
 		return nil, nil
 	}
 
-	// Validate EVM block height for pacific-1 chain
-	sdkCtx := a.ctxProvider(LatestCtxHeight)
-	if err := ValidateEVMBlockHeight(sdkCtx.ChainID(), block.Block.Height); err != nil {
-		return nil, err
-	}
-
 	return a.encodeBlock(ctx, block, fullTx, includeSyntheticTxs, excludeUntraceable)
 }
 
@@ -228,14 +237,6 @@ func (a *BlockAPI) getBlockByNumber(
 	numberPtr, err := getBlockNumber(ctx, a.tmClient, a.watermarks, number)
 	if err != nil {
 		return nil, err
-	}
-
-	// Validate EVM block height for pacific-1 chain
-	if numberPtr != nil {
-		sdkCtx := a.ctxProvider(LatestCtxHeight)
-		if err := ValidateEVMBlockHeight(sdkCtx.ChainID(), *numberPtr); err != nil {
-			return nil, err
-		}
 	}
 
 	// Ethereum JSON-RPC: non-existent / future numeric block => null, not an error.
@@ -305,12 +306,86 @@ func (a *BlockAPI) pendingBlock(fullTx bool) (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
+	parentHeight := snapshot.BlockHeight() - 1
+	ctx, cancel := context.WithTimeout(context.Background(), currentHeaderLookupTimeout)
+	defer cancel()
+	parent, err := a.tmClient.Block(ctx, &parentHeight)
+	if err != nil {
+		return nil, fmt.Errorf("load pending block parent %d: %w", parentHeight, err)
+	}
+	if parent == nil || parent.Block == nil || parent.Block.Height != parentHeight {
+		return nil, fmt.Errorf("pending block parent %d is unavailable", parentHeight)
+	}
+	cp := snapshot.ConsensusParams()
+	if cp == nil || cp.Block == nil {
+		return nil, fmt.Errorf("pending block %d consensus block parameters are unavailable", snapshot.BlockHeight())
+	}
+	gasLimit, err := encodeHeadGasLimit(cp.Block.MaxGas)
+	if err != nil {
+		return nil, err
+	}
+	baseFee := a.keeper.GetNextBaseFeePerGas(a.ctxProvider(parentHeight)).TruncateInt().BigInt()
+	var transientKey sdk.StoreKey
+	for _, key := range snapshot.MultiStore().StoreKeys() {
+		if key.Name() == types.TransientStoreKey {
+			transientKey = key
+			break
+		}
+	}
+	if transientKey == nil {
+		return nil, errors.New("pending block has no EVM transient store")
+	}
+	receipts := make(map[common.Hash]*types.Receipt, len(hashes))
+	store := prefix.NewStore(snapshot.TransientStore(transientKey), types.ReceiptKeyPrefix)
+	iter := store.Iterator(nil, nil)
+	defer func() { _ = iter.Close() }()
+	for ; iter.Valid(); iter.Next() {
+		var receipt types.Receipt
+		if err := receipt.Unmarshal(iter.Value()); err != nil {
+			return nil, fmt.Errorf("decode pending receipt %x: %w", iter.Key(), err)
+		}
+		hash := types.TransientReceiptKey(iter.Key()).TransactionHash()
+		receipts[hash] = &receipt
+	}
+	var gasUsed uint64
+	logs := &ethtypes.Receipt{}
+	for _, hash := range hashes {
+		receipt := receipts[hash]
+		if receipt == nil {
+			return nil, fmt.Errorf("pending transaction %s receipt is unavailable", hash)
+		}
+		if err := addBlockGasUsed(&gasUsed, receipt.GasUsed); err != nil {
+			return nil, fmt.Errorf("pending transaction %s: %w", hash, err)
+		}
+		for _, log := range receipt.Logs {
+			if log == nil {
+				return nil, fmt.Errorf("pending transaction %s contains a nil log", hash)
+			}
+			ethLog := &ethtypes.Log{Address: common.HexToAddress(log.Address)}
+			for _, topic := range log.Topics {
+				ethLog.Topics = append(ethLog.Topics, common.HexToHash(topic))
+			}
+			logs.Logs = append(logs.Logs, ethLog)
+		}
+	}
 	return map[string]interface{}{
-		"number":       (*hexutil.Big)(big.NewInt(snapshot.BlockHeight())),
-		"hash":         nil,
-		"stateRoot":    nil,
-		"timestamp":    hexutil.Uint64(snapshot.BlockTime().Unix()), //nolint:gosec
-		"transactions": hashes,
+		"number":        (*hexutil.Big)(big.NewInt(snapshot.BlockHeight())),
+		"hash":          nil,
+		"stateRoot":     nil,
+		"timestamp":     hexutil.Uint64(snapshot.BlockTime().Unix()), //nolint:gosec
+		"transactions":  hashes,
+		"parentHash":    common.BytesToHash(parent.BlockID.Hash),
+		"miner":         common.BytesToAddress(snapshot.BlockHeader().ProposerAddress),
+		"gasLimit":      gasLimit,
+		"baseFeePerGas": (*hexutil.Big)(baseFee),
+		"gasUsed":       hexutil.Uint64(gasUsed),
+		"logsBloom":     ethtypes.CreateBloom(logs),
+		"sha3Uncles":    ethtypes.EmptyUncleHash,
+		"nonce":         ethtypes.BlockNonce{},
+		"difficulty":    (*hexutil.Big)(big.NewInt(0)),
+		"extraData":     hexutil.Bytes{},
+		"mixHash":       common.Hash{},
+		"uncles":        []common.Hash{},
 	}, nil
 }
 

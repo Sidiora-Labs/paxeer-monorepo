@@ -27,8 +27,8 @@ const (
 
 	// ProgramPendingCapacity bounds the program requests recorded and not yet
 	// fulfilled; ProgramCommittedCapacity bounds the committed answers.
-	ProgramPendingCapacity   = 256
-	ProgramCommittedCapacity = 64
+	ProgramPendingCapacity   = types.ProgramPendingCapacity
+	ProgramCommittedCapacity = types.ProgramCommittedCapacity
 
 	// ProgramRequestHeaderBytes is the u64 request id, u8 kind and u32 payload
 	// length that precede the payload in the request event data.
@@ -37,7 +37,7 @@ const (
 	// ProgramPendingRecordVersion and ProgramPendingRecordBytes are the
 	// version byte and the exact length of a pending record.
 	ProgramPendingRecordVersion = 1
-	ProgramPendingRecordBytes   = 123
+	ProgramPendingRecordBytes   = types.ProgramPendingRecordBytes
 
 	programPendingPrefix = "web/pending"
 	programAmountBits    = 128
@@ -176,7 +176,8 @@ func decodeProgramRequest(data []byte) (uint64, uint8, []byte, error) {
 // RequestFromProgram is the origin-2 entry the hosted programs module calls
 // for every guest event a program call emits. An event under any topic other
 // than ProgramRequestTopic is not a web request and records nothing. For a
-// request event it refuses, in order: a paused module (LXP_XWEB_PAUSED), a
+// request event it refuses, in order: an inactive merge plan
+// (LXP_MODULE_DISABLED), a paused module (LXP_XWEB_PAUSED), a
 // second request in the same call (LXP_DUPLICATE_ENTRY), event data that does
 // not decode (LXP_NON_CANONICAL), a request id the program already recorded,
 // pending or answered (LXP_SEQUENCE_REUSED), a full pending store
@@ -192,6 +193,9 @@ func decodeProgramRequest(data []byte) (uint64, uint8, []byte, error) {
 func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, data []byte) error {
 	if !bytes.Equal(topic, []byte(ProgramRequestTopic)) {
 		return nil
+	}
+	if !k.ProgramOriginActive(ctx) {
+		return ErrProgramModuleDisabled
 	}
 	if k.IsPaused(ctx) {
 		return types.ErrPaused
@@ -214,9 +218,13 @@ func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, da
 	if pending >= ProgramPendingCapacity {
 		return errProgramArenaExhausted
 	}
-	record, err := programFee(call, k.GetParams(ctx).ProgramFeeDenoms)
+	record, denom, err := programFee(call, k.GetParams(ctx).ProgramFeeDenoms)
 	if err != nil {
 		return err
+	}
+	storedDenom, found := k.ProgramFeeDenom(ctx, record.FeeAsset)
+	if found && storedDenom != denom {
+		return errProgramAssetMismatch
 	}
 	record.Kind = kind
 	record.PayloadHash = types.Keccak(payload)
@@ -224,6 +232,9 @@ func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, da
 	raw, err := record.Bytes()
 	if err != nil {
 		return err
+	}
+	if !found {
+		k.setProgramFeeDenom(ctx, record.FeeAsset, denom)
 	}
 	k.setProgramPendingRecord(ctx, key, raw)
 	k.setProgramPendingCount(ctx, pending+1)
@@ -233,36 +244,36 @@ func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, da
 
 // programFee sums the call's legs into the web fee account of their asset
 // and returns the record with its fee asset, fee account and amount set.
-func programFee(call *ProgramCall, denoms []string) (ProgramPendingRecord, error) {
+func programFee(call *ProgramCall, denoms []string) (ProgramPendingRecord, string, error) {
 	record := ProgramPendingRecord{Amount: sdk.ZeroInt()}
 	denom, paid := "", false
 	for _, leg := range call.Legs {
 		if leg.To.Empty() || leg.Amount.IsNil() || leg.Amount.IsNegative() {
-			return ProgramPendingRecord{}, errProgramFatalInvariant
+			return ProgramPendingRecord{}, "", errProgramFatalInvariant
 		}
 		if !leg.To.Equals(ProgramFeeAccount(leg.Asset)) {
 			continue
 		}
 		if !leg.From.Equals(call.Principal) {
-			return ProgramPendingRecord{}, errProgramAuthScope
+			return ProgramPendingRecord{}, "", errProgramAuthScope
 		}
 		if paid && (leg.Asset != record.FeeAsset || leg.Denom != denom) {
-			return ProgramPendingRecord{}, errProgramAssetMismatch
+			return ProgramPendingRecord{}, "", errProgramAssetMismatch
 		}
 		if !paid && !slices.Contains(denoms, leg.Denom) {
-			return ProgramPendingRecord{}, errProgramAssetMismatch
+			return ProgramPendingRecord{}, "", errProgramAssetMismatch
 		}
 		if leg.Amount.BigInt().BitLen() > programAmountBits {
-			return ProgramPendingRecord{}, errProgramOverflow
+			return ProgramPendingRecord{}, "", errProgramOverflow
 		}
 		record.Amount = record.Amount.Add(leg.Amount)
 		if record.Amount.BigInt().BitLen() > programAmountBits {
-			return ProgramPendingRecord{}, errProgramOverflow
+			return ProgramPendingRecord{}, "", errProgramOverflow
 		}
 		record.FeeAsset, record.FeeAccount, denom, paid = leg.Asset, ProgramFeeAccountID(leg.Asset), leg.Denom, true
 	}
 	if !paid || record.Amount.IsZero() {
-		return ProgramPendingRecord{}, errProgramFeeUnpayable
+		return ProgramPendingRecord{}, "", errProgramFeeUnpayable
 	}
-	return record, nil
+	return record, denom, nil
 }

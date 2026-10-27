@@ -52,7 +52,7 @@ type FeeHistoryResult struct {
 func (i *InfoAPI) BlockNumber(ctx context.Context) (result hexutil.Uint64, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_BlockNumber", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_blockNumber", i.connectionType, startTime, returnErr, recover())
 	}()
 	height, err := i.latestHeight(ctx)
 	if err != nil {
@@ -67,14 +67,14 @@ func (i *InfoAPI) BlockNumber(ctx context.Context) (result hexutil.Uint64, retur
 //nolint:revive
 func (i *InfoAPI) ChainId(ctx context.Context) *hexutil.Big {
 	startTime := time.Now()
-	defer recordMetrics(ctx, "eth_ChainId", i.connectionType, startTime)
+	defer recordMetrics(ctx, "eth_chainId", i.connectionType, startTime)
 	return (*hexutil.Big)(i.keeper.ChainID(i.ctxProvider(LatestCtxHeight)))
 }
 
 func (i *InfoAPI) Coinbase(ctx context.Context) (addr common.Address, err error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_Coinbase", i.connectionType, startTime, err, recover())
+		recordMetricsWithError(ctx, "eth_coinbase", i.connectionType, startTime, err, recover())
 	}()
 	return i.keeper.GetFeeCollectorAddress(i.ctxProvider(LatestCtxHeight))
 }
@@ -82,7 +82,7 @@ func (i *InfoAPI) Coinbase(ctx context.Context) (addr common.Address, err error)
 func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_Accounts", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_accounts", i.connectionType, startTime, returnErr, recover())
 	}()
 	if !i.keyringEnabled {
 		return nil, &ErrEVMNotSupported{Msg: "eth_accounts is disabled; use an external wallet"}
@@ -100,7 +100,7 @@ func (i *InfoAPI) Accounts(ctx context.Context) (result []common.Address, return
 func (i *InfoAPI) GasPrice(ctx context.Context) (result *hexutil.Big, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_GasPrice", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_gasPrice", i.connectionType, startTime, returnErr, recover())
 	}()
 	baseFee, _, err := i.pendingBaseFee()
 	if err != nil {
@@ -123,11 +123,11 @@ func (i *InfoAPI) GasPrice(ctx context.Context) (result *hexutil.Big, returnErr 
 	} else {
 		medianRewardPrevBlock = feeHist.Reward[0][0].ToInt()
 	}
-	return i.GasPriceHelper(ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
+	return i.gasPriceHelper(ctx, baseFee, totalGasUsed, medianRewardPrevBlock)
 }
 
 // Helper function useful for testing
-func (i *InfoAPI) GasPriceHelper(ctx context.Context, baseFee *big.Int, totalGasUsedPrevBlock uint64, medianRewardPrevBlock *big.Int) (*hexutil.Big, error) {
+func (i *InfoAPI) gasPriceHelper(ctx context.Context, baseFee *big.Int, totalGasUsedPrevBlock uint64, medianRewardPrevBlock *big.Int) (*hexutil.Big, error) {
 	isChainCongested, err := i.isChainCongested(totalGasUsedPrevBlock)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (i *InfoAPI) FeeHistory(ctx context.Context, blockCount gmath.HexOrDecimal6
 		if !versionExists {
 			return nil, fmt.Errorf("EVM state is unavailable at height %d", blockNum)
 		}
-		calculatedRatio, err := i.CalculateGasUsedRatio(ctx, blockNum)
+		calculatedRatio, err := i.calculateGasUsedRatio(ctx, blockNum)
 		if err != nil {
 			return nil, fmt.Errorf("calculate gas-used ratio for block %d: %w", blockNum, err)
 		}
@@ -336,7 +336,7 @@ func (i *InfoAPI) MaxPriorityFeePerGas(ctx context.Context) (fee *hexutil.Big, r
 func (i *InfoAPI) BlobBaseFee(ctx context.Context) (result *hexutil.Big, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_BlobBaseFee", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_blobBaseFee", i.connectionType, startTime, returnErr, recover())
 	}()
 	return nil, &ErrEVMNotSupported{Msg: "blobs not supported on this chain"}
 }
@@ -353,7 +353,7 @@ type SyncingResult struct {
 func (i *InfoAPI) Syncing(ctx context.Context) (result any, returnErr error) {
 	startTime := time.Now()
 	defer func() {
-		recordMetricsWithError(ctx, "eth_Syncing", i.connectionType, startTime, returnErr, recover())
+		recordMetricsWithError(ctx, "eth_syncing", i.connectionType, startTime, returnErr, recover())
 	}()
 	status, err := i.tmClient.Status(ctx)
 	if err != nil {
@@ -543,8 +543,8 @@ func (i *InfoAPI) getCongestionData(ctx context.Context, height *int64) (blockGa
 	return totalEVMGasUsed, nil
 }
 
-// CalculateGasUsedRatio calculates the actual gas used ratio for a specific block
-func (i *InfoAPI) CalculateGasUsedRatio(ctx context.Context, blockHeight int64) (float64, error) {
+// calculateGasUsedRatio calculates the actual gas used ratio for a specific block
+func (i *InfoAPI) calculateGasUsedRatio(ctx context.Context, blockHeight int64) (float64, error) {
 	block, err := blockByNumberRespectingWatermarks(ctx, i.tmClient, i.watermarks, &blockHeight, 1)
 	if err != nil {
 		return 0, err

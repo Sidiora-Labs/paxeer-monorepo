@@ -1,31 +1,29 @@
 import {
   PlatformSdkError,
-  verifyBatchInclusion,
-  verifyCheckpoint,
-  type CheckpointVerificationInput,
-  type LocalSignatureVerifier,
-  type MerkleProof,
-  type ReceiptVerification,
-  type SequencerAuthorization,
+  verifyCommittedReceipt,
+  type CommittedReceiptEvidence,
+  type SequencerReceiptVerification,
 } from "@sidiora/layerx-sdk";
 
-export type PaymentCommitment = "executed" | "batched" | "finalised";
+export type PaymentCommitment = "receipted" | "committed";
 
 export interface PaymentCommitmentEvidence {
-  readonly networkId: number;
-  readonly canonicalHeader: Uint8Array;
-  readonly headerSignature: Uint8Array;
-  readonly authorization: SequencerAuthorization;
-  readonly proof: MerkleProof;
-  readonly checkpoint?: {
-    readonly input: CheckpointVerificationInput;
-    readonly signatures: LocalSignatureVerifier;
-    readonly requiredGuarantors: number;
+  readonly landingBlockHeight: CommittedReceiptEvidence["landingHeight"];
+  readonly blockHeader: {
+    readonly chainId: CommittedReceiptEvidence["chainId"];
+    readonly blockId: CommittedReceiptEvidence["blockId"];
   };
+  readonly receiptInclusion: {
+    readonly transactionHash: Uint8Array;
+    readonly receiptDigest: Uint8Array;
+    readonly sequence: bigint;
+  };
+  readonly commit: CommittedReceiptEvidence["commit"];
+  readonly validatorSet: CommittedReceiptEvidence["validators"];
 }
 
 export interface PaymentCommitmentResolver {
-  resolve(canonicalReceipt: Uint8Array, network: string, commitment: PaymentCommitment): Promise<PaymentCommitmentEvidence>;
+  resolve(transactionHash: string, network: string): Promise<PaymentCommitmentEvidence>;
 }
 
 function failure(): never {
@@ -33,12 +31,12 @@ function failure(): never {
 }
 
 export function paymentCommitment(extra: unknown): PaymentCommitment {
-  if (extra === undefined || extra === null || typeof extra !== "object" || Array.isArray(extra)) return "executed";
+  if (extra === undefined || extra === null || typeof extra !== "object" || Array.isArray(extra)) return "receipted";
   const layerx = (extra as Record<string, unknown>)["layerx"];
-  if (layerx === undefined) return "executed";
+  if (layerx === undefined) return "receipted";
   if (layerx === null || typeof layerx !== "object" || Array.isArray(layerx)) return failure();
   const commitment = (layerx as Record<string, unknown>)["commitment"];
-  if (commitment !== "executed" && commitment !== "batched" && commitment !== "finalised") return failure();
+  if (commitment !== "receipted" && commitment !== "committed") return failure();
   return commitment;
 }
 
@@ -92,57 +90,45 @@ function equal(left: Uint8Array, right: Uint8Array): boolean {
 }
 
 export async function verifyPaymentCommitment(
-  verified: ReceiptVerification,
-  sequencerPublicKey: Uint8Array,
+  verified: SequencerReceiptVerification,
   network: string,
   commitment: PaymentCommitment,
   resolver?: PaymentCommitmentResolver,
 ): Promise<void> {
-  if (commitment === "executed") return;
-  if (commitment !== "batched" && commitment !== "finalised") return failure();
-  if (resolver === undefined) return failure();
-  const evidence = await resolver.resolve(verified.canonicalBytes.slice(), network, commitment);
-  await verifyPaymentCommitmentEvidence(verified, sequencerPublicKey, commitment, evidence);
+  if (commitment === "receipted") return;
+  if (commitment !== "committed" || resolver === undefined) return failure();
+  if (!/^eip155:[1-9][0-9]*$/u.test(network)
+    || BigInt(network.slice(7)) > 0xffff_ffffn) return failure();
+  verified = structuredClone(verified);
+  const transactionHash = `0x${Array.from(verified.receipt.activityId,
+    (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+  const evidence = await resolver.resolve(transactionHash, network);
+  await verifyPaymentCommitmentEvidence(verified, commitment, evidence);
 }
 
 export async function verifyPaymentCommitmentEvidence(
-  verified: ReceiptVerification,
-  sequencerPublicKey: Uint8Array,
+  verified: SequencerReceiptVerification,
   commitment: PaymentCommitment,
   evidence: PaymentCommitmentEvidence,
 ): Promise<void> {
-  if (commitment === "executed") return;
-  if (commitment !== "batched" && commitment !== "finalised") return failure();
-  evidence = {
-    networkId: evidence.networkId,
-    canonicalHeader: evidence.canonicalHeader.slice(),
-    headerSignature: evidence.headerSignature.slice(),
-    authorization: structuredClone(evidence.authorization),
-    proof: structuredClone(evidence.proof),
-    ...(evidence.checkpoint === undefined ? {} : { checkpoint: {
-      input: structuredClone(evidence.checkpoint.input),
-      signatures: evidence.checkpoint.signatures,
-      requiredGuarantors: evidence.checkpoint.requiredGuarantors,
-    } }),
-  };
-  sequencerPublicKey = sequencerPublicKey.slice();
-  const version = verified.receipt.protocolVersion;
-  if ((version !== 2 && version !== 3)
-    || !Number.isSafeInteger(evidence.networkId) || evidence.networkId <= 0
-    || evidence.networkId > 0xffff_ffff
-    || !equal(evidence.authorization.publicKey, sequencerPublicKey)) return failure();
-  const inclusion = await verifyBatchInclusion(
-    "receipt", verified.canonicalBytes, evidence.proof, evidence.canonicalHeader,
-    evidence.headerSignature, evidence.authorization, { protocolVersion: version },
-  );
-  if (inclusion.header.networkId !== evidence.networkId
-    || verified.receipt.globalSequence < inclusion.header.firstSequence
-    || verified.receipt.globalSequence > inclusion.header.lastSequence) return failure();
-  if (commitment === "batched") return;
-  const checkpoint = evidence.checkpoint;
-  if (checkpoint === undefined || !Number.isSafeInteger(checkpoint.requiredGuarantors)
-    || checkpoint.requiredGuarantors <= 0
-    || checkpoint.input.certificate.threshold !== checkpoint.requiredGuarantors
-    || !equal(checkpoint.input.certificate.canonicalHeader, evidence.canonicalHeader)) return failure();
-  await verifyCheckpoint(checkpoint.input, checkpoint.signatures, { protocolVersion: version });
+  if (commitment === "receipted") return;
+  if (commitment !== "committed") return failure();
+  try {
+    verified = structuredClone(verified);
+    evidence = structuredClone(evidence);
+    if (typeof verified.height !== "bigint" || verified.height < 0n) return failure();
+    const inclusion = evidence.receiptInclusion;
+    if (!equal(inclusion.transactionHash, verified.receipt.activityId)
+      || !equal(inclusion.receiptDigest, verified.receiptDigest)
+      || inclusion.sequence !== verified.receipt.globalSequence) return failure();
+    await verifyCommittedReceipt(verified, {
+      chainId: evidence.blockHeader.chainId,
+      landingHeight: evidence.landingBlockHeight,
+      blockId: evidence.blockHeader.blockId,
+      commit: evidence.commit,
+      validators: evidence.validatorSet,
+    });
+  } catch {
+    return failure();
+  }
 }

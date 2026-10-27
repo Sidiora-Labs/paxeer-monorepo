@@ -232,12 +232,12 @@ func (g *infiniteGasMeter) ConsumeGas(amount Gas, descriptor string) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	var overflow bool
-	// TODO: Should we set the consumed field after overflow checking?
-	g.consumed, overflow = addUint64Overflow(g.consumed, amount)
+	consumed, overflow := addUint64Overflow(g.consumed, amount)
 	if overflow {
+		g.consumed = math.MaxUint64
 		panic(ErrorGasOverflow{descriptor})
 	}
+	g.consumed = consumed
 }
 
 // RefundGas will deduct the given amount from the gas consumed. If the amount is greater than the

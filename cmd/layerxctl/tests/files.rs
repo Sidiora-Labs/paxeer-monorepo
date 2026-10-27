@@ -11,8 +11,8 @@ mod files {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{Duration, Instant};
 
+    use super::MAX_INPUT_BYTES as MAX_MESSAGE_BYTES;
     use layerx_types::result::KnownResult;
-    use layerx_wire::limits::MAX_MESSAGE_BYTES;
 
     static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
     const TARGET: &str = "0x0000000000000000000000000000000000000123";
@@ -513,8 +513,16 @@ mod files {
         Ok(output)
     }
 
+    fn transaction_hash(raw: &[u8]) -> String {
+        format!(
+            "0x{}",
+            hex(&layerx_crypto::evm_transaction::transaction_hash(raw))
+        )
+    }
+
     #[test]
     fn unusable_send_answer_stays_submitted_unknown() -> TestResult {
+        let local = transaction_hash(&[0x02, 0xf8, 0x6b]);
         for answer in [
             "{}",
             "{\"jsonrpc\":\"2.0\",\"id\":{other},\"result\":\"0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071\"}",
@@ -529,10 +537,27 @@ mod files {
             );
             assert_eq!(
                 String::from_utf8(output.stdout)?,
-                "{\"state\":\"submitted\",\"outcome\":\"unknown\"}\n"
+                format!("{{\"state\":\"submitted\",\"outcome\":\"unknown\",\"transaction_hash\":\"{local}\"}}\n")
             );
             assert!(output.stderr.is_empty());
         }
+        Ok(())
+    }
+
+    #[test]
+    fn submit_refuses_a_node_hash_that_differs_from_the_raw_bytes() -> TestResult {
+        let local = transaction_hash(&[0x02, 0xf8, 0x6b]);
+        let node = "0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071";
+        assert_ne!(local, node);
+        let output = submit_against(
+            "{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":\"0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071\"}",
+        )?;
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            String::from_utf8(output.stderr)?,
+            format!("layerxctl: submission refused: transaction hash mismatch (local transaction hash: {local})\n")
+        );
         Ok(())
     }
 
