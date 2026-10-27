@@ -868,6 +868,24 @@ fn the_pinned_conformance_suite_is_the_recorded_gateway_exchange() -> TestResult
 }
 
 #[test]
+fn the_conformance_vector_count_is_the_number_of_recorded_answers() -> TestResult {
+    let mut answers = 0_u64;
+    for entry in std::fs::read_dir(fixtures().join("gateway"))? {
+        let recording: Value = serde_json::from_slice(&std::fs::read(entry?.path())?)?;
+        if let Some(endpoints) = recording.get("endpoints") {
+            let recorded_answers = endpoints
+                .pointer("/gateway/*")
+                .and_then(Value::as_array)
+                .ok_or("missing recorded gateway answers")?;
+            answers += u64::try_from(recorded_answers.len())?;
+        }
+    }
+    assert_eq!(answers, x_websearch::CONFORMANCE_VECTOR_COUNT);
+    assert_eq!(answers, x_websearch::conformance_suite()?.vector_count());
+    Ok(())
+}
+
+#[test]
 fn the_binary_serves_health_free_and_every_paid_route_behind_the_payment_gate() -> TestResult {
     let scratch = Scratch::new("routes")?;
     let site = Site::start(&fixtures().join("binary/site"))?;
