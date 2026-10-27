@@ -153778,7 +153778,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.7]
 title = "List bank balances per denom in the asset list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["12.24.4", "12.31.1"]
