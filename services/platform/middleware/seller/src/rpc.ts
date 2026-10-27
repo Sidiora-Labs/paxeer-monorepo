@@ -1,4 +1,4 @@
-import { decodeRawEip1559, keccak256, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import { decodeRawEip1559, keccak256, type MerkleProof, type SequencerAuthorization, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
 import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver, type PaymentReceiptVerification, type PortableReceiptV2 } from "./index.js";
 
 export function rpcObject(value: unknown): Record<string, unknown> {
@@ -131,8 +131,16 @@ export async function verifyRpcPayment(
   return { kind: "verified", ...evidence, verification };
 }
 
+export interface RpcBatchEvidence {
+  readonly networkId: number;
+  readonly canonicalHeader: Uint8Array;
+  readonly headerSignature: Uint8Array;
+  readonly authorization: SequencerAuthorization;
+  readonly proof: MerkleProof;
+}
+
 export function rpcBatchEvidence(result: Record<string, unknown>, activityId: string, receipt: Uint8Array,
-  trusted: Pick<import("./commitment.js").PaymentCommitmentEvidence, "networkId" | "authorization">): import("./commitment.js").PaymentCommitmentEvidence {
+  trusted: Pick<RpcBatchEvidence, "networkId" | "authorization">): RpcBatchEvidence {
   const bundle = rpcObject(result["batch_evidence"]);
   const signed = rpcObject(bundle["signed_header"]);
   const proof = rpcObject(bundle["proof"]);

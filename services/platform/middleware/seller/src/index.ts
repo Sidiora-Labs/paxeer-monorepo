@@ -4,6 +4,7 @@ import {
   paymentCurrency,
   paymentPayer,
   paymentPurpose,
+  type PaymentCommitment,
   type PaymentCommitmentResolver,
 } from "./commitment.js";
 export * from "./commitment.js";
@@ -70,7 +71,7 @@ export interface PaymentPayload {
 
 export interface PortableReceiptV2 {
   readonly format: "layerx-receipt-proof-v2";
-  readonly verificationLevel: "receipted" | "committed";
+  readonly verificationLevel: PaymentCommitment;
   readonly rawTransaction: string;
   readonly signedReceipt: string;
   readonly receiptDigest: string;
