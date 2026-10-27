@@ -573,6 +573,7 @@ type FilterAPI struct {
 	namespace        string
 	shutdownCtx      context.Context
 	shutdownCancel   context.CancelFunc
+	shutdownOnce     sync.Once
 	globalRPSLimiter *rate.Limiter
 	receiptLogs      *ReceiptLogFeed
 }
@@ -1202,21 +1203,22 @@ func (a *FilterAPI) UninstallFilter(
 	}
 }
 
-// Cleanup method for graceful shutdown
-func (a *FilterAPI) Cleanup() {
-	a.shutdownCancel()
+func (a *FilterAPI) shutdown() {
+	a.shutdownOnce.Do(func() {
+		a.shutdownCancel()
 
-	// Cancel all remaining filters
-	a.filtersMu.Lock()
-	for _, filter := range a.filters {
-		if filter.cancelFunc != nil {
-			filter.cancelFunc()
+		// Cancel all remaining filters
+		a.filtersMu.Lock()
+		for _, filter := range a.filters {
+			if filter.cancelFunc != nil {
+				filter.cancelFunc()
+			}
 		}
-	}
-	a.filters = make(map[ethrpc.ID]filter)
-	a.filtersMu.Unlock()
+		a.filters = make(map[ethrpc.ID]filter)
+		a.filtersMu.Unlock()
 
-	close(a.toDelete)
+		close(a.toDelete)
+	})
 }
 
 type LogFetcher struct {
