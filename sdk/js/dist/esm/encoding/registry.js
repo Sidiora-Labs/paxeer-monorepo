@@ -1,10 +1,4 @@
 import { registry as confio_proofs_registry } from "./confio/proofs";
-import { registry as cosmos_accesscontrol_accesscontrol_registry } from "./cosmos/accesscontrol/accesscontrol";
-import { registry as cosmos_accesscontrol_legacy_registry } from "./cosmos/accesscontrol/legacy";
-import { registry as cosmos_accesscontrol_x_genesis_registry } from "./cosmos/accesscontrol_x/genesis";
-import { registry as cosmos_accesscontrol_x_gov_registry } from "./cosmos/accesscontrol_x/gov";
-import { registry as cosmos_accesscontrol_x_query_registry } from "./cosmos/accesscontrol_x/query";
-import { registry as cosmos_accesscontrol_x_tx_registry } from "./cosmos/accesscontrol_x/tx";
 import { registry as cosmos_auth_v1beta1_auth_registry } from "./cosmos/auth/v1beta1/auth";
 import { registry as cosmos_auth_v1beta1_genesis_registry } from "./cosmos/auth/v1beta1/genesis";
 import { registry as cosmos_auth_v1beta1_query_registry } from "./cosmos/auth/v1beta1/query";
@@ -30,8 +24,6 @@ import { registry as cosmos_base_tendermint_v1beta1_query_registry } from "./cos
 import { registry as cosmos_base_v1beta1_coin_registry } from "./cosmos/base/v1beta1/coin";
 import { registry as cosmos_capability_v1beta1_capability_registry } from "./cosmos/capability/v1beta1/capability";
 import { registry as cosmos_capability_v1beta1_genesis_registry } from "./cosmos/capability/v1beta1/genesis";
-import { registry as cosmos_crisis_v1beta1_genesis_registry } from "./cosmos/crisis/v1beta1/genesis";
-import { registry as cosmos_crisis_v1beta1_tx_registry } from "./cosmos/crisis/v1beta1/tx";
 import { registry as cosmos_crypto_ed25519_keys_registry } from "./cosmos/crypto/ed25519/keys";
 import { registry as cosmos_crypto_multisig_keys_registry } from "./cosmos/crypto/multisig/keys";
 import { registry as cosmos_crypto_multisig_v1beta1_multisig_registry } from "./cosmos/crypto/multisig/v1beta1/multisig";
@@ -55,9 +47,6 @@ import { registry as cosmos_gov_v1beta1_genesis_registry } from "./cosmos/gov/v1
 import { registry as cosmos_gov_v1beta1_gov_registry } from "./cosmos/gov/v1beta1/gov";
 import { registry as cosmos_gov_v1beta1_query_registry } from "./cosmos/gov/v1beta1/query";
 import { registry as cosmos_gov_v1beta1_tx_registry } from "./cosmos/gov/v1beta1/tx";
-import { registry as cosmos_mint_v1beta1_genesis_registry } from "./cosmos/mint/v1beta1/genesis";
-import { registry as cosmos_mint_v1beta1_mint_registry } from "./cosmos/mint/v1beta1/mint";
-import { registry as cosmos_mint_v1beta1_query_registry } from "./cosmos/mint/v1beta1/query";
 import { registry as cosmos_params_types_types_registry } from "./cosmos/params/types/types";
 import { registry as cosmos_params_v1beta1_params_registry } from "./cosmos/params/v1beta1/params";
 import { registry as cosmos_params_v1beta1_query_registry } from "./cosmos/params/v1beta1/query";
@@ -122,12 +111,6 @@ import { registry as tokenfactory_query_registry } from "./tokenfactory/query";
 import { registry as tokenfactory_tx_registry } from "./tokenfactory/tx";
 export const paxProtoRegistry = [
     ...confio_proofs_registry,
-    ...cosmos_accesscontrol_x_genesis_registry,
-    ...cosmos_accesscontrol_x_gov_registry,
-    ...cosmos_accesscontrol_x_query_registry,
-    ...cosmos_accesscontrol_x_tx_registry,
-    ...cosmos_accesscontrol_accesscontrol_registry,
-    ...cosmos_accesscontrol_legacy_registry,
     ...cosmos_auth_v1beta1_auth_registry,
     ...cosmos_auth_v1beta1_genesis_registry,
     ...cosmos_auth_v1beta1_query_registry,
@@ -153,8 +136,6 @@ export const paxProtoRegistry = [
     ...cosmos_base_v1beta1_coin_registry,
     ...cosmos_capability_v1beta1_capability_registry,
     ...cosmos_capability_v1beta1_genesis_registry,
-    ...cosmos_crisis_v1beta1_genesis_registry,
-    ...cosmos_crisis_v1beta1_tx_registry,
     ...cosmos_crypto_ed25519_keys_registry,
     ...cosmos_crypto_multisig_keys_registry,
     ...cosmos_crypto_multisig_v1beta1_multisig_registry,
@@ -178,9 +159,6 @@ export const paxProtoRegistry = [
     ...cosmos_gov_v1beta1_gov_registry,
     ...cosmos_gov_v1beta1_query_registry,
     ...cosmos_gov_v1beta1_tx_registry,
-    ...cosmos_mint_v1beta1_genesis_registry,
-    ...cosmos_mint_v1beta1_mint_registry,
-    ...cosmos_mint_v1beta1_query_registry,
     ...cosmos_params_types_types_registry,
     ...cosmos_params_v1beta1_params_registry,
     ...cosmos_params_v1beta1_query_registry,
