@@ -9518,3 +9518,9 @@ area = "node tests"
 symptom = "a task written to restore one retired symbol in node/store_delete_test.go fails because the same file references a second retired keeper method"
 cause = "the task was scoped from the first compile error only; go reports errors per package and stops at the first file set, hiding later dead references"
 do = "before publishing a compile-repair task, list every a.<Keeper>.<Method> reference in the test file and confirm each method still exists on the live keeper (git grep 'func (k *Keeper) <Method>('), then cover all of them in one task"
+
+[gotcha.1966]
+area = "cargo workspaces"
+symptom = "a lock-refresh task fails its build with E0432/E0599 inside a path dependency, not in the lock"
+cause = "a crate in another workspace deleted public items (SignedHeaderTrust, MirrorVerifier::from_source) that a shared library crate still uses, so every workspace depending on that library stops building"
+do = "before deleting a pub item from a crate other workspaces depend on, git grep the item across services/ and tools/ and put the dependents' port in the same task or a required follow-up; gate lock-only tasks with cargo metadata --locked rather than a compile"

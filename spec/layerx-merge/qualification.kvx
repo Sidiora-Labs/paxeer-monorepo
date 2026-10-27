@@ -7941,3 +7941,11 @@ symbol = "TestBankKeepersCarryNoLaunchpadBalanceHook"
 observed = "Attempt one (b6a5caf62) completed do_1 and do_2 but go test ./node/ failed to compile: store_delete_test.go registers a.LaunchpadKeeper.BeforeBalanceChange, which 27b1faa06 (task 4.8.4) retired, so package node had a second dead reference besides the anchor store key."
 assumption = "Registering a test-local hook value keeps the duplicate-registration assertions meaningful without the retired method (do_4)."
 severity = "major"
+
+[finding.11.26.5]
+task = "11.26.5"
+file = "services/agent/crates/layerx-sdk/src/production.rs"
+symbol = "verify_mirror_receipt_from_sources"
+observed = "Attempt one (75b0c7c14) refreshed all fourteen locks, then cargo build -p layerx-ramp-toolkit failed inside layerx-sdk: production.rs:13 imports layerx_mirror::SignedHeaderTrust and :818/:836 call MirrorVerifier::from_source, both deleted by 11.26.4 (edd77cf4a); 35 crates across services/agent, services/human, services/platform, services/interop and tools/platform depend on layerx-sdk and cannot build at main."
+assumption = "The lock refresh is gated on cargo metadata --locked alone and task 11.26.6 ports the SDK to from_committed_source and committed_receipt."
+severity = "critical"

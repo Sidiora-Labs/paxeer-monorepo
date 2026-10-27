@@ -149101,7 +149101,7 @@ symbols = []
 touches = ["services/agent/Cargo.lock", "services/agent/fuzz/Cargo.lock", "services/agent/tests/isolation/Cargo.lock", "services/agent/tests/parity/Cargo.lock", "services/agent/tests/qualify/Cargo.lock", "services/agent/tools/audit-verify/Cargo.lock", "services/agent/tools/policy-harness/Cargo.lock", "services/human/Cargo.lock", "services/human/crates/layerx-intents/fuzz/Cargo.lock", "services/platform/Cargo.lock", "services/platform/docs/samples/verify-receipt-rust/Cargo.lock", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/node/tests/probe/Cargo.lock", "tools/platform/Cargo.lock"]
 tests = []
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit --lib"
+build_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml >/dev/null"
 verify_cmd = "cargo metadata --locked --format-version 1 --manifest-path services/agent/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/fuzz/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/isolation/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/parity/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tests/qualify/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tools/audit-verify/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/agent/tools/policy-harness/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path services/platform/hosted/node/tests/probe/Cargo.toml >/dev/null && cargo metadata --locked --format-version 1 --manifest-path tools/platform/Cargo.toml >/dev/null"
 rollback = "Revert the fourteen lock files; every locked cargo command in those workspaces fails again until the locks are refreshed."
 gate_kind = "planned"
@@ -149114,6 +149114,38 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Compile nothing: the build gate is the lock-consistency check above. services/agent/crates/layerx-sdk/src/production.rs:13 and :818/:836 still name SignedHeaderTrust and MirrorVerifier::from_source, which 11.26.4 deleted, so every crate depending on layerx-sdk fails to build until task 11.26.6 lands; that is not this task's scope."
+
+[task.11.26.6]
+title = "Port the SDK's mirror source verification to the committed archive verifier"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["11.26.4", "11.26.5", "11.37.1"]
+reqs = ["9334.1", "9334.2"]
+capabilities = ["11.26.6"]
+interfaces = ["interface.9.rs-sdk-production-verify-mirror-receipt-from-sources-j44", "interface.9.rs-sdk-production-verify-mirror-state-from-sources-j44"]
+symbols = ["verify_mirror_receipt_from_sources", "production_verifies_mirror_receipts_from_committed_sources"]
+touches = ["services/agent/crates/layerx-sdk/src/production.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/sdk.rs::production_verifies_mirror_receipts_from_committed_sources"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test sdk -- --exact production_verifies_mirror_receipts_from_committed_sources"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore services/agent/crates/layerx-sdk/src/production.rs and tests/sdk.rs from the pre-task revision."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_1 = "Remove SignedHeaderTrust from the layerx_mirror re-export at services/agent/crates/layerx-sdk/src/production.rs:11-14; 11.26.4 (edd77cf4a) deleted it, MirrorVerifier::from_source and MirrorVerifier::state from the mirror."
+do_2 = "Rewrite verify_mirror_receipt_from_sources at services/agent/crates/layerx-sdk/src/production.rs:810-819 as pub fn verify_mirror_receipt_from_sources(sources: &MirrorSources, batch_number: u64, policy: &MirrorReadPolicy, index: usize, keys: &[SequencerAuthorization]) -> Result<MirrorVerification<Receipt>, MirrorSdkError>, implemented as MirrorVerifier::from_committed_source(sources.read(batch_number, policy)?)?.committed_receipt(index, keys)? (services/interop/crates/layerx-mirror/src/verify.rs:128 and :179); Receipt is already imported at :25 and SequencerAuthorization at :16."
+do_3 = "Delete verify_mirror_state_from_sources at services/agent/crates/layerx-sdk/src/production.rs:821-837 together with its doc comment; drop the Proof and InclusionEvidence imports at :15-18 only if nothing else in the file uses them."
+do_4 = "Add production_verifies_mirror_receipts_from_committed_sources to services/agent/crates/layerx-sdk/tests/sdk.rs after sdk_crate_has_no_settlement_domain_or_activity_codec (:380): coerce verify_mirror_receipt_from_sources to the fn pointer type of do_2 so the signature is pinned at compile time, and assert over include_str!(\"../src/production.rs\") that the source names none of SignedHeaderTrust, from_source( or verify_mirror_state_from_sources."
+do_5 = "Change nothing else: no Cargo.toml or Cargo.lock edits (task 11.26.5 refreshes the locks), no other file."
 
 [task.11.27.1]
 title = "Encode the Ethereum begin call with the committed height and block hash"
