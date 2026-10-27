@@ -103048,7 +103048,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.21.3]
 title = "Exercise production spot receive, per-token and multicall gas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.21.2", "5.0.3"]
@@ -103326,7 +103326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.22.8]
 title = "Rehearse spot migration with export round trip"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.22.5", "5.97.2"]
@@ -147066,7 +147066,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.7.2]
 title = "Export AP2 portable evidence as the version 2 portable receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.7.1", "11.10.1", "9.1.7"]
@@ -147737,7 +147737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.4]
 title = "Render the mirror paxeer section and receipt keys from the pinned receipt keys file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.13.1", "11.12.5", "11.25.4"]
