@@ -31420,10 +31420,10 @@ symbols = ["LayerXAgentStoreKey", "LayerXProgramsStoreKey", "TestLayerXAgentStor
 [capability.5.41.2]
 title = "Mount the ledger, auth, pay, programs, agent and host stores in MemIAVLStoreKeys"
 reqs = ["5482.1", "5482.2"]
-touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go"]
+touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go", "node/app.go"]
 tests = ["storage/common/keys/store_keys_test.go::TestXWebStoreKeyFollowsTheV6120StoreKeys", "storage/common/keys/store_keys_test.go::TestMergeStoreKeysAreMemIAVLStoreKeys"]
 verification_contract = "contracts/sequencer.md#node-storage"
-do_1 = "Ensure LayerXHostStoreKey = \"lxphost\" at storage/common/keys/store_keys.go (task 5.19.2 adds it after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48; correct the value if it differs), fulfilling wiring.J23.7 (decision.557); the ledger and auth keepers locate the host store by that name (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24)."
+do_1 = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48, fulfilling wiring.J23.7 (decision.557), and make the node use it: delete the local const LayerXHostStoreKey = \"layerxhost\" at node/app.go:630 and reference the keys-package constant instead in kvStoreKeyNames at node/app.go:375, in the NewHost call at node/app.go:887 and in the pay keeper construction at node/app.go:900, the way the neighbouring merge keys there are referenced; the ledger and auth keepers locate the host store by the name lxphost (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), so the store the node mounts must carry that name."
 symbols = ["LayerXHostStoreKey", "MemIAVLStoreKeys", "IsMemIAVLStoreKey", "AllModulesExcept", "TestMergeStoreKeysAreMemIAVLStoreKeys"]
 
 [capability.5.41.3]
@@ -115266,17 +115266,17 @@ capabilities = ["5.41.2"]
 interfaces = ["interface.5.go-storage-common-keys-layer-x-ledger-store-key", "interface.5.key-storage-common-keys-layer-x-ledger-store-key", "interface.5.go-storage-common-keys-layer-x-auth-store-key", "interface.5.key-storage-common-keys-layer-x-auth-store-key", "interface.5.go-storage-common-keys-layer-x-pay-store-key", "interface.5.key-storage-common-keys-layer-x-pay-store-key", "interface.5.go-storage-common-keys-layer-x-programs-store-key", "interface.5.key-storage-common-keys-layer-x-programs-store-key", "interface.5.go-storage-common-keys-mem-iavl-store-keys", "interface.5.go-storage-common-keys-layer-x-host-store-key-j33", "interface.5.key-storage-common-keys-layer-x-host-store-key-j33"]
 wiring = ["wiring.J33.1"]
 fulfils = ["wiring.J23.7"]
-do_1 = "Ensure LayerXHostStoreKey = \"lxphost\" at storage/common/keys/store_keys.go (task 5.19.2 adds it after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48; correct the value if it differs), fulfilling wiring.J23.7 (decision.557); the ledger and auth keepers locate the host store by that name (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24)."
+do_1 = "Add LayerXHostStoreKey = \"lxphost\" after LayerXAgentStoreKey at storage/common/keys/store_keys.go:48, fulfilling wiring.J23.7 (decision.557), and make the node use it: delete the local const LayerXHostStoreKey = \"layerxhost\" at node/app.go:630 and reference the keys-package constant instead in kvStoreKeyNames at node/app.go:375, in the NewHost call at node/app.go:887 and in the pay keeper construction at node/app.go:900, the way the neighbouring merge keys there are referenced; the ledger and auth keepers locate the host store by the name lxphost (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), so the store the node mounts must carry that name."
 do_2 = "Append LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey after SequencerStoreKey at storage/common/keys/store_keys.go:84, inside the list at storage/common/keys/store_keys.go:54-85."
 do_3 = "Extend the exact list in TestXWebStoreKeyFollowsTheV6120StoreKeys (storage/common/keys/store_keys_test.go:87-97) with the six names after \"sequencer\" and replace the end-anchored checks at storage/common/keys/store_keys_test.go:99-102 by slices.Index checks that sequencer directly follows xweb and launchpad, perps, spot, pricefeed directly precede xweb (decision.545)."
 do_4 = "Add TestMergeStoreKeysAreMemIAVLStoreKeys after storage/common/keys/store_keys_test.go:139 asserting IsMemIAVLStoreKey (storage/common/keys/store_keys.go:99) and AllModulesExcept(BankStoreKey) (storage/common/keys/store_keys.go:107) for each merge key."
 do_5 = "Keep TestMergeStoreKeyConstants (storage/common/keys/store_keys_test.go:110-139) unchanged; its mounted-at-most-once check holds with the keys appended once."
 do_6 = "Depend on wiring.J33.1, which appends the same six store keys in the same order to kvStoreKeyNames at node/app.go:334 so TestKVStoreKeyNamesMatchMemIAVLStoreKeys (node/store_keys_test.go:15) holds."
 symbols = ["LayerXHostStoreKey", "MemIAVLStoreKeys", "IsMemIAVLStoreKey", "AllModulesExcept", "TestMergeStoreKeysAreMemIAVLStoreKeys"]
-touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go"]
+touches = ["storage/common/keys/store_keys.go", "storage/common/keys/store_keys_test.go", "node/app.go"]
 tests = ["storage/common/keys/store_keys_test.go::TestXWebStoreKeyFollowsTheV6120StoreKeys", "storage/common/keys/store_keys_test.go::TestMergeStoreKeysAreMemIAVLStoreKeys"]
 planned_paths = []
-build_cmd = "go build ./storage/common/keys/"
+build_cmd = "go build ./node/ && go build ./storage/common/keys/"
 verify_cmd = "go test -count=1 ./storage/common/keys/ -run '^(TestXWebStoreKeyFollowsTheV6120StoreKeys|TestMergeStoreKeysAreMemIAVLStoreKeys)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
