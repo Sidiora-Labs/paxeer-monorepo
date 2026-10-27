@@ -98474,7 +98474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.1]
 title = "Implement budget create, create native, fund, fund native and amend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.24.6"]
@@ -113146,7 +113146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.10.1]
 title = "Run the agent scheduler in EndBlock once the merge is live"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["5.0.2", "2.0.2"]
