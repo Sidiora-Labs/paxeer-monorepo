@@ -43,7 +43,9 @@ func EndBlock(ctx sdk.Context, height int64, blockGasUsed int64, keepers EndBloc
 		}
 	}
 	if keepers.AgentKeeper != nil && keepers.MergeLive != nil && keepers.MergeLive() {
-		if err := keepers.AgentKeeper.EndBlocker(ctx); err != nil {
+		gasUsed, err := keepers.AgentKeeper.RunDue(ctx)
+		blockGasUsed += int64(gasUsed)
+		if err != nil {
 			logger.Error("agent end block failed", "height", height, "err", err)
 		}
 	}
