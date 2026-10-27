@@ -97730,7 +97730,7 @@ title = "Prove authz MsgExec under LayerXScopeAuthorization is refused after a k
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["2.0.2", "2.8.2", "5.14.3"]
+requires = ["2.0.2", "2.8.2", "5.14.3", "5.19.4"]
 reqs = ["2063.1"]
 capabilities = ["2.12.4"]
 interfaces = []
@@ -99229,7 +99229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.5]
 title = "Serve the fifteen 0x101B budget methods and nine budget events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.24.1", "2.24.2", "2.24.3", "2.24.4", "2.24.5", "2.28.8"]
@@ -102238,7 +102238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.5]
 title = "Change mark smoothing when a proposal changes MarkEmaTauMs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -112866,7 +112866,7 @@ title = "Complete the merge plan: mount the merged stores, close the gate on mis
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5"]
+requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5", "5.19.4"]
 reqs = ["5049.1", "5049.2", "5049.3", "5049.4"]
 capabilities = ["5.6.5"]
 interfaces = ["interface.6.cfg-merge-gate"]
@@ -114111,7 +114111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.4]
 title = "Import the merge precompile packages and expose the ledger and auth keepers to precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.19.2", "2.0.2", "6.0.2", "5.94.2"]
@@ -119217,7 +119217,7 @@ verify_cmd = "go test -count=1 ./precompiles/common/ -run '^(TestLXPRevertTable)
 gate_kind = "existing"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
-rollback = "Revert precompiles/common/lxp_errors.go:151-153 to code-only rows."
+rollback = "Revert precompiles/common/lxp_errors.go:151-153 to code-only rows; the Rust-side rewrite of lxpRustResultsForTest is reverted with the test file."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -119226,6 +119226,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Add to section (b) of spec/layerx-merge/contracts/address-table.md, in lxpRevertTable order, the 110 rows precompiles/common/lxp_errors.go registers without a table row (LXP_LAUNCHPAD_*, LXP_PERPS_*, LXP_PRICEFEED_* from 6.92.1, LXP_PAY_UNBOUND_CALLER, LXP_PAY_KERNEL_GATE_MISMATCH, LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE), each with the five registry columns and its Go or site origin, so TestLXPRevertTable finds every registered code in the table."
+do_6 = "lxpRustResultsForTest (precompiles/common/lxp_errors_test.go:78) reads services/agent/crates/layerx-types/src/result.rs for a protocol_result_codes! invocation that has not lived there since the layerx-types build script began generating it: services/agent/crates/layerx-types/build.rs:229-236 writes the invocation to OUT_DIR/result_codes.rs from include/layerx/lxp_result.h and the Retryable column of address-table.md, result.rs:85 includes it, and build.rs:529 checks header parity at every build. Rewrite the Rust half of TestLXPRevertTable for that design: read build.rs, assert it names include/layerx/lxp_result.h as the header input (build.rs:515) and emits one name = value, class; entry per declared code (build.rs:214-216), and remove the row comparison against the hand-written mirror that no longer exists; keep every Go-side assertion of the test as it is."
 [task.6.2.3]
 title = "Check the Python SDK retryable map against the LXP registry"
 status = "pending"
@@ -131452,7 +131453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.10.1]
 title = "Send testnet funding as one EVM bank transfer from the core treasury"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.0.2", "6.94.1"]
@@ -131837,7 +131838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.3]
 title = "Run the testnet payment journey on the chain methods"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.5.1", "8.2.1"]
@@ -131899,7 +131900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.5]
 title = "Admit the sequencer receipt read at the paxeer chain boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "9.1.7"]
@@ -137151,8 +137152,8 @@ symbols = ["no_retired_layerx_client_module_paths_w2"]
 touches = ["services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs"]
 tests = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
 planned_paths = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification --test retired_client_modules_w2 -- --exact no_retired_layerx_client_module_paths_w2"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --test retired_client_modules_w2 -- --exact no_retired_layerx_client_module_paths_w2"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -137182,8 +137183,8 @@ symbols = ["no_retired_layerx_client_module_paths"]
 touches = ["services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs"]
 tests = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
 planned_paths = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification --test retired_client_modules -- --exact no_retired_layerx_client_module_paths"
+build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --test retired_client_modules -- --exact no_retired_layerx_client_module_paths"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -141107,7 +141108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.32.4]
 title = "Verify SDK receipts against pinned ReceiptKeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.27.1", "9.1.7"]
@@ -141734,7 +141735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.4]
 title = "Decode agent envelope, program and lifecycle payloads as EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.31.1", "9.1.7"]
@@ -141765,7 +141766,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.5]
 title = "Decode program HTTP signed calls as EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.31.1", "9.1.7"]
@@ -147497,7 +147498,7 @@ title = "Cross-check the committed rung's block number and hash before relaying 
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["11.11.3", "9.1.7"]
+requires = ["11.11.3", "9.1.7", "11.16.2"]
 reqs = ["11036.1"]
 capabilities = ["11.11.4"]
 interfaces = []
@@ -147619,7 +147620,7 @@ title = "Refuse a receipt keys file with overlapping or inverted height ranges"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["11.12.4", "9.1.7"]
+requires = ["11.12.4", "9.1.7", "11.16.2"]
 reqs = ["11037.1"]
 capabilities = ["11.12.3"]
 interfaces = ["interface.11.env-svc-layerx-interop-receipt-keys-file-j47"]
@@ -148124,7 +148125,7 @@ verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
-rollback = "Revert server.rs; x402 settles through the hosted activity path."
+rollback = "Revert server.rs; x402 settles through the hosted activity path; the compile fixes for the SequencerEvidence results are reverted with the file"
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -148132,7 +148133,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_5 = "Before the relay work, make layerx-interop-service compile against the SequencerEvidence results that tasks 11.3.1, 11.4.1 and 11.9.1 landed: implement FacilitatorPlane::receipt_keys for X402VerifyPlane (services/interop/crates/layerx-interop-service/src/server.rs:1161) and X402SettlePlane (:1244) from the plane's configured sequencer authorities, build the x402 ExecutedPayment at :1312-1314 and the ExecutedUcpPayment at :1778-1779 from the SequencerEvidence that PlaneOutcome::Executed now carries, and pass the receipt keys as the fifth argument of UcpAdapter::complete_checkout at :1862; the AP2 and UCP relay itself stays with task 11.16.3."
 [task.11.16.3]
 title = "Execute AP2 and UCP payments in the service through the chain relay"
 status = "pending"
@@ -149388,7 +149389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.1]
 title = "Decode XWebProgramRequested logs of 0x1019 in the request watcher"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["11.33.1", "6.0.2", "6.94.3"]
@@ -149453,7 +149454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.3]
 title = "Run the program relay from EVM program requests to fulfilProgram"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["11.32.1", "11.32.2", "11.33.1"]
@@ -158927,7 +158928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.4.1]
 title = "Report the verified receipt with every wallet precompile send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["14.0.2"]

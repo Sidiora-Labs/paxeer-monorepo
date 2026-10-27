@@ -93,7 +93,7 @@ struct Config {
     treasury: SocketSigner,
     treasury_did: String,
     treasury_asset: [u8; 32],
-    funding: Option<chain_fund::ChainFunding>,
+    funding: Result<chain_fund::ChainFunding, &'static str>,
     sequencer_id: [u8; 32],
     supervisor_socket: PathBuf,
     state_dir: PathBuf,
@@ -362,7 +362,7 @@ fn config() -> Result<Config, String> {
         treasury_did: did_for_public_key(&treasury.public_key()),
         treasury,
         treasury_asset,
-        funding: chain_fund::ChainFunding::from_env().ok(),
+        funding: chain_fund::ChainFunding::from_env(),
         sequencer_id,
         supervisor_socket: PathBuf::from(required("LAYERX_CORE_SUPERVISOR_SOCKET")?),
         state_dir,
@@ -1374,7 +1374,7 @@ fn program_idempotency_receipt(config: &Config, key: &str) -> Response {
 }
 
 fn readiness(config: &Config) -> Response {
-    match connect_client(config) {
+    let mut response = (|| match connect_client(config) {
         Ok(client) => {
             let zero = "0".repeat(64);
             let target = format!("/v1/batches/{zero}/receipt-authority?receipt_digest={zero}");
@@ -1406,7 +1406,18 @@ fn readiness(config: &Config) -> Response {
             eprintln!("layerx-core-boundary: readiness: {error}");
             refusal(503, "node_unavailable", Some(5))
         }
-    }
+    })();
+    let funding = config
+        .funding
+        .as_ref()
+        .map_err(|reason| *reason)
+        .and_then(chain_fund::ChainFunding::readiness)
+        .unwrap_or_else(|reason| serde_json::json!({"ready": false, "reason": reason}));
+    let mut document: serde_json::Value =
+        serde_json::from_str(&response.body).expect("readiness response is JSON");
+    document["funding"] = funding;
+    response.body = document.to_string();
+    response
 }
 
 fn sequencer_route(config: &Config) -> Response {
@@ -2106,7 +2117,7 @@ fn prepare_funding(
     let funding = config
         .funding
         .as_ref()
-        .ok_or_else(|| refusal(503, "treasury_unavailable", Some(5)))?;
+        .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
     let public_key = fixed_hex::<32>("public_key", &command.public_key)
         .map_err(|_| refusal(400, "invalid_argument", None))?;
     let signed = funding.prepare(&public_key, command.amount)?;
@@ -2134,7 +2145,7 @@ fn fund_send(
     let funding = config
         .funding
         .as_ref()
-        .ok_or_else(|| refusal(503, "treasury_unavailable", Some(5)))?;
+        .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
     funding.submit(&signed)?;
     let funded = funding.funded(&signed)?;
     Ok(json_response(
