@@ -251,6 +251,37 @@ class LocalKeyProvider implements Eip1193Provider {
   }
 }
 
+async function provider_refuses_the_retired_custody_methods() {
+  const confirmations: string[] = [];
+  const signedIn = provider('default', {
+    confirm: ({ method }) => {
+      confirmations.push(method);
+      return false;
+    },
+  });
+  await signedIn.request({ method: 'eth_requestAccounts' });
+  const before = seen.length;
+  for (const p of [provider('default', { token: null }), provider(), signedIn]) {
+    for (const method of [
+      'paxeer_prepareCustody',
+      'paxeer_custodyStatus',
+      'paxeer_restoreCustody',
+      'paxeer_recoverCustody',
+      'paxeer_signCustody',
+    ]) {
+      for (const params of [[], [{ custody: vectors.custody }]]) {
+        const err = await failure(p.request({ method, params }));
+        expect(err).toBeInstanceOf(UnsupportedMethodError);
+        expect(err).toMatchObject({ code: 4200, method });
+      }
+    }
+  }
+  expect(confirmations).toEqual([]);
+  expect(seen).toHaveLength(before);
+}
+
+test(provider_refuses_the_retired_custody_methods);
+
 describe('PaxeerProvider', () => {
   it('provider_fixtures_are_signed_by_the_recorded_wallet', async () => {
     expect(privateKeyToAccount(fixtureKey).address).toBe(vectors.address);
