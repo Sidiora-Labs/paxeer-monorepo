@@ -66,6 +66,16 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "Treasury":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryTreasuryResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, sdk.ZeroInt().String(), result.Balance)
+				require.Equal(t, sdk.ZeroInt().String(), result.Held)
 			case "Quote":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "amount_in must be a positive base-10 integer", status.Convert(err).Message())
