@@ -95540,7 +95540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.98.1]
 title = "Fold budget module draws into the host payer grant read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.22.2"]
@@ -150427,7 +150427,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.2.2]
 title = "Embed the layerxledger 0x101A and layerxauth 0x101C ABIs in the attestor decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["12.2.1", "2.0.2", "2.92.1"]
