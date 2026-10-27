@@ -1774,9 +1774,9 @@ fn ap2_executed(
         || log.topics()
             != [
                 topic,
+                payment.idempotency_key(),
                 payment.payer_receipt_account(),
                 payment.payee_receipt_account(),
-                payment.idempotency_key(),
             ]
         || log.data().len() != 64
         || log.data()[..32] != payment.asset()
@@ -3721,7 +3721,11 @@ mod tests {
         sequence.update(protocol.global_sequence().to_be_bytes());
         sequence.update(hash);
         let new_root: [u8; 32] = sequence.finalize().into();
-        replace(&mut receipt, &transfer.reference, &reference);
+        replace(
+            &mut receipt,
+            &[transfer.from, transfer.to, transfer.reference].concat(),
+            &[reference, transfer.from, transfer.to].concat(),
+        );
         replace(&mut receipt, &old_hash, &hash);
         replace(&mut receipt, &old_root, &new_root);
         if old_sender != sender {
@@ -3736,7 +3740,9 @@ mod tests {
         answer["txHash"] = json!(format!("0x{}", hex(&hash)));
         answer["from"] = json!(format!("0x{}", hex(&sender)));
         answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&reference)));
+        answer["logs"][0]["topics"][1] = json!(format!("0x{}", hex(&reference)));
+        answer["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&transfer.from)));
+        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&transfer.to)));
         Ok((raw, answer, keys))
     }
 
@@ -4395,11 +4401,10 @@ mod tests {
                 .ok_or("receipt prefix")?,
             MAX_BODY,
         )?;
-        replace(&mut receipt, &old_transfer.to, &recipient);
         replace(
             &mut receipt,
-            &old_transfer.reference,
-            &identity.idempotency_key,
+            &[old_transfer.from, old_transfer.to, old_transfer.reference].concat(),
+            &[identity.idempotency_key, old_transfer.from, recipient].concat(),
         );
         replace(&mut receipt, &old_hash, &tx_hash);
         if old_sender != sender {
@@ -4412,9 +4417,10 @@ mod tests {
         receipt_json["txHash"] = json!(format!("0x{}", hex(&tx_hash)));
         receipt_json["from"] = json!(format!("0x{}", hex(&sender)));
         receipt_json["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        receipt_json["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&recipient)));
-        receipt_json["logs"][0]["topics"][3] =
+        receipt_json["logs"][0]["topics"][1] =
             json!(format!("0x{}", hex(&identity.idempotency_key)));
+        receipt_json["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&old_transfer.from)));
+        receipt_json["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&recipient)));
         request.payment_payload.payload = json!({
             "layerxTransaction": format!("0x{}", hex(&raw)),
             "layerxIdempotencyKey": hex(&stable_identity),

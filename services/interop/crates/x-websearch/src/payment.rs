@@ -700,9 +700,9 @@ pub fn decode_payment_exact(log: &SettlementLog) -> Option<PaymentExactLog> {
         return None;
     }
     Some(PaymentExactLog {
-        payer: log.topics[1],
-        payee: log.topics[2],
-        reference: log.topics[3],
+        payer: log.topics[2],
+        payee: log.topics[3],
+        reference: log.topics[1],
         asset: log.data[..32].try_into().ok()?,
         amount: u128::from_be_bytes(log.data[48..64].try_into().ok()?),
     })
@@ -2468,8 +2468,8 @@ impl<'Plane> Plane<'Plane> {
                                 .as_ref()
                                 .is_some_and(|key| data[64..96] == key[..])
                     } else {
-                        expected.from.is_none_or(|from| topics[1] == from)
-                            && topics[2] == expected.to
+                        expected.from.is_none_or(|from| topics[2] == from)
+                            && topics[3] == expected.to
                             && data.len() == 64
                     }
                     && data[..32] == expected.asset

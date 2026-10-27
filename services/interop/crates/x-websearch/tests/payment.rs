@@ -1241,9 +1241,9 @@ fn exact_exchange() -> Outcome<Value> {
                 x_websearch::watch::keccak(
                     b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)",
                 ),
+                receive_key_bytes(&label),
                 payer,
                 payee,
-                receive_key_bytes(&label),
             ],
             [asset.asset_id, amount].concat(),
             0,
@@ -3349,6 +3349,154 @@ fn draw_nonces_are_sequential_for_one_receiver() -> Outcome {
             record.tx_hash.as_deref(),
             Some(hex(&x_websearch::watch::keccak(&raw)).as_str())
         );
+    }
+    Ok(())
+}
+
+#[test]
+fn exact_payment_accepts_only_native_signed_topic_order() -> Outcome {
+    let permutations = [
+        [1, 2, 3],
+        [1, 3, 2],
+        [2, 1, 3],
+        [2, 3, 1],
+        [3, 1, 2],
+        [3, 2, 1],
+    ];
+    for permutation in permutations {
+        let label = format!("exact-topic-order-{permutation:?}");
+        let harness = Harness::start(&label, &[])?;
+        let asset = accepted("SID")?;
+        let payer = account_id(&wallet_account(harness.payer()?, &asset)).ok_or("payer")?;
+        let payee = harness.gate.as_ref().ok_or("payment gate")?.payee(&asset);
+        let reference = receive_key_bytes(&label);
+        let native = [
+            x_websearch::watch::keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
+            reference,
+            payer,
+            payee,
+        ];
+        assert_ne!(reference, payer);
+        assert_ne!(reference, payee);
+        assert_ne!(payer, payee);
+        let mut amount = [0; 32];
+        amount[16..].copy_from_slice(&asset.price.to_be_bytes());
+        let event = SequencerLog::new(
+            LEDGER_PRECOMPILE,
+            vec![
+                native[0],
+                native[permutation[0]],
+                native[permutation[1]],
+                native[permutation[2]],
+            ],
+            [asset.asset_id, amount].concat(),
+            0,
+        );
+        let hash = labelled("x-websearch-test/transaction/", &label);
+        let answer = draw_receipt_answer(hash, &[event], 1)?;
+        let receipt =
+            x_websearch::payment::unhex(text(&answer, "/receipt")?.trim_start_matches("0x"))
+                .ok_or("receipt bytes")?;
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        let payment = json!({
+            "txHash": format!("0x{}", hex(&hash)),
+            "receiptDigest": hex(&digest), "verificationLevel": "receipted",
+            "idempotencyKey": hex(&reference),
+        });
+        receipt_rule(&harness, hash, answer, false)?;
+        let target = "/fetch?url=topic-order";
+        let signature =
+            harness.signature(target, Some(harness.payer()?), EXACT, "SID", &payment)?;
+        let reply = harness.pay(target, Some(harness.payer()?), &signature)?;
+        if permutation == [1, 2, 3] {
+            assert_settled(&reply)?;
+            assert_eq!(reply.decoded(PAYMENT_RESPONSE)?["payer"], hex(&payer));
+            assert_eq!(harness.served(), 1);
+        } else {
+            assert_refused(&reply, "receipt_mismatch");
+            assert_eq!(harness.served(), 0);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+fn exact_payment_native_topics_retain_receipt_validation() -> Outcome {
+    for mutation in [
+        "payer",
+        "payee",
+        "reference",
+        "asset",
+        "amount",
+        "amount-overflow",
+        "address",
+        "duplicate",
+        "status",
+        "signature",
+        "unsigned-log",
+    ] {
+        let label = format!("native-exact-{mutation}");
+        let harness = Harness::start(&label, &[])?;
+        let asset = accepted("SID")?;
+        let payer = account_id(&wallet_account(harness.payer()?, &asset)).ok_or("payer")?;
+        let payee = harness.gate.as_ref().ok_or("payment gate")?.payee(&asset);
+        let mut topics = vec![
+            x_websearch::watch::keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"),
+            receive_key_bytes(&label),
+            payer,
+            payee,
+        ];
+        let mut data = [0; 64];
+        data[..32].copy_from_slice(&asset.asset_id);
+        data[48..].copy_from_slice(&asset.price.to_be_bytes());
+        let mut address = LEDGER_PRECOMPILE;
+        match mutation {
+            "payer" => topics[2][0] ^= 1,
+            "payee" => topics[3][0] ^= 1,
+            "reference" => topics[1][0] ^= 1,
+            "asset" => data[0] ^= 1,
+            "amount" => data[63] ^= 1,
+            "amount-overflow" => data[32] = 1,
+            "address" => address[0] ^= 1,
+            _ => (),
+        }
+        let mut logs = vec![SequencerLog::new(address, topics.clone(), data.to_vec(), 0)];
+        if mutation == "duplicate" {
+            logs.push(SequencerLog::new(address, topics, data.to_vec(), 1));
+        }
+        let hash = labelled("x-websearch-test/transaction/", &label);
+        let mut answer = draw_receipt_answer(hash, &logs, u64::from(mutation != "status"))?;
+        let mut receipt =
+            x_websearch::payment::unhex(text(&answer, "/receipt")?.trim_start_matches("0x"))
+                .ok_or("receipt bytes")?;
+        if mutation == "signature" {
+            let last = receipt.len() - 1;
+            receipt[last] ^= 1;
+            answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
+        }
+        if mutation == "unsigned-log" {
+            answer["logs"][0]["topics"][2] = json!(format!("0x{}", "00".repeat(32)));
+        }
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        let payment = json!({
+            "txHash": format!("0x{}", hex(&hash)),
+            "receiptDigest": hex(&digest), "verificationLevel": "receipted",
+            "idempotencyKey": receive_key(&label),
+        });
+        receipt_rule(&harness, hash, answer, false)?;
+        let target = "/fetch?url=receipt-validation";
+        let signature =
+            harness.signature(target, Some(harness.payer()?), EXACT, "SID", &payment)?;
+        let reply = harness.pay(target, Some(harness.payer()?), &signature)?;
+        assert_refused(
+            &reply,
+            match mutation {
+                "status" => "payment_failed",
+                "signature" => "receipt_unverified",
+                _ => "receipt_mismatch",
+            },
+        );
+        assert_eq!(harness.served(), 0, "{mutation}");
     }
     Ok(())
 }

@@ -154,18 +154,22 @@ fn sign_payment_reference(
 ) -> [u8; 32] {
     assert_eq!(evidence.logs.len(), 1, "one recorded PaymentExact log");
     let log = &evidence.logs[0];
-    let old_reference = log.topics()[3];
-    let mut topics = log.topics().to_vec();
-    topics[3] = payment.idempotency_key();
+    let old_topics = log.topics()[1..].concat();
+    let topics = vec![
+        log.topics()[0],
+        payment.idempotency_key(),
+        log.topics()[1],
+        log.topics()[2],
+    ];
     let positions: Vec<_> = evidence
         .signed_receipt
-        .windows(32)
+        .windows(old_topics.len())
         .enumerate()
-        .filter_map(|(index, bytes)| (bytes == old_reference).then_some(index))
+        .filter_map(|(index, bytes)| (bytes == old_topics).then_some(index))
         .collect();
-    assert_eq!(positions.len(), 1, "one signed PaymentExact reference");
-    evidence.signed_receipt[positions[0]..positions[0] + 32]
-        .copy_from_slice(&payment.idempotency_key());
+    assert_eq!(positions.len(), 1, "one signed PaymentExact indexed tuple");
+    evidence.signed_receipt[positions[0]..positions[0] + old_topics.len()]
+        .copy_from_slice(&topics[1..].concat());
     evidence.logs[0] = SequencerLog::new(log.address(), topics, log.data().to_vec(), 0);
     let unsigned_end = evidence.signed_receipt.len() - 69;
     let mut hash = Sha256::new();
@@ -227,9 +231,9 @@ impl LayerXIntentPlane for RecordedPaymentPlane {
             ActivityType::new(ModuleId::Asset, 5).expect("send")
         );
         let log = &self.executed.evidence.logs[0];
-        assert_eq!(payment.payer_receipt_account(), log.topics()[1]);
-        assert_eq!(payment.payee_receipt_account(), log.topics()[2]);
-        assert_eq!(payment.idempotency_key(), log.topics()[3]);
+        assert_eq!(payment.idempotency_key(), log.topics()[1]);
+        assert_eq!(payment.payer_receipt_account(), log.topics()[2]);
+        assert_eq!(payment.payee_receipt_account(), log.topics()[3]);
         assert_eq!(payment.asset().as_slice(), &log.data()[..32]);
         assert_eq!(payment.amount().to_be_bytes().as_slice(), &log.data()[48..]);
         Ok(PlaneOutcome::Executed(Box::new(ExecutedPayment {
