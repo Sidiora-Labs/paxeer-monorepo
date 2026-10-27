@@ -8,7 +8,9 @@ use base64::Engine as _;
 use ed25519_dalek::{Signature, VerifyingKey};
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
 use layerx_interop_gateway::error::GatewayError;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_proof::inclusion::SequencerAuthorization;
@@ -31,7 +33,6 @@ pub const MAX_CLOCK_SKEW_SECONDS: u64 = 5 * 60;
 const VALUE_LIMIT: usize = 512;
 const SIGNATURE_LIMIT: usize = 16 * 1024;
 const BINDING_DOMAIN: &[u8] = b"LayerX/interop/visa-tap/binding/v1\0";
-const RECEIPT_DIGEST_DOMAIN: &[u8] = b"LXP/v1/receipt\0";
 const SEQUENCE_DOMAIN: &[u8] = b"PAXEER/v1/sequence\0";
 const MAX_RECEIPT_BYTES: usize = 1_048_576;
 const LEDGER_ADDRESS: [u8; 20] = [
@@ -535,28 +536,13 @@ fn verify_sequencer_receipt(
         return Err(TapError::ReceiptMismatch);
     }
     Ok(MerchantOperationResult::ReceiptVerified {
-        receipt_digest: signed_receipt_digest(canonical_receipt)?,
+        receipt_digest: canonical_receipt_digest(canonical_receipt)
+            .map_err(|_| TapError::ReceiptMismatch)?,
         from,
         to,
         asset,
         amount,
     })
-}
-
-fn signed_receipt_digest(canonical_receipt: &[u8]) -> Result<[u8; 32], TapError> {
-    let prefix_length = canonical_receipt
-        .len()
-        .checked_sub(69)
-        .ok_or(TapError::ReceiptMismatch)?;
-    let (prefix, signature) = canonical_receipt.split_at(prefix_length);
-    if !signature.starts_with(&[1, 0, 0, 0, 64]) {
-        return Err(TapError::ReceiptMismatch);
-    }
-    let mut digest = Sha256::new();
-    digest.update(RECEIPT_DIGEST_DOMAIN);
-    digest.update(prefix);
-    digest.update([0]);
-    Ok(digest.finalize().into())
 }
 
 /// Strict TAP message verifier.
