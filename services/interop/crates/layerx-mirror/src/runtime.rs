@@ -11,10 +11,12 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
+use crate::committed::{
+    CommittedBlock, CommittedBlockSource, CommittedCoordinate, CommittedRefusal,
+};
 use crate::ethereum::{
     EthereumArchiveClient, EthereumError, EthereumProductionConfig, EthereumProgress,
 };
-use crate::node::{CheckpointAcquisition, LniArchiveSource, NodeSourceConfig};
 use crate::rpc::{RpcCluster, RpcQuorumConfig};
 use crate::signer::{RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm};
 use crate::solana::{SolanaArchiveClient, SolanaError, SolanaProductionConfig, SolanaProgress};
@@ -28,34 +30,17 @@ const MAX_STATUS_REQUEST_BYTES: usize = 4096;
 #[serde(deny_unknown_fields)]
 pub struct RuntimeConfig {
     pub state_directory: PathBuf,
-    pub first_batch_number: u64,
+    pub first_height: u64,
     pub poll_interval_ms: u64,
-    /// Largest number of batches a chain's mirrored checkpoint may trail the
-    /// latest certificate-verified checkpoint while that chain reports ready.
-    pub checkpoint_freshness_budget_batches: u64,
+    /// Largest number of committed blocks a chain may trail while reporting ready.
+    pub freshness_budget_blocks: u64,
     pub status_listen: SocketAddr,
-    pub node: NodeFileConfig,
+    pub paxeer: crate::committed::CommittedSourceConfig,
     pub ethereum: EthereumFileConfig,
     /// Absent when the deployment mirrors to the EVM chain only. A present
     /// section is validated exactly as a required one.
     #[serde(default)]
     pub solana: Option<SolanaFileConfig>,
-}
-
-#[derive(Clone, Debug, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NodeFileConfig {
-    pub socket: PathBuf,
-    pub expected_protocol_version: u16,
-    pub expected_network_id: u32,
-    pub maximum_frame_bytes: usize,
-    pub maximum_connections: usize,
-    pub maximum_streams: usize,
-    pub maximum_queued_bytes: usize,
-    pub deadline_ms: u64,
-    pub maximum_archive_bytes: usize,
-    pub maximum_archive_chunks: usize,
-    pub checkpoint_policy: crate::node::NativeCheckpointPolicy,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -141,11 +126,10 @@ struct RuntimeStatus {
     node: ComponentStatus,
     ethereum: ComponentStatus,
     solana: Option<ComponentStatus>,
-    checkpoint_proof_boundary_ready: bool,
-    checkpoint_identifier_observed: bool,
-    latest_verified_checkpoint_batch: Option<u64>,
-    latest_verified_checkpoint_id: Option<String>,
-    checkpoint_refusal: Option<&'static str>,
+    committed_ready: bool,
+    latest_committed_height: Option<u64>,
+    latest_committed_block_hash: Option<String>,
+    committed_refusal: Option<&'static str>,
     checkpoint_freshness_budget_batches: u64,
 }
 
@@ -184,20 +168,18 @@ pub fn run(config_path: &Path) -> Result<(), RuntimeError> {
     let spool = ArchiveSpool::open(config.state_directory.join("archives"))
         .map_err(|_| RuntimeError::State)?;
     let next_batch =
-        recover_next_batch(&spool, config.first_batch_number).map_err(|_| RuntimeError::State)?;
+        recover_next_batch(&spool, config.first_height).map_err(|_| RuntimeError::State)?;
     let status = Arc::new(Mutex::new(RuntimeStatus {
-        source_chain_id: config.node.checkpoint_policy.chain_id,
-        native_network_id: config.node.expected_network_id,
-        native_protocol_version: config.node.expected_protocol_version,
+        source_chain_id: config.paxeer.chain_id,
         service_version: env!("CARGO_PKG_VERSION").to_owned(),
         solana: config.solana.as_ref().map(|_| ComponentStatus::default()),
-        checkpoint_freshness_budget_batches: config.checkpoint_freshness_budget_batches,
+        checkpoint_freshness_budget_batches: config.freshness_budget_blocks,
         ..RuntimeStatus::default()
     }));
     let poll = Duration::from_millis(config.poll_interval_ms);
 
     spawn_status(config.status_listen, Arc::clone(&status))?;
-    spawn_node(
+    spawn_committed(
         config.clone(),
         spool.clone(),
         Arc::clone(&status),
@@ -213,102 +195,155 @@ pub fn run(config_path: &Path) -> Result<(), RuntimeError> {
     }
 }
 
-fn spawn_node(
+fn spawn_committed(
     config: RuntimeConfig,
     spool: ArchiveSpool,
     status: Arc<Mutex<RuntimeStatus>>,
     poll: Duration,
-    mut next_batch: u64,
+    mut next_height: u64,
 ) {
     thread::spawn(move || {
-        let source_config = node_config(&config.node);
-        let mut source = LniArchiveSource::new(source_config);
-        loop {
-            match source.acquire(next_batch) {
-                Ok(acquired) => {
+        let Ok(network_id) = u32::try_from(config.paxeer.chain_id) else {
+            update_status(&status, |value| {
+                record_committed(value, Err(CommittedRefusal::ChainMismatch));
+            });
+            return;
+        };
+        let mut previous =
+            match recover_committed_coordinate(&spool, config.first_height, next_height) {
+                Ok(coordinate) => coordinate,
+                Err(_) => {
                     update_status(&status, |value| {
-                        value.node.latest_batch_observed = Some(acquired.head.latest_sealed_batch);
-                        record_checkpoint(value, &acquired.checkpoint);
+                        value.node.error_class = Some("archive_spool");
                     });
-                    if !acquired
-                        .checkpoint
-                        .coordinate()
-                        .is_some_and(|checkpoint| checkpoint.batch_number >= next_batch)
-                    {
-                        update_status(&status, |value| {
-                            value.node.ready = false;
-                            value.node.phase = Some("awaiting_verified_checkpoint");
-                        });
-                        thread::sleep(poll);
-                        continue;
-                    }
-                    let material = match &acquired.checkpoint {
-                        CheckpointAcquisition::Verified(verified) => Some(verified.material()),
-                        CheckpointAcquisition::NodeHasNoCheckpoint
-                        | CheckpointAcquisition::Refused { .. } => None,
-                    };
-                    match Archive::from_node(
-                        &acquired.batch,
-                        &acquired.availability,
-                        material,
-                        acquired.head,
-                    )
-                    .and_then(|archive| {
-                        if archive.data().batch_number != next_batch {
-                            return Err(crate::SourceError::BatchMismatch);
-                        }
-                        spool
-                            .put(archive.commitment(), archive.bytes(), archive.node_head())
-                            .map_err(|_| {
-                                crate::SourceError::Archive(crate::ArchiveError::Format)
-                            })?;
-                        Ok(archive)
-                    }) {
-                        Ok(_) => {
-                            update_status(&status, |value| {
-                                value.node.ready = true;
-                                value.node.latest_batch_mirrored = Some(next_batch);
-                                value.node.error_class = None;
-                                value.node.phase = Some("spooled_verified_batch");
-                                record_checkpoint(value, &acquired.checkpoint);
-                            });
-                            let Some(incremented) = next_batch.checked_add(1) else {
+                    return;
+                }
+            };
+        let source = loop {
+            match CommittedBlockSource::open(&config.paxeer) {
+                Ok(source) => break source,
+                Err(error) => {
+                    update_status(&status, |value| {
+                        record_committed(value, Err(error));
+                    });
+                    thread::sleep(poll);
+                }
+            }
+        };
+        loop {
+            let acquired = match previous {
+                Some(coordinate) => source.acquire_next(coordinate),
+                None => source.acquire(next_height),
+            };
+            match acquired {
+                Ok(block) => {
+                    update_status(&status, |value| {
+                        value.node.latest_batch_observed = Some(block.header.height);
+                    });
+                    match spool_committed(
+                        &block,
+                        network_id,
+                        &spool,
+                        &status,
+                        next_height,
+                        previous,
+                    ) {
+                        Ok(coordinate) => {
+                            previous = Some(coordinate);
+                            let Some(incremented) = coordinate.height.checked_add(1) else {
                                 update_status(&status, |value| {
                                     value.node.ready = false;
-                                    value.node.error_class = Some("batch_sequence_exhausted");
+                                    value.node.error_class = Some("block_sequence_exhausted");
                                 });
                                 return;
                             };
-                            next_batch = incremented;
+                            next_height = incremented;
                         }
-                        Err(_) => update_status(&status, |value| {
+                        Err(error) => update_status(&status, |value| {
                             value.node.ready = false;
-                            value.node.error_class = Some("archive_evidence");
+                            value.node.error_class = Some(error);
                         }),
                     }
                 }
-                Err(error) => match source.observe_checkpoint() {
-                    Ok((head, checkpoint))
-                        if head.latest_sealed_batch.checked_add(1) == Some(next_batch) =>
-                    {
-                        update_status(&status, |value| {
-                            value.node.latest_batch_observed = Some(head.latest_sealed_batch);
-                            record_checkpoint(value, &checkpoint);
-                            value.node.ready =
-                                matches!(checkpoint, CheckpointAcquisition::Verified(_));
-                            value.node.error_class = None;
-                            value.node.phase = Some("head_reconciled");
-                        });
-                    }
-                    _ => update_status(&status, |value| {
-                        value.node.ready = false;
-                        value.node.error_class = Some(node_error_class(&error));
-                    }),
-                },
+                Err(error) => update_status(&status, |value| {
+                    record_committed(value, Err(error));
+                }),
             }
             thread::sleep(poll);
         }
     });
+}
+
+fn recover_committed_coordinate(
+    spool: &ArchiveSpool,
+    first_height: u64,
+    next_height: u64,
+) -> Result<Option<CommittedCoordinate>, SpoolRecoveryError> {
+    if next_height == first_height {
+        return Ok(None);
+    }
+    let archive = ordered_archives(spool)
+        .pop()
+        .ok_or(SpoolRecoveryError::Archive)?
+        .map_err(|()| SpoolRecoveryError::Archive)?;
+    if archive.data().batch_number.checked_add(1) != Some(next_height) {
+        return Err(SpoolRecoveryError::BatchGap);
+    }
+    let block = archive
+        .data()
+        .committed
+        .as_ref()
+        .ok_or(SpoolRecoveryError::Archive)?;
+    Ok(Some(CommittedCoordinate {
+        height: archive.data().batch_number,
+        block_hash: block.block_hash,
+    }))
+}
+
+fn spool_committed(
+    block: &CommittedBlock,
+    network_id: u32,
+    spool: &ArchiveSpool,
+    status: &Arc<Mutex<RuntimeStatus>>,
+    next_height: u64,
+    previous: Option<CommittedCoordinate>,
+) -> Result<CommittedCoordinate, &'static str> {
+    if block.header.height != next_height {
+        return Err("committed_not_committed");
+    }
+    if let Some(previous) = previous {
+        if previous.height.checked_add(1) != Some(next_height) {
+            return Err("committed_not_committed");
+        }
+        if block.header.parent_hash != previous.block_hash {
+            return Err("committed_parent_mismatch");
+        }
+    }
+    let coordinate = CommittedCoordinate {
+        height: block.header.height,
+        block_hash: block.header.block_hash,
+    };
+    let head = crate::NodeHead::new(
+        coordinate.height,
+        Some(crate::CheckpointCoordinate {
+            batch_number: coordinate.height,
+            checkpoint_id: coordinate.block_hash,
+        }),
+    );
+    let archive =
+        Archive::from_committed(block, network_id, head).map_err(|_| "archive_evidence")?;
+    spool
+        .put(archive.commitment(), archive.bytes(), head)
+        .map_err(|_| "archive_spool")?;
+    update_status(status, |value| {
+        value.node.ready = true;
+        value.node.latest_batch_observed = Some(coordinate.height);
+        value.node.latest_batch_mirrored = Some(coordinate.height);
+        value.node.error_class = None;
+        value.node.phase = Some("spooled_committed_block");
+        record_committed(value, Ok(coordinate));
+    });
+    Ok(coordinate)
 }
 
 fn spawn_ethereum(
@@ -517,7 +552,7 @@ fn ethereum_production_config(
             .map_err(|_| EthereumError::Configuration)?,
         archive_code_hash: fixed_hex(&config.ethereum.archive_code_hash_hex)
             .map_err(|_| EthereumError::Configuration)?,
-        first_batch_number: config.first_batch_number,
+        first_batch_number: config.first_height,
         required_confirmations: config.ethereum.required_confirmations,
         maximum_reorg_depth: config.ethereum.maximum_reorg_depth,
         chunk_bytes: config.ethereum.chunk_bytes,
@@ -540,7 +575,7 @@ fn solana_production_config(
         program_data_account: fixed_base58(&solana.program_data_account_base58)?,
         program_code_hash: fixed_hex(&solana.program_code_hash_hex)
             .map_err(|_| SolanaError::Configuration)?,
-        first_batch_number: config.first_batch_number,
+        first_batch_number: config.first_height,
         required_rooted_slots: solana.required_rooted_slots,
         maximum_ancestry: solana.maximum_ancestry,
         chunk_bytes: solana.chunk_bytes,
@@ -611,30 +646,6 @@ impl From<SignerErrorShim> for SolanaError {
     }
 }
 
-fn node_config(config: &NodeFileConfig) -> NodeSourceConfig {
-    NodeSourceConfig {
-        socket: config.socket.clone(),
-        checkpoint_policy: config.checkpoint_policy.clone(),
-        handshake: layerx_client::lni::handshake::HandshakeConfig {
-            built_interface_version: layerx_client::lni::schema::Version::V1_0,
-            expected_protocol_version: config.expected_protocol_version,
-            expected_network_id: config.expected_network_id,
-        },
-        transport_limits: layerx_client::lni::transport::Limits {
-            maximum_frame_bytes: config.maximum_frame_bytes,
-            maximum_connections: config.maximum_connections,
-            maximum_streams: config.maximum_streams,
-            maximum_queued_bytes: config.maximum_queued_bytes,
-            deadline: Duration::from_millis(config.deadline_ms),
-        },
-        retrieval_limits: layerx_client::availability::RetrievalLimits {
-            maximum_bytes: config.maximum_archive_bytes,
-            maximum_chunks: config.maximum_archive_chunks,
-            deadline: Duration::from_millis(config.deadline_ms),
-        },
-    }
-}
-
 fn spawn_status(
     address: SocketAddr,
     status: Arc<Mutex<RuntimeStatus>>,
@@ -676,7 +687,7 @@ fn serve_status(
             .solana
             .as_ref()
             .is_none_or(|solana| solana.ready && solana.checkpoint_within_budget)
-        && snapshot.checkpoint_proof_boundary_ready;
+        && snapshot.committed_ready;
     let (code, reason, body) = match first {
         "GET /status HTTP/1.1" | "GET /status HTTP/1.0" => (
             200,
@@ -701,27 +712,25 @@ fn serve_status(
     .map_err(|_| RuntimeError::Status)
 }
 
-/// A verified certificate restores checkpoint readiness; a refusal latches it
-/// off, and batches observed without checkpoint evidence never clear a refusal.
-fn record_checkpoint(status: &mut RuntimeStatus, checkpoint: &CheckpointAcquisition) {
-    match checkpoint {
-        CheckpointAcquisition::NodeHasNoCheckpoint => {
-            if !status.checkpoint_identifier_observed {
-                status.checkpoint_proof_boundary_ready = true;
-            }
+/// A verified committed coordinate restores readiness; a refusal latches it off.
+fn record_committed(
+    status: &mut RuntimeStatus,
+    committed: Result<CommittedCoordinate, CommittedRefusal>,
+) {
+    match committed {
+        Ok(coordinate) => {
+            status.node.ready = true;
+            status.node.error_class = None;
+            status.committed_ready = true;
+            status.committed_refusal = None;
+            status.latest_committed_height = Some(coordinate.height);
+            status.latest_committed_block_hash = Some(hex_bytes(&coordinate.block_hash));
         }
-        CheckpointAcquisition::Verified(verified) => {
-            let coordinate = verified.coordinate();
-            status.checkpoint_identifier_observed = true;
-            status.checkpoint_proof_boundary_ready = true;
-            status.checkpoint_refusal = None;
-            status.latest_verified_checkpoint_batch = Some(coordinate.batch_number);
-            status.latest_verified_checkpoint_id = Some(hex_bytes(&coordinate.checkpoint_id));
-        }
-        CheckpointAcquisition::Refused { refusal, .. } => {
-            status.checkpoint_identifier_observed = true;
-            status.checkpoint_proof_boundary_ready = false;
-            status.checkpoint_refusal = Some(refusal.code());
+        Err(refusal) => {
+            status.node.ready = false;
+            status.node.error_class = Some(refusal.code());
+            status.committed_ready = false;
+            status.committed_refusal = Some(refusal.code());
         }
     }
     let progress = VerifiedProgress::of(status);
@@ -731,7 +740,7 @@ fn record_checkpoint(status: &mut RuntimeStatus, checkpoint: &CheckpointAcquisit
     }
 }
 
-/// Latest certificate-verified coordinates every chain is measured against.
+/// Latest verified committed coordinates every chain is measured against.
 #[derive(Clone, Copy)]
 struct VerifiedProgress {
     batch: Option<u64>,
@@ -743,7 +752,7 @@ impl VerifiedProgress {
     fn of(status: &RuntimeStatus) -> Self {
         Self {
             batch: status.node.latest_batch_mirrored,
-            checkpoint_batch: status.latest_verified_checkpoint_batch,
+            checkpoint_batch: status.latest_committed_height,
             budget: status.checkpoint_freshness_budget_batches,
         }
     }
@@ -759,7 +768,7 @@ impl VerifiedProgress {
             .checkpoint_batch_lag
             .is_none_or(|lag| lag <= self.budget);
         status.freshness = Some(match status.checkpoint_batch_lag {
-            None => "node_has_no_verified_checkpoint",
+            None => "no_verified_committed_block",
             Some(0) => "current",
             Some(lag) if lag <= self.budget => "within_budget",
             Some(_) => "beyond_budget",
@@ -904,17 +913,6 @@ const fn phase_name(value: PublicationPhase) -> &'static str {
     }
 }
 
-fn node_error_class(error: &crate::node::NodeSourceError) -> &'static str {
-    match error {
-        crate::node::NodeSourceError::Transport(_) => "transport",
-        crate::node::NodeSourceError::Handshake(_) => "handshake",
-        crate::node::NodeSourceError::Capability(_) => "capability",
-        crate::node::NodeSourceError::Availability(_)
-        | crate::node::NodeSourceError::AvailabilityPartial => "availability",
-        _ => "evidence",
-    }
-}
-
 fn ethereum_error_class(error: &EthereumError) -> &'static str {
     match error {
         EthereumError::Rpc(_) => "rpc",
@@ -942,37 +940,33 @@ fn solana_error_class(error: &SolanaError) -> &'static str {
 }
 
 fn validate_runtime(config: &RuntimeConfig) -> Result<(), RuntimeError> {
-    let checkpoint_policy = &config.node.checkpoint_policy;
-    if checkpoint_policy.chain_id == 0
-        || checkpoint_policy.confirmations == 0
-        || fixed_hex::<32>(&checkpoint_policy.genesis_hash_hex)
-            .map_err(|_| RuntimeError::Configuration)?
+    let paxeer = &config.paxeer;
+    if paxeer.chain_id == 0
+        || u32::try_from(paxeer.chain_id).is_err()
+        || fixed_hex::<32>(&paxeer.genesis_hash_hex).map_err(|_| RuntimeError::Configuration)?
             == [0; 32]
-        || fixed_hex::<32>(&checkpoint_policy.sequencer_public_key_hex)
-            .map_err(|_| RuntimeError::Configuration)?
-            == [0; 32]
+        || paxeer.receipt_keys.is_empty()
     {
         return Err(RuntimeError::Configuration);
     }
-    RpcCluster::new(&checkpoint_policy.rpc).map_err(|_| RuntimeError::Configuration)?;
+    for key in &paxeer.receipt_keys {
+        if key.first_height > key.last_height
+            || fixed_hex::<32>(&key.sequencer_id_hex).map_err(|_| RuntimeError::Configuration)?
+                == [0; 32]
+            || fixed_hex::<32>(&key.public_key_hex).map_err(|_| RuntimeError::Configuration)?
+                == [0; 32]
+        {
+            return Err(RuntimeError::Configuration);
+        }
+    }
+    RpcCluster::new(&paxeer.rpc).map_err(|_| RuntimeError::Configuration)?;
     if !config.state_directory.is_absolute()
-        || !config.node.socket.is_absolute()
-        || config.first_batch_number == 0
+        || config.first_height == 0
         || !(100..=60_000).contains(&config.poll_interval_ms)
-        || !(1..=1_000_000).contains(&config.checkpoint_freshness_budget_batches)
+        || !(1..=1_000_000).contains(&config.freshness_budget_blocks)
         || !matches!(config.status_listen.ip(), IpAddr::V4(_) | IpAddr::V6(_))
         || !config.status_listen.ip().is_loopback()
         || config.status_listen.port() == 0
-        || !layerx_wire::limits::protocol_version_uses_occupancy(
-            config.node.expected_protocol_version,
-        )
-        || !(100..=120_000).contains(&config.node.deadline_ms)
-        || !(1024..=64 * 1024 * 1024).contains(&config.node.maximum_frame_bytes)
-        || !(1..=64).contains(&config.node.maximum_connections)
-        || !(1..=64).contains(&config.node.maximum_streams)
-        || !(1024..=128 * 1024 * 1024).contains(&config.node.maximum_queued_bytes)
-        || !(1024..=64 * 1024 * 1024).contains(&config.node.maximum_archive_bytes)
-        || !(1..=65_536).contains(&config.node.maximum_archive_chunks)
     {
         return Err(RuntimeError::Configuration);
     }
@@ -1078,15 +1072,13 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     use super::{
-        apply_ethereum_progress, apply_solana_progress, hex_bytes, record_checkpoint,
+        apply_ethereum_progress, apply_solana_progress, hex_bytes, record_committed,
         recover_batch_sequence, recover_next_batch, recover_spool, ComponentStatus, RuntimeConfig,
         RuntimeStatus, SpoolRecoveryError,
     };
-    use crate::node::{CheckpointAcquisition, CheckpointRefusal};
+    use crate::committed::{CommittedCoordinate, CommittedRefusal};
     use crate::store::{ArchiveSpool, StoreError};
     use crate::{archive_commitment, ArchiveCommitment, ChainProgress, NodeHead};
-    use layerx_client::evidence::EvidenceError;
-    use layerx_proof::checkpoint::CheckpointError;
 
     static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
 
@@ -1147,7 +1139,7 @@ mod tests {
           "maximum_priority_fee_per_gas": 5000000000,
           "signer": {
             "key_handle": "mirror/ethereum/beta",
-            "public_key": "02aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+            "public_key": "0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798",
             "timeout_ms": 5000,
             "transport": {"kind":"uds","socket":"/run/mirror-signer/signer.sock"}
           }
@@ -1187,35 +1179,296 @@ mod tests {
         format!(
             r#"{{
               "state_directory": "/var/lib/layerx-mirror",
-              "first_batch_number": 1,
+              "first_height": 1,
               "poll_interval_ms": 5000,
-              "checkpoint_freshness_budget_batches": 64,
+              "freshness_budget_blocks": 64,
               "status_listen": "127.0.0.1:9091",
-              "node": {{
-                "socket": "/run/layerx/node/layerxd.lni.sock",
-                "expected_protocol_version": 3,
-                "expected_network_id": 1,
-                "maximum_frame_bytes": 67108864,
-                "maximum_connections": 2,
-                "maximum_streams": 2,
-                "maximum_queued_bytes": 67108864,
-                "deadline_ms": 30000,
-                "maximum_archive_bytes": 67108864,
-                "maximum_archive_chunks": 65536,
-                "checkpoint_policy": {}
+              "paxeer": {{
+                "rpc": {{
+                  "endpoints": [
+                    {{"url":"https://paxeer-a.invalid/rpc","ca_certificate_der":"/run/secrets/a.der","bearer_token_file":"/run/secrets/a.token","independent_backend":"paxeer-a"}},
+                    {{"url":"https://paxeer-b.invalid/rpc","ca_certificate_der":"/run/secrets/b.der","bearer_token_file":"/run/secrets/b.token","independent_backend":"paxeer-b"}},
+                    {{"url":"https://paxeer-c.invalid/rpc","ca_certificate_der":"/run/secrets/c.der","bearer_token_file":"/run/secrets/c.token","independent_backend":"paxeer-c"}}
+                  ],
+                  "quorum": 2,
+                  "connect_timeout_ms": 3000,
+                  "request_timeout_ms": 15000,
+                  "maximum_response_bytes": 16777216
+                }},
+                "chain_id": 125,
+                "genesis_hash_hex": "1111111111111111111111111111111111111111111111111111111111111111",
+                "receipt_keys": [{{
+                  "sequencer_id_hex": "6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b",
+                  "public_key_hex": "8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+                  "first_height": 1000,
+                  "last_height": 1999
+                }}]
               }},
               {}
             }}"#,
-            serde_json::to_string(
-                &serde_json::from_str::<serde_json::Value>(include_str!(
-                    "../../../deploy/mirror/config.example.json"
-                ))
-                .unwrap_or_else(|error| panic!("portable config: {error:?}"))["node"]
-                    ["checkpoint_policy"]
-            )
-            .unwrap_or_else(|error| panic!("portable policy: {error:?}")),
             sections.join(",\n")
         )
+    }
+
+    fn configure_rpc_files(config: &mut RuntimeConfig, directory: &std::path::Path) {
+        use openssl::asn1::Asn1Time;
+        use openssl::hash::MessageDigest;
+        use openssl::pkey::PKey;
+        use openssl::rsa::Rsa;
+        use openssl::x509::{X509NameBuilder, X509};
+        use std::os::unix::fs::PermissionsExt;
+
+        let key = PKey::from_rsa(Rsa::generate(2048).unwrap_or_else(|e| panic!("RSA: {e}")))
+            .unwrap_or_else(|e| panic!("key: {e}"));
+        let mut name = X509NameBuilder::new().unwrap_or_else(|e| panic!("name: {e}"));
+        name.append_entry_by_text("CN", "Runtime configuration test")
+            .unwrap_or_else(|e| panic!("name: {e}"));
+        let name = name.build();
+        let mut certificate = X509::builder().unwrap_or_else(|e| panic!("certificate: {e}"));
+        certificate
+            .set_version(2)
+            .unwrap_or_else(|e| panic!("version: {e}"));
+        let serial = openssl::bn::BigNum::from_u32(1)
+            .and_then(|n| n.to_asn1_integer())
+            .unwrap_or_else(|e| panic!("serial: {e}"));
+        certificate
+            .set_serial_number(&serial)
+            .unwrap_or_else(|e| panic!("serial: {e}"));
+        certificate
+            .set_subject_name(&name)
+            .unwrap_or_else(|e| panic!("subject: {e}"));
+        certificate
+            .set_issuer_name(&name)
+            .unwrap_or_else(|e| panic!("issuer: {e}"));
+        certificate
+            .set_pubkey(&key)
+            .unwrap_or_else(|e| panic!("public key: {e}"));
+        let before = Asn1Time::days_from_now(0).unwrap_or_else(|e| panic!("time: {e}"));
+        let after = Asn1Time::days_from_now(1).unwrap_or_else(|e| panic!("time: {e}"));
+        certificate
+            .set_not_before(&before)
+            .unwrap_or_else(|e| panic!("time: {e}"));
+        certificate
+            .set_not_after(&after)
+            .unwrap_or_else(|e| panic!("time: {e}"));
+        certificate
+            .sign(&key, MessageDigest::sha256())
+            .unwrap_or_else(|e| panic!("sign: {e}"));
+        let certificate_path = directory.join("ca.der");
+        std::fs::write(
+            &certificate_path,
+            certificate
+                .build()
+                .to_der()
+                .unwrap_or_else(|e| panic!("DER: {e}")),
+        )
+        .unwrap_or_else(|e| panic!("certificate file: {e}"));
+        let token_path = directory.join("bearer");
+        std::fs::write(&token_path, b"runtime-configuration-test")
+            .unwrap_or_else(|e| panic!("token file: {e}"));
+        std::fs::set_permissions(&token_path, std::fs::Permissions::from_mode(0o600))
+            .unwrap_or_else(|e| panic!("token permissions: {e}"));
+        for rpc in [&mut config.paxeer.rpc, &mut config.ethereum.rpc] {
+            for endpoint in &mut rpc.endpoints {
+                endpoint.ca_certificate_der = certificate_path.clone();
+                endpoint.bearer_token_file = token_path.clone();
+            }
+        }
+    }
+
+    #[test]
+    fn a_paxeer_section_builds_the_committed_source_configuration() {
+        let rendered = rendered_configuration(&[ETHEREUM_SECTION]);
+        let mut config: RuntimeConfig = serde_json::from_str(&rendered)
+            .unwrap_or_else(|error| panic!("parse committed configuration: {error}"));
+        let document: serde_json::Value = serde_json::from_str(&rendered)
+            .unwrap_or_else(|error| panic!("configuration JSON: {error}"));
+        let expected: crate::committed::CommittedSourceConfig =
+            serde_json::from_value(document["paxeer"].clone())
+                .unwrap_or_else(|error| panic!("committed source section: {error}"));
+        assert_eq!(config.paxeer, expected);
+        assert_eq!(config.first_height, 1);
+        assert_eq!(config.freshness_budget_blocks, 64);
+        assert_eq!(config.paxeer.chain_id, 125);
+        assert_eq!(config.paxeer.receipt_keys.len(), 1);
+        assert_eq!(config.paxeer.receipt_keys[0].first_height, 1000);
+        assert_eq!(config.paxeer.receipt_keys[0].last_height, 1999);
+
+        let scratch = ScratchDirectory::new("paxeer-configuration");
+        configure_rpc_files(&mut config, scratch.path());
+        assert_eq!(super::validate_runtime(&config), Ok(()));
+        let mut invalid = config.clone();
+        invalid.paxeer.chain_id = 0;
+        assert_eq!(
+            super::validate_runtime(&invalid),
+            Err(super::RuntimeError::Configuration)
+        );
+        invalid = config.clone();
+        invalid.paxeer.genesis_hash_hex = "not-a-block-hash".to_owned();
+        assert_eq!(
+            super::validate_runtime(&invalid),
+            Err(super::RuntimeError::Configuration)
+        );
+        invalid = config.clone();
+        invalid.paxeer.receipt_keys.clear();
+        assert_eq!(
+            super::validate_runtime(&invalid),
+            Err(super::RuntimeError::Configuration)
+        );
+        invalid = config.clone();
+        invalid.paxeer.receipt_keys[0].last_height = 999;
+        assert_eq!(
+            super::validate_runtime(&invalid),
+            Err(super::RuntimeError::Configuration)
+        );
+        for (current, retired) in [
+            ("paxeer", "node"),
+            ("first_height", "first_batch_number"),
+            (
+                "freshness_budget_blocks",
+                "checkpoint_freshness_budget_batches",
+            ),
+        ] {
+            let retired = rendered.replace(&format!("\"{current}\":"), &format!("\"{retired}\":"));
+            assert!(serde_json::from_str::<RuntimeConfig>(&retired).is_err());
+        }
+    }
+
+    #[test]
+    fn the_runtime_spools_committed_archives_in_height_order() {
+        use crate::committed::{CommittedBlock, CommittedCoordinate, CommittedHeader};
+
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/committed_blocks.json"))
+                .unwrap_or_else(|e| panic!("recorded committed block: {e}"));
+        let first = CommittedBlock {
+            header: CommittedHeader::from_block_json(&fixture["committedBlock"])
+                .unwrap_or_else(|e| panic!("recorded header: {e:?}")),
+            receipts: fixture["receipts"]
+                .as_array()
+                .unwrap_or_else(|| panic!("recorded receipts"))
+                .iter()
+                .map(|receipt| {
+                    super::decode_hex(
+                        receipt["receipt"]
+                            .as_str()
+                            .unwrap_or_else(|| panic!("receipt bytes")),
+                    )
+                    .unwrap_or_else(|_| panic!("decode recorded receipt"))
+                })
+                .collect(),
+        };
+        let second = CommittedBlock {
+            header: CommittedHeader {
+                height: first.header.height + 1,
+                block_hash: [0x66; 32],
+                parent_hash: first.header.block_hash,
+                app_hash: first.header.app_hash,
+                timestamp: first.header.timestamp + 1,
+                transactions: Vec::new(),
+            },
+            receipts: Vec::new(),
+        };
+        let scratch = ScratchDirectory::new("committed-height-order");
+        let directory = scratch.path().join("archives");
+        let spool = ArchiveSpool::open(&directory).unwrap_or_else(|e| panic!("open spool: {e:?}"));
+        let status = Arc::new(Mutex::new(RuntimeStatus {
+            checkpoint_freshness_budget_batches: 64,
+            ..RuntimeStatus::default()
+        }));
+        let first_height = first.header.height;
+        assert_eq!(
+            recover_next_batch(&spool, first_height)
+                .unwrap_or_else(|e| panic!("empty recovery: {e:?}")),
+            first_height
+        );
+        assert_eq!(
+            super::recover_committed_coordinate(&spool, first_height, first_height)
+                .unwrap_or_else(|e| panic!("empty coordinate: {e:?}")),
+            None
+        );
+        assert_eq!(
+            super::spool_committed(&second, 125, &spool, &status, first_height, None),
+            Err("committed_not_committed")
+        );
+        assert!(spool
+            .commitments()
+            .unwrap_or_else(|e| panic!("inventory: {e:?}"))
+            .is_empty());
+        let previous = super::spool_committed(&first, 125, &spool, &status, first_height, None)
+            .unwrap_or_else(|e| panic!("spool first block: {e}"));
+        assert_eq!(
+            previous,
+            CommittedCoordinate {
+                height: first_height,
+                block_hash: first.header.block_hash
+            }
+        );
+        let next_height = recover_next_batch(&spool, first_height)
+            .unwrap_or_else(|e| panic!("recover next height: {e:?}"));
+        assert_eq!(next_height, second.header.height);
+        drop(spool);
+
+        let spool =
+            ArchiveSpool::open(&directory).unwrap_or_else(|e| panic!("reopen spool: {e:?}"));
+        let recovered = super::recover_committed_coordinate(&spool, first_height, next_height)
+            .unwrap_or_else(|e| panic!("recover committed coordinate: {e:?}"));
+        assert_eq!(recovered, Some(previous));
+        let mut wrong_parent = second.clone();
+        wrong_parent.header.parent_hash = [0x77; 32];
+        assert_eq!(
+            super::spool_committed(&wrong_parent, 125, &spool, &status, next_height, recovered),
+            Err("committed_parent_mismatch")
+        );
+        super::spool_committed(&second, 125, &spool, &status, next_height, recovered)
+            .unwrap_or_else(|e| panic!("spool next block after restart: {e}"));
+        let archives = super::ordered_archives(&spool)
+            .into_iter()
+            .map(|archive| archive.unwrap_or_else(|()| panic!("load committed archive")))
+            .collect::<Vec<_>>();
+        assert_eq!(archives.len(), 2);
+        for (archive, block) in archives.iter().zip([&first, &second]) {
+            assert_eq!(archive.data().batch_number, block.header.height);
+            assert_eq!(archive.data().network_id, 125);
+            assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
+            let committed = archive
+                .data()
+                .committed
+                .as_ref()
+                .unwrap_or_else(|| panic!("committed archive data"));
+            assert_eq!(committed.block_hash, block.header.block_hash);
+            assert_eq!(committed.receipts, block.receipts);
+            assert_eq!(
+                archive.node_head(),
+                NodeHead::new(
+                    block.header.height,
+                    Some(crate::CheckpointCoordinate {
+                        batch_number: block.header.height,
+                        checkpoint_id: block.header.block_hash,
+                    })
+                )
+            );
+        }
+        assert_eq!(
+            recover_next_batch(&spool, first_height)
+                .unwrap_or_else(|e| panic!("recover completed prefix: {e:?}")),
+            second.header.height + 1
+        );
+        let value = status
+            .lock()
+            .unwrap_or_else(|e| panic!("runtime status: {e}"));
+        assert!(value.node.ready);
+        assert!(value.committed_ready);
+        assert_eq!(value.node.latest_batch_mirrored, Some(second.header.height));
+        assert_eq!(value.latest_committed_height, Some(second.header.height));
+        assert_eq!(
+            value.latest_committed_block_hash,
+            Some(hex_bytes(&second.header.block_hash))
+        );
+        assert_eq!(
+            value.ethereum.latest_batch_verified,
+            Some(second.header.height)
+        );
     }
 
     #[test]
@@ -1291,14 +1544,7 @@ mod tests {
         let bytes = b"inventory object removed before recovery";
         let missing = archive_commitment(bytes);
         spool
-            .put(
-                missing,
-                bytes,
-                NodeHead {
-                    latest_sealed_batch: 1,
-                    latest_finalised_checkpoint: None,
-                },
-            )
+            .put(missing, bytes, NodeHead::new(1, None))
             .unwrap_or_else(|error| panic!("spool missing archive fixture: {error:?}"));
         let commitments = spool
             .commitments()
@@ -1323,14 +1569,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("open archive spool: {error:?}"));
         let bytes = b"not a canonical LayerX mirror archive";
         spool
-            .put(
-                archive_commitment(bytes),
-                bytes,
-                NodeHead {
-                    latest_sealed_batch: 1,
-                    latest_finalised_checkpoint: None,
-                },
-            )
+            .put(archive_commitment(bytes), bytes, NodeHead::new(1, None))
             .unwrap_or_else(|error| panic!("spool corrupt archive fixture: {error:?}"));
 
         assert!(matches!(
@@ -1423,58 +1662,126 @@ mod tests {
             checkpoint_freshness_budget_batches: 4,
             ..RuntimeStatus::default()
         };
-        record_checkpoint(&mut status, &CheckpointAcquisition::NodeHasNoCheckpoint);
-        assert!(status.checkpoint_proof_boundary_ready);
-        assert!(status.ethereum.checkpoint_within_budget);
-        assert_eq!(
-            status.ethereum.freshness,
-            Some("node_has_no_verified_checkpoint")
-        );
-        assert_eq!(status.ethereum.freshness_budget_batches, 4);
-
-        for error in [
-            EvidenceError::Checkpoint(CheckpointError::SignerMembership([7; 32])),
-            EvidenceError::Checkpoint(CheckpointError::Threshold {
-                achieved: 1,
-                required: 2,
-            }),
-            EvidenceError::SelectorMismatch,
-            EvidenceError::NetworkMismatch,
-            EvidenceError::Unavailable,
+        assert!(!status.committed_ready);
+        for (refusal, code) in [
+            (CommittedRefusal::Unavailable, "committed_unavailable"),
+            (CommittedRefusal::ChainMismatch, "committed_chain_mismatch"),
+            (
+                CommittedRefusal::GenesisMismatch,
+                "committed_genesis_mismatch",
+            ),
+            (CommittedRefusal::Divergence, "committed_divergence"),
+            (CommittedRefusal::NotCommitted, "committed_not_committed"),
+            (
+                CommittedRefusal::ReceiptSignature,
+                "committed_receipt_signature",
+            ),
+            (
+                CommittedRefusal::ParentMismatch,
+                "committed_parent_mismatch",
+            ),
+            (
+                CommittedRefusal::HeightRegressed,
+                "committed_height_regressed",
+            ),
+            (CommittedRefusal::Malformed, "committed_malformed"),
         ] {
-            let refusal = CheckpointRefusal::from_evidence(&error);
-            record_checkpoint(
-                &mut status,
-                &CheckpointAcquisition::Refused {
-                    checkpoint_id: [9; 32],
-                    refusal,
-                },
+            assert_eq!(refusal.code(), code);
+            record_committed(&mut status, Err(refusal));
+            assert!(!status.committed_ready);
+            assert!(!status.node.ready);
+            assert_eq!(status.committed_refusal, Some(code));
+            assert_eq!(status.node.error_class, Some(code));
+            assert_eq!(status.latest_committed_height, None);
+            assert_eq!(status.latest_committed_block_hash, None);
+            assert!(status.ethereum.checkpoint_within_budget);
+            assert_eq!(
+                status.ethereum.freshness,
+                Some("no_verified_committed_block")
             );
-            assert!(!status.checkpoint_proof_boundary_ready);
-            assert_eq!(status.checkpoint_refusal, Some(refusal.code()));
-            assert_eq!(status.latest_verified_checkpoint_batch, None);
-            record_checkpoint(&mut status, &CheckpointAcquisition::NodeHasNoCheckpoint);
-            assert!(!status.checkpoint_proof_boundary_ready);
-            assert_eq!(status.checkpoint_refusal, Some(refusal.code()));
+            assert_eq!(status.ethereum.freshness_budget_batches, 4);
+
+            let shared = Arc::new(Mutex::new(status));
+            apply_ethereum_progress(&shared, ChainProgress::default(), None);
+            apply_solana_progress(&shared, ChainProgress::default(), None);
+            status = shared
+                .lock()
+                .unwrap_or_else(|error| panic!("runtime status: {error}"))
+                .clone();
+            assert!(!status.committed_ready);
+            assert!(!status.node.ready);
+            assert_eq!(status.committed_refusal, Some(code));
         }
-        assert_eq!(
-            CheckpointRefusal::from_evidence(&EvidenceError::Checkpoint(
-                CheckpointError::SignerMembership([7; 32])
-            )),
-            CheckpointRefusal::SignerMembership
+        record_committed(
+            &mut status,
+            Ok(CommittedCoordinate {
+                height: 9,
+                block_hash: [9; 32],
+            }),
         );
+        assert!(status.committed_ready);
+        assert!(status.node.ready);
+        assert_eq!(status.committed_refusal, None);
+        assert_eq!(status.node.error_class, None);
+        assert_eq!(status.latest_committed_height, Some(9));
         assert_eq!(
-            CheckpointRefusal::from_evidence(&EvidenceError::Checkpoint(
-                CheckpointError::Threshold {
-                    achieved: 1,
-                    required: 2
-                }
-            )),
-            CheckpointRefusal::Threshold
+            status.latest_committed_block_hash,
+            Some(hex_bytes(&[9; 32]))
         );
-        assert_eq!(
-            CheckpointRefusal::from_evidence(&EvidenceError::NetworkMismatch),
-            CheckpointRefusal::DomainMismatch
-        );
+        assert_eq!(status.ethereum.latest_checkpoint_batch_verified, Some(9));
+        assert_eq!(status.ethereum.checkpoint_batch_lag, Some(9));
+        assert!(!status.ethereum.checkpoint_within_budget);
+        let solana = status
+            .solana
+            .as_ref()
+            .unwrap_or_else(|| panic!("configured Solana lane"));
+        assert_eq!(solana.latest_checkpoint_batch_verified, Some(9));
+        assert_eq!(solana.checkpoint_batch_lag, Some(9));
+        assert!(!solana.checkpoint_within_budget);
+    }
+
+    #[test]
+    fn runtime_status_reports_the_committed_source_refusal_code() {
+        let mut status = RuntimeStatus::default();
+        record_committed(&mut status, Err(CommittedRefusal::ParentMismatch));
+        let refused = serde_json::to_value(&status)
+            .unwrap_or_else(|error| panic!("serialize refused status: {error}"));
+        assert_eq!(refused["committed_refusal"], "committed_parent_mismatch");
+        assert_eq!(refused["committed_ready"], false);
+        assert_eq!(refused["node"]["ready"], false);
+        assert_eq!(refused["node"]["error_class"], "committed_parent_mismatch");
+        assert!(refused.get("checkpoint_refusal").is_none());
+        assert!(refused["latest_committed_height"].is_null());
+        assert!(refused["latest_committed_block_hash"].is_null());
+
+        let coordinate = CommittedCoordinate {
+            height: 9,
+            block_hash: [0xab; 32],
+        };
+        record_committed(&mut status, Ok(coordinate));
+        let verified = serde_json::to_value(&status)
+            .unwrap_or_else(|error| panic!("serialize verified status: {error}"));
+        assert_eq!(verified["committed_ready"], true);
+        assert_eq!(verified["node"]["ready"], true);
+        assert!(verified["committed_refusal"].is_null());
+        assert!(verified["node"]["error_class"].is_null());
+        assert_eq!(verified["latest_committed_height"], 9);
+        assert_eq!(verified["latest_committed_block_hash"], "ab".repeat(32));
+        assert_eq!(verified["ethereum"]["latest_checkpoint_batch_verified"], 9);
+        assert!(verified.get("checkpoint_refusal").is_none());
+
+        let shared = Arc::new(Mutex::new(status));
+        super::update_status(&shared, |value| {
+            record_committed(value, Err(CommittedRefusal::Unavailable));
+        });
+        apply_ethereum_progress(&shared, ChainProgress::default(), None);
+        let latched = shared
+            .lock()
+            .unwrap_or_else(|error| panic!("runtime status: {error}"));
+        assert!(!latched.committed_ready);
+        assert!(!latched.node.ready);
+        assert_eq!(latched.committed_refusal, Some("committed_unavailable"));
+        assert_eq!(latched.latest_committed_height, Some(9));
+        assert_eq!(latched.latest_committed_block_hash, Some("ab".repeat(32)));
     }
 }

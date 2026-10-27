@@ -88,6 +88,10 @@ func (k Keeper) DenomPaused(c context.Context, req *types.QueryDenomPausedReques
 	}
 
 	ctx := sdk.UnwrapSDKContext(c)
+	if !k.GetDenomPrefixStore(ctx, req.Denom).Has([]byte(types.DenomAuthorityMetadataKey)) {
+		return nil, status.Errorf(codes.NotFound, "authority metadata for denom %s", req.Denom)
+	}
+
 	metadata, err := k.GetAuthorityMetadata(ctx, req.Denom)
 	if err != nil {
 		return nil, status.Errorf(codes.NotFound, "authority metadata for denom %s: %v", req.Denom, err)

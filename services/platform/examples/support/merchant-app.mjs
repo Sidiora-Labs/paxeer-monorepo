@@ -1,6 +1,7 @@
 import { createServer } from "node:http";
+import { keccak256 } from "@sidiora/layerx-sdk";
 import { mkdir, open, readFile, rename } from "node:fs/promises";
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { MerchantError, MerchantMiddleware, MerchantSettlementWebhooks } from "@sidiora/layerx-merchant-middleware";
 import {
   MiddlewareError,
@@ -10,7 +11,8 @@ import {
 } from "@sidiora/layerx-seller-middleware";
 import {
   LayerXApplicationStateError,
-  ReceiptAuthorityClient,
+  SequencerReceiptClient,
+  receiptKeysFromEnvironment,
   applicationStatePath,
   exactObject,
   hex32,
@@ -28,24 +30,59 @@ const safeName = (value) => {
   return value;
 };
 
-const serializeBatch = (batch) => ({
-  batch_id: Buffer.from(batch.batchId).toString("hex"),
-  asset: Buffer.from(batch.asset).toString("hex"),
-  previous_state_root: Buffer.from(batch.previousStateRoot).toString("hex"),
-  resulting_state_root: Buffer.from(batch.resultingStateRoot).toString("hex"),
-  sequencer_public_key: Buffer.from(batch.sequencerPublicKey).toString("hex"),
-});
+const transactionHash = (raw) => `0x${Buffer.from(keccak256(raw)).toString("hex")}`;
 
-const parseBatch = (value) => {
-  const batch = exactObject(value);
-  return {
-    batchId: hex32(batch.batch_id),
-    asset: hex32(batch.asset),
-    previousStateRoot: hex32(batch.previous_state_root),
-    resultingStateRoot: hex32(batch.resulting_state_root),
-    sequencerPublicKey: hex32(batch.sequencer_public_key),
-  };
-};
+class TransactionReceipts {
+  constructor(rpcUrl, receiptKeys) {
+    this.client = new SequencerReceiptClient(rpcUrl, receiptKeys);
+  }
+
+  async resolve(transaction) {
+    if (typeof transaction !== "string" || !/^0x[0-9a-f]{64}$/u.test(transaction)) {
+      throw new LayerXApplicationStateError("refused", "invalid_transaction_hash");
+    }
+    let response;
+    let body;
+    try {
+      response = await fetch(this.client.rpcUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "eth_getRawTransactionByHash", params: [transaction] }),
+      });
+      body = await response.json();
+    } catch {
+      throw new LayerXApplicationStateError("unknown", "transaction_unreachable");
+    }
+    if (!response.ok || body?.jsonrpc !== "2.0" || body.id !== 1 || body.error !== undefined) {
+      throw new LayerXApplicationStateError("unknown", "invalid_transaction_response");
+    }
+    if (body.result === null) throw new LayerXApplicationStateError("pending", "transaction_unavailable");
+    if (typeof body.result !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(body.result)
+      || body.result.length > 2097154) {
+      throw new LayerXApplicationStateError("unknown", "invalid_raw_transaction");
+    }
+    const raw = Uint8Array.from(Buffer.from(body.result.slice(2), "hex"));
+    if (transactionHash(raw) !== transaction) {
+      throw new LayerXApplicationStateError("refused", "transaction_hash_mismatch");
+    }
+    return this.client.resolve(raw);
+  }
+}
+
+class MerchantCheckout extends MerchantMiddleware {
+  async quote(checkoutKey, lines) {
+    const quote = await super.quote(checkoutKey, lines);
+    const requirements = quote.paymentRequired.accepts[0];
+    requirements.extra = {
+      ...requirements.extra,
+      layerx: {
+        ...requirements.extra.layerx,
+        purposeHash: transactionHash(new TextEncoder().encode(quote.paymentRequired.resource.url)).slice(2),
+      },
+    };
+    return quote;
+  }
+}
 
 const syncDirectory = async (path) => {
   const directory = await open(dirname(path), "r");
@@ -172,9 +209,10 @@ class FileOrders {
 }
 
 class SettlementAuthority {
-  constructor(url, token) {
+  constructor(url, token, receipts) {
     this.url = secureUrl(url);
     this.token = token;
+    this.receipts = receipts;
   }
 
   async settle(request) {
@@ -198,13 +236,12 @@ class SettlementAuthority {
     if (result.state === "pending") return { kind: "pending" };
     if (result.state === "refused") return { kind: "refused", reason: String(result.reason ?? "refused") };
     if (result.state === "unknown") throw new LayerXApplicationStateError("unknown", "settlement_unknown");
-    if (result.state !== "settled" || typeof result.receipt_base64 !== "string") {
+    if (result.state !== "settled" || typeof result.transaction !== "string" || !/^0x[0-9a-f]{64}$/u.test(result.transaction)) {
       throw new LayerXApplicationStateError("unknown", "invalid_settlement_response");
     }
     return {
       kind: "settled",
-      canonicalReceipt: Uint8Array.from(Buffer.from(result.receipt_base64, "base64")),
-      authorizedBatch: parseBatch(result.authorized_batch),
+      ...await this.receipts.resolve(result.transaction),
     };
   }
 }
@@ -214,28 +251,27 @@ class FileFulfillments {
     this.directory = directory;
   }
 
+  async get(idempotencyKey) {
+    const path = join(this.directory, `${safeName(idempotencyKey)}.json`);
+    try {
+      return exactObject(JSON.parse(await readFile(path, "utf8")));
+    } catch (error) {
+      if (error.code === "ENOENT") return undefined;
+      throw error;
+    }
+  }
+
   async fulfill(proposed, release) {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const path = join(this.directory, `${safeName(proposed.idempotencyKey)}.json`);
-    try {
-      const stored = exactObject(JSON.parse(await readFile(path, "utf8")));
-      if (stored.requestDigest !== proposed.requestDigest) throw new MiddlewareError("fulfillment-conflict");
-      return {
-        ...proposed,
-        canonicalReceipt: Uint8Array.from(Buffer.from(stored.receipt, "base64")),
-        authorizedBatch: parseBatch(stored.authorizedBatch),
-        resource: stored.resource,
-      };
-    } catch (error) {
-      if (error.code !== "ENOENT") throw error;
+    const stored = await this.get(proposed.idempotencyKey);
+    if (stored !== undefined) {
+      if (stored.requestDigest !== proposed.requestDigest || stored.txHash !== proposed.txHash
+        || stored.receiptDigest !== proposed.receiptDigest) throw new MiddlewareError("fulfillment-conflict");
+      return stored;
     }
     const resource = await release();
-    const record = {
-      requestDigest: proposed.requestDigest,
-      receipt: Buffer.from(proposed.canonicalReceipt).toString("base64"),
-      authorizedBatch: serializeBatch(proposed.authorizedBatch),
-      resource,
-    };
+    const record = { ...proposed, resource };
     try {
       const file = await open(path, "wx", 0o600);
       try {
@@ -340,9 +376,11 @@ export async function runMerchantApplication(moduleUrl, application) {
   const token = requiredEnvironment(config.tokenEnvironment);
   const state = applicationStatePath(config, config.stateDirectory);
   const orders = new FileOrders(join(state, "orders"));
-  const authority = new SettlementAuthority(config.settlementUrl, token);
+  const receiptKeys = receiptKeysFromEnvironment(config.receiptKeysEnvironment);
+  const receipts = new TransactionReceipts(config.rpcUrl, receiptKeys);
+  const authority = new SettlementAuthority(config.settlementUrl, token, receipts);
   const fulfillments = new FileFulfillments(join(state, "fulfillments"));
-  const merchant = new MerchantMiddleware({
+  const merchant = new MerchantCheckout({
     catalog: new DeclaredCatalog({
       sku: "metered-report",
       title: "Receipt-backed market report",
@@ -350,30 +388,28 @@ export async function runMerchantApplication(moduleUrl, application) {
       asset: requiredEnvironment(config.assetEnvironment),
       payTo: requiredEnvironment(config.payToEnvironment),
       scheme: config.scheme,
-      network: config.network,
+      network: "eip155:125",
       maxTimeoutSeconds: 60,
       extra: {
         layerx: {
-          commitment: "executed",
+          commitment: "receipted",
           account: requiredEnvironment(config.accountEnvironment),
           currency: requiredEnvironment(config.currencyEnvironment),
         },
       },
     }),
     orders,
-    sellers: { create: (paymentRequired, protocolVersion) => new SellerMiddleware({ paymentRequired, protocolVersion, authority, fulfillments }) },
-    protocolVersion: config.protocolVersion,
+    sellers: { create: (paymentRequired) => new SellerMiddleware({ paymentRequired, receiptKeys, authority, fulfillments }) },
     resourceUrl: (checkoutKey) => new URL(`/orders/${encodeURIComponent(checkoutKey)}`, config.publicUrl).toString(),
   });
-  const receiptAuthority = new ReceiptAuthorityClient(config.receiptAuthorityUrl, token);
   const webhook = new MerchantSettlementWebhooks({
     verifier: new VerifiedWebhookConsumer({
       publicKeys: parseWebhookKeys(requiredEnvironment(config.webhookKeysEnvironment)),
       deliveries: new FileWebhookDeliveries(join(state, "webhook-deliveries")),
     }),
     orders,
-    receipts: { resolve: (receiptRef) => receiptAuthority.resolveReference(receiptRef) },
-    protocolVersion: config.protocolVersion,
+    receipts,
+    receiptKeys,
   });
   const port = Number(config.port);
   if (!Number.isSafeInteger(port) || port <= 0 || port > 65535) throw new Error("invalid_port");

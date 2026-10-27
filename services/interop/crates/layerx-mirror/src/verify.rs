@@ -4,11 +4,13 @@ use layerx_crypto::ed25519;
 use layerx_proof::inclusion::{verify_state, InclusionError, SequencerAuthorization};
 use layerx_proof::merkle::{build_proof, verify_path, MerkleError, Proof};
 use layerx_proof::receipt::{
-    authorized_maintained_activity_batch_chain, verify_outcome, AuthorizedBatch,
-    MaintainedOutcomeEvidence, ReceiptCheck, VerifiedReceipt,
+    authorized_maintained_activity_batch_chain, verify_outcome, verify_sequencer_signature,
+    AuthorizedBatch, MaintainedOutcomeEvidence, ReceiptCheck, ReceiptKeys, VerifiedReceipt,
 };
 use layerx_wire::hash::batch_header_digest;
-use layerx_wire::receipt::{decode, decode_batch_header};
+use layerx_wire::receipt::{decode, decode_batch_header, Receipt};
+
+use crate::committed::CommittedCoordinate;
 
 use crate::source::{MirrorLag, MirrorObservation, MirrorSourceFreshness, ObservedArchive};
 use crate::{
@@ -97,6 +99,7 @@ impl<T> MirrorVerification<T> {
         self.batch_number
     }
 
+    /// Returns zero for committed evidence, which carries no signed batch header.
     #[must_use]
     pub const fn signed_header_digest(&self) -> [u8; 32] {
         self.signed_header_digest
@@ -115,6 +118,7 @@ impl<T> MirrorVerification<T> {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum MirrorEvidenceLevel {
+    Committed,
     BatchIncluded,
     StateProven,
 }
@@ -135,46 +139,24 @@ pub enum MirrorVerifyError {
     SourceBatch,
     SourceReorged,
     CheckpointTrustUnavailable,
+    CommittedUnavailable,
 }
 
-/// Offline verifier over untrusted archive bytes and separately configured
-/// signed-header authority.
+enum MirrorAuthority {
+    SignedHeader(SignedHeaderTrust),
+    Committed,
+}
+
+/// Offline verifier over untrusted archive bytes and separately configured authority.
 pub struct MirrorVerifier {
     archive: ArchiveData,
-    trust: SignedHeaderTrust,
+    authority: MirrorAuthority,
     header_digest: [u8; 32],
     freshness: MirrorVerificationFreshness,
     observation: Option<MirrorObservation>,
 }
 
 impl MirrorVerifier {
-    /// Verifies a retained native certificate through independently configured Paxeer authority.
-    ///
-    /// # Errors
-    /// Refuses legacy archives, invalid native evidence, wrong authority, non-FINAL state or reorgs.
-    pub fn checkpoint_with_native_authority(
-        &self,
-        policy: &crate::node::NativeCheckpointPolicy,
-    ) -> Result<CheckpointCoordinate, MirrorVerifyError> {
-        let archived = self
-            .archive
-            .checkpoint
-            .as_ref()
-            .ok_or(MirrorVerifyError::CheckpointTrustUnavailable)?;
-        let candidate = crate::publisher::native_archive_candidate(&archived.canonical_certificate)
-            .map_err(MirrorVerifyError::Archive)?;
-        crate::node::native_candidate_publication(
-            &candidate,
-            policy,
-            self.trust.sequencer_public_key,
-        )
-        .map_err(|_| MirrorVerifyError::CheckpointTrustUnavailable)?;
-        if candidate.checkpoint_id() != archived.coordinate.checkpoint_id {
-            return Err(MirrorVerifyError::CheckpointTrustUnavailable);
-        }
-        Ok(archived.coordinate)
-    }
-
     /// Admits one sealed source observation. Archive, chain identity,
     /// canonical position and freshness remain one indivisible source fact.
     ///
@@ -190,6 +172,91 @@ impl MirrorVerifier {
         }
         let freshness = MirrorVerificationFreshness::from_source(observation.freshness);
         Self::admit(&archive_bytes, trust, freshness, Some(observation))
+    }
+
+    /// Admits a committed archive without requiring a signed batch header.
+    ///
+    /// # Errors
+    /// Refuses mismatched source commitments or heights and archives without committed evidence.
+    pub fn from_committed_source(observed: ObservedArchive) -> Result<Self, MirrorVerifyError> {
+        let (archive_bytes, observation) = observed.into_parts();
+        Self::admit_committed(&archive_bytes, observation)
+    }
+
+    fn admit_committed(
+        archive_bytes: &[u8],
+        observation: MirrorObservation,
+    ) -> Result<Self, MirrorVerifyError> {
+        if crate::archive_commitment(archive_bytes) != observation.commitment {
+            return Err(MirrorVerifyError::SourceCommitment);
+        }
+        let archive = ArchiveData::decode(archive_bytes).map_err(MirrorVerifyError::Archive)?;
+        if archive.committed.is_none() {
+            return Err(MirrorVerifyError::CommittedUnavailable);
+        }
+        if observation.batch_number != archive.batch_number {
+            return Err(MirrorVerifyError::SourceBatch);
+        }
+        let freshness = MirrorVerificationFreshness::from_source(observation.freshness);
+        if freshness
+            .latest_batch_mirrored
+            .is_some_and(|latest| latest < archive.batch_number)
+        {
+            return Err(MirrorVerifyError::HeaderAuthority);
+        }
+        Ok(Self {
+            archive,
+            authority: MirrorAuthority::Committed,
+            header_digest: [0; 32],
+            freshness,
+            observation: Some(observation),
+        })
+    }
+
+    /// Returns the committed block coordinate retained in a v4 archive.
+    ///
+    /// # Errors
+    /// Refuses batch-era archives without a committed coordinate.
+    pub fn committed(&self) -> Result<CommittedCoordinate, MirrorVerifyError> {
+        let committed = self
+            .archive
+            .committed
+            .as_ref()
+            .ok_or(MirrorVerifyError::CommittedUnavailable)?;
+        Ok(CommittedCoordinate {
+            height: self.archive.batch_number,
+            block_hash: committed.block_hash,
+        })
+    }
+
+    /// Verifies an archived receipt under independently configured receipt key windows.
+    ///
+    /// # Errors
+    /// Refuses absent committed evidence or receipt indices and preserves the failing receipt check.
+    pub fn committed_receipt(
+        &self,
+        index: usize,
+        keys: &[SequencerAuthorization],
+    ) -> Result<MirrorVerification<Receipt>, MirrorVerifyError> {
+        let committed = self
+            .archive
+            .committed
+            .as_ref()
+            .ok_or(MirrorVerifyError::CommittedUnavailable)?;
+        let canonical = committed
+            .receipts
+            .get(index)
+            .ok_or(MirrorVerifyError::ReceiptMissing)?;
+        let value = verify_sequencer_signature(canonical, ReceiptKeys::HeightRanges(keys))
+            .map_err(|failure| MirrorVerifyError::Receipt(failure.check))?;
+        Ok(self.report(value, MirrorEvidenceLevel::Committed))
+    }
+
+    fn signed_header_trust(&self) -> Result<SignedHeaderTrust, MirrorVerifyError> {
+        match self.authority {
+            MirrorAuthority::SignedHeader(trust) => Ok(trust),
+            MirrorAuthority::Committed => Err(MirrorVerifyError::HeaderAuthority),
+        }
     }
 
     fn admit(
@@ -233,7 +300,7 @@ impl MirrorVerifier {
         }
         Ok(Self {
             archive,
-            trust,
+            authority: MirrorAuthority::SignedHeader(trust),
             header_digest,
             freshness,
             observation,
@@ -288,6 +355,7 @@ impl MirrorVerifier {
         proof: &Proof,
         header: &layerx_wire::receipt::BatchHeader,
     ) -> Result<AuthorizedBatch, MirrorVerifyError> {
+        let trust = self.signed_header_trust()?;
         let decoded = decode(canonical).map_err(|_| MirrorVerifyError::ReceiptDecode)?;
         let receipt = decoded.protocol().ok_or(MirrorVerifyError::ReceiptDecode)?;
         let last = self
@@ -314,7 +382,7 @@ impl MirrorVerifier {
             receipt.asset(),
             header.previous_state_root(),
             header.resulting_state_root(),
-            self.trust.sequencer_public_key,
+            trust.sequencer_public_key,
         );
         if maintenance.is_some() {
             let leaves = self
@@ -327,10 +395,10 @@ impl MirrorVerifier {
             let (maintenance_proof, _) = build_proof(&leaves, leaves.len() - 1)
                 .map_err(MirrorVerifyError::ReceiptInclusion)?;
             let authorization = SequencerAuthorization::new(
-                self.trust.sequencer_id,
-                self.trust.sequencer_public_key,
-                self.trust.first_batch_number,
-                self.trust.last_batch_number,
+                trust.sequencer_id,
+                trust.sequencer_public_key,
+                trust.first_batch_number,
+                trust.last_batch_number,
             );
             return authorized_maintained_activity_batch_chain(
                 canonical,
@@ -371,11 +439,12 @@ impl MirrorVerifier {
     {
         let header = decode_batch_header(&self.archive.canonical_batch_header)
             .map_err(|_| MirrorVerifyError::Header)?;
+        let trust = self.signed_header_trust()?;
         let authority = SequencerAuthorization::new(
-            self.trust.sequencer_id,
-            self.trust.sequencer_public_key,
-            self.trust.first_batch_number,
-            self.trust.last_batch_number,
+            trust.sequencer_id,
+            trust.sequencer_public_key,
+            trust.first_batch_number,
+            trust.last_batch_number,
         );
         let value = verify_state(
             canonical_state,
@@ -405,7 +474,7 @@ impl MirrorVerifier {
     /// checkpoint verifier. It must never be promoted to checkpoint level.
     ///
     /// # Errors
-    /// Returns `MirrorVerifyError::CheckpointTrustUnavailable` without independent authority; use `checkpoint_with_native_authority` for retained native evidence.
+    /// Returns `MirrorVerifyError::CheckpointTrustUnavailable` because the archive does not retain independent checkpoint authority.
     pub const fn checkpoint_level() -> Result<(), MirrorVerifyError> {
         Err(MirrorVerifyError::CheckpointTrustUnavailable)
     }
@@ -425,6 +494,299 @@ mod tests {
         include_bytes!("../tests/fixtures/native-publisher/sequencer.id");
     const SEQUENCER_KEY: &[u8; 32] =
         include_bytes!("../tests/fixtures/native-publisher/sequencer.public");
+
+    fn fixture_bytes(value: &serde_json::Value) -> Vec<u8> {
+        let digits = value
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .unwrap_or_else(|| panic!("fixture hex string"));
+        (0..digits.len())
+            .step_by(2)
+            .map(|index| {
+                u8::from_str_radix(&digits[index..index + 2], 16)
+                    .unwrap_or_else(|error| panic!("fixture hex: {error}"))
+            })
+            .collect()
+    }
+
+    fn committed_archive() -> (
+        crate::Archive,
+        Vec<layerx_proof::inclusion::SequencerAuthorization>,
+    ) {
+        let fixture: serde_json::Value =
+            serde_json::from_str(include_str!("../tests/fixtures/committed_blocks.json"))
+                .unwrap_or_else(|error| panic!("recorded committed block: {error}"));
+        let block = crate::committed::CommittedBlock {
+            header: crate::committed::CommittedHeader::from_block_json(&fixture["committedBlock"])
+                .unwrap_or_else(|error| panic!("committed header: {error:?}")),
+            receipts: fixture["receipts"]
+                .as_array()
+                .unwrap_or_else(|| panic!("recorded receipts"))
+                .iter()
+                .map(|receipt| fixture_bytes(&receipt["receipt"]))
+                .collect(),
+        };
+        let key = &fixture["receiptKey"];
+        let keys = vec![layerx_proof::inclusion::SequencerAuthorization::new(
+            fixture_bytes(&key["keyId"])
+                .try_into()
+                .unwrap_or_else(|_| panic!("key id length")),
+            fixture_bytes(&key["publicKey"])
+                .try_into()
+                .unwrap_or_else(|_| panic!("public key length")),
+            key["firstHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("first height")),
+            key["lastHeight"]
+                .as_u64()
+                .unwrap_or_else(|| panic!("last height")),
+        )];
+        let archive = crate::Archive::from_committed(
+            &block,
+            125,
+            crate::NodeHead {
+                latest_sealed_batch: block.header.height,
+                latest_finalised_checkpoint: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("v4 archive: {error:?}"));
+        (archive, keys)
+    }
+
+    fn observation(archive: &crate::Archive) -> crate::source::MirrorObservation {
+        use crate::source::{
+            MirrorCanonicalPosition, MirrorLag, MirrorObservation, MirrorProvenance,
+            MirrorSourceFreshness, MirrorSourceId, MirrorTargetIdentity,
+        };
+        MirrorObservation {
+            source: MirrorSourceId::new("recorded-archive")
+                .unwrap_or_else(|error| panic!("source id: {error:?}")),
+            target: MirrorTargetIdentity::Ethereum {
+                chain_id: 125,
+                genesis_hash: [1; 32],
+                contract: [2; 20],
+                code_hash: [3; 32],
+                publisher: [4; 20],
+            },
+            commitment: archive.commitment(),
+            batch_number: archive.data().batch_number,
+            checkpoint: None,
+            position: MirrorCanonicalPosition::Ethereum {
+                block_number: 50,
+                block_hash: [5; 32],
+                reference_head_number: 52,
+                reference_head_hash: [6; 32],
+            },
+            provenance: MirrorProvenance::Canonical,
+            freshness: MirrorSourceFreshness {
+                latest_batch: Some(archive.data().batch_number),
+                latest_checkpoint: None,
+                batch_lag: MirrorLag::Known(0),
+                checkpoint_lag: MirrorLag::Unknown,
+            },
+            failover_count: 0,
+            agreeing_sources: 1,
+        }
+    }
+
+    fn batch_era_archive() -> crate::Archive {
+        use layerx_proof::availability::{reassemble, verify_chunk, Chunk};
+        use layerx_proof::merkle::build_leaf_hash_proof;
+
+        let data = ArchiveData::decode(ARCHIVE)
+            .unwrap_or_else(|error| panic!("native archive: {error:?}"));
+        let authorization = data.batch_authorization;
+        let trust = SignedHeaderTrust {
+            sequencer_id: *SEQUENCER_ID,
+            sequencer_public_key: *SEQUENCER_KEY,
+            first_batch_number: authorization.first_batch_number,
+            last_batch_number: authorization.last_batch_number,
+        };
+        let batch =
+            crate::NodeBatch::verify(data.canonical_batch_header.clone(), authorization, &trust)
+                .unwrap_or_else(|error| panic!("native batch: {error:?}"));
+        let hashes = data
+            .chunks
+            .iter()
+            .map(|chunk| chunk.claimed_hash)
+            .collect::<Vec<_>>();
+        let verified = data
+            .chunks
+            .iter()
+            .enumerate()
+            .map(|(index, chunk)| {
+                let (proof, root) = build_leaf_hash_proof(&hashes, index)
+                    .unwrap_or_else(|error| panic!("chunk proof: {error:?}"));
+                assert_eq!(root, data.data_availability_root);
+                verify_chunk(
+                    Chunk {
+                        batch_number: data.batch_number,
+                        index: chunk.index,
+                        class: chunk.class,
+                        class_offset: chunk.class_offset,
+                        claimed_hash: chunk.claimed_hash,
+                        bytes: chunk.bytes.clone(),
+                    },
+                    &proof,
+                    data.batch_number,
+                    &root,
+                )
+                .unwrap_or_else(|error| panic!("chunk verification: {error:?}"))
+            })
+            .collect::<Vec<_>>();
+        let (records, _) = reassemble(&verified, data.record_roots)
+            .unwrap_or_else(|error| panic!("native records: {error:?}"));
+        records
+            .verify(&verified, data.record_roots)
+            .unwrap_or_else(|error| panic!("availability: {error:?}"));
+        crate::Archive::from_node(
+            &batch,
+            &verified,
+            None,
+            crate::NodeHead {
+                latest_sealed_batch: data.batch_number,
+                latest_finalised_checkpoint: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("batch-era archive: {error:?}"))
+    }
+
+    #[test]
+    fn a_v4_archive_receipt_verifies_under_the_configured_keys() -> Result<(), MirrorVerifyError> {
+        let (archive, keys) = committed_archive();
+        let observed = observation(&archive);
+        let verifier = MirrorVerifier::admit_committed(archive.bytes(), observed.clone())?;
+        assert!(archive.data().canonical_batch_header.is_empty());
+        let receipts = &archive
+            .data()
+            .committed
+            .as_ref()
+            .ok_or(MirrorVerifyError::CommittedUnavailable)?
+            .receipts;
+        for (index, canonical) in receipts.iter().enumerate() {
+            let result = verifier.committed_receipt(index, &keys)?;
+            assert_eq!(
+                result.value(),
+                &layerx_wire::receipt::decode(canonical)
+                    .map_err(|_| MirrorVerifyError::ReceiptDecode)?
+            );
+            assert_eq!(result.level(), MirrorEvidenceLevel::Committed);
+            assert_eq!(result.batch_number(), 1000);
+            assert_eq!(result.observation(), Some(&observed));
+            assert_eq!(
+                result.freshness(),
+                MirrorVerificationFreshness::from_source(observed.freshness)
+            );
+        }
+        assert_eq!(
+            verifier.committed_receipt(receipts.len(), &keys),
+            Err(MirrorVerifyError::ReceiptMissing)
+        );
+        assert!(matches!(
+            verifier.signed_header_trust(),
+            Err(MirrorVerifyError::HeaderAuthority)
+        ));
+        let mut wrong_commitment = observed.clone();
+        wrong_commitment.commitment = crate::ArchiveCommitment::from_bytes([0; 32]);
+        assert!(matches!(
+            MirrorVerifier::admit_committed(archive.bytes(), wrong_commitment),
+            Err(MirrorVerifyError::SourceCommitment)
+        ));
+        let mut wrong_height = observed.clone();
+        wrong_height.batch_number += 1;
+        assert!(matches!(
+            MirrorVerifier::admit_committed(archive.bytes(), wrong_height),
+            Err(MirrorVerifyError::SourceBatch)
+        ));
+        let mut stale_head = observed;
+        stale_head.freshness.latest_batch = Some(999);
+        assert!(matches!(
+            MirrorVerifier::admit_committed(archive.bytes(), stale_head),
+            Err(MirrorVerifyError::HeaderAuthority)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn a_v4_receipt_signed_outside_the_key_windows_is_refused() -> Result<(), MirrorVerifyError> {
+        use layerx_proof::inclusion::SequencerAuthorization;
+        use layerx_proof::receipt::ReceiptCheck;
+        let (archive, keys) = committed_archive();
+        let verifier = MirrorVerifier::admit_committed(archive.bytes(), observation(&archive))?;
+        let key = &keys[0];
+        let outside = [SequencerAuthorization::new(
+            key.sequencer_id(),
+            key.public_key(),
+            1,
+            999,
+        )];
+        assert_eq!(
+            verifier.committed_receipt(0, &outside),
+            Err(MirrorVerifyError::Receipt(ReceiptCheck::SequencerSignature))
+        );
+        let after = [SequencerAuthorization::new(
+            key.sequencer_id(),
+            key.public_key(),
+            1001,
+            1999,
+        )];
+        assert_eq!(
+            verifier.committed_receipt(0, &after),
+            Err(MirrorVerifyError::Receipt(ReceiptCheck::SequencerSignature))
+        );
+        let exact = [SequencerAuthorization::new(
+            key.sequencer_id(),
+            key.public_key(),
+            1000,
+            1000,
+        )];
+        assert_eq!(
+            verifier.committed_receipt(0, &exact)?.level(),
+            MirrorEvidenceLevel::Committed
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn the_committed_coordinate_is_read_from_a_v4_archive() -> Result<(), MirrorVerifyError> {
+        let (archive, _) = committed_archive();
+        let verifier = MirrorVerifier::admit_committed(archive.bytes(), observation(&archive))?;
+        assert_eq!(
+            verifier.committed()?,
+            crate::committed::CommittedCoordinate {
+                height: 1000,
+                block_hash: [0x11; 32],
+            }
+        );
+        let legacy = batch_era_archive();
+        assert_eq!(&legacy.bytes()[8..10], &2_u16.to_be_bytes());
+        assert!(matches!(
+            MirrorVerifier::admit_committed(legacy.bytes(), observation(&legacy)),
+            Err(MirrorVerifyError::CommittedUnavailable)
+        ));
+        let data = legacy.data();
+        let trust = SignedHeaderTrust {
+            sequencer_id: *SEQUENCER_ID,
+            sequencer_public_key: *SEQUENCER_KEY,
+            first_batch_number: data.batch_authorization.first_batch_number,
+            last_batch_number: data.batch_authorization.last_batch_number,
+        };
+        let verifier = MirrorVerifier::admit(
+            legacy.bytes(),
+            trust,
+            MirrorVerificationFreshness::offline(data.batch_number, None),
+            None,
+        )?;
+        assert_eq!(
+            verifier.committed(),
+            Err(MirrorVerifyError::CommittedUnavailable)
+        );
+        assert_eq!(
+            verifier.committed_receipt(0, &[]),
+            Err(MirrorVerifyError::CommittedUnavailable)
+        );
+        Ok(())
+    }
 
     #[test]
     fn native_fixture_receipt_verifies_and_altered_bytes_are_refused(

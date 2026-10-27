@@ -1225,7 +1225,6 @@ dependencies = [
  "k256",
  "layerx-crypto",
  "layerx-mirror",
- "layerx-paxeer-verifier",
  "layerx-proof",
  "openssl",
  "serde",
@@ -1258,6 +1257,7 @@ name = "layerx-committed-proof"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
+ "serde_json",
  "sha2 0.10.9",
 ]
 

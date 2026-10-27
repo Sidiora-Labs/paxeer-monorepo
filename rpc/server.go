@@ -3,6 +3,7 @@ package evmrpc
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -33,8 +34,18 @@ type EVMServer interface {
 	Stop()
 }
 
-// ServerOption configures NewEVMHTTPServer (a TraceContextProvider, a SequencerReceiptOption or a
-// SequencerOption) and NewEVMWebSocketServer (a SequencerOption).
+func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
+	return RPCEndpointConfig{
+		batchItemLimit:         config.BatchRequestLimit,
+		batchResponseSizeLimit: config.BatchResponseMaxSize,
+		ipRateLimitRPS:         config.IPRateLimitRPS,
+		ipRateLimitBurst:       config.IPRateLimitBurst,
+	}
+}
+
+// ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
+// SequencerOption, PendingOption or SequencerForwardOption) and NewEVMWebSocketServer
+// (a SequencerOption, PendingOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
 
 func (TraceContextProvider) serverOption()   {}
@@ -60,16 +71,24 @@ func NewSequencerOption(accepter SequencerAccepter, feed *ReceiptLogFeed) Sequen
 	}
 }
 
-// sendConfig is the SendConfig of a server: the sequencer's when o is set, otherwise the
-// mempool path's.
-func (o *SequencerOption) sendConfig(config evmrpcconfig.Config) *SendConfig {
-	sendConfig := &SendConfig{slow: config.Slow, keyringEnabled: config.EnableUnsafeKeyringRPC}
+// sendConfig configures the sequencer, forwarding or mempool send path of a server.
+func (o *SequencerOption) sendConfig(config evmrpcconfig.Config, forward *SequencerForwardOption) (*SendConfig, error) {
+	if o != nil && forward != nil {
+		return nil, errors.New("sequencer and sequencer forwarding options are mutually exclusive")
+	}
+	sendConfig := &SendConfig{slow: config.Slow, keyringEnabled: config.EnableUnsafeKeyringRPC, syncTimeout: config.SendRawTxSyncTimeout}
 	if o != nil {
 		sendConfig.Sequencer = o.accepter
 		sendConfig.pendingTxs = o.pendingTxs
 		sendConfig.receiptLogs = o.receiptLogs
 	}
-	return sendConfig
+	if forward != nil {
+		if forward.url == nil {
+			return nil, errors.New("sequencer forwarding option needs a URL; build it with NewSequencerForwardOption")
+		}
+		sendConfig.SequencerURL = forward.url
+	}
+	return sendConfig, nil
 }
 
 // sequencerOption takes opt as a server's SequencerOption; current is the one already taken, if
@@ -146,6 +165,7 @@ func NewEVMHTTPServer(
 	traceCtxProvider := defaultTraceContextProvider(ctxProvider)
 	var sequencerReceipts SequencerReceiptOption
 	var seq *SequencerOption
+	var forward *SequencerForwardOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
 		case TraceContextProvider:
@@ -154,6 +174,13 @@ func NewEVMHTTPServer(
 			}
 		case SequencerReceiptOption:
 			sequencerReceipts = o
+		case PendingOption:
+			if o.source == nil {
+				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
+			}
+			watermarks.SetPendingSnapshot(o.source)
+		case SequencerForwardOption:
+			forward = &o
 		case SequencerOption:
 			var err error
 			if seq, err = sequencerOption(o, seq); err != nil {
@@ -161,10 +188,14 @@ func NewEVMHTTPServer(
 			}
 		}
 	}
+	sendCfg, err := seq.sendConfig(config, forward)
+	if err != nil {
+		return nil, err
+	}
 
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
-	sendAPI := NewSendAPI(tmClient, txConfigProvider, seq.sendConfig(config), k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeHTTP, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks)
+	sendAPI := NewSendAPI(tmClient, txConfigProvider, sendCfg, k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeHTTP, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks)
 	sequencerReceiptAPI, err := newSequencerReceiptAPI(tmClient, ctxProvider, sequencerReceipts, ConnectionTypeHTTP)
 	if err != nil {
 		return nil, err
@@ -234,6 +265,14 @@ func NewEVMHTTPServer(
 			Service:   txAPI,
 		},
 		{
+			Namespace: "eth",
+			Service:   NewRawTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeHTTP, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC),
+		},
+		{
+			Namespace: "eth",
+			Service:   NewUncleAPI(tmClient, watermarks, ConnectionTypeHTTP),
+		},
+		{
 			Namespace: "pax",
 			Service:   paxTxAPI,
 		},
@@ -267,7 +306,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "pax",
-			Service:   filterAPI("pax"),
+			Service:   NewPaxFilterAPI(filterAPI("pax")),
 		},
 		{
 			Namespace: "pax",
@@ -279,7 +318,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "web3",
-			Service:   &Web3API{},
+			Service:   &Web3API{connectionType: ConnectionTypeHTTP},
 		},
 		{
 			Namespace: "debug",
@@ -304,8 +343,9 @@ func NewEVMHTTPServer(
 	if err := httpServer.EnableRPC(apis, HTTPConfig{
 		CorsAllowedOrigins: strings.Split(config.CORSOrigins, ","),
 		Vhosts:             []string{"*"},
-		DenyList:           config.DenyList,
+		DenyList:           append(slices.Clone(config.DenyList), "lx_unsubscribe", "eth_lx_unsubscribe"),
 		PaxLegacyAllowlist: paxLegacyAllowlist,
+		RPCEndpointConfig:  newRPCEndpointConfig(config),
 	}); err != nil {
 		return nil, err
 	}
@@ -331,15 +371,29 @@ func NewEVMWebSocketServer(
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
 	var seq *SequencerOption
+	var forward *SequencerForwardOption
+	var pending PendingSnapshot
 	for _, opt := range opts {
-		o, ok := opt.(SequencerOption)
-		if !ok {
+		switch o := opt.(type) {
+		case PendingOption:
+			if o.source == nil {
+				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
+			}
+			pending = o.source
+		case SequencerForwardOption:
+			forward = &o
+		case SequencerOption:
+			var err error
+			if seq, err = sequencerOption(o, seq); err != nil {
+				return nil, err
+			}
+		default:
 			return nil, fmt.Errorf("EVM WebSocket server takes no %T option", opt)
 		}
-		var err error
-		if seq, err = sequencerOption(o, seq); err != nil {
-			return nil, err
-		}
+	}
+	sendCfg, err := seq.sendConfig(config, forward)
+	if err != nil {
+		return nil, err
 	}
 	ctx := ctxProvider(LatestCtxHeight)
 	if config.EnableUnsafeKeyringRPC && evmCfg.IsLiveChainID(ctx) {
@@ -359,7 +413,7 @@ func NewEVMWebSocketServer(
 		IdleTimeout:       config.IdleTimeout,
 	})
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
-	if err := httpServer.SetListenAddr(LocalAddress, config.WSPort); err != nil {
+	if err := httpServer.SetListenAddr(config.HTTPAddress, config.WSPort); err != nil {
 		return nil, err
 	}
 	simulateConfig := &SimulateConfig{
@@ -368,11 +422,35 @@ func NewEVMWebSocketServer(
 		MaxConcurrentSimulationCalls: config.MaxConcurrentSimulationCalls,
 	}
 	watermarks := NewWatermarkManager(tmClient, ctxProvider, stateStore, k.ReceiptStore())
+	if pending != nil {
+		watermarks.SetPendingSnapshot(pending)
+	}
 	// DB semaphore aligned with worker count
 	dbReadSemaphore := make(chan struct{}, GetGlobalWorkerPool().WorkerCount())
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
 	globalLogSlicePool := NewLogSlicePool()
+	filterAPI := func(namespace string) *FilterAPI {
+		api := NewFilterAPI(
+			tmClient,
+			k,
+			ctxProvider,
+			txConfigProvider,
+			&FilterConfig{timeout: config.FilterTimeout, maxLog: config.MaxLogNoBlock, maxBlock: config.MaxBlocksForLog},
+			ConnectionTypeWS,
+			namespace,
+			dbReadSemaphore,
+			globalBlockCache,
+			cacheCreationMutex,
+			globalLogSlicePool,
+			watermarks,
+		)
+		if seq != nil {
+			api.setReceiptLogFeed(seq.receiptLogs)
+		}
+		httpServer.addStopHook(api.shutdown)
+		return api
+	}
 	subscriptionAPI, err := NewSubscriptionAPI(tmClient, k, ctxProvider, &LogFetcher{
 		tmClient:           tmClient,
 		k:                  k,
@@ -383,7 +461,7 @@ func NewEVMWebSocketServer(
 		cacheCreationMutex: cacheCreationMutex,
 		globalLogSlicePool: globalLogSlicePool,
 		watermarks:         watermarks,
-	}, &SubscriptionConfig{subscriptionCapacity: 100, newHeadLimit: config.MaxSubscriptionsNewHead}, &FilterConfig{timeout: config.FilterTimeout, maxLog: config.MaxLogNoBlock, maxBlock: config.MaxBlocksForLog}, ConnectionTypeWS, blockHeaderNotifier)
+	}, &SubscriptionConfig{subscriptionCapacity: 100, newHeadLimit: config.MaxSubscriptionsNewHead, logLimit: config.MaxSubscriptionsLogs}, &FilterConfig{timeout: config.FilterTimeout, maxLog: config.MaxLogNoBlock, maxBlock: config.MaxBlocksForLog}, ConnectionTypeWS, blockHeaderNotifier)
 	if err != nil {
 		return nil, err
 	}
@@ -405,6 +483,14 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
+			Service:   NewRawTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC),
+		},
+		{
+			Namespace: "eth",
+			Service:   NewUncleAPI(tmClient, watermarks, ConnectionTypeWS),
+		},
+		{
+			Namespace: "eth",
 			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks),
 		},
 		{
@@ -413,7 +499,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewSendAPI(tmClient, txConfigProvider, seq.sendConfig(config), k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeWS, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks),
+			Service:   NewSendAPI(tmClient, txConfigProvider, sendCfg, k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeWS, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks),
 		},
 		{
 			Namespace: "eth",
@@ -428,12 +514,20 @@ func NewEVMWebSocketServer(
 			Service:   subscriptionAPI,
 		},
 		{
+			Namespace: "eth",
+			Service:   filterAPI("eth"),
+		},
+		{
 			Namespace: "web3",
-			Service:   &Web3API{},
+			Service:   &Web3API{connectionType: ConnectionTypeWS},
 		},
 	}
 
-	wsConfig := WsConfig{Origins: strings.Split(config.WSOrigins, ",")}
+	wsConfig := WsConfig{
+		Origins:           strings.Split(config.WSOrigins, ","),
+		DenyList:          append(slices.Clone(config.DenyList), "lx_unsubscribe", "eth_lx_unsubscribe"),
+		RPCEndpointConfig: newRPCEndpointConfig(config),
+	}
 	wsConfig.readLimit = DefaultWebsocketMaxMessageSize
 	if err := httpServer.EnableWS(apis, wsConfig); err != nil {
 		return nil, err

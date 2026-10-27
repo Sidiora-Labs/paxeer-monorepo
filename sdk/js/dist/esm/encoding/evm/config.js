@@ -11,6 +11,9 @@ export const ChainConfig = {
         if (message.verkle_time !== 0) {
             writer.uint32(24).int64(message.verkle_time);
         }
+        if (message.pax_sstore_set_gas_eip2200 !== 0) {
+            writer.uint32(32).uint64(message.pax_sstore_set_gas_eip2200);
+        }
         return writer;
     },
     decode(input, length) {
@@ -38,6 +41,12 @@ export const ChainConfig = {
                     }
                     message.verkle_time = longToNumber(reader.int64());
                     continue;
+                case 4:
+                    if (tag !== 32) {
+                        break;
+                    }
+                    message.pax_sstore_set_gas_eip2200 = longToNumber(reader.uint64());
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -50,7 +59,8 @@ export const ChainConfig = {
         return {
             cancun_time: isSet(object.cancun_time) ? globalThis.Number(object.cancun_time) : 0,
             prague_time: isSet(object.prague_time) ? globalThis.Number(object.prague_time) : 0,
-            verkle_time: isSet(object.verkle_time) ? globalThis.Number(object.verkle_time) : 0
+            verkle_time: isSet(object.verkle_time) ? globalThis.Number(object.verkle_time) : 0,
+            pax_sstore_set_gas_eip2200: isSet(object.pax_sstore_set_gas_eip2200) ? globalThis.Number(object.pax_sstore_set_gas_eip2200) : 0
         };
     },
     toJSON(message) {
@@ -64,6 +74,9 @@ export const ChainConfig = {
         if (message.verkle_time !== 0) {
             obj.verkle_time = Math.round(message.verkle_time);
         }
+        if (message.pax_sstore_set_gas_eip2200 !== 0) {
+            obj.pax_sstore_set_gas_eip2200 = Math.round(message.pax_sstore_set_gas_eip2200);
+        }
         return obj;
     },
     create(base) {
@@ -74,11 +87,12 @@ export const ChainConfig = {
         message.cancun_time = object.cancun_time ?? 0;
         message.prague_time = object.prague_time ?? 0;
         message.verkle_time = object.verkle_time ?? 0;
+        message.pax_sstore_set_gas_eip2200 = object.pax_sstore_set_gas_eip2200 ?? 0;
         return message;
     }
 };
 function createBaseChainConfig() {
-    return { cancun_time: 0, prague_time: 0, verkle_time: 0 };
+    return { cancun_time: 0, prague_time: 0, verkle_time: 0, pax_sstore_set_gas_eip2200: 0 };
 }
 function longToNumber(int64) {
     const num = globalThis.Number(int64.toString());

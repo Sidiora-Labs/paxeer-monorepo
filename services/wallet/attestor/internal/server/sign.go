@@ -27,7 +27,6 @@ import (
 )
 
 const (
-	KindCustody         = "custody"
 	KindEVMTransaction  = "evm_tx"
 	KindTypedData       = "eip712"
 	KindPersonalMessage = "personal_message"
@@ -43,7 +42,6 @@ const (
 )
 
 var kindCurves = map[string]dealer.Curve{
-	KindCustody:         dealer.Secp256k1,
 	KindEVMTransaction:  dealer.Secp256k1,
 	KindTypedData:       dealer.Secp256k1,
 	KindPersonalMessage: dealer.Secp256k1,
@@ -54,7 +52,7 @@ var kindCurves = map[string]dealer.Curve{
 }
 
 func SignKinds() []string {
-	return []string{KindCustody, KindEVMTransaction, KindTypedData, KindPersonalMessage, KindEthSignDigest, KindLXBind, KindLXGrant, KindLXSendAuth}
+	return []string{KindEVMTransaction, KindTypedData, KindPersonalMessage, KindEthSignDigest, KindLXBind, KindLXGrant, KindLXSendAuth}
 }
 
 type GrantJSON struct {
@@ -72,14 +70,8 @@ type GrantJSON struct {
 	RevocationSequence uint64 `json:"revocation_sequence"`
 }
 
-type CustodyProofJSON struct {
-	Bytes     string `json:"bytes"`
-	Signature string `json:"signature"`
-}
-
 type SignRequest struct {
 	ClockProfile string                 `json:"clock_profile,omitempty"`
-	Custody      *CustodyProofJSON      `json:"custody,omitempty"`
 	Origin       *agent.OriginalRequest `json:"origin,omitempty"`
 	SessionID    string                 `json:"session_id"`
 	KeyID        string                 `json:"key_id"`
@@ -443,25 +435,13 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return refuse(policyError(policy.CodeDestinationDenied, "replicated agent policy refused the decoded request"))
 		}
 	}
-	ledgerSession := req.SessionID
-	if req.Kind == KindCustody || req.Custody != nil {
-		rawText := req.Message
-		if req.Custody != nil {
-			rawText = req.Custody.Bytes
-		}
-		raw, err := hex.DecodeString(strings.TrimPrefix(rawText, "0x"))
-		if err != nil {
-			return refuse(newError(CodeSessionBadRequest, "invalid custody bytes"))
-		}
-		ledgerSession = "custody-" + hex.EncodeToString(gethcrypto.Keccak256(raw))
-	}
 	unlockAccount := s.lockKey("ledger\x00" + policy.AccountKey(payload.Account))
-	decision := s.evaluate(payload.Account, policyKind, view, s.spends.ForRequest(requestID(req.KeyID, ledgerSession)))
+	decision := s.evaluate(payload.Account, policyKind, view, s.spends.ForRequest(requestID(req.KeyID, req.SessionID)))
 	unlockAccount()
 	if !decision.Allowed {
 		return refuse(policyError(decision.Code, decision.Reason))
 	}
-	if acked, silent := s.Announce(r.Context(), req.KeyID, ledgerSession, payload.Account, rec.Participants, decision.Spends); acked < int(dealer.Threshold) {
+	if acked, silent := s.Announce(r.Context(), req.KeyID, req.SessionID, payload.Account, rec.Participants, decision.Spends); acked < int(dealer.Threshold) {
 		if _, ae := s.audit("sign."+req.Kind, req.KeyID, subject, "denied", "announcement not acknowledged by a quorum", req.SessionID); ae != nil {
 			return SignResponse{}, ae
 		}
@@ -581,31 +561,15 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 	if req.Kind != KindLXSendAuth && (req.Disclosure != nil || req.Approval != nil) {
 		return nil, nil, "", newError(CodeSessionBadRequest, "disclosure and approval belong only to %s", KindLXSendAuth)
 	}
-	if req.Kind == KindCustody && (req.Transaction != "" || req.TypedData != "" || req.Digest != "" || req.Activity != "" || req.Grant != nil || req.Construction != nil) {
-		return nil, nil, "", newError(CodeSessionBadRequest, "custody signs only its complete canonical bytes")
-	}
 	if req.Kind == KindEthSignDigest && (req.Transaction != "" || req.TypedData != "" || req.Message != "" || req.Activity != "" || req.Grant != nil) {
 		return nil, nil, "", newError(CodeSessionBadRequest, "digest signs only its complete construction")
 	}
-	if req.Custody != nil && req.Kind != KindEVMTransaction {
-		return nil, nil, "", newError(CodeSessionBadRequest, "custody proof belongs only to its EVM transaction")
-	}
 	public, err := gethcrypto.UnmarshalPubkey(pubBytes)
-	var custodyOwner common.Address
+	var signingOwner common.Address
 	if err == nil {
-		custodyOwner = gethcrypto.PubkeyToAddress(*public)
+		signingOwner = gethcrypto.PubkeyToAddress(*public)
 	}
 	switch req.Kind {
-	case KindCustody:
-		raw, e := decodeHex("message", req.Message)
-		if e != nil {
-			return nil, nil, "", e
-		}
-		consent, err := evm.DecodeCustody(raw, new(big.Int).SetUint64(s.opts.ChainID), custodyOwner, uint64(time.Now().Unix()))
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, "invalid canonical custody consent")
-		}
-		return evm.PersonalDigest(raw).Bytes(), consent.Transaction, policy.KindEVMTransaction, nil
 	case KindEVMTransaction:
 		raw, e := decodeHex("transaction", req.Transaction)
 		if e != nil {
@@ -614,27 +578,6 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		tx, err := evm.DecodeTransaction(raw, new(big.Int).SetUint64(s.opts.ChainID))
 		if err != nil {
 			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		if req.Custody != nil {
-			raw, e := decodeHex("custody.bytes", req.Custody.Bytes)
-			if e != nil {
-				return nil, nil, "", e
-			}
-			consent, err := evm.DecodeCustody(raw, new(big.Int).SetUint64(s.opts.ChainID), custodyOwner, uint64(time.Now().Unix()))
-			if err != nil || !consent.Matches(tx) {
-				return nil, nil, "", policyError(policy.CodeDecodeError, "custody consent differs from actual transaction")
-			}
-			signature, e := decodeHex("custody.signature", req.Custody.Signature)
-			if e != nil || len(signature) != 65 {
-				return nil, nil, "", newError(CodeSessionBadRequest, "invalid custody signature")
-			}
-			if signature[64] >= 27 {
-				signature[64] -= 27
-			}
-			recovered, err := gethcrypto.SigToPub(evm.PersonalDigest(raw).Bytes(), signature)
-			if err != nil || gethcrypto.PubkeyToAddress(*recovered) != custodyOwner {
-				return nil, nil, "", policyError(policy.CodeDecodeError, "custody approval signer differs from original wallet")
-			}
 		}
 		return tx.SigningDigest.Bytes(), tx, policy.KindEVMTransaction, nil
 	case KindTypedData:
@@ -670,7 +613,7 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		}
 		switch claim := view.(type) {
 		case *evm.SponsoredBatchClaim:
-			if claim.Batch.Account != custodyOwner || claim.Batch.Quote.Deadline.Cmp(big.NewInt(time.Now().Unix())) < 0 || claim.Batch.Quote.TokenAmount.Cmp(claim.Batch.Quote.MaxTokenAmount) > 0 {
+			if claim.Batch.Account != signingOwner || claim.Batch.Quote.Deadline.Cmp(big.NewInt(time.Now().Unix())) < 0 || claim.Batch.Quote.TokenAmount.Cmp(claim.Batch.Quote.MaxTokenAmount) > 0 {
 				return nil, nil, "", policyError(policy.CodeDecodeError, "sponsored consent owner, expiry or maximum differs")
 			}
 			if _, err := claim.Verify(); err != nil {
