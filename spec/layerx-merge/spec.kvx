@@ -100567,7 +100567,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.95.2]
 title = "Bind each registered ledger asset to a tokenfactory denom and mirror its pause state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.3.1", "6.0.2"]
@@ -101961,7 +101961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.3]
 title = "Freeze the 0x1015 funding and fee view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -119352,7 +119352,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.3.3]
 title = "Code bank staticcall and delegatecall refusals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "6.2.1", "6.3.2"]
@@ -119758,7 +119758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.7.9]
 title = "Stream fee-denom preferences in the evm genesis export stream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "6.7.7"]
@@ -122581,7 +122581,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.32.2]
 title = "Refuse layerxAnchor 0x1014 reads from the anchor store-delete step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.32.1", "6.31.2", "6.0.2"]
@@ -123259,7 +123259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.49.1]
 title = "Pin LayerXBridge.sol to the 0x1016 ABI the precompile embeds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -123289,7 +123289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.49.2]
 title = "Pin the 0x1016 revert codes to the LXP error registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -126485,7 +126485,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.94.1]
 title = "Pin getEvmAddrByLayerX of 0x1004 as the funding recipient resolver"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -126547,7 +126547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.94.3]
 title = "Declare and emit XWebProgramRequested when a program request is accepted"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "11.0.1"]

@@ -197,6 +197,14 @@ func assetPausedRefusal(err error) error {
 	return refusal{code: "LXP_ASSET_PAUSED", detail: err.Error(), err: err}
 }
 
+func staticcallRefusal(method string, err error) error {
+	return refusal{code: "LXP_BANK_STATICCALL", detail: method, err: err}
+}
+
+func delegatecallRefusal(method string, err error) error {
+	return refusal{code: "LXP_BANK_DELEGATECALL", detail: method, err: err}
+}
+
 func invalidAddrRefusal() error {
 	return refusal{code: "LXP_PRECOMPILE_INVALID_ADDR", err: errors.New("invalid addr")}
 }
@@ -215,7 +223,7 @@ func (p PrecompileExecutor) v6120Active(ctx sdk.Context) bool {
 
 func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method *abi.Method, args []interface{}, value *big.Int, readOnly bool) ([]byte, uint64, error) {
 	if readOnly {
-		return nil, 0, errors.New("cannot call send from staticcall")
+		return nil, 0, staticcallRefusal("send", errors.New("cannot call send from staticcall"))
 	}
 	if err := pcommon.ValidateNonPayable(value); err != nil {
 		return nil, 0, nonPayableRefusal(err)
@@ -335,10 +343,10 @@ func (p PrecompileExecutor) pointerSend(ctx sdk.Context, caller common.Address, 
 
 func (p PrecompileExecutor) sendNative(ctx sdk.Context, method *abi.Method, args []interface{}, caller common.Address, callingContract common.Address, value *big.Int, readOnly bool, hooks *tracing.Hooks, evm *vm.EVM) ([]byte, uint64, error) {
 	if readOnly {
-		return nil, 0, errors.New("cannot call sendNative from staticcall")
+		return nil, 0, staticcallRefusal("sendNative", errors.New("cannot call sendNative from staticcall"))
 	}
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
-		return nil, 0, errors.New("cannot delegatecall sendNative")
+		return nil, 0, delegatecallRefusal("sendNative", errors.New("cannot delegatecall sendNative"))
 	}
 	if err := pcommon.ValidateArgsLength(args, 1); err != nil {
 		return nil, 0, argCountRefusal(err)

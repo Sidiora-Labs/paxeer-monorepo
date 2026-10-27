@@ -65,6 +65,7 @@ const (
 const (
 	LayerXAnchorAddress = "0x0000000000000000000000000000000000001014"
 	PrecompileName      = "layerxAnchor"
+	StoreDeleteUpgrade  = anchortypes.StoreDeleteUpgrade
 
 	ViewBaseGas     uint64 = 3000
 	WriteBaseGas    uint64 = 30000
@@ -126,8 +127,12 @@ func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 		bankKeeper: keepers.BankK(),
 		evmKeeper:  keepers.EVMK(),
 	}
-	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons(), nil
+	return pcommon.NewPrecompile(newAbi, p, p.address, PrecompileName).WithRevertReasons().WithRetirement(StoreDeleteUpgrade,
+		LatestFinalizedMethod, CheckpointMethod, FinalizedStateRootMethod, FinalizedReceiptRootMethod,
+		GuarantorMethod, ThresholdMethod, StatusOfMethod, CheckpointBatchMethod, CheckpointGuarantorsMethod), nil
 }
+
+func (p PrecompileExecutor) EVMKeeper() utils.EVMKeeper { return p.evmKeeper }
 
 func isView(method string) bool {
 	switch method {
@@ -206,6 +211,9 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	}()
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
 		return nil, errors.New("cannot delegatecall layerxAnchor")
+	}
+	if isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), StoreDeleteUpgrade, ctx.BlockHeight()) {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
 	if p.anchor == nil {
 		return nil, errors.New("layerxanchor: anchor module is not wired")
