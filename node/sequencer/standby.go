@@ -190,6 +190,7 @@ type Replicator struct {
 	onWALSync func(time.Duration)
 	conn      net.Conn
 	retained  []retainedFrame
+	lastSeq   uint64
 	epoch     uint64
 }
 
@@ -249,6 +250,7 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 		switch v := e.(type) {
 		case *wal.Accept:
 			rf.seq = v.Seq
+			r.lastSeq = v.Seq
 		case *wal.Committed:
 			rf.committed = true
 		case *wal.Lease:
