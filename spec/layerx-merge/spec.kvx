@@ -157712,7 +157712,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.32.2]
 title = "Activate 0x101D at the merge upgrade through the node keepers and import"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.22.1", "13.23.1", "5.0.2", "6.0.2", "5.94.2"]
