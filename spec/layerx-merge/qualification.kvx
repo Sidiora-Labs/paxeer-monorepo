@@ -7405,3 +7405,11 @@ symbol = "CreateDenom"
 observed = "The api test package does not compile at the base: CreateDenom is declared at api/tokenfactory_rest_test.go:48 and api/bank_rest_test.go:21, so every go test -c of ./api/ fails (attempt 9d5ed51f6 of 7.26.4; 7.28.1, 7.28.2, 7.28.3, 7.29.1 and 7.29.2 would fail the same way)."
 assumption = "7.26.4 owns the rename of the tokenfactory helper and the five sibling tasks require 7.26.4. Recorded once."
 severity = "major"
+
+[finding.11.32.1]
+task = "11.32.1"
+file = "services/interop/Cargo.lock"
+symbol = "layerx-indexer"
+observed = "cargo build --locked failed at the base for every interop target because the lock file lacked the layerx-committed-proof entry in the layerx-indexer dependency list; attempt 5d645d98a of 11.32.1 could not reach its own change."
+assumption = "The lock file was regenerated offline and committed at ff91c687b; the 39 pending interop tasks build on that base and 11.32.1 continues from its first attempt. Recorded once."
+severity = "major"
