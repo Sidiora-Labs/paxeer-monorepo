@@ -258,8 +258,15 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "HasRole",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.HasRole(goCtx, &types.QueryHasRoleRequest{})
-				require.Nil(t, response)
+				contract := querier.Generation2().FeeAccumulator
+				account := address("query router role account")
+				response, err := client.HasRole(goCtx, &types.QueryHasRoleRequest{
+					Contract: contract.Hex(), Role: keeper.PoolRole.Hex(), Account: account.Hex(),
+				})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.False(t, response.HasRole)
+				require.Equal(t, querier.Keeper.HasRole(ctx, contract, keeper.PoolRole, account), response.HasRole)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -334,7 +341,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed":
+			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed", "HasRole":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
