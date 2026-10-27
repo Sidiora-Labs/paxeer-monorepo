@@ -96402,7 +96402,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.5.3]
 title = "Add the layerxledger AppModule with genesis and Msg service registration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["2.5.2", "1.22.3"]
@@ -99042,7 +99042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.32.7]
 title = "Serve layerxagent MsgUpdateParams and the Params, Job and Pending queries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.32.3", "2.32.5", "2.0.1"]
@@ -100121,7 +100121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.0.2]
 title = "Register the perps Msg service and codec on the app module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.0.1", "3.1.2", "3.1.4", "3.1.5", "3.1.6", "1.22.3"]
@@ -100493,7 +100493,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.2.3]
 title = "Price a governance-listed perps market at the next end block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["3.1.5", "3.0.2"]
@@ -101016,7 +101016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.10]
 title = "Refuse opens and allow closes on a governance-disabled market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5", "1.22.3"]
@@ -101047,7 +101047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.11]
 title = "Admit larger opens after governance raises a market OI cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -101109,7 +101109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.13]
 title = "Hold all nine invariants after every governance Msg"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.4", "3.1.5", "3.1.6"]
@@ -101140,7 +101140,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.14]
 title = "Skip premium samples and marks for a governance-disabled market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -101202,7 +101202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.16]
 title = "Apply governed class E open-interest caps by listing age"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.4", "3.1.5"]
@@ -103610,7 +103610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.1]
 title = "Add the chain market-config columns to perps.markets in migration 0012"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["3.45.1", "3.42.8"]
@@ -103885,7 +103885,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.43.1]
 title = "Retire the eight spot GraphQL roots that resolve to no facts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -104097,7 +104097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.45.6]
 title = "Copy only the range-keyed projection rows in the replay snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -105126,7 +105126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.56.1]
 title = "Load-test the symbols the gateway serves instead of a fixed list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -109929,7 +109929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.1]
 title = "Add a vitest harness and tsconfig to the mobile app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -111474,7 +111474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.4.5]
 title = "Carry the committed app hash and last block id in the executor Open header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.4.2", "5.19.1"]
@@ -112242,7 +112242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.6.4]
 title = "Judge the merge plan stores and retire the upgrade-height leader gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.6.2", "5.18.1", "1.22.3"]
@@ -117788,7 +117788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.69.1]
 title = "Sweep the consensus RPC routes under Autobahn for a defined answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["5.64.6", "5.64.7", "5.64.9", "5.64.10", "5.64.14", "5.67.4", "5.64.16"]
@@ -120879,7 +120879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.22.4]
 title = "Add MintByIssuer and BurnByIssuer keeper entry points"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.22.2", "6.22.3", "6.0.1"]
@@ -120973,7 +120973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.22.7]
 title = "Freeze the IssuerKeeper interface that layerxledger consumes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.22.3", "6.22.4"]
@@ -121465,7 +121465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.26.4]
 title = "Register the tokenfactory PausedDenomsInvariant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.21.3"]
@@ -122509,7 +122509,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.47.2]
 title = "Prove custody genesis round-trips after the retired release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["6.46.1"]
@@ -124762,7 +124762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.65.3]
 title = "Revert the origin-2 methods of 0x1019 with LXP_MODULE_DISABLED below the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["6.65.2", "6.61.1", "1.22.3"]
@@ -125145,7 +125145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.72.1]
 title = "Refuse a CosmWasm gov message without a plain vote instead of panicking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.0.1"]
@@ -125636,7 +125636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.82.1]
 title = "Remove sendFromCaller and sendFromOrigin from the IBank consumer interface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.0.1"]
@@ -126298,7 +126298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.2.1]
 title = "Stop serving eth_cleanup and cancel filters when the HTTP server stops"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["7.0.1", "1.22.3"]
@@ -140645,7 +140645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.34.2]
 title = "Delete the TypeScript batch inclusion and checkpoint verifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.92.1", "9.34.3", "9.34.5", "9.33.4"]
@@ -143104,7 +143104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.15.5]
 title = "Answer the retired movement operations' golden failure vectors with operation-retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["10.15.2"]
@@ -145896,7 +145896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.4.1]
 title = "Settle the x402 facilitator plane on SequencerEvidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["11.1.1", "11.6.1"]
@@ -146357,7 +146357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.9.2]
 title = "Use the gateway canonical receipt digest in UCP instead of the private copy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["11.9.1", "11.0.1"]
@@ -146417,7 +146417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.9.4]
 title = "Re-verify the stored receipt when a UCP order is read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["11.9.2"]
@@ -147060,7 +147060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.14.5]
 title = "Publish fiat sequenced journey vectors and replay them against the adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["11.14.1", "11.8.1"]
@@ -148530,7 +148530,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.2]
 title = "Encode and submit fulfilProgram calldata from the EVM submitter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["11.33.1"]
@@ -149695,7 +149695,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.3.3]
 title = "Remove the lx_activity policy kind and its evaluator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.11.3"]
@@ -152784,7 +152784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.1]
 title = "Complete a transfer at the committed rung in the transfer result"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["12.22.1"]
@@ -153345,7 +153345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.1.10]
 title = "Verify state membership and absence at the app hash of the next height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.1.2", "13.1.3", "13.1.4", "13.1.9"]
@@ -158098,7 +158098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.2]
 title = "Decode explorer verification levels onto the three rungs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.9.1", "14.5.5"]
@@ -159916,7 +159916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.29.2]
 title = "Sign the explorer fixture batch header through EVP instead of lxp_batch_sign"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["14.29.1"]
@@ -161713,7 +161713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.54.3]
 title = "Block a Solana withdrawal until the destination's recipient record is registered"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.54.2", "14.47.4"]
@@ -161774,7 +161774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.55.1]
 title = "Pin the app's bridge and vault ABIs to the precompile ABI and the vault source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.47.4", "14.48.4"]
@@ -161866,7 +161866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.55.4]
 title = "Pin the client vault event topics to the relayer parity constants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.48.4"]
@@ -161989,7 +161989,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.59.1]
 title = "Show attesting and ready steps and failed history rows in the transfers panel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.48.4", "14.46.2"]
@@ -165175,7 +165175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.8.5]
 title = "Remove the exchange, custody and anchor governance templates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["16.0.2", "1.22.3"]
@@ -167287,7 +167287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.8]
 title = "Delete the data-availability bundle and possession suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["16.37.1", "16.0.2", "16.37.2"]
@@ -169177,7 +169177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.2.2]
 title = "Resolve every retired component to its in-repo callers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.2.1"]
@@ -169418,7 +169418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.3.2]
 title = "Add the rehearsal step runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.3.1"]
@@ -169538,7 +169538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.4.2]
 title = "Map parity rows to verify commands that run exactly their selectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.4.1"]
@@ -169568,7 +169568,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.4.3]
 title = "Detect verify commands that run zero tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["17.4.2"]
@@ -169966,7 +169966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.6.2]
 title = "Check every task profile against the sandbox manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.6.1"]
@@ -169996,7 +169996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.6.3]
 title = "Record the sandbox resource needs the phase-2 jobs found"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.6.1"]
@@ -170056,7 +170056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.2]
 title = "Write the run cards of feature managers for domains 1 to 8"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.7.1"]
@@ -170086,7 +170086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.3]
 title = "Write the run cards of feature managers for domains 9 to 17"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.7.1"]
