@@ -9303,3 +9303,21 @@ area = "spec-tooling"
 symptom = "A verify_cmd that quotes an environment value with escaped double quotes passes by hand and fails under cg spec done with a NotFound or is_file panic on the quoted path."
 cause = "The kvx reader keeps the backslash escapes (gotcha.111), so the quote characters become part of the value."
 do = "Write verify_cmd environment assignments without quotes; the repository paths contain no spaces, and $PWD and ${VAR:-default} expand unquoted."
+
+[gotcha.1930]
+area = "sig-provider"
+symptom = "cargo check --all-targets -p sig-provider-server fails with missing field precompiles in the SourcesSettings initializer in tests/mock.rs"
+cause = "a settings field added with a Default impl is not picked up by a struct literal in a test; the crate's own unit tests compile without --all-targets"
+do = "when adding a field to SourcesSettings, update tests/mock.rs and run cargo check --all-targets for sig-provider-server"
+
+[gotcha.1931]
+area = "precompiles/layerxpay"
+symptom = "a 0x101B family handler file compiles and its unit tests pass, yet the precompile emits no family event and constant views revert LXP_NON_CANONICAL"
+cause = "Executor.Execute and Executor.view in layerxpay.go dispatch by family only where a hook exists; a new family file is dead code until its methods are routed there"
+do = "every family task owns the hook lines in layerxpay.go as well as its family file, and the edits to layerxpay.go are serialised through requires"
+
+[gotcha.1932]
+area = "local node"
+symptom = "tests reading LOCAL_NODE_RPC or PERPS_DATA_TEST_RPC fail with connection refused in a clean environment"
+cause = "the perps and spot precompiles, the 18 markets and the 3 spot tokens exist only after the v6.12.0 upgrade handler; a fresh genesis cannot run it"
+do = "start tools/qualification/localnode/v6120-node.sh (task 5.98.1) first and source its env file"
