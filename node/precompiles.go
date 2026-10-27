@@ -4,14 +4,27 @@ import (
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	launchpadv610keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	layerxagentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
+	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	layerxexchangekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/keeper"
+	layerxledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
+	layerxpaykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	perpskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
 	pricefeedkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
 	spotkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
 	xwebkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/keeper"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/clearing"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/eip712"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/orob"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/pofq"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/teeattestor"
+	authprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
+	ledgerprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	perpsprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
 	pricefeedprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed"
 	spotprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
@@ -44,7 +57,12 @@ type PrecompileKeepers struct {
 	txConf          client.TxConfig
 	layerxCustody   *layerxcustodykeeper.Keeper
 	layerxExchange  *layerxexchangekeeper.Keeper
+	layerxLedger    *layerxledgerkeeper.Keeper
+	layerxAuth      *layerxauthkeeper.Keeper
 	layerxBridge    *layerxbridgekeeper.Keeper
+	layerxPay       *layerxpaykeeper.Keeper
+	layerxAgent     *layerxagentkeeper.Keeper
+	layerxHost      *lxphost.Host
 	launchpad       *launchpadkeeper.Keeper
 	launchpadV610   *launchpadv610keeper.Keeper
 	xweb            *xwebkeeper.Keeper
@@ -75,7 +93,12 @@ func NewPrecompileKeepers(a *App) *PrecompileKeepers {
 		txConf:             a.GetTxConfig(),
 		layerxCustody:      a.LayerXCustodyKeeper,
 		layerxExchange:     a.LayerXExchangeKeeper,
+		layerxLedger:       a.LayerXLedgerKeeper,
+		layerxAuth:         a.LayerXAuthKeeper,
 		layerxBridge:       &a.LayerXBridgeKeeper,
+		layerxPay:          a.LayerXPayKeeper,
+		layerxAgent:        &a.LayerXAgentKeeper.Keeper,
+		layerxHost:         a.LayerXHost,
 		launchpad:          a.LaunchpadKeeper,
 		launchpadV610: launchpadv610keeper.NewKeeper(a.GetKey(launchpadtypes.StoreKey), a.BankKeeper,
 			tokenfactorykeeper.NewMsgServerImpl(a.TokenFactoryKeeper), &a.EvmKeeper),
@@ -110,8 +133,20 @@ func (pk *PrecompileKeepers) LayerXCustodyK() *layerxcustodykeeper.Keeper {
 func (pk *PrecompileKeepers) LayerXExchangeK() *layerxexchangekeeper.Keeper {
 	return pk.layerxExchange
 }
+func (pk *PrecompileKeepers) LayerXLedgerK() *layerxledgerkeeper.Keeper {
+	return pk.layerxLedger
+}
+func (pk *PrecompileKeepers) LayerXAuthK() *layerxauthkeeper.Keeper {
+	return pk.layerxAuth
+}
 func (pk *PrecompileKeepers) LayerXBridgeK() *layerxbridgekeeper.Keeper {
 	return pk.layerxBridge
+}
+func (pk *PrecompileKeepers) LayerXPayK() *layerxpaykeeper.Keeper {
+	return pk.layerxPay
+}
+func (pk *PrecompileKeepers) LayerXAgentK() *layerxagentkeeper.Keeper {
+	return pk.layerxAgent
 }
 func (pk *PrecompileKeepers) LaunchpadK() *launchpadkeeper.Keeper {
 	return pk.launchpad
@@ -126,6 +161,10 @@ func (pk *PrecompileKeepers) LaunchpadV610K() *launchpadv610keeper.Keeper {
 // XWebK hands the xweb precompile the application's xweb keeper.
 func (pk *PrecompileKeepers) XWebK() *xwebkeeper.Keeper {
 	return pk.xweb
+}
+
+func (pk *PrecompileKeepers) LayerXHost() *lxphost.Host {
+	return pk.layerxHost
 }
 
 // PerpsK hands the perps precompile the application's perps keeper.
@@ -148,3 +187,5 @@ var _ putils.PriceFeedKeepers = (*PrecompileKeepers)(nil)
 var _ perpsprecompile.PerpsKeepers = (*PrecompileKeepers)(nil)
 var _ spotprecompile.SpotKeepers = (*PrecompileKeepers)(nil)
 var _ pricefeedprecompile.PriceFeedKeepers = (*PrecompileKeepers)(nil)
+var _ ledgerprecompile.LedgerKeepers = (*PrecompileKeepers)(nil)
+var _ authprecompile.AuthKeepers = (*PrecompileKeepers)(nil)

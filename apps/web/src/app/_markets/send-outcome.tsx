@@ -8,6 +8,8 @@ export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutco
   switch (outcome.outcome) {
     case "sent":
       return <InlineNotice tone="success">Sent. Transaction {outcome.transactionHash}</InlineNotice>;
+    case "reverted":
+      return <InlineNotice tone="danger">Transaction {outcome.transactionHash} reverted.</InlineNotice>;
     case "cancelled":
       return <InlineNotice tone="neutral">You cancelled in the wallet.</InlineNotice>;
     case "rejected":

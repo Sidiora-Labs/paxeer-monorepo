@@ -11,20 +11,6 @@ defmodule Explorer.Chain.PaxeerX.StatusTest do
   @vectors Path.expand("../../../support/fixture/paxeer_x/receipt_vectors.json", __DIR__)
   @uint64_max 18_446_744_073_709_551_615
 
-  setup do
-    original = Application.get_env(:explorer, Finality)
-
-    on_exit(fn ->
-      if original do
-        Application.put_env(:explorer, Finality, original)
-      else
-        Application.delete_env(:explorer, Finality)
-      end
-    end)
-
-    :ok
-  end
-
   describe "of/2 submitted rung" do
     test "an item no block holds is submitted" do
       status = Status.of(nil, %Heights{committed_height: 1_000})
@@ -329,12 +315,7 @@ defmodule Explorer.Chain.PaxeerX.StatusTest do
       end
     end
 
-    test "legacy anchor configuration and observations cannot promote a rung" do
-      Application.put_env(:explorer, Finality,
-        capability_source: Explorer.Chain.PaxeerX.Capabilities,
-        final_confirmations: 12
-      )
-
+    test "legacy anchor observations cannot promote a rung" do
       anchor = insert_anchor(18, :final, 4_250)
 
       assert Finality.heights() == %Heights{committed_height: anchor.block_number}

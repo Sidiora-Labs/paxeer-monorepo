@@ -11,13 +11,11 @@ import {
   decodeUnifiedAccount,
   decodeUnifiedAccountAvailability,
   decodeUnifiedAccountUnavailable,
-  decodeVerificationReport,
   parseAccountIdentifier,
   validExplorerCoordinate,
   validExplorerIdentifier,
   validExplorerName,
   type AccountActivityRecord,
-  type EvidenceVerificationReport,
   type ExplorerPage,
   type ExplorerRecord,
   type NameResolutionRecord,
@@ -36,41 +34,8 @@ export class ExplorerUnavailableError extends Error {
   }
 }
 
-function programExplorerOrigin(): Readonly<{ origin: URL; bearer: string }> {
-  const configured = process.env.LAYERX_EXPLORER_PROGRAM_API_ORIGIN;
-  const bearer = process.env.LAYERX_EXPLORER_PROGRAM_BEARER_TOKEN;
-  if (configured === undefined || bearer === undefined || bearer.length < 32) {
-    throw new ExplorerUnavailableError();
-  }
-  let origin: URL;
-  try {
-    origin = new URL(configured);
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  const loopback = origin.hostname === "127.0.0.1" || origin.hostname === "localhost";
-  if (!loopback || origin.protocol !== "http:" || origin.pathname !== "/") {
-    throw new ExplorerUnavailableError();
-  }
-  return Object.freeze({ origin, bearer });
-}
-
 function explorerOrigin(): URL {
-  const configured = process.env.LAYERX_EXPLORER_API_ORIGIN;
-  if (configured === undefined) {
-    throw new ExplorerUnavailableError();
-  }
-  let origin: URL;
-  try {
-    origin = new URL(configured);
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  const loopback = origin.hostname === "127.0.0.1" || origin.hostname === "localhost";
-  if ((origin.protocol !== "https:" && !(loopback && origin.protocol === "http:")) || origin.pathname !== "/") {
-    throw new ExplorerUnavailableError();
-  }
-  return origin;
+  return explorerBaseUrl();
 }
 
 /// PAXEER_X_EXPLORER_BASE_URL names the public base URL of the Paxeer X Network explorer, the
@@ -89,7 +54,11 @@ export function explorerLink(target: ExplorerLinkTarget): string {
   return new URL(explorerLinkPath(target), explorerBaseUrl()).toString();
 }
 
-async function get(path: string, query?: Readonly<Record<string, string>>): Promise<unknown> {
+async function get(
+  path: string,
+  query?: Readonly<Record<string, string>>,
+  profile?: "unified" | "unified-availability",
+): Promise<unknown> {
   const url = new URL(path, explorerOrigin());
   for (const [name, value] of Object.entries(query ?? {})) {
     url.searchParams.set(name, value);
@@ -97,9 +66,13 @@ async function get(path: string, query?: Readonly<Record<string, string>>): Prom
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "application/json" },
-      cache: "force-cache",
-      next: { revalidate: 60 },
+      headers: {
+        Accept: "application/json",
+        ...(profile === "unified-availability" ? { "LayerX-Unified-Profile": "2" } : {}),
+      },
+      ...(profile === undefined
+        ? { cache: "force-cache", next: { revalidate: 60 } } as const
+        : { cache: "no-store" } as const),
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch {
@@ -107,11 +80,17 @@ async function get(path: string, query?: Readonly<Record<string, string>>): Prom
   }
   if (!response.ok) {
     if (response.status === 404) {
+      if (profile !== undefined) {
+        return undefined;
+      }
       try {
         return await response.json();
       } catch {
         throw new ExplorerUnavailableError();
       }
+    }
+    if (response.status === 503 && profile === "unified-availability") {
+      throw new UnifiedAccountUnavailableError(decodeUnifiedAccountUnavailable(await response.json()));
     }
     throw new ExplorerUnavailableError();
   }
@@ -161,12 +140,11 @@ export async function programRecord(identifier: string): Promise<ProgramRecord |
   if (!validExplorerIdentifier(identifier)) {
     throw new TypeError("Invalid program identifier");
   }
-  const { origin, bearer } = programExplorerOrigin();
-  const url = new URL(`/v1/programs/${encodeURIComponent(identifier.toLowerCase())}`, origin);
+  const url = new URL(`/v1/programs/${encodeURIComponent(identifier.toLowerCase())}`, explorerOrigin());
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+      headers: { Accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
@@ -202,33 +180,16 @@ export async function unifiedAccount(
     || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
     throw new TypeError("Invalid unified account query");
   }
-  const { origin, bearer } = programExplorerOrigin();
-  const url = new URL(`/v1/accounts/${encodeURIComponent(account.canonical)}/unified`, origin);
-  if (beforeBlock !== undefined) {
-    url.searchParams.set("before_block", beforeBlock);
-  }
-  if (before !== undefined) {
-    url.searchParams.set("before", before);
-  }
-  url.searchParams.set("limit", String(limit));
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  if (response.status === 404) {
+  const value = await get(`/v1/accounts/${encodeURIComponent(account.canonical)}/unified`, {
+    ...(beforeBlock === undefined ? {} : { before_block: beforeBlock }),
+    ...(before === undefined ? {} : { before }),
+    limit: String(limit),
+  }, "unified");
+  if (value === undefined) {
     return undefined;
   }
-  if (!response.ok) {
-    throw new ExplorerUnavailableError();
-  }
   try {
-    return decodeUnifiedAccount(await response.json());
+    return decodeUnifiedAccount(value);
   } catch (error) {
     if (error instanceof TypeError) {
       throw error;
@@ -250,36 +211,16 @@ export async function unifiedAccountAvailability(
     || !Number.isSafeInteger(limit) || limit < 1 || limit > 100) {
     throw new TypeError("Invalid unified account query");
   }
-  const origin = explorerOrigin();
-  const url = new URL(`/v1/accounts/${encodeURIComponent(account.canonical)}/unified`, origin);
-  if (beforeBlock !== undefined) {
-    url.searchParams.set("before_block", beforeBlock);
-  }
-  if (before !== undefined) {
-    url.searchParams.set("before", before);
-  }
-  url.searchParams.set("limit", String(limit));
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      headers: { Accept: "application/json", "LayerX-Unified-Profile": "2" },
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  if (response.status === 404) {
+  const value = await get(`/v1/accounts/${encodeURIComponent(account.canonical)}/unified`, {
+    ...(beforeBlock === undefined ? {} : { before_block: beforeBlock }),
+    ...(before === undefined ? {} : { before }),
+    limit: String(limit),
+  }, "unified-availability");
+  if (value === undefined) {
     return undefined;
   }
-  if (response.status === 503) {
-    throw new UnifiedAccountUnavailableError(decodeUnifiedAccountUnavailable(await response.json()));
-  }
-  if (!response.ok) {
-    throw new ExplorerUnavailableError();
-  }
   try {
-    return decodeUnifiedAccountAvailability(await response.json());
+    return decodeUnifiedAccountAvailability(value);
   } catch (error) {
     if (error instanceof TypeError) {
       throw error;
@@ -307,13 +248,12 @@ export async function resolveName(name: string): Promise<NameResolutionRecord | 
   if (!validExplorerName(name)) {
     throw new TypeError("Invalid name");
   }
-  const { origin, bearer } = programExplorerOrigin();
-  const url = new URL(`/v1/programs/${namingProgram()}/reads/resolve`, origin);
+  const url = new URL(`/v1/programs/${namingProgram()}/reads/resolve`, explorerOrigin());
   url.searchParams.set("name", name);
   let response: Response;
   try {
     response = await fetch(url, {
-      headers: { Accept: "application/json", Authorization: `Bearer ${bearer}` },
+      headers: { Accept: "application/json" },
       cache: "no-store",
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
@@ -332,35 +272,6 @@ export async function resolveName(name: string): Promise<NameResolutionRecord | 
       throw new TypeError("Name projection names another name");
     }
     return resolution;
-  } catch (error) {
-    if (error instanceof TypeError) {
-      throw error;
-    }
-    throw new ExplorerUnavailableError();
-  }
-}
-
-export async function verifyEvidenceUpstream(
-  request: Readonly<Record<string, unknown>>,
-): Promise<EvidenceVerificationReport> {
-  const url = new URL("/v1/explorer/verify", explorerOrigin());
-  let response: Response;
-  try {
-    response = await fetch(url, {
-      method: "POST",
-      headers: { Accept: "application/json", "Content-Type": "application/json" },
-      body: JSON.stringify(request),
-      cache: "no-store",
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    });
-  } catch {
-    throw new ExplorerUnavailableError();
-  }
-  if (!response.ok) {
-    throw new TypeError("Evidence did not verify");
-  }
-  try {
-    return decodeVerificationReport(await response.json());
   } catch (error) {
     if (error instanceof TypeError) {
       throw error;

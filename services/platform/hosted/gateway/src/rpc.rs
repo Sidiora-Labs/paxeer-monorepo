@@ -337,7 +337,7 @@ pub(super) fn invalid_request(value: &Value) -> Option<Value> {
 
 fn kernel_backend(method: &str) -> Option<KernelBackend> {
     match method {
-        "lx_requestFunds" => Some(KernelBackend::Identity),
+        crate::rpc_faucet::px_requestFunds | "lx_requestFunds" => Some(KernelBackend::Identity),
         "lx_sendActivity" => Some(KernelBackend::Component),
         "lx_getAccount"
         | "lx_getBalance"
@@ -353,7 +353,6 @@ fn kernel_backend(method: &str) -> Option<KernelBackend> {
         | "lx_listAssets"
         | "lx_getAsset"
         | "lx_getNodeInfo"
-        | "px_getBalances"
         | "px_listAssets" => Some(KernelBackend::PublicCore),
         _ => None,
     }
@@ -392,6 +391,9 @@ pub(super) fn dispatch(config: &Config, request: &IncomingRequest, value: &Value
         return value.get("id").map(|_| result);
     }
     if let Some(result) = crate::history::dispatch(config, method, &id, value.get("params")) {
+        return value.get("id").map(|_| result);
+    }
+    if let Some(result) = crate::chain_reads::dispatch(config, method, &id, value.get("params")) {
         return value.get("id").map(|_| result);
     }
     if let Some(result) = crate::paxeer::dispatch(config, method, &id, value.get("params")) {

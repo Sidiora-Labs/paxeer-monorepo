@@ -1,8 +1,12 @@
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { hexToBytes, type Address } from 'viem';
+
 import { expect, test } from 'vitest';
 
+import { bridgeChainByKey } from './chains';
 import {
   base58Decode, base58Encode, parseRecipientRecord, recipientRecordAddress,
   recipientRecordFromResponse, recipientRecordRequest, solanaRecipientHandle,
@@ -10,6 +14,24 @@ import {
 
 const HANDLE: Address = '0x0123456789abcdef0123456789abcdef01234567';
 const KEY = Uint8Array.from({ length: 32 }, (_, index) => index);
+
+function solanaHandleOfTheWrappedSolMintMatchesTheConfig() {
+  const config: { assets: Array<{ symbol: string; address: string; asset_id: string }> } = JSON.parse(
+    readFileSync(resolve(__dirname, '../../../../../contracts/bridge/solana/chains/solana/config.json'), 'utf8'),
+  );
+  const configuredSol = config.assets.find((asset) => asset.symbol === 'SOL');
+  const clientSol = bridgeChainByKey('solana')?.assets.find((asset) => asset.key === 'sol');
+  const wrappedSolMint = 'So11111111111111111111111111111111111111112';
+  const handle = solanaRecipientHandle(wrappedSolMint);
+
+  expect(configuredSol).toBeDefined();
+  expect(clientSol).toBeDefined();
+  expect(handle).toBeDefined();
+  if (!configuredSol || !clientSol || !handle) throw new Error('SOL configuration, client asset and derived handle must exist');
+  expect(configuredSol.address).toBe(wrappedSolMint);
+  expect(handle.toLowerCase()).toBe(configuredSol.asset_id.toLowerCase());
+  expect(handle.toLowerCase()).toBe(clientSol.assetId.toLowerCase());
+}
 
 function recipientRecordAddressIsOffCurve() {
   expect(base58Encode(new Uint8Array())).toBe('');
@@ -137,6 +159,7 @@ function recipientRecordFromResponseReportsAMissingRecord() {
 
 test(recipientRecordRequestUsesGetAccountInfo.name, recipientRecordRequestUsesGetAccountInfo);
 test(recipientRecordFromResponseReportsAMissingRecord.name, recipientRecordFromResponseReportsAMissingRecord);
+test(solanaHandleOfTheWrappedSolMintMatchesTheConfig.name, solanaHandleOfTheWrappedSolMintMatchesTheConfig);
 test(recipientRecordAddressIsOffCurve.name, recipientRecordAddressIsOffCurve);
 test(parseRecipientRecordReadsTheKey.name, parseRecipientRecordReadsTheKey);
 test(parseRecipientRecordRefusesAnotherHandle.name, parseRecipientRecordRefusesAnotherHandle);

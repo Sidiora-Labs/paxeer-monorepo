@@ -285,7 +285,9 @@ static lxp_result budget_authorized_signer(
     if (status == LXP_OK && memcmp(actor, authority->actor, 32U) != 0)
         status = LXP_ERR_UNAUTHORIZED_DEBIT;
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    const lx_asset_runtime *asset_runtime = ctx->kernel->module_runtime[LXP_MODULE_ASSET];
+    if (status == LXP_OK && (asset_runtime == NULL || !asset_runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK)
         status = lxp_ctx_account_find(ctx, authority->principal, signer);
     if (status != LXP_OK) return status;
@@ -654,6 +656,22 @@ static void budget_grant_draw_key(const uint8_t grant_id[32],
     (void)memcpy(key + 13U, grant_id, 32U);
 }
 
+static lxp_result budget_grant_draw_decode(const uint8_t *bytes, size_t length,
+                                           lxp_grant_state *draws)
+{
+    lxp_result status;
+    if (length != (size_t)BUDGET_GRANT_DRAW_BYTES || bytes[0] != 0U ||
+        bytes[1] != 1U)
+        return LXP_ERR_NON_CANONICAL;
+    status = lxp_u128_from_be(bytes + 2U, &draws->drawn_total);
+    if (status == LXP_OK)
+        status = lxp_u128_from_be(bytes + 18U, &draws->drawn_this_period);
+    if (status != LXP_OK) return status;
+    draws->window_start = budget_capability_u64(bytes + 34U);
+    return lxp_u128_cmp(draws->drawn_this_period, draws->drawn_total) > 0 ?
+        LXP_ERR_NON_CANONICAL : LXP_OK;
+}
+
 static lxp_result budget_grant_draw_load(lxp_module_ctx *ctx,
                                          lxp_grant_state *draws)
 {
@@ -668,16 +686,30 @@ static lxp_result budget_grant_draw_load(lxp_module_ctx *ctx,
     status = lxp_ctx_kv_get(ctx, key, sizeof(key), &bytes, &length);
     if (status == LXP_ERR_UNKNOWN_FIELD) return LXP_OK;
     if (status != LXP_OK) return status;
-    if (length != (size_t)BUDGET_GRANT_DRAW_BYTES || bytes[0] != 0U ||
-        bytes[1] != 1U)
+    return budget_grant_draw_decode(bytes, length, draws);
+}
+
+lxp_result lx_budget_grant_draws_read(const lxp_kernel *kernel,
+                                      const uint8_t grant_id[32],
+                                      lxp_grant_state *draws)
+{
+    uint8_t key[BUDGET_GRANT_DRAW_KEY_BYTES];
+    if (kernel == NULL || grant_id == NULL || draws == NULL ||
+        kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV)
         return LXP_ERR_NON_CANONICAL;
-    status = lxp_u128_from_be(bytes + 2U, &draws->drawn_total);
-    if (status == LXP_OK)
-        status = lxp_u128_from_be(bytes + 18U, &draws->drawn_this_period);
-    if (status != LXP_OK) return status;
-    draws->window_start = budget_capability_u64(bytes + 34U);
-    return lxp_u128_cmp(draws->drawn_this_period, draws->drawn_total) > 0 ?
-        LXP_ERR_NON_CANONICAL : LXP_OK;
+    draws->drawn_total = (lxp_u128){ 0U, 0U };
+    draws->drawn_this_period = (lxp_u128){ 0U, 0U };
+    draws->window_start = 0U;
+    budget_grant_draw_key(grant_id, key);
+    for (size_t i = 0U; i < kernel->module_kv_count; ++i) {
+        const lxp_module_kv_entry *entry = &kernel->module_kv[i];
+        if (entry->module_id == LXP_MODULE_BUDGET &&
+            entry->key_length == sizeof(key) &&
+            memcmp(entry->key, key, sizeof(key)) == 0)
+            return budget_grant_draw_decode(entry->value, entry->value_length,
+                                             draws);
+    }
+    return LXP_OK;
 }
 
 static lxp_result budget_grant_draw_save(lxp_module_ctx *ctx,

@@ -9,6 +9,7 @@ package lxphost
 #include "layerx/lxp_module_ctx.h"
 #include "layerx/programs.h"
 #include "layerx/lx_asset.h"
+#include "layerx/lx_budget.h"
 #include "layerx/lxp_governance.h"
 #include "layerx/lxp_authority.h"
 #include "layerx/lxp_crypto.h"
@@ -847,10 +848,28 @@ func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityStat
 
 func (h *Host) ReadPayerGrant(ctx sdk.Context, grantID [32]byte) (PayerGrantState, error) {
 	var out PayerGrantState
-	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET}, func(state *C.lxphost_read_state) error {
+	err := h.withRead(ctx, []uint16{C.LXP_MODULE_ASSET, C.LXP_MODULE_BUDGET}, func(state *C.lxphost_read_state) error {
 		var grant C.lxp_grant_state
 		if err := result(C.lx_asset_payer_grant_read(&state.kernel, bytes32(&grantID), &grant)); err != nil {
 			return err
+		}
+		var draws C.lxp_grant_state
+		if err := result(C.lx_budget_grant_draws_read(&state.kernel, bytes32(&grantID), &draws)); err != nil {
+			return err
+		}
+		var sum C.struct_lxp_u128
+		if err := result(C.lxp_u128_add(grant.drawn_total, draws.drawn_total, &sum)); err != nil {
+			return err
+		}
+		grant.drawn_total = sum
+		if draws.window_start > grant.window_start {
+			grant.drawn_this_period = draws.drawn_this_period
+			grant.window_start = draws.window_start
+		} else if draws.window_start == grant.window_start {
+			if err := result(C.lxp_u128_add(grant.drawn_this_period, draws.drawn_this_period, &sum)); err != nil {
+				return err
+			}
+			grant.drawn_this_period = sum
 		}
 		var encoded [1024]byte
 		var length C.size_t

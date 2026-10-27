@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from os import PathLike
 from pathlib import Path
@@ -14,6 +15,10 @@ PRECOMPILE_GATES = {
     "v6.9": "activationPrecompileGate",
     "v7.0": "mergePrecompileGate",
 }
+_GO_TOKEN = re.compile(
+    r'//[^\n]*|/\*[\s\S]*?\*/|"(?:\\.|[^"\\])*"|`[^`]*`|'
+    r"'(?:\\.|[^'\\])*'|[A-Za-z_][A-Za-z_0-9]*|\n|[^\S\n]+|.",
+)
 
 
 class PlanError(ValueError):
@@ -26,6 +31,56 @@ class Plan(TypedDict):
     store_added: list[str]
     store_deleted: list[str]
     precompile_gate: NotRequired[str]
+
+
+def constant_sites(root: str | PathLike[str]) -> list[str]:
+    root = Path(root)
+    sites: list[str] = []
+    for path in sorted(root.rglob("*.go")):
+        source = path.read_text(encoding="utf-8")
+        if '"v7.0"' not in source and "`v7.0`" not in source:
+            continue
+        tokens: list[str] = []
+        for match in _GO_TOKEN.finditer(source):
+            token = match.group()
+            if token.startswith(("//", "/*")):
+                if "\n" in token:
+                    tokens.append("\n")
+            elif token == "\n" or not token.isspace():
+                tokens.append(token)
+        in_const = False
+        grouped = False
+        depth = 0
+        previous = ""
+        for token in tokens:
+            if token == "const":
+                in_const = True
+                grouped = False
+            elif in_const:
+                if token in ('"v7.0"', "`v7.0`"):
+                    sites.append(path.relative_to(root).as_posix())
+                    break
+                if token == "(":
+                    if previous == "const":
+                        grouped = True
+                    depth += 1
+                elif token == ")":
+                    depth -= 1
+                    if grouped and depth == 0:
+                        in_const = False
+                elif depth == 0 and (
+                    token == ";"
+                    or (
+                        token == "\n"
+                        and previous
+                        and (previous[-1].isalnum() or previous[-1] in "_\"`')]}")
+                        and previous != "const"
+                    )
+                ):
+                    in_const = False
+            if token != "\n":
+                previous = token
+    return sites
 
 
 def _store_names(name: str, key: str, value: KvxValue | None) -> list[str]:

@@ -48,6 +48,24 @@ print("1" * (len(raw) - len(raw.lstrip(b"\x00"))) + text)
 ')
 [ -n "$SOLANA_PUBLIC" ] || fail "the Ed25519 publisher public key could not be encoded"
 
+openssl genpkey -algorithm ed25519 -out "$WORK/receipt.key" 2>/dev/null
+RECEIPT_PUBLIC=$(openssl pkey -in "$WORK/receipt.key" -pubout -outform DER 2>/dev/null \
+    | tail -c 32 | od -An -v -tx1 | tr -d ' \n')
+python3 - "$WORK/receipt-keys.json" "$RECEIPT_PUBLIC" <<'PYKEYS'
+import hashlib
+import json
+import sys
+public_key = bytes.fromhex(sys.argv[2])
+assert len(public_key) == 32
+with open(sys.argv[1], "w") as handle:
+    json.dump([{
+        "keyId": "0x" + hashlib.sha256(public_key).hexdigest(),
+        "publicKey": "0x" + public_key.hex(),
+        "firstHeight": 1,
+        "lastHeight": 18446744073709551615,
+    }], handle)
+PYKEYS
+
 # The secp256k1 generator point: a real curve point, so the publisher's signer
 # configuration check verifies a genuine SEC1 key rather than a placeholder.
 ETHEREUM_PUBLIC=0279be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798
@@ -67,13 +85,12 @@ render_ethereum_only() {
     python3 "$RENDERER" \
         --output "$1" \
         --state-directory "$WORK/state" \
-        --first-batch-number 1 \
+        --first-height 1 \
         --status-listen "127.0.0.1:$STATUS_PORT" \
         --paxeer-endpoint "https://paxeer-a.invalid:9443/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
         --paxeer-endpoint "https://paxeer-b.invalid:9443/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
-        --paxeer-chain-id 125 --paxeer-confirmations 2 \
-        --paxeer-genesis-hash "$(printf 'paxeer-genesis' | sha256sum | cut -d ' ' -f 1)" \
-        --sequencer-public-key "$(printf 'sequencer' | sha256sum | cut -d ' ' -f 1)" \
+        --paxeer-chain-id 125 \
+        --receipt-keys-file "$WORK/receipt-keys.json" \
         --ethereum-endpoint "https://ethereum-a.invalid:9443/rpc,ethereum-a,$WORK/rpc.der,$WORK/ethereum-a.token" \
         --ethereum-endpoint "https://ethereum-b.invalid:9443/rpc,ethereum-b,$WORK/rpc.der,$WORK/ethereum-b.token" \
         --ethereum-chain-id 125 \
@@ -157,10 +174,8 @@ render_output=$(render "$WORK/never.json" 2>&1) || status=$?
 [ "$status" -eq 0 ] || fail "the renderer refused a valid deployment: $render_output"
 status=0
 render_output=$(python3 "$RENDERER" --output "$WORK/never.json" --state-directory relative \
-    --first-batch-number 1 --status-listen 127.0.0.1:1 \
-    --paxeer-chain-id 125 --paxeer-confirmations 2 \
-    --paxeer-genesis-hash "$(printf '11%.0s' {1..32})" \
-    --sequencer-public-key "$(printf '22%.0s' {1..32})" \
+    --first-height 1 --status-listen 127.0.0.1:1 \
+    --paxeer-chain-id 125 --receipt-keys-file "$WORK/receipt-keys.json" \
     --paxeer-endpoint "https://paxeer-a.invalid/rpc,paxeer-a,$WORK/rpc.der,$WORK/paxeer-a.token" \
     --paxeer-endpoint "https://paxeer-b.invalid/rpc,paxeer-b,$WORK/rpc.der,$WORK/paxeer-b.token" \
     --ethereum-chain-id 125 --ethereum-genesis-hash 00 \

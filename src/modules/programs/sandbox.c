@@ -70,6 +70,8 @@ typedef struct programs_sandbox_activity {
         uint8_t published;
         uint32_t capacity;
     } usage_result;
+    uint8_t lifecycle_reserved;
+    size_t lifecycle_reserve;
     uint8_t host_reserved;
     size_t reserved_effect_frontier;
     size_t sealed_guest_effect_frontier;
@@ -317,12 +319,28 @@ lxp_result lxp_programs_sandbox_execute(
         return LXP_ERR_NON_CANONICAL;
     if (value->operation != SANDBOX_EXECUTE) {
         size_t kind;
+        const size_t count = value->operation == SANDBOX_FUND ? 3U : 1U;
         const uint8_t *current;
         size_t current_length;
         uint8_t key[34];
         active_sandbox = value;
         status = LXP_OK;
-        if (value->operation == SANDBOX_FUND) {
+        for (kind = 0U; kind < count; ++kind) {
+            value->staged[kind].bytes = malloc(LXP_MODULE_MAX_VALUE_BYTES);
+            if (value->staged[kind].bytes == NULL) {
+                status = LXP_ERR_ARENA_EXHAUSTED;
+                break;
+            }
+            value->staged[kind].capacity = LXP_MODULE_MAX_VALUE_BYTES;
+        }
+        if (status == LXP_OK) {
+            status = lxp_module_staged_reserve(ctx, count);
+            if (status == LXP_OK) {
+                value->lifecycle_reserve = count;
+                value->lifecycle_reserved = 1U;
+            }
+        }
+        if (status == LXP_OK && value->operation == SANDBOX_FUND) {
             for (kind = 0U; status == LXP_OK && kind < 3U; ++kind) {
                 status = sandbox_state_key(value, (uint16_t)kind, key);
                 if (status == LXP_OK)
@@ -333,7 +351,7 @@ lxp_result lxp_programs_sandbox_execute(
             }
             if (status == LXP_OK)
                 status = lxp_programs_sandbox_lease_terminal(ctx, key + 2U);
-        } else {
+        } else if (status == LXP_OK) {
             status = sandbox_state_key(value, 0U, key);
             if (status == LXP_OK)
                 status = lxp_ctx_kv_get(ctx, key, sizeof(key), &current,
@@ -366,10 +384,20 @@ lxp_result lxp_programs_sandbox_execute(
             status = layerx_programs_sandbox_lifecycle_validate(
                 (uint64_t)(uintptr_t)value, 0x82U);
         if (status == LXP_OK)
-            for (kind = 0U; kind < (value->operation == SANDBOX_FUND ? 3U : 1U);
-                 ++kind)
+            for (kind = 0U; kind < count; ++kind)
                 if (!value->staged[kind].applied)
                     status = LXP_FATAL_INVARIANT;
+        if (value->lifecycle_reserve != 0U) {
+            lxp_result release = lxp_module_staged_release(
+                ctx, value->lifecycle_reserve);
+            if (release != LXP_OK) status = release;
+            value->lifecycle_reserve = 0U;
+        }
+        for (kind = 0U; kind < count; ++kind) {
+            free(value->staged[kind].bytes);
+            (void)memset(&value->staged[kind], 0, sizeof(value->staged[kind]));
+        }
+        value->lifecycle_reserved = 0U;
         active_sandbox = NULL;
         return status;
     }
@@ -733,7 +761,8 @@ lxp_result layerx_programs_call_sandbox_state_stage_begin(
     uint64_t call_token, uint16_t kind, uint32_t length)
 {
     programs_sandbox_activity *value = sandbox_for_call(call_token);
-    if (value == NULL || kind > 2U || !value->host_reserved ||
+    if (value == NULL || kind > 2U ||
+        (!value->host_reserved && !value->lifecycle_reserved) ||
         value->staged[kind].bytes == NULL || length == 0U ||
         length > value->staged[kind].capacity || value->staged[kind].begun)
         return LXP_ERR_NON_CANONICAL;
@@ -766,6 +795,12 @@ lxp_result layerx_programs_call_sandbox_state_stage_apply(
         value->staged[kind].applied ||
         value->staged[kind].written != value->staged[kind].length)
         return LXP_ERR_NON_CANONICAL;
+    if (value->lifecycle_reserve != 0U) {
+        status = lxp_module_staged_release(value->ctx,
+                                           value->lifecycle_reserve);
+        if (status != LXP_OK) return status;
+        value->lifecycle_reserve = 0U;
+    }
     status = sandbox_state_key(value, kind, key);
     if (status == LXP_OK)
         status = lxp_ctx_kv_put(value->ctx, key, sizeof(key),

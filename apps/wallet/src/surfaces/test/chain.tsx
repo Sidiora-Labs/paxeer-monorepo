@@ -110,13 +110,10 @@ export class SurfaceChain implements Eip1193Provider {
           ? hash
           : { rung: 'receipted', txHash: hash, ...receipt };
       }
-      case 'eth_getTransactionReceipt':
       case 'pax_sequencerReceipt': {
         const receipt = this.receipts.get(String(params[0]));
         if (receipt === undefined) return null;
-        return args.method === 'eth_getTransactionReceipt'
-          ? { transactionHash: params[0], ...receipt }
-          : { rung: 'receipted', txHash: params[0], ...receipt };
+        return { rung: 'receipted', txHash: params[0], ...receipt };
       }
       default:
         throw Object.assign(new Error(`unsupported method ${args.method}`), { code: 4200 });

@@ -1,11 +1,14 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/ui/utils/cn";
 import { Search, Star, StarOff } from "lucide-react";
 import { SPOT_MARKETS, spotCoinLogoUrl, type SpotMarket } from "@/core/spot/config";
 import { useSpotStats, type SpotStats } from "@/hooks/spot/useSpotMarketStream";
 import { useFavoriteMarkets } from "@/hooks/ui/useFavoriteMarkets";
+import { buildGetTokenInfo, buildIsTokenPaused } from "@/core/spot/calls";
+import { spotTokenState, type SpotTokenState } from "@/core/spot/tokenState";
 
 type Filter = "all" | "favorites";
 type SortKey = "volume" | "change" | "price" | "symbol";
@@ -34,9 +37,15 @@ interface RowData {
   stats: SpotStats | null;
 }
 
+export function watchlistRowState(state: SpotTokenState): "paused" | "live" {
+  return state.paused ? "paused" : "live";
+}
+
 function StatRow({
   market,
   stats,
+  tokenState,
+  tokenStateError,
   isSelected,
   isFavorite,
   onSelect,
@@ -44,6 +53,8 @@ function StatRow({
 }: {
   market: SpotMarket;
   stats: SpotStats | null;
+  tokenState: SpotTokenState | undefined;
+  tokenStateError: boolean;
   isSelected: boolean;
   isFavorite: boolean;
   onSelect: () => void;
@@ -95,6 +106,16 @@ function StatRow({
             <span className="text-[8px] font-mono uppercase tracking-wider text-primary/70 bg-primary/10 px-1 py-0.5 rounded-full">
               SPOT
             </span>
+            {tokenState && watchlistRowState(tokenState) === "paused" && (
+              <span className="shrink-0 text-[10px] font-medium text-amber-400 bg-amber-400/10 px-1.5 py-0.5 rounded-full">
+                Paused
+              </span>
+            )}
+            {tokenStateError && (
+              <span className="text-[10px] text-muted-foreground">
+                State unavailable
+              </span>
+            )}
           </span>
           <span className="text-[10px] text-muted-foreground truncate">
             {market.name}
@@ -149,10 +170,25 @@ function StatRowConnected({
   onToggleFavorite: () => void;
 }) {
   const stats = useSpotStats(market.symbol);
+  const { data: tokenState, isError: tokenStateError } = useQuery({
+    queryKey: ["spot-token-state", market.baseAddress],
+    queryFn: async () => {
+      const { getPublicClient } = await import("@/core/viem/clients");
+      const client = getPublicClient();
+      const [paused, info] = await Promise.all([
+        client.readContract(buildIsTokenPaused(market.baseAddress)),
+        client.readContract(buildGetTokenInfo(market.baseAddress)),
+      ]);
+      return spotTokenState(paused, info);
+    },
+    refetchInterval: 8_000,
+  });
   return (
     <StatRow
       market={market}
       stats={stats}
+      tokenState={tokenState}
+      tokenStateError={tokenStateError}
       isSelected={isSelected}
       isFavorite={isFavorite}
       onSelect={onSelect}
