@@ -3549,3 +3549,75 @@ symbol = "lxphost_reset"
 observed = "The first attempts of 2.25.1, 2.25.2, 2.25.3, 2.26.1, 2.26.2 and 2.26.3 (base 27fe3d99a) each built and their verifiers exited 1 (log /out/logs/verify-1.log) on LXP_ERR_MODULE_DISABLED for streamOpen or serviceOfferPublish, because lxphost_reset registers governance, Programs, asset, budget and escrow but not the stream and service modules, which 1.24.1 adds; none of the six requires 1.24.1."
 assumption = "The six tasks gain a requires edge on 1.24.1 (pending, wave 23, so they stay in wave 25) and continue their first attempts unchanged once it is merged."
 severity = "blocker"
+
+[finding.2.26.4]
+task = "2.26.4"
+file = "modules/layerxpay/keeper/service_dispute_test.go"
+symbol = "TestServiceDisputeResolvedByEscrowArbiter"
+observed = "serviceDisputeOpen is refused LXP_ERR_MODULE_DISABLED because the hosted kernel registers no service module until task 1.24.1 lands."
+assumption = "Same cause as finding.2.25.1; 2.26.4 requires 1.24.1."
+severity = "blocker"
+
+[finding.14.25.6]
+task = "14.25.6"
+file = "services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex"
+symbol = "PaxeerXLogs.parse"
+observed = "The verify passed with 2 tests, 0 failures at 02e8b4d59 and cg spec done refused on two Elixir symbols the graph does not index."
+assumption = "symbols = [] per the recorded gotcha."
+severity = "minor"
+
+[finding.14.30.4]
+task = "14.30.4"
+file = "services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs:15"
+symbol = "SourcesSettings"
+observed = "cargo check --all-targets -p sig-provider-server fails with error[E0063] missing field precompiles, introduced by the merged settings.rs:30 field."
+assumption = "14.30.4 owns the one-line initializer fix and 14.30.3 requalifies on top of it."
+severity = "blocker"
+
+[finding.14.30.3]
+task = "14.30.3"
+file = "services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs:15"
+symbol = "SourcesSettings"
+observed = "cargo check --all-targets -p sig-provider-server fails with error[E0063] missing field precompiles, introduced by the merged settings.rs:30 field."
+assumption = "Same cause as finding.14.30.4."
+severity = "blocker"
+
+[finding.2.28.4]
+task = "2.28.4"
+file = "precompiles/layerxpay/layerxpay.go:141"
+symbol = "Executor.Execute"
+observed = "At b0e9d52b5 Execute handles every write by payPayload and keeper.Submit (:128-145) and returns method.Outputs.Pack() with no event, never calling escrowHandlers, and layerxpay.go was outside the task's touches, so no escrow write emits EscrowOpened or the other six events."
+assumption = "2.28.4 owns the Execute/view hook for the escrow family."
+severity = "blocker"
+
+[finding.2.28.8]
+task = "2.28.8"
+file = "precompiles/layerxpay/layerxpay.go:290"
+symbol = "Executor.view"
+observed = "At 58c63b263 Execute routes every constant method to Executor.view (:115-116), never to serviceViewHandlers, and view passes the raw paytypes.ServiceDelivery to payTuple (:290-293, :334) whose Deliverables items carry ArtifactSize where the ABI tuple names artifactSizeBytes, so getDelivery and latestDelivery revert with LXP_NON_CANONICAL."
+assumption = "2.28.8 owns the view hook for the service views, after 2.28.4's Execute hook."
+severity = "blocker"
+
+[finding.5.98.1]
+task = "5.98.1"
+file = "node/testdata/v6120-halt-export.json"
+symbol = "InitV6120"
+observed = "No repository sequence yields a v6.12.0-live chain-125 node from a fresh genesis because the spot InitV6120 handler refuses an initialised store, so the seven local-node tests had no node to dial."
+assumption = "The fixture derives its genesis from the halt export and applies the v6.12.0 plan in its first block."
+severity = "blocker"
+
+[finding.12.35.2.1]
+task = "12.35.2"
+file = "apps/wallet/e2e/send.spec.ts"
+symbol = "pax_sequencerReceipt"
+observed = "Even with anvil nothing on the anvil/e2e-gateway path answers pax_sequencerReceipt \"receipted\", so the receipted rung cannot be asserted on the controlled chain."
+assumption = "The owner decides whether the receipted rung is asserted against a sequencer-backed node or the case is restated."
+severity = "blocker"
+
+[finding.9.24.4]
+task = "9.24.4"
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs:9"
+symbol = "vectors"
+observed = "The first attempt 8066f7e30 built and the verifier `cg spec done 9.24.4` exited 1 (logs-verify-1.log): budget_refuses_malformed_and_arithmetic_bounds panicked `native vector producer output required: NotPresent` because the gate neither built build/native-vectors.json nor exported LAYERX_CAPS_VECTORS, the same gap finding.9.24.1.3 closed for 9.24.1."
+assumption = "9.24.4 and 9.24.6 take 9.24.1's producer build_cmd and LAYERX_CAPS_VECTORS export unchanged in test and decoder; 8066f7e30 is requalified unchanged."
+severity = "blocker"
