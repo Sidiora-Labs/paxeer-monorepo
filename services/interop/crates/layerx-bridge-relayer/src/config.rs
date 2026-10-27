@@ -320,6 +320,57 @@ pub struct RelayerConfig {
     pub attestor_set: Option<AttestorSetConfig>,
     #[serde(default, deserialize_with = "deserialize_attestation_listen")]
     pub attestation_listen: Option<SocketAddr>,
+    #[serde(default)]
+    pub attestation_allowed_origins: Vec<String>,
+}
+
+fn valid_attestation_origin(origin: &str) -> bool {
+    let Some((scheme, authority)) = origin.split_once("://") else {
+        return false;
+    };
+    if !scheme.starts_with(|character: char| character.is_ascii_alphabetic())
+        || !scheme
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"+.-".contains(&byte))
+    {
+        return false;
+    }
+    let (valid_host, port) = if let Some(ipv6) = authority.strip_prefix('[') {
+        let Some((host, suffix)) = ipv6.split_once(']') else {
+            return false;
+        };
+        let port = if suffix.is_empty() {
+            None
+        } else if let Some(port) = suffix.strip_prefix(':') {
+            Some(port)
+        } else {
+            return false;
+        };
+        (host.parse::<std::net::Ipv6Addr>().is_ok(), port)
+    } else {
+        let (host, port) = authority
+            .split_once(':')
+            .map_or((authority, None), |(host, port)| (host, Some(port)));
+        let host = host.strip_suffix('.').unwrap_or(host);
+        let valid = !host.is_empty()
+            && host.len() <= 253
+            && host.split('.').all(|label| {
+                !label.is_empty()
+                    && label.len() <= 63
+                    && !label.starts_with('-')
+                    && !label.ends_with('-')
+                    && label
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+            });
+        (valid, port)
+    };
+    valid_host
+        && port.is_none_or(|port| {
+            !port.is_empty()
+                && port.bytes().all(|byte| byte.is_ascii_digit())
+                && port.parse::<u16>().is_ok()
+        })
 }
 
 fn deserialize_attestation_listen<'de, D: serde::Deserializer<'de>>(
@@ -357,6 +408,15 @@ impl RelayerConfig {
     ///
     /// Names the first inconsistency.
     pub fn validate(&self) -> Result<(), RelayerError> {
+        if self
+            .attestation_allowed_origins
+            .iter()
+            .any(|origin| !valid_attestation_origin(origin))
+        {
+            return Err(invalid(
+                "attestation_allowed_origins entries must be scheme://host[:port]",
+            ));
+        }
         if self.poll_interval_ms == 0 || self.max_submissions == 0 {
             return Err(invalid(
                 "poll interval and submission budget must be positive",

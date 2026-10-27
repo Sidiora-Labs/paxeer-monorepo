@@ -69,6 +69,23 @@ func LoadRecord(path string) (Record, error) {
 	return record, nil
 }
 
+const solanaProgramIDEnvName = "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID"
+
+func evmVaultEnvName(chain string) string {
+	return "NEXT_PUBLIC_BRIDGE_VAULT_" + strings.ToUpper(chain)
+}
+
+// EnvNames lists every variable EnvLines can emit, in deployment order.
+func EnvNames() []string {
+	var names []string
+	for _, chain := range chainconfig.Chains() {
+		if chain.Kind == chainconfig.KindEVM {
+			names = append(names, evmVaultEnvName(chain.Name))
+		}
+	}
+	return append(names, solanaProgramIDEnvName)
+}
+
 func EnvLines(records []Record) []string {
 	lines := make([]string, 0, len(records))
 	for _, chain := range chainconfig.Chains() {
@@ -77,13 +94,13 @@ func EnvLines(records []Record) []string {
 		}
 		for _, record := range records {
 			if record.Chain == chain.Name && record.Kind == string(chainconfig.KindEVM) {
-				lines = append(lines, "NEXT_PUBLIC_BRIDGE_VAULT_"+strings.ToUpper(chain.Name)+"="+record.Vault)
+				lines = append(lines, evmVaultEnvName(chain.Name)+"="+record.Vault)
 			}
 		}
 	}
 	for _, record := range records {
 		if record.Chain == "solana" && record.Kind == string(chainconfig.KindSolana) {
-			lines = append(lines, "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID="+record.ProgramID)
+			lines = append(lines, solanaProgramIDEnvName+"="+record.ProgramID)
 		}
 	}
 	return lines

@@ -20,7 +20,8 @@ use crate::kernel::KernelError;
 use crate::payment::{hex, unhex};
 use crate::search;
 use crate::server::{Response, RouteError, RouteTable};
-use crate::watch::{hex0x, keccak, unhex0x};
+use crate::submit::{Outcome, SubmitError, Submitter};
+use crate::watch::{hex0x, keccak, unhex0x, EvmError, RequestWatcher};
 
 pub use crate::server::PROGRAM_ATTESTATION_PATH;
 
@@ -675,6 +676,146 @@ pub fn register(
 ) -> Result<(), RouteError> {
     let exchange = Arc::clone(exchange);
     routes.set_program_attestations(move |program_id, request_id| {
-        exchange.handle((program_id, request_id))
+        match exchange.answer((program_id, request_id)) {
+            Some(answer) => Response::json(200, program_record(&answer).to_string().into_bytes()),
+            None => Response::error(404, "not_found"),
+        }
     })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct ProgramRefusal {
+    pub program_id: [u8; 32],
+    pub request_id: u64,
+    pub code: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Step {
+    Submitted {
+        program_id: [u8; 32],
+        request_id: u64,
+        outcome: Outcome,
+    },
+    Discarded {
+        program_id: [u8; 32],
+        request_id: u64,
+        code: String,
+    },
+}
+
+pub struct ProgramRelay {
+    pub watcher: RequestWatcher,
+    pub attestor: ProgramAttestor,
+    pub exchange: Arc<ProgramExchange>,
+    pub set: AttestorSet,
+    pub submitter: Submitter,
+}
+
+impl ProgramRelay {
+    pub fn discarded(&self) -> Result<Vec<ProgramRefusal>, EvmError> {
+        let path = self
+            .exchange
+            .log_path()
+            .with_file_name("program-requests-discarded.jsonl");
+        let contents = match std::fs::read_to_string(path) {
+            Ok(contents) => contents,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(_) => return Err(EvmError::Journal),
+        };
+        contents
+            .lines()
+            .map(|line| serde_json::from_str(line).map_err(|_| EvmError::Journal))
+            .collect()
+    }
+
+    pub fn step(&mut self) -> Result<Vec<Step>, EvmError> {
+        let discarded = self.discarded()?;
+        self.watcher.poll()?;
+        let mut steps = Vec::new();
+        for request in self.watcher.program_work() {
+            let key = (request.program_id, request.request_id);
+            if let Some(refusal) = discarded
+                .iter()
+                .find(|entry| (entry.program_id, entry.request_id) == key)
+            {
+                self.watcher.retire_program(key.0, key.1)?;
+                self.exchange.forget(key);
+                steps.push(Step::Discarded {
+                    program_id: key.0,
+                    request_id: key.1,
+                    code: refusal.code.clone(),
+                });
+                continue;
+            }
+            let resumed = self.submitter.resume_program(key).map_err(submit_error)?;
+            let outcome = if let Some(outcome) = resumed {
+                outcome
+            } else {
+                if self.exchange.answer(key).is_none() {
+                    match self.attestor.attest(&request) {
+                        Ok(answer) => self.exchange.record(answer),
+                        Err(reason) => {
+                            let code = match &reason {
+                                AttestError::Fetch(error) => error.code().to_owned(),
+                                _ => reason.to_string(),
+                            };
+                            let record = serde_json::to_string(&ProgramRefusal {
+                                program_id: key.0,
+                                request_id: key.1,
+                                code: code.clone(),
+                            })
+                            .map_err(|_| EvmError::Journal)?;
+                            let mut file = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open(
+                                    self.exchange
+                                        .log_path()
+                                        .with_file_name("program-requests-discarded.jsonl"),
+                                )
+                                .map_err(|_| EvmError::Journal)?;
+                            writeln!(file, "{record}").map_err(|_| EvmError::Journal)?;
+                            file.sync_all().map_err(|_| EvmError::Journal)?;
+                            self.watcher.retire_program(key.0, key.1)?;
+                            self.exchange.forget(key);
+                            steps.push(Step::Discarded {
+                                program_id: key.0,
+                                request_id: key.1,
+                                code,
+                            });
+                            continue;
+                        }
+                    }
+                }
+                let _ = self.exchange.collect(key, &self.set);
+                let Some(ready) = self.exchange.ready(key, &self.set) else {
+                    continue;
+                };
+                let observation = observation_bytes(self.attestor.network_id, &request, &ready)
+                    .map_err(|_| EvmError::Malformed)?;
+                self.submitter
+                    .submit_program(key, &observation, ready.signatures.len())
+                    .map_err(submit_error)?
+            };
+            if outcome.completed() {
+                self.watcher.retire_program(key.0, key.1)?;
+                self.exchange.forget(key);
+            }
+            steps.push(Step::Submitted {
+                program_id: key.0,
+                request_id: key.1,
+                outcome,
+            });
+        }
+        Ok(steps)
+    }
+}
+
+fn submit_error(error: SubmitError) -> EvmError {
+    match error {
+        SubmitError::Evm(error) => error,
+        SubmitError::Journal => EvmError::Journal,
+        _ => EvmError::Malformed,
+    }
 }

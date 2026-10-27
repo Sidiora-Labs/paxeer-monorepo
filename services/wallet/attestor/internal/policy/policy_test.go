@@ -1,7 +1,10 @@
 package policy
 
 import (
+	"bytes"
 	"crypto/ecdsa"
+	"crypto/ed25519"
+	"encoding/binary"
 	"errors"
 	"math/big"
 	"os"
@@ -16,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/holiman/uint256"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/lxwire"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 )
 
@@ -136,6 +140,166 @@ func TestValueCap(t *testing.T) {
 		t.Fatal(err)
 	}
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, common.HexToAddress("0x7777777777777777777777777777777777777777"), big.NewInt(0), unknownToken), h.ledger), CodeNoCap)
+}
+
+func TestLayerxledgerSendCountsSpend(t *testing.T) {
+	h := newHarness(t)
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	asset := common.HexToHash("0x1234567890abcdef123456780000000000000000000000000000000000000001")
+	assetKey := common.Bytes2Hex(asset[:])
+	doc.Defaults.Caps[assetKey] = Cap{PerTransaction: "5000000", Daily: "8000000"}
+	h.policy = New(doc)
+	contract, err := evm.PrecompileABI("layerxledger")
+	if err != nil {
+		t.Fatal(err)
+	}
+	address, _ := evm.PrecompileAddress("layerxledger")
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{1}, ed25519.SeedSize))
+	send := lxwire.Send{
+		From: [32]byte{1}, To: [32]byte{2}, Asset: asset,
+		IdempotencyKey: [32]byte{3}, ExpiresAt: uint64(h.now.Add(time.Hour).UnixMilli()),
+		AuthorizationKind: lxwire.OwnerAuthorization, Controller: [32]byte{1},
+		NetworkID: 125, ProtocolVersion: lxwire.StateCommitmentProtocolVersion,
+	}
+	copy(send.PublicKey[:], key.Public().(ed25519.PublicKey))
+	evaluate := func(amount uint64) Decision {
+		send.Amount = lxwire.Uint128{Lo: amount}
+		send.SourceSequence++
+		digest, err := send.AuthorizationDigest()
+		if err != nil {
+			t.Fatal(err)
+		}
+		copy(send.Signature[:], ed25519.Sign(key, digest[:]))
+		envelope, err := send.Encode()
+		if err != nil {
+			t.Fatal(err)
+		}
+		data, err := contract.Pack("send", envelope)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+	}
+	expect(t, evaluate(5_000_001), CodeValueCap)
+	decision := evaluate(5_000_000)
+	expect(t, decision, CodeAllowed)
+	if len(decision.Spends) != 1 || decision.Spends[0].Asset != assetKey || decision.Spends[0].Amount.Cmp(big.NewInt(5_000_000)) != 0 {
+		t.Fatalf("spends %+v, want 5000000 of %s", decision.Spends, assetKey)
+	}
+	send.Asset[0] ^= 1
+	expect(t, evaluate(1), CodeNoCap)
+	spent, err := h.ledger.Spent(strings.ToLower(testAccount), assetKey, h.now.Add(-SpendWindow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spent.Cmp(big.NewInt(5_000_000)) != 0 {
+		t.Fatalf("ledger spent %s, want 5000000", spent)
+	}
+}
+
+func policyTestAuthorityGrant(asset [32]byte, allowance uint64, kind uint8) []byte {
+	var out []byte
+	u64 := func(value uint64) { out = binary.BigEndian.AppendUint64(out, value) }
+	u128 := func(value uint64) { u64(0); u64(value) }
+	field := func(value []byte) {
+		out = binary.BigEndian.AppendUint32(out, uint32(len(value)))
+		out = append(out, value...)
+	}
+	out = binary.BigEndian.AppendUint16(out, 1)
+	out = binary.BigEndian.AppendUint16(out, 0x2001)
+	out = append(out, 1)
+	field(bytes.Repeat([]byte{1}, 32))
+	field(bytes.Repeat([]byte{1}, 32))
+	out = append(out, kind)
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{2}, ed25519.SeedSize))
+	field(key.Public().(ed25519.PublicKey))
+	u64(1 << 1)
+	out = binary.BigEndian.AppendUint16(out, 5)
+	out = binary.BigEndian.AppendUint16(out, 5)
+	field(asset[:])
+	u128(1_000_000)
+	u128(allowance)
+	u128(0)
+	u64(0)
+	u128(0)
+	u128(0)
+	u64(0)
+	field(bytes.Repeat([]byte{3}, 32))
+	u64(1_800_000_000_000)
+	u64(1_800_003_600_000)
+	u64(1)
+	out = append(out, 0)
+	u64(0)
+	field(make([]byte, 64))
+	return out
+}
+
+func TestLayerxauthGrantIssueCountsAllowance(t *testing.T) {
+	for _, method := range []string{"grantSession", "grantSessionSuccessor", "grantCapability"} {
+		t.Run(method, func(t *testing.T) {
+			h := newHarness(t)
+			doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			asset := [32]byte{4}
+			assetKey := common.Bytes2Hex(asset[:])
+			doc.Defaults.Caps[assetKey] = Cap{PerTransaction: "5000000", Daily: "8000000"}
+			h.policy = New(doc)
+			contract, err := evm.PrecompileABI("layerxauth")
+			if err != nil {
+				t.Fatal(err)
+			}
+			address, _ := evm.PrecompileAddress("layerxauth")
+			kind := uint8(3)
+			if method != "grantCapability" {
+				kind = 2
+			}
+			evaluate := func(grant []byte) Decision {
+				args := []any{grant}
+				if method != "grantCapability" {
+					args = append(args, uint64(100), [32]byte{5})
+					if method == "grantSessionSuccessor" {
+						args = append(args, [32]byte{6}, [32]byte{7})
+					}
+				}
+				data, err := contract.Pack(method, args...)
+				if err != nil {
+					t.Fatal(err)
+				}
+				return h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+			}
+			grant := policyTestAuthorityGrant(asset, 5_000_000, kind)
+			decision := evaluate(grant)
+			expect(t, decision, CodeAllowed)
+			if len(decision.Spends) != 1 || decision.Spends[0].Asset != assetKey || decision.Spends[0].Amount.Cmp(big.NewInt(5_000_000)) != 0 {
+				t.Fatalf("spends %+v, want 5000000 of %s", decision.Spends, assetKey)
+			}
+			expect(t, evaluate(policyTestAuthorityGrant(asset, 4_000_000, kind)), CodeDailyCap)
+			expect(t, evaluate(grant[:len(grant)-1]), CodeDecodeError)
+			expect(t, evaluate(append(bytes.Clone(grant), 0)), CodeDecodeError)
+			expect(t, evaluate(policyTestAuthorityGrant(asset, 0, kind)), CodeUnlimitedApproval)
+			data, err := contract.Pack("revokeGrant", [32]byte{8}, uint8(1), uint64(2))
+			if err != nil {
+				t.Fatal(err)
+			}
+			revoked := h.policy.Evaluate(testAccount, h.tx(t, address, big.NewInt(0), data), h.ledger)
+			expect(t, revoked, CodeAllowed)
+			if len(revoked.Spends) != 0 {
+				t.Fatalf("revocation spends %+v, want none", revoked.Spends)
+			}
+			spent, err := h.ledger.Spent(strings.ToLower(testAccount), assetKey, h.now.Add(-SpendWindow))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if spent.Cmp(big.NewInt(5_000_000)) != 0 {
+				t.Fatalf("ledger spent %s, want 5000000", spent)
+			}
+		})
+	}
 }
 
 func TestRollingCapAcrossWindowBoundary(t *testing.T) {

@@ -113,7 +113,7 @@ static int terminal_fixture_open(terminal_fixture *f)
     CHECK(lxp_kernel_register_module(&f->kernel, lx_asset_module_iface()) == LXP_OK);
     memcpy(f->asset_record.asset_id, f->asset.asset_id, 32U);
     f->asset_runtime = (lx_asset_runtime){&f->accounts, &f->asset_record, 1U,
-        &f->asset, 1U, 7U, 3U};
+        &f->asset, 1U, 7U, 3U, false};
     f->actor->has_authority_key = true;
     memcpy(f->actor->authority_key, f->actor_public_key, 32U);
     CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->asset_runtime) == LXP_OK);
