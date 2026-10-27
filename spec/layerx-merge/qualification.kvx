@@ -7565,3 +7565,35 @@ symbol = "open_account"
 observed = "Attempt 369bff6bc fails open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure): Disclosure::validate_bytes (layerx-crypto signer.rs:302) finds the disclosure does not describe the canonical bytes handed to sign_disclosed_call."
 assumption = "Task-scoped: the ABI-call disclosure must cover the signed 0x101A payload as the send path does. Recorded once."
 severity = "major"
+
+[finding.8.28.2.1]
+task = "8.28.2"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "VerifiedLayerxLeg"
+observed = "Attempt 3f8072724 builds and passes its tests, then the dependents gate fails because layerx-reference-ramp reads leg.activity_id and leg.batch_id (main.rs:266-268) from the VerifiedLayerxLeg the task reshaped to tx_hash, height and rung."
+assumption = "The task now owns that report line pair; the reference-ramp port proper stays with 8.30.1. Recorded once."
+severity = "major"
+
+[finding.10.11.1.1]
+task = "10.11.1"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "ReadRequest"
+observed = "Attempt 6c8f358ff builds and passes its tests, then the dependents gate fails compiling layerx-agentd (78 errors against the reshaped layerx-agent-api read, availability and Freshness types), the same break finding.8.8.1 records."
+assumption = "10.11.1 now requires 9.1.8, the layerx-agentd port. Recorded once."
+severity = "major"
+
+[finding.10.25.3.2]
+task = "10.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "ReadRequest"
+observed = "Attempt b67f99438 fails its build because layerx-human-test-support compiles layerx-agentd, which does not compile against the reshaped layerx-agent-api types (78 errors), the break finding.8.8.1 records."
+assumption = "10.25.3 now requires 9.1.8. Recorded once."
+severity = "major"
+
+[finding.11.7.1.1]
+task = "11.7.1"
+file = "services/interop/crates/layerx-ap2/src/adapter.rs"
+symbol = "Ap2Adapter"
+observed = "Attempt 05597f7a3 passes both tests, then the done gate refuses Ap2Adapter::new and Ap2Adapter::execute as not defined in the graph: they are methods of a generic impl block, which the graph does not index."
+assumption = "The symbols list now names the two test functions, as recorded for the same refusal before; the attempt requalifies without a code change. Recorded once."
+severity = "major"
