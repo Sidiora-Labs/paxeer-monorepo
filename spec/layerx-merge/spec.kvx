@@ -100159,7 +100159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.7]
 title = "Prove the application imports and exports layerxagent genesis with stored jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.32.8", "2.0.2", "5.19.2", "2.34.2"]
@@ -105857,7 +105857,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.98.1]
 title = "Start a local perps gateway against the disposable chain-125 node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.98.1"]
@@ -112992,7 +112992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.7.2]
 title = "Make the precompile keepers answer no anchor keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.19.4", "5.6.5"]
@@ -122337,7 +122337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.5]
 title = "Prove the gov route refuses layerxanchor MsgUpdateParams after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["6.31.5", "6.0.2"]
@@ -148167,7 +148167,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.16.4]
 title = "Execute Visa TAP and fiat payments in the service through the chain relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.16.3", "11.17.1", "11.8.1", "9.1.7"]
