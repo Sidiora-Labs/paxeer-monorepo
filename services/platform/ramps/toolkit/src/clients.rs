@@ -885,6 +885,8 @@ impl LayerxConfig {
         Ok(LayerxClient {
             http,
             sequencer,
+            network: layerx_client::px::PxEndpoint::new(&self.rpc_endpoint, &[&trust_anchor])
+                .map_err(|_| "LayerX sequencer network endpoint rejected".to_owned())?,
             signer: Endpoint::parse(&self.signer_endpoint)
                 .map_err(|_| "signer endpoint rejected".to_owned())?,
             signer_token: receipt_secret_text(&self.signer_token_file)?,
@@ -920,6 +922,7 @@ fn receipt_secret_text(path: &PathBuf) -> Result<String, String> {
 pub struct LayerxClient {
     pub http: MutualTlsClient,
     pub sequencer: SequencerEndpoint,
+    network: layerx_client::px::PxEndpoint,
     pub signer: Endpoint,
     pub signer_token: String,
     pub actor_did: String,
@@ -1413,10 +1416,17 @@ impl PaxeerCustodyClient {
         {
             return Err(RampError::Paxeer);
         }
-        layerx_paxeer_client::TransactionHash::from_hex(&submission.transaction_hash)
-            .map_err(|_| RampError::Paxeer)?;
+        parse_custody_transaction_hash(&submission.transaction_hash)?;
         Ok(submission)
     }
+}
+
+fn parse_custody_transaction_hash(value: &str) -> Result<[u8; 32], RampError> {
+    let digits = value.strip_prefix("0x").ok_or(RampError::Paxeer)?;
+    if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(RampError::Paxeer);
+    }
+    parse_hex32(digits).map_err(|_| RampError::Paxeer)
 }
 
 fn verify_detached(public_key: &[u8; 32], message: &[u8], signature: &str) -> Result<(), ()> {
@@ -2296,33 +2306,22 @@ pub fn verify_recovery_settlement(
     provider: &ProviderClient,
     layerx: &LayerxClient,
     custody: &PaxeerCustodyClient,
-    tracker_config: &layerx_paxeer_client::TrackerConfig,
+    _tracker_config: &layerx_paxeer_client::TrackerConfig,
 ) -> Result<(), RampError> {
     use crate::journal::WorkflowStage;
-    use layerx_paxeer_client::{FinalityStage, FinalityTracker, PaxeerClient, TransactionHash};
-    PaxeerClient::new(tracker_config.endpoints.clone()).map_err(|_| RampError::Paxeer)?;
-    let mut observations = Vec::new();
-    for endpoint in &tracker_config.endpoints {
-        let client = PaxeerClient::new(vec![endpoint.clone()]).map_err(|_| RampError::Paxeer)?;
-        let chain = client.chain_id().map_err(|_| RampError::Paxeer)?;
-        let height = client.head_number().map_err(|_| RampError::Paxeer)?;
-        let head = client
-            .block_by_number(height)
-            .map_err(|_| RampError::Paxeer)?
-            .ok_or(RampError::Paxeer)?;
-        if chain != endpoint.expected_chain_id {
-            return Err(RampError::Paxeer);
-        }
-        observations.push((chain, head));
-    }
-    if tracker_config.minimum_endpoint_agreement < 2
-        || observations.len() < tracker_config.minimum_endpoint_agreement
-        || observations
-            .iter()
-            .any(|value| Some(value) != observations.first())
-    {
+    let chain_id = layerx.sequencer.chain_id().map_err(|_| RampError::Paxeer)?;
+    if chain_id != layerx.chain_id {
         return Err(RampError::Paxeer);
     }
+    let network = layerx.network.network().map_err(|_| RampError::Paxeer)?;
+    if network.paxeer.chain_id != layerx.chain_id {
+        return Err(RampError::Paxeer);
+    }
+    let head = layerx
+        .sequencer
+        .block_by_number(network.paxeer.latest_block)
+        .map_err(|_| RampError::Paxeer)?
+        .ok_or(RampError::Paxeer)?;
     for snapshot in projection.orders().values() {
         snapshot.order.validate_bound()?;
         if &snapshot.order.operator != operator {
@@ -2417,38 +2416,83 @@ pub fn verify_recovery_settlement(
     for snapshot in projection.paxeer_transfers() {
         let current =
             custody.reconcile(snapshot.asset, snapshot.amount, snapshot.idempotency_key)?;
-        let transaction =
-            TransactionHash::from_hex(&current.transaction_hash).map_err(|_| RampError::Paxeer)?;
+        let transaction = parse_custody_transaction_hash(&current.transaction_hash)?;
         if snapshot
             .operation_id
             .as_ref()
             .is_some_and(|id| id != &current.operation_id)
             || snapshot
                 .transaction_hash
-                .is_some_and(|hash| hash != transaction.bytes())
+                .is_some_and(|hash| hash != transaction)
         {
             return Err(RampError::Paxeer);
         }
-        let mut tracker = FinalityTracker::new(tracker_config.clone(), transaction)
-            .map_err(|_| RampError::Paxeer)?;
-        let report = tracker.poll();
-        if !matches!(
-            report.endpoint(),
-            layerx_paxeer_client::EndpointSignal::Serving
-        ) || !matches!(
-            report.stage(),
-            FinalityStage::Pooled { .. }
-                | FinalityStage::Confirming { .. }
-                | FinalityStage::Final { .. }
-        ) {
+        let answer = layerx
+            .sequencer
+            .sequencer_receipt(&transaction)
+            .map_err(|_| RampError::Paxeer)?
+            .ok_or(RampError::Paxeer)?;
+        let (receipt, committed) = match answer {
+            SequencerReceipt::Submitted { .. } if snapshot.stage != "final" => continue,
+            SequencerReceipt::Submitted { .. } => return Err(RampError::Paxeer),
+            SequencerReceipt::Receipted(receipt) => (receipt, None),
+            SequencerReceipt::Committed {
+                receipt,
+                block_number,
+                block_hash,
+            } => {
+                let block = layerx
+                    .sequencer
+                    .block_by_number(block_number)
+                    .map_err(|_| RampError::Paxeer)?
+                    .ok_or(RampError::Paxeer)?;
+                if block.hash != block_hash || block.number > head.number {
+                    return Err(RampError::Paxeer);
+                }
+                (receipt, Some(block_hash))
+            }
+        };
+        let keys: Vec<_> = layerx
+            .receipt_keys
+            .iter()
+            .map(|key| {
+                layerx_proof::inclusion::SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect();
+        let signed =
+            layerx_proof::receipt::verify_sequencer_signature(&receipt.receipt, keys.as_slice())
+                .map_err(|_| RampError::Paxeer)?;
+        let protocol = signed.protocol().ok_or(RampError::Paxeer)?;
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&receipt.height.to_be_bytes());
+        if !receipt.success
+            || protocol.activity_id() != transaction
+            || protocol.result_code() != 0
+            || protocol.batch_id() != height
+            || protocol.context_hash() != receipt.key_id
+        {
             return Err(RampError::Paxeer);
         }
-        if snapshot.stage == "final" {
-            match report.stage() {
-                FinalityStage::Final { inclusion, .. }
-                    if snapshot.block_hash == Some(inclusion.block.hash) => {}
-                _ => return Err(RampError::Paxeer),
-            }
+        let logs = receipt
+            .logs
+            .iter()
+            .map(|log| {
+                layerx_proof::sequencer_logs::SequencerLog::new(
+                    log.address,
+                    log.topics.clone(),
+                    log.data.clone(),
+                    log.log_index,
+                )
+            })
+            .collect();
+        layerx_proof::sequencer_logs::verify_logs(&signed, logs).map_err(|_| RampError::Paxeer)?;
+        if snapshot.stage == "final" && (committed.is_none() || snapshot.block_hash != committed) {
+            return Err(RampError::Paxeer);
         }
     }
     Ok(())

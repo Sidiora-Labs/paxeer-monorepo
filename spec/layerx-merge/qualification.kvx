@@ -8013,3 +8013,27 @@ symbol = "Host.Close"
 observed = "Attempt b480fc02c expected LXP_ERR_LENGTH_LIMIT from a read after Close; read.go:510 answers LXP_ERR_NON_CANONICAL and src/modules/programs/sandbox.c:741 emits LXP_ERR_LENGTH_LIMIT only for a length above INT32_MAX."
 assumption = "do_6 names the closed-host code; req.13278 is unchanged."
 severity = "minor"
+
+[finding.5.55.2.4]
+task = "5.55.2"
+file = "node/process_proposal_proposer.go"
+symbol = "checkSequencerProposer"
+observed = "Attempt 2484f85f7 pinned the validator key and recording stalled at height 2 with 'proposer ... is outside the pinned leader list': the check compares the 20-byte Header.ProposerAddress with each 32-byte pinned key, so no real proposal passes once the sequenced path is active."
+assumption = "New task 5.1.3 compares against crypto.AddressHash of each leader and 5.55.2 requires it; req.5004 ac_1 names the address."
+severity = "major"
+
+[finding.3.55.1]
+task = "3.55.1"
+file = "apps/perps/src/core/perps/config.ts"
+symbol = "PerpsMarket"
+observed = "Attempt da9ceb986 deleted maxLeverage from PerpsMarket and tsc failed at MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68, which read the field through MarketRow extends PerpsMarket and the mobile market prop."
+assumption = "do_5 moves the gateway-fed consumers onto a TradeableMarket type; the 1000 assertions in perps-config.test.ts go with the rows."
+severity = "major"
+
+[finding.11.36.1.2]
+task = "11.36.1"
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+symbol = "decode_request_record"
+observed = "Attempt 1d7eadbe8 applied do_7 and the build failed at tests/attest.rs:25 (unresolved import x_websearch::kernel); tests/program.rs:17 and tests/binary.rs:19 import the module too, and tests/program.rs needs decode_request_record, which only kernel.rs:172 defines."
+assumption = "do_8 repoints the three tests and moves decode_request_record into program.rs; the kernel binary tests go with do_3."
+severity = "major"
