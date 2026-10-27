@@ -6,9 +6,11 @@ use std::fs::{self, File};
 use std::io::{self, Write as _};
 use std::path::{Path, PathBuf};
 
+use layerx_crypto::disclosure::call::bind_call;
 use layerx_crypto::disclosure::{self, DisclosedNativeOperation, Disclosure, DisclosureError};
-use layerx_crypto::signer::{sign_disclosed, SignError, Signer};
-use layerx_crypto::{ed25519, SignatureMessage, VerifyError};
+use layerx_crypto::evm_transaction::{self, Eip1559Call, EvmTransactionError};
+use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
+use layerx_crypto::VerifyError;
 use layerx_programs_ai_market::codec::{
     decode_envelope, decode_roster, encode_envelope, Envelope, RosterView,
 };
@@ -38,7 +40,7 @@ use layerx_programs_ai_market::types::{
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
 use layerx_types::activity::{
-    ActivityBuildError, Authority, EnvelopeBuilder, Signature, TimestampBound, UnsignedEnvelope,
+    ActivityBuildError, Authority, EnvelopeBuilder, TimestampBound, UnsignedEnvelope,
 };
 use layerx_types::amount::Amount;
 use layerx_types::ids::{Did, IdempotencyKey, LengthError};
@@ -46,18 +48,17 @@ use layerx_types::intent;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry, Payload, PayloadError};
 use layerx_types::program_call::{InvalidNativeCall, NativeProgramCall, Resources};
 use layerx_types::result::{KnownResult, Retriability};
-use layerx_wire::activity::{
-    decode_signed, encode_signed, encode_signed_envelope, encode_unsigned, encode_unsigned_envelope,
-};
-use layerx_wire::hash::{activity_id, payload_hash_for, Domain};
+
+use layerx_wire::hash::payload_hash_for;
 use layerx_wire::WireError;
 
-use crate::lni::schema::Version as InterfaceVersion;
-use crate::lni::transport::FrameTransport;
-use crate::receipt::{
+use layerx_types::rung::Rung;
+
+use crate::rpc::receipt::{
     lookup_authenticated, AuthenticatedLookup, AuthenticatedLookupContext, ReceiptError,
 };
-use crate::submit::{submit_signed, Submission, SubmissionContext, SubmitError};
+use crate::rpc::submit::{submit_signed, Submission, SubmitError};
+use crate::sequencer::{SequencerEndpoint, SequencerError};
 
 /// F02 live-authority freshness bound: a snapshot lagging verified authority by more refuses.
 pub const AUTHORITY_FRESHNESS_HEIGHTS: u64 = 8;
@@ -72,7 +73,7 @@ pub const NATIVE_CALL_PROTOCOL_VERSION: u16 = 3;
 /// Programs module activity ordinal of a native program call.
 pub const PROGRAM_CALL_ORDINAL: u16 = 3;
 
-const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP1";
+const RECORD_MAGIC: &[u8; 8] = b"PAXAIOP2";
 const RECORD_EXTENSION: &str = "op";
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
@@ -86,9 +87,11 @@ pub enum AiClientError {
     Actor(LengthError),
     Payload(PayloadError),
     Wire(WireError),
+    Transaction(EvmTransactionError),
     Disclosure(DisclosureError),
     NotNativeProgramCall,
     NotMutation,
+    TransactionRequired,
     ReviewMismatch(ReviewField),
     UnauthorizedKey,
     Sign(SignError),
@@ -120,6 +123,7 @@ from_refusal!(
     LengthError => Actor,
     PayloadError => Payload,
     WireError => Wire,
+    EvmTransactionError => Transaction,
     DisclosureError => Disclosure,
     SignError => Sign,
     VerifyError => Signature,
@@ -532,7 +536,7 @@ impl FinalizedSnapshot {
         }
         .encode()?;
         let unsigned = unsigned_activity(registry, terms, &call)?;
-        let canonical = encode_unsigned_envelope(&unsigned)?;
+        let canonical = layerx_wire::activity::encode_unsigned_envelope(&unsigned)?;
         Ok(PreparedOperation {
             unsigned,
             canonical,
@@ -567,6 +571,40 @@ fn unsigned_activity(
         .payload_hash(payload_hash)?
         .payload(payload)?;
     Ok(builder.build()?)
+}
+
+fn program_call_data(call: &NativeProgramCall<'_>, fee_limit: u128) -> Vec<u8> {
+    fn word(value: u128) -> [u8; 32] {
+        let mut out = [0; 32];
+        out[16..].copy_from_slice(&value.to_be_bytes());
+        out
+    }
+    let selector = evm_transaction::transaction_hash(
+        b"call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
+    );
+    let mut head = selector[..4].to_vec();
+    head.extend_from_slice(&call.program_id.bytes());
+    head.extend_from_slice(&word(u128::from(call.guest_abi)));
+    let mut tail = Vec::new();
+    for bytes in [
+        call.entrypoint,
+        call.calldata,
+        call.capabilities,
+        call.access_declaration,
+    ] {
+        head.extend_from_slice(&word(15 * 32 + tail.len() as u128));
+        tail.extend_from_slice(&word(bytes.len() as u128));
+        tail.extend_from_slice(bytes);
+        let padding = (32 - bytes.len() % 32) % 32;
+        tail.resize(tail.len() + padding, 0);
+    }
+    head.extend_from_slice(&word(u128::from(call.response_capacity)));
+    for ceiling in call.resources.0 {
+        head.extend_from_slice(&word(u128::from(ceiling)));
+    }
+    head.extend_from_slice(&word(fee_limit));
+    head.extend_from_slice(&tail);
+    head
 }
 
 /// Semantic effect decoded from the exact payload, without any precondition.
@@ -723,6 +761,7 @@ pub enum ReviewField {
     IdempotencyKey,
     Authority,
     Commitment,
+    Transaction,
 }
 
 /// Every term the owner approves, derived from the disclosure of the exact canonical bytes.
@@ -750,6 +789,7 @@ pub struct ApprovalTerms {
     pub idempotency_key: [u8; 32],
     pub authority: Vec<u8>,
     pub commitment: [u8; 32],
+    pub transaction: Option<(Eip1559Call, [u8; 20])>,
 }
 
 impl PreparedOperation {
@@ -788,12 +828,39 @@ impl PreparedOperation {
         self.binding.revision
     }
 
-    /// Discloses the exact canonical bytes through the existing owner-consent binder and
-    /// derives every approval term from that disclosure, not from the planning inputs.
+    /// Binds the exact programs-precompile transaction and its sender before owner approval.
     ///
     /// # Errors
-    /// Disclosure refusals, `NotNativeProgramCall` for any other operation, ABI or program,
-    /// and `IntegrityFailure` when the calldata no longer matches the planned intent or effect.
+    /// Refuses a transaction differing from the plan or unsupported by the call disclosure binder.
+    pub fn review_call(
+        self,
+        registry: &ModuleRegistry,
+        call: Eip1559Call,
+        from: [u8; 20],
+    ) -> Result<Review, AiClientError> {
+        let native = NativeProgramCall::decode(self.unsigned.payload().as_bytes())?;
+        let mut target = [0; 20];
+        target[18..].copy_from_slice(&[0x10, 0x1d]);
+        if call.to != target
+            || call.chain_id != u64::from(self.unsigned.network_id())
+            || call.nonce != self.unsigned.account_sequence()
+            || call.max_priority_fee_per_gas > call.max_fee_per_gas
+            || call.data != program_call_data(&native, self.unsigned.fee_limit().value())
+        {
+            return Err(AiClientError::ReviewMismatch(ReviewField::Transaction));
+        }
+        let call_disclosure = bind_call(&call, from)?;
+        let mut review = self.review(registry)?;
+        review.terms.commitment = call_disclosure.audit_digest()?;
+        review.terms.transaction = Some((call, from));
+        review.call_disclosure = Some(call_disclosure);
+        Ok(review)
+    }
+
+    /// Reviews the native plan; signing also requires transaction terms from `review_call`.
+    ///
+    /// # Errors
+    /// Disclosure, program identity, domain, intent or effect mismatches.
     pub fn review(self, registry: &ModuleRegistry) -> Result<Review, AiClientError> {
         let disclosure = disclosure::bind(&self.canonical, registry)?;
         let Some(DisclosedNativeOperation::ProgramCall(call)) = &disclosure.native_operation else {
@@ -840,10 +907,12 @@ impl PreparedOperation {
             idempotency_key: disclosure.idempotency_key,
             authority: disclosure.authority.clone(),
             commitment: disclosure.audit_digest()?,
+            transaction: None,
         };
         Ok(Review {
             prepared: self,
             disclosure,
+            call_disclosure: None,
             terms,
         })
     }
@@ -854,6 +923,7 @@ impl PreparedOperation {
 pub struct Review {
     prepared: PreparedOperation,
     disclosure: Disclosure,
+    call_disclosure: Option<Disclosure>,
     terms: ApprovalTerms,
 }
 
@@ -945,6 +1015,10 @@ fn first_difference(actual: &ApprovalTerms, approved: &ApprovalTerms) -> Option<
         (
             actual.commitment == approved.commitment,
             ReviewField::Commitment,
+        ),
+        (
+            actual.transaction == approved.transaction,
+            ReviewField::Transaction,
         ),
     ];
     let unequal = |checks: &[(bool, ReviewField)]| {
@@ -1043,16 +1117,14 @@ impl Approval {
         &self.review
     }
 
-    /// Signs exactly the approved canonical bytes through the existing disclosure-bound
-    /// signer, verifies the signature, and returns the durable `Signed` record.
+    /// Signs the approved EIP-1559 call and verifies its recovered sender.
     ///
     /// # Errors
-    /// `StaleAuthority`, `UnauthorizedKey` for a signer other than the approver, signer and
-    /// signature refusals, and wire refusals of the signed activity.
+    /// `TransactionRequired` without a call review, freshness, key, disclosure or signature refusals.
     pub async fn sign(
         self,
         signer: &dyn Signer,
-        registry: &ModuleRegistry,
+        _registry: &ModuleRegistry,
         authority_height: u64,
     ) -> Result<OperationRecord, AiClientError> {
         let prepared = &self.review.prepared;
@@ -1066,26 +1138,29 @@ impl Approval {
         if signer.public_key() != self.key {
             return Err(AiClientError::UnauthorizedKey);
         }
-        let signature = sign_disclosed(
-            signer,
-            &prepared.canonical,
-            &self.review.disclosure,
-            registry,
+        let (call, from) = self
+            .review
+            .terms
+            .transaction
+            .as_ref()
+            .ok_or(AiClientError::TransactionRequired)?;
+        let disclosure = self
+            .review
+            .call_disclosure
+            .as_ref()
+            .ok_or(AiClientError::TransactionRequired)?;
+        if signer.evm_address() != Some(*from) {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        let signature = sign_disclosed_call(signer, call, disclosure, *from).await?;
+        if evm_transaction::recover_sender(call, &signature)? != *from {
+            return Err(AiClientError::UnauthorizedKey);
+        }
+        OperationRecord::from_signed_transaction(
+            evm_transaction::assemble(call, &signature),
+            prepared.intent.bytes(),
+            self.review.terms.not_after,
         )
-        .await?;
-        let message = SignatureMessage::new(
-            Domain::SignaturePreimage,
-            prepared.unsigned.protocol_version(),
-            prepared.unsigned.network_id(),
-            &prepared.canonical,
-        )?;
-        ed25519::verify(&self.key, signature.as_bytes(), message)?;
-        let authenticated = prepared
-            .unsigned
-            .clone()
-            .attach_signature(Signature::new(signature.as_bytes())?);
-        let signed_bytes = encode_signed_envelope(&authenticated)?;
-        OperationRecord::signed(signed_bytes, self.key, prepared.intent.bytes(), registry)
     }
 }
 
@@ -1161,35 +1236,25 @@ struct SignedIdentity {
     not_after: u64,
 }
 
-fn signed_identity(
-    signed_bytes: &[u8],
-    key: &[u8; 32],
-    registry: &ModuleRegistry,
-) -> Result<SignedIdentity, AiClientError> {
-    let activity = decode_signed(signed_bytes, registry)?;
-    if encode_signed(&activity)? != signed_bytes || activity.authority() != key.as_slice() {
-        return Err(AiClientError::CorruptRecord);
-    }
-    let signature: &[u8; 64] = activity
-        .signature()
-        .ok_or(AiClientError::CorruptRecord)?
-        .try_into()
-        .map_err(|_| AiClientError::CorruptRecord)?;
-    let unsigned = encode_unsigned(&activity)?;
-    let message = SignatureMessage::new(
-        Domain::SignaturePreimage,
-        activity.protocol_version(),
-        activity.network_id(),
-        &unsigned,
-    )?;
-    ed25519::verify(key, signature, message)?;
-    Ok(SignedIdentity {
-        activity_id: activity_id(&activity)?,
-        idempotency_key: activity.idempotency_key(),
-        protocol_version: activity.protocol_version(),
-        network_id: activity.network_id(),
-        not_after: activity.timestamp_bound().not_after,
-    })
+fn transaction_identity(
+    raw: &[u8],
+    not_after: u64,
+) -> Result<(SignedIdentity, [u8; 32]), AiClientError> {
+    let (call, signature) = evm_transaction::decode_signed(raw)?;
+    let sender = evm_transaction::recover_sender(&call, &signature)?;
+    let mut key = [0; 32];
+    key[12..].copy_from_slice(&sender);
+    let tx_hash = evm_transaction::transaction_hash(raw);
+    Ok((
+        SignedIdentity {
+            activity_id: tx_hash,
+            idempotency_key: tx_hash,
+            protocol_version: 2,
+            network_id: u32::try_from(call.chain_id).map_err(|_| AiClientError::CorruptRecord)?,
+            not_after,
+        },
+        key,
+    ))
 }
 
 /// Durable record of one signed operation; the signed bytes never change after signing.
@@ -1208,17 +1273,22 @@ pub struct OperationRecord {
     result_code: Option<i32>,
     global_sequence: Option<u64>,
     checkpoint: Option<[u8; 32]>,
+    rung: Option<Rung>,
     signed_bytes: Vec<u8>,
 }
 
 impl OperationRecord {
-    fn signed(
+    /// Retains a canonical signed EIP-1559 transaction for exact-byte delivery.
+    /// `not_after` is the operation's expiry approved by the caller.
+    ///
+    /// # Errors
+    /// Transaction decoding or signature refusals, or an unsupported chain id.
+    pub fn from_signed_transaction(
         signed_bytes: Vec<u8>,
-        key: [u8; 32],
         intent: [u8; 32],
-        registry: &ModuleRegistry,
+        not_after: u64,
     ) -> Result<Self, AiClientError> {
-        let identity = signed_identity(&signed_bytes, &key, registry)?;
+        let (identity, key) = transaction_identity(&signed_bytes, not_after)?;
         Ok(Self {
             state: OperationState::Signed,
             domain: DomainStatus::Pending,
@@ -1228,13 +1298,19 @@ impl OperationRecord {
             idempotency_key: identity.idempotency_key,
             intent,
             signer_public_key: key,
-            not_after: identity.not_after,
+            not_after,
             attempt: 0,
             result_code: None,
             global_sequence: None,
             checkpoint: None,
+            rung: None,
             signed_bytes,
         })
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> Option<Rung> {
+        self.rung
     }
 
     #[must_use]
@@ -1329,6 +1405,7 @@ impl OperationRecord {
         put_optional(&mut out, self.result_code.map(i32::to_be_bytes));
         put_optional(&mut out, self.global_sequence.map(u64::to_be_bytes));
         put_optional(&mut out, self.checkpoint);
+        put_optional(&mut out, self.rung.map(|rung| [rung.wire_rank()]));
         out.extend_from_slice(&length.to_be_bytes());
         out.extend_from_slice(&self.signed_bytes);
         Ok(out)
@@ -1339,7 +1416,7 @@ impl OperationRecord {
     /// # Errors
     /// `CorruptRecord` for malformed, trailing, inconsistent or pre-signing records, and
     /// wire or signature refusals of the retained bytes.
-    pub fn decode(bytes: &[u8], registry: &ModuleRegistry) -> Result<Self, AiClientError> {
+    pub fn decode(bytes: &[u8], _registry: &ModuleRegistry) -> Result<Self, AiClientError> {
         let mut input = Cursor(bytes);
         if &input.take::<8>()? != RECORD_MAGIC {
             return Err(AiClientError::CorruptRecord);
@@ -1360,9 +1437,19 @@ impl OperationRecord {
             result_code: input.optional()?.map(i32::from_be_bytes),
             global_sequence: input.optional()?.map(u64::from_be_bytes),
             checkpoint: input.optional()?,
+            rung: match input.optional()? {
+                None => None,
+                Some([0]) => Some(Rung::Submitted),
+                Some([1]) => Some(Rung::Receipted),
+                Some([2]) => Some(Rung::Committed),
+                _ => return Err(AiClientError::CorruptRecord),
+            },
             signed_bytes: input.rest()?.to_vec(),
         };
-        let identity = signed_identity(&record.signed_bytes, &record.signer_public_key, registry)?;
+        let (identity, key) = transaction_identity(&record.signed_bytes, record.not_after)?;
+        if key != record.signer_public_key {
+            return Err(AiClientError::CorruptRecord);
+        }
         if identity.activity_id != record.activity_id
             || identity.idempotency_key != record.idempotency_key
             || identity.protocol_version != record.protocol_version
@@ -1380,12 +1467,18 @@ impl OperationRecord {
             && self.global_sequence.is_none()
             && self.checkpoint.is_none();
         let executed = matches!(self.result_code, Some(0)) && self.global_sequence.is_some();
+        if self.global_sequence.is_some()
+            != matches!(self.rung, Some(Rung::Receipted | Rung::Committed))
+        {
+            return false;
+        }
         match self.state {
             OperationState::Prepared | OperationState::Reviewed => false,
-            OperationState::Signed => pristine && self.attempt == 0,
-            OperationState::Submitting | OperationState::Pending | OperationState::Unknown => {
-                pristine && self.attempt > 0
+            OperationState::Signed => pristine && self.attempt == 0 && self.rung.is_none(),
+            OperationState::Pending => {
+                pristine && self.attempt > 0 && matches!(self.rung, Some(Rung::Submitted))
             }
+            OperationState::Submitting | OperationState::Unknown => pristine && self.attempt > 0,
             OperationState::Executed => executed && self.checkpoint.is_none() && self.attempt > 0,
             OperationState::Finalized => executed && self.checkpoint.is_some() && self.attempt > 0,
             OperationState::Failed => {
@@ -1520,55 +1613,43 @@ impl OperationJournal {
     /// acknowledgment means pending, and lost or indeterminate delivery means unknown.
     ///
     /// # Errors
-    /// `InvalidTransition` unless `Signed`; pre-send verification refusals restore `Signed`.
+    /// `InvalidTransition` unless `Signed`; transaction or journal refusals.
     pub fn submit(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        registry: &ModuleRegistry,
-        interface_version: InterfaceVersion,
-        correlation_id: u64,
+        endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Signed])?;
-        self.deliver(
-            record,
-            transport,
-            registry,
-            interface_version,
-            correlation_id,
-        )
+        self.deliver(record, endpoint)
     }
 
     /// Separately authorised resend of the same signed bytes from `Unknown`; never re-signs.
     ///
     /// # Errors
-    /// `InvalidTransition` unless `Unknown`; pre-send verification refusals restore `Unknown`.
+    /// `InvalidTransition` unless `Unknown`; transaction or journal refusals.
     pub fn resend_exact(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        registry: &ModuleRegistry,
-        interface_version: InterfaceVersion,
-        correlation_id: u64,
+        endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Unknown])?;
-        self.deliver(
-            record,
-            transport,
-            registry,
-            interface_version,
-            correlation_id,
-        )
+        self.deliver(record, endpoint)
     }
 
     fn deliver(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        registry: &ModuleRegistry,
-        interface_version: InterfaceVersion,
-        correlation_id: u64,
+        endpoint: &SequencerEndpoint,
     ) -> Result<OperationState, AiClientError> {
+        let (identity, key) = transaction_identity(&record.signed_bytes, record.not_after)?;
+        if identity.activity_id != record.activity_id
+            || identity.idempotency_key != record.idempotency_key
+            || identity.protocol_version != record.protocol_version
+            || identity.network_id != record.network_id
+            || key != record.signer_public_key
+        {
+            return Err(AiClientError::CorruptRecord);
+        }
         let (prior_state, prior_attempt) = (record.state, record.attempt);
         record.attempt = record
             .attempt
@@ -1576,17 +1657,17 @@ impl OperationJournal {
             .ok_or(AiClientError::CorruptRecord)?;
         record.state = OperationState::Submitting;
         self.persist(record)?;
-        let context = SubmissionContext {
-            interface_version,
-            protocol_version: record.protocol_version,
-            network_id: record.network_id,
-            correlation_id,
-            signer_public_key: record.signer_public_key,
-            attempt: record.attempt,
-        };
-        record.state = match submit_signed(transport, registry, context, &record.signed_bytes) {
-            Ok(Submission::Acknowledged(_)) => OperationState::Pending,
-            Err(SubmitError::CoreRefusal { result, .. })
+        record.state = match submit_signed(endpoint, &record.signed_bytes) {
+            Ok(Submission::Submitted { tx_hash, rung }) if tx_hash == record.activity_id => {
+                record.rung = Some(rung);
+                OperationState::Pending
+            }
+            Ok(Submission::Submitted { .. }) => {
+                record.state = OperationState::Unknown;
+                self.persist(record)?;
+                return Err(AiClientError::ReceiptMismatch);
+            }
+            Err(SubmitError::Refused { result, .. })
                 if record.attempt == 1
                     && result.retriability() == Retriability::Terminal
                     && result.known() != Some(KnownResult::IdempotentReplay) =>
@@ -1594,22 +1675,17 @@ impl OperationJournal {
                 record.result_code = Some(result.raw());
                 OperationState::Failed
             }
-            Ok(Submission::Unknown(_))
-            | Err(
-                SubmitError::CoreRefusal { .. }
-                | SubmitError::Envelope(_)
-                | SubmitError::UnavailableCapability
-                | SubmitError::Disconnected,
-            ) => OperationState::Unknown,
-            Err(
-                error @ (SubmitError::Wire(_)
-                | SubmitError::SignatureLength(_)
-                | SubmitError::Signature(_)
-                | SubmitError::ProtocolVersion { .. }
-                | SubmitError::Network { .. }),
-            ) => {
+            Ok(Submission::Unknown(_)) | Err(SubmitError::Refused { .. }) => {
+                OperationState::Unknown
+            }
+            Err(error @ SubmitError::Sequencer(SequencerError::Endpoint | SequencerError::Tls)) => {
                 record.state = prior_state;
                 record.attempt = prior_attempt;
+                self.persist(record)?;
+                return Err(error.into());
+            }
+            Err(error @ SubmitError::Sequencer(_)) => {
+                record.state = OperationState::Unknown;
                 self.persist(record)?;
                 return Err(error.into());
             }
@@ -1618,31 +1694,37 @@ impl OperationJournal {
         Ok(record.state)
     }
 
-    /// Resolves `Pending` or `Unknown` only from an authenticated receipt for this activity;
-    /// absence or a wait timeout leaves the state unchanged.
+    /// Resolves `Pending` or `Unknown` from an authenticated sequencer receipt.
+    /// Absence or a submitted-only answer leaves the state unchanged.
     ///
     /// # Errors
-    /// `InvalidTransition`, receipt lookup refusals (state unchanged), and `ReceiptMismatch`
-    /// for a receipt of another activity or module.
+    /// `InvalidTransition`, receipt lookup refusals, or `ReceiptMismatch` for another call.
     pub fn resolve(
         &self,
         record: &mut OperationRecord,
-        transport: &mut dyn FrameTransport,
-        context: AuthenticatedLookupContext,
+        endpoint: &SequencerEndpoint,
+        context: AuthenticatedLookupContext<'_>,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Pending, OperationState::Unknown])?;
-        let receipt = match lookup_authenticated(transport, record.activity_id, context)? {
-            AuthenticatedLookup::Absent | AuthenticatedLookup::TimedOut => return Ok(record.state),
+        let receipt = match lookup_authenticated(endpoint, record.activity_id, context)? {
+            AuthenticatedLookup::Absent | AuthenticatedLookup::Submitted { .. } => {
+                return Ok(record.state)
+            }
             AuthenticatedLookup::Verified(receipt) => receipt,
         };
+        let (call, signature) = evm_transaction::decode_signed(&record.signed_bytes)?;
+        let sender = evm_transaction::recover_sender(&call, &signature)?;
         if receipt.activity_id() != record.activity_id
-            || receipt.module_id() != ModuleId::Programs as u16
+            || receipt.execution().to != call.to
+            || receipt.execution().from != sender
+            || receipt.execution().nonce != call.nonce
         {
             return Err(AiClientError::ReceiptMismatch);
         }
         let code = receipt.result_code().raw();
         record.result_code = Some(code);
         record.global_sequence = Some(receipt.global_sequence());
+        record.rung = Some(receipt.rung());
         record.state = if code == 0 {
             OperationState::Executed
         } else {

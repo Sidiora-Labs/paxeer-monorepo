@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use layerx_agent_api::read::{CheckpointValue, VerifiedRead};
-use layerx_agent_api::verify::Level;
+use layerx_agent_api::verify::Rung;
 use layerx_client::availability::{AvailabilityRecords, AvailabilityResult};
 use layerx_crypto::ed25519;
 use layerx_proof::availability::{AvailabilityClass, RootCommitments};
@@ -51,6 +51,26 @@ pub struct CheckpointCoordinate {
 pub struct NodeHead {
     pub latest_sealed_batch: u64,
     pub latest_finalised_checkpoint: Option<CheckpointCoordinate>,
+}
+
+impl NodeHead {
+    pub(crate) const fn new(
+        sealed_height: u64,
+        committed_checkpoint: Option<CheckpointCoordinate>,
+    ) -> Self {
+        Self {
+            latest_sealed_batch: sealed_height,
+            latest_finalised_checkpoint: committed_checkpoint,
+        }
+    }
+
+    pub(crate) const fn sealed_height(self) -> u64 {
+        self.latest_sealed_batch
+    }
+
+    pub(crate) const fn committed_checkpoint(self) -> Option<CheckpointCoordinate> {
+        self.latest_finalised_checkpoint
+    }
 }
 
 /// Exact core-published sequencer authorization covering one signed header.
@@ -291,8 +311,8 @@ impl ArchiveData {
                     return Err(ArchiveError::Version);
                 }
                 let projection = checkpoint_certificate_projection(&canonical_certificate)?;
-                let certificate = decode_checkpoint(&projection)
-                    .map_err(|_| ArchiveError::Checkpoint)?;
+                let certificate =
+                    decode_checkpoint(&projection).map_err(|_| ArchiveError::Checkpoint)?;
                 let reproduced =
                     encode_checkpoint(&certificate).map_err(|_| ArchiveError::Checkpoint)?;
                 let certificate_header = certificate.header();
@@ -338,10 +358,17 @@ impl ArchiveData {
     fn encode(&self) -> Result<Vec<u8>, ArchiveError> {
         let mut writer = Writer::new();
         writer.raw(ARCHIVE_MAGIC)?;
-        writer.u16(if self.checkpoint.as_ref().is_some_and(|checkpoint|
-            checkpoint.canonical_certificate.starts_with(NATIVE_CERTIFICATE_MAGIC)) {
-            NATIVE_ARCHIVE_VERSION
-        } else { ARCHIVE_VERSION })?;
+        writer.u16(
+            if self.checkpoint.as_ref().is_some_and(|checkpoint| {
+                checkpoint
+                    .canonical_certificate
+                    .starts_with(NATIVE_CERTIFICATE_MAGIC)
+            }) {
+                NATIVE_ARCHIVE_VERSION
+            } else {
+                ARCHIVE_VERSION
+            },
+        )?;
         writer.u16(self.protocol_version)?;
         writer.u32(self.network_id)?;
         writer.u64(self.batch_number)?;
@@ -394,10 +421,10 @@ impl Archive {
     /// evidence is reverified before chain workers receive the value.
     pub(crate) fn from_spool(bytes: Vec<u8>, node_head: NodeHead) -> Result<Self, SourceError> {
         let data = ArchiveData::decode(&bytes).map_err(SourceError::Archive)?;
-        if node_head.latest_sealed_batch < data.batch_number
+        if node_head.sealed_height() < data.batch_number
             || node_head
-                .latest_finalised_checkpoint
-                .is_some_and(|checkpoint| checkpoint.batch_number > node_head.latest_sealed_batch)
+                .committed_checkpoint()
+                .is_some_and(|checkpoint| checkpoint.batch_number > node_head.sealed_height())
         {
             return Err(SourceError::HeadBehindBatch);
         }
@@ -444,12 +471,12 @@ impl Archive {
         {
             return Err(SourceError::RootMismatch);
         }
-        if node_head.latest_sealed_batch < header.batch_number() {
+        if node_head.sealed_height() < header.batch_number() {
             return Err(SourceError::HeadBehindBatch);
         }
         if node_head
-            .latest_finalised_checkpoint
-            .is_some_and(|coordinate| coordinate.batch_number > node_head.latest_sealed_batch)
+            .committed_checkpoint()
+            .is_some_and(|coordinate| coordinate.batch_number > node_head.sealed_height())
         {
             return Err(SourceError::HeadBehindCheckpoint);
         }
@@ -472,7 +499,7 @@ impl Archive {
                 verify_node_checkpoint(
                     material,
                     header.network_id(),
-                    node_head.latest_finalised_checkpoint,
+                    node_head.committed_checkpoint(),
                 )
             })
             .transpose()?;
@@ -524,7 +551,9 @@ impl Archive {
 }
 
 pub(crate) fn wrap_native_certificate(
-    projection: &[u8], checkpoint: &[u8], context: &[u8],
+    projection: &[u8],
+    checkpoint: &[u8],
+    context: &[u8],
 ) -> Result<Vec<u8>, ArchiveError> {
     let mut writer = Writer::new();
     writer.raw(NATIVE_CERTIFICATE_MAGIC)?;
@@ -551,11 +580,24 @@ pub(crate) fn native_archive_candidate(
     }
     let certificate = decode_checkpoint(&projection).map_err(|_| ArchiveError::Checkpoint)?;
     let candidate = layerx_client::evidence::FinalityEvidenceCandidate::from_exact_bytes(
-        checkpoint, context, certificate.header().protocol_version(), certificate.header().network_id(),
-    ).map_err(|_| ArchiveError::Checkpoint)?;
-    if candidate.observed_block_hash().map_err(|_| ArchiveError::Checkpoint)?.is_none()
-        || crate::node::native_certificate_projection(&candidate.certificate().map_err(|_| ArchiveError::Checkpoint)?)
-            .map_err(|_| ArchiveError::Checkpoint)? != projection {
+        checkpoint,
+        context,
+        certificate.header().protocol_version(),
+        certificate.header().network_id(),
+    )
+    .map_err(|_| ArchiveError::Checkpoint)?;
+    if candidate
+        .observed_block_hash()
+        .map_err(|_| ArchiveError::Checkpoint)?
+        .is_none()
+        || crate::node::native_certificate_projection(
+            &candidate
+                .certificate()
+                .map_err(|_| ArchiveError::Checkpoint)?,
+        )
+        .map_err(|_| ArchiveError::Checkpoint)?
+            != projection
+    {
         return Err(ArchiveError::Checkpoint);
     }
     Ok(candidate)
@@ -566,8 +608,12 @@ fn checkpoint_certificate_projection(bytes: &[u8]) -> Result<Vec<u8>, ArchiveErr
         return Ok(bytes.to_vec());
     }
     let candidate = native_archive_candidate(bytes)?;
-    crate::node::native_certificate_projection(&candidate.certificate().map_err(|_| ArchiveError::Checkpoint)?)
-        .map_err(|_| ArchiveError::Checkpoint)
+    crate::node::native_certificate_projection(
+        &candidate
+            .certificate()
+            .map_err(|_| ArchiveError::Checkpoint)?,
+    )
+    .map_err(|_| ArchiveError::Checkpoint)
 }
 
 fn verify_batch_authorization(
@@ -599,10 +645,10 @@ fn verify_node_checkpoint(
     network_id: u32,
     head: Option<CheckpointCoordinate>,
 ) -> Result<ArchivedCheckpoint, SourceError> {
-    if material.read.achieved_verification_level < Level::CheckpointFinalised {
+    if material.read.achieved_rung < Rung::Committed {
         return Err(SourceError::CheckpointVerificationLevel);
     }
-    let certificate_bytes = material.read.value.0.as_bytes().to_vec();
+    let certificate_bytes = material.read.value.commit.as_bytes().to_vec();
     let projection = checkpoint_certificate_projection(&certificate_bytes)
         .map_err(|_| SourceError::CheckpointCertificate)?;
     let certificate =
@@ -1175,9 +1221,9 @@ pub struct MirrorFreshness {
 impl MirrorFreshness {
     fn new(cursor: MirrorCursor, node: NodeHead) -> Self {
         let batch_lag = node
-            .latest_sealed_batch
+            .sealed_height()
             .saturating_sub(cursor.latest_batch.unwrap_or(0));
-        let checkpoint = match (node.latest_finalised_checkpoint, cursor.latest_checkpoint) {
+        let checkpoint = match (node.committed_checkpoint(), cursor.latest_checkpoint) {
             (None, _) => CheckpointFreshness::NodeHasNoCheckpoint,
             (Some(target), None) => CheckpointFreshness::NotYetMirrored {
                 target_batch: target.batch_number,
@@ -1193,10 +1239,10 @@ impl MirrorFreshness {
             },
         };
         Self {
-            node_latest_sealed_batch: node.latest_sealed_batch,
+            node_latest_sealed_batch: node.sealed_height(),
             latest_batch_mirrored: cursor.latest_batch,
             batch_lag,
-            node_latest_finalised_checkpoint: node.latest_finalised_checkpoint,
+            node_latest_finalised_checkpoint: node.committed_checkpoint(),
             latest_checkpoint_mirrored: cursor.latest_checkpoint,
             checkpoint,
         }
@@ -1842,12 +1888,18 @@ impl Publisher {
         });
         let (ethereum_progress, solana_progress) = self.progress(std::slice::from_ref(archive));
         let ethereum_result = ethereum_result.and_then(|progress| {
-            if ethereum_progress.refusal.is_some() { Err(crate::ethereum::EthereumError::Retrieval) }
-            else { Ok(progress) }
+            if ethereum_progress.refusal.is_some() {
+                Err(crate::ethereum::EthereumError::Retrieval)
+            } else {
+                Ok(progress)
+            }
         });
         let solana_result = solana_result.and_then(|progress| {
-            if solana_progress.refusal.is_some() { Err(crate::solana::SolanaError::Retrieval) }
-            else { Ok(progress) }
+            if solana_progress.refusal.is_some() {
+                Err(crate::solana::SolanaError::Retrieval)
+            } else {
+                Ok(progress)
+            }
         });
         let ethereum = match ethereum_result {
             Ok(progress) => EthereumLaneState::Progress {

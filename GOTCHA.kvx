@@ -9057,3 +9057,15 @@ area = "spec"
 symptom = "`cg spec done` refuses a task symbol as not defined in the graph although the method exists (layerx-gas-station Service::report)"
 cause = "symbols of a task list declarations the graph indexes; a method of a generic `impl<...>` block was refused while methods of concrete impls in the same crate pass"
 do = "name the task's test function or a concrete declaration instead (11.23.3)"
+
+[gotcha.1889]
+area = "kernel / Makefile"
+symptom = "a kernel test links a duplicate lxp_batch_verify_signature (or an lxp_batch_sign) although the sources define it once and lxp_batch_seal.c is no longer in LIB_SOURCES"
+cause = "a reused build/liblayerx.a still carries members of object files dropped from LIB_SOURCES (lxp_batch_seal.o supplied lxp_batch_sign and an old lxp_batch_verify_signature)"
+do = "treat a clean archive as the authority: a duplicate-symbol link error after a Makefile source change means a stale member, not a second definition in the sources (1.15.1)"
+
+[gotcha.1890]
+area = "kernel tests"
+symptom = "a test encoding several activities into one arena fails lxp_activity_encode(...) == LXP_OK after a few encodes"
+cause = "lxp_activity_encode takes a full LXP_MAX_ACTIVITY_BYTES (1 MiB) writer from the arena it is given on every call and does not return it (src/protocol/lxp_activity.c:36)"
+do = "give a test encoding N activities N MiB of arena or a scratch arena reset per activity (1.4.3)"
