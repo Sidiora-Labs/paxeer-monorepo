@@ -150148,7 +150148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.37.3]
 title = "Check mirror receipt verification against the shared sequencer-receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.37.1", "11.0.4", "9.1.6"]
