@@ -69,6 +69,7 @@ type Host interface {
 	CacheTxContext(ctx sdk.Context, checksum [32]byte) (sdk.Context, sdk.CacheMultiStore)
 	CommitMultiStore() sdk.CommitMultiStore
 	LastBlockHeight() int64
+	LastBlockID() tmproto.BlockID
 	GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
 	GetTxConfig() client.TxConfig
 	GetEVMMsg(tx sdk.Tx) *evmtypes.MsgEVMTransaction
@@ -239,6 +240,8 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 		ChainID:         s.chainID,
 		Height:          height,
 		Time:            time.UnixMilli(timestampMs).UTC(),
+		AppHash:         s.host.CommitMultiStore().LastCommitID().Hash,
+		LastBlockId:     s.host.LastBlockID(),
 		ProposerAddress: append([]byte(nil), s.proposer...),
 	}
 	store := s.host.CommitMultiStore().CacheMultiStore()

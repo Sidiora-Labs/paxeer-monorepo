@@ -13,6 +13,7 @@ import (
 	"hash/crc32"
 	"math"
 	"math/rand/v2"
+	"net/http"
 	"net/url"
 	"regexp"
 	"slices"
@@ -29,9 +30,53 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ws"
 )
 
-// FeedSymbols are the eighteen symbols of the application feed list
-// (Hyperpax:src/core/feeds.ts:4), in its order.
-var FeedSymbols = []string{"BTC", "ETH", "SOL", "AVAX", "LINK", "HYPE", "XRP", "ASTER", "TRUMP", "BNB", "SID", "PAX", "TSLA", "NVDA", "GOOGL", "XAU", "NAS100", "SPX500"}
+var ErrNoSymbols = errors.New("loadtest: GET /api/markets returned no symbols")
+
+func FeedSymbols(ctx context.Context, gateway string) ([]string, error) {
+	u, err := url.Parse(gateway)
+	if err != nil || u.Host == "" {
+		return nil, errors.New("loadtest: invalid gateway URL")
+	}
+	switch u.Scheme {
+	case "http", "ws":
+		u.Scheme = "http"
+	case "https", "wss":
+		u.Scheme = "https"
+	default:
+		return nil, errors.New("loadtest: gateway URL needs http, https, ws or wss")
+	}
+	u.Path = strings.TrimSuffix(u.Path, "/") + "/api/markets"
+	u.RawPath, u.RawQuery, u.Fragment = "", "", ""
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("loadtest: GET /api/markets: %w", err)
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("loadtest: GET /api/markets: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("loadtest: GET /api/markets: HTTP %s", resp.Status)
+	}
+	var body struct {
+		Markets []struct {
+			Symbol string `json:"symbol"`
+		} `json:"markets"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, fmt.Errorf("loadtest: decode GET /api/markets: %w", err)
+	}
+	if len(body.Markets) == 0 {
+		return nil, ErrNoSymbols
+	}
+	symbols := make([]string, len(body.Markets))
+	for i, market := range body.Markets {
+		symbols[i] = market.Symbol
+	}
+	return symbols, nil
+}
 
 const (
 	bookKind  = "@perp_orderbook"
@@ -90,10 +135,10 @@ type Profile struct {
 
 // FullProfile is the profile of contracts/data-services.md section 22:
 // 140000 sockets across the gateway replicas.
-func FullProfile() Profile {
+func FullProfile(symbols []string) Profile {
 	return Profile{
 		Sockets:       140000,
-		Symbols:       slices.Clone(FeedSymbols),
+		Symbols:       slices.Clone(symbols),
 		StormFraction: 0.2,
 		DialRate:      6000,
 		Recovery:      60 * time.Second,
