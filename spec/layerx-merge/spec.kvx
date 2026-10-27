@@ -97788,7 +97788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.13.1]
 title = "Prove a signed EVM transaction to 0x101C returns a receipt with its logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["2.0.3"]
@@ -121110,7 +121110,7 @@ do_6 = "Attempt one failed in constructor_registered_by_node: node/precompiles.g
 
 [task.6.12.8]
 title = "Serve 0x0904 pofq from the merge plan height through the activation list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.0.2", "6.6.5", "2.0.3", "5.19.4"]
@@ -126851,7 +126851,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.0.3]
 title = "Prove the sequencer options serve one feed over HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.12.2", "7.0.2", "7.10.4", "5.0.3"]
@@ -147116,7 +147116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.7.4]
 title = "Move the AP2 mandate tests off AuthorizedBatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.7.2", "9.1.7"]
@@ -147392,7 +147392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.10.2]
 title = "Add a version 2 example document to PORTABILITY.md taken from the AP2 export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.7.2", "9.1.7"]
@@ -147791,7 +147791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.5]
 title = "Stop forwarding LAYERX-PAYER-DID through the search front"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.16.4"]
@@ -148312,7 +148312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.18.1]
 title = "Retire the hosted activity path, receipt authority and readiness receipt CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.16.4", "11.12.2", "11.0.3", "9.1.7"]
