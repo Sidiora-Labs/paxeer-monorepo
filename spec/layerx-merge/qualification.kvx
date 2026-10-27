@@ -3229,3 +3229,27 @@ symbol = "GetUncleByBlockNumberAndIndex"
 observed = "At 4a5e1913a verify exited 1 (logs-verify-1.log) because six served methods (four uncle methods, eth_sendRawTransactionSync, debug_traceStateAccess) never record evmrpc_request_latency_seconds while the acceptance requires every served method to."
 assumption = "The task records those six with each API's connection type set at the server.go registrations."
 severity = "blocker"
+
+[finding.2.4.5]
+task = "2.4.5"
+file = "modules/layerxledger/keeper/execute.go:70"
+symbol = "execute"
+observed = "At 5505e61e2 TestPayExact fails with LXP_ERR_UNKNOWN_FIELD (logs-verify-1.log) from the post-execute idempotency read that 1.2.1 (787dd93be) left without a writer, the same break as [finding.2.4.2.1]."
+assumption = "New task 2.3.7 removes the read and 2.4.5 requires it."
+severity = "blocker"
+
+[finding.14.25.2]
+task = "14.25.2"
+file = "services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex"
+symbol = "do_import_options"
+observed = "At a50b528ce the test passed and the done gate failed only on symbols Indexer.Block.Fetcher, do_import_options and paxeer_x_import_options_carry_two_keys (logs-verify-1.log), which the code graph never holds (Elixir definitions and an ExUnit test name)."
+assumption = "symbols = [] as every qualified explorer backend task; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.4.5.5]
+task = "4.5.5"
+file = "modules/launchpad/client/cli/query_price.go"
+symbol = "CmdQueryPriceHistory"
+observed = "At 540bffbb1 TestCmdQueryPriceNetwork/history, /buy and /sell receive code 18 where the launchpad error registered as code 12 is expected (logs-verify-1.log), because gRPCErrorToSDKError (sdk/baseapp/abci.go:646) replaces a registered codespace error with the generic gRPC mapping until 15.0.5 lands, the same break recorded for 4.5.3 and 4.5.4."
+assumption = "Every launchpad query command task requires 15.0.5 and continues from its candidate."
+severity = "blocker"
