@@ -7421,3 +7421,11 @@ symbol = "start"
 observed = "The verify gate of 9.1.7 failed at 94f9d8f99 on rpc::rpc_subscription_private_ca_checks_the_actual_server_identity alone: the trusted-case probe got Connection refused from 127.0.0.1:<port> (tls_boundary.rs:229) although start() had just seen that port accept a connection (tls_boundary.rs:216); the same test passed on the two preceding runs of the same code and the other two boundary tests passed in the failing run."
 assumption = "A timing race in the test harness between the boundary's listen check and the probe process, independent of the SDK change under test; the candidate is requalified unchanged, and if it fails the same way again the harness needs an owner task that hands the boundary a port it already holds. Recorded once."
 severity = "major"
+
+[finding.14.4.1]
+task = "14.4.1"
+file = "apps/web/src/app/_markets/send-outcome.tsx"
+symbol = "SendOutcome"
+observed = "Both attempts (c5826aa96 and its predecessor) added the reverted arm to PrecompileSendOutcome as do_1 asks, and npm run typecheck then failed with TS7030 at send-outcome.tsx:4 because the switch over outcome.outcome has no return for reverted; the file belonged only to task 14.0.4 at wave 24."
+assumption = "14.4.1 now touches send-outcome.tsx and adds the minimal reverted case (do_6); 14.0.4 replaces it with the catalog copy and receipt line as its do_1 already says. Recorded once."
+severity = "major"

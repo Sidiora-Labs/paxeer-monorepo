@@ -158939,7 +158939,7 @@ do_2 = "After the wallet returns a hash in sendWalletPrecompileCall (apps/web/sr
 do_3 = "Export new constants RECEIPT_POLL_LIMIT and RECEIPT_POLL_INTERVAL_MS from apps/web/src/api/wallet.ts beside PrecompileSendOutcome at apps/web/src/api/wallet.ts:12 and accept an optional sleep argument so tests drive the poll without timers."
 do_4 = "Create apps/web/e2e/wallet-receipt.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39, a window.ethereum stub answering eth_sendTransaction and a loopback gateway, with wallet_send_reports_receipt_and_logs and wallet_send_reports_reverted_receipt."
 symbols = ["PrecompileSendOutcome", "sendWalletPrecompileCall", "RECEIPT_POLL_LIMIT", "wallet_send_reports_receipt_and_logs", "wallet_send_reports_reverted_receipt"]
-touches = ["apps/web/src/api/wallet.ts", "apps/web/e2e/wallet-receipt.test.ts"]
+touches = ["apps/web/src/api/wallet.ts", "apps/web/e2e/wallet-receipt.test.ts", "apps/web/src/app/_markets/send-outcome.tsx"]
 tests = ["apps/web/e2e/wallet-receipt.test.ts::wallet_send_reports_receipt_and_logs", "apps/web/e2e/wallet-receipt.test.ts::wallet_send_reports_reverted_receipt"]
 planned_paths = ["apps/web/e2e/wallet-receipt.test.ts"]
 build_cmd = "npm --prefix apps/web run typecheck"
@@ -158947,7 +158947,7 @@ verify_cmd = "node --test --test-name-pattern '^(wallet_send_reports_receipt_and
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
-rollback = "Revert apps/web/src/api/wallet.ts; the receipt field is optional for every renderer."
+rollback = "Revert apps/web/src/api/wallet.ts; the receipt field is optional for every renderer; apps/web/src/app/_markets/send-outcome.tsx returns to its previous text."
 do_5 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: wallet_send_reports_receipt_and_logs in apps/web/e2e/wallet-receipt.test.ts (planned); wallet_send_reports_reverted_receipt in apps/web/e2e/wallet-receipt.test.ts (planned)."
 max_builds = 1
 max_verify_runs = 1
@@ -158956,7 +158956,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "Add a reverted case to the switch over outcome.outcome in apps/web/src/app/_markets/send-outcome.tsx:8 that returns an InlineNotice with tone danger naming outcome.transactionHash, so the component stays exhaustive once the reverted arm exists and npm run typecheck passes; task 14.0.4 later replaces that case with the catalog copy and the receipt line."
 [task.14.4.2]
 title = "Carry budget_exhausted and the submit receipt through the web gas-station client"
 status = "pending"
