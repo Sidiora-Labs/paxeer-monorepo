@@ -35,7 +35,7 @@ This repository is the Paxeer X Network monorepo: the Paxeer X chain node (`paxd
 | `sdk/platform`, `sdk/integrations` | Platform SDKs (Go, JVM, .NET, Swift) and framework integrations |
 | `sdk/launchpad` | Launchpad protocol, shared libraries and client packages |
 | `sdk/chainflow` | Chainflow client libraries for Go, Python, Rust and TypeScript |
-| `sdk/js` | JavaScript SDK snapshot with its `VENDOR.kvx` pin record |
+| `sdk/js` | First-party `@pax-js/cosmos` package, edited in place and aligned to the protos of this repository |
 | `sdk/wallet` | Wallet SDK (`@paxeer/wallet`), a member of the `services/wallet` pnpm workspace |
 | `core/deps` | Pinned snapshots of the upstream libraries the node builds from, each with a `VENDOR.kvx` pin record |
 | `tests/` | Kernel C tests, `tests/fuzz`, `tests/integration`, `tests/occ`, `tests/testutil`, `tests/fixtures`, Solidity and vector suites |
