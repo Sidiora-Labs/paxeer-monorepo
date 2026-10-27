@@ -215,6 +215,9 @@ static lxp_result kernel_program_signer_binding(
         !lxp_identity_key_valid(identity, authority->verified_key,
             execution->batch_timestamp_ms, execution->global_sequence))
         return LXP_ERR_AUTH_SCOPE;
+    if (activity->signature.length == 0U && execution->binding_authority &&
+        execution->signature_valid)
+        return LXP_OK;
     return lxp_activity_verify_signature(activity);
 }
 
@@ -1100,6 +1103,7 @@ static lxp_result kernel_execution_binding(
     BIND_U64(execution->recorded_fee_schedule_version);
     BIND_U64(execution->parameter_version);
     BIND_U64(execution->signature_valid ? 1U : 0U);
+    BIND_U64(execution->binding_authority ? 1U : 0U);
     BIND_U64(execution->fee_meter.canonical_encoded_bytes);
     BIND_U64(execution->fee_meter.execution_units);
     BIND_U64(execution->fee_meter.storage_units);
