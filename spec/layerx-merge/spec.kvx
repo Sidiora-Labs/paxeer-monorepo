@@ -118867,7 +118867,8 @@ wiring = ["wiring.J34.4"]
 do_1 = "Build perps.NewPrecompile(keepers) (precompiles/perps/perps.go:130) and pricefeed.NewPrecompile(keepers) (precompiles/pricefeed/pricefeed.go:60) in InitializePrecompiles (precompiles/setup.go:203) and record their names after the layerxexchange entry at precompiles/setup.go:331"
 do_2 = "Record the five spot names of precompiles/spot/spot.go:358-362 through the keeper-free spot ABI accessor of wiring.J34.4 instead of NewPrecompileSet (precompiles/spot/spot.go:328), which needs keepers"
 do_3 = "Keep the \"layerxexchange\" entry for 0x1015 and add \"perps\" for the same address (decision.613); add none of them to the VM tables at precompiles/setup.go:351-370"
-do_4 = "Write TestPrecompileNamesIncludeMarkets in precompiles/names_markets_test.go (planned) reading PrecompileNamesToInfo (precompiles/setup.go:151) after a dry run with utils.EmptyKeepers"
+do_4 = "Write TestPrecompileNamesIncludeMarkets in precompiles/names_markets_test.go (planned) reading PrecompileNamesToInfo (precompiles/setup.go:151) after a dry run of InitializePrecompiles with the real test keepers, testkeeper.EVMTestApp.GetPrecompileKeepers() (testkeeper = tests/testutil/keeper), as precompiles/setup_test.go:56 does"
+do_5 = "Do not pass utils.EmptyKeepers to InitializePrecompiles: since c802cb331 the orob merge constructor (precompiles/layerxagent/orob/merge.go:15-29) registers at init and refuses a keeper set without the EVM keeper with LXP_PRECOMPILE_NO_CONTEXT, so an empty keeper set can never complete the dry run"
 symbols = ["InitializePrecompiles", "PrecompileNamesToInfo", "TestPrecompileNamesIncludeMarkets"]
 touches = ["precompiles/setup.go", "precompiles/names_markets_test.go"]
 tests = ["precompiles/names_markets_test.go::TestPrecompileNamesIncludeMarkets"]
