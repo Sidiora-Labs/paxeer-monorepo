@@ -75,9 +75,11 @@ var Seed = []Market{
 }
 
 const (
-	updateMarketSQL = `UPDATE perps.markets SET name = $2, max_leverage = $3, maintenance_margin_bps = $4, max_open_interest = $5, enabled = $6, source = 'chain', refreshed_block = $7 WHERE market_id = $1`
-	insertMarketSQL = `INSERT INTO perps.markets (market_id, symbol, name, oracle_symbol, sz_decimals, px_decimals, max_leverage, maintenance_margin_bps, max_open_interest, enabled, source, refreshed_block) VALUES ($1, $2, $3, $2, NULL, NULL, $4, $5, $6, $7, 'chain', $8)`
-	upsertFeesSQL   = `INSERT INTO perps.fee_config (id, taker_fee_ppm, maker_fee_ppm, liquidation_fee_ppm, insurance_share_ppm, refreshed_block) VALUES (1, $1, $2, $3, $4, $5)
+	updateMarketSQL = `UPDATE perps.markets SET name = $2, max_leverage = $3, maintenance_margin_bps = $4, max_open_interest = $5, enabled = $6, source = 'chain', refreshed_block = $7,
+oracle_symbol = $8, sz_decimals = $9, px_decimals = $10, tick_size = $11, lot_size = $12, tier_class = $13, impact_notional_usd = $14, oi_cap_usd = $15, funding_cap_ppm_per_hour = $16, listed_at = to_timestamp(NULLIF($17::bigint, 0)) WHERE market_id = $1`
+	insertMarketSQL = `INSERT INTO perps.markets (market_id, name, max_leverage, maintenance_margin_bps, max_open_interest, enabled, source, refreshed_block, oracle_symbol, sz_decimals, px_decimals, tick_size, lot_size, tier_class, impact_notional_usd, oi_cap_usd, funding_cap_ppm_per_hour, listed_at, symbol)
+VALUES ($1, $2, $3, $4, $5, $6, 'chain', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, to_timestamp(NULLIF($17::bigint, 0)), $18)`
+	upsertFeesSQL = `INSERT INTO perps.fee_config (id, taker_fee_ppm, maker_fee_ppm, liquidation_fee_ppm, insurance_share_ppm, refreshed_block) VALUES (1, $1, $2, $3, $4, $5)
 ON CONFLICT (id) DO UPDATE SET taker_fee_ppm = EXCLUDED.taker_fee_ppm, maker_fee_ppm = EXCLUDED.maker_fee_ppm, liquidation_fee_ppm = EXCLUDED.liquidation_fee_ppm, insurance_share_ppm = EXCLUDED.insurance_share_ppm, refreshed_block = EXCLUDED.refreshed_block`
 )
 
@@ -89,6 +91,25 @@ type chainMarket struct {
 	maintenanceMarginBps string
 	maxOpenInterest      string
 	enabled              bool
+	config               marketConfig
+}
+
+type marketConfig struct {
+	MarketId             *big.Int
+	Symbol               string
+	Name                 string
+	OracleSymbol         string
+	SzDecimals           uint8
+	PxDecimals           uint8
+	TickSize             *big.Int
+	LotSize              *big.Int
+	MaxLeverage          *big.Int
+	TierClass            uint8
+	ImpactNotionalUsd    *big.Int
+	OiCapUsd             *big.Int
+	FundingCapPpmPerHour *big.Int
+	Enabled              bool
+	ListedAt             uint64
 }
 
 type fees struct {
@@ -104,12 +125,9 @@ type caller struct {
 	at     *big.Int
 }
 
-// Refresh reads totalMarkets(), getMarket(id) for every market and getFees()
-// from the precompile at the latest height, then writes them in one
-// transaction: a stored market gets the chain name, max_leverage,
-// maintenance_margin_bps, max_open_interest and enabled with source chain and
-// refreshed_block the height; a market id not stored is inserted with the
-// chain values and null decimals; perps.fee_config row 1 gets the fees. On any
+// Refresh reads totalMarkets(), getMarket(id), getMarketConfig(id) and getFees()
+// from the precompile at the latest height, then writes the chain values,
+// including decimals and market configuration, in one transaction. On any
 // failure the stored rows are left unchanged.
 func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error {
 	c, height, err := latest(ctx, client)
@@ -132,6 +150,13 @@ func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error {
 		m, err := c.market(ctx, id)
 		if err != nil {
 			return err
+		}
+		m.config, err = c.getMarketConfig(ctx, id)
+		if err != nil {
+			return err
+		}
+		if m.config.Symbol != m.symbol {
+			return fmt.Errorf("%w: getMarketConfig(%d) symbol %q differs from getMarket symbol %q", ErrChainValue, id, m.config.Symbol, m.symbol)
 		}
 		list = append(list, m)
 	}
@@ -268,6 +293,36 @@ func (c *caller) market(ctx context.Context, id uint64) (chainMarket, error) {
 	}, nil
 }
 
+func (c *caller) getMarketConfig(ctx context.Context, id uint64) (marketConfig, error) {
+	method := fmt.Sprintf("getMarketConfig(%d)", id)
+	out, err := c.call(ctx, "getMarketConfig", new(big.Int).SetUint64(id))
+	if err != nil {
+		return marketConfig{}, err
+	}
+	var decoded struct{ Config marketConfig }
+	if err := c.abi.Methods["getMarketConfig"].Outputs.Copy(&decoded, out); err != nil {
+		return marketConfig{}, fmt.Errorf("%w: decode %s: %v", ErrChainValue, method, err)
+	}
+	config := decoded.Config
+	for _, value := range []*big.Int{config.MarketId, config.TickSize, config.LotSize, config.MaxLeverage, config.ImpactNotionalUsd, config.OiCapUsd, config.FundingCapPpmPerHour} {
+		if value == nil || value.Sign() < 0 || value.BitLen() > 256 {
+			return marketConfig{}, fmt.Errorf("%w: %s has an invalid uint256", ErrChainValue, method)
+		}
+	}
+	if !config.MarketId.IsUint64() || config.MarketId.Uint64() != id {
+		return marketConfig{}, fmt.Errorf("%w: %s returned market id %s", ErrChainValue, method, config.MarketId)
+	}
+	for _, value := range []string{config.Symbol, config.Name, config.OracleSymbol} {
+		if !utf8.ValidString(value) || strings.ContainsRune(value, 0) {
+			return marketConfig{}, fmt.Errorf("%w: %s has unstorable text", ErrChainValue, method)
+		}
+	}
+	if config.ListedAt > math.MaxInt64 {
+		return marketConfig{}, fmt.Errorf("%w: %s listedAt %d above bigint", ErrChainValue, method, config.ListedAt)
+	}
+	return config, nil
+}
+
 func (c *caller) fees(ctx context.Context) (fees, error) {
 	out, err := c.call(ctx, "getFees")
 	if err != nil {
@@ -286,7 +341,11 @@ func (c *caller) fees(ctx context.Context) (fees, error) {
 
 func writeMarkets(ctx context.Context, tx *sql.Tx, list []chainMarket, height int64) error {
 	for _, m := range list {
-		res, err := tx.ExecContext(ctx, updateMarketSQL, m.id, m.name, m.maxLeverage, m.maintenanceMarginBps, m.maxOpenInterest, m.enabled, height)
+		config := m.config
+		args := []any{m.id, m.name, m.maxLeverage, m.maintenanceMarginBps, m.maxOpenInterest, m.enabled, height,
+			config.OracleSymbol, config.SzDecimals, config.PxDecimals, config.TickSize.String(), config.LotSize.String(), config.TierClass,
+			config.ImpactNotionalUsd.String(), config.OiCapUsd.String(), config.FundingCapPpmPerHour.String(), int64(config.ListedAt)}
+		res, err := tx.ExecContext(ctx, updateMarketSQL, args...)
 		if err != nil {
 			return fmt.Errorf("markets: update market %s: %w", m.id, err)
 		}
@@ -297,7 +356,7 @@ func writeMarkets(ctx context.Context, tx *sql.Tx, list []chainMarket, height in
 		if n == 1 {
 			continue
 		}
-		if _, err := tx.ExecContext(ctx, insertMarketSQL, m.id, m.symbol, m.name, m.maxLeverage, m.maintenanceMarginBps, m.maxOpenInterest, m.enabled, height); err != nil {
+		if _, err := tx.ExecContext(ctx, insertMarketSQL, append(args, m.symbol)...); err != nil {
 			return fmt.Errorf("markets: insert market %s: %w", m.id, err)
 		}
 	}
