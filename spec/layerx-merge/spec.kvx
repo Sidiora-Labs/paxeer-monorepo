@@ -104153,7 +104153,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.2]
 title = "Refresh reads getMarketConfig and writes chain decimals and config columns"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.42.1", "5.98.1"]
@@ -104729,7 +104729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.46.4]
 title = "Fold an account once per spot trade in SpotUsers.StreamItems"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.46.3", "5.98.1"]
@@ -113482,7 +113482,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.14.2]
 title = "Check the ante chain at sequenced heights against the block path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["5.0.3"]
@@ -113732,7 +113732,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.2]
 title = "Run a mixed EVM and Cosmos load through the sequencer and the block path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["5.0.4"]
@@ -130207,7 +130207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.28.1]
 title = "Prove the xevm descriptors no longer shadow the evm proto file names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["7.21.1", "7.24.4", "5.0.3", "5.95.2", "7.26.4"]
@@ -170065,7 +170065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "On the merged tree precompiles/setup.go:55 reads const MergeUpgrade = pcommon.MergeUpgrade and no longer declares the literal, while modules/layerxanchor/types/retire.go:4, modules/layerxcustody/types/retire.go:3 and modules/xweb/keeper/activation.go:9 declare it as module constants; the test asserts the list of ac_1 as amended, that no site is under node/, and that precompiles/setup.go is absent."
 [task.17.1.6]
 title = "Write the activation runbook from the plan data"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["17.1.5"]
