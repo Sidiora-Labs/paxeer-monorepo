@@ -3437,3 +3437,19 @@ symbol = "UnifiedAccount.anchors/3"
 observed = "anchor_controller.ex:51 calls Explorer.Chain.PaxeerX.UnifiedAccount.anchors/3, which no module defines (the build warns it is undefined or private), so do_2's model for reading anchors has no working implementation; the first attempt 6387b9cf2 queried Anchor directly and its build `services/explorer/deploy/tools/mix-in-builder.sh compile` was still cold-compiling the explorer dependencies (logs-build-1.log) when the task's time ran out, the cause already recorded as finding.14.22.4."
 assumption = "do_2 names the direct Anchor query; 6387b9cf2 is re-qualified unchanged once the explorer dependency build is warm; the dangling anchor_controller call is an explorer defect no task owns yet."
 severity = "suspect"
+
+[finding.9.25.1.1]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/evidence.rs:388"
+symbol = "FinalityEvidenceCandidate"
+observed = "9.25.1 deletes evidence.rs at wave 22 while FinalityEvidenceCandidate and VerifiedCheckpoint are still used by services/platform/hosted/indexer/src/settlement.rs:310 (removed by 8.16.4, wave 27), services/platform/hosted/authority/src/main.rs:791 (8.11.3, wave 27), services/platform/hosted/gateway/tests/local/funding.rs:241 (8.19.5, wave 32) and services/platform/explorer-index/src/lib.rs:329 (10.27.5, wave 30), and by services/platform/hosted/authority/src/human.rs:134/:1020/:1037, src/human/budget_state.rs:33 and tests/budget_proof_exports.rs:100, which no task removes (8.98.4 changes their import paths only)."
+assumption = "9.25.1 requires the four removers and moves to wave 32; the authority VerifiedCheckpoint uses need a retiring task of their own before 9.25.1, to be scoped with the authority owner."
+severity = "blocker"
+
+[finding.4.4.11.1]
+task = "4.4.11"
+file = "modules/launchpad/keeper/grpc_query_fee_right.go:14"
+symbol = "Querier.FeeRight"
+observed = "At 6a2f851c8 the build `go build ./modules/launchpad/...` exited 0 and the verifier `cg spec done 4.4.11` exited 1 (logs-verify-1.log): TestQueryFeeRightRefusals reads codespace undefined instead of sdk at grpc_query_fee_right_test.go:93 and launchpad at :102, because do_3 returned the refusals unwrapped while ParseHexAddress (modules/launchpad/types/query_validate.go:24) and GetFeeRight (modules/launchpad/keeper/feerights.go:88) wrap with fmt.Errorf and sdkerrors.ABCIInfo follows only Cause() (sdk/types/errors/abci.go:117-160), the cause already recorded as finding.4.4.3.1 for 4.4.3."
+assumption = "FeeRight wraps each refusal in a value with the original Error() text, the original Unwrap chain and a Cause() returning the registered root, as RoleError does, and 6a2f851c8 is continued."
+severity = "blocker"
