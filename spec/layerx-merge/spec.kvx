@@ -115418,7 +115418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.3]
 title = "Delete the anchor tree from memiavl at the retirement upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["5.42.2", "5.41.3"]
