@@ -28,7 +28,6 @@ const KEPT_EXPLORER_ROUTES = [
   "/explorer/accounts/[accountId]",
   "/explorer/programs/[programId]",
   "/explorer/receipts/[receiptId]",
-  "/explorer/verify",
 ] as const;
 
 function budgetedRoutes(): readonly string[] {
@@ -129,7 +128,7 @@ test("an absolute link joins the configured origin to the path of its target", (
 
 test("the explorer navigation names only routes the control plane still serves", () => {
   const navigation: readonly string[] = EXPLORER_NAVIGATION.map((item) => item.href);
-  assert.deepEqual(navigation, ["/explorer", "/explorer/verify"]);
+  assert.deepEqual(navigation, ["/explorer"]);
   for (const item of EXPLORER_NAVIGATION) {
     assert.ok(budgetedRoutes().includes(item.href), item.href);
     assert.equal(copyEntry(item.copyKey).key, item.copyKey);
@@ -191,7 +190,6 @@ test("the surfaces the beta contract requires of the control plane are kept", ()
     "explorer.lookup.account.title",
     "explorer.lookup.program.title",
     "explorer.lookup.action",
-    "explorer.verify.title",
     "explorer.account.title",
     "explorer.receipt.title",
     "explorer.program.title",

@@ -1,6 +1,7 @@
 package layerxledger
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -85,9 +86,12 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	if p.keeper == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: layerxledger keeper is unavailable")
 	}
-	actor, err := p.keeper.Actor(ctx, caller)
-	if err != nil {
-		return nil, RevertError(err)
+	var actor ledgerkeeper.Actor
+	if !method.IsConstant() {
+		actor, err = p.keeper.Actor(ctx, caller)
+		if err != nil {
+			return nil, RevertError(err)
+		}
 	}
 	if err := pcommon.ValidateArgsLength(args, len(method.Inputs)); err != nil {
 		return nil, err
@@ -97,5 +101,8 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: layerxledger method %s is unavailable", method.Name)
 	}
 	result, err := handler(p, ctx, method, actor, args, evm, hooks)
+	if errors.Is(err, ledgerkeeper.ErrPausedScope) {
+		err = revertError{cause: err, code: "LXP_PAUSED_SCOPE"}
+	}
 	return result, RevertError(err)
 }

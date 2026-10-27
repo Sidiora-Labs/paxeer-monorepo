@@ -12549,6 +12549,7 @@ ac_1 = "marketLabel(18n, catalog) returns DOGE for a catalog holding market 18 a
 [req.3518]
 title = "Load the market catalog from gateway GraphQL with chain config fields"
 ac_1 = "The loader of usePerpsMarkets posting MARKETS_QUERY (apps/perps/src/hooks/perps/useSubgraph.ts:73) to the local gateway returns one catalog entry per gateway market with szDecimals and tickSize set."
+ac_2 = "tools/qualification/localnode/perps-gateway.sh starts cmd/perps-gateway on loopback against the disposable node (PERPS_CHAIN_ID=125, PERPS_RPC_URLS from the node env file, a local Postgres with the migrations applied, a nats-server, PERPS_AUTH_SECRET of 32+ characters), runs the market refresh once and appends NEXT_PUBLIC_PERPS_GATEWAY_URL to the env file"
 
 [req.3519]
 title = "Apply chain order limits in PerpsOrderForm and buildOrderPlan"
@@ -12610,6 +12611,7 @@ ac_1 = "On the local node an off-tick placeOrder reverts with PerpsTickSize clas
 [req.3533]
 title = "Local node: getMarketConfig decodes for every active market"
 ac_1 = "For every id of getActiveMarketIds (apps/perps/src/core/network/abi/PerpsPrecompile.ts:1630) on the local node decodeMarketConfig returns a symbol, tickSize above 0 and lotSize above 0."
+ac_2 = "tools/qualification/localnode/v6120-node.sh starts a disposable chain-125 node on loopback with the v6.12.0 plan applied in its first block, funds a test key, feeds one fixed BTC price per block, and prints LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL to the env file named by --env-out"
 
 [req.3534]
 title = "Local node: getFeeTier of a fresh account decodes to tier 0"
@@ -54303,6 +54305,14 @@ contract = "contracts/perps-client.md#hooks"
 test = "apps/perps/tests/perps-markets-gateway.test.ts::perpsMarketsLoadFromGateway (planned)"
 qualification = "UNRUN"
 
+[acceptance.3.518.2]
+feature = "3"
+req = "3518.2"
+scenario = "Given the disposable node env file, when tools/qualification/localnode/perps-gateway.sh runs with --env, then cmd/perps-gateway serves on loopback with PERPS_CHAIN_ID=125, a local Postgres with the migrations applied and a nats-server, the market refresh has run once, the market catalog lists 18 markets with chain-125 config and the env file gains NEXT_PUBLIC_PERPS_GATEWAY_URL"
+contract = "contracts/perps-client.md#hooks"
+test = "tools/qualification/localnode/perps_gateway_test.go::TestLocalPerpsGatewayServesMarkets (planned)"
+qualification = "UNRUN"
+
 [acceptance.3.519.1]
 feature = "3"
 req = "3519.1"
@@ -54429,6 +54439,14 @@ req = "3533.1"
 scenario = "Given a local node with LOCAL_NODE_RPC, LOCAL_NODE_KEY and NEXT_PUBLIC_PERPS_GATEWAY_URL naming a local node and gateway, when every active market config is read and decoded, then each has a symbol and positive tick and lot sizes"
 contract = "contracts/perps-client.md#core"
 test = "apps/perps/tests/local-market-config.test.ts::localMarketConfigDecodes (planned)"
+qualification = "UNRUN"
+
+[acceptance.3.533.2]
+feature = "3"
+req = "3533.2"
+scenario = "Given a clean environment, when tools/qualification/localnode/v6120-node.sh runs with --env-out, then a disposable chain-125 node on loopback serves the v6.12.0 set from its first block with 18 markets and 3 spot tokens, a funded test key and one fixed BTC price per block, and the env file holds LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL"
+contract = "contracts/perps-client.md#core"
+test = "tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120Serves (planned)"
 qualification = "UNRUN"
 
 [acceptance.3.534.1]
@@ -91433,7 +91451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.3]
 title = "Prove parallel batch preparation equals serial preparation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7", "1.4.6"]
@@ -93106,7 +93124,7 @@ title = "Delete the kernel web module sources and lx_web.h"
 status = "pending"
 mode = "BUILD"
 wave = 31
-requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2"]
+requires = ["1.18.1", "1.0.4", "16.2.1", "16.97.2", "1.18.4"]
 reqs = ["1066.1"]
 capabilities = ["1.18.2"]
 interfaces = ["interface.1.c-enum-lx-web-module-id", "interface.1.c-lx-web-observation", "interface.1.c-lx-web-attestor", "interface.1.c-lx-web-attestor-set", "interface.1.c-lx-web-pending-request", "interface.1.c-lx-web-committed", "interface.1.c-lx-web-store", "interface.1.c-lx-web-answer", "interface.1.c-lx-web-intake-request", "interface.1.c-lx-web-availability-bundle", "interface.1.c-lx-web-poll-fn", "interface.1.c-lx-web-submit-fn", "interface.1.c-enum-lx-web-submission-submitting", "interface.1.c-enum-lx-web-receipt-pending", "interface.1.c-lx-web-submission", "interface.1.c-lx-web-record-fn", "interface.1.c-lx-web-receipt-fn", "interface.1.c-lx-web-adapter-config", "interface.1.c-lx-web-preimage-encode", "interface.1.c-lx-web-observation-digest", "interface.1.c-lx-web-observation-decode", "interface.1.c-lx-web-request-record-decode", "interface.1.c-lx-web-pending-add", "interface.1.c-lx-web-intake", "interface.1.c-lx-web-committed-put", "interface.1.c-lx-web-committed-read", "interface.1.c-lx-web-committed-lookup", "interface.1.c-lx-web-attestor-set-validate", "interface.1.c-lx-web-attestor-set-encode", "interface.1.c-lx-web-attestor-set-decode", "interface.1.c-lx-web-attestor-lookup", "interface.1.c-lx-web-attestor-set-execute"]
@@ -93157,6 +93175,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
 rollback = "Restore the deleted files and declarations from the previous revision; Makefile:44 collects LIB_SOURCES with find over src, so the archive picks them up again without a Makefile edit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.18.4]
+title = "Move the terminal v5 callback fixture off the retired web request intake"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["1.18.1"]
+reqs = ["1065.1", "1065.2", "1065.3"]
+capabilities = ["1.18.4"]
+interfaces = []
+wiring = []
+do_1 = "Replace v5_callback_module (tests/programs/test_terminal_v5.c:36-80), whose PAXEERX_WEB_REQUEST_V1 event no longer reaches an intake since task 1.18.1 removed web_request_capture from src/modules/programs/call.c, with a module whose layerx_v1.event_emit the kernel event callback still refuses (a bound or canonicality refusal of layerx_programs_call_event_byte or layerx_programs_call_event_emit), so the runtime writes the stage-4 LXP/programs/callback-failure/v1 detail (programs/crates/layerx-programs-runtime/src/ffi_call.rs:3426) and the call ends LXP_ERR_PROGRAM_REFUSED with terminal kind FAILURE, no effects and a zero transfer root."
+do_2 = "v5_refusal_detail (tests/programs/test_terminal_v5.c:89-110) checks stage 4 and the exact status the kernel event callback returns for the new module instead of LXP_ERR_FEE_UNPAYABLE; the five corpus roles (success, failure, resource, callback, settlement), the ten case names and the corpus shape stay, so the corpus checks of services/agent/crates/layerx-sdk/src/program_http.rs:2493, :2588 and :2654 need no change."
+do_3 = "tests/programs/test_terminal_v5.c no longer includes lx_web.h or uses LX_WEB_KIND_FETCH, LX_WEB_REQUEST_TOPIC or LX_WEB_REQUEST_TOPIC_BYTES, so task 1.18.2's deletion of include/layerx/lx_web.h does not break it; every other V5_CHECK of the file stays as written."
+symbols = ["v5_callback_module", "v5_refusal_detail"]
+touches = ["tests/programs/test_terminal_v5.c"]
+tests = ["tests/programs/test_terminal_v5.c::v5_case"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$(mktemp -d)\""
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-kernel"
+rollback = "Restore v5_callback_module and v5_refusal_detail to the web request fixture."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -93523,7 +93572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.22.4]
 title = "Load the Programs fee governance rows for governance activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["1.22.1", "1.14.6"]
@@ -93751,7 +93800,7 @@ title = "Remove ReadIdempotentReceipt from the read bridge"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["1.25.1", "1.21.2", "2.3.7"]
+requires = ["1.25.1", "1.21.2", "2.3.7", "1.98.1", "2.24.3"]
 reqs = ["1251.1"]
 capabilities = ["1.25.2"]
 interfaces = ["interface.1.go-lxphost-read-idempotent-receipt-j22"]
@@ -93781,7 +93830,7 @@ title = "Replace the single host mutex with a bounded pool of kernel nodes"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["1.25.1", "1.17.4"]
+requires = ["1.25.1", "1.17.4", "1.98.1"]
 reqs = ["1252.1", "1252.2", "1990.1", "1990.2"]
 capabilities = ["1.26.1", "1.98.1"]
 interfaces = ["interface.1.go-lxphost-config-j22", "interface.1.go-lxphost-host-j22", "interface.1.go-lxphost-new-host-j22", "interface.1.go-lxphost-close-j22"]
@@ -95481,6 +95530,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
 rollback = "Revert the touched files of task 1.92.1; the requesting tasks of J24.3, J24.4, J52.8 then stay blocked at their wave gate."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.98.1]
+title = "Fold budget module draws into the host payer grant read"
+status = "pending"
+mode = "BUILD"
+wave = 24
+requires = ["1.22.2"]
+reqs = ["2259.1"]
+capabilities = ["1.98.1"]
+interfaces = []
+do_1 = "Export lx_budget_grant_draws_read(const struct lxp_kernel *kernel, const uint8_t grant_id[32], lxp_grant_state *draws) from src/modules/budget/lx_budget_module.c, declared in include/layerx/lx_budget.h, following lx_asset_payer_grant_read (src/modules/asset/lx_asset_registry.c): it scans kernel->module_kv for module id LXP_MODULE_BUDGET and the 45-byte key budget_grant_draw_key writes (src/modules/budget/lx_budget_module.c:652-657), decodes the 42-byte record exactly as budget_grant_draw_load does (src/modules/budget/lx_budget_module.c:659-683) and returns LXP_OK with zero drawn_total, drawn_this_period and window_start when no record exists."
+do_2 = "ReadPayerGrant (modules/lxphost/read.go:847) reads with the module set {LXP_MODULE_ASSET, LXP_MODULE_BUDGET}, calls lx_budget_grant_draws_read after lx_asset_payer_grant_read and folds the draws into DrawnTotal, DrawnThisPeriod and WindowStart exactly as budget_grant_combine does (src/modules/budget/lx_budget_module.c:702-720); every other field and the LXP_ERR_NO_PAYER_GRANT refusal stay as written."
+do_3 = "Create modules/lxphost/read_payer_grant_test.go (planned) with TestReadPayerGrantFoldsBudgetDraws, which issues the grant of readBridgePayerGrant (modules/lxphost/read_test.go:94) through activity 0x00010007 as TestReadBridgeValues does (modules/lxphost/read_test.go:331-333), writes into the test chain store the module row moduleKVKey(LXP_MODULE_BUDGET, budget-grant:<grant id>) (modules/lxphost/ctx.go) holding the 42 bytes budget_grant_draw_save writes for drawn_total 40, drawn_this_period 15 and window_start 7, and checks ReadPayerGrant returns DrawnTotal 40, DrawnThisPeriod 15 and WindowStart 7 with the other fields unchanged; and TestReadPayerGrantWithoutDrawsUnchanged, which checks the same grant without a draw row reads exactly as modules/lxphost/read_test.go:337-338 expects."
+do_4 = "No test double stands in for the kernel: both tests go through Host.ReadPayerGrant over the real store rows."
+symbols = ["lx_budget_grant_draws_read", "ReadPayerGrant", "TestReadPayerGrantFoldsBudgetDraws", "TestReadPayerGrantWithoutDrawsUnchanged"]
+touches = ["src/modules/budget/lx_budget_module.c", "include/layerx/lx_budget.h", "modules/lxphost/read.go", "modules/lxphost/read_payer_grant_test.go"]
+tests = ["modules/lxphost/read_payer_grant_test.go::TestReadPayerGrantFoldsBudgetDraws", "modules/lxphost/read_payer_grant_test.go::TestReadPayerGrantWithoutDrawsUnchanged"]
+planned_paths = ["modules/lxphost/read_payer_grant_test.go"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestReadPayerGrantFoldsBudgetDraws|TestReadPayerGrantWithoutDrawsUnchanged)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert read.go to the asset-only read, remove lx_budget_grant_draws_read and delete read_payer_grant_test.go."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -97293,7 +97373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.2]
 title = "Serve register, pause, unpause, mint and burn on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.1", "2.4.2", "2.3.6"]
@@ -97325,7 +97405,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.3]
 title = "Serve openAccount and send on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.3", "2.4.4", "2.3.6"]
@@ -97357,7 +97437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.4]
 title = "Serve issueGrant, revokeGrant, draw and payExact on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.5", "2.4.6", "2.4.7", "2.3.6"]
@@ -97389,7 +97469,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.5]
 title = "Serve the 0x101A views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["2.10.1", "2.4.8", "2.10.2"]
@@ -98301,7 +98381,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.23.1]
 title = "Implement escrow open, capture and partial capture in the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4"]
@@ -98332,7 +98412,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.23.2]
 title = "Implement escrow release, timeout, dispute open and dispute resolve"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4"]
@@ -98459,7 +98539,7 @@ title = "Implement budget pull against a payer grant"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["2.22.4", "2.21.3", "2.24.6"]
+requires = ["2.22.4", "2.21.3", "2.24.6", "1.98.1"]
 reqs = ["2259.1", "2259.2"]
 capabilities = ["2.24.3"]
 interfaces = []
@@ -98467,6 +98547,8 @@ do_1 = "Write BudgetPull(ctx, caller, budgetID, recipient [32]byte, amount codec
 do_2 = "Derive the idempotency key with DeriveIdempotencyKey in modules/layerxpay/types/idempotency.go (planned) and the budgetPull selector of precompiles/layerxpay/abi.json:12."
 do_3 = "Encode with EncodeBudgetPull (modules/layerxpay/types/payload_budget.go:133) and submit through Submit in modules/layerxpay/keeper/execute.go (planned)."
 do_4 = "Write TestBudgetPullWithPayerGrant and TestBudgetPullRefusesMalformedGrant in modules/layerxpay/keeper/budget_pull_test.go (planned), building the grant with the payer-grant activity of the harness."
+do_5 = "Create the budget fixture through Keeper.Submit (budgetCreate), which binds the main account as principal; paySubmitExecute and payActor.authority() of modules/layerxpay/keeper/harness_test.go:39 bind the DID id and the budget module refuses them with LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE (budget_authorized_signer, src/modules/budget/lx_budget_module.c:292)."
+do_6 = "Do not read the stored receipt back with ReadIdempotentReceipt (modules/lxphost/read.go:880): since task 1.2.1 the kernel records no idempotency entry and lxphost_read_receipt (modules/lxphost/read.go:164) answers LXP_ERR_UNKNOWN_FIELD; prove admission of the derived key through the receipt BudgetPull returns and ReadIdentitySequence, as budget_pull_test.go:120 and :133-135 already do."
 symbols = ["BudgetPull", "TestBudgetPullWithPayerGrant", "TestBudgetPullRefusesMalformedGrant"]
 touches = ["modules/layerxpay/keeper/budget_pull.go", "modules/layerxpay/keeper/budget_pull_test.go"]
 tests = ["modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant"]
@@ -98551,7 +98633,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.6]
 title = "Honour binding_authority in the budget authorized-signer check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.11.6"]
@@ -98835,7 +98917,7 @@ title = "Implement service dispute open and resolve with the escrow arbiter link
 status = "pending"
 mode = "BUILD"
 wave = 26
-requires = ["2.22.4", "2.23.2", "1.20.2"]
+requires = ["2.22.4", "2.23.2", "1.20.2", "1.24.1"]
 reqs = ["2270.1", "2270.2"]
 capabilities = ["2.26.4"]
 interfaces = []
@@ -99018,7 +99100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.1]
 title = "Serve 0x101B as a merge precompile with the pay gas table and registry reverts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.0.1"]
@@ -99051,7 +99133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.2]
 title = "Map pay keeper and kernel errors to 0x101B registry revert strings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.21.2", "2.22.4"]
@@ -99125,8 +99207,10 @@ do_1 = "Write the escrow handlers in precompiles/layerxpay/escrow.go (planned) d
 do_2 = "After each write read the escrow record and emit the matching event with emitPayEvent in precompiles/layerxpay/events.go (planned)."
 do_3 = "Serve getEscrow, escrowRemaining and getEscrowResult from the keeper views and pack them with the ABI outputs of precompiles/layerxpay/abi.json:22, :29-30."
 do_4 = "Write TestPrecompileEscrowLifecycle, TestPrecompileEscrowViews and TestPrecompileEscrowUnboundCallerReverts in precompiles/layerxpay/escrow_test.go (planned)."
+do_5 = "In Executor.Execute (precompiles/layerxpay/layerxpay.go:80) send the seven escrow writes to escrowHandlers after CheckWrite and AuthorityFor (:118-123) instead of payPayload and Submit (:128-145), keeping the call-ordinal transient counter, and send getEscrow, escrowRemaining and getEscrowResult from view (:242) to escrowHandlers."
+do_6 = "Do not read write receipts back with ReadIdempotentReceipt (modules/lxphost/read.go:880): since task 1.2.1 the kernel records no idempotency entry and lxphost_read_receipt (modules/lxphost/read.go:164) answers LXP_ERR_UNKNOWN_FIELD; assert each escrow write through the escrow record and the emitted EscrowDisputed log as escrow_test.go:232-244 does."
 symbols = ["escrowHandlers", "TestPrecompileEscrowLifecycle", "TestPrecompileEscrowViews", "TestPrecompileEscrowUnboundCallerReverts"]
-touches = ["precompiles/layerxpay/escrow.go", "precompiles/layerxpay/escrow_test.go"]
+touches = ["precompiles/layerxpay/escrow.go", "precompiles/layerxpay/escrow_test.go", "precompiles/layerxpay/layerxpay.go"]
 tests = ["precompiles/layerxpay/escrow_test.go::TestPrecompileEscrowLifecycle", "precompiles/layerxpay/escrow_test.go::TestPrecompileEscrowViews", "precompiles/layerxpay/escrow_test.go::TestPrecompileEscrowUnboundCallerReverts"]
 planned_paths = ["precompiles/layerxpay/escrow.go", "precompiles/layerxpay/escrow_test.go"]
 build_cmd = "go build ./precompiles/layerxpay/"
@@ -99148,7 +99232,7 @@ title = "Serve the fifteen 0x101B budget methods and nine budget events"
 status = "pending"
 mode = "BUILD"
 wave = 26
-requires = ["2.28.1", "2.28.2", "2.28.3", "2.24.1", "2.24.2", "2.24.3", "2.24.4", "2.24.5"]
+requires = ["2.28.1", "2.28.2", "2.28.3", "2.24.1", "2.24.2", "2.24.3", "2.24.4", "2.24.5", "2.28.8"]
 reqs = ["2280.1", "2280.2"]
 capabilities = ["2.28.5"]
 interfaces = ["interface.2.pc-0x101b-budgetamend", "interface.2.pc-0x101b-budgetclose", "interface.2.pc-0x101b-budgetcreate", "interface.2.pc-0x101b-budgetcreatenative", "interface.2.pc-0x101b-budgetdefund", "interface.2.pc-0x101b-budgetdelegateadd", "interface.2.pc-0x101b-budgetdelegateremove", "interface.2.pc-0x101b-budgetdelegatespend", "interface.2.pc-0x101b-budgetfund", "interface.2.pc-0x101b-budgetfundnative", "interface.2.pc-0x101b-budgetpull", "interface.2.pc-0x101b-budgetremaining", "interface.2.pc-0x101b-budgetrevoke", "interface.2.pc-0x101b-budgetspend", "interface.2.pc-0x101b-getbudget", "interface.2.pc-0x101b-evt-budgetamended", "interface.2.pc-0x101b-evt-budgetclosed", "interface.2.pc-0x101b-evt-budgetcreated", "interface.2.pc-0x101b-evt-budgetdefunded", "interface.2.pc-0x101b-evt-budgetdelegateadded", "interface.2.pc-0x101b-evt-budgetdelegateremoved", "interface.2.pc-0x101b-evt-budgetfunded", "interface.2.pc-0x101b-evt-budgetrevoked", "interface.2.pc-0x101b-evt-budgetspent"]
@@ -99157,8 +99241,9 @@ do_2 = "Pass the EVM transaction hash and a per-transaction call ordinal to Budg
 do_3 = "After each write read the budget record and emit the matching event with emitPayEvent in precompiles/layerxpay/events.go (planned)."
 do_4 = "Serve getBudget and budgetRemaining from the keeper views with the ABI outputs of precompiles/layerxpay/abi.json:13, :25."
 do_5 = "Write TestPrecompileBudgetLifecycle and TestPrecompileBudgetNativeAndPull in precompiles/layerxpay/budget_test.go (planned)."
+do_6 = "Route the fifteen budget methods from Executor.Execute and Executor.view (precompiles/layerxpay/layerxpay.go) to the budget handlers the way the escrow and service-view hooks do, so the nine budget events are emitted and the views pack through the handlers."
 symbols = ["budgetHandlers", "TestPrecompileBudgetLifecycle", "TestPrecompileBudgetNativeAndPull"]
-touches = ["precompiles/layerxpay/budget.go", "precompiles/layerxpay/budget_test.go"]
+touches = ["precompiles/layerxpay/budget.go", "precompiles/layerxpay/budget_test.go", "precompiles/layerxpay/layerxpay.go"]
 tests = ["precompiles/layerxpay/budget_test.go::TestPrecompileBudgetLifecycle", "precompiles/layerxpay/budget_test.go::TestPrecompileBudgetNativeAndPull"]
 planned_paths = ["precompiles/layerxpay/budget.go", "precompiles/layerxpay/budget_test.go"]
 build_cmd = "go build ./precompiles/layerxpay/"
@@ -99180,7 +99265,7 @@ title = "Serve the ten 0x101B stream methods and eight stream events"
 status = "pending"
 mode = "BUILD"
 wave = 26
-requires = ["2.28.1", "2.28.2", "2.28.3", "2.25.1", "2.25.2", "2.25.3", "2.25.4"]
+requires = ["2.28.1", "2.28.2", "2.28.3", "2.25.1", "2.25.2", "2.25.3", "2.25.4", "2.28.5"]
 reqs = ["2281.1", "2281.2", "2281.3"]
 capabilities = ["2.28.6"]
 interfaces = ["interface.2.pc-0x101b-streamaccrued", "interface.2.pc-0x101b-streamclose", "interface.2.pc-0x101b-streammeter", "interface.2.pc-0x101b-streamopen", "interface.2.pc-0x101b-streampause", "interface.2.pc-0x101b-streamresume", "interface.2.pc-0x101b-streamsettle", "interface.2.pc-0x101b-streamtopup", "interface.2.pc-0x101b-getstream", "interface.2.pc-0x101b-getstreamresult", "interface.2.pc-0x101b-evt-streamclosed", "interface.2.pc-0x101b-evt-streammetered", "interface.2.pc-0x101b-evt-streamopened", "interface.2.pc-0x101b-evt-streampaused", "interface.2.pc-0x101b-evt-streamrateupdated", "interface.2.pc-0x101b-evt-streamresumed", "interface.2.pc-0x101b-evt-streamsettled", "interface.2.pc-0x101b-evt-streamtoppedup"]
@@ -99189,8 +99274,9 @@ do_2 = "After each write read the stream record and result and emit the matching
 do_3 = "Export EmitStreamRateUpdated(evm, streamID, oldRate, newRate, paid) in precompiles/layerxpay/stream.go (planned) for the 0x0906 updateRate path (decision.237)."
 do_4 = "Serve getStream, getStreamResult and streamAccrued with the ABI outputs of precompiles/layerxpay/abi.json:34-35, :51."
 do_5 = "Write TestPrecompileStreamLifecycle, TestPrecompileStreamViews and TestPrecompileStreamRateUpdatedLog in precompiles/layerxpay/stream_test.go (planned)."
+do_6 = "Route the ten stream methods from Executor.Execute and Executor.view (precompiles/layerxpay/layerxpay.go) to the stream handlers the way the escrow hook does, so the eight stream events are emitted."
 symbols = ["streamHandlers", "EmitStreamRateUpdated", "TestPrecompileStreamLifecycle", "TestPrecompileStreamViews", "TestPrecompileStreamRateUpdatedLog"]
-touches = ["precompiles/layerxpay/stream.go", "precompiles/layerxpay/stream_test.go"]
+touches = ["precompiles/layerxpay/stream.go", "precompiles/layerxpay/stream_test.go", "precompiles/layerxpay/layerxpay.go"]
 tests = ["precompiles/layerxpay/stream_test.go::TestPrecompileStreamLifecycle", "precompiles/layerxpay/stream_test.go::TestPrecompileStreamViews", "precompiles/layerxpay/stream_test.go::TestPrecompileStreamRateUpdatedLog"]
 planned_paths = ["precompiles/layerxpay/stream.go", "precompiles/layerxpay/stream_test.go"]
 build_cmd = "go build ./precompiles/layerxpay/"
@@ -99212,7 +99298,7 @@ title = "Serve the thirteen 0x101B service writes and fourteen service events"
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["2.28.1", "2.28.2", "2.28.3", "2.26.1", "2.26.2", "2.26.3", "2.26.4"]
+requires = ["2.28.1", "2.28.2", "2.28.3", "2.26.1", "2.26.2", "2.26.3", "2.26.4", "2.28.6"]
 reqs = ["2282.1", "2282.2", "2282.3"]
 capabilities = ["2.28.7"]
 interfaces = ["interface.2.pc-0x101b-serviceaccept", "interface.2.pc-0x101b-serviceagreementaccept", "interface.2.pc-0x101b-serviceagreementpropose", "interface.2.pc-0x101b-servicecommitabandon", "interface.2.pc-0x101b-servicecommittask", "interface.2.pc-0x101b-servicedeliver", "interface.2.pc-0x101b-servicedisputeopen", "interface.2.pc-0x101b-servicedisputeresolve", "interface.2.pc-0x101b-serviceofferpublish", "interface.2.pc-0x101b-serviceofferwithdraw", "interface.2.pc-0x101b-serviceprogressreport", "interface.2.pc-0x101b-servicereject", "interface.2.pc-0x101b-servicetoolexecattest", "interface.2.pc-0x101b-evt-agreementaccepted", "interface.2.pc-0x101b-evt-agreementproposed", "interface.2.pc-0x101b-evt-commitabandoned", "interface.2.pc-0x101b-evt-defaultoutcomeapplied", "interface.2.pc-0x101b-evt-delivered", "interface.2.pc-0x101b-evt-disputeopened", "interface.2.pc-0x101b-evt-disputeresolved", "interface.2.pc-0x101b-evt-executionattested", "interface.2.pc-0x101b-evt-offerpublished", "interface.2.pc-0x101b-evt-offerwithdrawn", "interface.2.pc-0x101b-evt-outcomeaccepted", "interface.2.pc-0x101b-evt-outcomerejected", "interface.2.pc-0x101b-evt-progressreported", "interface.2.pc-0x101b-evt-taskcommitted"]
@@ -99220,8 +99306,9 @@ do_1 = "Write the thirteen service write handlers in precompiles/layerxpay/servi
 do_2 = "After each write read the agreement, commitment, delivery or dispute record and emit the matching event of precompiles/layerxpay/abi.json:59-96 with emitPayEvent in precompiles/layerxpay/events.go (planned)."
 do_3 = "Emit DefaultOutcomeApplied instead of OutcomeAccepted or OutcomeRejected when the agreement record shows the default outcome of include/layerx/lx_service.h:99 applied."
 do_4 = "Write TestPrecompileServiceHappyPath, TestPrecompileServiceDisputePath and TestPrecompileServiceWithdrawAbandonAttest in precompiles/layerxpay/service_test.go (planned)."
+do_5 = "Route the thirteen service writes from Executor.Execute (precompiles/layerxpay/layerxpay.go) to the service handlers the way the escrow hook does, so the fourteen service events are emitted."
 symbols = ["serviceHandlers", "TestPrecompileServiceHappyPath", "TestPrecompileServiceDisputePath", "TestPrecompileServiceWithdrawAbandonAttest"]
-touches = ["precompiles/layerxpay/service.go", "precompiles/layerxpay/service_test.go"]
+touches = ["precompiles/layerxpay/service.go", "precompiles/layerxpay/service_test.go", "precompiles/layerxpay/layerxpay.go"]
 tests = ["precompiles/layerxpay/service_test.go::TestPrecompileServiceHappyPath", "precompiles/layerxpay/service_test.go::TestPrecompileServiceDisputePath", "precompiles/layerxpay/service_test.go::TestPrecompileServiceWithdrawAbandonAttest"]
 planned_paths = ["precompiles/layerxpay/service.go", "precompiles/layerxpay/service_test.go"]
 build_cmd = "go build ./precompiles/layerxpay/"
@@ -99243,7 +99330,7 @@ title = "Serve the nine 0x101B service views"
 status = "pending"
 mode = "BUILD"
 wave = 26
-requires = ["2.28.1", "2.26.5"]
+requires = ["2.28.1", "2.26.5", "2.28.4"]
 reqs = ["2283.1", "2283.2"]
 capabilities = ["2.28.8"]
 interfaces = ["interface.2.pc-0x101b-getagreement", "interface.2.pc-0x101b-getcommitment", "interface.2.pc-0x101b-getdelivery", "interface.2.pc-0x101b-getdispute", "interface.2.pc-0x101b-getexecution", "interface.2.pc-0x101b-getoffer", "interface.2.pc-0x101b-getprogress", "interface.2.pc-0x101b-latestdelivery", "interface.2.pc-0x101b-progresshighwater"]
@@ -99251,8 +99338,9 @@ do_1 = "Write the nine service view handlers in precompiles/layerxpay/service_vi
 do_2 = "Pack each tuple with the ABI outputs of precompiles/layerxpay/abi.json:24-37 in the struct order of precompiles/layerxpay/LayerXPay.sol:86-170."
 do_3 = "Charge view gas from the methodGas rows of precompiles/layerxpay/gas.go:18-76."
 do_4 = "Write TestPrecompileServiceViews and TestPrecompileServiceViewsUngatedWhenPaused in precompiles/layerxpay/service_views_test.go (planned)."
+do_5 = "In Executor.view (precompiles/layerxpay/layerxpay.go:242) delegate the nine service views to serviceViewHandlers before the family switch and delete the getOffer..getExecution cases (:284-306), since view packs paytypes.ServiceDelivery with payTuple (:334) and its Deliverables field ArtifactSize does not match the ABI name artifactSizeBytes."
 symbols = ["serviceViewHandlers", "TestPrecompileServiceViews", "TestPrecompileServiceViewsUngatedWhenPaused"]
-touches = ["precompiles/layerxpay/service_views.go", "precompiles/layerxpay/service_views_test.go"]
+touches = ["precompiles/layerxpay/service_views.go", "precompiles/layerxpay/service_views_test.go", "precompiles/layerxpay/layerxpay.go"]
 tests = ["precompiles/layerxpay/service_views_test.go::TestPrecompileServiceViews", "precompiles/layerxpay/service_views_test.go::TestPrecompileServiceViewsUngatedWhenPaused"]
 planned_paths = ["precompiles/layerxpay/service_views.go", "precompiles/layerxpay/service_views_test.go"]
 build_cmd = "go build ./precompiles/layerxpay/"
@@ -104068,7 +104156,7 @@ title = "Refresh reads getMarketConfig and writes chain decimals and config colu
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["3.42.1"]
+requires = ["3.42.1", "5.98.1"]
 reqs = ["3486.1"]
 capabilities = ["3.42.2"]
 interfaces = ["interface.3.go-perps-data-markets-refresh-j27"]
@@ -104082,7 +104170,7 @@ touches = ["services/platform/perps-data/internal/markets/markets.go", "services
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestRefreshMarketConfig"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestRefreshMarketConfig)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestRefreshMarketConfig)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -104644,7 +104732,7 @@ title = "Fold an account once per spot trade in SpotUsers.StreamItems"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["3.46.3"]
+requires = ["3.46.3", "5.98.1"]
 reqs = ["3505.1"]
 capabilities = ["3.46.4"]
 interfaces = ["interface.3.go-perps-data-rest-spotusers-streamitems-j27"]
@@ -104656,7 +104744,7 @@ touches = ["services/platform/perps-data/internal/rest/spotusers.go", "services/
 tests = ["services/platform/perps-data/internal/rest/spotusers_test.go::TestStreamItemsSingleFold"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/rest/ -run '^(TestStreamItemsSingleFold)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/internal/rest/ -run '^(TestStreamItemsSingleFold)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -104929,7 +105017,7 @@ title = "Load the market catalog from gateway GraphQL with chain config fields"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["3.48.3", "3.48.9", "3.0.3"]
+requires = ["3.48.3", "3.48.9", "3.0.3", "5.98.1", "3.98.1"]
 reqs = ["3518.1"]
 capabilities = ["3.48.7"]
 interfaces = ["interface.3.ts-perps-hooks-useperpsmarkets-j27", "interface.3.ts-perps-hooks-perps-usesubgraph-markets-query"]
@@ -104943,7 +105031,7 @@ touches = ["apps/perps/src/hooks/perps/useSubgraph.ts", "apps/perps/src/core/per
 tests = ["apps/perps/tests/perps-markets-gateway.test.ts::perpsMarketsLoadFromGateway"]
 planned_paths = ["apps/perps/src/hooks/perps/usePerpsMarkets.ts", "apps/perps/tests/perps-markets-gateway.test.ts"]
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(perpsMarketsLoadFromGateway)$' tests/perps-markets-gateway.test.ts"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(perpsMarketsLoadFromGateway)$' tests/perps-markets-gateway.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -105367,7 +105455,7 @@ title = "Local node: an aligned limit order lands and an off-tick one reverts Pe
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["3.48.5", "3.0.4"]
+requires = ["3.48.5", "3.0.4", "5.98.1", "3.98.1"]
 reqs = ["3532.1"]
 capabilities = ["3.54.2"]
 interfaces = []
@@ -105379,7 +105467,7 @@ touches = ["apps/perps/tests/local-order-tick.test.ts"]
 tests = ["apps/perps/tests/local-order-tick.test.ts::localOffTickOrderReverts"]
 planned_paths = ["apps/perps/tests/local-order-tick.test.ts"]
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localOffTickOrderReverts)$' tests/local-order-tick.test.ts"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localOffTickOrderReverts)$' tests/local-order-tick.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -105398,7 +105486,7 @@ title = "Local node: getMarketConfig decodes for every active market"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["3.48.1", "3.0.4"]
+requires = ["3.48.1", "3.0.4", "5.98.1", "3.98.1"]
 reqs = ["3533.1"]
 capabilities = ["3.54.3"]
 interfaces = []
@@ -105410,7 +105498,7 @@ touches = ["apps/perps/tests/local-market-config.test.ts"]
 tests = ["apps/perps/tests/local-market-config.test.ts::localMarketConfigDecodes"]
 planned_paths = ["apps/perps/tests/local-market-config.test.ts"]
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localMarketConfigDecodes)$' tests/local-market-config.test.ts"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localMarketConfigDecodes)$' tests/local-market-config.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -105460,7 +105548,7 @@ title = "Local node: getFeeTier of a fresh account decodes to tier 0"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["3.53.1", "3.0.4"]
+requires = ["3.53.1", "3.0.4", "5.98.1", "3.98.1"]
 reqs = ["3534.1"]
 capabilities = ["3.54.5"]
 interfaces = []
@@ -105472,7 +105560,7 @@ touches = ["apps/perps/tests/local-fee-tier.test.ts"]
 tests = ["apps/perps/tests/local-fee-tier.test.ts::localFeeTierDecodes"]
 planned_paths = ["apps/perps/tests/local-fee-tier.test.ts"]
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localFeeTierDecodes)$' tests/local-fee-tier.test.ts"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localFeeTierDecodes)$' tests/local-fee-tier.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -105491,7 +105579,7 @@ title = "Local node: the vault reports the stable token as unpaused"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["3.52.1", "3.0.4"]
+requires = ["3.52.1", "3.0.4", "5.98.1", "3.98.1"]
 reqs = ["3535.1"]
 capabilities = ["3.54.6"]
 interfaces = []
@@ -105503,7 +105591,7 @@ touches = ["apps/perps/tests/local-spot-token-state.test.ts"]
 tests = ["apps/perps/tests/local-spot-token-state.test.ts::localStableTokenTradeable"]
 planned_paths = ["apps/perps/tests/local-spot-token-state.test.ts"]
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localStableTokenTradeable)$' tests/local-spot-token-state.test.ts"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && pnpm --dir apps/perps exec node --test --import tsx --test-name-pattern '^(localStableTokenTradeable)$' tests/local-spot-token-state.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-markets"
@@ -105759,6 +105847,35 @@ gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
 rollback = "Revert the touched files of task 3.97.1; the requesting tasks of J56.1 then stay blocked at their wave gate."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.3.98.1]
+title = "Start a local perps gateway against the disposable chain-125 node"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["5.98.1"]
+reqs = ["3518.2"]
+capabilities = []
+interfaces = []
+do_1 = "Write tools/qualification/localnode/perps-gateway.sh: read the node env file, start a nats-server, apply the perps gateway migrations to the Postgres named by PERPS_DATA_TEST_DATABASE_URL, start cmd/perps-gateway with PERPS_CHAIN_ID=125, PERPS_RPC_URLS, DATABASE_URL, NATS_URL, PORT and PERPS_AUTH_SECRET, run the markets Refresh once, wait for the GraphQL health route and append NEXT_PUBLIC_PERPS_GATEWAY_URL=<url> to the env file; --stop stops both."
+do_2 = "Write tools/qualification/localnode/perps_gateway_test.go with TestLocalPerpsGatewayServesMarkets: query the gateway's market catalog and assert 18 markets with chain-125 config."
+symbols = ["TestLocalPerpsGatewayServesMarkets"]
+touches = ["tools/qualification/localnode/perps-gateway.sh", "tools/qualification/localnode/perps_gateway_test.go"]
+tests = ["tools/qualification/localnode/perps_gateway_test.go::TestLocalPerpsGatewayServesMarkets"]
+planned_paths = ["tools/qualification/localnode/perps-gateway.sh", "tools/qualification/localnode/perps_gateway_test.go"]
+build_cmd = "go build ./services/platform/perps-data/cmd/perps-gateway/..."
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && bash tools/qualification/localnode/perps-gateway.sh --env ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^(TestLocalPerpsGatewayServesMarkets)$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-markets"
+rollback = "Revert the touched files of task 3.98.1; the gateway state and env file live outside the repository, so no repository state depends on them."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -106481,7 +106598,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.11]
 title = "Serve Query/FeeRight from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.10"]
@@ -106513,7 +106630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.12]
 title = "Serve Query/AirdropEpoch from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.11"]
@@ -106545,7 +106662,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.13]
 title = "Serve Query/AirdropClaimed from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["4.3.1", "4.2.3", "4.4.12"]
@@ -106577,7 +106694,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.14]
 title = "Serve Query/HasRole from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["4.3.1", "4.2.3", "4.4.13"]
@@ -106609,7 +106726,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.15]
 title = "Serve Query/QuoteLedger from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["4.3.1", "4.2.3", "4.2.5", "4.4.14", "4.4.8"]
@@ -106984,7 +107101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.9]
 title = "Add the launchpad airdrop query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["4.5.1", "4.4.12", "4.4.13", "15.0.5"]
@@ -118695,6 +118812,38 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-node-runtime"
 rollback = "Revert the touched files of task 5.97.4; the requesting tasks of J21.24 then stay blocked at their wave gate."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.98.1]
+title = "Start a disposable chain-125 node with the v6.12.0 set live for local qualification"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = []
+reqs = ["3533.2"]
+capabilities = []
+interfaces = []
+do_1 = "Write tools/qualification/localnode/v6120-node.sh: build paxd with make -f chain.mk install (needs paxd-native-libs), derive the genesis from node/testdata/v6120-halt-export.json with chain_id hyperpax_125-1, keep the first validator and jail/unbond the rest with the jq rewrite of services/platform/hosted/paxeer/fork-rehearsal.sh step 2 (signing info and supply recomputed), fund a deployer and a test key with uhpx, and run paxd validate-genesis."
+do_2 = "Configure loopback ports and the EVM HTTP listener as services/platform/hosted/paxeer/init-chain.sh does, write data/upgrade-info.json naming v6.12.0 at initial_height so App.applyNamedUpgrade (node/upgrades.go) applies the plan in the first block, start paxd start --home <dir> in the background and wait until eth_chainId == 0x7d and the v6.12.0 done height is reported."
+do_3 = "After start: mint USDL to the test key from the deployer, register the validator's feed account and submit one fixed BTC observation per block through paxd tx pricefeed so PlaceOrder sees a fresh price."
+do_4 = "Print LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (the latter from --gateway-url, default http://127.0.0.1:0) as KEY=VALUE lines to the file named by --env-out; --stop <dir> stops the node. The node home and env file live under ${TMPDIR:-/tmp}/lx-localnode, never in the repository."
+do_5 = "Write tools/qualification/localnode/v6120_test.go with TestLocalNodeV6120Serves: dial PERPS_DATA_TEST_RPC and assert totalMarkets == 18 and getRegisteredTokens has length 3."
+symbols = ["TestLocalNodeV6120Serves"]
+touches = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/v6120_test.go"]
+tests = ["tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120Serves"]
+planned_paths = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/v6120_test.go"]
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^(TestLocalNodeV6120Serves)$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-node-runtime"
+rollback = "Revert the touched files of task 5.98.1; the node home and env file live outside the repository, so no repository state depends on them."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -130456,7 +130605,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.4]
 title = "Relay pax_sequencerReceipt through the EVM relay namespace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["8.0.1", "9.23.7", "8.1.5"]
@@ -130488,7 +130637,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.5]
 title = "Port the indexer AI market and reputation projections to block-commit finality evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.29.1", "11.2.4"]
@@ -130536,7 +130685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.6]
 title = "Gate finalized AI market webhook delivery on a verified block commit instead of a guarantor certificate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["8.1.5", "11.2.4"]
@@ -131084,7 +131233,7 @@ title = "Answer agent-boundary receipts from pax_sequencerReceipt"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.1.4", "7.0.2", "7.94.1"]
+requires = ["8.1.4", "7.0.2", "7.94.1", "9.1.7"]
 reqs = ["8077.1", "8077.2"]
 capabilities = ["8.8.1"]
 interfaces = ["interface.8.env-agent-boundary-layerx-agent-boundary-chain-rpc-url-j40", "interface.8.env-agent-boundary-layerx-agent-boundary-receipt-keys-file-j40"]
@@ -134420,7 +134569,7 @@ do_3 = "services/platform/examples/agent-program-call/walkthrough.sh:44-46 runs 
 do_4 = "services/platform/examples/agent-program-call/walkthrough.sh:53-64 resolves an unknown outcome by activity_id through layerx receipt get; resolve it by the data.tx_hash of the call answer and report tx_hash and rung, dropping the activity_id member."
 do_5 = "services/platform/examples/agent-program-call/walkthrough.sh:67-70 prints receipt_digest from the kernel answer; print tx_hash, rung and the outcome."
 do_6 = "Create services/platform/examples/test/agent-program-call.test.mjs (planned) with the two tests below, starting a node:http JSON-RPC listener in the test that the real layerx CLI built from tools/platform/cli is pointed at."
-symbols = ["walkthrough.sh", "simulateCall", "call"]
+symbols = ["simulateCall", "call"]
 touches = ["services/platform/examples/agent-program-call/walkthrough.sh", "services/platform/examples/test/agent-program-call.test.mjs"]
 tests = ["services/platform/examples/test/agent-program-call.test.mjs::walkthroughSimulatesThroughProgramsPrecompile", "services/platform/examples/test/agent-program-call.test.mjs::walkthroughReportsTransactionHashAndRung"]
 planned_paths = ["services/platform/examples/test/agent-program-call.test.mjs"]
@@ -137534,7 +137683,7 @@ title = "Port the layerx-sdk decoders and envelopes to rungs and heights"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["9.1.6", "11.2.7", "9.32.1"]
+requires = ["9.1.6", "11.2.7", "9.32.1", "1.18.4"]
 reqs = ["9005.1", "9005.2", "9005.3", "9005.4", "9006.1", "9006.2", "9006.3", "9976.1"]
 capabilities = ["9.1.7"]
 interfaces = ["interface.9.http-rpc-project", "interface.9.rs-agent-api-read-relativeto", "interface.9.rs-agent-api-read-freshness", "interface.9.rs-agent-api-read-verifiedread", "interface.9.rs-agent-api-read-readrequest", "interface.9.rs-agent-api-read-modulestateselector", "interface.9.rs-agent-api-read-historyselector", "interface.9.rs-agent-api-read-balancevalue", "interface.9.rs-agent-api-read-historyvalue", "interface.9.rs-agent-api-read-checkpointvalue", "interface.9.rs-agent-api-read-proofbundle", "interface.9.rs-agent-api-read-offlineexport", "interface.9.rs-agent-api-read-feeprojection", "interface.9.proto-agent-api-read-type-verifiedread", "interface.9.proto-agent-api-read-type-freshness", "interface.9.proto-agent-api-read-type-proofbundle", "interface.9.proto-agent-api-read-type-feeprojection", "interface.9.err-rs-layerx-agent-api-error-class-idempotency-conflict", "interface.9.rs-agent-api-identity-protocolbudgetview", "interface.9.rs-agent-api-stream-receiptreference", "interface.9.rs-agent-api-protocolbudgetview-from-proven-j70"]
@@ -139998,7 +140147,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.1]
 title = "Delete the kernel caps and prestate transport tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.21.6", "1.4.6"]
@@ -140029,7 +140178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.2]
 title = "Delete the LNI connection, receipt, submit, availability, batch and module read tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.24.1", "9.23.1", "9.23.2", "9.22.1", "9.22.2", "9.23.4"]
@@ -140106,8 +140255,8 @@ symbols = ["budget_refuses_malformed_and_arithmetic_bounds"]
 touches = ["services/agent/crates/layerx-client/tests/lni_abi.rs", "services/agent/crates/layerx-client/tests/lni_handshake.rs", "services/agent/crates/layerx-client/tests/lni_schema.rs", "services/agent/crates/layerx-client/tests/lni_transport.rs", "services/agent/crates/layerx-client/tests/lni_preparation.rs", "services/agent/crates/layerx-client/tests/head_attestation.rs", "services/agent/crates/layerx-client/tests/program_read.rs", "services/agent/crates/layerx-client/tests/simulation_artifacts.rs", "services/agent/crates/layerx-client/examples/go_verifier_vectors.rs", "services/agent/crates/layerx-client/tests/reads.rs", "services/agent/crates/layerx-client/tests/stream.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::budget_refuses_malformed_and_arithmetic_bounds"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact budget_refuses_malformed_and_arithmetic_bounds"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact budget_refuses_malformed_and_arithmetic_bounds"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -140136,8 +140285,8 @@ symbols = ["native_grant_signatures_and_every_committed_field"]
 touches = ["services/agent/crates/layerx-client/src/lni/head_attestation.rs", "services/agent/crates/layerx-client/src/lni/preparation.rs", "services/agent/crates/layerx-client/src/lni/program_read.rs", "services/agent/crates/layerx-client/src/lni/simulate.rs", "services/agent/crates/layerx-client/src/evidence/module_state.rs", "services/agent/crates/layerx-client/src/evidence/asset_record.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -140538,7 +140687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.7]
 title = "Delete the layerx-client kernel finality evidence suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["9.23.5"]
@@ -159000,7 +159149,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.1]
 title = "Delete the explorer verify page and its evidence verifier view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.5.4", "14.6.3", "14.6.4"]
@@ -159032,7 +159181,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.2]
 title = "Retire POST /api/explorer/verify, the mirror verifier and verifyEvidenceUpstream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.6.1"]
@@ -159096,7 +159245,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.4]
 title = "Drop the explorer verify page from the explorer browser specs and test scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.7.2"]
@@ -159194,7 +159343,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.3]
 title = "Delete the custody journey screen, timeline, recovery and barrel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.7.2", "14.8.1", "14.11.2"]
@@ -159226,7 +159375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.4]
 title = "Delete the custody hand-off, evidence and timing modules with the HUMAN_* variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.7.3"]
@@ -159579,7 +159728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.10.2]
 title = "Remove the wallet binding copy keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.8.1"]
@@ -159611,7 +159760,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.10.3]
 title = "Remove the explorer verify and retired verification-level copy keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["14.6.2", "14.6.4", "14.5.5", "14.9.3", "14.9.5", "14.9.6", "14.7.4"]
@@ -160017,7 +160166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.2]
 title = "Serve frozen anchors and receipts under /api/v2/paxeer-x/archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.23.1", "14.25.3"]
@@ -160080,7 +160229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.4]
 title = "Delete the live anchor and receipt controllers, views and their tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.23.2"]
@@ -160142,7 +160291,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.6]
 title = "Make the Anchor and Receipt chain schemas read-only archive records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.25.3"]
@@ -160202,7 +160351,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.24.2]
 title = "Drop the kernel receipts fetcher from the backend and indexer READMEs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.24.1"]
@@ -160357,7 +160506,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.5]
 title = "Check every kept PaxeerXLogs topic against the precompile ABI files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.25.1"]
@@ -160401,7 +160550,7 @@ do_3 = "Extend @party_argument_names at services/explorer/backend/apps/indexer/l
 do_4 = "Leave row/3 at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:490-502 and the decoders at :521-531 unchanged: bytes32, uint8 and address topics and uint256, uint8, bool, string, bytes32 and address data are already decoded; token fills asset_address_hash for MarketCreated, PoolRegistered and TokenDeployed and amount fills amount for FeeDistributed and FeeFlow."
 do_5 = "Append the twelve v6.12.0 signatures to the launchpad list of @market_signatures at services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs:31-42, because :138-145 asserts that list equals the signatures of the launchpad definitions exactly."
 do_6 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs (planned) in the paxeer_x_logs_market_test.exs style with launchpad_v612_logs_parse (one log per v6.12.0 event, the full expected row per event, including the TokenDeployed dynamic strings and Swap with fourth_topic nil) and launchpad_v610_logs_still_parse (FeesClaimed and v6.10 Swap rows unchanged)."
-symbols = ["PaxeerXLogs.definitions", "PaxeerXLogs.parse"]
+symbols = []
 touches = ["services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs"]
 tests = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs::launchpad_v612_logs_parse", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs::launchpad_v610_logs_still_parse"]
 planned_paths = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs"]
@@ -160853,7 +161002,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.30.2]
 title = "Enable the precompile source in sig-provider-server settings and startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.30.1", "16.93.1"]
@@ -160889,7 +161038,7 @@ title = "Check the embedded precompile signatures against the precompile ABI fil
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["14.30.2"]
+requires = ["14.30.2", "14.30.4"]
 reqs = ["14278.1"]
 capabilities = ["14.30.3"]
 interfaces = []
@@ -160926,8 +161075,9 @@ interfaces = []
 do_1 = "Create services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs (planned) as a #[cfg(test)] module registered in services/explorer/services/sig-provider/sig-provider/src/aggregator.rs:46, with precompile_signature_ranks_first, which builds SourceAggregator::new with PrecompileSource and a MockSignatureSource answering a colliding signature and asserts the precompile signature is first."
 do_2 = "Use MockSignatureSource from the automock at services/explorer/services/sig-provider/sig-provider/src/sources/mod.rs:19-20."
 do_3 = "Register the module with #[cfg(test)] #[path = \"aggregator_precompiles_test.rs\"] mod aggregator_precompiles_test; at the end of services/explorer/services/sig-provider/sig-provider/src/aggregator.rs:848."
+do_4 = "Add precompiles: Default::default() to the SourcesSettings literal in sig-provider-server/tests/mock.rs so cargo check --all-targets -p sig-provider-server compiles."
 symbols = ["SourceAggregator", "precompile_signature_ranks_first"]
-touches = ["services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs", "services/explorer/services/sig-provider/sig-provider/src/aggregator.rs"]
+touches = ["services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs", "services/explorer/services/sig-provider/sig-provider/src/aggregator.rs", "services/explorer/services/sig-provider/sig-provider-server/tests/mock.rs"]
 tests = ["services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs::precompile_signature_ranks_first"]
 planned_paths = ["services/explorer/services/sig-provider/sig-provider/src/aggregator_precompiles_test.rs"]
 build_cmd = "cargo build --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider"
@@ -162379,7 +162529,7 @@ do_1 = "Add \"apps/bridge/**\" to FILTERS at services/bridge/deploy/tests/workfl
 do_2 = "Add a bridge-app entry to LEGS at services/bridge/deploy/tests/workflow-check.sh:61 with tools [\"pnpm test\"] and paths [\"apps/bridge\"]."
 do_3 = "Change the four-leg wording in the comment at services/bridge/deploy/tests/workflow-check.sh:59 to five legs."
 do_4 = "Run the existing check services/bridge/deploy/tests/workflow-check.sh:1 against the workflow edited by wiring J55.1."
-symbols = ["FILTERS", "LEGS"]
+symbols = []
 touches = ["services/bridge/deploy/tests/workflow-check.sh"]
 tests = ["services/bridge/deploy/tests/workflow-check.sh::workflow-check"]
 planned_paths = []
@@ -162430,7 +162580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.6]
 title = "Pin the env names appenv writes to the names the bridge app reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.53.3", "14.50.1"]
@@ -162553,7 +162703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.54.4]
 title = "Pin the client Solana handle derivation to the committed SOL asset id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.54.1", "14.50.2"]
