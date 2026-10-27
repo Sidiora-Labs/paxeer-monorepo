@@ -3,6 +3,7 @@ package wasm
 import (
 	"encoding/json"
 
+	tfbindings "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/client/wasm/bindings"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/wasmbinding/bindings"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -67,4 +68,17 @@ func EncodeTokenFactorySetMetadata(rawMsg json.RawMessage, sender sdk.AccAddress
 		Metadata: encodedSetMetadataMsg.Metadata,
 	}
 	return []sdk.Msg{&setMetadataMsg}, nil
+}
+
+func EncodeTokenFactorySetDenomPaused(rawMsg json.RawMessage, sender sdk.AccAddress) ([]sdk.Msg, error) {
+	encodedSetDenomPausedMsg := tfbindings.SetDenomPaused{}
+	if err := json.Unmarshal(rawMsg, &encodedSetDenomPausedMsg); err != nil {
+		return []sdk.Msg{}, types.ErrEncodeTokenFactorySetDenomPaused
+	}
+	setDenomPausedMsg := types.MsgSetDenomPaused{
+		Sender: sender.String(),
+		Denom:  encodedSetDenomPausedMsg.Denom,
+		Paused: encodedSetDenomPausedMsg.Paused,
+	}
+	return []sdk.Msg{&setDenomPausedMsg}, nil
 }
