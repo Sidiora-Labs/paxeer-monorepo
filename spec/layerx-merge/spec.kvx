@@ -104309,7 +104309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.7]
 title = "Write the chain margin tiers into perps.market_tiers on refresh"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.42.2", "3.42.8"]
@@ -107321,7 +107321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.8.5]
 title = "Delete the generation 1 key builders and keep their prefixes reserved"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["4.8.4"]
@@ -121704,7 +121704,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.22.8]
 title = "Prove a layerxledger-registered denom carries its issuer DID and pause"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.22.7", "6.0.2", "2.0.3", "2.95.2"]
@@ -126912,7 +126912,7 @@ do_5 = "Both attempts failed on the transaction index: the sequencer numbers acc
 
 [task.7.0.4]
 title = "Check every client-called method is served on the matching transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["7.0.3", "7.9.1"]
@@ -128837,7 +128837,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.11]
 title = "Check ethclient pending reads against a sequencer server"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["7.0.3", "7.11.3"]
@@ -148570,7 +148570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.22.4]
 title = "Check the relayer receipt decoder against the shared receipt vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.22.3", "11.0.4", "9.1.6"]
@@ -149090,7 +149090,7 @@ do_8 = "The first build failed because do_2 makes ArchiveData.committed a plain 
 
 [task.11.26.5]
 title = "Refresh the workspace locks that pin the mirror after it dropped its batch-era dependencies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.4"]
@@ -149119,7 +149119,7 @@ do_4 = "Compile nothing: the build gate is the lock-consistency check above. ser
 
 [task.11.26.6]
 title = "Port the SDK's mirror source verification to the committed archive verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.4", "11.26.5", "11.37.1"]
@@ -149761,7 +149761,7 @@ do_5 = "The first attempt's two tests failed before the settlement probe: the bi
 
 [task.11.34.5]
 title = "Recover metered draws from pax_sequencerReceipt and retire the gateway lx_ client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["11.34.3", "11.34.4"]
@@ -149792,6 +149792,9 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "verify_receipt returns layerx_interop_gateway::evidence::canonical_receipt_digest(&answer.receipt).map_err(|_| \"receipt_unverified\")? as the receipt digest (services/interop/crates/layerx-interop-gateway/src/evidence.rs:36), and Plane::finish claims that digest under RECEIPTS and saves it as PaymentRecord.receipt_digest. It is the digest GatewayCore::settle_with_sequencer_evidence records in TranslationStatus::ReceiptVerified (services/interop/crates/layerx-interop-gateway/src/gateway.rs:592-627) and SellerOutcome::Settled.receipt_digest carries, which PaymentStore::release compares in settle_request before answering receipt_consumed (payment.rs:1406). leaf_hash of the signed receipt bytes or of the canonical header (payment.rs:2315 at 8d0d8a208) is a different digest and makes release return false on the first receipted retry. Plane::exact keeps its current comparison; task 11.34.6 owns it."
+do_8 = "a_reverted_draw_releases_nothing retries the metered payment exactly once after broadcast_draw and asserts the 402 payment_failed challenge, served() == 0, one eth_sendRawTransaction, an unreleased record without receipt or receipt_digest, and an empty receipts index. It does not retry a second time: Seller::settle answers payment_refused (services/interop/crates/layerx-x402/src/seller.rs:198) for an idempotency key whose translation refuse_translation already stored as Refused, before the plane runs, and that path is outside this task."
+do_9 = "In a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once a further retry after the release is answered 402 receipt_consumed with served() == 1 and one released record, exactly as a_pending_draw_recovers_the_same_activity_and_releases_once asserts (services/interop/crates/x-websearch/tests/payment.rs:824); that is the answer from the store without a second release that acceptance 11.395.1 requires."
 
 [task.11.34.6]
 title = "Settle exact payments from the payExact transaction hash and keep kernel-era records loadable"
@@ -149829,6 +149832,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_11 = "Wherever Plane::exact still compares a receipt digest after do_1 and do_2, compare canonical_receipt_digest of the signed receipt (the rule of task 11.34.5 do_7), never leaf_hash."
 
 [task.11.34.7]
 title = "Name the payer by EVM address in config and the LAYERX-PAYER-ADDRESS header"
@@ -150144,7 +150148,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.37.3]
 title = "Check mirror receipt verification against the shared sequencer-receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.37.1", "11.0.4", "9.1.6"]
@@ -157045,7 +157049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.2]
 title = "Serve the program account and value account views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1"]
