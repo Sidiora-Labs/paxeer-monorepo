@@ -35,24 +35,58 @@ impl SignedFunding {
 }
 
 impl ChainFunding {
-    pub(super) fn from_env() -> Result<Self, String> {
+    pub(super) fn from_env() -> Result<Self, &'static str> {
         let endpoint = parse_node_url(
-            &std::env::var("LAYERX_CORE_CHAIN_RPC_URL").map_err(|_| "funding endpoint missing")?,
-        )?;
+            &std::env::var("LAYERX_CORE_CHAIN_RPC_URL").map_err(|_| "chain_unavailable")?,
+        )
+        .map_err(|_| "chain_unavailable")?;
         let sender =
-            EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|error| error.to_string())?;
+            EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|_| "sender_unavailable")?;
         let mut funding = Self {
             endpoint,
             sender,
             chain_id: 0,
         };
-        funding.chain_id = quantity(&funding.rpc("eth_chainId", json!([]))?)?
-            .try_into()
-            .map_err(|_| "funding chain id overflow")?;
+        funding.chain_id = quantity(
+            &funding
+                .rpc("eth_chainId", json!([]))
+                .map_err(|_| "chain_unavailable")?,
+        )
+        .map_err(|_| "chain_unavailable")?
+        .try_into()
+        .map_err(|_| "chain_unavailable")?;
         if funding.chain_id == 0 {
-            return Err("funding chain id is zero".to_owned());
+            return Err("chain_unavailable");
         }
         Ok(funding)
+    }
+
+    pub(super) fn readiness(&self) -> Result<Value, &'static str> {
+        let chain_id: u64 = quantity(
+            &self
+                .rpc("eth_chainId", json!([]))
+                .map_err(|_| "chain_unavailable")?,
+        )
+        .map_err(|_| "chain_unavailable")?
+        .try_into()
+        .map_err(|_| "chain_unavailable")?;
+        if chain_id != self.chain_id {
+            return Err("chain_unavailable");
+        }
+        let latest_block: u64 = quantity(
+            &self
+                .rpc("eth_blockNumber", json!([]))
+                .map_err(|_| "chain_unavailable")?,
+        )
+        .map_err(|_| "chain_unavailable")?
+        .try_into()
+        .map_err(|_| "chain_unavailable")?;
+        Ok(json!({
+            "ready": true,
+            "chain_id": chain_id,
+            "latest_block": latest_block,
+            "sender": format!("0x{}", hex_encode(&self.sender.address())),
+        }))
     }
 
     fn rpc(&self, method: &str, params: Value) -> Result<Value, String> {

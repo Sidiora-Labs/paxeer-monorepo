@@ -180,7 +180,9 @@ struct Harness {
     signer: Child,
     core: Option<Child>,
     admin: u16,
-    chain: Chain,
+    listen: u16,
+    chain: Option<Chain>,
+    chain_address: std::net::SocketAddr,
 }
 
 fn private_file(path: &Path, bytes: &[u8]) {
@@ -211,6 +213,14 @@ fn free_port() -> u16 {
 
 impl Harness {
     fn start(key: &str, lose_response: bool) -> Self {
+        Self::with_chain(key, lose_response, None)
+    }
+
+    fn with_chain(
+        key: &str,
+        lose_response: bool,
+        chain_address: Option<std::net::SocketAddr>,
+    ) -> Self {
         let root = std::env::temp_dir().join(format!(
             "chain-fund-{}-{}",
             std::process::id(),
@@ -301,20 +311,32 @@ impl Harness {
         let mut digest = Sha256::new();
         digest.update(b"fund-canonical\0");
         digest.update(key.as_bytes());
-        let chain = Chain::start(
-            root.join("state/journal")
-                .join(format!("{}.json", hex_encode(&digest.finalize()))),
-        );
-        chain.state.lock().unwrap().lose_response = lose_response;
+        let chain = if chain_address.is_none() {
+            let chain = Chain::start(
+                root.join("state/journal")
+                    .join(format!("{}.json", hex_encode(&digest.finalize()))),
+            );
+            chain.state.lock().unwrap().lose_response = lose_response;
+            Some(chain)
+        } else {
+            None
+        };
+        let chain_address = chain_address.unwrap_or_else(|| chain.as_ref().unwrap().address);
         let mut harness = Self {
             root,
             signer,
             core: None,
             admin: free_port(),
+            listen: free_port(),
             chain,
+            chain_address,
         };
         harness.restart(true, true);
         harness
+    }
+
+    fn chain(&self) -> &Chain {
+        self.chain.as_ref().unwrap()
     }
 
     fn restart(&mut self, endpoint: bool, sender: bool) {
@@ -331,7 +353,7 @@ impl Harness {
             .env_remove("LAYERX_CORE_CHAIN_RPC_URL")
             .env_remove("LAYERX_CORE_FUNDING_SENDER_KEY_FILE")
             .env("LAYERX_CORE_NETWORK_ID", "125")
-            .env("LAYERX_CORE_LISTEN", format!("127.0.0.1:{}", free_port()))
+            .env("LAYERX_CORE_LISTEN", format!("127.0.0.1:{}", self.listen))
             .env(
                 "LAYERX_CORE_ADMIN_LISTEN",
                 format!("127.0.0.1:{}", self.admin),
@@ -369,7 +391,7 @@ impl Harness {
         if endpoint {
             command.env(
                 "LAYERX_CORE_CHAIN_RPC_URL",
-                format!("http://{}", self.chain.address),
+                format!("http://{}", self.chain_address),
             );
         }
         if sender {
@@ -403,16 +425,31 @@ impl Harness {
 
     fn fund(&self, key: &str, amount: u64) -> (u16, Value) {
         let body = json!({"funding_id": "funding-8109", "did": format!("did:layerx:{PUBLIC_KEY}"), "public_key": PUBLIC_KEY, "amount": amount}).to_string();
+        self.request(&format!("POST /admin/v1/testnet/fund HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {TOKEN}\r\nContent-Type: application/json\r\nIdempotency-Key: {key}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()))
+    }
+
+    fn readiness(&self) -> (u16, Value) {
+        self.request_on(
+            self.listen,
+            "GET /readyz HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n",
+        )
+    }
+
+    fn request(&self, request: &str) -> (u16, Value) {
+        self.request_on(self.admin, request)
+    }
+
+    fn request_on(&self, port: u16, request: &str) -> (u16, Value) {
         let connector = TlsConnector::builder()
             .add_root_certificate(
                 Certificate::from_der(&fs::read(self.root.join("tls.der")).unwrap()).unwrap(),
             )
             .build()
             .unwrap();
-        let tcp = TcpStream::connect(("127.0.0.1", self.admin)).unwrap();
+        let tcp = TcpStream::connect(("127.0.0.1", port)).unwrap();
         tcp.set_read_timeout(Some(Duration::from_secs(10))).unwrap();
         let mut stream = connector.connect("localhost", tcp).unwrap();
-        write!(stream, "POST /admin/v1/testnet/fund HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {TOKEN}\r\nContent-Type: application/json\r\nIdempotency-Key: {key}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()).unwrap();
+        stream.write_all(request.as_bytes()).unwrap();
         let response =
             layerx_platform_internal::http::read_http_message(&mut stream, 64 * 1024).unwrap();
         let status = response.headers[""]
@@ -513,7 +550,7 @@ fn testnet_fund_sends_one_bank_transfer_to_the_bound_address() {
     assert_eq!(pending["funding_id"], "funding-8109");
     assert_eq!(pending["state"], "pending");
     {
-        let state = harness.chain.state.lock().unwrap();
+        let state = harness.chain().state.lock().unwrap();
         assert_eq!(state.submissions.len(), 1);
         assert_transfer(&state.submissions[0]);
         assert_eq!(
@@ -523,19 +560,19 @@ fn testnet_fund_sends_one_bank_transfer_to_the_bound_address() {
     }
     assert_eq!(harness.fund("one-transfer", 1).0, 409);
     assert_eq!(harness.fund("invalid-amount", 0).0, 400);
-    harness.chain.state.lock().unwrap().mined = true;
+    harness.chain().state.lock().unwrap().mined = true;
     let (status, funded) = harness.fund("one-transfer", 123_456);
     assert_eq!(status, 200);
     assert_eq!(funded["state"], "funded");
     assert_eq!(funded["transaction_id"], pending["transaction_id"]);
     assert_eq!(funded["funding_id"], "funding-8109");
     assert_eq!(harness.fund("one-transfer", 123_456), (200, funded));
-    harness.chain.state.lock().unwrap().unbound = true;
+    harness.chain().state.lock().unwrap().unbound = true;
     let (status, refusal) = harness.fund("unbound", 123_456);
     assert_eq!(status, 409);
     assert_eq!(refusal["error"]["code"], "identity_binding_unavailable");
     {
-        let state = harness.chain.state.lock().unwrap();
+        let state = harness.chain().state.lock().unwrap();
         assert_eq!(state.submissions.len(), 2);
         assert_eq!(state.submissions[0], state.submissions[1]);
     }
@@ -555,7 +592,7 @@ fn testnet_fund_replays_the_journaled_transaction() {
     let (status, refusal) = harness.fund("replay-transfer", 123_456);
     assert_eq!(status, 503);
     assert_eq!(refusal["error"]["code"], "treasury_unavailable");
-    let original = harness.chain.state.lock().unwrap().submissions[0].clone();
+    let original = harness.chain().state.lock().unwrap().submissions[0].clone();
     assert_transfer(&original);
     private_file(
         &harness.root.join("sender.key"),
@@ -569,13 +606,13 @@ fn testnet_fund_replays_the_journaled_transaction() {
         pending["transaction_id"],
         format!("0x{}", hex_encode(&transaction_hash(&original)))
     );
-    harness.chain.state.lock().unwrap().mined = true;
+    harness.chain().state.lock().unwrap().mined = true;
     let (status, funded) = harness.fund("replay-transfer", 123_456);
     assert_eq!(status, 200);
     assert_eq!(funded["state"], "funded");
     assert_eq!(funded["transaction_id"], pending["transaction_id"]);
     assert_eq!(harness.fund("replay-transfer", 123_457).0, 409);
-    let state = harness.chain.state.lock().unwrap();
+    let state = harness.chain().state.lock().unwrap();
     assert_eq!(state.submissions.len(), 3);
     for raw in &state.submissions {
         assert_eq!(raw, &original);
@@ -604,5 +641,148 @@ fn testnet_fund_replays_the_journaled_transaction() {
             .filter(|request| request["method"] == "eth_chainId")
             .count(),
         2
+    );
+}
+
+struct ReadinessChain {
+    child: Child,
+    address: std::net::SocketAddr,
+}
+
+impl ReadinessChain {
+    fn start() -> Self {
+        let port = free_port();
+        let child = Command::new(std::env::var_os("ANVIL_BIN").unwrap_or_else(|| "anvil".into()))
+            .args([
+                "--host",
+                "127.0.0.1",
+                "--port",
+                &port.to_string(),
+                "--chain-id",
+                "125",
+                "--no-mining",
+                "--silent",
+            ])
+            .stdout(Stdio::null())
+            .spawn()
+            .expect("Anvil must be installed to run the real funding chain readiness test");
+        let mut chain = Self {
+            child,
+            address: ([127, 0, 0, 1], port).into(),
+        };
+        let deadline = Instant::now() + Duration::from_secs(10);
+        while TcpStream::connect(chain.address).is_err() {
+            assert!(
+                chain.child.try_wait().unwrap().is_none(),
+                "Anvil exited before listening"
+            );
+            assert!(Instant::now() < deadline, "Anvil did not start");
+            thread::sleep(Duration::from_millis(20));
+        }
+        assert_eq!(chain.rpc("eth_chainId"), "0x7d");
+        chain
+    }
+
+    fn rpc(&self, method: &str) -> Value {
+        let body = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": []}).to_string();
+        let mut stream = TcpStream::connect(self.address).unwrap();
+        stream
+            .set_read_timeout(Some(Duration::from_secs(5)))
+            .unwrap();
+        write!(stream, "POST / HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", self.address, body.len()).unwrap();
+        let response =
+            layerx_platform_internal::http::read_http_message(&mut stream, 64 * 1024).unwrap();
+        assert_eq!(response.headers[""].split_whitespace().nth(1), Some("200"));
+        let response: Value = serde_json::from_slice(&response.body).unwrap();
+        assert_eq!(response["jsonrpc"], "2.0");
+        assert_eq!(response["id"], 1);
+        assert!(response.get("error").is_none(), "{response}");
+        response.get("result").unwrap().clone()
+    }
+
+    fn stop(&mut self) {
+        self.child.kill().unwrap();
+        assert!(self.child.wait().unwrap().code().is_none());
+    }
+}
+
+impl Drop for ReadinessChain {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+
+#[test]
+fn readyz_reports_the_funding_chain_and_sender() {
+    let mut chain = ReadinessChain::start();
+    let mut harness = Harness::with_chain("readiness", false, Some(chain.address));
+    let (status, mut document) = harness.readiness();
+    assert_eq!(status, 503);
+    assert_eq!(document["error"]["code"], "node_unavailable");
+    assert_eq!(
+        document["funding"],
+        json!({
+            "ready": true,
+            "chain_id": 125,
+            "latest_block": 0,
+            "sender": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+        })
+    );
+    document.as_object_mut().unwrap().remove("funding");
+    let kernel = document;
+
+    chain.rpc("evm_mine");
+    assert_eq!(chain.rpc("eth_blockNumber"), "0x1");
+    let (status, mut document) = harness.readiness();
+    assert_eq!(status, 503);
+    assert_eq!(document["funding"]["ready"], true);
+    assert_eq!(document["funding"]["latest_block"], 1);
+    document.as_object_mut().unwrap().remove("funding");
+    assert_eq!(document, kernel);
+
+    for valid_key in [false, true] {
+        if valid_key {
+            private_file(&harness.root.join("sender.key"), b"invalid-key");
+        }
+        harness.restart(true, valid_key);
+        let (status, mut document) = harness.readiness();
+        assert_eq!(status, 503);
+        assert_eq!(
+            document["funding"],
+            json!({"ready": false, "reason": "sender_unavailable"})
+        );
+        document.as_object_mut().unwrap().remove("funding");
+        assert_eq!(document, kernel);
+    }
+    private_file(
+        &harness.root.join("sender.key"),
+        format!("{:064x}", 1).as_bytes(),
+    );
+    harness.restart(false, true);
+    let (status, mut document) = harness.readiness();
+    assert_eq!(status, 503);
+    assert_eq!(
+        document["funding"],
+        json!({"ready": false, "reason": "chain_unavailable"})
+    );
+    document.as_object_mut().unwrap().remove("funding");
+    assert_eq!(document, kernel);
+
+    harness.restart(true, true);
+    assert_eq!(harness.readiness().1["funding"]["ready"], true);
+    chain.stop();
+    let (status, mut document) = harness.readiness();
+    assert_eq!(status, 503);
+    assert_eq!(
+        document["funding"],
+        json!({"ready": false, "reason": "chain_unavailable"})
+    );
+    document.as_object_mut().unwrap().remove("funding");
+    assert_eq!(document, kernel);
+    harness.restart(true, true);
+    assert_eq!(
+        harness.readiness().1["funding"],
+        json!({"ready": false, "reason": "chain_unavailable"})
     );
 }
