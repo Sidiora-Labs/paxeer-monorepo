@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,6 +17,91 @@ import (
 )
 
 const ethereumRecordPath = "../tests/fixtures/records/ethereum.json"
+
+func TestEnvNamesMatchTheBridgeAppConfig(t *testing.T) {
+	gomod, err := exec.Command("go", "env", "GOMOD").Output()
+	if err != nil {
+		t.Fatalf("go env GOMOD: %v", err)
+	}
+	modulePath := strings.TrimSpace(string(gomod))
+	if modulePath == "" || modulePath == os.DevNull || !filepath.IsAbs(modulePath) {
+		t.Fatalf("go env GOMOD returned no module path: %q", modulePath)
+	}
+	configPath := filepath.Join(filepath.Dir(modulePath), "apps/bridge/src/lib/bridge/config.ts")
+	source, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, config, ok := strings.Cut(string(source), "export function readConfig(")
+	if !ok {
+		t.Fatalf("%s: readConfig function not found", configPath)
+	}
+	config, _, ok = strings.Cut(config, "export const bridgeConfig")
+	if !ok {
+		t.Fatalf("%s: bridgeConfig boundary not found", configPath)
+	}
+	reads := regexp.MustCompile(`\benv\.(NEXT_PUBLIC_BRIDGE_(?:VAULT_[A-Z0-9_]+|SOLANA_PROGRAM_ID))\b`).FindAllStringSubmatch(config, -1)
+	if len(reads) == 0 {
+		t.Fatalf("%s: no vault or Solana program environment reads found", configPath)
+	}
+	appNames := make(map[string]bool)
+	for _, read := range reads {
+		appNames[read[1]] = true
+	}
+	names := EnvNames()
+	appenvNames := make(map[string]bool)
+	for _, name := range names {
+		if appenvNames[name] {
+			t.Errorf("EnvNames repeats %q", name)
+		}
+		appenvNames[name] = true
+	}
+	var onlyAppenv, onlyApp []string
+	for name := range appenvNames {
+		if !appNames[name] {
+			onlyAppenv = append(onlyAppenv, name)
+		}
+	}
+	for name := range appNames {
+		if !appenvNames[name] {
+			onlyApp = append(onlyApp, name)
+		}
+	}
+	sort.Strings(onlyAppenv)
+	sort.Strings(onlyApp)
+	if len(onlyAppenv) != 0 || len(onlyApp) != 0 {
+		t.Errorf("environment names differ: only appenv: %q; only bridge app: %q", onlyAppenv, onlyApp)
+	}
+
+	var records []Record
+	for _, chain := range chainconfig.Chains() {
+		if chain.Kind != chainconfig.KindEVM {
+			continue
+		}
+		path := recordCopy(t, map[string]any{"chain": chain.Name, "chain_id": chain.ID})
+		record, err := LoadRecord(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		records = append(records, record)
+	}
+	solana, err := LoadRecord("../tests/fixtures/records/solana.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	records = append(records, solana)
+	var emittedNames []string
+	for _, line := range EnvLines(records) {
+		name, _, ok := strings.Cut(line, "=")
+		if !ok {
+			t.Fatalf("EnvLines emitted an invalid assignment: %q", line)
+		}
+		emittedNames = append(emittedNames, name)
+	}
+	if !reflect.DeepEqual(names, emittedNames) {
+		t.Errorf("EnvNames() = %q, but EnvLines emits %q", names, emittedNames)
+	}
+}
 
 func TestCheckReportsAVaultThatDiffers(t *testing.T) {
 	record, err := LoadRecord(ethereumRecordPath)
