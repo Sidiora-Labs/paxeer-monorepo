@@ -1258,6 +1258,7 @@ name = "layerx-committed-proof"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
+ "serde_json",
  "sha2 0.10.9",
 ]
 

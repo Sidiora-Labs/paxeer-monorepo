@@ -34,14 +34,7 @@ const (
 	WasmMintNft          string = "wasm_mint_nft"
 	Vortex               string = "vortex"
 	WasmInstantiate      string = "wasm_instantiate"
-	WasmOccIteratorWrite string = "wasm_occ_iterator_write"
-	WasmOccIteratorRange string = "wasm_occ_iterator_range"
-	WasmOccParallelWrite string = "wasm_occ_parallel_write"
 )
-
-type WasmIteratorWriteMsg struct {
-	Values [][]uint64 `json:"values"`
-}
 
 type EVMAddresses struct {
 	ERC20  common.Address
@@ -66,7 +59,6 @@ type Config struct {
 	PerMessageConfigs  MessageConfigs        `json:"message_configs"`
 	MetricsPort        uint64                `json:"metrics_port"`
 	TLS                bool                  `json:"tls"`
-	PaxTesterAddress   string                `json:"pax_tester_address"`
 	PostTxEvmQueries   PostTxEvmQueries      `json:"post_tx_evm_queries"`
 	Ticks              uint64                `json:"ticks"`
 	EvmUseEip1559Txs   bool                  `json:"evm_use_eip1559_txs"` // setting this to true could make gas go up to infinity
@@ -83,7 +75,6 @@ func (c Config) ValidateMessageTypes() error {
 		FailureDexMalformed: {}, FailureDexInvalid: {},
 		Dex: {}, Staking: {}, Tokenfactory: {}, Limit: {}, Market: {},
 		WasmMintNft: {}, Vortex: {}, WasmInstantiate: {},
-		WasmOccIteratorWrite: {}, WasmOccIteratorRange: {}, WasmOccParallelWrite: {},
 	}
 	var unknown []string
 	for _, messageType := range c.MessageTypes {

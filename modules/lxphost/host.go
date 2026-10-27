@@ -8,6 +8,8 @@ package lxphost
 #include <stdlib.h>
 #include <string.h>
 #include "layerx/lx_asset.h"
+#include "layerx/lx_budget.h"
+#include "layerx/lx_escrow.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_module_ctx.h"
 #include "layerx/lxp_protocol.h"
@@ -30,6 +32,7 @@ typedef struct lxphost_node {
     lxp_identity_store identities;
     lxp_fee_params fees;
     lxp_authority_resolved authority;
+    lxp_authority_scope authority_scope;
     bool authority_bound;
     lxp_kernel_execution execution;
     lxp_receipt receipt;
@@ -39,6 +42,8 @@ typedef struct lxphost_node {
     lx_asset_registry assets;
     lxp_transfer_asset_state transfer_assets[LX_ASSET_REGISTRY_CAPACITY];
     lx_asset_runtime asset_runtime;
+    lx_escrow_runtime escrow_runtime;
+    lx_programs_transfer_runtime programs_runtime;
     uint64_t parameters;
     uint64_t epoch;
     int store_ready;
@@ -156,6 +161,12 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());
     if (status == LXP_OK)
+        status = lxp_kernel_register_module(&node->kernel,
+                                            lx_budget_module_iface());
+    if (status == LXP_OK)
+        status = lxp_kernel_register_module(&node->kernel,
+                                            lx_escrow_module_iface());
+    if (status == LXP_OK)
         status = lxp_kernel_set_capabilities(&node->kernel, NULL,
                                              lxp_kernel_canonical_ledger_apply);
     return status;
@@ -166,7 +177,8 @@ static void *lxphost_accounts(lxphost_node *node)
     return &node->accounts;
 }
 
-static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id)
+static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id,
+                                   bool binding_authority)
 {
     size_t count = 0U;
     size_t i;
@@ -190,7 +202,22 @@ static int32_t lxphost_bind_assets(lxphost_node *node, uint32_t network_id)
     node->asset_runtime.network_id = network_id;
     node->asset_runtime.protocol_version =
         (uint16_t)LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
+    node->asset_runtime.binding_authority = binding_authority;
     node->kernel.module_runtime[LXP_MODULE_ASSET] = &node->asset_runtime;
+    node->escrow_runtime.accounts = &node->accounts;
+    node->escrow_runtime.assets = &node->assets;
+    node->kernel.module_runtime[LXP_MODULE_ESCROW] = &node->escrow_runtime;
+    (void)memset(&node->programs_runtime, 0, sizeof(node->programs_runtime));
+    node->programs_runtime.accounts = &node->accounts;
+    node->programs_runtime.assets = node->transfer_assets;
+    node->programs_runtime.asset_count = count;
+    node->programs_runtime.resolve_metering_schedule =
+        lxp_programs_metering_resolve_runtime;
+    node->programs_runtime.metering_schedule_context = &node->kernel;
+    node->programs_runtime.resolve_occupancy_parameters =
+        lxp_programs_fee_governance_resolve_runtime;
+    node->programs_runtime.occupancy_parameter_context = &node->kernel;
+    node->kernel.module_runtime[LXP_MODULE_PROGRAMS] = &node->programs_runtime;
     return LXP_OK;
 }
 
@@ -236,16 +263,31 @@ static int32_t lxphost_envelope_preimage(const lxphost_envelope *envelope,
     return lxp_activity_signing_preimage(&envelope->activity, preimage);
 }
 
-static void lxphost_authority_write(lxphost_node *node, const uint8_t actor[32],
+static int32_t lxphost_authority_write(lxphost_node *node, const uint8_t actor[32],
                                     const uint8_t principal[32],
-                                    const uint8_t verified_key[32], bool bound)
+                                    const uint8_t verified_key[32], bool bound,
+                                    uint8_t kind, const uint8_t grant_id[32],
+                                    const uint8_t authority_hash[32],
+                                    const lxp_authority_scope *scope)
 {
     (void)memset(&node->authority, 0, sizeof(node->authority));
+    (void)memset(&node->authority_scope, 0, sizeof(node->authority_scope));
+    node->authority_bound = false;
+    if (kind == 0U) kind = LXP_AUTHORITY_OWNER;
+    if (kind < LXP_AUTHORITY_OWNER || kind > LXP_AUTHORITY_KIND_TIMELOCK)
+        return LXP_ERR_NON_CANONICAL;
     (void)memcpy(node->authority.actor, actor, 32U);
     (void)memcpy(node->authority.principal, principal, 32U);
     (void)memcpy(node->authority.verified_key, verified_key, 32U);
-    node->authority.kind = LXP_AUTHORITY_OWNER;
+    (void)memcpy(node->authority.grant_id, grant_id, 32U);
+    (void)memcpy(node->authority.authority_hash, authority_hash, 32U);
+    node->authority.kind = (lxp_authority_kind)kind;
+    if (scope != NULL) {
+        node->authority_scope = *scope;
+        node->authority.scope = &node->authority_scope;
+    }
     node->authority_bound = bound;
+    return LXP_OK;
 }
 
 static int32_t lxphost_activity_module(const lxphost_node *node,
@@ -468,7 +510,8 @@ static int32_t lxphost_actor_sequence_get(lxphost_node *node,
 static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
                                uint64_t batch_number, uint64_t timestamp_ms,
                                uint64_t timestamp_window, uint64_t sequence,
-                               uint32_t parameter_version, uint64_t gas_limit)
+                               uint32_t parameter_version, uint64_t gas_limit,
+                               bool binding_authority)
 {
     const lxp_module_registration *registration;
     lxp_kernel_execution *execution = &node->execution;
@@ -487,7 +530,9 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
     execution->global_sequence = sequence;
     execution->recorded_module_version = registration->abi_version;
     execution->parameter_version = parameter_version;
-    execution->signature_valid = true;
+    execution->signature_valid = node->envelope.activity.signature.length != 0U ?
+        lxp_activity_verify_signature(&node->envelope.activity) == LXP_OK :
+        binding_authority;
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;
@@ -605,12 +650,86 @@ func lxphost_activity_module(node *C.lxphost_node) (uint16, error) {
 	return uint16(module), err
 }
 
-func lxphost_authority_write(node *C.lxphost_node, authority KernelAuthority) {
-	C.lxphost_authority_write(node, bytes32(&authority.Actor), bytes32(&authority.Principal), bytes32(&authority.VerifiedKey), C.bool(authority.Bound))
+func lxphost_reset(node *C.lxphost_node, firstSequence uint64) error {
+	return result(C.lxphost_reset(node, C.uint64_t(firstSequence)))
+}
+
+func writeAuthorityAmount(amount sdk.Int) (C.struct_lxp_u128, error) {
+	if amount.IsNil() {
+		return C.struct_lxp_u128{}, nil
+	}
+	if amount.IsNegative() || amount.BigInt().BitLen() > 128 {
+		return C.struct_lxp_u128{}, codeNonCanonical
+	}
+	var encoded [16]byte
+	amount.BigInt().FillBytes(encoded[:])
+	return C.struct_lxp_u128{hi: C.uint64_t(binary.BigEndian.Uint64(encoded[:8])), lo: C.uint64_t(binary.BigEndian.Uint64(encoded[8:]))}, nil
+}
+
+func lxphost_authority_write(node *C.lxphost_node, authority KernelAuthority) error {
+	var scope C.struct_lxp_authority_scope
+	var scopePtr *C.struct_lxp_authority_scope
+	if source := authority.Scope; source != nil {
+		amounts := []sdk.Int{source.MaximumPerActivity, source.MaximumTotal, source.SpentTotal, source.MaximumPerPeriod, source.SpentThisPeriod}
+		targets := []*C.struct_lxp_u128{&scope.maximum_per_activity, &scope.maximum_total, &scope.spent_total, &scope.maximum_per_period, &scope.spent_this_period}
+		for i, amount := range amounts {
+			value, err := writeAuthorityAmount(amount)
+			if err != nil {
+				return err
+			}
+			*targets[i] = value
+		}
+		scope.module_mask = C.uint64_t(source.ModuleMask)
+		scope.activity_ordinal_min = C.uint16_t(source.ActivityOrdinalMin)
+		scope.activity_ordinal_max = C.uint16_t(source.ActivityOrdinalMax)
+		for i := range source.AssetID {
+			scope.asset_id[i] = C.uint8_t(source.AssetID[i])
+		}
+		scope.period_length = C.uint64_t(source.PeriodLength)
+		scope.period_start = C.uint64_t(source.PeriodStart)
+		for i := range source.PurposeHash {
+			scope.purpose_hash[i] = C.uint8_t(source.PurposeHash[i])
+		}
+		scope.earliest_sequence = C.uint64_t(source.EarliestSequence)
+		scope.earliest_timestamp = C.uint64_t(source.EarliestTimestamp)
+		scope.signer_threshold = C.uint8_t(source.SignerThreshold)
+		scope.signer_count = C.uint8_t(source.SignerCount)
+		scope.approval_count = C.uint8_t(source.ApprovalCount)
+		for i := range source.Signers {
+			for j := range source.Signers[i] {
+				scope.signers[i][j] = C.uint8_t(source.Signers[i][j])
+			}
+		}
+		for i := range source.Approvals {
+			for j := range source.Approvals[i] {
+				scope.approvals[i][j] = C.uint8_t(source.Approvals[i][j])
+			}
+		}
+		scopePtr = &scope
+	}
+	return result(C.lxphost_authority_write(node, bytes32(&authority.Actor), bytes32(&authority.Principal), bytes32(&authority.VerifiedKey), C.bool(authority.Bound), C.uint8_t(authority.Kind), bytes32(&authority.GrantID), bytes32(&authority.AuthorityHash), scopePtr))
 }
 
 func authority_bound(node *C.lxphost_node) bool {
 	return node != nil && bool(node.authority_bound)
+}
+
+func binding_authority(activity Activity, authority KernelAuthority) bool {
+	return authority.Bound && len(activity.Signature) == 0 && authority.VerifiedKey == activity.AuthorityKey
+}
+
+func signature_valid(node *C.lxphost_node) bool {
+	return node != nil && bool(node.execution.signature_valid)
+}
+
+func lxphost_bind_assets(node *C.lxphost_node, networkID uint32, bindingAuthority bool) error {
+	return result(C.lxphost_bind_assets(node, C.uint32_t(networkID), C.bool(bindingAuthority)))
+}
+
+func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool) error {
+	return result(C.lxphost_execute(node, C.uint32_t(cfg.NetworkID), C.uint64_t(branch.batchNumber),
+		C.uint64_t(branch.timestampMs), C.uint64_t(cfg.TimestampWindowMs), C.uint64_t(branch.sequence),
+		C.uint32_t(cfg.ParameterVersion), C.uint64_t(cfg.GasLimit), C.bool(bindingAuthority)))
 }
 
 const (
@@ -661,10 +780,14 @@ type Activity struct {
 }
 
 type KernelAuthority struct {
-	Bound       bool
-	Actor       [32]byte
-	Principal   [32]byte
-	VerifiedKey [32]byte
+	Kind          uint8
+	GrantID       [32]byte
+	AuthorityHash [32]byte
+	Scope         *AuthorityScope
+	Bound         bool
+	Actor         [32]byte
+	Principal     [32]byte
+	VerifiedKey   [32]byte
 }
 
 type ReceiptEvent struct {
@@ -797,6 +920,10 @@ func (h *Host) Execute(ctx sdk.Context, activity Activity, authority KernelAutho
 // blobs, idempotency records and identity sequences are loaded from and
 // committed to the host store.
 func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelAuthority) (Receipt, error) {
+	bindingAuthority := binding_authority(activity, authority)
+	if len(activity.Signature) == 0 && !bindingAuthority {
+		return Receipt{}, Code(C.LXP_ERR_BAD_SIGNATURE)
+	}
 	branch, err := newBranchCtx(ctx, h.cfg.StoreKey)
 	if err != nil {
 		return Receipt{}, err
@@ -808,7 +935,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	}
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
-	if err := result(C.lxphost_reset(h.node, C.uint64_t(branch.sequence))); err != nil {
+	if err := lxphost_reset(h.node, branch.sequence); err != nil {
 		return Receipt{}, err
 	}
 	if err := writeEnvelope(C.lxphost_node_envelope(h.node), h.cfg.NetworkID, activity); err != nil {
@@ -819,7 +946,9 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	modules := activityModules(module)
-	lxphost_authority_write(h.node, authority)
+	if err := lxphost_authority_write(h.node, authority); err != nil {
+		return Receipt{}, err
+	}
 	if err := branch.load(h, modules); err != nil {
 		return Receipt{}, err
 	}
@@ -827,7 +956,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err != nil {
 		return Receipt{}, err
 	}
-	if err := result(C.lxphost_bind_assets(h.node, C.uint32_t(h.cfg.NetworkID))); err != nil {
+	if err := lxphost_bind_assets(h.node, h.cfg.NetworkID, bindingAuthority); err != nil {
 		return Receipt{}, err
 	}
 	did, err := h.bindActor()
@@ -841,9 +970,7 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 	if err := result(C.lxphost_actor_sequence_set(h.node, bytes32(&did), C.uint64_t(next))); err != nil {
 		return Receipt{}, err
 	}
-	if err := result(C.lxphost_execute(h.node, C.uint32_t(h.cfg.NetworkID), C.uint64_t(branch.batchNumber),
-		C.uint64_t(branch.timestampMs), C.uint64_t(h.cfg.TimestampWindowMs), C.uint64_t(branch.sequence),
-		C.uint32_t(h.cfg.ParameterVersion), C.uint64_t(h.cfg.GasLimit))); err != nil {
+	if err := lxphost_execute(h.node, h.cfg, branch, bindingAuthority); err != nil {
 		return Receipt{}, err
 	}
 	var outcome lxphost_outcome
