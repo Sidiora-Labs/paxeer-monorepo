@@ -1,0 +1,10 @@
+[card]
+required = ["role", "domain", "sandbox_profile", "anchors", "wave_gate", "max_parallel", "escalation", "limits"]
+role = "fm-<slug>, where slug is the name of feature.N in spec/layerx-merge/spec.kvx"
+domain = "N from the domain table [feature.N] in spec/layerx-merge/spec.kvx"
+sandbox_profile = "The domain's sandbox profile"
+anchors = "The domain's N.0.1, N.0.2, N.0.3, N.0.4 and N.0.9 task ids"
+wave_gate = "scripts/gates/wave-<n>.sh for each wave"
+max_parallel = "The domain's largest wave task count"
+escalation = "stop the wave and file a qualification finding"
+limits = ["max_task_minutes = 30", "max_gate_runs_per_task = 1", "source = spec/workflow.kvx:32-36"]
