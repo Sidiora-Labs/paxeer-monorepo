@@ -18577,7 +18577,7 @@ ac_2 = "CONFORMANCE_VECTOR_COUNT (services/interop/crates/x-websearch/src/lib.rs
 [req.11404]
 title = "x-websearch decodes and verifies the shared sequencer-receipt vectors"
 ac_1 = "settlement::decode accepts every answer case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 and returns the case's rung, seq, height, status and keyId."
-ac_2 = "The payment receipt check refuses every V3 case of the shared vector file (key not pinned, height outside the key range, tampered bytes) with receipt_unverified, the refusal Plane::recover returns for an unverifiable receipt."
+ac_2 = "The payment receipt check refuses every V3 case of the shared vector file and releases no payment: the cases whose expected.verifier is SequencerSignature or Decode (V3-key-not-pinned, V3-height-outside-key-range, V3-non-canonical-bytes) with receipt_unverified, the refusal Plane::recover returns for an unverifiable receipt, and the cases whose signature verifies (expected.verifier accepts: V3-activity-id-not-raw-hash, V3-seq-hash-mismatch, V3-tampered-log) with receipt_mismatch, the refusal req.11395 ac_3 requires for a verified receipt whose content differs."
 
 [req.11405]
 title = "The committed x-websearch example configuration parses under the current loader"
@@ -71908,7 +71908,7 @@ qualification = "UNRUN"
 [acceptance.11.404.2]
 feature = "11"
 req = "11404.2"
-scenario = "Given the V3 cases of the shared vector file and the receipt keys the file pins, when each is checked as a draw receipt, then each is refused receipt_unverified"
+scenario = "Given the V3 cases of the shared vector file and the receipt keys the file pins, when each is checked as a draw receipt, then no payment is released and each is refused receipt_unverified when the vector's expected.verifier is not accepts and receipt_mismatch when it is"
 contract = "contracts/interop.md#x-websearch-payment"
 test = "services/interop/crates/x-websearch/tests/sequencer_vectors.rs::shared_refusal_cases_do_not_release_a_payment (planned)"
 qualification = "UNRUN"
@@ -90226,7 +90226,7 @@ requester = "13.28.3"
 path = "modules/lxphost/read.go"
 domain = 1
 wave_needed = 2
-what = "Add Host.ReadFeeSchedule, ReadPendingFeeSchedule, ReadMeteringSchedule and ReadWebRequest beside ReadIdempotentReceipt (modules/lxphost/read.go:444)."
+what = "Add Host.ReadFeeSchedule, ReadPendingFeeSchedule, ReadMeteringSchedule and ReadWebRequest beside ReadIdempotentReceipt (modules/lxphost/read.go:444), and Host.ReadFeeScheduleAt(ctx, version uint32) and ReadMeteringScheduleAt(ctx, version uint32) over progfee/history/v1/<u32> and progmet/history/v1/<u32> (src/modules/programs/fees.c:22, metering.c:16)."
 requester = "13.28.4"
 
 [wiring.J52.9]
@@ -95791,7 +95791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.0.4]
 title = "Prove a signed EVM transaction to 0x101A returns a receipt with its logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["2.0.3", "2.13.1"]
@@ -104279,7 +104279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.6]
 title = "Conformance: the seed migration matches getMarketConfig of the chain seed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.42.2"]
@@ -104369,7 +104369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.9]
 title = "Serve Market.marginTiers from perps.market_tiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.42.4", "3.42.7"]
@@ -105049,7 +105049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.8]
 title = "List selector rows, pair header and analytics from the market catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.3", "3.48.7"]
@@ -105143,7 +105143,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.11]
 title = "List mobile trade header and layout markets from the catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.7"]
@@ -105205,7 +105205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.14]
 title = "Label positions, alerts and settlements with catalog symbols"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.10", "3.48.7"]
@@ -105547,7 +105547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.5]
 title = "Local node: getFeeTier of a fresh account decodes to tier 0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.53.1", "3.0.4", "5.98.1", "3.98.1"]
@@ -130498,7 +130498,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.3]
 title = "Exercise every router method against one chain and consensus pair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.0.2", "8.1.3", "8.2.1", "8.2.2", "8.5.1", "7.0.3", "5.0.3", "8.1.5"]
@@ -132560,7 +132560,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.9]
 title = "Stop the hosted registry material from running the handover verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -132591,7 +132591,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.10]
 title = "Drop the movement intervals from the human owner policy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -133772,7 +133772,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_9 = "The reference ramp reports the verified leg in its JSON response (services/platform/ramps/reference/src/main.rs:266-268 reads leg.activity_id and leg.batch_id); change that report to the fields VerifiedLayerxLeg now carries (tx_hash, height, rung) so the dependent binary builds; the wider reference-ramp port stays with task 8.30.1."
 [task.8.28.3]
 title = "Configure the ramp LayerX client for the sequencer endpoint, chain id and pinned receipt keys, and prepare, sign, submit and resolve ramp legs through it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["8.28.1", "8.28.2"]
@@ -133847,7 +133847,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.28.5]
 title = "Verify ramp receipts on the command line by transaction hash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["8.28.3"]
@@ -149798,7 +149798,7 @@ do_9 = "In a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once 
 
 [task.11.34.6]
 title = "Settle exact payments from the payExact transaction hash and keep kernel-era records loadable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.34.5"]
@@ -149943,7 +149943,7 @@ do_3 = "Delete services/interop/crates/x-websearch/tests/kernel.rs:1 and the ker
 do_4 = "Update the crate doc at services/interop/crates/x-websearch/src/lib.rs:7-8 to say /content is served before serving eligibility and that paid routes settle on the 0x101A ledger precompile."
 do_5 = "Write the two tests in services/interop/crates/x-websearch/tests/binary.rs:593."
 symbols = ["main", "RelayParts"]
-touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/src/payment.rs"]
+touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/src/attest.rs", "services/interop/crates/x-websearch/src/config.rs", "services/interop/crates/x-websearch/src/program.rs"]
 tests = ["services/interop/crates/x-websearch/tests/binary.rs::the_binary_runs_the_evm_program_relay_without_a_kernel_section", "services/interop/crates/x-websearch/tests/binary.rs::readiness_lists_no_kernel_roles"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
@@ -149960,6 +149960,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Task 11.34.5 kept GatewayRpc, RpcAnswer and gateway_authorization in services/interop/crates/x-websearch/src/payment.rs:353-640 because kernel.rs used them. With kernel.rs deleted, delete gateway_authorization and GatewayRpc::with_authorization_file together with every lx_ helper only the kernel called; keep GatewayRpc, RpcAnswer and the eth_ helpers (call, block_number, quantity) that src/watch.rs:127-146 and :784-926 still use."
+do_7 = "Three files still reach the module through its re-exports and definitions (services/interop/crates/x-websearch/src/kernel.rs:29-45 and :119), so deleting it alone fails the build at attest.rs:15 and program.rs:19 as attempt 7e33e03b4 did: change services/interop/crates/x-websearch/src/attest.rs:15 to use crate::program::ProgramRequest and attest.rs:47 to crate::program::MAX_OBSERVATION_SIGNATURES (defined at program.rs:32); move REQUEST_TOPIC, REQUEST_TOPICS and request_topic (kernel.rs:36-45) into services/interop/crates/x-websearch/src/config.rs beside their only remaining caller at config.rs:1017 and call them unqualified there; move pub enum KernelError (kernel.rs:119) with its Display and std::error::Error impls into services/interop/crates/x-websearch/src/program.rs, which uses it at program.rs:174-233, and delete the use at program.rs:19. No other symbol of kernel.rs survives."
 
 [task.11.36.2]
 title = "Remove the kernel config section and gateway.authorization_file from x-websearch"
@@ -150035,6 +150036,7 @@ interfaces = []
 do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from the repository root in services/interop/crates/x-websearch/tests/sequencer_vectors.rs (planned)."
 do_2 = "Build the receipt keys from the vector's pinned keys and run settlement::decode and the payment receipt check of services/interop/crates/x-websearch/src/settlement.rs (planned) on each case."
 do_3 = "Skip no case: fail the test when sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 holds a case id the test does not classify."
+do_4 = "Derive each V3 case's expected refusal from the vector's expected.verifier field: receipt_unverified when it is SequencerSignature or Decode (the R2 and R3 cases), receipt_mismatch when it is accepts (the R4, R5 and R6 cases), because services/interop/crates/x-websearch/src/payment.rs:2231-2263 refuses a verified receipt whose activity id, seqHash chain or log view differs with receipt_mismatch under req.11395 ac_3. Attempt b58477b26 built, decoded all eleven cases and withheld every payment, failing only on a hardcoded receipt_unverified expectation for the three accepts cases."
 symbols = ["settlement::decode"]
 touches = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs"]
 tests = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs::every_shared_answer_case_decodes_through_the_settlement_client", "services/interop/crates/x-websearch/tests/sequencer_vectors.rs::shared_refusal_cases_do_not_release_a_payment"]
@@ -152700,7 +152702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.4]
 title = "List bank assets through px_listAssets in the endpoint client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["12.24.3", "8.0.3"]
@@ -156548,7 +156550,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.22.8]
 title = "Dispatch 0x101D methods through a registered handler table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.4"]
@@ -157145,6 +157147,7 @@ do_2 = "Report the record layout of the kernel wind-down state returned by lxp_p
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:622 and precompiles/layerxprograms/abi.json:243."
 do_4 = "Write both tests in precompiles/layerxprograms/view_winddown_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Seed the wind-down state the tests read directly with kv.Set on the host store, as precompiles/layerxprograms/view_accounts_test.go:72-78 does: the status record under {1,0,9}+\"wind-down\\x00s\"+program (54 bytes, src/modules/programs/winddown.c:172-186) and the route record under {1,0,9}+\"wind-down\\x00r\"+program+account (67 bytes plus the seed, winddown.c:223-240). Do not submit activity 0x00090007 from the test: the hosted programs registration refuses it with LXP_ERR_UNKNOWN_ACTIVITY (src/protocol/lxp_kernel.c:2252), which is why attempt d0948f671 failed."
 symbols = ["getWindDownHandler", "getExitRouteHandler", "TestProgramsViewWindDownRecord", "TestProgramsViewExitRoute"]
 touches = ["precompiles/layerxprograms/view_winddown.go", "precompiles/layerxprograms/view_winddown_test.go"]
 tests = ["precompiles/layerxprograms/view_winddown_test.go::TestProgramsViewWindDownRecord", "precompiles/layerxprograms/view_winddown_test.go::TestProgramsViewExitRoute"]
@@ -157178,8 +157181,9 @@ do_2 = "Decode the fee schedule record of src/modules/programs/fees.c:1608 and t
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:202, precompiles/layerxprograms/abi.json:277 and precompiles/layerxprograms/abi.json:354."
 do_4 = "Write both tests in precompiles/layerxprograms/view_fees_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
-symbols = ["getCurrentFeeScheduleHandler", "getFeeScheduleHandler", "getPendingFeeScheduleHandler", "TestProgramsViewCurrentFeeSchedule", "TestProgramsViewPendingFeeSchedule"]
-touches = ["precompiles/layerxprograms/view_fees.go", "precompiles/layerxprograms/view_fees_test.go"]
+do_6 = "modules/lxphost/read.go:1012-1016 has no versioned reader, so attempt 168293292 could not serve getFeeSchedule(version): add Host.ReadFeeScheduleAt(ctx, version uint32) over progfee/history/v1/<big-endian u32 version> (src/modules/programs/fees.c:22) beside ReadFeeSchedule, and Host.ReadMeteringScheduleAt(ctx, version uint32) over progmet/history/v1/<big-endian u32 version> (src/modules/programs/metering.c:16) beside ReadMeteringSchedule (read.go:1020) for task 13.28.6; getFeeSchedule reads through ReadFeeScheduleAt and reverts LXP_NOT_FOUND for a version with no row (fees.c:1620 maps an absent row to LXP_ERR_VERSION_UNSUPPORTED)."
+symbols = ["getCurrentFeeScheduleHandler", "getFeeScheduleHandler", "getPendingFeeScheduleHandler", "TestProgramsViewCurrentFeeSchedule", "TestProgramsViewPendingFeeSchedule", "ReadFeeScheduleAt", "ReadMeteringScheduleAt"]
+touches = ["precompiles/layerxprograms/view_fees.go", "precompiles/layerxprograms/view_fees_test.go", "modules/lxphost/read.go"]
 tests = ["precompiles/layerxprograms/view_fees_test.go::TestProgramsViewCurrentFeeSchedule", "precompiles/layerxprograms/view_fees_test.go::TestProgramsViewPendingFeeSchedule"]
 planned_paths = ["precompiles/layerxprograms/view_fees.go", "precompiles/layerxprograms/view_fees_test.go"]
 build_cmd = "go build ./precompiles/layerxprograms/..."
@@ -157234,7 +157238,7 @@ title = "Serve the current and versioned metering schedule views"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8", "13.28.4"]
 reqs = ["13277.1", "13277.2"]
 capabilities = ["13.28.6"]
 interfaces = ["interface.13.pc-0x101d-getcurrentmeteringschedule", "interface.13.pc-0x101d-getmeteringschedule"]
@@ -157244,6 +157248,7 @@ do_2 = "Decode the metering record of src/modules/programs/metering.c:182 in tha
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:225 and precompiles/layerxprograms/abi.json:330."
 do_4 = "Write both tests in precompiles/layerxprograms/view_metering_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Read the versioned row with Host.ReadMeteringScheduleAt(ctx, version) over progmet/history/v1/<big-endian u32> (src/modules/programs/metering.c:16 and :182), added to modules/lxphost/read.go by task 13.28.4, and the active row with Host.ReadMeteringSchedule (modules/lxphost/read.go:1020); a version never published has no row and reverts LXP_NOT_FOUND. Attempt 8b7e20d5f failed only because that reader did not exist."
 symbols = ["getCurrentMeteringScheduleHandler", "getMeteringScheduleHandler", "TestProgramsViewMeteringSchedules", "TestProgramsViewMeteringUnknownVersion"]
 touches = ["precompiles/layerxprograms/view_metering.go", "precompiles/layerxprograms/view_metering_test.go"]
 tests = ["precompiles/layerxprograms/view_metering_test.go::TestProgramsViewMeteringSchedules", "precompiles/layerxprograms/view_metering_test.go::TestProgramsViewMeteringUnknownVersion"]
@@ -157277,6 +157282,7 @@ do_2 = "Return record bytes unchanged from the kernel layouts of src/modules/pro
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:526 and precompiles/layerxprograms/abi.json:513."
 do_4 = "Write both tests in precompiles/layerxprograms/view_sandbox_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "A read through a closed host answers LXP_ERR_NON_CANONICAL (modules/lxphost/read.go:510, lxphost.Code(-3)); the tests assert that code after Close, not LXP_ERR_LENGTH_LIMIT, which these read paths never emit (src/modules/programs/sandbox.c:741 raises it only for a length above INT32_MAX). Attempt b480fc02c failed only on that expectation."
 symbols = ["getSandboxHandler", "getRetirementControlHandler", "TestProgramsViewSandboxRecord", "TestProgramsViewRetirementControl"]
 touches = ["precompiles/layerxprograms/view_sandbox.go", "precompiles/layerxprograms/view_sandbox_test.go"]
 tests = ["precompiles/layerxprograms/view_sandbox_test.go::TestProgramsViewSandboxRecord", "precompiles/layerxprograms/view_sandbox_test.go::TestProgramsViewRetirementControl"]

@@ -269,6 +269,36 @@ func TestRefreshMarginTiers(t *testing.T) {
 	}
 }
 
+func TestSeedMatchesChainConfig(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	client := testClient(t)
+	reseed(t, db)
+	requireSeeded(t, db)
+
+	c, block, err := latest(ctx, client)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	for _, seed := range Seed {
+		t.Run(seed.Symbol, func(t *testing.T) {
+			config, err := c.getMarketConfig(ctx, seed.ID)
+			if err != nil {
+				t.Fatalf("getMarketConfig(%d) at %d: %v", seed.ID, block, err)
+			}
+			if seed.SzDecimals != config.SzDecimals {
+				t.Errorf("market %d seed sz_decimals = %d, chain = %d at %d", seed.ID, seed.SzDecimals, config.SzDecimals, block)
+			}
+			if seed.PxDecimals != config.PxDecimals {
+				t.Errorf("market %d seed px_decimals = %d, chain = %d at %d", seed.ID, seed.PxDecimals, config.PxDecimals, block)
+			}
+			if seed.OracleSymbol != config.OracleSymbol {
+				t.Errorf("market %d seed oracle_symbol = %q, chain = %q at %d", seed.ID, seed.OracleSymbol, config.OracleSymbol, block)
+			}
+		})
+	}
+}
+
 func TestRefreshMarketConfig(t *testing.T) {
 	ctx := context.Background()
 	db := testDB(t)
