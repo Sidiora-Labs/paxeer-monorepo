@@ -131838,7 +131838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.3]
 title = "Run the testnet payment journey on the chain methods"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.5.1", "8.2.1"]
@@ -131900,7 +131900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.5]
 title = "Admit the sequencer receipt read at the paxeer chain boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "9.1.7"]
@@ -141735,7 +141735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.4]
 title = "Decode agent envelope, program and lifecycle payloads as EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.31.1", "9.1.7"]
@@ -141766,7 +141766,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.5]
 title = "Decode program HTTP signed calls as EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.31.1", "9.1.7"]
