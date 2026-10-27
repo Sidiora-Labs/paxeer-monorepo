@@ -9572,3 +9572,21 @@ area = "apps/perps"
 symptom = "Removing a field from the static PerpsMarket seed type broke tsc in widgets and tests that never read the seed list."
 cause = "MarketRow and the mobile market props extend PerpsMarket, so the gateway-fed consumers inherit every seed field."
 do = "Keep live-only fields on a type that extends the seed type (TradeableMarket) and point the gateway-fed consumers at it before deleting the seed field."
+
+[gotcha.1975]
+area = "services/interop/x-websearch"
+symptom = "Deleting a crate module that only re-exported symbols still broke the integration tests, which imported the symbols through the deleted path."
+cause = "tests/ reach crate items through x_websearch::<module>:: paths, so re-export removal is a public API change that git grep over src/ alone does not show."
+do = "Before deleting a module, grep the whole crate directory (tests, benches, examples) for its path and repoint or delete every importer in the same change."
+
+[gotcha.1976]
+area = "modules/layerxauth"
+symptom = "go test of the auth keeper package fails at setup with import cycle not allowed in test, before any test runs."
+cause = "In-package test files import tests/testutil/keeper, which imports node, which imports the keeper under test."
+do = "Tests that need the node test harness live in package <pkg>_test with an export_test.go bridge, as the ledger keeper tests do."
+
+[gotcha.1977]
+area = "services/interop/x-websearch"
+symptom = "Every V3 conformance case was refused invalid_payment_payload instead of a receipt refusal."
+cause = "The V3 vectors carry no txHash and the exact payload parser now requires one before fetching the receipt."
+do = "Derive the payload txHash as keccak of the case rawTransaction and script the gateway receipt answer for it; the receipt refusals come only after the payload parses."
