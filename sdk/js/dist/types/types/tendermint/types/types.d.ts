@@ -1,6 +1,7 @@
 import type { Proof } from "../crypto/proof";
 import type { Consensus } from "../version/types";
 import type { ValidatorSet } from "./validator";
+import type { EvidenceList } from "./evidence";
 export declare enum BlockIDFlag {
     BLOCK_ID_FLAG_UNKNOWN = 0,
     BLOCK_ID_FLAG_ABSENT = 1,
@@ -102,21 +103,8 @@ export interface CommitSig {
     timestamp?: Date;
     signature: Uint8Array;
 }
-export interface ExtendedCommit {
-    height: number;
-    round: number;
-    block_id?: BlockID;
-    extended_signatures: ExtendedCommitSig[];
-}
-export interface ExtendedCommitSig {
-    block_id_flag: BlockIDFlag;
-    validator_address: Uint8Array;
-    timestamp?: Date;
-    signature: Uint8Array;
-    /** Vote extension data */
-    extension: Uint8Array;
-    /** Vote extension signature */
-    extension_signature: Uint8Array;
+export interface TxKey {
+    tx_key: Uint8Array;
 }
 export interface Proposal {
     type: SignedMsgType;
@@ -126,6 +114,11 @@ export interface Proposal {
     block_id?: BlockID;
     timestamp?: Date;
     signature: Uint8Array;
+    txKeys: TxKey[];
+    evidence?: EvidenceList;
+    lastCommit?: Commit;
+    header?: Header;
+    proposerAddress: Uint8Array;
 }
 export interface SignedHeader {
     header?: Header;
