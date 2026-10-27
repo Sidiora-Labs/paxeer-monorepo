@@ -116,20 +116,6 @@ export class WalletInterface {
     return hex(result, 'signature');
   }
 
-  async signCustody(custody: Hex): Promise<Hex> {
-    if (this.mode !== 'embedded') {
-      throw new UnauthorizedError('custody_not_supported', 'custody hand-off signing requires the embedded wallet');
-    }
-    const generation = this.generation;
-    const from = await this.writeAccount(generation);
-    const expected = this.admission?.chainId ?? await this.chainId();
-    await this.checkWrite(from, expected, generation);
-    this.assertCurrent(generation);
-    const result = await this.provider.request({ method: 'paxeer_signCustody', params: [{ custody }] });
-    this.assertCurrent(generation);
-    return hex(result, 'signature');
-  }
-
   on(event: ProviderEvent, listener: ProviderListener): this {
     this.provider.on(event, listener);
     return this;

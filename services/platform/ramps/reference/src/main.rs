@@ -15,9 +15,9 @@ use layerx_paxeer_client::{
     TransactionHash,
 };
 use layerx_ramp_toolkit::clients::{
-    parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig,
-    MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient,
-    SecretFile,
+    decode_hex, parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient,
+    LayerxConfig, MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback,
+    ProviderClient, SecretFile,
 };
 use layerx_ramp_toolkit::engine::{InventoryRebalancer, RampEngine};
 use layerx_ramp_toolkit::journal::{Journal, WorkflowStage};
@@ -328,6 +328,40 @@ fn run() -> Result<(), String> {
 }
 
 fn validate_config(config: &Config) -> Result<(), String> {
+    if config.layerx.chain_id == 0 {
+        return Err("invalid LayerX chain_id: must be nonzero".to_owned());
+    }
+    let operator_address = decode_hex(&config.layerx.operator_address, 20)
+        .map_err(|_| "invalid LayerX operator_address: expected 20-byte hex address".to_owned())?;
+    if operator_address.len() != 20 {
+        return Err("invalid LayerX operator_address: expected 20-byte hex address".to_owned());
+    }
+    if config
+        .operator
+        .account
+        .strip_prefix("agent:")
+        .and_then(|account| account.strip_suffix(":main"))
+        != Some(config.layerx.actor_did.as_str())
+        || config.paxeer.operator_account != config.operator.account
+    {
+        return Err("LayerX operator account binding rejected".to_owned());
+    }
+    if config.layerx.receipt_keys.is_empty() {
+        return Err("invalid LayerX receipt_keys: must not be empty".to_owned());
+    }
+    if config
+        .layerx
+        .receipt_keys
+        .iter()
+        .any(|key| key.first_height > key.last_height)
+    {
+        return Err("invalid LayerX receipt_keys: firstHeight exceeds lastHeight".to_owned());
+    }
+    if config.layerx.max_priority_fee_per_gas > config.layerx.max_fee_per_gas
+        || config.layerx.gas_limit_cap == 0
+    {
+        return Err("invalid LayerX fee or gas bounds".to_owned());
+    }
     if config.worker_id.is_empty()
         || config.worker_id.len() > 128
         || config.lease_seconds == 0
@@ -342,8 +376,6 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.paxeer.required_confirmations == 0
         || config.paxeer.poll_cadence_seconds == 0
         || config.paxeer.delayed_after_polls == 0
-        || config.paxeer.operator_account != config.operator.account
-        || config.layerx.chain_id == 0
         || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
@@ -353,12 +385,6 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || !valid_opaque(&config.paxeer.wallet_address)
         || !valid_opaque(&config.paxeer.vault_id)
         || !valid_opaque(&config.paxeer.signer_key_handle)
-        || config
-            .operator
-            .account
-            .strip_prefix("agent:")
-            .and_then(|account| account.strip_suffix(":main"))
-            != Some(config.layerx.actor_did.as_str())
     {
         return Err("invalid worker, timing or quote configuration".to_owned());
     }

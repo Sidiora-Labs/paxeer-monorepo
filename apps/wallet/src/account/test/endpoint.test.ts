@@ -97,6 +97,7 @@ async function account_test_endpoint_answers_the_merged_reads() {
       calls.map((call, index) => ({ jsonrpc: '2.0', id: call.id, result: expected[index] }))
     );
 
+    const unmatched: string[] = [];
     for (const scenario of SCENARIOS) {
       const legacy = recordings(scenario).filter(
         (entry) => scenario !== 'merged' || entry.request.method.startsWith('lx_')
@@ -108,10 +109,26 @@ async function account_test_endpoint_answers_the_merged_reads() {
       });
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual(
-        legacy.map((entry, id) => ({ jsonrpc: '2.0', id, ...entry.response }))
+        legacy.map((entry, id) => {
+          if (
+            entry.request.method.startsWith('lx_') ||
+            entry.request.method === 'paxeer_custodyStatus' ||
+            entry.request.method === 'paxeer_prepareCustody'
+          ) {
+            unmatched.push(
+              `${scenario} ${entry.request.method} ${JSON.stringify(entry.request.params)}`
+            );
+            return {
+              jsonrpc: '2.0',
+              id,
+              error: { code: -32601, message: 'Method not found' },
+            };
+          }
+          return { jsonrpc: '2.0', id, ...entry.response };
+        })
       );
     }
-    expect(endpoint.unmatched).toEqual([]);
+    expect(endpoint.unmatched).toEqual(unmatched);
     expect(endpoint.refusals).toEqual([]);
 
     const invalid = [
@@ -134,12 +151,100 @@ async function account_test_endpoint_answers_the_merged_reads() {
         error: { code: -32601, message: 'Method not found' },
       }))
     );
-    expect(endpoint.unmatched).toEqual(
-      invalid.map((call) => `merged ${call.method} ${JSON.stringify(call.params)}`)
-    );
+    expect(endpoint.unmatched).toEqual([
+      ...unmatched,
+      ...invalid.map((call) => `merged ${call.method} ${JSON.stringify(call.params)}`),
+    ]);
   } finally {
     await endpoint.close();
   }
 }
 
 test(account_test_endpoint_answers_the_merged_reads);
+
+async function account_test_endpoint_refuses_lx_and_custody_methods() {
+  const endpoint = await startAccountEndpoint();
+  try {
+    const retired = [
+      ...recordings('available')
+        .filter((entry) => entry.request.method.startsWith('lx_'))
+        .map((entry) => entry.request),
+      { method: 'lx_unrecordedMethod', params: [] },
+      { method: 'paxeer_custodyStatus', params: [OWNER] },
+      { method: 'paxeer_prepareCustody', params: [OWNER] },
+      { method: 'paxeer_custodyStatus', params: [] },
+      { method: 'paxeer_prepareCustody', params: [] },
+    ];
+    expect(retired.map((call) => call.method)).toEqual(
+      expect.arrayContaining([
+        'lx_getAccount',
+        'lx_getBalances',
+        'lx_getSequence',
+        'lx_getReceipt',
+        'lx_getActivityStatus',
+        'paxeer_custodyStatus',
+        'paxeer_prepareCustody',
+      ])
+    );
+    const calls = retired.map((call, id) => ({ jsonrpc: '2.0', id, ...call }));
+    const errors = calls.map((call) => ({
+      jsonrpc: '2.0',
+      id: call.id,
+      error: { code: -32601, message: 'Method not found' },
+    }));
+    const unmatched: string[] = [];
+    for (const scenario of SCENARIOS) {
+      for (const [index, call] of calls.entries()) {
+        const response = await fetch(endpoint.config(scenario).endpointUrl, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(call),
+        });
+        expect(response.status).toBe(200);
+        expect(await response.json()).toEqual(errors[index]);
+      }
+      const batch = await fetch(endpoint.config(scenario).endpointUrl, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(calls),
+      });
+      expect(batch.status).toBe(200);
+      expect(await batch.json()).toEqual(errors);
+      expect(endpoint.methods(scenario)).toEqual([
+        ...calls.map((call) => call.method),
+        ...calls.map((call) => call.method),
+      ]);
+      const refused = calls.map(
+        (call) => `${scenario} ${call.method} ${JSON.stringify(call.params)}`
+      );
+      unmatched.push(...refused, ...refused);
+    }
+    expect(endpoint.unmatched).toEqual(unmatched);
+    expect(endpoint.refusals).toEqual([]);
+
+    const reads = recordings('merged').filter((entry) =>
+      [
+        'px_getAccount',
+        'px_getBalances',
+        'px_listAssets',
+        'eth_getTransactionCount',
+        'pax_sequencerReceipt',
+      ].includes(entry.request.method)
+    );
+    expect(reads).toHaveLength(5);
+    const response = await fetch(endpoint.config('merged').endpointUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(reads.map((entry, id) => ({ jsonrpc: '2.0', id, ...entry.request }))),
+    });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      reads.map((entry, id) => ({ jsonrpc: '2.0', id, ...entry.response }))
+    );
+    expect(endpoint.unmatched).toEqual(unmatched);
+  } finally {
+    await endpoint.close();
+  }
+}
+
+test(account_test_endpoint_refuses_lx_and_custody_methods);
