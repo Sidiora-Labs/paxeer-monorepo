@@ -90,6 +90,41 @@ fn receipt_key(sequencer: u8, key: u8, first: u64, last: u64) -> Value {
 }
 
 #[test]
+fn attestation_listen_is_an_optional_socket_address() {
+    let mut value = example();
+    value["paxeer"]["receipt_keys"] = json!([receipt_key(1, 2, 0, u64::MAX)]);
+    value
+        .as_object_mut()
+        .expect("config object")
+        .remove("attestation_listen");
+    assert_eq!(load(&value).attestation_listen, None);
+    value["attestation_listen"] = Value::Null;
+    assert_eq!(load(&value).attestation_listen, None);
+    for address in ["127.0.0.1:8080", "[::1]:9000", "0.0.0.0:0"] {
+        value["attestation_listen"] = json!(address);
+        assert_eq!(
+            load(&value).attestation_listen,
+            Some(address.parse().expect("socket address"))
+        );
+    }
+    for invalid in [
+        json!("localhost:8080"),
+        json!("127.0.0.1"),
+        json!("127.0.0.1:65536"),
+        json!(""),
+        json!(false),
+        json!(8080),
+        json!({}),
+    ] {
+        value["attestation_listen"] = invalid;
+        assert!(
+            refusal(&value).contains("attestation_listen"),
+            "invalid listen address must name its field"
+        );
+    }
+}
+
+#[test]
 fn paxeer_endpoints_are_built_without_the_verifier_crate() {
     let key = PKey::from_rsa(Rsa::generate(2048).expect("generate certificate key"))
         .expect("certificate public key");
