@@ -130574,7 +130574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.3]
 title = "Serve px_getSequenceBatch with the transaction proof of a committed height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["8.1.2", "8.1.5"]
