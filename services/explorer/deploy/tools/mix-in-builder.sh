@@ -191,6 +191,7 @@ ensure_mounts() {
   for mount in apps config rel mix.exs mix.lock .formatter.exs .credo.exs; do
     [ -e "$backend_dir/$mount" ] || die "mount source $backend_dir/$mount does not exist"
   done
+  [ -d "$repo_root/precompiles" ] || die "mount source $repo_root/precompiles is not a directory"
 }
 
 # Everything the builder image is built from. The digest goes on the image as a
@@ -312,12 +313,14 @@ mix_in_container() {
     --volume "$backend_dir/mix.lock:$CONTAINER_WORKDIR/mix.lock" \
     --volume "$backend_dir/.formatter.exs:$CONTAINER_WORKDIR/.formatter.exs" \
     --volume "$backend_dir/.credo.exs:$CONTAINER_WORKDIR/.credo.exs" \
+    --volume "$repo_root/precompiles:/precompiles:ro" \
     --volume "$build_volume:$build_path" \
     --env MIX_ENV="$mix_env" \
     --env MIX_BUILD_PATH="$build_path" \
     --env MIX_HOME="$MIX_HOME_IN_IMAGE" \
     --env CHAIN_TYPE="$chain_type" \
     --env ETHEREUM_JSONRPC_VARIANT="$jsonrpc_variant" \
+    --env PAXEER_PRECOMPILES_DIR=/precompiles \
     --env PGUSER="$pguser" \
     --env PGPASSWORD="$pgpassword" \
     --env MIX_IN_BUILDER_BROWSER_DRIVER="$browser_driver" \

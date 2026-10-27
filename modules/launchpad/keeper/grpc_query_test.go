@@ -200,8 +200,20 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "FeeRight",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.FeeRight(goCtx, &types.QueryFeeRightRequest{})
-				require.Nil(t, response)
+				collection := querier.Generation2().SidioraNFT
+				owner, err := types.ParseHexAddress("owner", "0x0000000000000000000000000000000000001236")
+				require.NoError(t, err)
+				pool, err := types.ParseHexAddress("pool", "0x0000000000000000000000000000000000001237")
+				require.NoError(t, err)
+				id, err := querier.MintFeeRight(ctx, collection, owner, pool, types.FeeStrategyClaim)
+				require.NoError(t, err)
+				right, found, err := querier.GetFeeRight(ctx, collection, id)
+				require.NoError(t, err)
+				require.True(t, found)
+				response, err := client.FeeRight(goCtx, &types.QueryFeeRightRequest{Collection: collection.Hex(), Id: id})
+				require.NoError(t, err)
+				info := types.FeeRightInfoOf(right)
+				require.Equal(t, &types.QueryFeeRightResponse{Found: true, FeeRight: &info}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -315,7 +327,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface", "Retired":
+			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
