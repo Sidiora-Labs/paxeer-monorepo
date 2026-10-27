@@ -9,6 +9,7 @@ repeat_rule = "Every operation that could move money requires the Idempotency-Ke
 multi_leg = "The route resolver composes multi-leg journeys automatically. Each leg runs to its own verified receipt before the next leg starts, the journey presents per-leg progress, and the finished journey references every leg receipt in order."
 still_checking = "A leg whose fate is unknown pauses its journey in still-checking. It resolves only by receipt lookup, the service never resubmits a leg whose fate is undetermined, and every control that could duplicate the effect stays locked while it lasts."
 refusals = "A refused movement carries the typed Refusal on its journey: which limit refused it in plain language, whether any money left the account, and where the limit can be changed when it is the user's to change."
+bank_sends = "Money moves as bank 0x1001 sends on the EVM. Wallet signing uses EIP-1559 chain, pending nonce and gas-price limits; no internal movement selects a settlement domain."
 
 [scalar.QuoteId]
 json = "string"
@@ -59,12 +60,14 @@ change_path_rule = "change_path names the surface where the user can change the 
 
 [type.WalletSignRequest]
 required = ["stage_id:StageId","copy_key:CopyKey","from_address:WalletAddress","to_sign_base64:string"]
-optional = ["settlement_domain:SettlementDomain"]
+optional = ["settlement_domain:SettlementDomain","chain_id:EvmChainId","nonce:EvmNonce","max_fee_per_gas:Amount","max_priority_fee_per_gas:Amount"]
 settlement_domain = "paxeer"
 opens_once = "The wallet opens exactly once per wallet request, at an explicit signing moment, and copy_key states in plain language what the signature does."
 opaque = "to_sign_base64 carries exactly what the wallet consumes - the custody transaction, the binding statement or a claim. The client hands it to the wallet unchanged and never assembles or inspects it."
 bound_address = "from_address is the bound address the signature must come from."
 stage_rule = "stage_id names the journey stage that waits on this signature."
+settlement_domain.retired = "true"
+eip1559 = "chain_id identifies the EVM chain, nonce is the sender nonce read at the pending tag, and max_fee_per_gas and max_priority_fee_per_gas are decimal strings of base units per gas. These fields describe the exact EIP-1559 transaction in to_sign_base64."
 
 [type.MoveQuoteRequest]
 required = ["source:string","destination:string","money:Money"]
@@ -194,3 +197,15 @@ path = "/v1/exit/eligibility"
 request = "Empty"
 response = "ExitEligibility"
 normal_operation = "When the network is operating normally the exit is unavailable, the read says so plainly, and the ordinary withdrawal is offered instead."
+
+[scalar.EvmChainId]
+json = "string"
+format = "decimal"
+rust = "u64"
+typescript = "bigint"
+
+[scalar.EvmNonce]
+json = "string"
+format = "decimal"
+rust = "u64"
+typescript = "bigint"

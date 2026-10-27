@@ -73,7 +73,9 @@ optional = ["filter:ActivityFilter","entry_ids:ActivityEntryId[]"]
 
 [type.ExportArtefact]
 required = ["export_id:ExportId","kind:ExportKind","download_path:string","content_type:string","created_at:Timestamp","evidence:EvidenceRef[]"]
+optional = ["rung:Rung"]
 composition = "evidence names every receipt and proof material composed into the artefact. Each reference resolves through evidence.get to the material in its exact protocol bytes, so the bundle verifies independently of this plane."
+rung = "Evidence exports preserve the achieved rung of the exported claim. Packaging or downloading evidence never raises its verification level."
 
 [type.NotificationClass]
 variants = ["approval-waiting","money-arrived","journey-finished","claim-ready","security-new-device","security-recovery","security-wallet-rebinding","security-key-rotation","service-status"]

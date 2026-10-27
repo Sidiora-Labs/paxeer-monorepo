@@ -49,7 +49,22 @@ async function execute(request:Json,signal?:AbortSignal):Promise<Json>{
   const {runner,executable,configuration}=executableConfiguration();const input=JSON.stringify(request);const arguments_=[`--as=${String(VERIFIER_ADDRESS_SPACE_BYTES)}`,`--fsize=${String(VERIFIER_FILE_BYTES)}`,`--nofile=${String(VERIFIER_OPEN_FILES)}`,`--nproc=${String(VERIFIER_PROCESSES)}`,"--core=0","--",executable,configuration];return new Promise((resolve,reject)=>{const child=execFile(runner,arguments_,{encoding:"utf8",maxBuffer:MAX_EXECUTABLE_OUTPUT_BYTES,timeout:TIMEOUT_MS,killSignal:"SIGKILL",windowsHide:true,signal},(error,stdout)=>{if(error!==null){reject(new MirrorUnavailableError());return;}try{resolve(record(JSON.parse(stdout)));}catch{reject(new MirrorUnavailableError());}});child.stdin?.end(input);});
 }
 
-function level(value:unknown):EvidenceVerificationReport["achievedLevel"]{if(typeof value!=="string")throw new MirrorRefusedError();const normalized=value.replaceAll("_","").replaceAll("-","").toLowerCase();switch(normalized){case"sequencersigned":return"sequencer-signed";case"batchincluded":return"batch-included";case"stateproven":return"state-proven";case"checkpointfinalised":return"checkpoint-finalised";case"settlementanchored":return"settlement-anchored";default:throw new MirrorRefusedError();}}
+function level(value: unknown): EvidenceVerificationReport["achievedLevel"] {
+  if (typeof value !== "string") throw new MirrorRefusedError();
+  const normalized = value.replaceAll("_", "").replaceAll("-", "").toLowerCase();
+  switch (normalized) {
+    case "unverified":
+      return "unverified";
+    case "sequencersigned":
+      return "receipt-verified";
+    case "batchincluded":
+    case "stateproven":
+    case "checkpointfinalised":
+      return "checkpoint-finalised";
+    default:
+      throw new MirrorRefusedError();
+  }
+}
 function text(value:unknown):string{if(typeof value!=="string"||value.length===0||value.length>2048)throw new MirrorRefusedError();return value;}
 
 export async function verifyEvidenceFromMirrors(input:Readonly<{kind:"receipt"|"state-inclusion";evidence:string}>,signal?:AbortSignal):Promise<EvidenceVerificationReport>{
