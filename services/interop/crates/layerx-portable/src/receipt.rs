@@ -1,242 +1,19 @@
 use std::fmt::{Display, Formatter};
 
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use base64::Engine as _;
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::{
-    verify_outcome, verify_sequencer_signature, AuthorizedBatch, VerificationFailure,
-    VerifiedReceipt,
-};
+use layerx_proof::receipt::{verify_sequencer_signature, VerificationFailure};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 use sha3::Keccak256;
 
 /// Stable media payload identifier shared with every interop adapter.
-pub const PORTABLE_RECEIPT_FORMAT: &str = "layerx-receipt-proof-v1";
-/// Portable form of a sequencer-signed `ProtocolReceipt` v2 verified against
-/// the pinned `ReceiptKeys` list.
-pub const PORTABLE_RECEIPT_FORMAT_V2: &str = "layerx-receipt-proof-v2";
-const VERIFICATION_LEVEL: &str = "sequencer-signed";
+pub const PORTABLE_RECEIPT_FORMAT: &str = "layerx-receipt-proof-v2";
 const VERIFICATION_LEVEL_V2: &str = "receipted";
 const RECEIPT_DIGEST_DOMAIN: &[u8] = b"LXP/v1/receipt\0";
 const SIGNATURE_TAIL: [u8; 5] = [1, 0, 0, 0, 64];
 const SIGNATURE_BYTES: usize = 64;
 const MAX_RECEIPT_BYTES: usize = 1_048_576;
 const MAX_JSON_BYTES: usize = 1_500_000;
-
-/// Self-contained, language-neutral receipt proof.
-///
-/// Every byte string is unpadded base64url. The batch facts are deliberately
-/// repeated outside the receipt so the verifier can compare them with its
-/// independently trusted [`AuthorizedBatch`]. Carrying those fields does not
-/// itself make them authoritative.
-#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct PortableReceipt {
-    format: String,
-    verification_level: String,
-    canonical_receipt: String,
-    receipt_digest: String,
-    batch_id: String,
-    asset: String,
-    previous_state_root: String,
-    resulting_state_root: String,
-    sequencer_public_key: String,
-}
-
-impl PortableReceipt {
-    /// Exports one receipt only after its exact canonical encoding, state-root
-    /// chain, balance invariants and sequencer signature verify locally.
-    /// Rejected protocol outcomes remain exportable as rejected outcomes;
-    /// this constructor never upgrades them to success.
-    ///
-    /// # Errors
-    ///
-    /// Returns the exact receipt verification stage that failed.
-    pub fn export(
-        canonical_receipt: &[u8],
-        authorised: &AuthorizedBatch,
-    ) -> Result<Self, PortableReceiptError> {
-        if canonical_receipt.is_empty() || canonical_receipt.len() > MAX_RECEIPT_BYTES {
-            return Err(PortableReceiptError::ReceiptBounds);
-        }
-        let verified =
-            verify_outcome(canonical_receipt, authorised).map_err(PortableReceiptError::Receipt)?;
-        let digest = verified
-            .evidence()
-            .receipt_digest()
-            .ok_or(PortableReceiptError::MissingReceiptDigest)?;
-        Ok(Self {
-            format: PORTABLE_RECEIPT_FORMAT.to_owned(),
-            verification_level: VERIFICATION_LEVEL.to_owned(),
-            canonical_receipt: URL_SAFE_NO_PAD.encode(canonical_receipt),
-            receipt_digest: URL_SAFE_NO_PAD.encode(digest),
-            batch_id: URL_SAFE_NO_PAD.encode(authorised.batch_id()),
-            asset: URL_SAFE_NO_PAD.encode(authorised.asset()),
-            previous_state_root: URL_SAFE_NO_PAD.encode(authorised.previous_state_root()),
-            resulting_state_root: URL_SAFE_NO_PAD.encode(authorised.resulting_state_root()),
-            sequencer_public_key: URL_SAFE_NO_PAD.encode(authorised.sequencer_public_key()),
-        })
-    }
-
-    /// Parses the bounded JSON wire form. Parsing alone establishes no trust;
-    /// callers must use [`Self::verify`] before consuming any receipt fact.
-    ///
-    /// # Errors
-    ///
-    /// Refuses oversize, malformed, extended, or non-canonical JSON fields.
-    pub fn from_json(bytes: &[u8]) -> Result<Self, PortableReceiptError> {
-        if bytes.is_empty() || bytes.len() > MAX_JSON_BYTES {
-            return Err(PortableReceiptError::JsonBounds);
-        }
-        let portable: Self =
-            serde_json::from_slice(bytes).map_err(|_| PortableReceiptError::JsonShape)?;
-        portable.decode_fields()?;
-        Ok(portable)
-    }
-
-    /// Parses and verifies one JSON proof without exposing an intermediate
-    /// unverified receipt value.
-    ///
-    /// # Errors
-    ///
-    /// Returns the first wire-shape, receipt, digest or signature refusal.
-    pub fn verify_json(
-        bytes: &[u8],
-        trusted_batch: &AuthorizedBatch,
-    ) -> Result<PortableVerifiedReceipt, PortableReceiptError> {
-        Self::from_json(bytes)?.verify(trusted_batch)
-    }
-
-    /// Encodes the stable JSON object. Struct field order is stable for
-    /// reproducible vectors, but consumers must treat JSON member order as
-    /// insignificant.
-    ///
-    /// # Errors
-    ///
-    /// Returns an encoding error if the serializer refuses the object.
-    pub fn to_json(&self) -> Result<Vec<u8>, PortableReceiptError> {
-        self.decode_fields()?;
-        serde_json::to_vec(self).map_err(|_| PortableReceiptError::JsonShape)
-    }
-
-    /// Verifies this proof against independently trusted batch authorization
-    /// using the standalone `LayerX` proof library. No gateway or live
-    /// infrastructure is consulted.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a format/version mismatch, non-canonical base64url, mismatched
-    /// receipt digest, or any canonical receipt/signature/invariant failure.
-    pub fn verify(
-        &self,
-        trusted_batch: &AuthorizedBatch,
-    ) -> Result<PortableVerifiedReceipt, PortableReceiptError> {
-        let decoded = self.decode_fields()?;
-        if decoded.batch_id != trusted_batch.batch_id()
-            || decoded.asset != trusted_batch.asset()
-            || decoded.previous_state_root != trusted_batch.previous_state_root()
-            || decoded.resulting_state_root != trusted_batch.resulting_state_root()
-            || decoded.sequencer_public_key != trusted_batch.sequencer_public_key()
-        {
-            return Err(PortableReceiptError::BatchAuthorizationMismatch);
-        }
-        let verified = verify_outcome(&decoded.canonical_receipt, trusted_batch)
-            .map_err(PortableReceiptError::Receipt)?;
-        let actual = verified
-            .evidence()
-            .receipt_digest()
-            .ok_or(PortableReceiptError::MissingReceiptDigest)?;
-        if actual != decoded.receipt_digest {
-            return Err(PortableReceiptError::ReceiptDigestMismatch);
-        }
-        Ok(PortableVerifiedReceipt {
-            receipt: verified,
-            receipt_digest: actual,
-            authorised_batch: *trusted_batch,
-        })
-    }
-
-    /// Returns the wire-format identifier.
-    #[must_use]
-    pub fn format(&self) -> &str {
-        &self.format
-    }
-
-    /// Returns the encoded exact canonical receipt.
-    #[must_use]
-    pub fn canonical_receipt(&self) -> &str {
-        &self.canonical_receipt
-    }
-
-    /// Returns the encoded receipt-signature digest.
-    #[must_use]
-    pub fn receipt_digest(&self) -> &str {
-        &self.receipt_digest
-    }
-
-    fn decode_fields(&self) -> Result<DecodedReceipt, PortableReceiptError> {
-        if self.format != PORTABLE_RECEIPT_FORMAT {
-            return Err(PortableReceiptError::UnsupportedFormat);
-        }
-        if self.verification_level != VERIFICATION_LEVEL {
-            return Err(PortableReceiptError::UnsupportedVerificationLevel);
-        }
-        let canonical_receipt = decode_bounded(
-            "canonicalReceipt",
-            &self.canonical_receipt,
-            1,
-            MAX_RECEIPT_BYTES,
-        )?;
-        Ok(DecodedReceipt {
-            canonical_receipt,
-            receipt_digest: decode_fixed("receiptDigest", &self.receipt_digest)?,
-            batch_id: decode_fixed("batchId", &self.batch_id)?,
-            asset: decode_fixed("asset", &self.asset)?,
-            previous_state_root: decode_fixed("previousStateRoot", &self.previous_state_root)?,
-            resulting_state_root: decode_fixed("resultingStateRoot", &self.resulting_state_root)?,
-            sequencer_public_key: decode_fixed("sequencerPublicKey", &self.sequencer_public_key)?,
-        })
-    }
-}
-
-struct DecodedReceipt {
-    canonical_receipt: Vec<u8>,
-    receipt_digest: [u8; 32],
-    batch_id: [u8; 32],
-    asset: [u8; 32],
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    sequencer_public_key: [u8; 32],
-}
-
-/// A receipt value produced only after the complete portable proof verifies.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct PortableVerifiedReceipt {
-    receipt: VerifiedReceipt,
-    receipt_digest: [u8; 32],
-    authorised_batch: AuthorizedBatch,
-}
-
-impl PortableVerifiedReceipt {
-    /// Returns the verified canonical protocol receipt.
-    #[must_use]
-    pub const fn receipt(&self) -> &VerifiedReceipt {
-        &self.receipt
-    }
-
-    /// Returns the verified receipt-signature digest.
-    #[must_use]
-    pub const fn receipt_digest(&self) -> [u8; 32] {
-        self.receipt_digest
-    }
-
-    /// Returns the independently supplied batch authorization facts.
-    #[must_use]
-    pub const fn authorised_batch(&self) -> &AuthorizedBatch {
-        &self.authorised_batch
-    }
-}
 
 /// Typed portable-receipt refusal.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -258,7 +35,6 @@ pub enum PortableReceiptError {
     ReceiptKeyMismatch,
     NotReceipted,
     InclusionHeight,
-    MissingBatchAuthorization,
 }
 
 impl Display for PortableReceiptError {
@@ -301,45 +77,11 @@ impl Display for PortableReceiptError {
             Self::InclusionHeight => {
                 formatter.write_str("inclusion height precedes the signed receipt height")
             }
-            Self::MissingBatchAuthorization => {
-                formatter.write_str("v1 portable receipt needs a trusted batch authorization")
-            }
         }
     }
 }
 
 impl std::error::Error for PortableReceiptError {}
-
-fn decode_fixed<const N: usize>(
-    field: &'static str,
-    encoded: &str,
-) -> Result<[u8; N], PortableReceiptError> {
-    let decoded = decode_bounded(field, encoded, N, N)?;
-    decoded
-        .try_into()
-        .map_err(|_| PortableReceiptError::InvalidLength(field))
-}
-
-fn decode_bounded(
-    field: &'static str,
-    encoded: &str,
-    minimum: usize,
-    maximum: usize,
-) -> Result<Vec<u8>, PortableReceiptError> {
-    if encoded.is_empty() || encoded.contains('=') {
-        return Err(PortableReceiptError::InvalidBase64(field));
-    }
-    let decoded = URL_SAFE_NO_PAD
-        .decode(encoded)
-        .map_err(|_| PortableReceiptError::InvalidBase64(field))?;
-    if decoded.len() < minimum || decoded.len() > maximum {
-        return Err(PortableReceiptError::InvalidLength(field));
-    }
-    if URL_SAFE_NO_PAD.encode(&decoded) != encoded {
-        return Err(PortableReceiptError::InvalidBase64(field));
-    }
-    Ok(decoded)
-}
 
 /// One pinned `ReceiptKeys` entry: keyId, ed25519 public key and the
 /// inclusive block-height window in which that key signs receipts.
@@ -434,7 +176,7 @@ impl PortableReceiptV2 {
         verify_sequencer_signature(signed_receipt, std::slice::from_ref(receipt_key))
             .map_err(PortableReceiptError::Receipt)?;
         let portable = Self {
-            format: PORTABLE_RECEIPT_FORMAT_V2.to_owned(),
+            format: PORTABLE_RECEIPT_FORMAT.to_owned(),
             verification_level: VERIFICATION_LEVEL_V2.to_owned(),
             signed_receipt: encode_hex(signed_receipt),
             receipt_digest: encode_hex(&signed_receipt_digest(signed_receipt)?),
@@ -570,7 +312,7 @@ impl PortableReceiptV2 {
     }
 
     fn decode_fields(&self) -> Result<DecodedReceiptV2, PortableReceiptError> {
-        if self.format != PORTABLE_RECEIPT_FORMAT_V2 {
+        if self.format != PORTABLE_RECEIPT_FORMAT {
             return Err(PortableReceiptError::UnsupportedFormat);
         }
         if self.verification_level != VERIFICATION_LEVEL_V2 {
@@ -680,10 +422,9 @@ impl PortableVerifiedReceiptV2 {
     }
 }
 
-/// A verified portable receipt of either format.
+/// A verified v2 portable receipt.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PortableVerified {
-    V1(Box<PortableVerifiedReceipt>),
     V2(PortableVerifiedReceiptV2),
 }
 
@@ -692,16 +433,13 @@ struct FormatProbe {
     format: String,
 }
 
-/// Parses and verifies a JSON proof of either format: v1 against the trusted
-/// batch authorization, v2 against the pinned `ReceiptKeys` list.
+/// Parses and verifies a v2 JSON proof against the pinned `ReceiptKeys` list.
 ///
 /// # Errors
 ///
-/// Refuses an unknown format, a v1 proof without a trusted batch, and every
-/// refusal of the selected format's verifier.
+/// Refuses an unsupported format and every refusal of the v2 verifier.
 pub fn verify_portable_json(
     bytes: &[u8],
-    trusted_batch: Option<&AuthorizedBatch>,
     receipt_keys: &[ReceiptKeyEntry],
 ) -> Result<PortableVerified, PortableReceiptError> {
     if bytes.is_empty() || bytes.len() > MAX_JSON_BYTES {
@@ -711,11 +449,6 @@ pub fn verify_portable_json(
         serde_json::from_slice(bytes).map_err(|_| PortableReceiptError::JsonShape)?;
     match probe.format.as_str() {
         PORTABLE_RECEIPT_FORMAT => {
-            let batch = trusted_batch.ok_or(PortableReceiptError::MissingBatchAuthorization)?;
-            PortableReceipt::verify_json(bytes, batch)
-                .map(|verified| PortableVerified::V1(Box::new(verified)))
-        }
-        PORTABLE_RECEIPT_FORMAT_V2 => {
             PortableReceiptV2::verify_json(bytes, receipt_keys).map(PortableVerified::V2)
         }
         _ => Err(PortableReceiptError::UnsupportedFormat),

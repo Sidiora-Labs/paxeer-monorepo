@@ -25,6 +25,7 @@ import (
 	authprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
 	ledgerprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	perpsprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
 	pricefeedprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed"
 	spotprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
@@ -53,7 +54,6 @@ type PrecompileKeepers struct {
 	putils.ClientKeeper
 	putils.ConnectionKeeper
 	putils.ChannelKeeper
-	putils.AnchorKeeper
 	txConf          client.TxConfig
 	layerxCustody   *layerxcustodykeeper.Keeper
 	layerxExchange  *layerxexchangekeeper.Keeper
@@ -89,7 +89,6 @@ func NewPrecompileKeepers(a *App) *PrecompileKeepers {
 		ClientKeeper:       a.IBCKeeper.ClientKeeper,
 		ConnectionKeeper:   a.IBCKeeper.ConnectionKeeper,
 		ChannelKeeper:      a.IBCKeeper.ChannelKeeper,
-		AnchorKeeper:       a.LayerXAnchorKeeper,
 		txConf:             a.GetTxConfig(),
 		layerxCustody:      a.LayerXCustodyKeeper,
 		layerxExchange:     a.LayerXExchangeKeeper,
@@ -125,7 +124,7 @@ func (pk *PrecompileKeepers) TransferK() putils.TransferKeeper         { return 
 func (pk *PrecompileKeepers) ClientK() putils.ClientKeeper             { return pk.ClientKeeper }
 func (pk *PrecompileKeepers) ConnectionK() putils.ConnectionKeeper     { return pk.ConnectionKeeper }
 func (pk *PrecompileKeepers) ChannelK() putils.ChannelKeeper           { return pk.ChannelKeeper }
-func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper             { return pk.AnchorKeeper }
+func (pk *PrecompileKeepers) AnchorK() putils.AnchorKeeper             { return nil }
 func (pk *PrecompileKeepers) TxConfig() client.TxConfig                { return pk.txConf }
 func (pk *PrecompileKeepers) LayerXCustodyK() *layerxcustodykeeper.Keeper {
 	return pk.layerxCustody

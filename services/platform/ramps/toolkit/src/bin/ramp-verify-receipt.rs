@@ -75,7 +75,7 @@ fn run() -> Result<(), u8> {
     order.validate_bound().map_err(|_| 2_u8)?;
     let activity = parse_hex32(args[5].to_str().ok_or(2_u8)?).map_err(|_| 2_u8)?;
     if activity == [0; 32]
-        || config.layerx.network_id == 0
+        || config.layerx.chain_id == 0
         || !(1..=120).contains(&config.client_tls.timeout_seconds)
     {
         return Err(2);

@@ -10,11 +10,6 @@ pub use layerx_mirror::source::{
 };
 pub use layerx_mirror::{
     MirrorVerification, MirrorVerificationFreshness, MirrorVerifier, MirrorVerifyError,
-    SignedHeaderTrust,
-};
-use layerx_proof::checkpoint::{
-    verify_certificate, Certificate, CheckpointError, GuarantorKey, SettlementDomain,
-    ThresholdReport,
 };
 use layerx_proof::inclusion::{
     verify_activity, verify_state, InclusionError, InclusionEvidence, SequencerAuthorization,
@@ -815,29 +810,13 @@ pub fn verify_mirror_receipt_from_sources(
     sources: &MirrorSources,
     batch_number: u64,
     policy: &MirrorReadPolicy,
-    canonical_receipt: &[u8],
-    trust: SignedHeaderTrust,
-) -> Result<MirrorVerification<VerifiedReceipt>, MirrorSdkError> {
-    let archive = sources.read(batch_number, policy)?;
-    Ok(MirrorVerifier::from_source(archive, trust)?.receipt(canonical_receipt)?)
-}
-
-/// Resolves a pinned source policy and verifies state inclusion without
-/// composing chain, archive or freshness evidence across sources.
-///
-/// # Errors
-///
-/// Returns the exact source read failure or state verification failure.
-pub fn verify_mirror_state_from_sources(
-    sources: &MirrorSources,
-    batch_number: u64,
-    policy: &MirrorReadPolicy,
-    canonical_state: &[u8],
-    proof: &Proof,
-    trust: SignedHeaderTrust,
-) -> Result<MirrorVerification<InclusionEvidence>, MirrorSdkError> {
-    let archive = sources.read(batch_number, policy)?;
-    Ok(MirrorVerifier::from_source(archive, trust)?.state(canonical_state, proof)?)
+    index: usize,
+    keys: &[SequencerAuthorization],
+) -> Result<MirrorVerification<Receipt>, MirrorSdkError> {
+    Ok(
+        MirrorVerifier::from_committed_source(sources.read(batch_number, policy)?)?
+            .committed_receipt(index, keys)?,
+    )
 }
 
 /// Verifies canonical activity inclusion under an authorised signed batch header.
@@ -881,26 +860,5 @@ pub fn verify_state_inclusion(
         canonical_header,
         header_signature,
         authorization,
-    )
-}
-
-/// Verifies a checkpoint certificate against its bonded set and registration.
-///
-/// # Errors
-///
-/// Returns the exact identifier, membership, signature, threshold, availability, or settlement failure.
-pub fn verify_checkpoint(
-    certificate: &Certificate,
-    bonded_set: &[GuarantorKey],
-    registered_checkpoint_id: &[u8; 32],
-    expected_settlement_domain: SettlementDomain,
-    registered_settlement_reference: Option<&[u8]>,
-) -> Result<ThresholdReport, CheckpointError> {
-    verify_certificate(
-        certificate,
-        bonded_set,
-        registered_checkpoint_id,
-        expected_settlement_domain,
-        registered_settlement_reference,
     )
 }

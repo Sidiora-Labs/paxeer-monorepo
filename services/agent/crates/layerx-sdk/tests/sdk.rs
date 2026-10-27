@@ -358,21 +358,262 @@ fn signer_surface_contains_no_key_export_and_offline_verifier_is_real() {
     assert!(!signer_source.contains("secret"));
     assert!(signer_source.contains("trait ExternalSigner"));
 
-    let empty = layerx_proof::export::OfflineExport {
-        receipts: Vec::new(),
-        inclusions: Vec::new(),
-        checkpoints: Vec::new(),
-        derived_aggregates: Vec::new(),
-    };
-    let report = Client::verify_offline(
-        &empty,
-        layerx_proof::checkpoint::SettlementDomain::new(31_337, [0x55; 20]),
-    )
-    .unwrap_or_else(|error| panic!("empty export has no false fact: {error:?}"));
-    assert_eq!(report.verified_receipts, 0);
-    assert!(!report.derived_aggregates_are_protocol_facts);
+    let keys = [];
+    assert_eq!(
+        layerx_sdk::production::verify_receipt(
+            &[],
+            layerx_sdk::production::ReceiptKeys::HeightRanges(&keys),
+            [1; 32],
+            [2; 32],
+            [3; 32],
+        )
+        .map_err(|failure| failure.check),
+        Err(layerx_sdk::ReceiptFailureCode::Decode)
+    );
 
     let key = IdempotencyRef::new("caller-owned-key")
         .unwrap_or_else(|error| panic!("idempotency: {error:?}"));
     assert_eq!(key.as_str(), "caller-owned-key");
+}
+
+#[test]
+fn sdk_crate_has_no_settlement_domain_or_activity_codec() {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_proof::inclusion::SequencerAuthorization;
+    use layerx_sdk::production::{verify_receipt, ReceiptKeys};
+    use layerx_sdk::rpc::{wallet_account, RpcClient, RpcError};
+    use layerx_sdk::wallet::Payment;
+    use layerx_sdk::ReceiptFailureCode;
+    use layerx_types::payload::ModuleId;
+    use layerx_wire::hash::receipt_digest;
+    use layerx_wire::receipt::{decode, encode_unsigned};
+
+    for source in [
+        include_str!("../src/lib.rs"),
+        include_str!("../src/production.rs"),
+        include_str!("../src/wallet.rs"),
+    ] {
+        for retired in [
+            "SettlementDomain",
+            "GuarantorKey",
+            "layerx_proof::checkpoint",
+            "layerx_wire::activity",
+            "verify_checkpoint",
+            "decode_signed",
+        ] {
+            assert!(!source.contains(retired), "SDK still uses {retired}");
+        }
+    }
+
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json"
+    ))
+    .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
+    let hex = fixture["canonical_receipt_hex"]
+        .as_str()
+        .unwrap_or_else(|| panic!("canonical receipt missing"));
+    assert!(hex.len().is_multiple_of(2));
+    let mut canonical: Vec<u8> = (0..hex.len() / 2)
+        .map(|index| {
+            u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
+                .unwrap_or_else(|error| panic!("receipt hex: {error}"))
+        })
+        .collect();
+    let receipt = decode(&canonical).unwrap_or_else(|error| panic!("receipt decode: {error:?}"));
+    let protocol = receipt
+        .protocol()
+        .unwrap_or_else(|| panic!("protocol receipt missing"));
+    let height = 42_u64;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&height.to_be_bytes());
+    let offsets: Vec<_> = canonical
+        .windows(32)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == protocol.batch_id()).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1);
+    canonical[offsets[0]..offsets[0] + 32].copy_from_slice(&batch_id);
+    let receipt =
+        decode(&canonical).unwrap_or_else(|error| panic!("height receipt decode: {error:?}"));
+    let unsigned =
+        encode_unsigned(&receipt).unwrap_or_else(|error| panic!("receipt preimage: {error:?}"));
+    let digest =
+        receipt_digest(&unsigned).unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
+    let signer = SigningKey::from_bytes(&[0x33; 32]);
+    let signature_offset = canonical.len() - 64;
+    canonical[signature_offset..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let keys = [SequencerAuthorization::new(
+        protocol.context_hash(),
+        signer.verifying_key().to_bytes(),
+        height,
+        height,
+    )];
+    let verify = |bytes: &[u8], keys: &[SequencerAuthorization]| {
+        verify_receipt(
+            bytes,
+            ReceiptKeys::HeightRanges(keys),
+            protocol.asset(),
+            protocol.previous_state_root(),
+            protocol.resulting_state_root(),
+        )
+    };
+    let verified = verify(&canonical, &keys)
+        .unwrap_or_else(|error| panic!("public receipt verification: {error:?}"));
+    assert_eq!(verified.canonical_bytes(), canonical);
+    assert_eq!(verified.rung(), Rung::Receipted);
+    assert_eq!(verified.evidence().receipt_digest(), Some(digest));
+    assert_eq!(
+        verify(&canonical, &[]).map_err(|failure| failure.check),
+        Err(ReceiptFailureCode::SequencerSignature)
+    );
+    let expired = [SequencerAuthorization::new(
+        protocol.context_hash(),
+        signer.verifying_key().to_bytes(),
+        height + 1,
+        height + 1,
+    )];
+    assert_eq!(
+        verify(&canonical, &expired).map_err(|failure| failure.check),
+        Err(ReceiptFailureCode::SequencerSignature)
+    );
+    canonical[signature_offset] ^= 1;
+    assert_eq!(
+        verify(&canonical, &keys).map_err(|failure| failure.check),
+        Err(ReceiptFailureCode::SequencerSignature)
+    );
+
+    let native = wallet_account("did:layerx:alice", [0; 32], [0; 32])
+        .unwrap_or_else(|error| panic!("native wallet account: {error:?}"));
+    let token = wallet_account("did:layerx:alice", [0x11; 32], [0; 32])
+        .unwrap_or_else(|error| panic!("token wallet account: {error:?}"));
+    assert_eq!(
+        native
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>(),
+        "575498fd80da9b17115311af107ab11639acf474a69f944c9c9b1d0ea28ed205"
+    );
+    assert_eq!(
+        token
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>(),
+        "c25ada37deae26ed54923dab01b56e9dded08b4ca710b0fd0b1d172f44404324"
+    );
+    assert_ne!(native, token);
+    let payment = Payment::OpenAccount { asset: [0x11; 32] };
+    let payload = payment
+        .encode(b"did:layerx:alice")
+        .unwrap_or_else(|error| panic!("wallet payment encode: {error:?}"));
+    let decoded = Payment::decode(ModuleId::Asset, 4, &payload, b"did:layerx:alice")
+        .unwrap_or_else(|error| panic!("wallet payment decode: {error:?}"));
+    assert!(matches!(decoded, Payment::OpenAccount { asset } if asset == [0x11; 32]));
+    let rpc = RpcClient::connect("http://127.0.0.1:1", None)
+        .unwrap_or_else(|error| panic!("wallet client: {error:?}"));
+    assert!(matches!(
+        rpc.wallet([0; 32]).balance("did::alice", [0x11; 32]),
+        Err(RpcError::InvalidRequest)
+    ));
+}
+
+#[test]
+fn production_verifies_mirror_receipts_from_committed_sources() {
+    use ed25519_dalek::{Signer as _, SigningKey};
+    use layerx_proof::inclusion::SequencerAuthorization;
+    use layerx_sdk::production::{
+        verify_mirror_receipt_from_sources, verify_receipt, MirrorReadPolicy, MirrorSdkError,
+        MirrorSources, MirrorVerification, ReceiptKeys,
+    };
+    use layerx_sdk::ReceiptFailureCode;
+    use layerx_wire::hash::receipt_digest;
+    use layerx_wire::receipt::{decode, encode_unsigned, Receipt};
+
+    let _: fn(
+        &MirrorSources,
+        u64,
+        &MirrorReadPolicy,
+        usize,
+        &[SequencerAuthorization],
+    ) -> Result<MirrorVerification<Receipt>, MirrorSdkError> = verify_mirror_receipt_from_sources;
+
+    let source = include_str!("../src/production.rs");
+    for retired in [
+        "SignedHeaderTrust",
+        "from_source(",
+        "verify_mirror_state_from_sources",
+    ] {
+        assert!(!source.contains(retired), "SDK still uses {retired}");
+    }
+
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json"
+    ))
+    .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
+    let hex = fixture["canonical_receipt_hex"]
+        .as_str()
+        .unwrap_or_else(|| panic!("canonical receipt missing"));
+    assert!(hex.len().is_multiple_of(2));
+    let mut canonical: Vec<u8> = (0..hex.len() / 2)
+        .map(|index| {
+            u8::from_str_radix(&hex[index * 2..index * 2 + 2], 16)
+                .unwrap_or_else(|error| panic!("receipt hex: {error}"))
+        })
+        .collect();
+    let receipt = decode(&canonical).unwrap_or_else(|error| panic!("receipt decode: {error:?}"));
+    let protocol = receipt
+        .protocol()
+        .unwrap_or_else(|| panic!("protocol receipt missing"));
+    let height = 42_u64;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&height.to_be_bytes());
+    let offsets: Vec<_> = canonical
+        .windows(32)
+        .enumerate()
+        .filter_map(|(offset, bytes)| (bytes == protocol.batch_id()).then_some(offset))
+        .collect();
+    assert_eq!(offsets.len(), 1);
+    canonical[offsets[0]..offsets[0] + 32].copy_from_slice(&batch_id);
+    let receipt =
+        decode(&canonical).unwrap_or_else(|error| panic!("height receipt decode: {error:?}"));
+    let unsigned =
+        encode_unsigned(&receipt).unwrap_or_else(|error| panic!("receipt preimage: {error:?}"));
+    let digest =
+        receipt_digest(&unsigned).unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
+    let signer = SigningKey::from_bytes(&[0x33; 32]);
+    let signature_offset = canonical.len() - 64;
+    canonical[signature_offset..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let keys = [SequencerAuthorization::new(
+        protocol.context_hash(),
+        signer.verifying_key().to_bytes(),
+        height,
+        height,
+    )];
+    let verify = |bytes: &[u8], keys: &[SequencerAuthorization]| {
+        verify_receipt(
+            bytes,
+            ReceiptKeys::HeightRanges(keys),
+            protocol.asset(),
+            protocol.previous_state_root(),
+            protocol.resulting_state_root(),
+        )
+    };
+    let verified = verify(&canonical, &keys)
+        .unwrap_or_else(|error| panic!("public receipt verification: {error:?}"));
+    assert_eq!(verified.canonical_bytes(), canonical);
+    assert_eq!(verified.rung(), Rung::Receipted);
+    assert_eq!(verified.evidence().receipt_digest(), Some(digest));
+    assert_eq!(
+        verify(&canonical, &[]).map_err(|failure| failure.check),
+        Err(ReceiptFailureCode::SequencerSignature)
+    );
+    let expired = [SequencerAuthorization::new(
+        protocol.context_hash(),
+        signer.verifying_key().to_bytes(),
+        height + 1,
+        height + 1,
+    )];
+    assert_eq!(
+        verify(&canonical, &expired).map_err(|failure| failure.check),
+        Err(ReceiptFailureCode::SequencerSignature)
+    );
 }
