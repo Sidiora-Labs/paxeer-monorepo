@@ -1345,19 +1345,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "layerx-intent-ingester"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "layerx-crypto",
- "layerx-intents",
- "layerx-types",
- "layerx-wire",
- "native-tls",
- "serde_json",
-]
-
-[[package]]
 name = "layerx-intents"
 version = "0.1.0"
 dependencies = [

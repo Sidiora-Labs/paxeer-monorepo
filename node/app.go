@@ -904,6 +904,7 @@ func New(
 	app.LayerXPayKeeper = &payKeeper
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
+	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
 	app.LayerXBridgeKeeper = layerxbridgekeeper.NewKeeper(keys[layerxbridgetypes.StoreKey], app.BankKeeper,
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
@@ -988,6 +989,7 @@ func New(
 	app.GigaEvmKeeper.UseRegularStore = true
 	app.GigaBankKeeper.UseRegularStore = true
 	app.GigaBankKeeper.RegisterRecipientChecker(app.GigaEvmKeeper.CanAddressReceive)
+	app.GigaBankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
 	// Read Giga Executor config
 	gigaExecutorConfig, err := gigaconfig.ReadConfig(appOpts)
 	if err != nil {
@@ -3200,6 +3202,19 @@ func (app *App) PendingSnapshot() (sdk.Context, error) {
 	return isolatedRead(ctx).WithIsEVM(true).WithTraceMode(true).WithIsCheckTx(false).WithClosestUpgradeName(LatestUpgrade), nil
 }
 
+type rpcPendingSnapshot struct {
+	app    *App
+	source evmrpc.PendingSnapshot
+}
+
+func (s rpcPendingSnapshot) Snapshot() (sdk.Context, error) {
+	return s.app.PendingSnapshot()
+}
+
+func (s rpcPendingSnapshot) PendingTx(hash [32]byte) (evmrpc.PendingTx, bool) {
+	return s.source.PendingTx(hash)
+}
+
 // isolatedRead gives a branch of L_open its own gas meter and event managers so concurrent
 // reads never share mutable state with Accept.
 func isolatedRead(ctx sdk.Context) sdk.Context {
@@ -3352,9 +3367,32 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 
 	rpcCtxProvider := app.RPCContextProvider
 	traceCtxProvider := app.SnapshotAwareRPCContextProvider()
+	var options []evmrpc.ServerOption
+	if app.sequencerRPC != (evmrpc.SequencerOption{}) {
+		options = append(options, app.sequencerRPC)
+	}
+	if app.openBlock != nil {
+		source, ok := app.openBlock.(evmrpc.PendingSnapshot)
+		if !ok {
+			panic("sequencer open block does not provide pending transactions")
+		}
+		pending, err := evmrpc.NewPendingOption(rpcPendingSnapshot{app: app, source: source})
+		if err != nil {
+			panic(err)
+		}
+		options = append(options, pending)
+	}
+	if app.sequencerReceipt.ForwardURL != nil {
+		forward, err := evmrpc.NewSequencerForwardOption(app.sequencerReceipt.ForwardURL.String())
+		if err != nil {
+			panic(err)
+		}
+		options = append(options, forward)
+	}
+	httpOptions := append([]evmrpc.ServerOption{traceCtxProvider, app.sequencerReceipt}, options...)
 	var evmHTTPServer, evmWSServer evmrpc.EVMServer
 	if app.evmRPCConfig.HTTPEnabled {
-		httpServer, err := evmrpc.NewEVMHTTPServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, app.RPCContextProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), traceCtxProvider)
+		httpServer, err := evmrpc.NewEVMHTTPServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, app.RPCContextProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), httpOptions...)
 		if err != nil {
 			panic(err)
 		}
@@ -3363,7 +3401,7 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 
 	if app.evmRPCConfig.WSEnabled {
 		headNotifier, _ := app.blockHeaderNotifier.Get()
-		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier)
+		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier, options...)
 		if err != nil {
 			panic(err)
 		}
@@ -3612,7 +3650,7 @@ func (app *App) v6120Contracts() (map[common.Address][2]vm.PrecompiledContract, 
 	if err != nil {
 		return nil, err
 	}
-	spot, err := spotprecompile.NewPrecompileSet(keepers)
+	spot, err := spotprecompile.NewServedSet(keepers)
 	if err != nil {
 		return nil, err
 	}
