@@ -2,7 +2,7 @@
 // Ethereum and Solana test networks, including stall and reorg scenarios.
 //
 // The archives are built exclusively from the node boundary types
-// (VerifiedRead<BatchValue> and a fully verified AvailabilityResult), the
+// (an authorized batch and complete proof-gated availability chunks), the
 // Publisher drives the real chain-boundary traits, and the two networks are
 // genuine in-memory ledgers that store and return the exact archive bytes by
 // commitment. Only the external L1s are simulated; every LayerX code path -
@@ -13,7 +13,6 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
-use layerx_client::availability::AvailabilityResult;
 use layerx_mirror::{
     Archive, ArchiveCommitment, ArchiveData, BatchAuthorization, ChainFailure, ChainPosition,
     CheckpointCoordinate, CheckpointFreshness, ConfigError, EthereumArchiveClient,
@@ -171,12 +170,10 @@ fn build_archive(batch_number: u64, node_head: NodeHead) -> Archive {
     };
     let (records, _) = reassemble(&verified, roots)
         .unwrap_or_else(|error| panic!("canonical native record streams: {error:?}"));
-    let availability =
-        AvailabilityResult::from_verified("native-da-store".to_owned(), verified, records, roots)
-            .unwrap_or_else(|error| {
-                panic!("complete authenticated native availability: {error:?}")
-            });
-    Archive::from_node(&batch, &availability, None, node_head)
+    records
+        .verify(&verified, roots)
+        .unwrap_or_else(|error| panic!("complete authenticated native availability: {error:?}"));
+    Archive::from_node(&batch, &verified, None, node_head)
         .unwrap_or_else(|error| panic!("archive assembly failed: {error:?}"))
 }
 

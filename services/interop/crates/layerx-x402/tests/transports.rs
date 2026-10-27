@@ -458,7 +458,7 @@ fn replace(receipt: &mut [u8], old: &[u8], new: &[u8]) {
     receipt[positions[0]..positions[0] + old.len()].copy_from_slice(new);
 }
 
-fn executed(
+fn sequencer_evidence(
     signing_key: &SigningKey,
     transaction_hash: [u8; 32],
     idempotency_key: [u8; 32],
@@ -600,16 +600,18 @@ impl FacilitatorPlane for FaultInjectingPlane {
                 transaction: format!("0x{}", hex(&PRIMARY_ACTIVITY)),
             }),
             Planned::Transient => Err(X402Error::Decode),
-            Planned::Execute => Ok(FacilitatorSettlementOutcome::Executed(executed(
+            Planned::Execute => Ok(FacilitatorSettlementOutcome::Executed(sequencer_evidence(
                 &self.signing_key,
                 PRIMARY_ACTIVITY,
                 request.idempotency_key,
             ))),
-            Planned::ExecuteAlternate => Ok(FacilitatorSettlementOutcome::Executed(executed(
-                &self.signing_key,
-                ALTERNATE_ACTIVITY,
-                request.idempotency_key,
-            ))),
+            Planned::ExecuteAlternate => {
+                Ok(FacilitatorSettlementOutcome::Executed(sequencer_evidence(
+                    &self.signing_key,
+                    ALTERNATE_ACTIVITY,
+                    request.idempotency_key,
+                )))
+            }
         }
     }
 }
@@ -708,7 +710,7 @@ fn duplicate_delivery_of_the_same_settlement_does_not_double_charge() {
 
     assert_eq!(plane.settle_calls, 3);
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
-    let expected = executed(
+    let expected = sequencer_evidence(
         &plane.signing_key,
         PRIMARY_ACTIVITY,
         identity.idempotency_key,
@@ -766,7 +768,7 @@ fn transport_independent_identity_settles_once_across_http_mcp_and_a2a() {
     }
 
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
-    let expected = executed(
+    let expected = sequencer_evidence(
         &plane.signing_key,
         PRIMARY_ACTIVITY,
         identity.idempotency_key,

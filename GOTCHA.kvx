@@ -9201,3 +9201,57 @@ area = "kernel C structs"
 symptom = "-Werror=missing-field-initializers refuses the lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor after the struct gained a member"
 cause = "positional compound literals stop at the old last member; the task that appended the member built only its own test"
 do = "a task that appends a struct member updates every positional literal of that struct in the same change (grep for `(type){`) or names the task that will"
+
+[gotcha.1913]
+area = "launchpad gRPC queries"
+symptom = "a Query handler test panics `invalid Go type types.Int for field ...Response.<field>` although the handler returns the right value"
+cause = "sdk/baseapp/grpcrouter.go:100 marshals query responses with the grpc default proto codec, which cannot reflect a top-level non-pointer gogoproto customtype Int field; nested messages go through the gogo Marshal method and pass"
+do = "declare top-level amounts in query responses as plain decimal strings (wire and JSON unchanged) or nest them in a message"
+
+[gotcha.1914]
+area = "launchpad mobile tests"
+symptom = "vitest fails `Cannot find module './validators-v1.gen.js'` from sdk/launchpad/packages/sdk/src/validate.ts even after the SDK build"
+cause = "compile-validators.mjs emits the generated validator modules only into dist/; the repository tracks only their .d.ts declarations, so importing the SDK from src finds no runtime module"
+do = "alias the three ./validators-*.gen.js specifiers to the built dist files in the consumer's vitest config and build sdk-v2 then sdk before the test"
+
+[gotcha.1915]
+area = "kernel activity envelope"
+symptom = "every HostExecute from a keeper is refused LXP_ERR_MALFORMED_ENVELOPE and the refusal receipt carries code 0"
+cause = "the activity's NotBefore/NotAfter bound was wider than the admission window (src/sequencer/lxp_admission.c:13-15), or AccountSequence was set to identity sequence + 1 although the host already stores the next admitted sequence"
+do = "set NotBefore = block time, NotAfter = block time + TimestampWindowMs and AccountSequence = ReadIdentitySequence unchanged"
+
+[gotcha.1916]
+area = "kernel module custody"
+symptom = "an unsigned bound escrow, budget or stream activity is refused LXP_ERR_BAD_SIGNATURE at execution although admission accepted it"
+cause = "lxp_ctx_account_stage_module_custody (src/protocol/lxp_module_ctx.c:895) verifies the activity signature unconditionally; only the asset issuance and account staging calls honour the asset runtime's binding_authority"
+do = "read ctx->kernel->module_runtime[LXP_MODULE_ASSET] and skip only the signature check when binding_authority is set (task 1.11.6)"
+
+[gotcha.1917]
+area = "kernel authority grants"
+symptom = "every fee-bearing session or capability grant is refused LXP_ERR_AUTH_SCOPE although its fee asset is the governed occupancy asset"
+cause = "grant_scope_validate (src/modules/governance/lxp_governance.c:480) compares the fee asset with the static runtime->occupancy_asset_id, which no node fills; the charge path resolves the asset through resolve_occupancy_parameters instead"
+do = "resolve the governed asset through the runtime resolver (version 0 is the active record) as src/state/lxp_authority.c:1041-1047 does (task 1.14.6)"
+
+[gotcha.1918]
+area = "kernel budget module"
+symptom = "after a budget defund the per-period limit read back is lower than the limit the budget was created with"
+cause = "lx_budget_defund_limit (src/modules/budget/lx_budget_close.c:62-82) lowers per_period_limit to spent_this_period plus the resulting balance whenever the remaining allowance exceeds the post-defund balance"
+do = "expect limit = spent + balance after a defund that leaves less than the remaining allowance; do not assert the creation limit"
+
+[gotcha.1919]
+area = "Makefile CI tests"
+symptom = "test_aggregates_dry_run_clean reports a retired member in a compile or archive line under build-repro-a/, build-repro-b/ or build/<sanitizer>/"
+cause = "the aggregate dry run recurses into the reproducible (Makefile:220-225) and sanitizer (Makefile:1588-1596) build directories, which relink the same members"
+do = "classify library lines with a pattern that accepts the build, build-repro-[ab] and build/(crypto-)?(a|t|ub)san prefixes before asserting retired substrings"
+
+[gotcha.1920]
+area = "cosmos module errors"
+symptom = "a gRPC query that returns a registered module error reaches the client as code 3 InvalidArgument instead of the module code"
+cause = "sdkerrors.ABCIInfo (sdk/types/errors/abci.go:117-160) unwraps through Cause() only; an fmt.Errorf %w wrap has no Cause(), so gRPCErrorToSDKError (sdk/baseapp/abci.go:645-652) rewraps the error as ErrInvalidRequest"
+do = "wrap registered errors with a type that implements both Unwrap() and Cause(), or return the registered error itself"
+
+[gotcha.1921]
+area = "TypeScript workspace typecheck"
+symptom = "apps/web typecheck fails TS2412 inside sdk/wallet/src/index.ts although sdk/wallet's own typecheck passes"
+cause = "apps/web compiles the wallet SDK source with exactOptionalPropertyTypes (apps/web/tsconfig.json:16), which refuses assigning a possibly undefined value to an optional field, and sdk/wallet's tsconfig does not set it"
+do = "assign optional fields only inside a presence check in SDK sources that apps/web compiles, and typecheck through apps/web before qualifying a wallet SDK change"

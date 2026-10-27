@@ -16,7 +16,7 @@ import type { ErrorEnvelope } from '../agent/actions/errors.js';
  * operation returns the existing row instead of allocating a new nonce.
  */
 
-export type ActionKind = 'layerx_deposit' | 'allowance_and_call';
+export type ActionKind = 'allowance_and_call';
 
 export type ActionStatus =
   | 'received'
