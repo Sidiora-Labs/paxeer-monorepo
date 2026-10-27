@@ -91045,7 +91045,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.1]
 title = "Stop kernel execution reading and recording idempotency entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1", "16.94.1"]
@@ -91078,7 +91078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.2]
 title = "Drop idempotency from the state root, state proof and snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.2.1", "16.2.1"]
@@ -92484,7 +92484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.4]
 title = "Raise the sandbox expiry sweep bound to 128 leases per batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.16.3", "1.14.2", "16.2.1"]
@@ -92844,7 +92844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.18.1]
 title = "Unregister the web and bridge modules from genesis and kernel binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "1.17.1", "16.2.1"]
@@ -92941,7 +92941,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.19.1]
 title = "Retire guarantor-certified withdrawal and exit claims from lxp_bridge.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1", "16.94.1"]
@@ -93361,7 +93361,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.3]
 title = "Carry authority kind, scope and grant in KernelAuthority and register budget and escrow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.23.1", "1.23.2"]
@@ -93871,7 +93871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.30.1]
 title = "Retire the gateway receive claim and grant bounds of the kernel RECEIVE/GRANT path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.21.1", "1.0.2", "16.31.1"]
@@ -96128,7 +96128,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.4.1]
 title = "Register, pause and unpause kernel assets from the ledger keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.3.3", "2.3.5"]
@@ -97176,7 +97176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.4]
 title = "Serve the 0x101C views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.11.1", "2.7.4"]
@@ -115346,7 +115346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.46.7]
 title = "Start the sequencer node from the parsed config in newApp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["5.46.6", "5.0.2", "5.5.12", "5.5.19", "5.5.17"]
@@ -115627,7 +115627,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.2]
 title = "Stop writing the handover trust artefact from layerx-genesis-build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.49.1", "5.0.2", "1.17.3"]
@@ -127333,7 +127333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.13.4]
 title = "Enforce the per-IP rate limit and the batch limits on HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.13.3", "7.10.5", "7.12.2", "7.9.1"]
@@ -128222,7 +128222,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.20.1]
 title = "Freeze the JSON-RPC error code registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["7.13.4", "7.8.2"]
@@ -145941,7 +145941,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.7]
 title = "Refresh the lock entries of layerx-committed-proof for its serde_json dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.2.6"]
@@ -150634,7 +150634,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.10.4]
 title = "POST /v1/wallet/evm/sign signs an approved transaction and answers the receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.10.3", "12.5.3"]
@@ -152499,7 +152499,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.2]
 title = "Send module transactions through the receipted send in the surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.33.1", "12.23.5", "12.31.2", "12.33.8"]
@@ -152530,7 +152530,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.3]
 title = "Apply the fee token preference through the receipted send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["12.33.2"]
@@ -152651,7 +152651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.8]
 title = "Move the wallet and web exchange callers to the perps v2 open and cancel shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.33.13"]
@@ -152713,7 +152713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.2]
 title = "Read the transaction ladder from the sequencer receipt before the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.34.1", "12.22.4", "12.33.1", "12.33.8"]
@@ -158013,7 +158013,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.6]
 title = "Percent-encode the denom and creator path segments of the sdk/js tokenfactory REST client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -158270,7 +158270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.1]
 title = "Drop the anchor, batch and checkpoint explorer link targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
@@ -158688,7 +158688,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.5]
 title = "Send the home add and withdraw actions to the bridge page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
@@ -161794,7 +161794,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.5]
 title = "Add a --check mode that reports app env vaults differing from the deployment records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.53.3"]
@@ -166350,7 +166350,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.23.1]
 title = "Drop the handover registration check from the genesis module-table suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["16.21.1", "16.2.3", "5.49.2"]
