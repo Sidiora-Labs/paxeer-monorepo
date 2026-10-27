@@ -26,11 +26,3 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	}
 	return sdk.UnwrapSDKContext(goCtx), nil
 }
-
-func (q Querier) PoolMetadata(goCtx context.Context, req *types.QueryPoolMetadataRequest) (*types.QueryPoolMetadataResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.PoolMetadata(sdk.WrapSDKContext(ctx), req)
-}

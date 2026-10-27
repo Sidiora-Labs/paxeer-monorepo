@@ -91451,7 +91451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.3]
 title = "Prove parallel batch preparation equals serial preparation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7", "1.4.6"]
@@ -93541,7 +93541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.22.4]
 title = "Load the Programs fee governance rows for governance activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["1.22.1", "1.14.6"]
@@ -97311,7 +97311,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.2]
 title = "Serve register, pause, unpause, mint and burn on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.1", "2.4.2", "2.3.6"]
@@ -97375,7 +97375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.4]
 title = "Serve issueGrant, revokeGrant, draw and payExact on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.5", "2.4.6", "2.4.7", "2.3.6"]
@@ -97407,7 +97407,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.5]
 title = "Serve the 0x101A views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["2.10.1", "2.4.8", "2.10.2"]
@@ -98569,7 +98569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.6]
 title = "Honour binding_authority in the budget authorized-signer check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["1.11.6"]
@@ -99036,7 +99036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.1]
 title = "Serve 0x101B as a merge precompile with the pay gas table and registry reverts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.0.1"]
@@ -99069,7 +99069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.2]
 title = "Map pay keeper and kernel errors to 0x101B registry revert strings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.21.2", "2.22.4"]
@@ -106565,7 +106565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.12]
 title = "Serve Query/AirdropEpoch from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.11"]
@@ -106597,7 +106597,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.13]
 title = "Serve Query/AirdropClaimed from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["4.3.1", "4.2.3", "4.4.12"]
@@ -106629,7 +106629,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.14]
 title = "Serve Query/HasRole from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["4.3.1", "4.2.3", "4.4.13"]
@@ -106661,7 +106661,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.15]
 title = "Serve Query/QuoteLedger from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["4.3.1", "4.2.3", "4.2.5", "4.4.14", "4.4.8"]
@@ -107036,7 +107036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.9]
 title = "Add the launchpad airdrop query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["4.5.1", "4.4.12", "4.4.13", "15.0.5"]
@@ -130540,7 +130540,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.4]
 title = "Relay pax_sequencerReceipt through the EVM relay namespace"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["8.0.1", "9.23.7", "8.1.5"]
@@ -130572,7 +130572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.5]
 title = "Port the indexer AI market and reputation projections to block-commit finality evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.29.1", "11.2.4"]
@@ -130620,7 +130620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.6]
 title = "Gate finalized AI market webhook delivery on a verified block commit instead of a guarantor certificate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["8.1.5", "11.2.4"]
@@ -140082,7 +140082,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.1]
 title = "Delete the kernel caps and prestate transport tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.21.6", "1.4.6"]
@@ -140113,7 +140113,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.2]
 title = "Delete the LNI connection, receipt, submit, availability, batch and module read tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.24.1", "9.23.1", "9.23.2", "9.22.1", "9.22.2", "9.23.4"]
@@ -140190,8 +140190,8 @@ symbols = ["budget_refuses_malformed_and_arithmetic_bounds"]
 touches = ["services/agent/crates/layerx-client/tests/lni_abi.rs", "services/agent/crates/layerx-client/tests/lni_handshake.rs", "services/agent/crates/layerx-client/tests/lni_schema.rs", "services/agent/crates/layerx-client/tests/lni_transport.rs", "services/agent/crates/layerx-client/tests/lni_preparation.rs", "services/agent/crates/layerx-client/tests/head_attestation.rs", "services/agent/crates/layerx-client/tests/program_read.rs", "services/agent/crates/layerx-client/tests/simulation_artifacts.rs", "services/agent/crates/layerx-client/examples/go_verifier_vectors.rs", "services/agent/crates/layerx-client/tests/reads.rs", "services/agent/crates/layerx-client/tests/stream.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::budget_refuses_malformed_and_arithmetic_bounds"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact budget_refuses_malformed_and_arithmetic_bounds"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact budget_refuses_malformed_and_arithmetic_bounds"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -140220,8 +140220,8 @@ symbols = ["native_grant_signatures_and_every_committed_field"]
 touches = ["services/agent/crates/layerx-client/src/lni/head_attestation.rs", "services/agent/crates/layerx-client/src/lni/preparation.rs", "services/agent/crates/layerx-client/src/lni/program_read.rs", "services/agent/crates/layerx-client/src/lni/simulate.rs", "services/agent/crates/layerx-client/src/evidence/module_state.rs", "services/agent/crates/layerx-client/src/evidence/asset_record.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -159084,7 +159084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.1]
 title = "Delete the explorer verify page and its evidence verifier view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.5.4", "14.6.3", "14.6.4"]
@@ -159116,7 +159116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.2]
 title = "Retire POST /api/explorer/verify, the mirror verifier and verifyEvidenceUpstream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.6.1"]
@@ -159180,7 +159180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.4]
 title = "Drop the explorer verify page from the explorer browser specs and test scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.7.2"]
@@ -159310,7 +159310,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.4]
 title = "Delete the custody hand-off, evidence and timing modules with the HUMAN_* variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.7.3"]
@@ -159695,7 +159695,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.10.3]
 title = "Remove the explorer verify and retired verification-level copy keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["14.6.2", "14.6.4", "14.5.5", "14.9.3", "14.9.5", "14.9.6", "14.7.4"]
@@ -160164,7 +160164,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.4]
 title = "Delete the live anchor and receipt controllers, views and their tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.23.2"]
@@ -160937,7 +160937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.30.2]
 title = "Enable the precompile source in sig-provider-server settings and startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.30.1", "16.93.1"]

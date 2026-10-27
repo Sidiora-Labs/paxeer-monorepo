@@ -364,6 +364,13 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
 				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
+			case "PoolMetadata":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				var addressErr *sdkerrors.Error
+				require.ErrorAs(t, err, &addressErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
 			case "MarketByAddress", "MarketsByCreator":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
