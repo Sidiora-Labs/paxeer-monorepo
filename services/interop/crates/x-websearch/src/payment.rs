@@ -18,15 +18,18 @@ use base64::Engine as _;
 use k256::ecdsa::SigningKey;
 use layerx_crypto::payments::{Grant, Payment};
 use layerx_interop_gateway::adapter::ConformanceSuite;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch, ReceiptKeys};
-use layerx_proof::sequencer_logs::SequencerLog;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
+use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_types::payload::ModuleId;
+pub use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use layerx_x402::model::{
     account_identifiers, AtomicAmount, PaymentRequired, PaymentRequirements, ResourceInfo,
     X402_VERSION,
@@ -47,7 +50,7 @@ use crate::watch::{hex0x, keccak, parse_quantity};
 use crate::assets::{AcceptedAsset, AcceptedAssets, AssetRefusal};
 use crate::config::{payer_did_valid, AssetSymbol, Config};
 use crate::server::{Request, Response, Route, RouteError, RouteTable};
-use crate::settlement::{SettlementError, SettlementRpc};
+use crate::settlement::{SettlementError, SettlementReceipt, SettlementRpc};
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
@@ -57,8 +60,6 @@ pub const PAYER_DID: &str = "LAYERX-PAYER-DID";
 pub const COMMITMENT: &str = "executed";
 pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
-/// The protocol used to decode grants and payer account identifiers.
-pub const PROTOCOL_VERSION: u16 = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 pub const OFFER_TIMEOUT_SECONDS: u32 = 60;
 pub const DRAW_VALIDITY_MS: u64 = 60_000;
 pub const GRANT_BYTES: usize = 346;
@@ -72,10 +73,9 @@ const PRINCIPAL_DOMAIN: &[u8] = b"LayerX/x-websearch/v1/principal\0";
 const TRACE_DOMAIN: &[u8] = b"LayerX/x-websearch/v1/trace\0";
 const ANONYMOUS_PRINCIPAL: &str = "anonymous-buyer";
 const RPC_TIMEOUT: Duration = Duration::from_secs(10);
+const PENDING_CODE: i64 = -32001;
 const RPC_RESPONSE_LIMIT: usize = 4_194_304;
 const RECEIPT_HEX_LIMIT: usize = 2_097_152;
-const PENDING_CODE: i64 = -32001;
-const ASSET_MODULE: u16 = 1;
 const MAX_HOST_BYTES: usize = 255;
 
 /// Milliseconds since the Unix epoch, as the gate reads its clock.
@@ -145,7 +145,7 @@ pub fn wallet_account(did: &str, asset: &AcceptedAsset) -> String {
     }
 }
 
-/// The account id of a reference under [`PROTOCOL_VERSION`].
+/// The account id of a wallet reference.
 #[must_use]
 pub fn account_id(account: &str) -> Option<[u8; 32]> {
     account_identifiers(account).ok().map(|ids| ids[1])
@@ -1061,8 +1061,7 @@ pub struct PaymentGate {
     receipt_keys: Vec<SequencerAuthorization>,
     payer: Option<String>,
     draw_fee_limit: u128,
-    rpc: GatewayRpc,
-    settlement_rpc: SettlementRpc,
+    rpc: SettlementRpc,
     store: PaymentStore,
     clock: Clock,
     gateway: Mutex<GatewayCore>,
@@ -1129,13 +1128,8 @@ impl PaymentGate {
                 return Err(GateError::Conformance);
             }
         }
-        let rpc = GatewayRpc::new(&config.gateway.endpoint)?;
-        let settlement_rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
+        let rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
             .map_err(|_| GateError::Endpoint)?;
-        let rpc = match &config.gateway.authorization_file {
-            Some(path) => rpc.with_authorization_file(path)?,
-            None => rpc,
-        };
         let store = PaymentStore::open(&config.data_dir).map_err(GateError::Store)?;
         let lease = fs::OpenOptions::new()
             .read(true)
@@ -1160,7 +1154,7 @@ impl PaymentGate {
                 &asset.asset_id,
             ]
             .concat();
-            *slot = settlement_rpc
+            *slot = rpc
                 .eth_call(LEDGER_PRECOMPILE, &data)
                 .map_err(|_| GateError::Adapter)?
                 .try_into()
@@ -1189,7 +1183,6 @@ impl PaymentGate {
             payer: payment.payer_did.clone(),
             draw_fee_limit: payment.draw_fee_limit,
             rpc,
-            settlement_rpc,
             store,
             clock,
             gateway: Mutex::new(gateway),
@@ -1650,6 +1643,11 @@ impl PaymentGate {
                 to: self.payee(asset),
                 asset: asset.asset_id,
                 amount: asset.price,
+                grant: metered
+                    .then(|| recorded_grant(&payment))
+                    .transpose()
+                    .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?,
+                receive_key: payment.receive_key.as_deref().and_then(unhex32),
             };
             let plane = Plane {
                 gate: self,
@@ -1659,8 +1657,16 @@ impl PaymentGate {
                 key: None,
                 refusal: None,
             };
-            let (_, digest) = plane
-                .verify_receipt(&bytes, &expected)
+            let answer = self
+                .rpc
+                .sequencer_receipt(&expected.activity_id.ok_or(io::ErrorKind::InvalidData)?)
+                .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?
+                .ok_or(io::ErrorKind::InvalidData)?;
+            if answer.receipt.as_deref() != Some(bytes.as_slice()) {
+                return Err(io::ErrorKind::InvalidData.into());
+            }
+            let digest = plane
+                .verify_receipt(&answer, &expected)
                 .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
             if payment.receipt_digest.as_deref() != Some(hex(&digest).as_str())
                 || !self.store.claim(RECEIPTS, &hex(&digest), &key)?
@@ -1919,6 +1925,8 @@ struct Expected {
     to: [u8; 32],
     asset: [u8; 32],
     amount: u128,
+    grant: Option<[u8; 32]>,
+    receive_key: Option<[u8; 32]>,
 }
 
 impl<'Plane> Plane<'Plane> {
@@ -1997,7 +2005,7 @@ impl<'Plane> Plane<'Plane> {
     ) -> Settled {
         let payer = self.payer.ok_or("payer_required")?;
         let (grant_id, receive_key) = metered_payload(&request.scheme_payload)?;
-        let grant = read_payer_grant(&self.gate.settlement_rpc, &grant_id)
+        let grant = read_payer_grant(&self.gate.rpc, &grant_id)
             .map_err(|error| match error {
                 SettlementError::Malformed => "invalid_grant",
                 _ => "payment_pending",
@@ -2024,7 +2032,7 @@ impl<'Plane> Plane<'Plane> {
             Ok(false) => return Err("idempotency_conflict"),
             Err(_) => return Err("payment_pending"),
         }
-        let rpc = &self.gate.settlement_rpc;
+        let rpc = &self.gate.rpc;
         let nonce = rpc
             .pending_nonce(self.gate.receiver.address)
             .map_err(|_| "payment_pending")?;
@@ -2108,7 +2116,7 @@ impl<'Plane> Plane<'Plane> {
         if self.gate.store.save(key, &record).is_err() {
             return Self::pending(&record);
         }
-        match self.gate.settlement_rpc.send_raw_transaction(&raw) {
+        match self.gate.rpc.send_raw_transaction(&raw) {
             Ok(hash) if hash == expected => Self::pending(&record),
             Ok(_) => Err("receipt_mismatch"),
             Err(SettlementError::Transport) => Self::pending(&record),
@@ -2123,74 +2131,44 @@ impl<'Plane> Plane<'Plane> {
         asset: &AcceptedAsset,
         pay_to: [u8; 32],
     ) -> Settled {
-        if let Some(receipt) = record.receipt.as_deref() {
-            let bytes = unhex(receipt).ok_or("receipt_unverified")?;
-            return self.finish(key, record, bytes, asset, pay_to);
-        }
-        if !record.attempted {
-            return self.submit(key, record, asset, pay_to);
-        }
-        let activity_id = record.tx_hash.clone().ok_or("request_mismatch")?;
-        let status = self
+        let hash = record
+            .tx_hash
+            .as_deref()
+            .and_then(unhex32)
+            .ok_or("request_mismatch")?;
+        let answer = self
             .gate
             .rpc
-            .call("lx_getActivityStatus", &json!([activity_id]));
-        let needs_receipt = matches!(
-            &status,
-            Some(RpcAnswer::Result(value))
-                if value.get("receipt").is_none()
-                    && value.get("state").and_then(Value::as_str) != Some("pending")
-        );
-        let answer = if needs_receipt {
-            self.gate.rpc.call("lx_getReceipt", &json!([activity_id]))
-        } else {
-            status
-        };
-        self.conclude(key, record, answer, asset, pay_to)
+            .sequencer_receipt(&hash)
+            .map_err(|error| match error {
+                SettlementError::Malformed => "receipt_mismatch",
+                _ => "payment_pending",
+            })?;
+        match answer {
+            None => self.submit(key, record, asset, pay_to),
+            Some(answer) => self.conclude(key, record, answer, asset, pay_to),
+        }
     }
 
     fn conclude(
         &self,
         key: &[u8; 32],
         record: PaymentRecord,
-        answer: Option<RpcAnswer>,
+        answer: SettlementReceipt,
         asset: &AcceptedAsset,
         pay_to: [u8; 32],
     ) -> Settled {
-        let Some(answer) = answer else {
-            return Self::pending(&record);
-        };
-        if answer.pending() {
+        if answer.rung == SettlementRung::Submitted {
             return Self::pending(&record);
         }
-        let RpcAnswer::Result(value) = answer else {
-            return Err("gateway_refused");
-        };
-        if value.get("activity_id").and_then(Value::as_str) != record.tx_hash.as_deref() {
-            return Err("receipt_mismatch");
-        }
-        if value
-            .get("state")
-            .is_some_and(|state| state.as_str() != Some("completed"))
-        {
-            return Err("payment_failed");
-        }
-        let Some(receipt) = value.get("receipt") else {
-            return Self::pending(&record);
-        };
-        let bytes = receipt
-            .as_str()
-            .filter(|text| text.len() <= RECEIPT_HEX_LIMIT)
-            .and_then(unhex)
-            .ok_or("receipt_unverified")?;
-        self.finish(key, record, bytes, asset, pay_to)
+        self.finish(key, record, answer, asset, pay_to)
     }
 
     fn finish(
         &self,
         key: &[u8; 32],
         mut record: PaymentRecord,
-        bytes: Vec<u8>,
+        answer: SettlementReceipt,
         asset: &AcceptedAsset,
         pay_to: [u8; 32],
     ) -> Settled {
@@ -2203,8 +2181,18 @@ impl<'Plane> Plane<'Plane> {
             to: pay_to,
             asset: asset.asset_id,
             amount: asset.price,
+            grant: metered.then(|| recorded_grant(&record)).transpose()?,
+            receive_key: record.receive_key.as_deref().and_then(unhex32),
         };
-        let (_, digest) = self.verify_receipt(&bytes, &expected)?;
+        let digest = self.verify_receipt(&answer, &expected)?;
+        let bytes = answer.receipt.ok_or("receipt_unverified")?;
+        if record
+            .receipt
+            .as_deref()
+            .is_some_and(|saved| saved != hex(&bytes))
+        {
+            return Err("receipt_mismatch");
+        }
         match self.gate.store.claim(RECEIPTS, &hex(&digest), key) {
             Ok(true) => {}
             Ok(false) => return Err("receipt_consumed"),
@@ -2219,84 +2207,62 @@ impl<'Plane> Plane<'Plane> {
         } else if record.receipt_digest.as_deref() != Some(hex(&digest).as_str()) {
             return Err("receipt_mismatch");
         }
-        let transaction_hash = record
-            .tx_hash
-            .as_deref()
-            .and_then(unhex32)
-            .ok_or("receipt_mismatch")?;
-        let Some(RpcAnswer::Result(value)) = self.gate.rpc.call(
-            "pax_sequencerReceipt",
-            &json!([format!("0x{}", hex(&transaction_hash))]),
-        ) else {
-            return Self::pending(&record);
-        };
-        let rpc_bytes = |value: &Value| {
-            value
-                .as_str()
-                .and_then(|text| text.strip_prefix("0x"))
-                .and_then(unhex)
-        };
-        if rpc_bytes(&value["txHash"]).as_deref() != Some(transaction_hash.as_slice())
-            || rpc_bytes(&value["receipt"]).as_deref() != Some(bytes.as_slice())
-        {
-            return Err("receipt_mismatch");
-        }
-        let logs = value["logs"]
-            .as_array()
-            .ok_or("receipt_unverified")?
-            .iter()
-            .map(|log| {
-                let address = rpc_bytes(&log["address"])?.try_into().ok()?;
-                let topics = log["topics"]
-                    .as_array()?
-                    .iter()
-                    .map(|topic| rpc_bytes(topic)?.try_into().ok())
-                    .collect::<Option<Vec<[u8; 32]>>>()?;
-                let data = rpc_bytes(&log["data"])?;
-                let index =
-                    u64::from_str_radix(log["logIndex"].as_str()?.strip_prefix("0x")?, 16).ok()?;
-                Some(SequencerLog::new(address, topics, data, index))
-            })
-            .collect::<Option<Vec<_>>>()
-            .ok_or("receipt_unverified")?;
         Ok(PlanePaymentOutcome::Executed(ExecutedPayment {
             evidence: SequencerEvidence {
-                transaction_hash,
+                transaction_hash: answer.tx_hash,
                 signed_receipt: bytes,
-                logs,
-                rung: SettlementRung::Receipted,
+                logs: answer
+                    .logs
+                    .into_iter()
+                    .map(|log| SequencerLog::new(log.address, log.topics, log.data, log.log_index))
+                    .collect(),
+                rung: answer.rung,
             },
         }))
     }
 
     fn verify_receipt(
         &self,
-        bytes: &[u8],
+        answer: &SettlementReceipt,
         expected: &Expected,
-    ) -> Result<(AuthorizedBatch, [u8; 32]), &'static str> {
+    ) -> Result<[u8; 32], &'static str> {
+        let bytes = answer
+            .receipt
+            .as_deref()
+            .filter(|bytes| bytes.len() <= RECEIPT_HEX_LIMIT / 2)
+            .ok_or("receipt_unverified")?;
         let receipt =
             verify_sequencer_signature(bytes, ReceiptKeys::HeightRanges(&self.gate.receipt_keys))
                 .map_err(|_| "receipt_unverified")?;
         let facts = receipt.protocol().ok_or("receipt_unverified")?;
-        let trusted = self
-            .gate
-            .receipt_keys
-            .iter()
-            .find(|key| key.sequencer_id() == facts.context_hash())
-            .ok_or("receipt_unverified")?
-            .public_key();
-        if facts.module_id() != ASSET_MODULE
-            || facts.operation() != expected.operation
-            || facts.result_code() != 0
-            || expected
-                .activity_id
-                .is_some_and(|activity| activity != facts.activity_id())
-            || expected.from.is_some_and(|from| from != facts.from())
-            || facts.to() != expected.to
-            || facts.asset() != expected.asset
-            || facts.amount() != expected.amount
+        let batch = facts.batch_id();
+        let height = u64::from_be_bytes(batch[24..].try_into().map_err(|_| "receipt_unverified")?);
+        if expected
+            .activity_id
+            .is_some_and(|hash| hash != answer.tx_hash)
+            || facts.activity_id() != answer.tx_hash
+            || answer.seq != Some(facts.global_sequence())
+            || answer.height != Some(height)
+            || answer.key_id != Some(facts.context_hash())
+            || answer.status != Some(u64::from(facts.result_code() == 0))
         {
             return Err("receipt_mismatch");
+        }
+        let logs = answer
+            .logs
+            .iter()
+            .map(|log| {
+                SequencerLog::new(
+                    log.address,
+                    log.topics.clone(),
+                    log.data.clone(),
+                    log.log_index,
+                )
+            })
+            .collect();
+        let verified = verify_logs(&receipt, logs).map_err(|_| "receipt_mismatch")?;
+        if facts.result_code() != 0 {
+            return Err("payment_failed");
         }
         if expected
             .fee_limit
@@ -2304,16 +2270,43 @@ impl<'Plane> Plane<'Plane> {
         {
             return Err("draw_fee_limit_exceeded");
         }
-        let batch = AuthorizedBatch::new(
-            facts.batch_id(),
-            facts.asset(),
-            facts.previous_state_root(),
-            facts.resulting_state_root(),
-            trusted,
-        );
-        let verified = verify(bytes, &batch).map_err(|_| "receipt_unverified")?;
-        let digest = leaf_hash(verified.canonical_bytes()).map_err(|_| "receipt_unverified")?;
-        Ok((batch, digest))
+        let event = if expected.operation == 6 {
+            keccak(b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)")
+        } else {
+            keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        };
+        let matches = verified
+            .logs()
+            .iter()
+            .filter(|log| {
+                let topics = log.topics();
+                let data = log.data();
+                log.address() == LEDGER_PRECOMPILE
+                    && topics.len() == 4
+                    && topics[0] == event
+                    && if expected.operation == 6 {
+                        expected.grant == Some(topics[1])
+                            && expected.from == Some(topics[2])
+                            && topics[3] == expected.to
+                            && data.len() == 128
+                            && expected
+                                .receive_key
+                                .as_ref()
+                                .is_some_and(|key| data[64..96] == key[..])
+                    } else {
+                        expected.from.is_none_or(|from| topics[1] == from)
+                            && topics[2] == expected.to
+                            && data.len() == 64
+                    }
+                    && data[..32] == expected.asset
+                    && data[32..48] == [0; 16]
+                    && data[48..64] == expected.amount.to_be_bytes()
+            })
+            .count();
+        if matches != 1 {
+            return Err("receipt_mismatch");
+        }
+        canonical_receipt_digest(bytes).map_err(|_| "receipt_unverified")
     }
 
     fn exact(
@@ -2336,8 +2329,12 @@ impl<'Plane> Plane<'Plane> {
             to: pay_to,
             asset: asset.asset_id,
             amount: asset.price,
+            grant: None,
+            receive_key: None,
         };
-        let (_, digest) = self.verify_receipt(&bytes, &expected)?;
+        verify_sequencer_signature(&bytes, ReceiptKeys::HeightRanges(&self.gate.receipt_keys))
+            .map_err(|_| "receipt_unverified")?;
+        let digest = leaf_hash(&bytes).map_err(|_| "receipt_unverified")?;
         if digest != claimed {
             return Err("receipt_digest_mismatch");
         }
@@ -2371,25 +2368,78 @@ impl<'Plane> Plane<'Plane> {
             }
             record
         };
-        if record.receipt.is_some() {
-            return self.finish(&key, record, bytes, asset, pay_to);
-        }
-        let activity_id = record.tx_hash.clone().ok_or("request_mismatch")?;
-        let answer = self.gate.rpc.call("lx_getReceipt", &json!([activity_id]));
-        let confirmed = match &answer {
-            Some(RpcAnswer::Result(value)) => value
-                .get("receipt")
-                .and_then(Value::as_str)
-                .is_none_or(|receipt| unhex(receipt).as_deref() == Some(bytes.as_slice())),
-            Some(error @ RpcAnswer::Error { .. }) if error.pending() => true,
-            Some(RpcAnswer::Error { .. }) => return Err("receipt_unknown"),
-            None => true,
+        let hash = record
+            .tx_hash
+            .as_deref()
+            .and_then(unhex32)
+            .ok_or("request_mismatch")?;
+        let Some(answer) = self
+            .gate
+            .rpc
+            .sequencer_receipt(&hash)
+            .map_err(|_| "payment_pending")?
+        else {
+            return Self::pending(&record);
         };
-        if !confirmed {
+        if answer.rung == SettlementRung::Submitted {
+            return Self::pending(&record);
+        }
+        if answer.receipt.as_deref() != Some(bytes.as_slice()) {
             return Err("receipt_mismatch");
         }
+        self.verify_receipt(&answer, &expected)?;
         self.conclude(&key, record, answer, asset, pay_to)
     }
+}
+
+fn recorded_grant(record: &PaymentRecord) -> Result<[u8; 32], &'static str> {
+    fn item(bytes: &[u8]) -> Option<(bool, &[u8], &[u8])> {
+        let first = *bytes.first()?;
+        let (list, offset, length) = match first {
+            0..=127 => (false, 0, 1),
+            128..=183 => (false, 1, usize::from(first - 128)),
+            192..=247 => (true, 1, usize::from(first - 192)),
+            _ => {
+                let list = first >= 248;
+                let width = usize::from(first - if list { 247 } else { 183 });
+                let length = bytes.get(1..1 + width)?.iter().try_fold(0usize, |n, b| {
+                    n.checked_mul(256)?.checked_add(usize::from(*b))
+                })?;
+                (list, 1 + width, length)
+            }
+        };
+        let end = offset.checked_add(length)?;
+        Some((list, bytes.get(offset..end)?, bytes.get(end..)?))
+    }
+    let raw = record
+        .raw_transaction
+        .as_deref()
+        .and_then(unhex)
+        .ok_or("receipt_mismatch")?;
+    if record.tx_hash.as_deref().and_then(unhex32) != Some(keccak(&raw)) {
+        return Err("receipt_mismatch");
+    }
+    let (list, mut fields, tail) = item(&raw).ok_or("receipt_mismatch")?;
+    if !list || !tail.is_empty() {
+        return Err("receipt_mismatch");
+    }
+    for index in 0..6 {
+        let (list, field, rest) = item(fields).ok_or("receipt_mismatch")?;
+        if list {
+            return Err("receipt_mismatch");
+        }
+        if index == 3 && field != LEDGER_PRECOMPILE {
+            return Err("receipt_mismatch");
+        }
+        if index == 5 {
+            if field.len() != 228 || field[..4] != keccak(DRAW_SIGNATURE.as_bytes())[..4] {
+                return Err("receipt_mismatch");
+            }
+            return field[4..36].try_into().map_err(|_| "receipt_mismatch");
+        }
+        fields = rest;
+    }
+    Err("receipt_mismatch")
 }
 
 fn check_grant(
