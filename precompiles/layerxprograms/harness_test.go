@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"bytes"
@@ -12,6 +12,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	xwebtestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/testutil"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,7 +25,7 @@ type harness struct {
 	t          *testing.T
 	key        *sdk.KVStoreKey
 	host       *lxphost.Host
-	executor   *PrecompileExecutor
+	executor   *lp.PrecompileExecutor
 	stateDB    *state.DBImpl
 	evm        *vm.EVM
 	precompile *pcommon.Precompile
@@ -51,9 +52,9 @@ func newHarness(t *testing.T) *harness {
 	_, err = app.EvmKeeper.BindLayerX(ctx, h.caller, h.publicKey, signature)
 	require.NoError(t, err)
 	h.host = h.newHost(1000000)
-	h.executor = &PrecompileExecutor{host: h.host, evmKeeper: &app.EvmKeeper}
-	h.precompile = pcommon.NewPrecompile(programsABI, h.executor, common.HexToAddress("0x101d"), "layerxprograms").
-		WithLXPReasons().WithGasTable(gasTable)
+	h.executor = lp.NewTestExecutor(h.host, &app.EvmKeeper)
+	h.precompile = pcommon.NewPrecompile(lp.ProgramsABI, h.executor, common.HexToAddress("0x101d"), "layerxprograms").
+		WithLXPReasons().WithGasTable(lp.GasTable)
 	h.stateDB = state.NewDBImpl(ctx, &app.EvmKeeper, false)
 	block, err := app.EvmKeeper.GetVMBlockContext(ctx, core.GasPool(math.MaxUint64))
 	require.NoError(t, err)

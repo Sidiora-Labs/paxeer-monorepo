@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"bytes"
@@ -10,6 +10,7 @@ import (
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -49,7 +50,7 @@ func TestProgramsPrincipalFromBoundDID(t *testing.T) {
 		{origin, originKey},
 		{contract, contractKey},
 	} {
-		authority, actorDID, err := principalOf(ctx, k, tc.caller)
+		authority, actorDID, err := lp.PrincipalOf(ctx, k, tc.caller)
 		require.NoError(t, err)
 		_, accountID, err := lxphost.MainAccountID(tc.key)
 		require.NoError(t, err)
@@ -76,7 +77,7 @@ func TestProgramsPrincipalUnboundRefused(t *testing.T) {
 	boundCaller := common.HexToAddress("0x13252303")
 	unboundCaller := common.HexToAddress("0x13252304")
 	bindProgramsPrincipal(t, ctx, k, boundCaller, 0x57)
-	authority, actorDID, err := principalOf(ctx, k, boundCaller)
+	authority, actorDID, err := lp.PrincipalOf(ctx, k, boundCaller)
 	require.NoError(t, err)
 	require.NotEqual(t, lxphost.KernelAuthority{}, authority)
 	require.NotEmpty(t, actorDID)
@@ -85,8 +86,8 @@ func TestProgramsPrincipalUnboundRefused(t *testing.T) {
 	for _, caller := range []common.Address{unboundCaller, boundCaller} {
 		_, bound := k.GetLayerXDid(ctx, caller)
 		require.False(t, bound)
-		authority, actorDID, err := principalOf(ctx, k, caller)
-		require.ErrorIs(t, err, ErrUnboundCaller)
+		authority, actorDID, err := lp.PrincipalOf(ctx, k, caller)
+		require.ErrorIs(t, err, lp.ErrUnboundCaller)
 		require.Equal(t, lxphost.KernelAuthority{}, authority)
 		require.Nil(t, actorDID)
 		reason, unpackErr := abi.UnpackRevert(pcommon.LXPReason(err))
