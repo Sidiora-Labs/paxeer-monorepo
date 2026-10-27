@@ -101,19 +101,6 @@ def main():
                             executable, os.environ['LAYERX_TEST_HANDOVER_LNI_SOCKET'],
                             client_directory, count], os.environ,
                            output / 'public-history-consumer.log')
-                    read_consumer = os.environ.get('LAYERX_TEST_HANDOVER_READ_CONSUMER_BIN')
-                    if read_consumer is not None:
-                        reads_executable = client_directory / 'native-handover-reads'
-                        shutil.copyfile(read_consumer, reads_executable)
-                        reads_executable.chmod(0o755)
-                        clock_executable = client_directory / 'runtime-clock'
-                        shutil.copyfile(os.environ['LAYERX_TEST_HANDOVER_CLOCK_BIN'], clock_executable)
-                        clock_executable.chmod(0o755)
-                        invoke(['setpriv', '--reuid=4021', '--regid=4021', '--clear-groups',
-                                clock_executable, '--runtime-dir', client_directory, '--',
-                                reads_executable, os.environ['LAYERX_TEST_HANDOVER_LNI_SOCKET'],
-                                client_directory, count], os.environ,
-                               output / 'public-history-reads.log')
                     authority = os.environ.get('LAYERX_TEST_HANDOVER_AUTHORITY_BIN')
                     if authority is not None:
                         authority_gate = runpy.run_path(str(ROOT / 'tests/daemon/handover-authority.py'))
