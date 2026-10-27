@@ -100031,7 +100031,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.3]
 title = "Prove the legacy end block runs agent jobs within MaxBlockGas and counts their gas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["2.32.8", "2.34.2", "2.0.2", "5.95.1"]
@@ -113825,7 +113825,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.5]
 title = "Check optimistic processing on a sequenced block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.3", "5.19.3"]
@@ -141083,7 +141083,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_8 = "decode_method in services/agent/crates/layerx-crypto/src/disclosure/call.rs:81 discloses only send(bytes), issueGrant(bytes), draw and revokeGrant on 0x101A, so bind_call refuses every other call as MalformedPayload: add ConstructMethod variants and decode_method arms for openAccount(bytes32), register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes), mint(bytes32,bytes32,uint128) and burn, with selectors computed from the layerxledger ABI (precompiles/layerxledger), map each to its Payment ordinal and disclose its asset, counterparties and amounts in fields (call.rs:138), and cover each in services/agent/crates/layerx-crypto/tests/disclosure_call.rs; the SDK signs these calls through the same sign_disclosed_call path."
 [task.9.32.3]
 title = "Serve layerx-wallet-rpc over the EVM signer with hashes and rungs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.32.2", "9.1.7"]
@@ -141681,7 +141681,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.2]
 title = "Remove the checkpoint settlement types and activity decoders from layerx-sdk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.35.4", "9.35.5", "9.32.2", "9.32.4", "9.1.7"]
