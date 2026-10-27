@@ -113512,7 +113512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.14.3]
 title = "Run the layerxauth revocation decorator in the ante chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.14.1", "2.0.2", "5.19.2", "5.41.2"]
@@ -119572,7 +119572,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.5]
 title = "Add MissingMergeConstructors for the node start check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "6.6.4", "6.7.3", "5.45.1"]
