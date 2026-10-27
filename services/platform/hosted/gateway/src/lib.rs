@@ -1334,6 +1334,10 @@ struct ReceiptKeyEntry {
 }
 
 impl ReceiptKeyList {
+    pub fn entries(&self) -> &[SequencerAuthorization] {
+        &self.0
+    }
+
     pub fn from_config(document: &str) -> Result<Self, &'static str> {
         if document.len() > 256 * 1024 {
             return Err("receipt key list");
