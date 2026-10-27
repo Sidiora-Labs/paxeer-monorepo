@@ -6,11 +6,13 @@ import (
 	"os"
 	"testing"
 
+	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
+	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	ethcommon "github.com/ethereum/go-ethereum/common"
@@ -35,11 +37,17 @@ func (e *retireGatedExecutor) Execute(ctx sdk.Context, method *abi.Method, calle
 	return []byte("ran"), nil
 }
 
+func RetiredAt(ctx sdk.Context, keeper *evmkeeper.Keeper, plan string, height int64) bool {
+	return common.RetiredAt(ctx, common.UpgradeReaderOf(keeper), plan, height)
+}
+
 func TestRetiredAtMergePlan(t *testing.T) {
 	const actHeight = int64(200)
 	k := &testkeeper.EVMTestApp.EvmKeeper
 	ctx, _ := testkeeper.EVMTestApp.GetContextForDeliverTx(nil).CacheContext()
 	upgrades := k.UpgradeKeeper()
+	require.Same(t, upgrades, common.UpgradeReaderOf(k))
+	require.Nil(t, common.UpgradeReaderOf(nil))
 	abiBz, err := os.ReadFile("erc20_abi.json")
 	require.NoError(t, err)
 	newAbi, err := abi.JSON(bytes.NewReader(abiBz))
@@ -64,9 +72,21 @@ func TestRetiredAtMergePlan(t *testing.T) {
 	// Without a bound reader and before the plan is applied nothing retires.
 	require.False(t, common.RetiredAt(ctx, nil, common.MergeUpgrade, actHeight))
 	require.False(t, common.RetiredAt(ctx, upgrades, common.MergeUpgrade, actHeight))
+	const scheduledHeight = int64(100)
+	require.NoError(t, upgrades.ScheduleUpgrade(ctx.WithBlockHeight(1), upgradetypes.Plan{
+		Name: common.MergeUpgrade, Height: scheduledHeight,
+	}))
+	for _, height := range []int64{scheduledHeight - 1, scheduledHeight, scheduledHeight + 1, actHeight - 1, actHeight, actHeight + 1} {
+		require.False(t, RetiredAt(ctx.WithBlockHeight(height), k, common.MergeUpgrade, height), height)
+	}
 	before := keysAt(actHeight - 1)
 
 	upgrades.SetDone(ctx.WithBlockHeight(actHeight), common.MergeUpgrade)
+	require.Equal(t, actHeight, upgrades.GetDoneHeight(ctx, common.MergeUpgrade))
+	for _, height := range []int64{scheduledHeight, actHeight - 1, actHeight, actHeight + 1} {
+		require.Equal(t, height >= actHeight, RetiredAt(ctx.WithBlockHeight(1), k, common.MergeUpgrade, height), height)
+		require.Equal(t, height >= actHeight, RetiredAt(ctx.WithBlockHeight(actHeight+1), k, common.MergeUpgrade, height), height)
+	}
 
 	// Below H_act the method runs and the precompile set is unchanged.
 	require.False(t, common.RetiredAt(ctx, upgrades, common.MergeUpgrade, actHeight-1))

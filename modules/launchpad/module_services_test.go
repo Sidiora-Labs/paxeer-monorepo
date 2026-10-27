@@ -1,7 +1,6 @@
 package launchpad_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -15,7 +14,9 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
@@ -31,9 +32,11 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 	msgRouter.SetInterfaceRegistry(registry)
 	queryRouter := baseapp.NewGRPCQueryRouter()
 	queryRouter.SetInterfaceRegistry(registry)
-	k := keeper.NewKeeper(sdk.NewKVStoreKey(types.StoreKey), nil, nil, nil)
+	key := sdk.NewKVStoreKey(types.StoreKey)
+	k := keeper.NewKeeper(key, nil, nil, nil)
 	am := launchpad.NewAppModule(k)
-	am.RegisterServices(module.NewConfigurator(codec.NewProtoCodec(registry), msgRouter, queryRouter))
+	cdc := codec.NewProtoCodec(registry)
+	am.RegisterServices(module.NewConfigurator(cdc, msgRouter, queryRouter))
 
 	require.NotNil(t, msgRouter.Handler(&types.MsgUpdateParams{}))
 	require.NotNil(t, msgRouter.Handler(&types.MsgTreasuryWithdraw{}))
@@ -44,14 +47,60 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 		"AirdropEpoch", "AirdropClaimed", "HasRole", "QuoteLedger", "FeeAccounting", "PoolMetadata",
 	}
 	require.Len(t, methods, 17)
-	ctx := sdk.Context{}.WithContext(context.Background())
+	ctx := testutil.DefaultContext(key, sdk.NewTransientStoreKey("transient_launchpad"))
+	params := types.DefaultParams()
+	params.CreationFee = sdk.NewInt(7654321)
+	params.QuoteToken = "0x0000000000000000000000000000000000001017"
+	require.NoError(t, k.UpdateParams(ctx, k.Authority(), params))
 	for _, method := range methods {
 		t.Run(method, func(t *testing.T) {
 			handler := queryRouter.Route("/paxprotocol.paxchain.launchpad.Query/" + method)
 			require.NotNil(t, handler)
-			_, err := handler(ctx, abci.RequestQuery{})
-			require.Equal(t, codes.Unimplemented, status.Code(err))
-			require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())
+			response, err := handler(ctx, abci.RequestQuery{})
+			switch method {
+			case "Params":
+				require.NoError(t, err)
+				var result types.QueryParamsResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, params, result.Params)
+			case "Market":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "MarketByAddress":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+			case "Markets":
+				require.ErrorIs(t, err, types.ErrInvalidRange)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, types.ErrInvalidRange.Codespace(), codespace)
+				require.Equal(t, types.ErrInvalidRange.ABCICode(), code)
+				data, err := cdc.Marshal(&types.QueryMarketsRequest{Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
+				require.Equal(t, k.GetMarketCount(ctx), result.Total)
+			case "MarketsByCreator":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				creator := sdk.AccAddress([]byte("launchpad creator 01"))
+				data, err := cdc.Marshal(&types.QueryMarketsByCreatorRequest{Creator: creator.String(), Limit: 1})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryMarketsByCreatorResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Empty(t, result.Markets)
+			default:
+				require.Equal(t, codes.Unimplemented, status.Code(err))
+				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())
+			}
 		})
 	}
 }

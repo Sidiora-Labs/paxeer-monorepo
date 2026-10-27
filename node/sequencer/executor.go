@@ -1,8 +1,6 @@
 package sequencer
 
 import (
-	"crypto/sha256"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"sync"
@@ -12,6 +10,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -32,12 +31,15 @@ var (
 	ErrSealHeight    = errors.New("sequencer: seal height is not the open height")
 	ErrSeqExhausted  = errors.New("sequencer: sequence number space exhausted")
 	ErrBeginBlock    = errors.New("sequencer: begin block failed")
+	ErrLeaseFenced   = errors.New("sequencer: executor fenced by a later lease")
 )
 
-var seqHashDomain = []byte("PAXEER/v1/sequence\x00")
+var seqHashDomain = []byte(seqtypes.SeqHashDomain)
 
 // Executor executes transactions at receipt on the open speculative block.
 type Executor interface {
+	// Fence permanently refuses subsequent Open, Accept and Seal calls.
+	Fence() error
 	// Mode reports the execution mode the executor was built with.
 	Mode() Mode
 	// Open builds the open layer over the last committed state for height at
@@ -70,9 +72,11 @@ type Host interface {
 	CacheTxContext(ctx sdk.Context, checksum [32]byte) (sdk.Context, sdk.CacheMultiStore)
 	CommitMultiStore() sdk.CommitMultiStore
 	LastBlockHeight() int64
+	LastBlockID() tmproto.BlockID
 	GetConsensusParams(ctx sdk.Context) *tmproto.ConsensusParams
 	GetTxConfig() client.TxConfig
 	GetEVMMsg(tx sdk.Tx) *evmtypes.MsgEVMTransaction
+	RefreshPrecompiles(ctx sdk.Context)
 }
 
 // Options configures an executor.
@@ -138,6 +142,7 @@ type openLayer struct {
 
 type sequential struct {
 	mu          sync.Mutex
+	fenced      bool
 	host        Host
 	chainID     string
 	proposer    []byte
@@ -223,9 +228,19 @@ func NewExecutor(host Host, opts Options) (Executor, error) {
 
 func (s *sequential) Mode() Mode { return ModeSequential }
 
+func (s *sequential) Fence() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.fenced = true
+	return nil
+}
+
 func (s *sequential) Open(height int64, timestampMs int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return ErrLeaseFenced
+	}
 	if s.open != nil {
 		return ErrLayerOpen
 	}
@@ -239,6 +254,8 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 		ChainID:         s.chainID,
 		Height:          height,
 		Time:            time.UnixMilli(timestampMs).UTC(),
+		AppHash:         s.host.CommitMultiStore().LastCommitID().Hash,
+		LastBlockId:     s.host.LastBlockID(),
 		ProposerAddress: append([]byte(nil), s.proposer...),
 	}
 	store := s.host.CommitMultiStore().CacheMultiStore()
@@ -248,7 +265,7 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 	if err != nil {
 		return err
 	}
-	s.open = &openLayer{
+	opening := &sequential{open: &openLayer{
 		height:           height,
 		timestampMs:      timestampMs,
 		ctx:              ctx,
@@ -256,7 +273,11 @@ func (s *sequential) Open(height int64, timestampMs int64) error {
 		beginBlockEvents: events,
 		fromSeq:          s.lastSeq + 1,
 		prevSeqHash:      s.lastSeqHash,
+	}}
+	if err := RefreshPrecompiles(s.host, opening); err != nil {
+		return err
 	}
+	s.open = opening.open
 	return nil
 }
 
@@ -274,6 +295,9 @@ func (s *sequential) beginBlock(ctx sdk.Context, height int64) (events []abci.Ev
 func (s *sequential) Seal(height int64) (*Batch, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return nil, ErrLeaseFenced
+	}
 	if s.open == nil {
 		return nil, ErrLayerNotOpen
 	}
@@ -340,14 +364,5 @@ func (s *sequential) PendingTx(hash [32]byte) (PendingTx, bool) {
 
 // nextSeqHash is sha256("PAXEER/v1/sequence\0" || prevSeqHash || u64be(seq) || activity_id).
 func nextSeqHash(prev [32]byte, seq uint64, activityID [32]byte) [32]byte {
-	var seqBytes [8]byte
-	binary.BigEndian.PutUint64(seqBytes[:], seq)
-	h := sha256.New()
-	h.Write(seqHashDomain)
-	h.Write(prev[:])
-	h.Write(seqBytes[:])
-	h.Write(activityID[:])
-	var out [32]byte
-	copy(out[:], h.Sum(nil))
-	return out
+	return seqtypes.SeqHash(prev, seq, activityID)
 }

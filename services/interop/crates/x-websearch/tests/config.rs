@@ -103,7 +103,7 @@ fn committed_configuration_is_accepted_with_every_field() -> Result<(), Box<dyn 
     assert_eq!(config.evm.endpoint, "http://127.0.0.1:8545");
     assert_eq!(config.evm.chain_id, 1337);
     assert_eq!(config.evm.confirmations, 12);
-    assert_eq!(config.kernel_network_id, 1);
+    assert_eq!(config.kernel_network_id, Some(1));
     assert_eq!(
         config.peers,
         ["http://127.0.0.1:8481", "http://127.0.0.1:8482"]
@@ -247,16 +247,27 @@ fn every_missing_or_null_field_is_named() -> Result<(), Box<dyn std::error::Erro
             .ok_or("object")?
             .remove(name)
             .ok_or("field")?;
-        assert_eq!(
-            Config::parse(&removed.to_string()).err(),
-            Some(refusal(&field, Refusal::Missing)),
-            "removed {pointer}"
-        );
+        if field == "kernel_network_id" {
+            assert_eq!(Config::parse(&removed.to_string())?.kernel_network_id, None);
+        } else {
+            assert_eq!(
+                Config::parse(&removed.to_string()).err(),
+                Some(refusal(&field, Refusal::Missing)),
+                "removed {pointer}"
+            );
+        }
         let mut nulled = valid.clone();
         *nulled.pointer_mut(&pointer).ok_or("field")? = Value::Null;
         assert_eq!(
             Config::parse(&nulled.to_string()).err(),
-            Some(refusal(&field, Refusal::Missing)),
+            Some(refusal(
+                &field,
+                if field == "kernel_network_id" {
+                    Refusal::Invalid
+                } else {
+                    Refusal::Missing
+                },
+            )),
             "null {pointer}"
         );
     }
@@ -576,6 +587,43 @@ fn malformed_payment_settings() -> Vec<(&'static str, Value, Refusal)> {
     cases.extend(malformed_draw_fee_limit());
     cases.extend(malformed_conformance_suite());
     cases
+}
+
+#[test]
+fn an_absent_kernel_network_id_parses_and_zero_is_refused() -> Result<(), Box<dyn std::error::Error>>
+{
+    let mut value = valid_json()?;
+    value
+        .as_object_mut()
+        .ok_or("config object")?
+        .remove("kernel_network_id");
+    assert_eq!(Config::parse(&value.to_string())?.kernel_network_id, None);
+    for network in [1, u32::MAX] {
+        value["kernel_network_id"] = serde_json::json!(network);
+        assert_eq!(
+            Config::parse(&value.to_string())?.kernel_network_id,
+            Some(network)
+        );
+    }
+    value["kernel_network_id"] = serde_json::json!(0);
+    let error = Config::parse(&value.to_string())
+        .err()
+        .ok_or("zero was accepted")?;
+    assert_eq!(error, refusal("kernel_network_id", Refusal::Placeholder));
+    assert!(error.to_string().contains("kernel_network_id"));
+    for invalid in [
+        Value::Null,
+        serde_json::json!(-1),
+        serde_json::json!("1"),
+        serde_json::json!(u64::from(u32::MAX) + 1),
+    ] {
+        value["kernel_network_id"] = invalid;
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("kernel_network_id", Refusal::Invalid))
+        );
+    }
+    Ok(())
 }
 
 fn malformed_object() -> Vec<(&'static str, Value, Refusal)> {

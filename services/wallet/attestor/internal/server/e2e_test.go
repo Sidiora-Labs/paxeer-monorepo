@@ -281,7 +281,7 @@ func testPolicy() *policy.Document {
 		Version: policy.Version,
 		Defaults: policy.Rules{
 			ChainID:                &chain,
-			Kinds:                  append([]string{policy.KindSponsoredBatch, policy.KindAuthorization}, SignKinds()...),
+			Kinds:                  append([]string{policy.KindSponsoredBatch, policy.KindAuthorization, policy.KindLXSendAuth}, SignKinds()...),
 			Caps:                   map[string]policy.Cap{policy.AssetNative: {PerTransaction: "1000000000000000000", Daily: "10000000000000000000"}},
 			RatePerMinute:          &rate,
 			AuthorizationDelegates: []string{"0x2222222222222222222222222222222222222222"},
@@ -580,71 +580,9 @@ func importKey(t *testing.T, c *testCluster, keyID string, curve dealer.Curve, s
 
 func kernelActivityFor(t *testing.T, signer ed25519.PrivateKey, sequence uint64) ([]byte, []byte) {
 	t.Helper()
-	var key [32]byte
-	copy(key[:], signer.Public().(ed25519.PublicKey))
-	did := lxwire.DIDFromKey(key)
-	from, err := lxwire.AccountID([]byte(lxwire.MainAccountName(did)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var peer [32]byte
-	for i := range peer {
-		peer[i] = 0x52
-	}
-	to, err := lxwire.AccountID([]byte(lxwire.MainAccountName(lxwire.DIDFromKey(peer))))
-	if err != nil {
-		t.Fatal(err)
-	}
 	now := uint64(time.Now().Unix())
-	idempotency := sha256.Sum256([]byte(fmt.Sprintf("attestor end-to-end activity %d", sequence)))
-	context := sha256.Sum256([]byte(fmt.Sprintf("attestor end-to-end send context %d", sequence)))
-	send := &lxwire.Send{
-		From:              from,
-		To:                to,
-		Amount:            lxwire.Uint128{Lo: 5_000_000},
-		SourceSequence:    sequence,
-		IdempotencyKey:    idempotency,
-		ExpiresAt:         now + 600,
-		ContextHash:       context,
-		AuthorizationKind: lxwire.OwnerAuthorization,
-		Controller:        from,
-		PublicKey:         key,
-		SignedContextHash: context,
-		NetworkID:         testChainID,
-		ProtocolVersion:   lxwire.MaxProtocolVersion,
-	}
-	digest, err := send.AuthorizationDigest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	copy(send.Signature[:], ed25519.Sign(signer, digest[:]))
-	payload, err := send.Encode()
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := &lxwire.Activity{
-		ProtocolVersion: lxwire.MaxProtocolVersion,
-		NetworkID:       testChainID,
-		Type:            lx.OpAssetTransfer,
-		ActorDID:        []byte(did),
-		Authority:       key[:],
-		AccountSequence: sequence,
-		NotBefore:       now - 60,
-		NotAfter:        now + 600,
-		IdempotencyKey:  idempotency,
-		FeeLimit:        lxwire.Uint128{Lo: 1000},
-		PayloadHash:     lxwire.PayloadHash(payload),
-		Payload:         payload,
-	}
-	unsigned, err := lxwire.EncodeUnsignedActivity(a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pre, err := lxwire.SignaturePreimage(a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return unsigned, pre[:]
+	pending := newPendingSend(t, signer.Public().(ed25519.PublicKey), nil, sequence, 5_000_000, now-60, now+600)
+	return pending.envelope(t), pending.digest(t)
 }
 
 // approvedActivity plays the original approval boundary: it reviews the canonical activity
@@ -655,7 +593,7 @@ func approvedActivity(t *testing.T, c *testCluster, unsigned []byte, keyID, sess
 	if err != nil {
 		t.Fatal(err)
 	}
-	effect, err := lx.DecodeEffect(a)
+	send, effect, err := lx.DecodeSendAuthorization(a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -663,7 +601,7 @@ func approvedActivity(t *testing.T, c *testCluster, unsigned []byte, keyID, sess
 	if !ok {
 		t.Fatalf("activity module %d is unknown", a.Type.Module())
 	}
-	pre, err := lxwire.SignaturePreimage(a)
+	pre, err := send.AuthorizationDigest()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -710,7 +648,7 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 	substitute, _ := kernelActivityFor(t, signer, 12)
 	const session = "approved-activity"
 	request := func(activity []byte, d *lx.Disclosure, a *lx.Approval) SignRequest {
-		return SignRequest{SessionID: session, KeyID: "approved-lx", Kind: KindLXActivity, Activity: hex.EncodeToString(activity), Disclosure: d, Approval: a}
+		return SignRequest{SessionID: session, KeyID: "approved-lx", Kind: KindLXSendAuth, Activity: hex.EncodeToString(activity), Disclosure: d, Approval: a}
 	}
 	disclosure, approval := approvedActivity(t, c, approvedBytes, "approved-lx", session, testOwner)
 
@@ -778,7 +716,7 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 	importKey(t, c, "approved-recovery", dealer.Ed25519, recoveryScalar, common.HexToAddress("0x5555555555555555555555555555555555555555").Hex())
 	recoveryBytes, recoveryPreimage := kernelActivityFor(t, recoverySigner, 1)
 	recoveryDisclosure, recoveryApproval := approvedActivity(t, c, recoveryBytes, "approved-recovery", "approved-recovery-session", testOwner)
-	recovered := SignRequest{SessionID: "approved-recovery-session", KeyID: "approved-recovery", Kind: KindLXActivity, Activity: hex.EncodeToString(recoveryBytes), Disclosure: recoveryDisclosure, Approval: recoveryApproval}
+	recovered := SignRequest{SessionID: "approved-recovery-session", KeyID: "approved-recovery", Kind: KindLXSendAuth, Activity: hex.EncodeToString(recoveryBytes), Disclosure: recoveryDisclosure, Approval: recoveryApproval}
 	for _, r := range decodeOK[SignResponse](t, "approved activity after a restart", sign(recovered, fresh())) {
 		sig, _ := hex.DecodeString(r.Signature)
 		if !ed25519.Verify(recoverySigner.Public().(ed25519.PublicKey), recoveryPreimage, sig) {
@@ -933,7 +871,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 
 	unsigned, preimage := kernelActivityFor(t, ed25519.NewKeyFromSeed(edSeed[:]), 1)
 	actDisclosure, actApproval := approvedActivity(t, c, unsigned, "lx-key", "sign-activity", testOwner)
-	actResults := decodeOK[SignResponse](t, "activity", sign("sign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXActivity, Activity: hex.EncodeToString(unsigned), Disclosure: actDisclosure, Approval: actApproval}, fresh()))
+	actResults := decodeOK[SignResponse](t, "activity", sign("sign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXSendAuth, Activity: hex.EncodeToString(unsigned), Disclosure: actDisclosure, Approval: actApproval}, fresh()))
 	for _, r := range actResults {
 		sig, _ := hex.DecodeString(r.Signature)
 		if r.SignedBytes != hex.EncodeToString(preimage) || !ed25519.Verify(edPub, preimage, sig) {
@@ -986,7 +924,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 	peerSeed := sha256.Sum256([]byte("attestor end-to-end foreign identity"))
 	foreign, _ := kernelActivityFor(t, ed25519.NewKeyFromSeed(peerSeed[:]), 3)
 	foreignDisclosure, foreignApproval := approvedActivity(t, c, foreign, "lx-key", "sign-foreign-activity", testOwner)
-	for _, r := range sign("sign-foreign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXActivity, Activity: hex.EncodeToString(foreign), Disclosure: foreignDisclosure, Approval: foreignApproval}, fresh()) {
+	for _, r := range sign("sign-foreign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXSendAuth, Activity: hex.EncodeToString(foreign), Disclosure: foreignDisclosure, Approval: foreignApproval}, fresh()) {
 		e := expectError(t, "activity for another identity", r, CodePolicyDenied)
 		if e.PolicyCode != lx.CodeAuthorityMismatch {
 			t.Fatalf("activity for another identity: policy code %s", e.PolicyCode)
@@ -1292,7 +1230,7 @@ func TestOperatorVerificationInTheCeremonyWindow(t *testing.T) {
 			req.Message, req.Transaction = "", raw
 		case KindTypedData:
 			req.Message, req.TypedData = "", `{"types":{"EIP712Domain":[{"name":"chainId","type":"uint256"}],"Note":[{"name":"text","type":"string"}]},"primaryType":"Note","domain":{"chainId":125},"message":{"text":"`+VerificationDomain+`"}}`
-		case KindLXActivity:
+		case KindLXSendAuth:
 			req.Message, req.Activity = "", raw
 		case KindEthSignDigest:
 			req.Message, req.Digest = "", hex.EncodeToString(gethcrypto.Keccak256(secpMsg))

@@ -174,9 +174,9 @@ func TestXWebRegistration(t *testing.T) {
 	require.Contains(t, vm.PrecompiledAddressesCancun, address)
 }
 
-func TestMergeAddressTable(t *testing.T) {
+func MergeAddressTable() []precompiles.MergeAddress {
 	// The address and name pairs of contracts/address-table.md section (a).
-	expected := []precompiles.MergeAddress{
+	return []precompiles.MergeAddress{
 		{Address: common.HexToAddress("0x000000000000000000000000000000000000101A"), Name: "layerxledger"},
 		{Address: common.HexToAddress("0x000000000000000000000000000000000000101B"), Name: "layerxpay"},
 		{Address: common.HexToAddress("0x000000000000000000000000000000000000101C"), Name: "layerxauth"},
@@ -190,6 +190,11 @@ func TestMergeAddressTable(t *testing.T) {
 		{Address: common.HexToAddress("0x0000000000000000000000000000000000000907"), Name: "tee attestor"},
 		{Address: common.HexToAddress("0x0000000000000000000000000000000000000908"), Name: "eip712"},
 	}
+}
+
+func TestMergeAddressTable(t *testing.T) {
+	expected := MergeAddressTable()
+	require.Len(t, precompiles.MergeAddressTable, 12)
 	require.Equal(t, expected, precompiles.MergeAddressTable)
 	require.Equal(t, app.MergeUpgrade, precompiles.MergeUpgrade)
 

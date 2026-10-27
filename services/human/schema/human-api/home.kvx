@@ -11,13 +11,15 @@ honesty = "source_head is the exact agent-layer head relative to which the read 
 
 [type.AccountBalance]
 required = ["account_id:AccountId","money:Money","verification:VerificationLevel","freshness:ProtocolFreshness","evidence:EvidenceRef[]"]
+optional = ["rung:Rung"]
 source = "money is decoded only from core-produced balance bytes admitted by the agent layer at verification or above. The human service never maintains or increments a balance of its own and never raises verification."
 evidence = "evidence includes the verified read and any checkpoint proof required to reproduce the presented balance independently."
 
 [type.HomeSummary]
 required = ["balance:AccountBalance","agents:Agent[]","approvals:ApprovalSummary[]","recent_activity:ActivityEntryDetail[]"]
-optional = ["program_approvals:ProgramApprovalSummary[]"]
+optional = ["program_approvals:ProgramApprovalSummary[]","rung:Rung"]
 composition = "Every protocol fact retains the verification and evidence carried by its source operation. The summary is a bounded composition of the real balance, agent, approval and activity services, never a second cache or write model."
+rung = "The achieved rung of balance, retaining its verification and evidence; this summary never promotes a constituent claim."
 
 [operation.account.balance]
 authorization_class = "read"
@@ -32,3 +34,7 @@ method = "GET"
 path = "/v1/home"
 request = "Empty"
 response = "HomeSummary"
+
+[type.Rung]
+variants = ["submitted","receipted","committed"]
+verification = "Rungs retain the VerificationLevel mapping: submitted is unverified, receipted is receipt-verified and committed is checkpoint-finalised. A rung states the achieved evidence level and never raises verification."

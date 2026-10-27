@@ -216,7 +216,7 @@ func TestLoadPeerPinsAndActivityTypes(t *testing.T) {
 	pinC := strings.Repeat("CD", 32)
 	env := baseEnv(t, path)
 	env[EnvPeerPins] = "node-2=" + pinB + ", node-3=" + pinC
-	env[EnvActivityTypes] = "0x30002, 0x10005,65543"
+	env[EnvActivityTypes] = "0x10005"
 	cfg, err := Load(getter(env))
 	if err != nil {
 		t.Fatal(err)
@@ -224,7 +224,7 @@ func TestLoadPeerPinsAndActivityTypes(t *testing.T) {
 	if cfg.PeerPins["node-2"] != pinB || cfg.PeerPins["node-3"] != strings.ToLower(pinC) || len(cfg.PeerPins) != 2 {
 		t.Fatalf("pins %v", cfg.PeerPins)
 	}
-	want := []uint32{0x10005, 0x10007, 0x30002}
+	want := []uint32{0x10005}
 	if len(cfg.ActivityTypes) != len(want) {
 		t.Fatalf("activity types %v", cfg.ActivityTypes)
 	}
@@ -261,6 +261,35 @@ func TestLoadPeerPinsAndActivityTypes(t *testing.T) {
 				t.Fatalf("Load accepted: %+v", cfg)
 			}
 		})
+	}
+}
+
+func TestParseActivityTypesRefusesNonSendType(t *testing.T) {
+	for _, input := range []string{"0x10005", "65541", " 0x10005 "} {
+		types, err := ParseActivityTypes(input)
+		if err != nil {
+			t.Fatalf("ParseActivityTypes(%q): %v", input, err)
+		}
+		if len(types) != 1 || types[0] != 0x10005 {
+			t.Fatalf("ParseActivityTypes(%q) = %v, want [0x10005]", input, types)
+		}
+	}
+	for _, nonSend := range []string{"0x30002", "0x10007", "0x90005", "65543", "1", "4294967295"} {
+		for _, input := range []string{nonSend, "0x10005," + nonSend, nonSend + ",0x10005"} {
+			t.Run(input, func(t *testing.T) {
+				types, err := ParseActivityTypes(input)
+				if err == nil {
+					t.Fatalf("ParseActivityTypes(%q) accepted: %v", input, types)
+				}
+				want := "config: ATTESTOR_ACTIVITY_TYPES: activity type \"" + nonSend + "\" is not the asset send"
+				if err.Error() != want {
+					t.Fatalf("ParseActivityTypes(%q) error = %q, want %q", input, err.Error(), want)
+				}
+				if types != nil {
+					t.Fatalf("ParseActivityTypes(%q) returned activity types with error: %v", input, types)
+				}
+			})
+		}
 	}
 }
 

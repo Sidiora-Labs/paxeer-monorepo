@@ -4,13 +4,18 @@ use std::fmt::{Display, Formatter};
 
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
 use layerx_interop_gateway::error::GatewayError;
-use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
+use layerx_interop_gateway::gateway::{
+    SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch};
+use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use sha2::{Digest as _, Sha256};
 
 const ADAPTER_ID: &str = "ucp";
@@ -26,7 +31,6 @@ const VALUE_LIMIT: usize = 256;
 const REQUEST_DOMAIN: &[u8] = b"LayerX/interop/ucp/checkout/v1\0";
 const IDEMPOTENCY_DOMAIN: &[u8] = b"LayerX/interop/ucp/idempotency/v1\0";
 const SEQUENCE_DOMAIN: &[u8] = b"PAXEER/v1/sequence\0";
-const RECEIPT_DOMAIN: &[u8] = b"LXP/v1/receipt\0";
 const PAYMENT_EXACT_TOPIC: [u8; 32] = [
     0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e, 0x56,
     0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
@@ -477,11 +481,10 @@ pub enum UcpPlaneResult {
 }
 
 /// Executed merchant metadata and independently verifiable protocol evidence.
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ExecutedUcpPayment {
     pub metadata: OrderMetadata,
-    pub canonical_receipt: Vec<u8>,
-    pub authorised_batch: AuthorizedBatch,
+    pub evidence: SequencerEvidence,
 }
 
 /// Typed `LayerX` payment boundary used by the UCP seller.
@@ -500,6 +503,34 @@ pub trait UcpPaymentPlane {
     ) -> Result<UcpPlaneResult, UcpError>;
 }
 
+impl UcpPaymentPlane for ExecutedUcpPayment {
+    fn execute(
+        &mut self,
+        intent: &UcpPaymentIntent,
+        _trace: &TraceId,
+    ) -> Result<UcpPlaneResult, UcpError> {
+        if self.evidence.rung != SettlementRung::Submitted {
+            let mut payments = self.evidence.logs.iter().filter(|log| {
+                log.address() == LEDGER_ADDRESS
+                    && log.topics().len() == 4
+                    && log.topics()[0] == PAYMENT_EXACT_TOPIC
+                    && log.topics()[3] == intent.idempotency_key
+            });
+            let payment = payments.next().ok_or(UcpError::ReceiptMismatch)?;
+            let mut expected_data = [0; 64];
+            expected_data[..32].copy_from_slice(&intent.asset);
+            expected_data[48..].copy_from_slice(&intent.amount.to_be_bytes());
+            if payments.next().is_some()
+                || payment.topics()[2] != intent.recipient
+                || payment.data() != expected_data
+            {
+                return Err(UcpError::ReceiptMismatch);
+            }
+        }
+        Ok(UcpPlaneResult::Executed(Box::new(self.clone())))
+    }
+}
+
 /// Receipt-backed UCP order snapshot.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct UcpOrder {
@@ -509,6 +540,7 @@ pub struct UcpOrder {
     pub currency: [u8; 3],
     pub total_minor: u128,
     pub receipt_digest: [u8; 32],
+    pub transaction_hash: [u8; 32],
 }
 
 /// UCP-visible completion response. A pending status carries no order.
@@ -516,16 +548,19 @@ pub struct UcpOrder {
 pub struct CheckoutOutcome {
     pub status: CheckoutStatus,
     pub order: Option<UcpOrder>,
+    pub stored_order: Option<StoredOrder>,
 }
 
 /// Stored order material used by GET order. Re-verification is mandatory on
 /// every read so stale or corrupted receipt bytes never back a response.
-#[derive(Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StoredOrder {
     pub submission: CheckoutSubmission,
     pub metadata: OrderMetadata,
-    pub canonical_receipt: Vec<u8>,
-    pub authorised_batch: AuthorizedBatch,
+    pub transaction_hash: [u8; 32],
+    pub signed_receipt: Vec<u8>,
+    pub logs: Vec<SequencerLog>,
+    pub rung: SettlementRung,
 }
 
 /// UCP checkout and order adapter.
@@ -544,6 +579,7 @@ impl UcpAdapter {
         principal: &PrincipalId,
         submission: &CheckoutSubmission,
         plane: &mut impl UcpPaymentPlane,
+        receipt_keys: &[SequencerAuthorization],
         trace: &TraceId,
         now: u64,
     ) -> Result<CheckoutOutcome, Traced<UcpError>> {
@@ -591,31 +627,49 @@ impl UcpAdapter {
                 Ok(refused_outcome())
             }
             UcpPlaneResult::Executed(executed) => {
-                let ExecutedUcpPayment {
-                    metadata,
-                    canonical_receipt,
-                    authorised_batch,
-                } = *executed;
+                let ExecutedUcpPayment { metadata, evidence } = *executed;
+                if evidence.rung == SettlementRung::Submitted {
+                    return if previously_settled.is_none() {
+                        Ok(pending_outcome())
+                    } else {
+                        Err(fail(UcpError::OrderEvidenceRequired))
+                    };
+                }
                 metadata.validate().map_err(fail)?;
+                verify_order_evidence(&evidence, receipt_keys).map_err(fail)?;
                 let receipt_digest =
-                    verify_order_receipt(submission, &canonical_receipt, &authorised_batch)
+                    verify_sequencer_receipt(submission, &evidence.signed_receipt, receipt_keys)
                         .map_err(fail)?;
                 let status = gateway
-                    .settle_with_receipt(
+                    .settle_with_sequencer_evidence(
                         principal,
                         key,
-                        &canonical_receipt,
-                        &authorised_batch,
+                        &evidence,
+                        receipt_keys,
                         trace,
                         now,
                     )
-                    .map_err(|error| trace.wrap(UcpError::Gateway(error.into_error())))?;
+                    .map_err(|error| match error.into_error() {
+                        SequencerSettlementError::Gateway(error) => fail(UcpError::Gateway(error)),
+                        SequencerSettlementError::Logs(_)
+                        | SequencerSettlementError::PaymentUnmatched => {
+                            fail(UcpError::ReceiptMismatch)
+                        }
+                    })?;
                 if status != (TranslationStatus::ReceiptVerified { receipt_digest })
                     || previously_settled.is_some_and(|digest| digest != receipt_digest)
                 {
                     return Err(fail(UcpError::ReceiptRequired));
                 }
-                Ok(completed_outcome(submission, &metadata, receipt_digest))
+                let stored = StoredOrder {
+                    submission: submission.clone(),
+                    metadata,
+                    transaction_hash: evidence.transaction_hash,
+                    signed_receipt: evidence.signed_receipt,
+                    logs: evidence.logs,
+                    rung: evidence.rung,
+                };
+                Ok(completed_outcome(stored, receipt_digest))
             }
         }
     }
@@ -626,39 +680,43 @@ impl UcpAdapter {
     ///
     /// Refuses missing order capability, invalid merchant metadata, and stale
     /// or mismatched receipt evidence.
-    pub fn read_order(stored: &StoredOrder) -> Result<UcpOrder, UcpError> {
+    pub fn read_order(
+        stored: &StoredOrder,
+        receipt_keys: &[SequencerAuthorization],
+    ) -> Result<UcpOrder, UcpError> {
         stored.submission.validate()?;
         if !stored.submission.negotiated.order {
             return Err(UcpError::CapabilityUnavailable);
         }
         stored.metadata.validate()?;
-        let receipt_digest = verify_order_receipt(
-            &stored.submission,
-            &stored.canonical_receipt,
-            &stored.authorised_batch,
-        )?;
-        Ok(order(&stored.submission, &stored.metadata, receipt_digest))
+        let evidence = SequencerEvidence {
+            transaction_hash: stored.transaction_hash,
+            signed_receipt: stored.signed_receipt.clone(),
+            logs: stored.logs.clone(),
+            rung: stored.rung,
+        };
+        verify_order_evidence(&evidence, receipt_keys)?;
+        let receipt_digest =
+            verify_sequencer_receipt(&stored.submission, &stored.signed_receipt, receipt_keys)?;
+        Ok(order(stored, receipt_digest))
     }
 }
 
-fn verify_order_receipt(
-    submission: &CheckoutSubmission,
-    canonical_receipt: &[u8],
-    authorised_batch: &AuthorizedBatch,
-) -> Result<[u8; 32], UcpError> {
-    let verified =
-        verify(canonical_receipt, authorised_batch).map_err(|_| UcpError::ReceiptMismatch)?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or(UcpError::ReceiptMismatch)?;
-    if protocol.asset() != submission.layerx_asset
-        || protocol.amount() != submission.total_minor
-        || protocol.to() != submission.layerx_recipient
-    {
+fn verify_order_evidence(
+    evidence: &SequencerEvidence,
+    receipt_keys: &[SequencerAuthorization],
+) -> Result<(), UcpError> {
+    if evidence.rung == SettlementRung::Submitted {
+        return Err(UcpError::ReceiptRequired);
+    }
+    let verified = verify_sequencer_signature(&evidence.signed_receipt, receipt_keys)
+        .map_err(|_| UcpError::ReceiptMismatch)?;
+    let protocol = verified.protocol().ok_or(UcpError::ReceiptMismatch)?;
+    if protocol.activity_id() != evidence.transaction_hash {
         return Err(UcpError::ReceiptMismatch);
     }
-    leaf_hash(verified.canonical_bytes()).map_err(|_| UcpError::ReceiptMismatch)
+    verify_logs(&verified, evidence.logs.clone()).map_err(|_| UcpError::ReceiptMismatch)?;
+    Ok(())
 }
 
 pub fn verify_sequencer_receipt(
@@ -736,7 +794,7 @@ pub fn verify_sequencer_receipt(
     if !matched {
         return Err(UcpError::ReceiptMismatch);
     }
-    sequencer_receipt_digest(canonical_receipt)
+    canonical_receipt_digest(canonical_receipt).map_err(|_| UcpError::ReceiptMismatch)
 }
 
 fn verify_sequencer_summary(
@@ -791,37 +849,17 @@ fn matches_payment_exact(
     Ok(true)
 }
 
-fn sequencer_receipt_digest(canonical_receipt: &[u8]) -> Result<[u8; 32], UcpError> {
-    let unsigned_end = canonical_receipt
-        .len()
-        .checked_sub(69)
-        .ok_or(UcpError::ReceiptMismatch)?;
-    if canonical_receipt.get(unsigned_end..unsigned_end + 5) != Some(&[1, 0, 0, 0, 64]) {
-        return Err(UcpError::ReceiptMismatch);
-    }
-    let mut digest = Sha256::new();
-    digest.update(RECEIPT_DOMAIN);
-    digest.update(&canonical_receipt[..unsigned_end]);
-    digest.update([0]);
-    Ok(digest.finalize().into())
-}
-
-fn completed_outcome(
-    submission: &CheckoutSubmission,
-    metadata: &OrderMetadata,
-    receipt_digest: [u8; 32],
-) -> CheckoutOutcome {
+fn completed_outcome(stored: StoredOrder, receipt_digest: [u8; 32]) -> CheckoutOutcome {
     CheckoutOutcome {
         status: CheckoutStatus::Completed,
-        order: Some(order(submission, metadata, receipt_digest)),
+        order: Some(order(&stored, receipt_digest)),
+        stored_order: Some(stored),
     }
 }
 
-fn order(
-    submission: &CheckoutSubmission,
-    metadata: &OrderMetadata,
-    receipt_digest: [u8; 32],
-) -> UcpOrder {
+fn order(stored: &StoredOrder, receipt_digest: [u8; 32]) -> UcpOrder {
+    let submission = &stored.submission;
+    let metadata = &stored.metadata;
     UcpOrder {
         id: metadata.order_id.clone(),
         checkout_id: submission.checkout_id.clone(),
@@ -829,6 +867,7 @@ fn order(
         currency: submission.currency,
         total_minor: submission.total_minor,
         receipt_digest,
+        transaction_hash: stored.transaction_hash,
     }
 }
 
@@ -836,6 +875,7 @@ const fn pending_outcome() -> CheckoutOutcome {
     CheckoutOutcome {
         status: CheckoutStatus::CompleteInProgress,
         order: None,
+        stored_order: None,
     }
 }
 
@@ -843,6 +883,7 @@ const fn refused_outcome() -> CheckoutOutcome {
     CheckoutOutcome {
         status: CheckoutStatus::Incomplete,
         order: None,
+        stored_order: None,
     }
 }
 

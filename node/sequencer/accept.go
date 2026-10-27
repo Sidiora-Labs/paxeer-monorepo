@@ -16,6 +16,9 @@ import (
 func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return nil, ErrLeaseFenced
+	}
 	if s.open == nil {
 		return nil, ErrLayerNotOpen
 	}
@@ -29,13 +32,19 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, err.Error())
 	}
+	beforeAdmission := s.open.ctx
+	if err := s.admit(tx, txBytes); err != nil {
+		return nil, err
+	}
 	checksum := sha256.Sum256(txBytes)
 	txIndex := len(s.open.txs) + 1
 	res, branch, err := s.deliver(tx, txBytes, checksum, txIndex)
 	if err != nil {
+		s.open.ctx = beforeAdmission
 		return nil, err
 	}
 	if !receipted(res) {
+		s.open.ctx = beforeAdmission
 		return nil, sdkerrors.ABCIError(res.Codespace, res.Code, res.Log)
 	}
 	branch.Write()
@@ -88,7 +97,11 @@ func (s *sequential) deliver(tx sdk.Tx, txBytes []byte, checksum [32]byte, txInd
 			err = sdkerrors.Wrapf(sdkerrors.ErrPanic, "recovered: %v", r)
 		}
 	}()
-	ctx, branch := s.host.CacheTxContext(s.open.ctx.WithTxIndex(txIndex), checksum)
+	ctx, err := SetTxPosition(s.open.ctx, txIndex)
+	if err != nil {
+		return abci.ResponseDeliverTx{}, nil, err
+	}
+	ctx, branch = s.host.CacheTxContext(ctx, checksum)
 	res = s.host.DeliverTx(ctx, abci.RequestDeliverTxV2{Tx: txBytes}, tx, checksum)
 	return res, branch, nil
 }

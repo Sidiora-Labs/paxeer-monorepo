@@ -22,6 +22,9 @@ import urllib.parse
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
+from candidate import SERVICE_CATALOGUE
+
 CASES = ("archive-origin-freshness", "ramp-journal-readiness", "mirror-checkpoint-acquisition",
          "interop-settlement-readiness", "relay-railway-assembly")
 BUDGET_SECONDS = 3.0
@@ -61,7 +64,7 @@ def load_candidate(path):
     from candidate import Invalid, catalogue, load_private, validate
     try:
         data = load_private(path)
-        validate(data, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
+        validate(data, catalogue(ROOT / SERVICE_CATALOGUE))
     except (Invalid, OSError, ValueError, KeyError, TypeError) as error:
         raise Failure(f"candidate manifest is absent or invalid: {error}") from error
     services = {service["id"]: service for service in data["services"]}
@@ -973,7 +976,7 @@ class RampJournalContract:
         from candidate import catalogue, load_private, validate
         self.private = load_private
         candidate = load_private(manifest)
-        validate(candidate, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
+        validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
         self.revision = candidate["source"]["revision"]
         require(self.revision == revision(), "ramp candidate source revision does not match checkout")
         ramp = next((service for service in candidate["services"] if service["id"] == "ramp"), None)
@@ -1479,7 +1482,7 @@ class MirrorCheckpointContract:
         sys.path.insert(0, str(ROOT / "tools/paxeer-x"))
         from candidate import catalogue, load_private, validate
         candidate = load_private(manifest)
-        validate(candidate, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
+        validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
         self.revision = candidate["source"]["revision"]
         require(self.revision == revision(), "mirror source revision differs from checkout")
         service = next((item for item in candidate["services"] if item["id"] == "mirror"), None)
@@ -1857,7 +1860,7 @@ class InteropReadinessContract:
         from candidate import catalogue, load_private, validate
         self.private = load_private
         candidate = load_private(manifest)
-        validate(candidate, catalogue(ROOT / "spec/paxeer-x/spec.kvx"))
+        validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
         self.revision = candidate["source"]["revision"]
         require(self.revision == revision(), "interop candidate revision differs from checkout")
         services = {item["id"]: item for item in candidate["services"]}

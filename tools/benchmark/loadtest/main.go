@@ -14,7 +14,6 @@ import (
 	"os/exec"
 	"os/signal"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -122,24 +121,12 @@ func deployEvmContracts(config *Config) {
 		}
 		config.EVMAddresses.ERC721 = erc721
 	}
-	if config.ContainsAnyMessageTypes(UNIV2) {
-		//TODO: this really should use `deployEvmContract`
-		fmt.Println("Deploying Uniswap contracts")
-		cmd := exec.Command("tools/benchmark/loadtest/contracts/deploy_univ2.sh", config.EVMRpcEndpoint())
-		var out bytes.Buffer
-		cmd.Stdout = &out
-		err := cmd.Run()
-		if err != nil {
-			panic("deploy_univ2.sh failed with error: " + err.Error())
-		}
-		UniV2SwapperRe := regexp.MustCompile(`Swapper Address: "(\w+)"`)
-		match := UniV2SwapperRe.FindStringSubmatch(out.String())
-		uniV2SwapperAddress := common.HexToAddress(match[1])
-		config.EVMAddresses.UniV2Swapper = uniV2SwapperAddress
-	}
 }
 
 func run(config *Config) {
+	if err := config.ValidateMessageTypes(); err != nil {
+		panic(err)
+	}
 	config.EVMAddresses = &EVMAddresses{}
 	// Start metrics collector in another thread
 	metricsServer := MetricsServer{}
@@ -463,54 +450,6 @@ func (c *LoadTestClient) generateMessage(key cryptotypes.PrivKey, msgType string
 				Denom:  "uhpx",
 				Amount: sdk.NewInt(amountUhpx),
 			}),
-		}}
-	case WasmOccIteratorWrite:
-		// generate some values for indices 1-100
-		indices := []int{}
-		for i := 0; i < 100; i++ {
-			indices = append(indices, i)
-		}
-		rand.Shuffle(100, func(i, j int) {
-			indices[i], indices[j] = indices[j], indices[i]
-		})
-		values := [][]uint64{}
-		num_values := rand.Int()%100 + 1
-		for x := 0; x < num_values; x++ {
-			values = append(values, []uint64{uint64(indices[x]), rand.Uint64() % 12345}) //nolint:gosec
-		}
-		contract := config.PaxTesterAddress
-		msgData := WasmIteratorWriteMsg{
-			Values: values,
-		}
-		jsonData, err := json.Marshal(msgData)
-		if err != nil {
-			panic(err)
-		}
-		msgs = []sdk.Msg{&wasmtypes.MsgExecuteContract{
-			Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
-			Contract: contract,
-			Msg:      wasmtypes.RawContractMessage([]byte(fmt.Sprintf("{\"test_occ_iterator_write\":%s}", jsonData))),
-		}}
-	case WasmOccIteratorRange:
-		contract := config.PaxTesterAddress
-		start := rand.Uint32() % 100
-		end := rand.Uint32() % 100
-		if start > end {
-			start, end = end, start
-		}
-		msgs = []sdk.Msg{&wasmtypes.MsgExecuteContract{
-			Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
-			Contract: contract,
-			Msg:      wasmtypes.RawContractMessage([]byte(fmt.Sprintf("{\"test_occ_iterator_range\":{\"start\": %d, \"end\": %d}}", start, end))),
-		}}
-	case WasmOccParallelWrite:
-		contract := config.PaxTesterAddress
-		// generate random value
-		value := rand.Uint64()
-		msgs = []sdk.Msg{&wasmtypes.MsgExecuteContract{
-			Sender:   sdk.AccAddress(key.PubKey().Address()).String(),
-			Contract: contract,
-			Msg:      wasmtypes.RawContractMessage([]byte(fmt.Sprintf("{\"test_occ_parallelism\":{\"value\": %d}}", value))),
 		}}
 	default:
 		fmt.Printf("Unrecognized message type %s", msgType)

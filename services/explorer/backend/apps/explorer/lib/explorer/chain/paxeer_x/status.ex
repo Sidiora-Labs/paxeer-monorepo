@@ -27,38 +27,54 @@ defmodule Explorer.Chain.PaxeerX.Status do
   Places an item on the settlement ladder from the block holding it, the committed
   head and the result of `SequencerReceipt.verify/4` on its sequencer receipt.
 
-  A block the committed head covers is committed. Otherwise a sequencer receipt
-  that passed R1-R6 is receipted; anything else stays submitted.
+  An item is committed if its block is covered by the committed head or its
+  sequencer receipt passed R1-R8, even when its block is not indexed yet.
+  Otherwise a sequencer receipt that passed R1-R6 is receipted; anything else
+  stays submitted.
   """
   @spec of(non_neg_integer() | nil, Heights.t(), verification()) :: t()
   def of(block_number, %Heights{} = heights, verification \\ nil)
       when is_nil(block_number) or (is_integer(block_number) and block_number >= 0) do
+    classification = classify(verification)
+
     {rung, reason} =
-      case {decide(block_number, heights), verified?(verification)} do
-        {{:committed, _reason} = committed, _verified} -> committed
-        {_submitted, true} -> {:receipted, :sequencer_receipt}
-        {submitted, false} -> submitted
+      case {decide(block_number, heights), classification} do
+        {{:committed, _reason} = committed, _classification} -> committed
+        {_submitted, {:committed, _height}} -> {:committed, :sequencer_receipt}
+        {_submitted, :receipted} -> {:receipted, :sequencer_receipt}
+        {submitted, :none} -> submitted
+      end
+
+    committed_height =
+      case classification do
+        {:committed, height} ->
+          if is_nil(heights.committed_height) or heights.committed_height < height,
+            do: height,
+            else: heights.committed_height
+
+        _ ->
+          heights.committed_height
       end
 
     %__MODULE__{
       rung: rung,
       reason: reason,
       block_number: block_number,
-      committed_height: heights.committed_height
+      committed_height: committed_height
     }
   end
 
   @spec rung(non_neg_integer() | nil, Heights.t(), verification()) :: rung()
   def rung(block_number, %Heights{} = heights, verification \\ nil), do: of(block_number, heights, verification).rung
 
-  defp verified?({:receipted, %{key_id: <<_::256>>, public_key: <<_::256>>}}), do: true
+  defp classify({:receipted, %{key_id: <<_::256>>, public_key: <<_::256>>}}), do: :receipted
 
-  defp verified?({:committed, %{key_id: <<_::256>>, public_key: <<_::256>>}, height})
+  defp classify({:committed, %{key_id: <<_::256>>, public_key: <<_::256>>}, height})
        when is_integer(height) and height > 0,
-       do: true
+       do: {:committed, height}
 
-  defp verified?(nil), do: false
-  defp verified?({:error, step}) when step in [:r1, :r2, :r3, :r4, :r5, :r6, :r7, :r8], do: false
+  defp classify(nil), do: :none
+  defp classify({:error, step}) when step in [:r1, :r2, :r3, :r4, :r5, :r6, :r7, :r8], do: :none
 
   defp decide(nil, _heights), do: {:submitted, :no_block}
   defp decide(_block_number, %Heights{committed_height: nil}), do: {:submitted, :head_unknown}

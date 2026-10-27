@@ -4,7 +4,6 @@ import test from "node:test";
 import { copyEntries } from "../copy/catalog.ts";
 import { copyEntry } from "../copy/runtime.ts";
 import {
-  EXPLORER_ANCHOR_PATH,
   EXPLORER_LINK_KINDS,
   EXPLORER_NAVIGATION,
   explorerLinkPath,
@@ -36,11 +35,11 @@ function budgetedRoutes(): readonly string[] {
   return Object.keys(ROUTE_SCRIPT_BUDGETS);
 }
 
-test("every anchor target resolves to the explorer's one anchor surface", () => {
+test("every retired anchor target is refused", () => {
   for (const target of [{ kind: "anchor" }, { kind: "batch" }, { kind: "checkpoint" }] as const) {
-    assert.equal(explorerLinkPath(target), EXPLORER_ANCHOR_PATH);
+    // @ts-expect-error Retired kinds must also be refused at runtime.
+    assert.throws(() => explorerLinkPath(target), TypeError);
   }
-  assert.equal(EXPLORER_ANCHOR_PATH, "/paxeer-x/anchors");
 });
 
 test("the identified targets carry their identifier into the explorer's own route", () => {
@@ -57,9 +56,6 @@ test("the identified targets carry their identifier into the explorer's own rout
 
 test("the link surface covers every explorer link kind and refuses identifiers it cannot address", () => {
   assert.deepEqual([...EXPLORER_LINK_KINDS], [
-    "anchor",
-    "batch",
-    "checkpoint",
     "receipt",
     "transaction",
     "address",
@@ -80,9 +76,6 @@ test("the link surface covers every explorer link kind and refuses identifiers i
 
 test("a link path never carries a host of its own", () => {
   const targets: readonly ExplorerLinkTarget[] = [
-    { kind: "anchor" },
-    { kind: "batch" },
-    { kind: "checkpoint" },
     { kind: "receipt", receiptId: RECEIPT },
     { kind: "transaction", transactionHash: TRANSACTION },
     { kind: "address", address: ADDRESS },
@@ -124,7 +117,6 @@ test("an absolute link joins the configured origin to the path of its target", (
     throw new Error("the explorer base URL fixture must parse");
   }
   for (const target of [
-    { kind: "anchor" },
     { kind: "receipt", receiptId: RECEIPT },
     { kind: "transaction", transactionHash: TRANSACTION },
     { kind: "address", address: ADDRESS },

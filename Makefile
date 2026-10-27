@@ -14,7 +14,7 @@ AGENT_CARGO ?= cargo
 AGENT_MANIFEST := services/agent/Cargo.toml
 AGENT_FUZZ_TOOLCHAIN ?= nightly-2025-11-10
 AGENT_BOUNDARY_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tests/boundary/target))/debug/agent-boundary-conformance
-AGENT_WIRE_HARNESS := $(abspath $(or $(CARGO_TARGET_DIR),services/agent/tools/wire-differential/target))/debug/agent-wire-differential
+AGENT_NODE_RPC_URL ?= http://127.0.0.1:8545
 HUMAN_CARGO ?= cargo
 HUMAN_MANIFEST := services/human/Cargo.toml
 HUMAN_WEB_DIR := apps/web
@@ -1318,12 +1318,13 @@ $(BUILD_DIR)/tests/test_genesis_manifest: tests/test_genesis_manifest.c \
 		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_genesis_module_table: \
-		tests/test_genesis_module_table.c \
+		tests/test_genesis_module_table.c tests/lxp_test_harness.c \
 		cmd/layerx-genesis/lxp_genesis_build_cli.c \
 		cmd/layerx-genesis/lxp_genesis_builder.c $(LIBRARY) \
 		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) tests/test_genesis_module_table.c \
+	$(CC) $(CPPFLAGS) -Itests $(CFLAGS) tests/test_genesis_module_table.c \
+		tests/lxp_test_harness.c \
 		cmd/layerx-genesis/lxp_genesis_build_cli.c \
 		cmd/layerx-genesis/lxp_genesis_builder.c $(LIBRARY) \
 		$(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) \
@@ -1430,7 +1431,7 @@ $(BUILD_DIR)/tests/kernel/%: tests/%.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | prog
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -Itests/codec $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(LIBRARY) $(EXTRA_LDFLAGS) \
-		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
 
 $(BUILD_DIR)/tests/test_fuzz_smoke: tests/test_fuzz_smoke.c \
 		tests/fuzz/fuzz_activity.c tests/fuzz/fuzz_signature.c \
@@ -2403,18 +2404,6 @@ agent-test-types-verification:
 agent-test-vectors:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-types --test vectors
 
-agent-test-wire-primitives:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-wire --test primitives
-
-agent-test-wire-structures:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-wire --test structures
-
-agent-test-wire-rejection:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-wire --test rejection
-
-agent-test-wire-hashing:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-wire --test hashing
-
 agent-test-crypto-verify: test-crypto-ed25519 test-crypto-secp256k1
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-crypto --test verify
 
@@ -2450,49 +2439,14 @@ agent-test-proof-levels:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --tests
 	$(AGENT_CARGO) check --manifest-path $(AGENT_MANIFEST) --locked -p layerx-proof --example offline_verify
 
-agent-test-lni-schema:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-client --test lni_schema
-
-agent-test-lni-transport:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-client --test lni_transport
-	$(AGENT_CARGO) check --manifest-path services/agent/fuzz/Cargo.toml --locked --bin lni_frame
-
-agent-test-lni-handshake:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-client --test lni_handshake
-
-agent-test-lni-abi:
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked -p layerx-client --test lni_abi
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path services/agent/tools/boundary-check/Cargo.toml --locked
-	$(AGENT_CARGO) run --manifest-path services/agent/tools/boundary-check/Cargo.toml --locked --quiet -- services/agent
-
-$(BUILD_DIR)/agent/layerxd-lni: services/agent/tests/boundary/node/layerxd_lni.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) services/agent/tests/boundary/node/layerxd_lni.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-$(BUILD_DIR)/agent/lni-preparation-state: \
-		services/agent/tests/boundary/node/preparation_state.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) \
-		services/agent/tests/boundary/node/preparation_state.c \
-		$(LAYERXD_SOURCES) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@
-
-agent-test-boundary: $(BUILD_DIR)/agent/layerxd-lni \
-		$(BUILD_DIR)/agent/lni-preparation-state
-	$(RUN_PREFIX) $(BUILD_DIR)/agent/lni-preparation-state
-	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path $(AGENT_MANIFEST) --locked \
-		-p layerx-client --test lni_preparation
+agent-test-boundary:
 	$(AGENT_CARGO) run --manifest-path services/agent/tests/boundary/Cargo.toml --locked -- \
-		$(CURDIR)/$(BUILD_DIR)/agent/layerxd-lni $(CURDIR)
+		"$(AGENT_NODE_RPC_URL)" $(CURDIR)
 
-agent-qualify-boundary: $(BUILD_DIR)/agent/layerxd-lni
+agent-qualify-boundary:
 	$(AGENT_CARGO) build --manifest-path services/agent/tests/boundary/Cargo.toml --locked
 	$(AGENT_CARGO) run --manifest-path services/agent/tests/qualify/Cargo.toml --locked -- boundary \
-		$(CURDIR) $(CURDIR)/$(BUILD_DIR)/agent/layerxd-lni \
+		$(CURDIR) "$(AGENT_NODE_RPC_URL)" \
 		$(AGENT_BOUNDARY_HARNESS)
 
 agent-qualify-fabrication:
@@ -2500,7 +2454,7 @@ agent-qualify-fabrication:
 	$(MAKE) agent-test-sdk-py
 	$(AGENT_CARGO) run --manifest-path services/agent/tests/qualify/Cargo.toml --locked -- fabrication $(CURDIR)
 
-agent-qualify-faults: $(BUILD_DIR)/agent/layerxd-lni
+agent-qualify-faults:
 	$(MAKE) agent-test-sdk-parity
 	$(AGENT_CARGO) run --manifest-path services/agent/tests/qualify/Cargo.toml --locked -- faults $(CURDIR)
 
@@ -2791,11 +2745,11 @@ agent-test-sdk-py:
 	PYTHONPATH=services/agent/sdk/python python3 -m unittest discover -s tests/agent/sdk/python -p 'test_*.py'
 	PYTHONPATH=services/agent/sdk/python python3 -m compileall -q services/agent/sdk/python/layerx_sdk services/agent/sdk/python/examples
 
-agent-test-sdk-parity: $(BUILD_DIR)/agent/layerxd-lni
+agent-test-sdk-parity:
 	$(MAKE) agent-test-sdk-ts
 	$(MAKE) agent-test-sdk-py
 	$(AGENT_CARGO) run --manifest-path services/agent/tests/parity/Cargo.toml --locked -- \
-		$(CURDIR)/$(BUILD_DIR)/agent/layerxd-lni $(CURDIR)
+		"$(AGENT_NODE_RPC_URL)" $(CURDIR)
 
 agent-test-sdk-compat:
 	$(MAKE) agent-test-contract-schema
@@ -2809,20 +2763,6 @@ agent-test-mcp-untrusted-input:
 agent-test-isolation: agent-test-policy-adversarial agent-test-mcp-untrusted-input
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path services/agent/tests/isolation/Cargo.toml --locked agent_isolation
 	$(AGENT_CARGO) run --manifest-path services/agent/tests/isolation/Cargo.toml --locked --quiet
-
-$(BUILD_DIR)/agent-wire-reference: services/agent/tools/wire-differential/reference.c $(LIBRARY)
-	mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -lcrypto -pthread -o $@
-
-agent-test-wire-parity: $(BUILD_DIR)/agent-wire-reference
-	LAYERX_REPOSITORY_ROOT=$(CURDIR) LAYERX_C_REFERENCE=$(CURDIR)/$(BUILD_DIR)/agent-wire-reference \
-		sh $(CURDIR)/tools/runtime/run-with-clock.sh $(AGENT_CARGO) test --manifest-path services/agent/tools/wire-differential/Cargo.toml --locked
-
-agent-qualify-wire: $(BUILD_DIR)/agent-wire-reference
-	$(AGENT_CARGO) build --manifest-path services/agent/tools/wire-differential/Cargo.toml --locked
-	$(AGENT_CARGO) run --manifest-path services/agent/tests/qualify/Cargo.toml --locked -- wire \
-		$(CURDIR) $(CURDIR)/$(BUILD_DIR)/agent-wire-reference \
-		$(AGENT_WIRE_HARNESS)
 
 agent-test-sanitize: public-tls-test-prerequisites
 	LAYERX_PAXEER_BOUNDARY_BIN="$(PUBLIC_TLS_TEST_BOUNDARY)" LAYERX_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" LAYERX_TEST_RUNTIME_CLOCK_BIN="$(PUBLIC_TLS_TEST_CLOCK)" sh $(CURDIR)/tools/runtime/run-with-clock.sh sh services/agent/tools/run-sanitizers.sh
@@ -3334,12 +3274,6 @@ $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_sche
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< -Wl,--start-group $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) -Wl,--end-group \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-$(BUILD_DIR)/tests/programs_fee_governance: tests/programs/test_fee_governance.c \
-		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
-	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< -Wl,--start-group $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) -Wl,--end-group \
-		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
-
 $(BUILD_DIR)/tests/programs_accounts: tests/programs/test_accounts.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
@@ -3430,7 +3364,6 @@ programs-core-test: $(BUILD_DIR)/tests/programs_registration \
 		$(BUILD_DIR)/tests/programs_metered_call \
 		$(BUILD_DIR)/tests/programs_occupancy_batch \
 		$(BUILD_DIR)/tests/programs_metering_schedule \
-		$(BUILD_DIR)/tests/programs_fee_governance \
 		$(BUILD_DIR)/tests/programs_accounts \
 		$(BUILD_DIR)/tests/programs_winddown
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_registration
@@ -3440,7 +3373,6 @@ programs-core-test: $(BUILD_DIR)/tests/programs_registration \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_metered_call
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_occupancy_batch
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_metering_schedule
-	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_fee_governance
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_accounts
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_winddown
 
@@ -3769,12 +3701,12 @@ beta-qualify-focused:
 		'make platform-build' \
 		'make programs-build' \
 		'make interop-build' \
-		'make test-daemon-lni-admission test-admission test-batch-wal-recovery agent-test-lni-schema agent-test-client-submit-focused agent-test-agentd-handshake-gate agent-test-boundary' \
+		'make test-daemon-lni-admission test-admission test-batch-wal-recovery agent-test-client-submit-focused agent-test-agentd-handshake-gate agent-test-boundary' \
 		'make agent-test-agentd-session agent-test-agentd-revocation agent-test-agentd-tenant-resolve agent-test-agentd-subscription agent-test-agentd-delivery agent-test-agentd-gaps agent-test-agentd-webhook agent-test-mcp-scope agent-test-mcp-readonly agent-test-mcp-write agent-test-sdk-rust agent-test-contract-schema platform-sdk-check human-test-service' \
 		'make human-test-activity' \
 		'make human-build human-test-unit human-test-component' \
 		'make test-snapshot test-state-root programs-core-test' \
-		'make test-protocol agent-test-wire-hashing agent-test-proof-checkpoint test-contracts interop-test-mirrors' \
+		'make test-protocol agent-test-proof-checkpoint test-contracts interop-test-mirrors' \
 		'make test-asset-withdraw test-bridge-withdraw test-result' \
 		'make platform-test-registry' \
 		'make interop-test-ramps' \
@@ -3784,7 +3716,6 @@ beta-qualify-focused:
 		'make qualify-replay' \
 		'make agent-qualify-faults' \
 		'make agent-qualify-fuzz' \
-		'make agent-qualify-wire' \
 		'make agent-qualify-boundary' \
 		'make human-qualify-faults'
 

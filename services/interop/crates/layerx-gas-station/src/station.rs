@@ -8,7 +8,7 @@ use crate::journal::{
     Admission, Completion, Entry, Item, Journal, JournalError, Key, LiabilityRelease, QuoteRecord,
     Submission,
 };
-use crate::policy::{BudgetKey, DidBudget};
+use crate::policy::{BudgetKey, DidBudget, QuotePolicy};
 use crate::price::{PriceError, PriceSource};
 use crate::quote::{address_word, keccak, word, Address, Word};
 use crate::rpc::{bytes, hex, quantity, read, JsonRpc, RpcFault};
@@ -206,6 +206,7 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
         journal: Journal,
     ) -> Result<Self, StationError> {
         let mut station = Station::new(config, signer).map_err(|_| StationError::Invalid)?;
+        // GAS_STATION_DID_GAS_LIMIT is the gas one DID may be sponsored per UTC day.
         let limit = std::env::var("GAS_STATION_DID_GAS_LIMIT").ok();
         let limit = DidGasLimit::try_from(limit.as_deref()).map_err(|_| StationError::Invalid)?;
         station.policy = station.policy.with_did_budget(DidBudget::new(limit.0));
@@ -276,6 +277,13 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
     pub const fn journal(&self) -> &Journal {
         &self.journal
     }
+
+    /// The quote policy, including the current per-DID gas budget.
+    #[must_use]
+    pub const fn policy(&self) -> &QuotePolicy {
+        &self.station.policy
+    }
+
     /// # Errors
     /// Refuses an unreachable node or a malformed block.
     pub fn chain_time(&self) -> Result<u64, StationError> {

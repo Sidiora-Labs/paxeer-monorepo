@@ -11,6 +11,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
@@ -38,7 +39,9 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			name: "Params",
 			call: func(t *testing.T, goCtx context.Context) error {
 				response, err := client.Params(goCtx, &types.QueryParamsRequest{})
-				require.Nil(t, response)
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, querier.GetParams(ctx), response.Params)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -76,8 +79,11 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "Markets",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.Markets(goCtx, &types.QueryMarketsRequest{})
-				require.Nil(t, response)
+				response, err := client.Markets(goCtx, &types.QueryMarketsRequest{Limit: 1})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Empty(t, response.Markets)
+				require.Equal(t, querier.GetMarketCount(ctx), response.Total)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -281,8 +287,21 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
-			require.Equal(t, codes.Unimplemented, status.Code(err))
-			require.Equal(t, "method "+tc.name+" not implemented", status.Convert(err).Message())
+			switch tc.name {
+			case "Params", "Markets":
+				require.NoError(t, err)
+			case "Market":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "MarketByAddress", "MarketsByCreator":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+			default:
+				require.Equal(t, codes.Unimplemented, status.Code(err))
+				require.Equal(t, "method "+tc.name+" not implemented", status.Convert(err).Message())
+			}
 
 			err = tc.nilRequest(t, sdk.WrapSDKContext(ctx))
 			require.Equal(t, codes.InvalidArgument, status.Code(err))

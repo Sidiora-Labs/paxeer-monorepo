@@ -19,6 +19,9 @@ import urllib.request
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE
+
 SCENARIOS = ('prepared', 'broadcast', 'dropped', 'replacement-prepared',
              'replacement-broadcast', 'finality', 'unreachable', 'divergent')
 
@@ -1427,7 +1430,7 @@ def main():
     spec = importlib.util.spec_from_file_location('candidate', ROOT / 'tools/paxeer-x/candidate.py')
     candidate = importlib.util.module_from_spec(spec); spec.loader.exec_module(candidate)
     manifest = candidate.load_private(args.candidate_manifest)
-    candidate.validate(manifest, candidate.catalogue(ROOT / 'spec/paxeer-x/spec.kvx'), ROOT)
+    candidate.validate(manifest, candidate.catalogue(ROOT / SERVICE_CATALOGUE), ROOT)
     require(not manifest['source']['dirty'], 'clean candidate required')
     if args.case == 'browser-sponsorship-origin':
         evidence = Path(os.environ['PAXEER_X_EVIDENCE_DIR']).resolve()

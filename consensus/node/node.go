@@ -214,6 +214,11 @@ func makeNode(
 	if err != nil {
 		return nil, fmt.Errorf("failed to create router: %w", err)
 	}
+	if gigaEnabled {
+		if giga, ok := router.Giga().Get(); ok {
+			giga.SetEventBus(eventBus)
+		}
+	}
 	node.router = router
 	node.rpcEnv.Router = router
 
@@ -264,8 +269,10 @@ func makeNode(
 			nodeMetrics.state,
 			consensusPolicy,
 		)
-		if src, ok := app.(types.SequencerSource); ok {
-			blockExec.SetSequencerSource(src)
+		if provider, ok := app.(interface{ SequencerSource() types.SequencerSource }); ok {
+			if src := provider.SequencerSource(); src != nil {
+				blockExec.SetSequencerSource(src)
+			}
 		}
 		closers = append([]closer{func() error {
 			blockExec.Stop()

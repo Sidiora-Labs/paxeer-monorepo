@@ -86,7 +86,7 @@ func (p PrecompileExecutor) getPriceBySymbol(ctx sdk.Context, method *abi.Method
 func (p PrecompileExecutor) getPrices(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
 	ids := args[0].([]*big.Int)
 	if len(ids) > 64 {
-		return nil, errors.New("LXP_PRICEFEED_BATCH_TOO_LARGE: getPrices takes at most 64 market ids")
+		return nil, errors.New(LXP_PRICEFEED_BATCH_TOO_LARGE + ": getPrices takes at most 64 market ids")
 	}
 	prices := make([]PriceView, len(ids))
 	for i, value := range ids {

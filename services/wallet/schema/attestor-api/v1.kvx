@@ -168,7 +168,7 @@ path         = "/v1/sign"
 auth         = "gateway certificate plus Authorization: Bearer <identity token> or the agent headers X-Agent-Key, X-Agent-Nonce, X-Agent-Expiry, X-Agent-Signature"
 participants = "the listed signers; every signer receives the identical body"
 summary      = "Verifies the credential, decodes the payload, evaluates the account policy, appends the audit record and runs one signing session."
-kinds        = ["evm_tx", "eip712", "personal_message", "eth_sign_digest", "lx_activity", "lx_bind", "lx_grant", "lx_send_authorization"]
+kinds        = ["evm_tx", "eip712", "personal_message", "eth_sign_digest", "lx_bind", "lx_grant", "lx_send_authorization"]
 response     = "sign_response"
 errors       = ["operator_required", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "agent_invalid", "policy_denied", "quorum_too_few_signers", "quorum_not_member", "quorum_self_missing", "session_bad_request", "session_unsupported_kind", "session_open_failed", "session_failed", "session_timeout", "key_not_found", "key_curve_mismatch", "key_not_refreshed", "key_invalid_share", "store_failed", "store_audit_failed"]
 
@@ -182,20 +182,47 @@ typed_data = "string optional: EIP-712 JSON document for eip712"
 message = "hex optional: message for personal_message, bind message for lx_bind"
 digest = "hex optional: 32-byte digest for eth_sign_digest; the node recomputes it from construction and refuses a digest that differs"
 construction = "object required for eth_sign_digest: kind eip7702_authorization with decimal or 0x chainId, 0x address and 64-bit nonce, or kind sponsored_batch with chainId, 0x account, nonce, calls (0x to, value, 0x data) and quote (0x sponsor, 0x token, maxTokenAmount, tokenAmount, deadline, quoteNonce, gasCost); a bare digest is refused"
-activity = "hex optional: unsigned activity envelope for lx_activity; for lx_send_authorization the unsigned asset send envelope whose send payload carries the envelope authority as its key and 64 zero signature bytes"
+activity = "hex optional: unsigned asset send envelope for lx_send_authorization whose send payload carries the envelope authority as its key and 64 zero signature bytes"
 grant = "object optional: 402 grant for lx_grant with hex 32-byte from, recipient, asset, purpose_hash, reference_hash, decimal per_draw_maximum and allowance, bool recurring and has_reference, uint64 window_length, expiration and revocation_sequence"
-disclosure = "object required for lx_activity and lx_send_authorization, refused on every other kind: the structured disclosure approved at the original approval boundary, with 64-hex account, module name, uint16 operation, amounts (64-hex asset, u128 amount), 64-hex destinations, u64 sequence (the envelope account sequence), not_before and not_after, every u128 and u64 written as a canonical unsigned decimal JSON string (no sign, exponent or leading zeros) and a JSON number refused; only asset send (asset 5), asset grant issue (asset 7, the grant allowance), budget fund (budget 2) and program transfer (programs 5, one ordered amount and destination per leg with its own asset) are supported and every other activity is refused; each node decodes activity itself and refuses with policy_code disclosure_mismatch when its own decoding differs, and the node never derives a replacement disclosure from the submitted bytes"
-approval = "object required with disclosure: the authorization binding minted at the approval boundary, with version 1, principal (the stored key owner, equal to the authenticated token subject, or agent:<hex key>), key_id, uint32 network_id and uint16 protocol_version of the activity, session_id of this request, 64-hex activity_digest equal to the digest the kind signs and u64 expires_at (canonical decimal string) no later than the activity not_after; a binding naming another principal, key, session, network, protocol or digest is refused with policy_code approval_mismatch, an expired one with approval_expired, and a request missing disclosure or approval with disclosure_missing; replay of a request is refused by the request-scoped credential before and after a restart"
+disclosure = "object required for lx_send_authorization, refused on every other kind: the structured disclosure approved at the original approval boundary, with 64-hex account, module name, uint16 operation, amounts (64-hex asset, u128 amount), 64-hex destinations, u64 sequence (the envelope account sequence), not_before and not_after, every u128 and u64 written as a canonical unsigned decimal JSON string (no sign, exponent or leading zeros) and a JSON number refused; only asset send (asset 5) is supported and every other activity is refused; each node decodes activity itself and refuses with policy_code disclosure_mismatch when its own decoding differs, and the node never derives a replacement disclosure from the submitted bytes"
+approval = "object required with disclosure: the authorization binding minted at the approval boundary, with version 1, principal (the stored key owner, equal to the authenticated token subject, or agent:<hex key>), key_id, uint32 network_id and uint16 protocol_version of the asset send, session_id of this request, 64-hex activity_digest equal to the send owner authorization digest and u64 expires_at (canonical decimal string) no later than the activity not_after; a binding naming another principal, key, session, network, protocol or digest is refused with policy_code approval_mismatch, an expired one with approval_expired, and a request missing disclosure or approval with disclosure_missing; replay of a request is refused by the request-scoped credential before and after a restart"
 
 [op.sign.kind]
 evm_tx           = "secp256k1; signs the chain signer digest of the decoded transaction"
 eip712           = "secp256k1; signs the EIP-712 digest"
 personal_message = "secp256k1; signs the EIP-191 digest of the message"
 eth_sign_digest  = "secp256k1; signs a 32-byte digest only when it equals the EIP-7702 authorisation digest or the sponsored batch digest the node reconstructs from construction"
-lx_activity      = "ed25519; signs the 32-byte activity signature preimage"
 lx_bind          = "ed25519; signs the LX:PAXEER-BIND:v1 message bytes; the binding chain must be the node chain"
 lx_grant         = "ed25519; signs the 32-byte grant preimage with the key as the grant public key"
-lx_send_authorization = "ed25519; signs the 32-byte owner authorization digest of the asset send in activity under the lx_activity policy and authority rules, checking the account caps without counting; the amount counts once when the completed send is signed as lx_activity"
+lx_send_authorization = "ed25519; signs the 32-byte owner authorization digest of the asset send in activity under the send policy and authority rules, checking the account caps without counting a spend"
+
+[op.evm.review]
+method       = "POST"
+path         = "/v1/evm/review"
+auth         = "gateway certificate"
+credentials  = "Authorization: Bearer <original owner assertion>; agent headers are refused"
+participants = "local; independently decodes the unsigned transaction and evaluates account policy without signing"
+summary      = "Returns the decoded EVM call and signing hash for the held secp256k1 owner key; review records an audit entry without spending or granting signing approval."
+response     = "evm_review_response"
+errors       = ["operator_required", "session_bad_request", "policy_denied", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_curve_mismatch", "key_invalid_share", "store_failed", "store_audit_failed"]
+
+[op.evm.review.request]
+session_id  = "string"
+key_id      = "string: held secp256k1 owner key"
+transaction = "hex: unsigned typed or chain-protected legacy EVM transaction; optional 0x prefix"
+
+[type.evm_review_response]
+node_id        = "string"
+key_id         = "string"
+to             = "string: EIP-55 transaction destination address"
+value          = "string: unsigned decimal native value in wei"
+data           = "hex: transaction calldata with 0x prefix"
+method         = "string: decoded ABI method name, empty for a native transfer"
+destination    = "string: precompile name or erc20, empty for a native transfer to an ordinary address"
+signing_hash   = "hex: 32-byte transaction signing digest with 0x prefix"
+chain_id       = "uint64: transaction chain ID, equal to the node chain"
+decision       = "string: allowed policy decision code"
+audit_sequence = "uint64: this node's evm_review audit record"
 
 [op.sign.native]
 method       = "POST"
@@ -208,14 +235,22 @@ response     = "object: profile uint8 (2), node_id, key_id, operation, signed_by
 errors       = ["operator_required", "session_bad_request", "session_unsupported_kind", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_curve_mismatch", "key_invalid_share", "quorum_too_few_signers", "quorum_not_member", "quorum_self_missing", "policy_denied", "session_open_failed", "session_failed", "session_timeout", "store_failed", "store_audit_failed"]
 
 [op.lx.review]
+kind         = "lx_send_authorization"
 method       = "POST"
 path         = "/v1/lx/review"
 auth         = "gateway certificate"
 credentials  = "Authorization: Bearer <original owner assertion>; agent headers are refused"
-participants = "local; independently decodes the unsigned activity and evaluates account policy without signing"
-summary      = "Returns the decoded lx_activity or lx_send_authorization disclosure and signing preimage for the held ed25519 owner key; review does not grant signing approval."
+participants = "local; independently decodes the unsigned asset send and evaluates account policy without signing"
+summary      = "Returns the decoded lx_send_authorization disclosure and owner authorization digest for the held ed25519 owner key; review does not grant signing approval."
 response     = "object: kind, node_id, key_id, public_key, activity, signing_preimage, network_id, protocol_version, disclosure, not_after, epoch, audit_sequence"
 errors       = ["operator_required", "session_bad_request", "session_unsupported_kind", "token_missing", "token_invalid", "token_not_owner", "token_unavailable", "key_not_found", "key_curve_mismatch", "key_invalid_share", "policy_denied", "store_failed", "store_audit_failed"]
+
+[op.lx.review.request]
+session_id = "string"
+key_id = "string: held ed25519 owner key"
+kind = "string optional: lx_send_authorization; defaults to lx_send_authorization and every other kind is refused with session_unsupported_kind"
+activity = "hex: canonical bare lowercase unsigned asset send envelope with a zero owner signature"
+clock_profile = "string optional: native-v3-ms clock profile for native millisecond validity bounds"
 
 [op.sign.operator_verification]
 method       = "POST"
@@ -270,6 +305,14 @@ path     = "/health"
 auth     = "client certificate"
 summary  = "Returns the health report; 200 when ready, 503 otherwise."
 response = "object: node_id, region, share_count, refresh_epoch, share_error optional, audit_sequence, audit_head, peers map of {reachable, rtt_ns}, reachable_peers, readiness_error optional, ready"
+
+[op.metrics]
+method   = "GET"
+path     = "/metrics"
+auth     = "operator certificate"
+summary  = "Returns Prometheus metrics when metrics are configured on the node."
+response = "Prometheus text exposition"
+errors   = ["operator_required"]
 
 [error.token_missing]
 category = "token"

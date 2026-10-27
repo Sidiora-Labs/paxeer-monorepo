@@ -1249,6 +1249,7 @@ dependencies = [
  "rustls",
  "serde_json",
  "sha2 0.10.9",
+ "tungstenite",
  "ureq",
 ]
 
@@ -1257,6 +1258,7 @@ name = "layerx-committed-proof"
 version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
+ "serde_json",
  "sha2 0.10.9",
 ]
 
@@ -1552,11 +1554,14 @@ dependencies = [
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "sha2 0.10.9",
 ]
 
 [[package]]

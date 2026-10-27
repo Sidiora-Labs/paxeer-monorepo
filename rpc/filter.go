@@ -573,6 +573,7 @@ type FilterAPI struct {
 	namespace        string
 	shutdownCtx      context.Context
 	shutdownCancel   context.CancelFunc
+	shutdownOnce     sync.Once
 	globalRPSLimiter *rate.Limiter
 	receiptLogs      *ReceiptLogFeed
 }
@@ -1075,7 +1076,7 @@ func (a *FilterAPI) committedLogs(ctx context.Context, startTime time.Time, crit
 	}
 	earliest, err := a.logFetcher.earliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, err
 	}
 
 	begin, end, err := ComputeBlockBounds(latest, earliest, 0, crit)
@@ -1202,21 +1203,22 @@ func (a *FilterAPI) UninstallFilter(
 	}
 }
 
-// Cleanup method for graceful shutdown
-func (a *FilterAPI) Cleanup() {
-	a.shutdownCancel()
+func (a *FilterAPI) shutdown() {
+	a.shutdownOnce.Do(func() {
+		a.shutdownCancel()
 
-	// Cancel all remaining filters
-	a.filtersMu.Lock()
-	for _, filter := range a.filters {
-		if filter.cancelFunc != nil {
-			filter.cancelFunc()
+		// Cancel all remaining filters
+		a.filtersMu.Lock()
+		for _, filter := range a.filters {
+			if filter.cancelFunc != nil {
+				filter.cancelFunc()
+			}
 		}
-	}
-	a.filters = make(map[ethrpc.ID]filter)
-	a.filtersMu.Unlock()
+		a.filters = make(map[ethrpc.ID]filter)
+		a.filtersMu.Unlock()
 
-	close(a.toDelete)
+		close(a.toDelete)
+	})
 }
 
 type LogFetcher struct {
@@ -1290,7 +1292,7 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 	}
 	earliest, err := f.earliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, 0, err
 	}
 	begin, end, err := ComputeBlockBounds(latest, earliest, lastToHeight, crit)
 	if err != nil {
@@ -1666,18 +1668,12 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 		// Check for invalid zero hash
 		zeroHash := common.Hash{}
 		if *crit.BlockHash == zeroHash {
-			// For invalid hash, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 
 		block, err := blockByHashRespectingWatermarks(ctx, f.tmClient, f.watermarks, crit.BlockHash[:], 1)
 		if err != nil {
-			// For non-existent blocks, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 		res := make(chan *coretypes.ResultBlock, 1)
 		res <- block
@@ -1692,7 +1688,7 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 	}
 	earliest, err := f.watermarks.EarliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, 0, false, err
 	}
 	begin, end, err := ComputeBlockBounds(latest, earliest, lastToHeight, crit)
 	if err != nil {

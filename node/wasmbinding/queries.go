@@ -124,6 +124,17 @@ func (qp QueryPlugin) HandleTokenFactoryQuery(ctx sdk.Context, queryData json.Ra
 		}
 
 		return bz, nil
+	case parsedQuery.DenomPaused != nil:
+		res, err := qp.tokenfactoryHandler.GetDenomPaused(ctx, parsedQuery.DenomPaused)
+		if err != nil {
+			return nil, err
+		}
+		bz, err := json.Marshal(res)
+		if err != nil {
+			return nil, tokenfactorytypes.ErrEncodingDenomPaused
+		}
+
+		return bz, nil
 	default:
 		return nil, tokenfactorytypes.ErrUnknownPaxTokenFactoryQuery
 	}
@@ -297,7 +308,7 @@ func (qp QueryPlugin) HandleStakingExtQuery(ctx sdk.Context, queryData json.RawM
 				response.Entries = append(response.Entries, UnbondingDelegationEntry{
 					CreationHeight: entry.CreationHeight,
 					CompletionTime: entry.CompletionTime.String(),
-					InitialBalance: entry.Balance,
+					InitialBalance: entry.InitialBalance,
 					Balance:        entry.Balance,
 				})
 			}

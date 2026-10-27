@@ -176,7 +176,7 @@ func NewPrecompileWithKeeper(keeper *xwebkeeper.Keeper, bankKeeper utils.BankKee
 
 func isTransaction(method string) bool {
 	switch method {
-	case RequestMethod, FulfilMethod, RefundMethod:
+	case RequestMethod, FulfilMethod, FulfilProgramMethod, RefundMethod:
 		return true
 	default:
 		return false
@@ -186,6 +186,9 @@ func isTransaction(method string) bool {
 func (PrecompileExecutor) IsTransaction(method string) bool { return isTransaction(method) }
 
 func (p PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
+	if method.Name == FulfilProgramMethod {
+		return ProgramFulfilGas(input)
+	}
 	gas := ViewBaseGas + GasPerByte*uint64(len(input))
 	if isTransaction(method.Name) {
 		gas = WriteBaseGas + GasPerByte*uint64(len(input))
@@ -236,6 +239,12 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	if err := p.guard(ctx.EVMPrecompileCalledFromDelegateCall(), method.Name, readOnly); err != nil {
 		return nil, err
 	}
+	switch method.Name {
+	case FulfilProgramMethod, GetProgramResultMethod, GetKernelNetworkIdMethod:
+		if !p.keeper.ProgramOriginActive(ctx) {
+			return nil, xwebkeeper.ErrProgramModuleDisabled
+		}
+	}
 	if method.Name != RequestMethod {
 		if err := pcommon.ValidateNonPayable(value); err != nil {
 			return nil, fmt.Errorf("LXP_PRECOMPILE_NON_PAYABLE: %w", err)
@@ -283,6 +292,12 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		params := p.keeper.GetParams(ctx)
 		return method.Outputs.Pack(ParamsView{Fee: wei(params.Fee), MaxPayloadBytes: params.MaxPayloadBytes,
 			MaxCallbackGas: params.MaxCallbackGas, TimeoutBlocks: params.TimeoutBlocks, Paused: p.keeper.IsPaused(ctx)})
+	case FulfilProgramMethod:
+		return p.fulfilProgram(ctx, method, args)
+	case GetProgramResultMethod:
+		return p.getProgramResult(ctx, method, args)
+	case GetKernelNetworkIdMethod:
+		return p.getKernelNetworkId(ctx, method, args)
 	default:
 		return nil, fmt.Errorf("xweb: unknown method %s", method.Name)
 	}

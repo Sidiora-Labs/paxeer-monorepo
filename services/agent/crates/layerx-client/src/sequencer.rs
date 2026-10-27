@@ -527,6 +527,10 @@ impl SequencerEndpoint {
         Ok(Some(address))
     }
 
+    pub(crate) fn call_raw(&self, method: &str, params: &Value) -> Result<Value, SequencerError> {
+        self.call(method, params)
+    }
+
     fn call(&self, method: &str, params: &Value) -> Result<Value, SequencerError> {
         let id = self
             .next_id
