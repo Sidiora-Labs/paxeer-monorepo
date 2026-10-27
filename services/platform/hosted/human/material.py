@@ -1214,7 +1214,6 @@ def kernel_registry_material_produce(genesis, seed, destination, network, retain
 
 def hosted_registry_material_produce(data, destination):
     import struct
-    import subprocess
     data = Path(data)
     if os.geteuid() != 4020:
         refuse('hosted kernel producer identity')
@@ -1263,10 +1262,6 @@ def hosted_registry_material_produce(data, destination):
         refuse('hosted signed genesis identity mismatch; finalized history requires owner reconciliation')
     if digest(('layerx-sequencer:' + values['SEQUENCER_PUBLIC_KEY']).encode()) != values['SEQUENCER_ID']:
         refuse('hosted kernel sequencer derivation')
-    subprocess.run(['/usr/local/bin/layerx-handover', '--verify-key', str(manifest_path),
-                    str(data / 'checkpoints/da-bodies.log'), values['SEQUENCER_PUBLIC_KEY']],
-                   stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                   check=True, timeout=30)
     request_path = data / 'genesis/genesis-request.lxgb'
     request = registry_read(request_path)
     if (len(request) < 23 or request[:7] != b'LXGB\x02\x00\x03'

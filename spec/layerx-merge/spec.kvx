@@ -90226,7 +90226,7 @@ requester = "13.28.3"
 path = "modules/lxphost/read.go"
 domain = 1
 wave_needed = 2
-what = "Add Host.ReadFeeSchedule, ReadPendingFeeSchedule, ReadMeteringSchedule and ReadWebRequest beside ReadIdempotentReceipt (modules/lxphost/read.go:444)."
+what = "Add Host.ReadFeeSchedule, ReadPendingFeeSchedule, ReadMeteringSchedule and ReadWebRequest beside ReadIdempotentReceipt (modules/lxphost/read.go:444), and Host.ReadFeeScheduleAt(ctx, version uint32) and ReadMeteringScheduleAt(ctx, version uint32) over progfee/history/v1/<u32> and progmet/history/v1/<u32> (src/modules/programs/fees.c:22, metering.c:16)."
 requester = "13.28.4"
 
 [wiring.J52.9]
@@ -104279,7 +104279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.6]
 title = "Conformance: the seed migration matches getMarketConfig of the chain seed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.42.2"]
@@ -105547,7 +105547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.5]
 title = "Local node: getFeeTier of a fresh account decodes to tier 0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.53.1", "3.0.4", "5.98.1", "3.98.1"]
@@ -130498,7 +130498,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.3]
 title = "Exercise every router method against one chain and consensus pair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.0.2", "8.1.3", "8.2.1", "8.2.2", "8.5.1", "7.0.3", "5.0.3", "8.1.5"]
@@ -149798,7 +149798,7 @@ do_9 = "In a_pending_draw_recovers_from_the_sequencer_receipt_and_releases_once 
 
 [task.11.34.6]
 title = "Settle exact payments from the payExact transaction hash and keep kernel-era records loadable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.34.5"]
@@ -157147,6 +157147,7 @@ do_2 = "Report the record layout of the kernel wind-down state returned by lxp_p
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:622 and precompiles/layerxprograms/abi.json:243."
 do_4 = "Write both tests in precompiles/layerxprograms/view_winddown_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Seed the wind-down state the tests read directly with kv.Set on the host store, as precompiles/layerxprograms/view_accounts_test.go:72-78 does: the status record under {1,0,9}+\"wind-down\\x00s\"+program (54 bytes, src/modules/programs/winddown.c:172-186) and the route record under {1,0,9}+\"wind-down\\x00r\"+program+account (67 bytes plus the seed, winddown.c:223-240). Do not submit activity 0x00090007 from the test: the hosted programs registration refuses it with LXP_ERR_UNKNOWN_ACTIVITY (src/protocol/lxp_kernel.c:2252), which is why attempt d0948f671 failed."
 symbols = ["getWindDownHandler", "getExitRouteHandler", "TestProgramsViewWindDownRecord", "TestProgramsViewExitRoute"]
 touches = ["precompiles/layerxprograms/view_winddown.go", "precompiles/layerxprograms/view_winddown_test.go"]
 tests = ["precompiles/layerxprograms/view_winddown_test.go::TestProgramsViewWindDownRecord", "precompiles/layerxprograms/view_winddown_test.go::TestProgramsViewExitRoute"]
@@ -157180,8 +157181,9 @@ do_2 = "Decode the fee schedule record of src/modules/programs/fees.c:1608 and t
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:202, precompiles/layerxprograms/abi.json:277 and precompiles/layerxprograms/abi.json:354."
 do_4 = "Write both tests in precompiles/layerxprograms/view_fees_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
-symbols = ["getCurrentFeeScheduleHandler", "getFeeScheduleHandler", "getPendingFeeScheduleHandler", "TestProgramsViewCurrentFeeSchedule", "TestProgramsViewPendingFeeSchedule"]
-touches = ["precompiles/layerxprograms/view_fees.go", "precompiles/layerxprograms/view_fees_test.go"]
+do_6 = "modules/lxphost/read.go:1012-1016 has no versioned reader, so attempt 168293292 could not serve getFeeSchedule(version): add Host.ReadFeeScheduleAt(ctx, version uint32) over progfee/history/v1/<big-endian u32 version> (src/modules/programs/fees.c:22) beside ReadFeeSchedule, and Host.ReadMeteringScheduleAt(ctx, version uint32) over progmet/history/v1/<big-endian u32 version> (src/modules/programs/metering.c:16) beside ReadMeteringSchedule (read.go:1020) for task 13.28.6; getFeeSchedule reads through ReadFeeScheduleAt and reverts LXP_NOT_FOUND for a version with no row (fees.c:1620 maps an absent row to LXP_ERR_VERSION_UNSUPPORTED)."
+symbols = ["getCurrentFeeScheduleHandler", "getFeeScheduleHandler", "getPendingFeeScheduleHandler", "TestProgramsViewCurrentFeeSchedule", "TestProgramsViewPendingFeeSchedule", "ReadFeeScheduleAt", "ReadMeteringScheduleAt"]
+touches = ["precompiles/layerxprograms/view_fees.go", "precompiles/layerxprograms/view_fees_test.go", "modules/lxphost/read.go"]
 tests = ["precompiles/layerxprograms/view_fees_test.go::TestProgramsViewCurrentFeeSchedule", "precompiles/layerxprograms/view_fees_test.go::TestProgramsViewPendingFeeSchedule"]
 planned_paths = ["precompiles/layerxprograms/view_fees.go", "precompiles/layerxprograms/view_fees_test.go"]
 build_cmd = "go build ./precompiles/layerxprograms/..."
@@ -157236,7 +157238,7 @@ title = "Serve the current and versioned metering schedule views"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8", "13.28.4"]
 reqs = ["13277.1", "13277.2"]
 capabilities = ["13.28.6"]
 interfaces = ["interface.13.pc-0x101d-getcurrentmeteringschedule", "interface.13.pc-0x101d-getmeteringschedule"]
@@ -157246,6 +157248,7 @@ do_2 = "Decode the metering record of src/modules/programs/metering.c:182 in tha
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:225 and precompiles/layerxprograms/abi.json:330."
 do_4 = "Write both tests in precompiles/layerxprograms/view_metering_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Read the versioned row with Host.ReadMeteringScheduleAt(ctx, version) over progmet/history/v1/<big-endian u32> (src/modules/programs/metering.c:16 and :182), added to modules/lxphost/read.go by task 13.28.4, and the active row with Host.ReadMeteringSchedule (modules/lxphost/read.go:1020); a version never published has no row and reverts LXP_NOT_FOUND. Attempt 8b7e20d5f failed only because that reader did not exist."
 symbols = ["getCurrentMeteringScheduleHandler", "getMeteringScheduleHandler", "TestProgramsViewMeteringSchedules", "TestProgramsViewMeteringUnknownVersion"]
 touches = ["precompiles/layerxprograms/view_metering.go", "precompiles/layerxprograms/view_metering_test.go"]
 tests = ["precompiles/layerxprograms/view_metering_test.go::TestProgramsViewMeteringSchedules", "precompiles/layerxprograms/view_metering_test.go::TestProgramsViewMeteringUnknownVersion"]
@@ -157279,6 +157282,7 @@ do_2 = "Return record bytes unchanged from the kernel layouts of src/modules/pro
 do_3 = "Pack outputs per precompiles/layerxprograms/abi.json:526 and precompiles/layerxprograms/abi.json:513."
 do_4 = "Write both tests in precompiles/layerxprograms/view_sandbox_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "A read through a closed host answers LXP_ERR_NON_CANONICAL (modules/lxphost/read.go:510, lxphost.Code(-3)); the tests assert that code after Close, not LXP_ERR_LENGTH_LIMIT, which these read paths never emit (src/modules/programs/sandbox.c:741 raises it only for a length above INT32_MAX). Attempt b480fc02c failed only on that expectation."
 symbols = ["getSandboxHandler", "getRetirementControlHandler", "TestProgramsViewSandboxRecord", "TestProgramsViewRetirementControl"]
 touches = ["precompiles/layerxprograms/view_sandbox.go", "precompiles/layerxprograms/view_sandbox_test.go"]
 tests = ["precompiles/layerxprograms/view_sandbox_test.go::TestProgramsViewSandboxRecord", "precompiles/layerxprograms/view_sandbox_test.go::TestProgramsViewRetirementControl"]

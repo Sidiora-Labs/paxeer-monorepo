@@ -7997,3 +7997,19 @@ symbol = "verify_receipt"
 observed = "req.11404 ac_2 asked for receipt_unverified on every V3 case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, while req.11395 ac_3 and payment.rs:2231-2263 refuse a verified receipt whose content differs with receipt_mismatch; the vector file marks V3-activity-id-not-raw-hash, V3-seq-hash-mismatch and V3-tampered-log with verifier accepts, so attempt b58477b26 got receipt_mismatch for exactly those three."
 assumption = "The vector file's verifier field is the authority: req.11404 ac_2, acceptance.11.404.2 and task 11.36.4 do_4 now expect receipt_unverified for SequencerSignature and Decode cases and receipt_mismatch for accepts cases; payment.rs is unchanged."
 severity = "major"
+
+[finding.13.28.4.2]
+task = "13.28.4"
+file = "modules/lxphost/read.go"
+symbol = "ReadFeeScheduleAt"
+observed = "wiring.J52.8 asked for ReadFeeSchedule, ReadPendingFeeSchedule and ReadMeteringSchedule only, so read.go:1012-1020 serve the active rows and attempts 168293292 (13.28.4) and 8b7e20d5f (13.28.6) had no reader for getFeeSchedule(version) and getMeteringSchedule(version)."
+assumption = "13.28.4 adds ReadFeeScheduleAt and ReadMeteringScheduleAt over progfee/history/v1 and progmet/history/v1 and 13.28.6 now requires 13.28.4."
+severity = "major"
+
+[finding.13.28.7.2]
+task = "13.28.7"
+file = "modules/lxphost/read.go"
+symbol = "Host.Close"
+observed = "Attempt b480fc02c expected LXP_ERR_LENGTH_LIMIT from a read after Close; read.go:510 answers LXP_ERR_NON_CANONICAL and src/modules/programs/sandbox.c:741 emits LXP_ERR_LENGTH_LIMIT only for a length above INT32_MAX."
+assumption = "do_6 names the closed-host code; req.13278 is unchanged."
+severity = "minor"
