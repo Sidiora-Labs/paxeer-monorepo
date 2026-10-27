@@ -93185,7 +93185,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.18.4]
 title = "Move the terminal v5 callback fixture off the retired web request intake"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.18.1"]
@@ -101899,7 +101899,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.1]
 title = "Freeze the 0x1015 account and position view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -102023,7 +102023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.5]
 title = "Freeze the 0x1015 insurance and ADL view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -103480,7 +103480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.23.5]
 title = "Execute spot governance messages through LayerX proposals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.23.4", "3.0.3", "6.95.1"]
