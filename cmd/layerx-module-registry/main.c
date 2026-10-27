@@ -11,8 +11,6 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-int registry_read_node(const char *path, const char *actor, uint32_t network);
-
 static int number(const char *text, uint32_t maximum, uint32_t *out)
 {
     uint32_t value = 0U;
@@ -122,18 +120,16 @@ static int plan_enable(lxp_genesis_module_plan *plan,
 int main(int argc, char **argv)
 {
     const char *asset = NULL, *symbol = NULL, *currency = NULL, *profile_path = NULL;
-    const char *socket_path = NULL, *actor = NULL;
     uint32_t decimals = 39U, network = 0U, protocol = 0U;
     unsigned seen = 0U;
     bool enabled[LXP_MODULE_RESERVED_COUNT + 1U] = {false};
-    bool read_node = argc > 1 && strcmp(argv[1], "read-node") == 0;
-    if (argc < 2 || (!read_node && strcmp(argv[1], "generate") != 0)) goto refused;
+    if (argc < 2 || strcmp(argv[1], "generate") != 0) goto refused;
     for (int i = 2; i < argc; i += 2) {
         unsigned bit;
         if (i + 1 == argc) goto refused;
         const char *key = argv[i], *value = argv[i + 1];
         if (strcmp(key, "--enable-module") == 0) {
-            if (read_node || module_enable(value, enabled)) goto refused;
+            if (module_enable(value, enabled)) goto refused;
             continue;
         }
         if (strcmp(key, "--asset") == 0) { bit = 1U; asset = value; }
@@ -143,16 +139,9 @@ int main(int argc, char **argv)
         else if (strcmp(key, "--network-id") == 0) { bit = 16U; if (number(value, UINT32_MAX, &network) || network == 0U) goto refused; }
         else if (strcmp(key, "--protocol-version") == 0) { bit = 32U; if (number(value, 3U, &protocol) || protocol != 3U) goto refused; }
         else if (strcmp(key, "--custody-profile") == 0) { bit = 64U; profile_path = value; }
-        else if (strcmp(key, "--socket") == 0) { bit = 128U; socket_path = value; }
-        else if (strcmp(key, "--actor") == 0) { bit = 256U; actor = value; }
         else goto refused;
         if (seen & bit) goto refused;
         seen |= bit;
-    }
-    if (read_node) {
-        if (seen != (16U | 32U | 128U | 256U) ||
-            registry_read_node(socket_path, actor, network) != 0) goto refused;
-        return 0;
     }
     if ((seen != 63U && seen != 127U) || asset_valid(asset) ||
         metadata(symbol) || metadata(currency)) goto refused;
