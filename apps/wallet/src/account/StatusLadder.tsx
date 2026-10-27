@@ -3,6 +3,7 @@
 import {
   LADDER_RUNGS,
   readExplorerStatus,
+  readSequencerReceipt,
   statusLadder,
   type LadderRung,
   type LadderSource,
@@ -61,21 +62,53 @@ export function StatusLadder({ steps }: { steps: readonly LadderStep[] }) {
 }
 
 export function TransactionLadder({ hash }: { hash: string }) {
-  const { config, fetch: fetchImpl } = useAccountClients();
-  const status = useAsync(
-    async () =>
-      statusLadder.fromExplorer(await readExplorerStatus(config.explorerUrl, hash, fetchImpl)),
-    `explorer:${hash.toLowerCase()}`
+  const { config, endpoint, fetch: fetchImpl } = useAccountClients();
+  const receipt = useAsync(
+    () => readSequencerReceipt((method, params) => endpoint.rpc.call(method, params), hash),
+    `receipt:${config.endpointUrl}:${hash.toLowerCase()}`
   );
-  if (status.status === 'loading') return <Skeleton className="h-10 w-full" />;
-  if (status.status === 'error') {
+  const explorer = useAsync(async () => {
+    if (receipt.status !== 'ready') return null;
+    return readExplorerStatus(config.explorerUrl, hash, fetchImpl);
+  }, `explorer:${config.explorerUrl}:${hash.toLowerCase()}:${receipt.status}`);
+  if (receipt.status === 'loading') return <Skeleton className="h-10 w-full" />;
+  if (receipt.status === 'error') {
     return (
       <ErrorState
         title="The transaction status could not be read"
-        message={errorMessage(status.error)}
-        onRetry={status.reload}
+        message={errorMessage(receipt.error)}
+        onRetry={receipt.reload}
       />
     );
   }
-  return <StatusLadder steps={[status.value]} />;
+  const steps = receipt.value
+    ? statusLadder.fromSequencerReceipt(receipt.value).filter((step) => step.rung !== 'committed')
+    : [];
+  if (explorer.status === 'ready' && explorer.value !== null) {
+    const status = explorer.value;
+    if (
+      status.rung !== 'committed' ||
+      (status.block_number !== null &&
+        receipt.value?.blockNumber !== undefined &&
+        BigInt(status.block_number) === BigInt(receipt.value.blockNumber))
+    ) {
+      steps.push(statusLadder.fromExplorer(status));
+    }
+  }
+  return (
+    <div
+      aria-busy={
+        explorer.status === 'loading' || (explorer.status === 'ready' && explorer.value === null)
+      }
+    >
+      <StatusLadder steps={steps} />
+      {explorer.status === 'error' && (
+        <ErrorState
+          title="The explorer status could not be read"
+          message={errorMessage(explorer.error)}
+          onRetry={explorer.reload}
+        />
+      )}
+    </div>
+  );
 }

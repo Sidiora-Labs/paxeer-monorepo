@@ -2869,3 +2869,115 @@ symbol = "LedgerEvents"
 observed = "The first attempts of 2.4.2 (e02ead09a), 2.4.4 (7e0c68760), 2.4.5 (12dd9f3f4) and 2.4.6 (f0e6e503e) failed `go build ./modules/layerxledger/...` with exit 1 (logs-build-1.log) on `undefined: LedgerEvents` and `undefined: EventArgs` at supply.go:23, send.go:44, payexact.go:62 and grants.go:36: their do items call the decoder that 2.3.6 defines in modules/layerxledger/keeper/events.go, while the sections require only 2.3.3 and 2.3.5."
 assumption = "2.4.2-2.4.7 require 2.3.6 and each candidate is continued on a base that carries events.go."
 severity = "blocker"
+
+[finding.9.1.7.1]
+task = "9.1.7"
+file = "services/agent/Cargo.lock"
+symbol = "layerx-committed-proof"
+observed = "The second attempt (77c971516 on 66448a171) stopped in its build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk` (exit 101, logs-build-1.log): the lock file needs to be updated but --locked was passed — the serde_json edge 11.2.6 added to layerx-committed-proof without the lock edits (finding.11.2.6.1); the two ported integration tests are in the candidate."
+assumption = "9.1.7 requires 11.2.7, which refreshes the lock, and 77c971516 is continued unchanged once it is done."
+severity = "blocker"
+
+[finding.8.14.5.1]
+task = "8.14.5"
+file = "services/agent/crates/layerx-sdk/src/agent_envelope.rs:1327"
+symbol = "ReadRequest"
+observed = "The third attempt (bc3f19ea7 on 66448a171) passed `cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary` and its verifier stopped compiling layerx-sdk, a dependency of the boundary tests: agent_envelope.rs still reads requested_verification_level (:1327, :1340), builds ProofBundle with target and proofs (:1402-1403) and Freshness with latest_sealed_batch, latest_finalised_checkpoint and value_sequence (:1408-1410), shapes 9.1.7 ports."
+assumption = "8.14.5 requires 9.1.7; the allowlist entry and six assertions of bc3f19ea7 are continued unchanged once the port is done."
+severity = "blocker"
+
+[finding.12.0.3.1]
+task = "12.0.3"
+file = "services/wallet/gateway/src/jobs/layerxSync.ts:31"
+symbol = "startLayerxSync"
+observed = "The second attempt (a31b9395e on 66448a171) passed `pnpm --dir services/wallet/gateway exec tsc -p tsconfig.json --noEmit` and both named vitest cases, and `cg spec done 12.0.3` exited 1 only on `symbol startLayerxSync — not defined in the graph`: the task deletes that file, so the symbol list named a name that cannot exist after the change."
+assumption = "startLayerxSync leaves the symbols list and a31b9395e is re-qualified unchanged."
+severity = "note"
+
+[finding.4.4.6.1]
+task = "4.4.6"
+file = "modules/launchpad/keeper/price_history.go:13"
+symbol = "Keeper.PriceHistory"
+observed = "Keeper.PriceHistory (landed by 4.3.2 at 0bd553fa6) wraps ErrUnknownMarket with fmt.Errorf %w, so errors.Is holds but sdkerrors.ABCIInfo reports codespace undefined and code 1, and the third attempt's verifier `cg spec done 4.4.6` (0b908267f) exited 1 on the codespace assertion at grpc_query_price_history_test.go:120; the first two attempts (1a1225e41, 578ccaf85) stopped on the duplicate Querier.PriceHistory stub of grpc_query.go, which the current touches already cover."
+assumption = "Task 4.4.6 takes price_history.go into its touches and wraps the unknown-market refusal with sdkerrors.Wrap so the launchpad codespace and code reach the gRPC caller as do_3 requires; the codespace assertion stays."
+severity = "blocker"
+
+[finding.5.46.7]
+task = "5.46.7"
+file = "daemon/paxd/cmd/new_app_test.go:68"
+symbol = "TestNewAppPassesSequencerConfigToNode"
+observed = "The first attempt's test (84247e754) writes the sequencer genesis with json.Marshal(seqtypes.GenesisState{...}), whose untagged fields serialise as ReceiptKeys/ActivationHeight while the module decodes the tagged shape genesisState{leaders, receipt_keys, activation_height} (modules/sequencer/module.go:39-45), so only leaders is read, the receipt key list arrives empty and types.GenesisState.Validate (modules/sequencer/types/genesis.go:48) correctly refuses it; the verifier exited 1 (logs-verify-2.log)."
+assumption = "The fixture is wrong, not the merged sequencer genesis: the test encodes the module's JSON shape as module_test.go:62-68 does and the genesis validation stays unchanged."
+severity = "suspect"
+
+[finding.4.4.7]
+task = "4.4.7"
+file = "modules/launchpad/keeper/grpc_query.go:38"
+symbol = "Querier.Quote"
+observed = "Tasks 4.4.7 to 4.4.16 each add a Querier method that 4.3.1 (1aa92029d) already declares as an Unimplemented forwarding stub in grpc_query.go (Quote :38, Treasury :46, Surface :54, Retired :62, FeeRight :70, AirdropEpoch :78, AirdropClaimed :86, HasRole :94, QuoteLedger :102, FeeAccounting :110 at 66448a171), so each first attempt (a9153e40e, 30e9070a9, b0fb3046f, d67c3ba8b, 4ce9c399d, 9f4e29a76, c65f96323, 71118b781, 1d6a86f73, 18fc4377d) stopped in `go build ./modules/launchpad/...` on the duplicate method (logs-build-1.log), the pattern finding.4.4.1 and finding.4.4.5 record."
+assumption = "Each task deletes its stub and moves its method out of the Unimplemented expectations of grpc_query_test.go and module_services_test.go within the touches widened at a29fa23cc, in the serial order of their requires; every remaining method keeps its Unimplemented assertion."
+severity = "blocker"
+
+[finding.7.14.6]
+task = "7.14.6"
+file = "rpc/metrics.go:42"
+symbol = "TestServedMethodsRecordServedEndpointLabel"
+observed = "The first attempt's test (712239af2) installed a ManualReader as the global meter provider and the verifier exited 1 (logs-verify-1.log) with no evmrpc_request_latency_seconds point for any method, even eth_chainId which records through recordMetrics (rpc/info.go:70), because the package instruments at rpc/metrics.go:42-43 are bound before the external test package initialises (rpc/info_metric_labels_test.go:22-28 swaps metrics.requestLatencySeconds for that reason); 50 methods called with empty parameters are refused by argument decoding before their handler, and rpc/web3.go:12-19 records no latency at all."
+assumption = "The test swaps the histogram through an internal test hook and calls each method with the minimal valid arguments, and web3_clientVersion/web3_sha3 gain recordMetrics so 7014.6 holds; no assertion is relaxed."
+severity = "blocker"
+
+[finding.7.16.1]
+task = "7.16.1"
+file = "rpc/server.go:336"
+symbol = "lx_unsubscribe"
+observed = "The first attempt's test (7625703d9) refuses all 26 retired lx_* names and the verifier exited 1 (logs-verify-2.log) only on lx_unsubscribe, which answers -32000 over HTTP and WebSocket because the JSON-RPC library routes every <namespace>_unsubscribe name to its built-in unsubscribe callback whether or not the namespace is registered, so 7016.1 and 7016.2 do not hold on the tree; the node already refuses configured names before dispatch (DenyList, rpc/rpcstack.go:341 and :411-486, fed from rpc/server.go:336 and :517)."
+assumption = "The acceptance criteria are right and the node is wrong: lx_unsubscribe joins the names refused before dispatch on both transports and the test keeps its -32601 assertion for all 26 names."
+severity = "blocker"
+
+[finding.7.19.9]
+task = "7.19.9"
+file = "rpc/ethclient_newhead_test.go:93"
+symbol = "TestEthclientSubscribeNewHeadHashMatchesBlock"
+observed = "In the first attempt (ea37ed50b) the head delivered through the commit notifier re-hashes to the same value as BlockByNumber at height 8, so 7019.16 holds; the verifier exited 1 (logs-verify-2.log) because the test also feeds the event-bus fixture, whose MockClient NewBlockHeader events (rpc/setup_test.go:485-500) are synthetic headers unrelated to the block served by number, and compares the client-side keccak header.Hash() with the served hash field, which is the consensus block hash (rpc/block.go:707, rpc/subscribe.go:662)."
+assumption = "The served payload and the block served by number agree when they describe the same block; the test keeps the 7019.16 comparison on the commit-notifier head and compares served hash fields with each other, not with a client-side re-hash."
+severity = "suspect"
+
+[finding.7.19.3.1]
+task = "7.19.3"
+file = "rpc/setup_test.go:1050"
+symbol = "TestEthclientTransactionReceiptDecodes"
+observed = "The second and third attempts (7ad304bc5, d9ff95c4c) built and their verifier exited 1 at rpc/ethclient_receipts_test.go:54 (logs-verify-1.log): the multiTxBlockTx1 receipt fixture at rpc/setup_test.go:1050 sets no Status, so eth_getTransactionReceipt faithfully serves 0x0 while acceptance 7019.5 requires status 1 for a committed transfer; no fixture receipt in rpc/setup_test.go stores Status 1 and no existing test asserts the 0x0 status of multiTxBlockTx1."
+assumption = "The served value matches the stored receipt, so the fixture is what contradicts 7019.5; the fixture gains Status: 1 and the assertion stays."
+severity = "note"
+
+[finding.14.58.1]
+task = "14.58.1"
+file = "services/bridge/deploy/tests/checklist-check.sh:37"
+symbol = "checklist-check"
+observed = "The first attempt (282370e93) stopped in `bash services/bridge/deploy/tests/checklist-check.sh` because the script refuses to start unless jq, curl, cast, go, base64, od and python3 are all on PATH (:37-38) and Foundry cast was absent from the verify environment, so neither the new app-env cases nor the existing cases ran (logs-verify-1.log)."
+assumption = "The verify environment for sandbox_profile mixed provides Foundry cast alongside go, jq and curl; 282370e93 is requalified unchanged and the tool check stays."
+severity = "blocker"
+
+[finding.14.8.2.1]
+task = "14.8.2"
+file = "apps/web/src/api/generated/index.ts:225"
+symbol = "decodeErrorCode"
+observed = "In the third attempt (7ea80a39b) loadSettingsSnapshot resolved with the four reads and no /v1/wallet-binding request, and the verifier exited 1 (logs-verify-1.log) only because the binding.status golden failure (HTTP 410, code operation-retired) reaches a generated client whose errorCodeVariants (:223) predate schema minor 10, so decodeErrorCode throws HumanApiDecodeError instead of the HumanApiError that ac_2 of req 14052 presumed."
+assumption = "The code is right: ac_2 is restated on the served 410 and the absence of a wallet-binding request, and the HumanApiError premise belongs to 14.0.3, which regenerates the client and already checks that the binding operations are gone."
+severity = "blocker"
+
+[finding.2.11.2]
+task = "2.11.2"
+file = "src/modules/governance/lxp_governance.c:341"
+symbol = "session_inherit_fee"
+observed = "The second attempt (716da5e2d) built and the verifier `cg spec done 2.11.2` exited 1 (logs-verify-1.log): grantSessionSuccessor over a live predecessor reverted LXP_AUTH_SCOPE, because the kernel admits a successor only for a fee-bearing session revoked at an earlier sequence (lxp_governance.c:328-341, lxp_authority.c:976-978, pinned by sessions_test.go:180-200), while ac_2 of req 2056 and acceptance 2.56.2 require replacing a live session."
+assumption = "The kernel rule is authoritative and the owner restates 2056 ac_2 and 2.56.2 on a revoked fee-bearing predecessor; until that ruling the task stands with no code change and the assertion kept."
+severity = "blocker"
+
+[finding.8.1.5]
+task = "8.1.5"
+file = "services/platform/hosted/indexer/src/ai_market.rs:812"
+symbol = "FinalityEvidence"
+observed = "13.29.1 (faad391ea) renamed ReadProof.batch_id to block_hash and replaced the checkpoint and settlement fields of FinalityEvidence and SnapshotBinding with block_height, block_hash, app_hash and store_proof_digest (programs/crates/layerx-programs-ai-market/src/queries.rs:164-171, :275-306) with touches confined to that crate, so layerx-indexer (ai_market.rs:336-343, :812-817, :1420-1425, :2012-2017; ai_reputation.rs:431-436) and layerx-platform-gateway (ai_views.rs:235-236) no longer compile and every task whose build or verify compiles them stops before its own change."
+assumption = "A wave-1 task 8.1.5 ports the five files, filling the new fields from the stored checkpoint id, batch id, state root and execution height as a bridge until 8.96.2 sources them from the block commit (req 8963.1 stays unclaimed); the 32 pending tasks that compile these crates require 8.1.5."
+severity = "blocker"

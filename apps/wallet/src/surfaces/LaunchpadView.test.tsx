@@ -1,112 +1,181 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, test } from 'vitest';
 import {
-    LAUNCHPAD_EVENTS,
-    LAUNCHPAD_PRECOMPILE,
-    abiSelector,
-    launchpadBuyCall,
-    launchpadApproveCall,
-    launchpadCreateMarketCall,
+  LAUNCHPAD_EVENTS,
+  LAUNCHPAD_PRECOMPILE,
+  abiSelector,
+  launchpadBuyCall,
+  launchpadApproveCall,
+  launchpadCreateMarketCall,
 } from '@sidiora/layerx-sdk';
 import { launchpad } from '@paxeer/wallet';
 import { LaunchpadView } from './LaunchpadView';
 import {
-    SurfaceChain,
-    callFixtures,
-    click,
-    eventVectors,
-    expectedField,
-    mountSurface,
-    radio,
-    text,
-    typeInto,
-    until,
-    vectorLog,
-    type Mounted,
+  SurfaceChain,
+  callFixtures,
+  click,
+  eventVectors,
+  expectedField,
+  mountSurface,
+  radio,
+  text,
+  typeInto,
+  until,
+  vectorLog,
+  type Mounted,
 } from './test/chain';
 
 let chain: SurfaceChain;
 let mounted: Mounted | null = null;
 
 beforeEach(() => {
-    chain = new SurfaceChain();
+  chain = new SurfaceChain();
 });
 
 afterEach(async () => {
-    await mounted?.unmount();
-    mounted = null;
+  await mounted?.unmount();
+  mounted = null;
 });
 
-const send = (container: HTMLElement) => container.querySelector<HTMLButtonElement>('[data-action="send"]');
+const send = (container: HTMLElement) =>
+  container.querySelector<HTMLButtonElement>('[data-action="send"]');
 
 describe('LaunchpadView', () => {
-    it('launchpad_view_buys_through_the_module_and_shows_the_decoded_swap', async () => {
-        const fixture = callFixtures().launchpad.buy as { pool: string; amountIn: string; minOut: string; deadline: string };
-        const vector = eventVectors('launchpad').find((candidate) => candidate.event === 'Swap');
-        if (!vector) throw new Error('no Swap vector');
-        chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
-        const now = () => (Number(fixture.deadline) - 600) * 1000;
-        mounted = await mountSurface(chain, <LaunchpadView sidRate={null} now={now} />);
-        const { container } = mounted;
+  it('launchpad_view_buys_through_the_module_and_shows_the_decoded_swap', async () => {
+    const fixture = callFixtures().launchpad.buy as {
+      pool: string;
+      amountIn: string;
+      minOut: string;
+      deadline: string;
+    };
+    const vector = eventVectors('launchpad').find((candidate) => candidate.event === 'Swap');
+    if (!vector) throw new Error('no Swap vector');
+    chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
+    const now = () => (Number(fixture.deadline) - 600) * 1000;
+    mounted = await mountSurface(chain, <LaunchpadView sidRate={null} now={now} />);
+    const { container } = mounted;
 
-        await typeInto(container, 'pool', fixture.pool);
-        await typeInto(container, 'amountIn', '1');
-        await typeInto(container, 'minOut', fixture.minOut);
-        await until(() => send(container)?.disabled === false, 'send enabled');
-        await click(send(container), 'send');
-        await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    await typeInto(container, 'pool', fixture.pool);
+    await typeInto(container, 'amountIn', '1');
+    await typeInto(container, 'minOut', fixture.minOut);
+    await until(() => send(container)?.disabled === false, 'send enabled');
+    await click(send(container), 'send');
+    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
 
-        const order = {
-            pool: fixture.pool,
-            amountIn: BigInt(fixture.amountIn),
-            minOut: BigInt(fixture.minOut),
-            deadline: BigInt(fixture.deadline),
-        };
-        const expected = launchpadBuyCall(order);
-        const approve = launchpadApproveCall(chain.launchpadUsdl, order.amountIn);
-        expect(chain.sent).toEqual([
-            { from: chain.address, to: chain.launchpadUsdl, data: approve.data, value: '0x0' },
-            { from: chain.address, to: LAUNCHPAD_PRECOMPILE, data: expected.data, value: '0x0' },
-        ]);
-        expect(chain.sent[1]?.data.startsWith(abiSelector('buy(address,uint256,uint256,uint256)'))).toBe(true);
-        expect(chain.sent[1]?.data).toBe(launchpad(chain).buy(order).data);
+    const order = {
+      pool: fixture.pool,
+      amountIn: BigInt(fixture.amountIn),
+      minOut: BigInt(fixture.minOut),
+      deadline: BigInt(fixture.deadline),
+    };
+    const expected = launchpadBuyCall(order);
+    const approve = launchpadApproveCall(chain.launchpadUsdl, order.amountIn);
+    expect(chain.sent).toEqual([
+      { from: chain.address, to: chain.launchpadUsdl, data: approve.data, value: '0x0' },
+      { from: chain.address, to: LAUNCHPAD_PRECOMPILE, data: expected.data, value: '0x0' },
+    ]);
+    expect(
+      chain.sent[1]?.data.startsWith(abiSelector('buy(address,uint256,uint256,uint256)'))
+    ).toBe(true);
+    expect(chain.sent[1]?.data).toBe(launchpad(chain).buy(order).data);
 
-        const spec = LAUNCHPAD_EVENTS.find((candidate) => candidate.name === 'Swap');
-        if (!spec) throw new Error('no Swap spec');
-        const event = container.querySelector('[data-event="Swap"]');
-        expect(event).not.toBeNull();
-        for (const [name, value] of Object.entries(vector.fields)) {
-            expect(event?.querySelector(`[data-field="${name}"]`)?.textContent).toBe(expectedField(spec, name, value));
-        }
-    });
+    const spec = LAUNCHPAD_EVENTS.find((candidate) => candidate.name === 'Swap');
+    if (!spec) throw new Error('no Swap spec');
+    const event = container.querySelector('[data-event="Swap"]');
+    expect(event).not.toBeNull();
+    for (const [name, value] of Object.entries(vector.fields)) {
+      expect(event?.querySelector(`[data-field="${name}"]`)?.textContent).toBe(
+        expectedField(spec, name, value)
+      );
+    }
+  });
 
-    it('launchpad_view_creates_a_market_through_the_module', async () => {
-        const fixture = callFixtures().launchpad.createMarket as { name: string; symbol: string; feeStrategy: number };
-        const vector = eventVectors('launchpad').find((candidate) => candidate.event === 'MarketCreated');
-        if (!vector) throw new Error('no MarketCreated vector');
-        chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
-        chain.launchpadCreationFee = 5_000_000n;
-        mounted = await mountSurface(chain, <LaunchpadView sidRate={null} />);
-        const { container } = mounted;
+  async function launchpad_view_shows_the_created_market_from_the_receipt_logs() {
+    const fixture = callFixtures().launchpad.createMarket as {
+      name: string;
+      symbol: string;
+      feeStrategy: number;
+    };
+    const vector = eventVectors('launchpad').find(
+      (candidate) => candidate.event === 'MarketCreated'
+    );
+    const spec = LAUNCHPAD_EVENTS.find((candidate) => candidate.name === 'MarketCreated');
+    if (!vector || !spec) throw new Error('no MarketCreated fixture');
+    chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
+    mounted = await mountSurface(chain, <LaunchpadView sidRate={null} />);
+    const { container } = mounted;
 
-        await click(radio(container, 'Launchpad action', 'Create'), 'create action');
-        await typeInto(container, 'name', fixture.name);
-        await typeInto(container, 'symbol', fixture.symbol);
-        await typeInto(container, 'feeStrategy', String(fixture.feeStrategy));
-        await until(() => send(container)?.disabled === false, 'send enabled');
-        await click(send(container), 'send');
-        await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+    expect(container.querySelector('[data-role="created-market"]')).toBeNull();
+    await click(radio(container, 'Launchpad action', 'Create'), 'create action');
+    await typeInto(container, 'name', fixture.name);
+    await typeInto(container, 'symbol', fixture.symbol);
+    await typeInto(container, 'feeStrategy', String(fixture.feeStrategy));
+    await until(() => send(container)?.disabled === false, 'send enabled');
+    expect(container.querySelector('[data-role="created-market"]')).toBeNull();
+    await click(send(container), 'send');
+    await until(
+      () => container.querySelector('[data-role="sent"], [data-role="send-error"]') !== null,
+      'receipted market result'
+    );
 
-        const expected = launchpadCreateMarketCall(fixture.name, fixture.symbol, fixture.feeStrategy);
-        expect(chain.sent).toEqual([
-            { from: chain.address, to: chain.launchpadUsdl, data: launchpadApproveCall(chain.launchpadUsdl, chain.launchpadCreationFee).data, value: '0x0' },
-            { from: chain.address, to: LAUNCHPAD_PRECOMPILE, data: expected.data, value: '0x0' },
-        ]);
-        expect(chain.sent[1]?.data.startsWith(abiSelector('createMarket(string,string,uint8,address)'))).toBe(true);
-        const spec = LAUNCHPAD_EVENTS.find((candidate) => candidate.name === 'MarketCreated');
-        if (!spec) throw new Error('no MarketCreated spec');
-        expect(container.querySelector('[data-event="MarketCreated"] [data-field="pool"]')?.textContent).toBe(
-            expectedField(spec, 'pool', vector.fields.pool),
-        );
-    });
+    expect(container.querySelector('[data-role="send-error"]')).toBeNull();
+    expect(text(container, '[data-role="status"]')).toBe('confirmed');
+    expect(text(container, '[data-role="created-market"]')).toBe(
+      expectedField(spec, 'pool', vector.fields.pool)
+    );
+    expect(
+      chain.methods.filter((method) => method === 'paxeer_sendTransactionReceipted')
+    ).toHaveLength(1);
+    expect(chain.methods).not.toContain('eth_sendTransaction');
+    expect(chain.methods).not.toContain('eth_getTransactionReceipt');
+    const expected = launchpadCreateMarketCall(fixture.name, fixture.symbol, fixture.feeStrategy);
+    expect(chain.sent).toEqual([
+      { from: chain.address, to: LAUNCHPAD_PRECOMPILE, data: expected.data, value: '0x0' },
+    ]);
+  }
+
+  test(launchpad_view_shows_the_created_market_from_the_receipt_logs);
+
+  it('launchpad_view_creates_a_market_through_the_module', async () => {
+    const fixture = callFixtures().launchpad.createMarket as {
+      name: string;
+      symbol: string;
+      feeStrategy: number;
+    };
+    const vector = eventVectors('launchpad').find(
+      (candidate) => candidate.event === 'MarketCreated'
+    );
+    if (!vector) throw new Error('no MarketCreated vector');
+    chain.logsFor = () => [vectorLog(LAUNCHPAD_PRECOMPILE, LAUNCHPAD_EVENTS, vector)];
+    chain.launchpadCreationFee = 5_000_000n;
+    mounted = await mountSurface(chain, <LaunchpadView sidRate={null} />);
+    const { container } = mounted;
+
+    await click(radio(container, 'Launchpad action', 'Create'), 'create action');
+    await typeInto(container, 'name', fixture.name);
+    await typeInto(container, 'symbol', fixture.symbol);
+    await typeInto(container, 'feeStrategy', String(fixture.feeStrategy));
+    await until(() => send(container)?.disabled === false, 'send enabled');
+    await click(send(container), 'send');
+    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+
+    const expected = launchpadCreateMarketCall(fixture.name, fixture.symbol, fixture.feeStrategy);
+    expect(chain.sent).toEqual([
+      {
+        from: chain.address,
+        to: chain.launchpadUsdl,
+        data: launchpadApproveCall(chain.launchpadUsdl, chain.launchpadCreationFee).data,
+        value: '0x0',
+      },
+      { from: chain.address, to: LAUNCHPAD_PRECOMPILE, data: expected.data, value: '0x0' },
+    ]);
+    expect(
+      chain.sent[1]?.data.startsWith(abiSelector('createMarket(string,string,uint8,address)'))
+    ).toBe(true);
+    const spec = LAUNCHPAD_EVENTS.find((candidate) => candidate.name === 'MarketCreated');
+    if (!spec) throw new Error('no MarketCreated spec');
+    expect(
+      container.querySelector('[data-event="MarketCreated"] [data-field="pool"]')?.textContent
+    ).toBe(expectedField(spec, 'pool', vector.fields.pool));
+  });
 });
