@@ -97758,7 +97758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.5]
 title = "Prove layerxledger and layerxauth genesis export and import through the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.2", "5.41.2"]
@@ -118507,7 +118507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.94.2]
 title = "Expose the pay and agent keepers and the shared host to precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.0.2", "2.0.2", "5.19.2"]
@@ -119414,7 +119414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.3.5]
 title = "Code sendNative zero-value and malformed-receiver refusals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "6.3.3"]
