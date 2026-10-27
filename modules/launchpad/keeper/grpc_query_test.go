@@ -178,8 +178,17 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "Retired",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.Retired(goCtx, &types.QueryRetiredRequest{})
-				require.Nil(t, response)
+				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001234")
+				require.NoError(t, err)
+				retired := types.RetiredAddress{
+					Address: address.Hex(), Role: types.RoleRouter,
+					Replacement: keeper.Generation2Surfaces[types.RoleRouter].Hex(),
+				}
+				require.NoError(t, querier.RecordRetired(ctx, retired))
+				response, err := client.Retired(goCtx, &types.QueryRetiredRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				info := types.RetiredInfoOf(retired)
+				require.Equal(t, &types.QueryRetiredResponse{Found: true, Retired: &info}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -306,7 +315,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface":
+			case "Params", "Markets", "Treasury", "Surface", "Retired":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
