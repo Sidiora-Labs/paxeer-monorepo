@@ -10,6 +10,7 @@ use layerx_ap2::{
     authorize_payment, Ap2Error, KeyResolver, KeyUse, LayerXAssetBinding, MandateMode,
     MandateVerifier, Merchant, ProtectedHeader, VerificationContext,
 };
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_fiat::{
     EvidenceClass, ExecutedFiatOutcome, ExternalId, FiatAdapter, FiatError, FiatIntent,
     FiatIntentKind, FiatJourneyState, FiatPlane, FiatPlaneResult, FiatRail, PlaneFiatOutcome,
@@ -62,7 +63,7 @@ use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
@@ -3150,16 +3151,9 @@ fn live() -> OutgoingResponse {
     )
 }
 
-#[derive(Clone, Copy)]
-struct HostedReadiness {
-    chain_serving: bool,
-    layerx_activity: bool,
-}
-
 struct SettlementReadiness {
     durable: bool,
-    hosted: HostedReadiness,
-    authority: bool,
+    sequencer: bool,
     configured: bool,
     observed_at_seconds: u64,
 }
@@ -3193,29 +3187,34 @@ impl SettlementReadiness {
             && ["x402", "ap2", "ucp", "visa-tap", "fiat"]
                 .iter()
                 .all(|adapter| adapter_configured(config, adapter, observed_at_seconds));
+        let durable = config.store.ready();
+        let started = Instant::now();
+        let sequencer = config.sequencer.receipt_keys().is_ok_and(|published| {
+            receipt_keys_ready(
+                &config.receipt_keys,
+                &published,
+                started.elapsed(),
+                Duration::from_millis(config.readiness_max_age_ms),
+            )
+        });
         Self {
             configured,
             observed_at_seconds,
-            durable: config.store.ready(),
-            hosted: hosted_readiness(config),
-            authority: dependency_ready(
-                config,
-                &config.receipt_authority,
-                config.receipt_authority_token.as_str(),
-            ),
+            durable,
+            sequencer,
         }
     }
 
     fn settlement(&self) -> bool {
-        self.configured && self.durable && self.hosted.layerx_activity && self.authority
+        self.configured && self.durable && self.sequencer
     }
 
-    fn capabilities(&self, config: &Config) -> Value {
+    fn capabilities(&self, chain_id: u64) -> Value {
         json!({
             "chain_serving": {
-                "state": readiness(self.hosted.chain_serving),
-                "reason": if self.hosted.chain_serving { "ready" } else { "unreachable" },
-                "chain_id": config.readiness_chain_id
+                "state": readiness(self.sequencer),
+                "reason": if self.sequencer { "ready" } else { "unreachable" },
+                "chain_id": chain_id
             },
             "layerx_settlement": {
                 "state": readiness(self.settlement()),
@@ -3225,24 +3224,65 @@ impl SettlementReadiness {
     }
 }
 
+fn receipt_keys_ready(
+    pinned: &[SequencerAuthorization],
+    published: &[ReceiptKeyEntry],
+    age: Duration,
+    max_age: Duration,
+) -> bool {
+    age <= max_age
+        && !pinned.is_empty()
+        && pinned.iter().all(|pin| {
+            published.iter().any(|key| {
+                key.key_id == pin.sequencer_id()
+                    && key.public_key == pin.public_key()
+                    && key.first_height == pin.first_batch_number()
+                    && key.last_height == pin.last_batch_number()
+            })
+        })
+}
+
+impl SettlementReadiness {
+    fn components(&self) -> Value {
+        json!({
+            "durable_gateway_store": readiness(self.durable),
+            "sequencer": readiness(self.sequencer)
+        })
+    }
+
+    fn ready_response(
+        &self,
+        chain_id: u64,
+        network_id: &str,
+        wire_version: &str,
+        protocol_version: u16,
+        protocol_network_id: u32,
+    ) -> OutgoingResponse {
+        let ready = self.settlement();
+        json_response(
+            if ready { 200 } else { 503 },
+            &json!({
+                "readiness_version": 1,
+                "service": "layerx-interop-gateway",
+                "status": if ready { "ready" } else { "degraded" },
+                "network_id": network_id,
+                "lxp_wire_version": wire_version,
+                "protocol_version": protocol_version,
+                "protocol_network_id": protocol_network_id,
+                "capabilities": self.capabilities(chain_id),
+                "components": self.components()
+            }),
+        )
+    }
+}
+
 fn ready(config: &Config) -> OutgoingResponse {
-    let state = SettlementReadiness::observe(config);
-    let ready = state.settlement();
-    json_response(
-        if ready { 200 } else { 503 },
-        &json!({
-            "readiness_version": 1,
-            "service": "layerx-interop-gateway",
-            "status": if ready { "ready" } else { "degraded" },
-            "network_id": config.network_id,
-            "lxp_wire_version": config.wire_version,
-            "protocol_version": config.protocol_version,
-            "protocol_network_id": config.protocol_network_id,
-            "capabilities": state.capabilities(config),
-            "components": { "durable_gateway_store": readiness(state.durable),
-                "hosted_gateway": readiness(state.hosted.layerx_activity),
-                "receipt_authority": readiness(state.authority) }
-        }),
+    SettlementReadiness::observe(config).ready_response(
+        config.readiness_chain_id,
+        &config.network_id,
+        &config.wire_version,
+        config.protocol_version,
+        config.protocol_network_id,
     )
 }
 
@@ -3269,7 +3309,7 @@ fn metadata(config: &Config) -> OutgoingResponse {
                 "configuration": readiness(configured),
                 "ingress": readiness(state.durable && configured),
                 "settlement": readiness(state.settlement() && configured),
-                "receipt_verification": readiness(state.authority && configured)
+                "receipt_verification": readiness(state.sequencer && configured)
             }
         })
     }).collect();
@@ -3280,268 +3320,8 @@ fn metadata(config: &Config) -> OutgoingResponse {
     json_response(
         200,
         &json!({ "readiness_version": 1,
-        "capabilities": state.capabilities(config), "adapters": adapters, "transports": transports }),
-    )
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ReceiptAuthorityReadiness {
-    ready: bool,
-    network_id: String,
-    protocol_network_id: u32,
-    wire_version: String,
-}
-
-fn dependency_ready(
-    config: &Config,
-    endpoint: &layerx_platform_gateway::http::Endpoint,
-    token: &str,
-) -> bool {
-    let Ok(response) = config.client.request(
-        endpoint,
-        token,
-        &OutboundRequest {
-            method: "GET",
-            path: "/readyz",
-            idempotency: None,
-            content_type: "application/json",
-            body: &[],
-        },
-    ) else {
-        return false;
-    };
-    if response.status != 200
-        || response.content_type != "application/json"
-        || response.body.len() > MAX_BODY
-    {
-        return false;
-    }
-    let Ok(document) = serde_json::from_slice::<ReceiptAuthorityReadiness>(&response.body) else {
-        return false;
-    };
-    document.ready
-        && document.network_id == config.network_id
-        && document.protocol_network_id == config.protocol_network_id
-        && document.wire_version == config.wire_version
-}
-
-#[derive(Clone, Copy, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-enum GatewayState {
-    Ready,
-    Unavailable,
-}
-
-#[derive(Clone, Copy, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
-enum GatewayReason {
-    Ready,
-    Unreachable,
-    NotConfigured,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GatewayBackendReadiness {
-    state: GatewayState,
-    reason: GatewayReason,
-}
-
-impl GatewayBackendReadiness {
-    fn ready(&self) -> bool {
-        self.state == GatewayState::Ready && self.reason == GatewayReason::Ready
-    }
-    fn canonical(&self) -> bool {
-        (self.state == GatewayState::Ready) == (self.reason == GatewayReason::Ready)
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GatewayComponents {
-    durable_store: GatewayState,
-    core_agent_boundary: GatewayState,
-    public_core: GatewayState,
-    identity: GatewayState,
-    independent_receipt_authority: GatewayState,
-    program_registry: GatewayState,
-    principal_state_boundary: GatewayState,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GatewayBackends {
-    durable_store: GatewayBackendReadiness,
-    event_producer: GatewayBackendReadiness,
-    paxeer_chain: GatewayBackendReadiness,
-    core_agent_boundary: GatewayBackendReadiness,
-    public_core: GatewayBackendReadiness,
-    independent_receipt_authority: GatewayBackendReadiness,
-    identity: GatewayBackendReadiness,
-    program_registry: GatewayBackendReadiness,
-}
-
-impl GatewayBackends {
-    fn canonical(&self) -> bool {
-        [
-            &self.durable_store,
-            &self.event_producer,
-            &self.paxeer_chain,
-            &self.core_agent_boundary,
-            &self.public_core,
-            &self.independent_receipt_authority,
-            &self.identity,
-            &self.program_registry,
-        ]
-        .iter()
-        .all(|state| state.canonical())
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GatewayChainCapability {
-    state: GatewayState,
-    reason: GatewayReason,
-    chain_id: u64,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GatewayCapabilities {
-    chain_serving: GatewayChainCapability,
-    layerx_activity: GatewayBackendReadiness,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct GatewayActivityReadiness {
-    readiness_version: u16,
-    service: String,
-    status: String,
-    package_semver: String,
-    scope: String,
-    network_id: String,
-    lxp_wire_version: String,
-    protocol_version: u16,
-    protocol_network_id: u32,
-    observed_at_ms: u64,
-    valid_until_ms: u64,
-    components: GatewayComponents,
-    backends: GatewayBackends,
-    capabilities: GatewayCapabilities,
-    product_routes: (),
-}
-
-fn decode_hosted_readiness(
-    config: &Config,
-    status: u16,
-    content_type: &str,
-    body: &[u8],
-    now_ms: u64,
-) -> HostedReadiness {
-    let unavailable = HostedReadiness {
-        chain_serving: false,
-        layerx_activity: false,
-    };
-    if !matches!(status, 200 | 503) || content_type != "application/json" || body.len() > MAX_BODY {
-        return unavailable;
-    }
-    let Ok(document) = serde_json::from_slice::<GatewayActivityReadiness>(body) else {
-        return unavailable;
-    };
-    let components = &document.components;
-    let backends = &document.backends;
-    let component_agreement = [
-        (components.durable_store, &backends.durable_store),
-        (
-            components.core_agent_boundary,
-            &backends.core_agent_boundary,
-        ),
-        (components.public_core, &backends.public_core),
-        (components.identity, &backends.identity),
-        (
-            components.independent_receipt_authority,
-            &backends.independent_receipt_authority,
-        ),
-        (components.program_registry, &backends.program_registry),
-    ]
-    .iter()
-    .all(|(component, backend)| (*component == GatewayState::Ready) == backend.ready());
-    let lifetime = document.valid_until_ms.checked_sub(document.observed_at_ms);
-    if document.readiness_version != 1
-        || document.service != "layerx-gateway"
-        || document.scope != "core"
-        || document.package_semver.is_empty()
-        || document.package_semver.len() > 128
-        || document.network_id != config.network_id
-        || document.lxp_wire_version != config.wire_version
-        || document.protocol_version != config.protocol_version
-        || document.protocol_network_id != config.protocol_network_id
-        || document.capabilities.chain_serving.chain_id != config.readiness_chain_id
-        || document.observed_at_ms > now_ms
-        || document.valid_until_ms <= now_ms
-        || now_ms - document.observed_at_ms > config.readiness_max_age_ms
-        || !lifetime.is_some_and(|age| age > 0 && age <= 30_000)
-        || !backends.canonical()
-        || !component_agreement
-        || components.principal_state_boundary != GatewayState::Unavailable
-        || !document.capabilities.layerx_activity.canonical()
-        || ((document.capabilities.chain_serving.state == GatewayState::Ready)
-            != (document.capabilities.chain_serving.reason == GatewayReason::Ready))
-        || ((document.capabilities.chain_serving.state == GatewayState::Ready)
-            != backends.paxeer_chain.ready())
-    {
-        return unavailable;
-    }
-    let activity = document.capabilities.layerx_activity.ready()
-        && backends.durable_store.ready()
-        && backends.core_agent_boundary.ready()
-        && backends.independent_receipt_authority.ready();
-    if (document.status == "ready") != activity
-        || !matches!(document.status.as_str(), "ready" | "degraded")
-        || (status == 200) != activity
-    {
-        return unavailable;
-    }
-    let _ = document.product_routes;
-    HostedReadiness {
-        chain_serving: document.capabilities.chain_serving.state == GatewayState::Ready,
-        layerx_activity: activity,
-    }
-}
-
-fn hosted_readiness(config: &Config) -> HostedReadiness {
-    let unavailable = HostedReadiness {
-        chain_serving: false,
-        layerx_activity: false,
-    };
-    let Ok(response) = config.client.request(
-        &config.hosted_gateway,
-        "readiness",
-        &OutboundRequest {
-            method: "GET",
-            path: "/readyz/core",
-            idempotency: None,
-            content_type: "application/json",
-            body: &[],
-        },
-    ) else {
-        return unavailable;
-    };
-    let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else {
-        return unavailable;
-    };
-    let Ok(now) = u64::try_from(now.as_millis()) else {
-        return unavailable;
-    };
-    decode_hosted_readiness(
-        config,
-        response.status,
-        &response.content_type,
-        &response.body,
-        now,
+        "capabilities": state.capabilities(config.readiness_chain_id),
+        "components": state.components(), "adapters": adapters, "transports": transports }),
     )
 }
 
@@ -3656,6 +3436,99 @@ mod tests {
     use std::sync::Arc;
     use std::thread;
     use std::time::{Duration, Instant};
+
+    #[test]
+    fn readyz_reports_the_sequencer_component() -> X402TestResult {
+        let public_key = SigningKey::from_bytes(&[0x73; 32])
+            .verifying_key()
+            .to_bytes();
+        let pin = SequencerAuthorization::new([0x72; 32], public_key, 1000, 1999);
+        let key = ReceiptKeyEntry {
+            key_id: pin.sequencer_id(),
+            public_key,
+            first_height: 1000,
+            last_height: 1999,
+        };
+        let max_age = Duration::from_millis(100);
+        let mut state = SettlementReadiness {
+            durable: true,
+            sequencer: receipt_keys_ready(&[pin], &[key], max_age, max_age),
+            configured: true,
+            observed_at_seconds: 1_700_000_000,
+        };
+        let response = state.ready_response(2025, "testnet", "1", 1, 2025);
+        assert_eq!(response.status, 200);
+        let document: Value = serde_json::from_slice(&response.body)?;
+        assert_eq!(document["status"], "ready");
+        assert_eq!(
+            document["components"],
+            json!({
+                "durable_gateway_store": "ready",
+                "sequencer": "ready"
+            })
+        );
+        assert_eq!(
+            document["capabilities"]["layerx_settlement"]["state"],
+            "ready"
+        );
+        assert!(document["components"].get("hosted").is_none());
+        assert!(document["components"].get("authority").is_none());
+        assert!(document["components"].get("hosted_gateway").is_none());
+        assert!(document["components"].get("receipt_authority").is_none());
+
+        for published in [
+            Vec::new(),
+            vec![ReceiptKeyEntry {
+                key_id: [0x74; 32],
+                ..key
+            }],
+            vec![ReceiptKeyEntry {
+                public_key: SigningKey::from_bytes(&[0x75; 32])
+                    .verifying_key()
+                    .to_bytes(),
+                ..key
+            }],
+            vec![ReceiptKeyEntry {
+                first_height: 999,
+                ..key
+            }],
+            vec![ReceiptKeyEntry {
+                last_height: 2000,
+                ..key
+            }],
+        ] {
+            state.sequencer = receipt_keys_ready(&[pin], &published, Duration::ZERO, max_age);
+            assert!(!state.sequencer);
+            let response = state.ready_response(2025, "testnet", "1", 1, 2025);
+            assert_eq!(response.status, 503);
+            let document: Value = serde_json::from_slice(&response.body)?;
+            assert_eq!(document["components"]["sequencer"], "unavailable");
+            assert_eq!(
+                document["capabilities"]["layerx_settlement"]["state"],
+                "unavailable"
+            );
+        }
+        assert!(!receipt_keys_ready(&[], &[key], Duration::ZERO, max_age));
+        assert!(!receipt_keys_ready(
+            &[pin],
+            &[key],
+            max_age + Duration::from_nanos(1),
+            max_age
+        ));
+        state.sequencer = true;
+        state.durable = false;
+        assert_eq!(
+            state.ready_response(2025, "testnet", "1", 1, 2025).status,
+            503
+        );
+        state.durable = true;
+        state.configured = false;
+        assert_eq!(
+            state.ready_response(2025, "testnet", "1", 1, 2025).status,
+            503
+        );
+        Ok(())
+    }
 
     fn parsed_tap(authority: &str, path: &str) -> TapRequest {
         TapRequest::parse(
