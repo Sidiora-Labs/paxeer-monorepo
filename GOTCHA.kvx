@@ -9542,3 +9542,9 @@ area = "spec"
 symptom = "A done task's late do item said a planned dispatch table was unnecessary because an existing Execute already dispatched; it dispatched one method, and 21 dependant tasks that add handlers in their own files found no seam and failed with LXP_PRECOMPILE_UNKNOWN_METHOD."
 cause = "The reading that excused the table checked the task's own tests, not the touches of its dependants."
 do = "Before excusing a planned registration or dispatch seam, list the dependants' touches; if they add handlers in separate files the seam is required, so add it as a small task in the dependants' wave and make them require it."
+
+[gotcha.1970]
+area = "spec"
+symptom = "A delete-the-module task listed the module, its tests and the files its do items named; the build failed because three other files imported the module's re-exports and one enum."
+cause = "The do items were written from the module's own callers, not from a grep of crate::<module> across the crate."
+do = "Before writing a module-deletion task, grep crate::<module>:: and <module>:: across the crate and every test, and give each surviving symbol a destination file in a do item and in touches."
