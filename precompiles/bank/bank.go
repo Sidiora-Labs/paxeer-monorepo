@@ -205,8 +205,12 @@ func delegatecallRefusal(method string, err error) error {
 	return refusal{code: "LXP_BANK_DELEGATECALL", detail: method, err: err}
 }
 
-func invalidAddrRefusal() error {
-	return refusal{code: "LXP_PRECOMPILE_INVALID_ADDR", err: errors.New("invalid addr")}
+func invalidAddrRefusal(legacyErr ...error) error {
+	err := errors.New("invalid addr")
+	if len(legacyErr) > 0 {
+		err = legacyErr[0]
+	}
+	return refusal{code: "LXP_PRECOMPILE_INVALID_ADDR", err: err}
 }
 
 // mergePlanActive reports whether the merge plan is active at the height of
@@ -352,7 +356,7 @@ func (p PrecompileExecutor) sendNative(ctx sdk.Context, method *abi.Method, args
 		return nil, 0, argCountRefusal(err)
 	}
 	if value == nil || value.Sign() == 0 {
-		return nil, 0, errors.New("set `value` field to non-zero to send")
+		return nil, 0, refusal{code: "LXP_BANK_ZERO_VALUE", err: errors.New("set `value` field to non-zero to send")}
 	}
 
 	senderPaxAddr, ok := p.evmKeeper.GetPaxAddress(ctx, caller)
@@ -367,7 +371,7 @@ func (p PrecompileExecutor) sendNative(ctx sdk.Context, method *abi.Method, args
 
 	receiverPaxAddr, err := sdk.AccAddressFromBech32(receiverAddr)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, invalidAddrRefusal(err)
 	}
 
 	uhpx, wei, err := pcommon.HandlePaymentUhpxWei(ctx, p.evmKeeper.GetPaxAddressOrDefault(ctx, p.address), senderPaxAddr, value, p.bankKeeper, p.evmKeeper, hooks, evm.GetDepth())

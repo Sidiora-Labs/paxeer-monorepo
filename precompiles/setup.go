@@ -398,24 +398,31 @@ func InitializePrecompiles(
 		addPrecompileToVM(layerxbridgep)
 		addPrecompileToVM(launchpadp)
 		addPrecompileToVM(xwebp)
-		for _, p := range merge {
-			addPrecompileToVM(p)
-		}
 		Initialized = true
 	}
 	return nil
 }
 
 func GetPrecompileInfo(name string) PrecompileInfo {
+	i, err := GetPrecompileInfoE(name)
+	if err != nil {
+		panic(err)
+	}
+	return i
+}
+
+func GetPrecompileInfoE(name string) (PrecompileInfo, error) {
 	if !Initialized {
 		// Precompile Info does not require any keeper state
-		_ = InitializePrecompiles(true, &utils.EmptyKeepers{})
+		if err := InitializePrecompiles(true, &utils.EmptyKeepers{}); err != nil {
+			return PrecompileInfo{}, err
+		}
 	}
 	i, ok := PrecompileNamesToInfo[name]
 	if !ok {
-		panic(name + "doesn't exist as a precompile")
+		return PrecompileInfo{}, fmt.Errorf("%s doesn't exist as a precompile", name)
 	}
-	return i
+	return i, nil
 }
 
 // This function modifies global variable in `vm` module. It should only be called once
