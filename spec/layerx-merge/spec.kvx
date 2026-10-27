@@ -91045,7 +91045,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.1]
 title = "Stop kernel execution reading and recording idempotency entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1", "16.94.1"]
@@ -91078,7 +91078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.2]
 title = "Drop idempotency from the state root, state proof and snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.2.1", "16.2.1"]
@@ -91113,8 +91113,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the kernel idempotency table and its journal staging"
 status = "pending"
 mode = "BUILD"
-wave = 26
-requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1"]
+wave = 32
+requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4"]
 reqs = ["1012.1", "1012.2"]
 capabilities = ["1.2.3"]
 interfaces = ["interface.1.c-lxp-idempotency-key-state", "interface.1.c-lxp-state-journal", "interface.1.c-lxp-idempotency-reserve", "interface.1.c-lxp-idempotency-prune", "interface.1.c-lxp-idempotency-append", "interface.1.c-lxp-idempotency-live-count", "interface.1.c-lxp-idempotency-can-commit", "interface.1.c-lxp-idempotency-commit-staged", "interface.1.c-lxp-state-store-init", "interface.1.c-lxp-state-journal-commit", "interface.1.c-lxp-state-store"]
@@ -91124,8 +91124,11 @@ do_2 = "Remove the reserve calls and staging at src/state/lxp_journal.c:26-27, :
 do_3 = "Remove the remaining reserve calls at src/state/lxp_snapshot.c:902 and :1132 left after task 1.2.2."
 do_4 = "J22 tasks 1.25.1 and 1.25.2 stop the host loading and writing the rows before this task; the kernel entry points in src/protocol/lxp_kernel.c are removed by task 1.2.4 in tests/codec/lxp_test_idempotency_absent.c (planned)."
 do_5 = "Write tests/codec/lxp_test_idempotency_absent.c (planned) with idempotency_symbols_absent and journal_commit_without_idempotency."
+do_6 = "Remove the remaining lxp_idempotency_reserve call at src/protocol/lxp_module_ctx.c:1463, left in the preview-state copy after task 1.2.1 deleted the preview, so no kept member references the deleted module."
+do_7 = "Remove the lxp_idempotency_append use at tests/codec/lxp_test_snapshot_idempotency.c:39 (the 1.2.2 test, built by the kernel pattern rule) so root_ignores_idempotency and snapshot_count_word_zero build without the deleted module; both cases stay."
+do_8 = "With src/state/lxp_idempotency.c deleted, move \"lxp_idempotency\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean from the non-library-line check back to the whole make -n stdout check, and give it no LIB_SOURCES filter-out entry."
 symbols = ["lxp_idempotency_reserve", "lxp_state_journal_commit", "lxp_state_store_init", "idempotency_symbols_absent", "journal_commit_without_idempotency"]
-touches = ["include/layerx/lxp_state.h", "src/state/lxp_idempotency.c", "src/state/lxp_journal.c", "src/state/lxp_snapshot.c", "tests/codec/lxp_test_idempotency_absent.c"]
+touches = ["include/layerx/lxp_state.h", "src/state/lxp_idempotency.c", "src/state/lxp_journal.c", "src/state/lxp_snapshot.c", "tests/codec/lxp_test_idempotency_absent.c", "src/protocol/lxp_module_ctx.c", "tests/codec/lxp_test_snapshot_idempotency.c", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["tests/codec/lxp_test_idempotency_absent.c::idempotency_symbols_absent", "tests/codec/lxp_test_idempotency_absent.c::journal_commit_without_idempotency"]
 planned_paths = ["tests/codec/lxp_test_idempotency_absent.c"]
 build_cmd = "make -C . build/liblayerx.a"
@@ -91342,7 +91345,7 @@ title = "Prove parallel batch preparation equals serial preparation"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["1.0.1", "16.2.1", "9.23.7"]
+requires = ["1.0.1", "16.2.1", "9.23.7", "1.4.6"]
 reqs = ["1019.1"]
 capabilities = ["1.4.3"]
 interfaces = []
@@ -91426,6 +91429,41 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
 rollback = "Revert the deletion; the guard and golden replay return unchanged and tests/replay keeps building."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.4.6]
+title = "Relink the kernel archive members whose call sites still exist and prune stale archive members"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["16.0.2", "16.2.2"]
+reqs = ["16011.1", "16012.1"]
+capabilities = ["1.4.6"]
+interfaces = []
+wiring = []
+do_1 = "Replace the LIB_SOURCES filter-out list at Makefile:41-50 with exactly src/storage/lxp_projection.c src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c; this links src/state/lxp_idempotency.c, src/paxeer/lxp_checkpoint_cert.c, src/sequencer/lxp_batch_seal.c, src/replica/lxp_replica_ingest.c, src/network/lxp_da_service.c, src/network/lxp_da_kernel.c, src/network/lxp_da_bundle.c, src/storage/lxp_da_verified.c, src/guarantor/lxp_da_possession.c, src/guarantor/lxp_guarantor.c, src/network/lx_web_adapter.c and src/sequencer/lx_web_root.c again, whose symbols are still called from src/protocol/lxp_kernel.c:7872, src/state/lxp_journal.c:186-1076, src/protocol/lxp_module_ctx.c:1463, src/replica/lxp_replay.c:188-348, src/protocol/lxp_handover.c:948-954, src/protocol/lxp_receipt_verify.c:141-145, src/guarantor/lxp_attestation.c:165, src/paxeer/lxp_finalisation.c:31,162, src/paxeer/lxp_paxeer_client.c:107, src/modules/web/lx_web_intake.c:143, cmd/layerxd, cmd/layerx-guarantor, cmd/layerx-verify and tests/test_web_program_path.c:711-858."
+do_2 = "In the archive rules make every archive a fresh build: insert `rm -f $@` as the line before `$(AR) rcsD $@ $(LIB_OBJECTS)` at Makefile:203 and before `$(AR) rcsD $@ $(TEST_LIB_OBJECTS)` at Makefile:211, after the `@mkdir -p $(@D)` lines at :202 and :210, so a member whose source left LIB_SOURCES (lxp_batch_seal.o, GOTCHA gotcha.1898) is never kept; the `rcsD build/liblayerx.a` line that tools/release/tests/build.test.sh:58 looks for stays."
+do_3 = "Restore the checkpoint settlement header that src/paxeer/lxp_checkpoint_cert.c:4 includes, exactly as 75765cd1f removed it: after HPX_ORIGIN at Makefile:26 add `CHECKPOINT_SETTLEMENT_HEADER := $(BUILD_DIR)/generated/lxp_checkpoint_settlement.h` and `CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS := 3600`; after the test-obj pattern rule at Makefile:213-215 add the `$(CHECKPOINT_SETTLEMENT_HEADER): Makefile` rule (`@mkdir -p $(@D)` and the printf of LXP_CHECKPOINT_SETTLEMENT_H with `#define LXP_CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS UINT64_C(%s)`) and the prerequisite line `$(BUILD_DIR)/obj/src/paxeer/lxp_checkpoint_cert.o $(BUILD_DIR)/test-obj/src/paxeer/lxp_checkpoint_cert.o: $(CHECKPOINT_SETTLEMENT_HEADER)`."
+do_4 = "Leave lxp_batch_verify_signature as it is: the one live definition is src/sequencer/lxp_batch_header.c:154 (moved verbatim by 465829782, task 14.29.2) and src/sequencer/lxp_batch_seal.c defines only lxp_batch_seal (:19) and lxp_batch_sign (:62); the multiple definition at Makefile:1187 came from a stale lxp_batch_seal.o that do_2 prunes, so no definition is deleted."
+do_5 = "In tools/ci/tests/test_makefile_wave1.py add `import re` and a module constant LIBRARY_LINE = re.compile(r\"^\\S+ .* -c src/\\S+\\.c -o build/(?:obj|test-obj)/src/\\S+\\.o$|^\\S+ rcsD build/liblayerx(?:-testing)?\\.a |^rm -f build/liblayerx(?:-testing)?\\.a$\"); in test_aggregates_dry_run_clean keep the retired-substring loop over result.stdout for lx_oracle_adapter, lx_oracle_root and replay-golden, and check lx_web_adapter, lx_web_root, lxp_idempotency and lxp_checkpoint_cert with assertNotIn against the stdout lines that do not match LIBRARY_LINE, so a retired test rule still fails the test while the relinked archive members are allowed."
+do_6 = "In tools/ci/tests/test_makefile_wave1.py add MakefileWaveOneTest.test_library_exclusions_exact running make -s --no-print-directory with --eval 'lx-excluded: ; @printf \"%s\\n\" $(sort $(filter-out $(LIB_SOURCES),$(shell find src -type f -name \"*.c\" -print)))' lx-excluded and asserting returncode 0 and that the printed set intersected with the seven 16.2.2 files equals {src/storage/lxp_projection.c, src/network/lx_oracle_adapter.c, src/sequencer/lx_oracle_root.c}."
+do_7 = "In tools/ci/tests/test_makefile_wave2.py make the same split: add `import re` and the same LIBRARY_LINE; in test_aggregates_dry_run_clean keep the loop over result.stdout for test_batch_publish, test_gateway_receive and cmd/layerx-module-registry/node.c, and check lxp_da_, lxp_replica, lxp_batch_seal and lxp_guarantor with assertNotIn against the stdout lines that do not match LIBRARY_LINE; add MakefileWaveTwoTest.test_library_exclusions_exact with the same make --eval call asserting the printed set equals exactly {src/storage/lxp_projection.c, src/network/lx_oracle_adapter.c, src/sequencer/lx_oracle_root.c, src/paxeer/lxp_da_challenge_record.c, src/guarantor/lxp_da_challenge.c}."
+symbols = ["LIB_SOURCES", "CHECKPOINT_SETTLEMENT_HEADER", "LIBRARY_LINE", "MakefileWaveOneTest.test_library_exclusions_exact", "MakefileWaveTwoTest.test_library_exclusions_exact"]
+touches = ["Makefile", "tools/ci/tests/test_makefile_wave1.py", "tools/ci/tests/test_makefile_wave2.py"]
+tests = ["tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_retired_targets_have_no_rule", "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_aggregates_dry_run_clean", "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_library_exclusions_exact", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_retired_targets_have_no_rule", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_aggregates_dry_run_clean", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_library_exclusions_exact"]
+planned_paths = []
+build_cmd = "rm -rf build && make -C . build/liblayerx.a"
+verify_cmd = "make -C . layerxd layerx-guarantor && python3 -m unittest tools.ci.tests.test_makefile_wave1 tools.ci.tests.test_makefile_wave2"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert Makefile and the two Makefile tests to the parent revision; the excluded members leave build/liblayerx.a again and no source file is touched."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -91564,7 +91602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Pin the kernel snapshot format with a conformance golden"
 status = "pending"
 mode = "BUILD"
-wave = 27
+wave = 32
 requires = ["1.2.3", "1.4.5", "16.2.1"]
 reqs = ["1026.1", "1026.2"]
 capabilities = ["1.6.1"]
@@ -92224,8 +92262,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Initialise binding_authority in every positional asset runtime and send environment literal"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["1.11.1"]
+wave = 2
+requires = ["1.11.1", "1.4.6"]
 reqs = ["1044.1"]
 capabilities = []
 interfaces = ["interface.1.c-lx-asset-runtime", "interface.1.c-lxp-send-environment"]
@@ -92484,7 +92522,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.4]
 title = "Raise the sandbox expiry sweep bound to 128 leases per batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.16.3", "1.14.2", "16.2.1"]
@@ -92844,7 +92882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.18.1]
 title = "Unregister the web and bridge modules from genesis and kernel binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "1.17.1", "16.2.1"]
@@ -92941,7 +92979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.19.1]
 title = "Retire guarantor-certified withdrawal and exit claims from lxp_bridge.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1", "16.94.1"]
@@ -93361,7 +93399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.3]
 title = "Carry authority kind, scope and grant in KernelAuthority and register budget and escrow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.23.1", "1.23.2"]
@@ -93819,8 +93857,9 @@ do_1 = "Delete src/network/lx_web_adapter.c (src/network/lx_web_adapter.c:1-405)
 do_2 = "Callers outside the deleted code at HEAD: domain 6 at modules/xweb/types/observation_test.go:50 (wiring request); domain 16 at tests/modules/test_web_intake.c:231, tests/network/test_web_adapter.c:174, tests/protocol/lxp_test_dispatch.c:228, tests/sequencer/test_web_root.c:222 and 1 more files (wiring request); kernel callers src/modules/web/lx_web_intake.c:143 removed with the web module retirement before anchor 1.0.3."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lx_web.h:204, include/layerx/lx_web.h:207, include/layerx/lx_web.h:216 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_web_adapter_test.go (planned) with TestRetiredWebAdapterSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lx_web_observation_encode, lx_web_activity_encode, lx_web_adapter_run, lx_web_submission_prepare, lx_web_submission_check, lx_web_submission_recover, lx_web_adapter_run_durable and contains lxp_kernel_create (src/protocol/lxp_kernel.c:1729)."
+do_5 = "With src/network/lx_web_adapter.c deleted, move \"lx_web_adapter\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lx_web_observation_encode", "lx_web_activity_encode", "lx_web_adapter_run", "lx_web_submission_prepare", "lx_web_submission_check", "lx_web_submission_recover", "lx_web_adapter_run_durable", "TestRetiredWebAdapterSymbolsAbsent"]
-touches = ["src/network/lx_web_adapter.c", "modules/lxphost/retired_web_adapter_test.go"]
+touches = ["src/network/lx_web_adapter.c", "modules/lxphost/retired_web_adapter_test.go", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["modules/lxphost/retired_web_adapter_test.go::TestRetiredWebAdapterSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_web_adapter_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -93851,8 +93890,9 @@ do_1 = "Delete src/sequencer/lx_web_root.c (src/sequencer/lx_web_root.c:1-135), 
 do_2 = "Callers outside the deleted code at HEAD: domain 16 at tests/protocol/lxp_test_dispatch.c:301, tests/sequencer/test_web_root.c:302, tests/test_web_program_path.c:793 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lx_batch.h:44, include/layerx/lx_web.h:298, include/layerx/lx_web.h:301 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_web_root_test.go (planned) with TestRetiredWebRootSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lx_web_leaf_encode, lx_web_availability_bundle_build, lx_web_root_from_availability, lx_web_root, lx_batch_header_set_web_root and contains lxp_kernel_create (src/protocol/lxp_kernel.c:1729)."
+do_5 = "With src/sequencer/lx_web_root.c deleted, move \"lx_web_root\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lx_web_leaf_encode", "lx_web_availability_bundle_build", "lx_web_root_from_availability", "lx_web_root", "lx_batch_header_set_web_root", "TestRetiredWebRootSymbolsAbsent"]
-touches = ["src/sequencer/lx_web_root.c", "modules/lxphost/retired_web_root_test.go"]
+touches = ["src/sequencer/lx_web_root.c", "modules/lxphost/retired_web_root_test.go", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["modules/lxphost/retired_web_root_test.go::TestRetiredWebRootSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_web_root_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -93871,7 +93911,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.30.1]
 title = "Retire the gateway receive claim and grant bounds of the kernel RECEIVE/GRANT path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.21.1", "1.0.2", "16.31.1"]
@@ -93979,8 +94019,9 @@ do_1 = "Delete src/guarantor/lxp_guarantor.c (src/guarantor/lxp_guarantor.c:1-19
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/producer.c:190, tests/daemon/guarantor-runtime.c:298 (wiring request); domain 16 at tests/support/lxp_pay1_replay.h:135, tests/test_guarantor_duties.c:233 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_guarantor.h:290, include/layerx/lxp_guarantor.h:293, include/layerx/lxp_guarantor.h:296 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_guarantor_process_test.go (planned) with TestRetiredGuarantorProcessSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_guarantor_verify_signatures, lxp_guarantor_recompute_roots, lxp_guarantor_process_batch and contains lxp_batch_header_decode (src/sequencer/lxp_batch_header.c:84)."
+do_5 = "With src/guarantor/lxp_guarantor.c deleted, move \"lxp_guarantor\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_guarantor_verify_signatures", "lxp_guarantor_recompute_roots", "lxp_guarantor_process_batch", "TestRetiredGuarantorProcessSymbolsAbsent"]
-touches = ["src/guarantor/lxp_guarantor.c", "modules/lxphost/retired_guarantor_process_test.go"]
+touches = ["src/guarantor/lxp_guarantor.c", "modules/lxphost/retired_guarantor_process_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_guarantor_process_test.go::TestRetiredGuarantorProcessSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_guarantor_process_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94107,8 +94148,9 @@ do_1 = "Delete src/guarantor/lxp_da_possession.c (src/guarantor/lxp_da_possessio
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/main.c:755, cmd/layerx-guarantor/producer.c:239, cmd/layerxd/lxp_daemon_process.c:5895, tests/daemon/guarantor-core.c:112 (wiring request); domain 16 at tests/storage/lxp_test_batch_wal_recovery.c:561, tests/storage/lxp_test_da_verified.c:55, tests/test_da_challenge.c:102, tests/test_da_possession.c:63 and 2 more files (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:129, include/layerx/lxp_da.h:130, include/layerx/lxp_da.h:133 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_possession_test.go (planned) with TestRetiredDaPossessionSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_store_init, lxp_da_store_bundle, lxp_da_store_read_bundle, lxp_da_possession_verify, lxp_da_possession_attest and contains lxp_log_read (src/storage/lxp_log.c:445)."
+do_5 = "With src/guarantor/lxp_da_possession.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_store_init", "lxp_da_store_bundle", "lxp_da_store_read_bundle", "lxp_da_possession_verify", "lxp_da_possession_attest", "TestRetiredDaPossessionSymbolsAbsent"]
-touches = ["src/guarantor/lxp_da_possession.c", "modules/lxphost/retired_da_possession_test.go"]
+touches = ["src/guarantor/lxp_da_possession.c", "modules/lxphost/retired_da_possession_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_possession_test.go::TestRetiredDaPossessionSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_possession_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94139,8 +94181,9 @@ do_1 = "Delete src/paxeer/lxp_checkpoint_cert.c (src/paxeer/lxp_checkpoint_cert.
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/main.c:855, cmd/layerx-guarantor/producer.c:260, cmd/layerx-guarantor/settlement.c:508, cmd/layerx-verify/lxp_verify_main.c:45 and 5 more files (wiring request); domain 16 at tests/protocol/lxp_test_protocol.c:367, tests/storage/lxp_test_finality_evidence.c:664, tests/test_bridge_withdraw.c:421, tests/test_da_challenge.c:123 and 8 more files (wiring request); kernel callers src/modules/bridge/lxp_bridge_exit.c:102, src/modules/bridge/lxp_bridge_withdraw.c:194, src/protocol/lxp_receipt_verify.c:145 retargeted before anchor 1.0.3."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_guarantor.h:300, include/layerx/lxp_guarantor.h:308, include/layerx/lxp_guarantor.h:311 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_checkpoint_cert_test.go (planned) with TestRetiredCheckpointCertSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_checkpoint_maximum_attestation_delay_ms, lxp_guarantor_attestation_verify, lxp_checkpoint_certificate_hash, lxp_guarantor_cert_assemble, lxp_guarantor_cert_verify, lxp_receipt_augment and contains lxp_batch_header_decode (src/sequencer/lxp_batch_header.c:84), lxp_receipt_decode (src/protocol/lxp_receipt.c:729)."
+do_5 = "With src/paxeer/lxp_checkpoint_cert.c deleted, delete CHECKPOINT_SETTLEMENT_HEADER, CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS, the header rule and the lxp_checkpoint_cert.o prerequisite line restored by task 1.4.6, and move \"lxp_checkpoint_cert\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_checkpoint_maximum_attestation_delay_ms", "lxp_guarantor_attestation_verify", "lxp_checkpoint_certificate_hash", "lxp_guarantor_cert_assemble", "lxp_guarantor_cert_verify", "lxp_receipt_augment", "TestRetiredCheckpointCertSymbolsAbsent"]
-touches = ["src/paxeer/lxp_checkpoint_cert.c", "modules/lxphost/retired_checkpoint_cert_test.go"]
+touches = ["src/paxeer/lxp_checkpoint_cert.c", "modules/lxphost/retired_checkpoint_cert_test.go", "Makefile", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["modules/lxphost/retired_checkpoint_cert_test.go::TestRetiredCheckpointCertSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_checkpoint_cert_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94301,8 +94344,9 @@ do_1 = "Delete src/replica/lxp_replica_ingest.c (src/replica/lxp_replica_ingest.
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/runtime.c:927, cmd/layerxd/lxp_daemon_replica.c:270 (wiring request); domain 16 at tests/qualification/lxp_qual_faults.c:457, tests/test_replica_ingest.c:92 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_replica.h:124, include/layerx/lxp_replica.h:125, include/layerx/lxp_replica.h:130 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_replica_ingest_test.go (planned) with TestRetiredReplicaIngestSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_replica_init, lxp_replica_bind_execution, lxp_replica_bind_eligibility, lxp_replica_batch_eligible, lxp_replica_validate_header, lxp_replica_chain_link, lxp_replica_ingest_batch and contains lxp_log_read (src/storage/lxp_log.c:445)."
+do_5 = "With src/replica/lxp_replica_ingest.c deleted, move \"lxp_replica\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_replica_init", "lxp_replica_bind_execution", "lxp_replica_bind_eligibility", "lxp_replica_batch_eligible", "lxp_replica_validate_header", "lxp_replica_chain_link", "lxp_replica_ingest_batch", "TestRetiredReplicaIngestSymbolsAbsent"]
-touches = ["src/replica/lxp_replica_ingest.c", "modules/lxphost/retired_replica_ingest_test.go"]
+touches = ["src/replica/lxp_replica_ingest.c", "modules/lxphost/retired_replica_ingest_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_replica_ingest_test.go::TestRetiredReplicaIngestSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_replica_ingest_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94496,8 +94540,9 @@ do_1 = "Delete src/network/lxp_da_bundle.c (src/network/lxp_da_bundle.c:1-435), 
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-archive-codec/main.c:533, cmd/layerx-guarantor/lni.c:316, cmd/layerx-guarantor/main.c:814, cmd/layerx-guarantor/producer.c:184 and 9 more files (wiring request); domain 16 at tests/programs/test_occupancy_batch.c:246, tests/state/lxp_test_state_diff.c:129, tests/storage/lxp_test_batch_wal_recovery.c:308, tests/storage/lxp_test_da_verified.c:62 and 8 more files (wiring request); kernel callers src/protocol/lxp_handover.c:948 retargeted before anchor 1.0.3."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:103, include/layerx/lxp_da.h:116, include/layerx/lxp_da.h:119 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_bundle_test.go (planned) with TestRetiredDaBundleSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_chunk_hash, lxp_da_recovery_metadata_encode, lxp_da_bundle_build, lxp_da_bundle_root, lxp_batch_availability_root, lxp_da_receipt_section_encode, lxp_da_receipt_section_decode, lxp_da_bundle_body and contains lxp_log_append (src/storage/lxp_log.c:405)."
+do_5 = "With src/network/lxp_da_bundle.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_chunk_hash", "lxp_da_recovery_metadata_encode", "lxp_da_bundle_build", "lxp_da_bundle_root", "lxp_batch_availability_root", "lxp_da_receipt_section_encode", "lxp_da_receipt_section_decode", "lxp_da_bundle_body", "TestRetiredDaBundleSymbolsAbsent"]
-touches = ["src/network/lxp_da_bundle.c", "modules/lxphost/retired_da_bundle_test.go"]
+touches = ["src/network/lxp_da_bundle.c", "modules/lxphost/retired_da_bundle_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_bundle_test.go::TestRetiredDaBundleSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_bundle_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94528,8 +94573,9 @@ do_1 = "Delete src/network/lxp_da_kernel.c (src/network/lxp_da_kernel.c:1-117), 
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerxd/lxp_daemon_process.c:4557, tests/daemon/lxp_test_arbiter_admission.c:754, tests/daemon/lxp_test_arbiter_prestate.c:660, tests/daemon/lxp_test_arbiter_prestate_transport.c:750 and 3 more files (wiring request); domain 13 at programs/tests/differential/parallel.c:798 (wiring request); domain 16 at tests/programs/test_occupancy_batch.c:118, tests/protocol/lxp_test_terminal_rejection.c:337, tests/state/lxp_test_state_diff.c:162, tests/storage/lxp_test_batch_wal_recovery.c:293 and 2 more files (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:107, include/layerx/lxp_da.h:93, include/layerx/lxp_da.h:96 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_kernel_test.go (planned) with TestRetiredDaKernelSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_recovery_from_kernel, lxp_da_recovery_verify_kernel, lxp_da_body_from_kernels and contains lxp_log_append (src/storage/lxp_log.c:405)."
+do_5 = "With src/network/lxp_da_kernel.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_recovery_from_kernel", "lxp_da_recovery_verify_kernel", "lxp_da_body_from_kernels", "TestRetiredDaKernelSymbolsAbsent"]
-touches = ["src/network/lxp_da_kernel.c", "modules/lxphost/retired_da_kernel_test.go"]
+touches = ["src/network/lxp_da_kernel.c", "modules/lxphost/retired_da_kernel_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_kernel_test.go::TestRetiredDaKernelSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_kernel_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94560,8 +94606,9 @@ do_1 = "Delete src/network/lxp_da_service.c (src/network/lxp_da_service.c:1-148)
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerxd/lxp_daemon_lni.c:2044, tests/daemon/guarantor-core.c:118 (wiring request); domain 16 at tests/storage/lxp_test_da_verified.c:115, tests/test_da_retrieval.c:53 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:147, include/layerx/lxp_da.h:163 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_service_test.go (planned) with TestRetiredDaServiceSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_serve_chunk, lxp_da_serve_chunk_proof and contains lxp_log_append (src/storage/lxp_log.c:405)."
+do_5 = "With src/network/lxp_da_service.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_serve_chunk", "lxp_da_serve_chunk_proof", "TestRetiredDaServiceSymbolsAbsent"]
-touches = ["src/network/lxp_da_service.c", "modules/lxphost/retired_da_service_test.go"]
+touches = ["src/network/lxp_da_service.c", "modules/lxphost/retired_da_service_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_service_test.go::TestRetiredDaServiceSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_service_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94592,8 +94639,9 @@ do_1 = "Delete src/storage/lxp_da_verified.c (src/storage/lxp_da_verified.c:1-11
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-archive-codec/main.c:360, cmd/layerxd/lxp_daemon_evidence.c:4323, cmd/layerxd/lxp_daemon_handover_history.c:37, cmd/layerxd/lxp_daemon_lni.c:2037 and 3 more files (wiring request); domain 16 at tests/storage/lxp_test_batch_wal_recovery.c:564, tests/storage/lxp_test_da_verified.c:67, tests/storage/lxp_test_finality_evidence.c:1220 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:138, include/layerx/lxp_da.h:143, include/layerx/lxp_da.h:145 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_verified_test.go (planned) with TestRetiredDaVerifiedSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_store_read_verified, lxp_da_log_read_body, lxp_da_log_store_body and contains lxp_log_append (src/storage/lxp_log.c:405), lxp_log_read (src/storage/lxp_log.c:445)."
+do_5 = "With src/storage/lxp_da_verified.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_store_read_verified", "lxp_da_log_read_body", "lxp_da_log_store_body", "TestRetiredDaVerifiedSymbolsAbsent"]
-touches = ["src/storage/lxp_da_verified.c", "modules/lxphost/retired_da_verified_test.go"]
+touches = ["src/storage/lxp_da_verified.c", "modules/lxphost/retired_da_verified_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_verified_test.go::TestRetiredDaVerifiedSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_verified_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94624,8 +94672,9 @@ do_1 = "Delete src/sequencer/lxp_batch_seal.c (src/sequencer/lxp_batch_seal.c:1-
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerxd/lxp_daemon_process.c:2650, tests/daemon/guarantor-core.c:109, tests/daemon/guarantor-runtime.c:153, tests/daemon/lxp_test_arbiter_admission.c:761 and 8 more files (wiring request); domain 8 at tools/platform/emulator/core/emulator_core.c:452 (wiring request); domain 13 at programs/tests/differential/parallel.c:806 (wiring request); domain 14 at tests/explorer_fixture.c:197 (wiring request); domain 16 at tests/programs/test_call_activity.c:1152, tests/programs/test_interface_protocol.c:315, tests/protocol/lxp_test_terminal_rejection.c:345, tests/storage/lxp_test_batch_wal_recovery.c:316 and 8 more files (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_batch.h:136, include/layerx/lxp_batch.h:140 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_batch_seal_test.go (planned) with TestRetiredBatchSealSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_batch_seal, lxp_batch_sign and contains lxp_batch_header_decode (src/sequencer/lxp_batch_header.c:84), lxp_batch_verify_signature (src/sequencer/lxp_batch_header.c (planned))."
+do_5 = "With src/sequencer/lxp_batch_seal.c deleted, move \"lxp_batch_seal\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_batch_seal", "lxp_batch_sign", "TestRetiredBatchSealSymbolsAbsent"]
-touches = ["src/sequencer/lxp_batch_seal.c", "modules/lxphost/retired_batch_seal_test.go"]
+touches = ["src/sequencer/lxp_batch_seal.c", "modules/lxphost/retired_batch_seal_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_batch_seal_test.go::TestRetiredBatchSealSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_batch_seal_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -96128,7 +96177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.4.1]
 title = "Register, pause and unpause kernel assets from the ledger keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.3.3", "2.3.5"]
@@ -97176,7 +97225,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.4]
 title = "Serve the 0x101C views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.11.1", "2.7.4"]
@@ -115346,7 +115395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.46.7]
 title = "Start the sequencer node from the parsed config in newApp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["5.46.6", "5.0.2", "5.5.12", "5.5.19", "5.5.17"]
@@ -115627,7 +115676,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.2]
 title = "Stop writing the handover trust artefact from layerx-genesis-build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.49.1", "5.0.2", "1.17.3"]
@@ -127333,7 +127382,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.13.4]
 title = "Enforce the per-IP rate limit and the batch limits on HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.13.3", "7.10.5", "7.12.2", "7.9.1"]
@@ -128222,7 +128271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.20.1]
 title = "Freeze the JSON-RPC error code registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["7.13.4", "7.8.2"]
@@ -139524,7 +139573,7 @@ title = "Delete the kernel caps and prestate transport tests"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.21.6"]
+requires = ["9.21.6", "1.4.6"]
 reqs = ["9271.1"]
 capabilities = ["9.24.1"]
 interfaces = []
@@ -145941,7 +145990,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.7]
 title = "Refresh the lock entries of layerx-committed-proof for its serde_json dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.2.6"]
@@ -150634,7 +150683,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.10.4]
 title = "POST /v1/wallet/evm/sign signs an approved transaction and answers the receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.10.3", "12.5.3"]
@@ -152499,7 +152548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.2]
 title = "Send module transactions through the receipted send in the surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.33.1", "12.23.5", "12.31.2", "12.33.8"]
@@ -152530,7 +152579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.3]
 title = "Apply the fee token preference through the receipted send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["12.33.2"]
@@ -152651,7 +152700,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.8]
 title = "Move the wallet and web exchange callers to the perps v2 open and cancel shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.33.13"]
@@ -152713,7 +152762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.2]
 title = "Read the transaction ladder from the sequencer receipt before the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.34.1", "12.22.4", "12.33.1", "12.33.8"]
@@ -158013,7 +158062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.6]
 title = "Percent-encode the denom and creator path segments of the sdk/js tokenfactory REST client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -158270,7 +158319,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.1]
 title = "Drop the anchor, batch and checkpoint explorer link targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
@@ -158688,7 +158737,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.5]
 title = "Send the home add and withdraw actions to the bridge page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
@@ -161794,7 +161843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.5]
 title = "Add a --check mode that reports app env vaults differing from the deployment records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.53.3"]
@@ -166350,7 +166399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.23.1]
 title = "Drop the handover registration check from the genesis module-table suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["16.21.1", "16.2.3", "5.49.2"]
@@ -169895,7 +169944,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 2
 requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
@@ -169926,7 +169975,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 2
 requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]

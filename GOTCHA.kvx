@@ -9165,3 +9165,15 @@ area = "C build / static archive"
 symptom = "a freshly built build/liblayerx.a lacks link closure (25 undefined references at 1.4.3 a8) while a pre-existing build directory links, then collides with moved definitions (lxp_batch_verify_signature, 1.11.4 a2)"
 cause = "a source filtered out of LIB_SOURCES (Makefile:41-50) is still referenced by kept members, and `ar rcsD` (Makefile:203) never prunes the stale member that masks it"
 do = "keep LIB_SOURCES link-closed when filtering a source and build the archive from an empty build directory"
+
+[gotcha.1907]
+area = "C build / Makefile tests"
+symptom = "a Makefile verify passes while the library it shapes no longer links"
+cause = "a verify that runs only `make -n` (tools/ci/tests/test_makefile_wave1.py, test_makefile_wave2.py) proves that rules exist or are gone, never that the library links"
+do = "a task that removes sources from LIB_SOURCES links layerxd or another consumer in its gate (16.2.2, 16.0.2 vs 1.4.3 a8, 9.24.1 a6)"
+
+[gotcha.1908]
+area = "C build / archive symbol tests"
+symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
+cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
+do = "pair an archive symbol check with a link of a consumer built from an empty build directory"
