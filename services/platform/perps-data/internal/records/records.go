@@ -12,14 +12,6 @@ import (
 	"time"
 )
 
-// MarketIDs maps the eighteen symbols of the application feed list
-// (Hyperpax:src/core/feeds.ts:4) to their market ids (contracts/perps-markets.md
-// section 2).
-var MarketIDs = map[string]int64{
-	"BTC": 0, "ETH": 1, "SOL": 2, "AVAX": 3, "LINK": 4, "TSLA": 5, "NVDA": 6, "NAS100": 7, "XAU": 8,
-	"SPX500": 9, "GOOGL": 10, "PAX": 11, "SID": 12, "HYPE": 13, "XRP": 14, "ASTER": 15, "TRUMP": 16, "BNB": 17,
-}
-
 // SpotTokenRank is the position of a spot token among the registered
 // non-stablecoin tokens of 0x1025, which InitV6120 registers as USDL, PAX, SID
 // (contracts/spot.md, Opening pairs).
@@ -71,6 +63,7 @@ func NewSymbol(db *sql.DB) (*Symbol, error) {
 // null before the first one: last_funding_rate_hourly and perp_funding_rate
 // are the settled hourly rate, funding_8h is eight times it.
 type MarketRecord struct {
+	MarketID              string   `json:"market_id"`
 	Symbol                string   `json:"symbol"`
 	SymbolFull            string   `json:"symbol_full"`
 	Price                 *float64 `json:"price"`

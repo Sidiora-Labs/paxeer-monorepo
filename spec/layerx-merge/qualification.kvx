@@ -2213,3 +2213,67 @@ symbol = "admit"
 observed = "The fifth attempt (2fa906880, base 4acd0e5d4) built and both SealBatch tests failed at Accept with \"gas wanted 200000 (resp. 21000) exceeds Block.MaxGasWanted 0\" (logs-verify-1.log): the admission check of 5.4.3 (f3ef8c257) refuses gas above Block.MaxGasWanted, the tests build their chain with newSourceHarness whose app.DefaultConsensusParams (node/test_helpers.go:664) leave it at 0, and the test file was written on 6c0eca168 before 5.4.3 landed; the candidate's three files are unchanged since its second attempt and touch neither accept.go nor limits.go."
 assumption = "Both tests store a non-zero block gas bound in their setup as resolutionBlockGas and admissionParams already do in the package; limits.go stays unchanged."
 severity = "note"
+
+[finding.2.6.4.1]
+task = "2.6.4"
+file = "modules/layerxauth/keeper/execute_test.go:83"
+symbol = "TestAuthExecuteIdempotentReplay"
+observed = "At 7c163c6ce (fifth attempt, base 306b315aa) the build passed and the verifier exited 1 (logs-verify-1.log): the session, capability and revoke cases at :83, :94 and TestAuthExecuteSequenceReused at :127 fail `require.Equal(t, result.Encoded, stored)` because the stored record is 68 bytes longer — the trailing 0x00 becomes 0x01, 0x00000040 and a 64-byte all-zero signature — since Host.Execute returns the unsigned encoding (modules/lxphost/host.go:555) and the idempotency record holds the signed canonical form (src/protocol/lxp_kernel.c:3214); both values come from the code under test, no landed commit changed them, and the equality was written by the fourth attempt itself."
+assumption = "The test asserts the signed-form relation exactly (do_6) and the kernel behaviour stands."
+severity = "suspect"
+
+[finding.2.11.1.1]
+task = "2.11.1"
+file = "precompiles/layerxauth/harness_test.go:31"
+symbol = "authKeepers"
+observed = "At 231049131 (fourth attempt, base 1b20d42f3) the build passed and the verifier exited 1 (logs-verify-1.log): TestAuthMergeConstructorRegistered (layerxauth_test.go:31) panics in precompiles/launchpad/setup.go:22 \"launchpad: keepers do not provide the launchpad keeper\" because authKeepers embeds the utils.Keepers interface, which hides the LaunchpadV610K accessor that the v6.10 launchpad entry registered by 0b92983f9 type-asserts (setup.go:16); the fixture is inside the task's own touches."
+assumption = "The fixture embeds *node.PrecompileKeepers as precompiles/layerxledger/harness_test.go:31 does; no production change."
+severity = "blocker"
+
+[finding.9.33.13.1]
+task = "9.33.13"
+file = "services/agent/sdk/typescript/src/perps.ts:180"
+symbol = "EncodedActivity"
+observed = "At 81e39e369 (second attempt) the build and both named tests passed and the verifier exited 1 (logs-verify-1.log) on `symbol EncodedActivity — not defined in the graph`, the interface do_2 deletes, while perpsOpenPositionCall, perpsCancelOrderCall and all three touched paths passed."
+assumption = "The deleted name leaves the symbol list and 81e39e369 is requalified unchanged."
+severity = "note"
+
+[finding.12.34.1.1]
+task = "12.34.1"
+file = "apps/wallet/src/surfaces/useSurface.ts:502"
+symbol = "WalletCapsObservation"
+observed = "At 676b65202 (fifth attempt, base 1b20d42f3 with 12.35.1 merged) the whole-app build `pnpm --dir apps/wallet run typecheck` exited 2 (logs-build-1.log) on 14 errors in apps/wallet/src/surfaces (useSurface.ts, WebDataView.tsx, WebDataView.test.tsx), red since cd777e460 (12.25.1 retyped observations as { rung, block_number, state_root }), none in the task's StatusLadder files; those files belong to 12.33.1, which requires 12.34.1, so no requires edge can order them."
+assumption = "12.34.1's build is scoped to its own test file and the candidate requalifies unchanged; the app-wide typecheck is a release gate."
+severity = "blocker"
+
+[finding.8.34.1]
+task = "8.34.1"
+file = "services/platform/middleware/merchant/src/index.ts:490"
+symbol = "layerXReceiptDigest"
+observed = "At be3114e36 (second attempt, base 4acd0e5d4) the build passed and the verifier exited 1 (logs-verify-1.log): merchantCheckoutOfferUsesReceiptedRung (merchant-app.test.mjs:266) got 400 {\"state\":\"refused\",\"error\":\"verification-failure\"} because MerchantMiddleware (8.25.2) accepts only a bare 64-hex extensions.layerx.receiptDigest while SellerMiddleware (8.22.1/8.22.3) emits the PortableReceiptV2 digest 0x-prefixed; the first attempt failed identically and no open task touches the merchant file."
+assumption = "The 0x-prefixed PortableReceiptV2 form is canonical and the merchant normalises it (do_8)."
+severity = "blocker"
+
+[finding.8.33.3]
+task = "8.33.3"
+file = "services/agent/sdk/typescript/package.json:1"
+symbol = "@sidiora/layerx-sdk"
+observed = "At cdbdb33da (second attempt, base 4acd0e5d4) the build passed and the verifier exited 1 (logs-verify-1.log) before either test ran: ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-sdk/dist/src/index.js imported by test/receipt-outcome.test.mjs, because the package exports ./dist/src/index.js, produced only by its `tsc -p tsconfig.json` build, which neither the dependency install of these attempts nor the build_cmd runs; the first attempt failed identically."
+assumption = "The build_cmd builds the TypeScript SDK first (as 4.46.1 does); tsc only, no Rust crate involved."
+severity = "blocker"
+
+[finding.11.23.3]
+task = "11.23.3"
+file = "services/interop/crates/layerx-gas-station/src/station.rs:191"
+symbol = "GasStation"
+observed = "At 351bad396 (first attempt, base 4acd0e5d4) the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --all-targets` exited 101 (logs-build-1.log) with E0616 at service.rs:681: do_1 reads QuotePolicy::did_budget (policy.rs:153) but the policy sits behind GasStation's private field station (station.rs:191) and GasStation exposes journal() (station.rs:277) and no policy accessor; the report and the test are written and verify did not run."
+assumption = "A read-only accessor beside journal() is the minimal change; no open task owns station.rs."
+severity = "blocker"
+
+[finding.3.5.3]
+task = "3.5.3"
+file = "modules/perps/keeper/genesis_governed_test.go:14"
+symbol = "ExportGenesis"
+observed = "Attempts two to four of 3.5.3 (last eb3990212) stopped on the lxphost read_program.go:141 break already recorded for 1.22.3; the fourth attempt also added package-level test helpers named ExportGenesis and InitGenesis in package keeper_test to satisfy the declared symbols, although the real (*Keeper).ExportGenesis and (*Keeper).InitGenesis at modules/perps/keeper/genesis.go:253 and :30 are indexed and bare method names pass the graph check for done tasks 2.5.1, 2.9.1 and 6.21.4."
+assumption = "The third attempt's test (identical in attempts one to three), which calls the real keeper methods, is requalified; the helpers are not taken."
+severity = "suspect"
