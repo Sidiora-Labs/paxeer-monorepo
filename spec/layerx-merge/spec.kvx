@@ -92616,7 +92616,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.16.1]
 title = "Stop include/layerx/programs.h including the replica header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1"]
@@ -96062,7 +96062,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.3.5]
 title = "Mirror kernel asset supply and transfers into bank under the layerx denom"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["2.3.4", "1.21.3"]
@@ -96633,7 +96633,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.7.1]
 title = "Grant session keys and successor sessions through governance sub-op 5"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.6.3", "2.6.5"]
@@ -96665,7 +96665,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.7.2]
 title = "Grant delegated capabilities through governance sub-op 8 and mirror them as authz grants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.6.3", "2.6.5"]
@@ -97144,7 +97144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.3]
 title = "Serve revokeGrant on 0x101C"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.11.1", "2.7.3"]
@@ -105878,7 +105878,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.4]
 title = "Serve Query/Markets from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["4.3.1", "4.2.3", "4.2.4", "4.4.3"]
@@ -105909,7 +105909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.5]
 title = "Serve Query/MarketsByCreator from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["4.3.1", "4.2.3", "4.2.4", "4.4.4"]
@@ -112108,7 +112108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.17]
 title = "Stop the sequencer node cleanly"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["5.5.12", "5.5.19"]
@@ -112138,7 +112138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.19]
 title = "Start the sequencer node: load the key, replay the WAL and install it on the App"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["5.5.8", "5.5.6", "5.24.4", "5.5.12"]
@@ -112170,7 +112170,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.20]
 title = "Rehearse a crash after receipt and before seal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["5.5.19"]
@@ -126882,7 +126882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.9.4]
 title = "Check HTTP and WebSocket answer the shared read methods identically"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.9.1", "7.0.2", "7.10.3"]
@@ -127195,7 +127195,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.12.2]
 title = "Apply PendingOption and SequencerForwardOption in both server constructors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.12.1", "7.9.1"]
@@ -129743,7 +129743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.94.1]
 title = "Serve pax_sequencerReceipt with signed receipt bytes and signing key on the chain listener"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2"]
@@ -132318,7 +132318,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.22.7]
 title = "Retire the seller checkpoint evidence module built on the deleted SDK checkpoint verifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.34.2"]
@@ -133690,7 +133690,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.1]
 title = "Settle merchant checkouts and webhooks on portable receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["8.33.1", "8.25.2", "8.22.4", "8.22.7"]
@@ -157611,7 +157611,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.9]
 title = "Delete the types types files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8"]
@@ -157644,7 +157644,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.10]
 title = "Delete the esm types files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8"]
@@ -157677,7 +157677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.11]
 title = "Delete the cjs types files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8"]
@@ -157710,7 +157710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.12]
 title = "Delete the types types files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8"]
@@ -157741,7 +157741,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.13]
 title = "Delete the esm types files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8"]
@@ -157772,7 +157772,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.14]
 title = "Delete the cjs types files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.2.1", "14.2.2", "14.2.3", "14.2.4", "14.2.5", "14.2.6", "14.2.7", "14.2.8"]
@@ -157995,7 +157995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.7]
 title = "Align the sdk/js tendermint type declarations with consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.1", "14.3.2", "14.3.3"]
@@ -161682,7 +161682,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.3]
 title = "Emit the Solana program id line from the Solana deployment record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.53.2", "14.50.1"]

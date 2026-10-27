@@ -94,16 +94,6 @@ lxp_result lxp_gateway_receipt_return(
     const lxp_receipt *receipt,
     lxp_arena *arena,
     lxp_byte_span *canonical_receipt);
-lxp_result lxp_gateway_grant_bounds_check(
-    const lxp_payment_requirement *requirement,
-    const lxp_receive *receive,
-    const lxp_grant_state *grant_state,
-    const lxp_receive_environment *environment);
-lxp_result lxp_gateway_receive_claim(
-    const lxp_payment_requirement *requirement,
-    const lxp_receive *receive,
-    lxp_gateway_receive_context *context,
-    lxp_receipt *receipt);
 lxp_result lxp_gateway_invoice_count(
     lx_account_registry *owner_accounts,
     lxp_gateway_invoice_registry *registry,
