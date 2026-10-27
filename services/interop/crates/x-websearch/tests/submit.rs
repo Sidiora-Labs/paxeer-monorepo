@@ -12,7 +12,10 @@ use x_websearch::submit::{
     attestor_set, fulfil_calldata, fulfil_gas_limit, request_status, selector, Fees, JournalState,
     Outcome, SubmitError, Submitter, Transaction, FULFIL_SIGNATURE, STATUS_FULFILLED,
 };
-use x_websearch::watch::{hex0x, unhex0x, EvmRpc, XWEB_PRECOMPILE};
+use x_websearch::watch::{
+    hex0x, kernel_network_id, unhex0x, EvmError, EvmRpc, GET_KERNEL_NETWORK_ID_SIGNATURE,
+    XWEB_PRECOMPILE,
+};
 
 type Checked<T = ()> = Result<T, Box<dyn Error>>;
 
@@ -239,12 +242,16 @@ impl Replay {
 
 impl Node {
     fn start(names: &[&str], journal: &Path) -> Checked<Self> {
+        Self::start_rules(load_rules(names)?, journal)
+    }
+
+    fn start_rules(rules: Vec<Rule>, journal: &Path) -> Checked<Self> {
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let calls: Calls = Arc::new(Mutex::new(Vec::new()));
         let journalled = Arc::new(Mutex::new(Vec::new()));
         let replay = Replay {
-            rules: Mutex::new(load_rules(names)?),
+            rules: Mutex::new(rules),
             calls: Arc::clone(&calls),
             journal: journal.to_path_buf(),
             journalled: Arc::clone(&journalled),
@@ -295,6 +302,55 @@ fn recorded_hash() -> Checked<[u8; 32]> {
     bytes(text(&recorded()?, "/hash")?)?
         .try_into()
         .map_err(|_| fail("hash is not 32 bytes"))
+}
+
+#[test]
+fn the_kernel_network_id_is_read_from_the_xweb_precompile() -> Checked {
+    let scratch = Scratch::new("kernel-network")?;
+    let node = Node::start(&["kernel-network.json"], &scratch.journal())?;
+    assert_eq!(GET_KERNEL_NETWORK_ID_SIGNATURE, "getKernelNetworkId()");
+    assert_eq!(
+        selector(GET_KERNEL_NETWORK_ID_SIGNATURE),
+        [0xfc, 0x0d, 0x26, 0xf4]
+    );
+    let params = json!([{
+        "to": "0x0000000000000000000000000000000000001019",
+        "data": "0xfc0d26f4"
+    }, "latest"]);
+    assert_eq!(kernel_network_id(&node.rpc()?)?, 1);
+    assert_eq!(node.params("eth_call"), vec![params.clone()]);
+
+    let mut cases = Vec::new();
+    for network in [0_u32, 1, 7, 0x01020304, u32::MAX] {
+        let mut word = vec![0; 32];
+        word[28..].copy_from_slice(&network.to_be_bytes());
+        cases.push((word, Ok(network)));
+    }
+    for length in [0, 4, 31, 33, 64] {
+        cases.push((vec![0; length], Err(EvmError::Malformed)));
+    }
+    for index in [0, 23, 27] {
+        let mut word = vec![0; 32];
+        word[index] = 1;
+        cases.push((word, Err(EvmError::Malformed)));
+    }
+    for (word, expected) in cases {
+        let mut rules = load_rules(&["kernel-network.json"])?;
+        let rule = rules
+            .iter_mut()
+            .find(|rule| rule.method == "eth_call" && rule.params == params)
+            .ok_or_else(|| fail("kernel network recording is missing"))?;
+        rule.answer = json!({ "result": hex0x(&word) });
+        let node = Node::start_rules(rules, &scratch.journal())?;
+        assert_eq!(
+            kernel_network_id(&node.rpc()?),
+            expected,
+            "word {}",
+            hex0x(&word)
+        );
+        assert_eq!(node.params("eth_call"), vec![params.clone()]);
+    }
+    Ok(())
 }
 
 #[test]

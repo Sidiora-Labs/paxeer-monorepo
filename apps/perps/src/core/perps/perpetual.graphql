@@ -779,24 +779,6 @@ scalar DateTime
       offset: Int
     ): [SpotOrderFill!]!
 
-    # Batch auction results
-    spotBatchClearings(
-      marketId: String
-      limit: Int
-      offset: Int
-    ): [SpotBatchClearing!]!
-
-    # Epoch settlements
-    spotEpochSettlements(limit: Int, offset: Int): [SpotEpochSettlement!]!
-
-    # Fast settlements
-    spotFastSettlements(
-      userAddress: String
-      tokenAddress: String
-      limit: Int
-      offset: Int
-    ): [SpotFastSettlement!]!
-
     # Collateral movements (spot deposits / withdrawals)
     spotCollateralMovements(
       userAddress: String
@@ -805,34 +787,6 @@ scalar DateTime
       limit: Int
       offset: Int
     ): [SpotCollateralMovement!]!
-
-    # Market mode-change audit log
-    spotMarketModeChanges(
-      marketId: String
-      limit: Int
-      offset: Int
-    ): [SpotMarketModeChange!]!
-
-    # PoFQ reputation updates
-    spotPofqUpdates(
-      entityAddress: String
-      isVault: Boolean
-      limit: Int
-      offset: Int
-    ): [SpotPofqUpdate!]!
-
-    # Registered PLVs
-    spotPLVs(isRegistered: Boolean, limit: Int, offset: Int): [SpotPLV!]!
-
-    # Spot keeper cycle log
-    spotKeeperCycles(limit: Int, offset: Int): [SpotKeeperCycle!]!
-
-    # Spot batch clear failures
-    spotBatchClearFailures(
-      marketId: String
-      limit: Int
-      offset: Int
-    ): [SpotBatchClearFailure!]!
   }
 
   # ============================================================

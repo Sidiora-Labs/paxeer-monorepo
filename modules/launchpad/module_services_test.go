@@ -56,12 +56,16 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			handler := queryRouter.Route("/paxprotocol.paxchain.launchpad.Query/" + method)
 			require.NotNil(t, handler)
 			response, err := handler(ctx, abci.RequestQuery{})
-			if method == "Params" {
+			switch method {
+			case "Params":
 				require.NoError(t, err)
 				var result types.QueryParamsResponse
 				require.NoError(t, cdc.Unmarshal(response.Value, &result))
 				require.Equal(t, params, result.Params)
-			} else {
+			case "Market":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "empty denom", status.Convert(err).Message())
+			default:
 				require.Equal(t, codes.Unimplemented, status.Code(err))
 				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())
 			}

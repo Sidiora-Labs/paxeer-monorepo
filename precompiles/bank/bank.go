@@ -226,6 +226,9 @@ func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method 
 	}
 	if !p.v6120Active(ctx) {
 		if _, err := p.pointerSend(ctx, caller, args); err != nil {
+			if errors.Is(err, banktypes.ErrSendDisabled) {
+				return nil, 0, assetPausedRefusal(err)
+			}
 			return nil, 0, err
 		}
 		bz, err := method.Outputs.Pack(true)
@@ -233,6 +236,9 @@ func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method 
 	}
 	cache, write := ctx.CacheContext()
 	if _, err := p.pointerSend(cache, caller, args); err != nil {
+		if errors.Is(err, banktypes.ErrSendDisabled) {
+			return nil, 0, assetPausedRefusal(err)
+		}
 		if !errors.Is(err, sdkerrors.ErrInsufficientFunds) {
 			return nil, 0, err
 		}
