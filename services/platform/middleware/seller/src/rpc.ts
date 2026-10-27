@@ -1,5 +1,5 @@
-import { decodeRawEip1559, keccak256, type AuthorizedReceiptBatch, type ProtocolSelection, type ReceiptVerification } from "@sidiora/layerx-sdk";
-import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver } from "./index.js";
+import { decodeRawEip1559, keccak256, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver, type PaymentReceiptVerification, type PortableReceiptV2 } from "./index.js";
 
 export function rpcObject(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid-rpc-object");
@@ -101,21 +101,34 @@ export class PaymentRpc {
 
 export async function verifyRpcPayment(
   result: Record<string, unknown>, rawTransaction: string, expectedPayer: string,
-  requirements: PaymentRequirements, authorizedBatch: AuthorizedReceiptBatch,
-  commitments?: PaymentCommitmentResolver, selection?: ProtocolSelection,
-): Promise<{ readonly kind: "pending" } | { readonly kind: "verified"; readonly canonicalReceipt: Uint8Array; readonly authorizedBatch: AuthorizedReceiptBatch; readonly verification: ReceiptVerification }> {
+  requirements: PaymentRequirements, receiptKeys: readonly SequencerReceiptKey[],
+  commitments?: PaymentCommitmentResolver,
+): Promise<{ readonly kind: "pending" } | (PortableReceiptV2 & { readonly kind: "verified"; readonly verification: PaymentReceiptVerification })> {
   const expectedHash = hexString(keccak256(rawTransactionBytes(rawTransaction)));
   const payer = rpcHex(expectedPayer, 32);
   if (result["txHash"] !== expectedHash) throw new MiddlewareError("verification-failure");
   if (result["rung"] === "submitted") return { kind: "pending" };
   if (result["rung"] !== "receipted" && result["rung"] !== "committed") throw new MiddlewareError("payment-refused");
-  const canonicalReceipt = rpcHex(result["receipt"]);
+  const signedReceipt = rpcHex(result["receipt"]);
   const commitment = paymentCommitment(requirements.extra);
   if (commitment === "committed" && result["rung"] !== "committed") throw new MiddlewareError("verification-failure");
-  const verification = await verifyPaymentReceipt({ canonicalReceipt, authorizedBatch }, requirements, commitments, selection);
-  if (hexString(verification.receipt.activityId) !== expectedHash
+  if (typeof result["height"] !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(result["height"])) {
+    throw new MiddlewareError("verification-failure");
+  }
+  const height = BigInt(result["height"]);
+  const key = receiptKeys.find((pin) => hexString(pin.keyId) === result["keyId"]
+    && pin.first_height <= height && height <= pin.last_height);
+  if (key === undefined) throw new MiddlewareError("verification-failure");
+  const evidence: PortableReceiptV2 = {
+    format: "layerx-receipt-proof-v2", verificationLevel: result["rung"], rawTransaction,
+    signedReceipt: hexString(signedReceipt), receiptDigest: hexString(keccak256(signedReceipt)),
+    receiptKey: { keyId: hexString(key.keyId), publicKey: hexString(key.publicKey),
+      firstHeight: `0x${key.first_height.toString(16)}`, lastHeight: `0x${key.last_height.toString(16)}` },
+  };
+  const verification = await verifyPaymentReceipt(evidence, requirements, receiptKeys, commitments);
+  if (verification.height !== height || verification.txHash !== expectedHash
     || hexString(verification.receipt.from) !== hexString(payer)) throw new MiddlewareError("verification-failure");
-  return { kind: "verified", canonicalReceipt, authorizedBatch, verification };
+  return { kind: "verified", ...evidence, verification };
 }
 
 export function rpcBatchEvidence(result: Record<string, unknown>, activityId: string, receipt: Uint8Array,
