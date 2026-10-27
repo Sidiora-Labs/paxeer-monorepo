@@ -3,6 +3,7 @@ package types
 import (
 	"fmt"
 	launchpad "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	agent "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	anchor "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	layerxauthtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	bridge "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
@@ -10,6 +11,9 @@ import (
 	exchange "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	pay "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	perps "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
+	pricefeed "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
+	spot "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	web "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
@@ -59,9 +63,16 @@ func init() {
 	govtypes.RegisterProposalTypeCodec(&anchor.MsgUpdateParams{}, "layerxanchor/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&exchange.MsgUpdateParams{}, "layerxexchange/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&exchange.MsgSetMarket{}, "layerxexchange/MsgSetMarket")
+	govtypes.RegisterProposalTypeCodec(&spot.MsgUpdateParams{}, "spot/MsgUpdateParams")
+	govtypes.RegisterProposalTypeCodec(&spot.MsgSyncReserves{}, "spot/MsgSyncReserves")
+	govtypes.RegisterProposalTypeCodec(&perps.MsgUpdateParams{}, "perps/MsgUpdateParams")
+	govtypes.RegisterProposalTypeCodec(&perps.MsgSetMarket{}, "perps/MsgSetMarket")
+	govtypes.RegisterProposalTypeCodec(&perps.MsgSetPaused{}, "perps/MsgSetPaused")
+	govtypes.RegisterProposalTypeCodec(&pricefeed.MsgSetParams{}, "pricefeed/MsgSetParams")
 	govtypes.RegisterProposalTypeCodec(&layerxledgertypes.MsgUpdateParams{}, "layerxledger/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&layerxauthtypes.MsgUpdateParams{}, "layerxauth/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&pay.MsgUpdateParams{}, "layerxpay/MsgUpdateParams")
+	govtypes.RegisterProposalTypeCodec(&agent.MsgUpdateParams{}, "layerxagent/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&launchpad.MsgUpdateParams{}, "launchpad/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&web.MsgRegisterAttestor{}, "xweb/MsgRegisterAttestor")
 	govtypes.RegisterProposalTypeCodec(&web.MsgRemoveAttestor{}, "xweb/MsgRemoveAttestor")
@@ -220,6 +231,20 @@ func governanceMessage(msg sdk.Msg) (string, error) {
 	case *web.MsgUnpause:
 		return m.Authority, nil
 	case *pay.MsgUpdateParams:
+		return m.Authority, nil
+	case *agent.MsgUpdateParams:
+		return m.Authority, nil
+	case *perps.MsgUpdateParams:
+		return m.Authority, nil
+	case *perps.MsgSetMarket:
+		return m.Authority, nil
+	case *perps.MsgSetPaused:
+		return m.Authority, nil
+	case *pricefeed.MsgSetParams:
+		return m.Authority, nil
+	case *spot.MsgUpdateParams:
+		return m.Authority, nil
+	case *spot.MsgSyncReserves:
 		return m.Authority, nil
 	default:
 		return "", sdkerrors.Wrapf(govtypes.ErrInvalidProposalContent, "%T is not a fork authority message", msg)
