@@ -8991,3 +8991,39 @@ area = "spec"
 symptom = "Retiring or re-signing a public item (a constant, a function parameter, a struct) builds in the task's crate and fails `cargo build --all-targets` on integration tests or sibling crates outside touches"
 cause = "--all-targets compiles every tests/*.rs of the crate and the dependents check compiles consumer crates, none of which the task owns"
 do = "Before retiring an item, `git grep` its name under the workspace and put every consumer file in touches, or add a requires edge to the task that owns it (11.29.4: PORTABLE_RECEIPT_FORMAT_V2 / trusted_batch)"
+
+[gotcha.1878]
+area = "rust"
+symptom = "adding an enum variant builds and tests clean, then the next task that builds the crate with a cargo feature fails E0004 on a match over that enum in a cfg(feature) file"
+cause = "the task's build_cmd ran without the feature, so rustc never compiled the gated match"
+do = "when adding a variant, grep the enum's match sites under every cfg feature and build once with each feature that compiles them, or put the arm in the task that owns the gated file (13.7.4: AbiError::EffectLimit in abi_payload)"
+
+[gotcha.1879]
+area = "go"
+symptom = "a requalified candidate's own tests fail on a refusal from a check that landed in the package after the candidate was written (`gas wanted N exceeds Block.MaxGasWanted 0`)"
+cause = "a requalify replays the result unchanged, so a fixture written before the check cannot set what the check now needs"
+do = "when the package gained an admission or validation check since the candidate's base, reseed as a continue with a do line naming the fixture call (5.17.2: resolutionBlockGas in the newSourceHarness setup)"
+
+[gotcha.1880]
+area = "tooling"
+symptom = "a do line moves a call site to a helper whose input type (Eip1559Call) does not exist on that path yet, and the implementer reports the mismatch instead of inventing the input"
+cause = "the migration was assigned to the task that touches the file rather than the task that produces the new input"
+do = "assign a signing or encoding migration to the task that changes the transport (9.23.7 -> 9.23.6) and give the task that deletes the old helper (9.35.1) a requires edge to it"
+
+[gotcha.1881]
+area = "go"
+symptom = "a precompile test fixture that embeds the utils.Keepers interface panics in GetCustomPrecompiles with `keepers do not provide the <module> keeper` after a new registry entry lands"
+cause = "newer entries type-assert concrete keeper accessors (LaunchpadV610Keepers) that the interface embedding hides"
+do = "embed *node.PrecompileKeepers from testApp.GetPrecompileKeepers() in the fixture, as precompiles/layerxledger/harness_test.go does (2.11.1)"
+
+[gotcha.1882]
+area = "go"
+symptom = "a keeper test asserting Host.Execute's receipt bytes equal the stored idempotency record fails with the stored value 68 bytes longer (0x01, 0x00000040, 64 zero bytes)"
+cause = "Host.Execute returns the receipt without the sequencer signature while the kernel stores the signed canonical form"
+do = "assert the signed-form relation explicitly or compare decoded fields; never equate the two encodings (2.6.4)"
+
+[gotcha.1883]
+area = "tooling"
+symptom = "an attempt adds test-only helpers or types named after the declared symbols so the graph check passes"
+cause = "the symbol list named an item a do line deletes, or a method the graph already indexes under its bare name"
+do = "fix the symbol list (drop deleted names) and requalify the candidate without the helpers; a name added only to satisfy a check is a fake (9.33.13, 3.5.3, 3.10.2)"

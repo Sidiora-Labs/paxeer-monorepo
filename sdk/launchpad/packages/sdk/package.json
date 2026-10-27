@@ -21,10 +21,7 @@
     "build": "node scripts/compile-validators.mjs && tsc -p tsconfig.json",
     "test": "npm run build && node --test test/*.test.mjs",
     "generate:operations": "python3 scripts/generate.py --major 2 --operations-only",
-    "generate:examples": "python3 scripts/examples.py",
-    "test:phase2": "python3 test/run-phase2.py",
-    "test:phase4": "python3 test/run-phase4.py",
-    "build:phase4": "node test/build-phase4.mjs"
+    "generate:examples": "python3 scripts/examples.py"
   },
   "dependencies": {
     "ajv": "8.20.0",
@@ -49,7 +46,6 @@
       "sidiora.v2"
     ],
     "v1ReleaseManifest": "release-manifest.json",
-    "v2EvidenceManifest": "evidence/production-system/L24/phase2/manifest.json",
     "compatibilityWindowRequiredForBreakingChanges": true
   }
 }
