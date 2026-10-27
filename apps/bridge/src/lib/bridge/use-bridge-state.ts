@@ -20,6 +20,7 @@ import { bridgeConfig } from './config';
 import { paxeer as paxeerChain, type BridgeChain } from './chains';
 import { attestationPollInterval, fetchDepositAttestation, fetchReleaseAttestation } from './attestation-api';
 import type { BridgeTransfer } from './transfers';
+import { recipientRecordFromResponse, recipientRecordRequest, solanaRecipientHandle } from './solana';
 
 export const paxeerConfigured = bridgeConfig.paxeerRpcUrl !== undefined;
 export const attestationApiConfigured = bridgeConfig.attestationApiUrl !== undefined;
@@ -248,6 +249,30 @@ export function useReleaseAttestation(transfer: BridgeTransfer | undefined, sett
         paxeerNonce: BigInt(transfer!.bridgeOutNonce!),
       }),
     refetchInterval: (query) => attestationPollInterval(query.state.data, POLL_MS),
+  });
+}
+
+export function useRecipientRecord(destination: string) {
+  const programId = bridgeConfig.solanaProgramId;
+  const rpcUrl = bridgeConfig.foreignRpcUrls.solana;
+  const handle = solanaRecipientHandle(destination);
+  const request = programId ? recipientRecordRequest(programId, destination) : undefined;
+  return useQuery({
+    queryKey: [ 'solana-recipient-record', rpcUrl, programId, handle ],
+    enabled: rpcUrl !== undefined && programId !== undefined && request !== undefined,
+    queryFn: async({ signal }) => {
+      if (!rpcUrl || !request || !handle) throw new Error('The Solana recipient lookup is not configured or the destination is invalid.');
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        cache: 'no-store',
+        signal,
+      });
+      if (!response.ok) throw new Error(`The Solana RPC answered ${ response.status }.`);
+      return recipientRecordFromResponse(await response.json(), handle);
+    },
+    refetchInterval: REFRESH_MS,
   });
 }
 

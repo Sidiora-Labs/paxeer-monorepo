@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+pub mod commit;
 pub mod header;
 pub mod merkle;
 pub mod proto;
@@ -13,6 +14,14 @@ pub enum ProofError {
     RootMismatch,
     /// The supplied validator set differs from the header commitment.
     ValidatorsHashMismatch,
+    /// The commit metadata or signature slots are malformed.
+    InvalidCommit,
+    /// Validator powers or keys do not form a valid consensus set.
+    InvalidValidatorSet,
+    /// A present precommit does not verify against its indexed validator.
+    InvalidCommitSignature,
+    /// The block's precommits do not carry strictly more than two thirds power.
+    InsufficientVotingPower,
 }
 
 impl std::fmt::Display for ProofError {
@@ -21,6 +30,10 @@ impl std::fmt::Display for ProofError {
             Self::InvalidProof => "invalid Merkle proof position or aunt count",
             Self::RootMismatch => "Merkle proof root mismatch",
             Self::ValidatorsHashMismatch => "header validator set hash mismatch",
+            Self::InvalidCommit => "invalid block commit",
+            Self::InvalidValidatorSet => "invalid validator set",
+            Self::InvalidCommitSignature => "invalid commit signature",
+            Self::InsufficientVotingPower => "insufficient commit voting power",
         })
     }
 }

@@ -1,0 +1,408 @@
+[profile.go]
+toolchains = ["go 1.25.6", "shell", "git", "python 3.12 (image-pinned patch)"]
+network = "locked Go module proxy only"
+prebuild = []
+
+[profile.go-cgo]
+toolchains = ["go 1.25.6 with CGO_ENABLED=1", "C17 compiler 13.3.0", "make", "rust 1.91.1", "cargo", "OpenSSL development libraries", "shell", "git"]
+network = "locked Go module proxy and locked crate registry only"
+prebuild = ["make build/liblayerx.a programs/target/debug/liblayerx_programs_sandbox.a"]
+
+[profile.rust]
+toolchains = ["rust 1.91.1", "cargo", "clippy", "rustfmt", "wasm32-unknown-unknown when declared", "native compiler", "crypto development libraries"]
+network = "locked crate registry only"
+prebuild = []
+
+[profile.node]
+toolchains = ["node 24 (image-pinned patch at least 24.3.0)", "pnpm (image-pinned version matching the task package)"]
+network = "pnpm store of services/wallet/pnpm-lock.yaml only"
+prebuild = []
+
+[profile.elixir]
+toolchains = ["elixir 1.19.4-otp-27", "erlang 27.3.4.6", "node 20.17.0", "mix"]
+network = "locked Hex dependencies only"
+prebuild = []
+
+[profile.solidity]
+toolchains = ["forge v1.7.1", "solc 0.8.27", "solc 0.8.30", "bash", "git"]
+network = "pinned libraries in contracts/bridge/evm/bootstrap-libs.sh and declared solc versions only"
+prebuild = ["bash contracts/bridge/evm/bootstrap-libs.sh"]
+
+[profile.python]
+toolchains = ["python 3.12 (image-pinned patch)", "pytest", "shell"]
+network = "locked Python package index only"
+prebuild = []
+
+[profile.jvm]
+toolchains = ["JDK 21 (image-pinned patch)", "maven", "kotlin 2.0.20 when declared"]
+network = "declared Maven dependencies only"
+prebuild = []
+
+[profile.dotnet]
+toolchains = ["dotnet SDK 8.0 (image-pinned patch)"]
+network = "locked NuGet dependencies only"
+prebuild = []
+
+[profile.swift]
+toolchains = ["swift 6.0.3", "SwiftPM"]
+network = "locked SwiftPM dependencies only"
+prebuild = []
+
+[profile.mixed]
+toolchains = ["python 3.12 (image-pinned patch)", "task-declared immutable union of required profile toolchains"]
+network = "union of the task-declared component profile dependency allowlists only"
+prebuild = []
+
+[needs.4.5.2]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.3]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.4]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.5]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.6]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.7]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.8]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.5.9]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.10.3]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.10.4]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.4.10.5]
+profile = "go-cgo"
+network = "peer"
+time_limit_minutes = 30
+resources = ["one-validator test network"]
+
+[needs.7.21.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.21.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.21.3]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.22.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.22.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.22.3]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.3]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.4]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.5]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.6]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.7]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.23.8]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.3]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.4]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.5]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.6]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.7]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.8]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.9]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.24.10]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.3]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.4]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.5]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.6]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.7]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.8]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.9]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.10]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.11]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.12]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.25.13]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.26.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.26.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.27.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.27.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.28.3]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.29.1]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.7.29.2]
+profile = "go-cgo"
+network = "registry"
+time_limit_minutes = 30
+resources = ["Go module proxy for buf"]
+
+[needs.10.11.2]
+profile = "rust"
+network = "peer"
+time_limit_minutes = 30
+resources = ["secp256k1 key in KMS attestor test cluster"]
+
+[needs.10.13.3]
+profile = "rust"
+network = "peer"
+time_limit_minutes = 30
+resources = ["peer socket"]
+
+[needs.10.13.4]
+profile = "rust"
+network = "peer"
+time_limit_minutes = 30
+resources = ["peer socket"]
+
+[needs.10.13.5]
+profile = "rust"
+network = "peer"
+time_limit_minutes = 30
+resources = ["peer socket"]

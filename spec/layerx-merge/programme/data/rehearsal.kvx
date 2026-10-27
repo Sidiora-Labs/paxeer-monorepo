@@ -1,0 +1,33 @@
+[meta]
+name = "Migration rehearsal from v6.12.0 through v7.0"
+format_version = 1
+source_version = "v6.12.0"
+target_version = "v7.0"
+
+[step.1]
+title = "Apply v7.0 on a v6.12.0 chain and seal the first sequenced block"
+test = "node/merge_rehearsal_test.go::TestMergeRehearsalFirstSequencedBlock"
+command = "go test -count=1 ./node/ -run '^(TestMergeRehearsalFirstSequencedBlock)$'"
+stop_on_failure = true
+expect_refusal = ["mergeUpgradePlan: invalid sequencer genesis (node/upgrades.go:436)", "mergeUpgradePlan: no leader list (node/upgrades.go:453)", "mergeUpgradePlan: lastSeq other than 0 (node/upgrades.go:456)", "mergeUpgradePlan: no receipt key covering H_act+1 (node/upgrades.go:463)"]
+
+[step.2]
+title = "Export and re-import after the merge, preserving sequencer state"
+test = "node/upgrade_export_test.go::TestExportAfterMergeKeepsSequencerState"
+command = "go test -count=1 ./node/ -run '^(TestExportAfterMergeKeepsSequencerState)$'"
+stop_on_failure = true
+expect_refusal = []
+
+[step.3]
+title = "Activate the gated precompiles with the merge plan"
+test = "node/upgrades_merge_activation_test.go::TestMergePlanActivatesGatedPrecompiles"
+command = "go test -count=1 ./node/ -run '^(TestMergePlanActivatesGatedPrecompiles)$'"
+stop_on_failure = true
+expect_refusal = []
+
+[step.4]
+title = "Delete the anchor store at the second plan, v7.0-anchor-store-delete"
+test = "node/store_delete_test.go::TestAnchorStoreDeletedAtStep"
+command = "go test -count=1 ./node/ -run '^(TestAnchorStoreDeletedAtStep)$'"
+stop_on_failure = true
+expect_refusal = []
