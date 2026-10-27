@@ -18577,7 +18577,7 @@ ac_2 = "CONFORMANCE_VECTOR_COUNT (services/interop/crates/x-websearch/src/lib.rs
 [req.11404]
 title = "x-websearch decodes and verifies the shared sequencer-receipt vectors"
 ac_1 = "settlement::decode accepts every answer case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 and returns the case's rung, seq, height, status and keyId."
-ac_2 = "The payment receipt check refuses every V3 case of the shared vector file (key not pinned, height outside the key range, tampered bytes) with receipt_unverified, the refusal Plane::recover returns for an unverifiable receipt."
+ac_2 = "The payment receipt check refuses every V3 case of the shared vector file and releases no payment: the cases whose expected.verifier is SequencerSignature or Decode (V3-key-not-pinned, V3-height-outside-key-range, V3-non-canonical-bytes) with receipt_unverified, the refusal Plane::recover returns for an unverifiable receipt, and the cases whose signature verifies (expected.verifier accepts: V3-activity-id-not-raw-hash, V3-seq-hash-mismatch, V3-tampered-log) with receipt_mismatch, the refusal req.11395 ac_3 requires for a verified receipt whose content differs."
 
 [req.11405]
 title = "The committed x-websearch example configuration parses under the current loader"
@@ -71908,7 +71908,7 @@ qualification = "UNRUN"
 [acceptance.11.404.2]
 feature = "11"
 req = "11404.2"
-scenario = "Given the V3 cases of the shared vector file and the receipt keys the file pins, when each is checked as a draw receipt, then each is refused receipt_unverified"
+scenario = "Given the V3 cases of the shared vector file and the receipt keys the file pins, when each is checked as a draw receipt, then no payment is released and each is refused receipt_unverified when the vector's expected.verifier is not accepts and receipt_mismatch when it is"
 contract = "contracts/interop.md#x-websearch-payment"
 test = "services/interop/crates/x-websearch/tests/sequencer_vectors.rs::shared_refusal_cases_do_not_release_a_payment (planned)"
 qualification = "UNRUN"
@@ -150036,6 +150036,7 @@ interfaces = []
 do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from the repository root in services/interop/crates/x-websearch/tests/sequencer_vectors.rs (planned)."
 do_2 = "Build the receipt keys from the vector's pinned keys and run settlement::decode and the payment receipt check of services/interop/crates/x-websearch/src/settlement.rs (planned) on each case."
 do_3 = "Skip no case: fail the test when sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 holds a case id the test does not classify."
+do_4 = "Derive each V3 case's expected refusal from the vector's expected.verifier field: receipt_unverified when it is SequencerSignature or Decode (the R2 and R3 cases), receipt_mismatch when it is accepts (the R4, R5 and R6 cases), because services/interop/crates/x-websearch/src/payment.rs:2231-2263 refuses a verified receipt whose activity id, seqHash chain or log view differs with receipt_mismatch under req.11395 ac_3. Attempt b58477b26 built, decoded all eleven cases and withheld every payment, failing only on a hardcoded receipt_unverified expectation for the three accepts cases."
 symbols = ["settlement::decode"]
 touches = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs"]
 tests = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs::every_shared_answer_case_decodes_through_the_settlement_client", "services/interop/crates/x-websearch/tests/sequencer_vectors.rs::shared_refusal_cases_do_not_release_a_payment"]

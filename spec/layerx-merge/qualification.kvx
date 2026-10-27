@@ -7989,3 +7989,11 @@ symbol = "KernelError"
 observed = "Attempt 7e33e03b4 deleted kernel.rs, lib.rs's pub mod kernel, tests/kernel.rs and the kernel paths of main.rs, payment.rs and tests/binary.rs as do_1-do_6 say, and the build failed with unresolved import crate::kernel at attest.rs:15, attest.rs:47, config.rs:1017 and program.rs:19, files the task did not touch."
 assumption = "do_7 now relocates request_topic to config.rs and KernelError to program.rs and repoints attest.rs at crate::program; attest.rs, config.rs and program.rs are added to touches."
 severity = "major"
+
+[finding.11.36.4]
+task = "11.36.4"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "verify_receipt"
+observed = "req.11404 ac_2 asked for receipt_unverified on every V3 case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, while req.11395 ac_3 and payment.rs:2231-2263 refuse a verified receipt whose content differs with receipt_mismatch; the vector file marks V3-activity-id-not-raw-hash, V3-seq-hash-mismatch and V3-tampered-log with verifier accepts, so attempt b58477b26 got receipt_mismatch for exactly those three."
+assumption = "The vector file's verifier field is the authority: req.11404 ac_2, acceptance.11.404.2 and task 11.36.4 do_4 now expect receipt_unverified for SequencerSignature and Decode cases and receipt_mismatch for accepts cases; payment.rs is unchanged."
+severity = "major"

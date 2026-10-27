@@ -9548,3 +9548,9 @@ area = "spec"
 symptom = "A delete-the-module task listed the module, its tests and the files its do items named; the build failed because three other files imported the module's re-exports and one enum."
 cause = "The do items were written from the module's own callers, not from a grep of crate::<module> across the crate."
 do = "Before writing a module-deletion task, grep crate::<module>:: and <module>:: across the crate and every test, and give each surviving symbol a destination file in a do item and in touches."
+
+[gotcha.1971]
+area = "spec"
+symptom = "An acceptance criterion generalised a refusal reason to every negative case of a shared vector file, and three cases returned a different reason that another criterion in the same feature requires."
+cause = "The criterion was written from the three cases its parenthesis names and did not read the vector file's verifier column, which separates signature failures from content mismatches."
+do = "When a criterion ranges over the cases of a shared vector file, derive the expected outcome per case from the file's own classification fields and cite the sibling criterion that governs each class."
