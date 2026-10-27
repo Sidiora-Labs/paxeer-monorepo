@@ -7,7 +7,6 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.ActivityItem do
   alias BlockScoutWeb.Schemas.API.V2.General
   alias BlockScoutWeb.Schemas.API.V2.PaxeerX.SettlementRung
   alias BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.AssetNullable
-  alias Explorer.Chain.PaxeerX.CustodyEvent
   alias OpenApiSpex.Schema
 
   @chain_kinds ["transaction", "token_transfer"]
@@ -15,14 +14,13 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.ActivityItem do
   OpenApiSpex.schema(%{
     title: "PaxeerXActivityItem",
     description:
-      "One item of the feed that merges the chain's transactions and token transfers with the LayerX " <>
-        "custody events, each naming the asset it moves, the side of the network it happened on and " <>
+      "One item of the chain's transaction and token transfer feed, naming the asset it moves and " <>
         "the rung it has reached on the settlement ladder.",
     type: :object,
     properties: %{
       kind: %Schema{
         type: :string,
-        enum: @chain_kinds ++ Enum.map(CustodyEvent.kinds(), &to_string/1),
+        enum: @chain_kinds,
         nullable: false,
         description: "What the item is"
       },
@@ -30,11 +28,11 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.ActivityItem do
       block_number: %Schema{type: :integer, nullable: false, description: "Block the item was recorded in"},
       ordinal: %Schema{type: :integer, minimum: 0, description: "Transaction index or log index within the block"},
       status: SettlementRung,
-      side: %Schema{
+      result: %Schema{
         type: :string,
-        enum: ["chain", "kernel"],
-        nullable: false,
-        description: "Side of the network the item happened on"
+        enum: ["ok", "error"],
+        nullable: true,
+        description: "Execution result of the transaction"
       },
       timestamp: General.TimestampNullable,
       asset: AssetNullable,
@@ -42,10 +40,10 @@ defmodule BlockScoutWeb.Schemas.API.V2.PaxeerX.UnifiedAccount.ActivityItem do
       counterparty: %Schema{
         type: :string,
         nullable: true,
-        description: "The other party: an EVM address hash on the chain side, a kernel account on the kernel side"
+        description: "EVM address hash of the other party"
       }
     },
-    required: [:kind, :hash, :block_number, :ordinal, :status, :side, :timestamp, :asset, :amount, :counterparty],
+    required: [:kind, :hash, :block_number, :ordinal, :status, :result, :timestamp, :asset, :amount, :counterparty],
     nullable: false,
     additionalProperties: false
   })
