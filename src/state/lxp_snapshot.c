@@ -270,23 +270,6 @@ static void sort_cells(const lxp_state_store *state, size_t *indices)
     }
 }
 
-static void sort_idempotency(const lxp_state_store *state, size_t *indices)
-{
-    size_t i;
-    for (i = 0U; i < state->idempotency_count; ++i) indices[i] = i;
-    for (i = 1U; i < state->idempotency_count; ++i) {
-        size_t value = indices[i];
-        size_t at = i;
-        while (at != 0U && memcmp(
-            state->idempotency[indices[at - 1U]].key_hash,
-            state->idempotency[value].key_hash, 32U) > 0) {
-            indices[at] = indices[at - 1U];
-            --at;
-        }
-        indices[at] = value;
-    }
-}
-
 static int kv_order(const lxp_module_kv_entry *left,
                     const lxp_module_kv_entry *right)
 {
@@ -366,24 +349,12 @@ static lxp_result snapshot_size(const lxp_kernel *kernel,
     size_t blob_total = 0U;
     size_t i;
     if (kernel->state->count > LXP_STATE_MAX_CELLS ||
-        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV)
         return LXP_FATAL_INVARIANT;
     if (kernel->state->count > (SIZE_MAX - total) / 52U)
         return LXP_ERR_LENGTH_LIMIT;
     total += kernel->state->count * 52U;
-    for (i = 0U; i < kernel->state->idempotency_count; ++i) {
-        const lxp_idempotency_key_state *entry = &kernel->state->idempotency[i];
-        size_t length = entry->receipt_length;
-        if (entry->receipt_length > LXP_STATE_MAX_RECEIPT_BYTES ||
-            entry->canonical_length > LXP_STATE_MAX_RECEIPT_BYTES)
-            return LXP_ERR_LENGTH_LIMIT;
-        if (entry->canonical_length != 0U) length += 13U + entry->canonical_length;
-        if (length > LXP_STATE_MAX_REPLAY_ENTRY_BYTES ||
-            length > SIZE_MAX - total - 40U) return LXP_ERR_LENGTH_LIMIT;
-        total += 40U + length;
-    }
     for (i = 0U; i < kernel->module_count; ++i) {
         size_t count = kernel->modules[i].activity_type_count;
         if (count > LXP_MODULE_MAX_ACTIVITY_TYPES ||
@@ -478,7 +449,6 @@ lxp_result lxp_snapshot_write(const lxp_kernel *kernel,
 {
     lxp_codec_writer writer;
     size_t *cell_order;
-    size_t *idem_order;
     size_t *kv_indices;
     size_t *blob_indices;
     size_t *account_indices = NULL;
@@ -513,11 +483,6 @@ lxp_result lxp_snapshot_write(const lxp_kernel *kernel,
                              _Alignof(size_t), &memory);
     if (status != LXP_OK) return status;
     cell_order = (size_t *)memory;
-    status = lxp_arena_alloc(arena,
-        kernel->state->idempotency_count * sizeof(size_t),
-        _Alignof(size_t), &memory);
-    if (status != LXP_OK) return status;
-    idem_order = (size_t *)memory;
     status = lxp_arena_alloc(arena, kernel->module_kv_count * sizeof(size_t),
                              _Alignof(size_t), &memory);
     if (status != LXP_OK) return status;
@@ -534,7 +499,6 @@ lxp_result lxp_snapshot_write(const lxp_kernel *kernel,
         account_indices = (size_t *)memory;
     }
     sort_cells(kernel->state, cell_order);
-    sort_idempotency(kernel->state, idem_order);
     sort_kv(kernel, kv_indices);
     sort_blobs(kernel, blob_indices);
     if (include_accounts) {
@@ -556,21 +520,7 @@ lxp_result lxp_snapshot_write(const lxp_kernel *kernel,
         if (status == LXP_OK)
             status = lxp_codec_write_u128(&writer, cell->value);
     }
-    if (status == LXP_OK) status = lxp_codec_write_u32(
-        &writer, (uint32_t)kernel->state->idempotency_count);
-    for (i = 0U; status == LXP_OK &&
-         i < kernel->state->idempotency_count; ++i) {
-        const lxp_idempotency_key_state *entry =
-            &kernel->state->idempotency[idem_order[i]];
-        uint8_t encoded[LXP_STATE_MAX_REPLAY_ENTRY_BYTES];
-        size_t encoded_length;
-        status = lxp_idempotency_snapshot_encode(entry, encoded, sizeof(encoded), &encoded_length);
-        if (status == LXP_OK)
-            status = lxp_codec_write_bytes(&writer, entry->key_hash, 32U, 32U);
-        if (status == LXP_OK)
-            status = lxp_codec_write_bytes(&writer, encoded,
-                encoded_length, LXP_STATE_MAX_REPLAY_ENTRY_BYTES);
-    }
+    if (status == LXP_OK) status = lxp_codec_write_u32(&writer, 0U);
     if (status == LXP_OK)
         status = lxp_codec_write_u32(&writer, (uint32_t)kernel->module_count);
     for (i = 0U; status == LXP_OK && i < kernel->module_count; ++i) {
@@ -896,27 +846,8 @@ static lxp_result snapshot_load(
     }
     state->count = status == LXP_OK ? count : 0U;
     if (status == LXP_OK) status = lxp_codec_read_u32(&reader, &count);
-    if (status == LXP_OK && count > LXP_STATE_MAX_IDEMPOTENCY)
-        status = LXP_ERR_LENGTH_LIMIT;
     if (status == LXP_OK && count != 0U)
-        status = lxp_idempotency_reserve(state);
-    for (i = 0U; status == LXP_OK && i < count; ++i) {
-        lxp_byte_span receipt;
-        status = read_fixed(&reader, state->idempotency[i].key_hash, 32U);
-        if (status == LXP_OK)
-            status = lxp_codec_read_bytes(&reader, &receipt,
-                                          LXP_STATE_MAX_REPLAY_ENTRY_BYTES);
-        if (status == LXP_OK)
-            status = lxp_idempotency_snapshot_decode(&state->idempotency[i],
-                                                     receipt.bytes, receipt.length);
-        if (status == LXP_OK && state->idempotency[i].canonical_length != 0U)
-            status = lxp_kernel_idempotency_receipt_validate(&state->idempotency[i]);
-        if (status == LXP_OK && i != 0U && memcmp(
-            state->idempotency[i - 1U].key_hash,
-            state->idempotency[i].key_hash, 32U) >= 0)
-            status = LXP_ERR_NON_CANONICAL;
-    }
-    state->idempotency_count = status == LXP_OK ? count : 0U;
+        status = LXP_ERR_SNAPSHOT_MISMATCH;
     if (status == LXP_OK) status = lxp_codec_read_u32(&reader, &count);
     if (status == LXP_OK && count != kernel->module_count)
         status = LXP_ERR_SNAPSHOT_MISMATCH;
@@ -1128,8 +1059,6 @@ static lxp_result snapshot_load(
     if (status == LXP_OK && live_accounts != NULL &&
         snapshot_version == (uint16_t)LXP_PROTOCOL_VERSION_OCCUPANCY)
         status = lx_account_registry_reserve(live_accounts, accounts->count);
-    if (status == LXP_OK && state->idempotency_count != 0U)
-        status = lxp_idempotency_reserve(kernel->state);
     if (status == LXP_OK) {
         for (i = 0U; i < kernel->blob_count; ++i)
             free(kernel->blobs[i].bytes);
@@ -1155,11 +1084,6 @@ static lxp_result snapshot_load(
         kernel->state->count = state->count;
         (void)memcpy(kernel->state->cells, state->cells,
                      state->count * sizeof(state->cells[0]));
-        if (state->idempotency_count != 0U)
-            (void)memcpy(kernel->state->idempotency, state->idempotency,
-                         state->idempotency_count *
-                             sizeof(state->idempotency[0]));
-        kernel->state->idempotency_count = state->idempotency_count;
         kernel->state->next_sequence = state->next_sequence;
         (void)memcpy(kernel->modules, candidate->modules,
                      candidate->module_count * sizeof(candidate->modules[0]));
@@ -1177,7 +1101,6 @@ static lxp_result snapshot_load(
     lx_account_registry_release(source_accounts);
     free(accounts);
     free(source_accounts);
-    free(state->idempotency);
     free(state);
     free(candidate);
     return status;
