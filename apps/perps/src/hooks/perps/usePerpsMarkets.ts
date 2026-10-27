@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { gqlQuery } from "@/core/graphql/client";
 import { registerVenueSymbols } from "@/core/net/venueStream";
-import { INDEXER_GRAPHQL, type PerpsMarket } from "@/core/perps/config";
+import { INDEXER_GRAPHQL, type TradeableMarket } from "@/core/perps/config";
 import {
   catalogFromGateway,
   type GatewayMarketRow,
@@ -18,7 +18,7 @@ export type GatewayCatalogEntry = MarketCatalogEntry &
 
 export interface PerpsMarketsCatalog {
   catalog: GatewayCatalogEntry[];
-  tradeable: (GatewayCatalogEntry & PerpsMarket)[];
+  tradeable: (GatewayCatalogEntry & TradeableMarket)[];
 }
 
 export async function loadPerpsMarkets(): Promise<PerpsMarketsCatalog> {
