@@ -9177,3 +9177,15 @@ area = "C build / archive symbol tests"
 symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
 cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
 do = "pair an archive symbol check with a link of a consumer built from an empty build directory"
+
+[gotcha.1909]
+area = "sdk/baseapp"
+symptom = "A module query error reaches the CLI with codespace sdk and code 18 although the keeper returned a registered module error."
+cause = "gRPCErrorToSDKError (sdk/baseapp/abci.go:646) rewraps every handler error that is not a gRPC status as ErrInvalidRequest before QueryResultWithDebug reads the ABCI info."
+do = "Return an error that already carries a registered codespace (sdkerrors.ABCIInfo codespace other than undefined) unchanged, before the gRPC status mapping (task 15.0.5)."
+
+[gotcha.1910]
+area = "apps/launchpad/mobile"
+symptom = "tsc over the mobile app reports dozens of errors inside react-native globals.d.ts, lib.dom.d.ts and @types/node, or, without the DOM lib, in the launchpad SDK sources."
+cause = "react-native's global declarations overlap the DOM lib the DOM-typed SDK sources need; the conflict sits only in declaration files."
+do = "Keep the default lib and set skipLibCheck true in tsconfig.json as @react-native/typescript-config does; never drop DOM or add a second tsconfig for the tests."
