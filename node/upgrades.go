@@ -123,6 +123,8 @@ const V610Upgrade = "v6.10"
 // one place.
 const MergeUpgrade = pcommon.MergeUpgrade
 
+const AnchorStoreDeleteUpgrade = "v7.0-anchor-store-delete"
+
 // The governance voting periods the v6.10 plan writes. Every other governance
 // parameter, the deposit and the tally parameters among them, is left as the
 // plan finds it.
@@ -211,6 +213,9 @@ func (app *App) RegisterUpgradeHandlers() {
 	// The merge plan brings the sequencer module up from the genesis its plan
 	// carries.
 	app.UpgradeKeeper.SetUpgradeHandler(MergeUpgrade, app.mergeUpgradePlan)
+	app.UpgradeKeeper.SetUpgradeHandler(AnchorStoreDeleteUpgrade, func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
+	})
 }
 
 // runXWebUpgrade runs the module migrations with xweb taken as present, so the
@@ -531,7 +536,7 @@ func activationPrecompileGate() evmkeeper.CustomPrecompileActivation {
 		Modules: map[common.Address][]string{
 			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {layerxanchortypes.ModuleName},
 			common.HexToAddress(layerxcustodytypes.CustodyAddress):    {layerxcustodytypes.ModuleName},
-			common.HexToAddress(anchorprecompile.LayerXAnchorAddress): {layerxanchortypes.ModuleName},
+			common.HexToAddress(anchorprecompile.LayerXAnchorAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxexchangetypes.ExchangeAddress):  {layerxexchangetypes.ModuleName},
 			common.HexToAddress(layerxbridgetypes.BridgeAddress):      {layerxbridgetypes.ModuleName},
 			common.HexToAddress(launchpadtypes.LaunchpadAddress):      {launchpadtypes.ModuleName},
@@ -587,7 +592,7 @@ func (app *App) validateMergePrecompiles() error {
 // knownUpgradePlans names, in the order they apply, the plans the application
 // applies from the upgrade info file an operator leaves on disk.
 func knownUpgradePlans() []string {
-	return []string{ActivationUpgrade, V610Upgrade, V6120Upgrade, MergeUpgrade}
+	return []string{ActivationUpgrade, V610Upgrade, V6120Upgrade, MergeUpgrade, AnchorStoreDeleteUpgrade}
 }
 
 // upgradePlanPending reports whether the named plan is one of those the

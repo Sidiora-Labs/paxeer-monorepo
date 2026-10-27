@@ -95761,7 +95761,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.0.3]
 title = "Integrated gate: bank mirror matches kernel balances through the node-served 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["2.12.1", "2.12.2", "2.12.3", "2.12.4", "2.12.5"]
@@ -103093,7 +103093,7 @@ do_2 = "Change fixtureSet at precompiles/spot/spot_test.go:50-56 to call spot.Ne
 do_3 = "Rewrite TestNewPrecompileSetAddresses at precompiles/spot/spot_test.go:89-112 to assert the same five addresses, names and three keeper errors through spot.NewServedSet."
 do_4 = "Change precompiles/spot/integration_test.go:162 to spot.NewServedSet and the hyperpaxEnv set field to the *spot.Precompile map."
 symbols = ["newPrecompileSet", "NewServedSet", "fixtureSet", "TestNewPrecompileSetAddresses"]
-touches = ["precompiles/spot/spot.go", "precompiles/spot/setup.go", "precompiles/spot/spot_test.go", "precompiles/spot/integration_test.go"]
+touches = ["precompiles/spot/spot.go", "precompiles/spot/setup.go", "precompiles/spot/spot_test.go", "precompiles/spot/integration_test.go", "precompiles/spot/spot_abis_test.go"]
 tests = ["precompiles/spot/spot_test.go::TestNewPrecompileSetAddresses"]
 planned_paths = []
 build_cmd = "go build ./precompiles/spot/..."
@@ -103109,6 +103109,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "precompiles/spot/spot_abis_test.go:33 also calls NewPrecompileSet(nil) and fails to compile after the rename; it is an in-package test, so call newPrecompileSet(nil) there and keep its two assertions."
 
 [task.3.22.1]
 title = "Add spot active position and length key prefixes"
@@ -103538,6 +103539,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The first run compared getTokenInfo values with require.Equal on []interface{} holding *big.Int, which fails on the zero representation (abs nil against an empty slice); compare the three flags and check Sign() on the amounts, as the repaired run does. The repaired run then reverted on the vault deposit of the listed token (selector 47e7ef24 to 0x1025): the liquidity provider approves the vault for usdl only. Give the vault an allowance for the listed token's ERC20 exactly as for usdl before that deposit, or decode the revert data against the vault ABI errors before changing anything else."
 
 [task.3.24.1]
 title = "Skip unpriced tokens in spot resting execution"
@@ -112929,8 +112931,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Rehearse the activation of the merge precompiles"
 status = "pending"
 mode = "BUILD"
-wave = 15
-requires = ["5.6.5", "5.19.4"]
+wave = 29
+requires = ["5.6.5", "5.19.4", "5.94.4"]
 reqs = ["5063.1"]
 capabilities = ["5.6.9"]
 interfaces = []
@@ -112954,10 +112956,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "At 666996bb3 the v7.0 handler panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584, validateMergePrecompiles): the node imports the oracle, scheduler and streams precompiles only in 5.94.4, which this task now requires. Do not register the missing constructors from the test and do not relax the check."
 
 [task.5.7.1]
 title = "Delete the anchor store and module at a second plan after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.6.5", "5.7.2"]
@@ -115924,7 +115927,7 @@ do_1 = "Create daemon/paxd/cmd/sequencer_genesis_conformance_test.go (planned) e
 do_2 = "Use the public key printed by gen-receipt-key from daemon/paxd/cmd/sequencer.go (planned) by task 5.46.3 as the add-genesis-receipt-key input."
 do_3 = "Assert genutilcli.ValidateGenesisCmd (daemon/paxd/cmd/root.go:136) succeeds and decode the sequencer section to check Leaders and ReceiptKeys (modules/sequencer/types/genesis.go:28-33)."
 symbols = ["NewRootCmd", "ValidateGenesisCmd", "TestSequencerGenesisCommandsProduceValidGenesis"]
-touches = ["daemon/paxd/cmd/sequencer_genesis_conformance_test.go"]
+touches = ["daemon/paxd/cmd/sequencer_genesis_conformance_test.go", "daemon/paxd/cmd/genreceiptkey.go"]
 tests = ["daemon/paxd/cmd/sequencer_genesis_conformance_test.go::TestSequencerGenesisCommandsProduceValidGenesis"]
 planned_paths = ["daemon/paxd/cmd/sequencer_genesis_conformance_test.go"]
 build_cmd = "go vet ./daemon/paxd/cmd/"
@@ -115940,6 +115943,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Four attempts failed validate-genesis with 'receipt key list is empty' and the cause is in the command this test drives: add-genesis-receipt-key (daemon/paxd/cmd/genreceiptkey.go:67-86) unmarshals and re-marshals the untagged sequencertypes.GenesisState, so it writes a ReceiptKeys key while the module reads the wire object of modules/sequencer/module.go:38-45 (receipt_keys, leaders as byte strings). Fix the command here, since the test cannot pass without it: edit the module state as a map[string]json.RawMessage the way add-genesis-sequencer-leader does (daemon/paxd/cmd/genseqleader.go:48-80), decode and append under receipt_keys in the module's wire encoding, and preserve every other key. Nothing else in the command changes."
 
 [task.5.47.1]
 title = "Drop the layerx-wire dependency from the layerxctl crate"
@@ -133769,6 +133773,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_12 = "Five attempts failed to build because the rewrite of services/platform/ramps/toolkit/src/clients.rs removed what services/platform/ramps/toolkit/src/engine.rs:217-311 uses: LayerxClient::prepare_native_receive, the activity_id() and canonical_activity() accessors of the prepared value, and the activity_id, canonical_activity, tx_hash and raw_transaction fields of LayerxSubmission::Unknown, Pending and Refused. engine.rs is not in this task's touches, so its call sites are the contract: keep every one of them compiling and add the sequencer endpoint, chain id and pinned receipt-key configuration and the prepare, sign, submit and resolve methods for ramp legs beside the existing API rather than in place of it."
 
 [task.8.28.4]
 title = "Prepare, sign, submit and resolve ramp legs through the sequencer endpoint"
@@ -137792,7 +137797,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "The third attempt built the daemon but the verify_cmd compiles every test target and services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs:89 and :93 still call rpc.estimate_fee with a byte slice while the task's agent_rpc change made it take &Eip1559Call. Update those two calls (the file is already part of the task's diff); no other test target failed to compile."
 
 [task.9.2.1]
 title = "Prepare EIP-1559 transactions at the pending nonce"
@@ -146334,7 +146339,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.0.3]
 title = "Start the interop service against the sequencer endpoint and pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.16.3", "11.12.5", "11.11.4", "9.1.7"]
@@ -147131,6 +147136,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Both attempts failed with Ap2Error::EvidenceMismatch from Ap2Adapter::execute (services/interop/crates/layerx-ap2/src/adapter.rs:338-357): the recorded payExact receipt the fixture hands over must carry a non-empty printable order_id, be signed by a key in the pins the adapter is built with, decode to a protocol frame with result_code 0, and have an activity_id equal to evidence.transaction_hash. Build the fixture so all four hold; do not relax the adapter."
 
 [task.11.8.1]
 title = "Settle the fiat plane on SequencerEvidence"
@@ -147388,7 +147394,7 @@ interfaces = ["interface.11.fmt-portability-receipt-proof-v2-section-j47"]
 do_1 = "Add a v2 example beside the v1 example at services/interop/PORTABILITY.md:96, produced by `PortableReceiptV2::export` (services/interop/crates/layerx-portable/src/receipt.rs:374) over the recorded receipt of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:109."
 do_2 = "Add a version-history row at services/interop/PORTABILITY.md:329 naming the v2 format and that v1 documents remain readable."
 do_3 = "Extend services/interop/crates/layerx-ap2/tests/portability_v2.rs (planned) with the test below."
-symbols = ["PORTABILITY.md"]
+symbols = ["portability_v2_example_parses"]
 touches = ["services/interop/PORTABILITY.md", "services/interop/crates/layerx-ap2/tests/portability_v2.rs"]
 tests = ["services/interop/crates/layerx-ap2/tests/portability_v2.rs::portability_v2_example_parses"]
 planned_paths = ["services/interop/crates/layerx-ap2/tests/portability_v2.rs"]
@@ -147787,7 +147793,7 @@ interfaces = ["interface.11.fmt-deploy-search-front-nginx", "interface.11.http-s
 do_1 = "The payer is now the recovered sender of the payer-signed transaction, so the search location at services/interop/deploy/search-front/nginx.conf:94 clears the header with `proxy_set_header LAYERX-PAYER-DID \"\";`."
 do_2 = "Update the comment at services/interop/deploy/search-front/nginx.conf:101-103 to name only PAYMENT-SIGNATURE as the forwarded client header."
 do_3 = "Create services/interop/deploy/search-front/tests/test_nginx_headers.py (planned) with the test below."
-symbols = ["nginx.conf"]
+symbols = ["test_search_location_clears_the_payer_did"]
 touches = ["services/interop/deploy/search-front/nginx.conf", "services/interop/deploy/search-front/tests/test_nginx_headers.py"]
 tests = ["services/interop/deploy/search-front/tests/test_nginx_headers.py::test_search_location_clears_the_payer_did"]
 planned_paths = ["services/interop/deploy/search-front/tests/test_nginx_headers.py"]
