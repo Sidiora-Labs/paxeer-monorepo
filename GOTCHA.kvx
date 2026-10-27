@@ -9590,3 +9590,9 @@ area = "services/interop/x-websearch"
 symptom = "Every V3 conformance case was refused invalid_payment_payload instead of a receipt refusal."
 cause = "The V3 vectors carry no txHash and the exact payload parser now requires one before fetching the receipt."
 do = "Derive the payload txHash as keccak of the case rawTransaction and script the gateway receipt answer for it; the receipt refusals come only after the payload parses."
+
+[gotcha.1978]
+area = "services/platform/perps-data"
+symptom = "A test that expects a chain-backed refresh to land and the refreshed height to advance within a few hundred milliseconds fails with the column still NULL."
+cause = "One refresh against the started node takes longer than the bound and two consecutive refreshes can read the same height."
+do = "Prove a second refresh by clearing the rows after the first one lands and waiting for them to be refilled, with bounds in seconds."
