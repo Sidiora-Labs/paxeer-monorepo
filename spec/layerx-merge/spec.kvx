@@ -98536,7 +98536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.3]
 title = "Implement budget pull against a payer grant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.21.3", "2.24.6", "1.98.1"]
@@ -109723,7 +109723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.35.1]
 title = "Pin the development symbol reads to the launchpad ERC20 ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["4.0.2"]
@@ -152484,7 +152484,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.24.2]
 title = "Read bank balances through px_getBalances in the endpoint client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.21.1", "8.0.2"]
