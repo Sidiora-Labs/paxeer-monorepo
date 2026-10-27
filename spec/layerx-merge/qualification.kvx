@@ -7445,3 +7445,11 @@ symbol = "validate-genesis"
 observed = "Attempt 15811bbb2 derived the validation genesis from node/testdata/v6120-halt-export.json as do_1 asks, and paxd validate-genesis failed with 'failed to unmarshal layerxledger genesis state: EOF' because the halt export predates the merged modules and carries no state for them."
 assumption = "do_1 now says to copy every module key the init genesis has and the export lacks from the init genesis defaults before validating; the next attempt continues from 15811bbb2. Recorded once."
 severity = "major"
+
+[finding.6.2.2.1]
+task = "6.2.2"
+file = "precompiles/common/lxp_errors_test.go"
+symbol = "lxpRustResultsForTest"
+observed = "Attempt bd8f005c6 passed every Go-side assertion of TestLXPRevertTable and failed at lxp_errors_test.go:81 because the Rust half of the test looks for a protocol_result_codes! invocation in layerx-types/src/result.rs; since 3422bafe2 that invocation is generated into OUT_DIR by layerx-types/build.rs from include/layerx/lxp_result.h and checked for header parity there (build.rs:529), so the test could not pass on main before this task touched it."
+assumption = "6.2.2 already owns the test file; its new do item rewrites the Rust half for the generated design (assert the build script's header input and entry format) and keeps every Go-side assertion. Recorded once."
+severity = "major"

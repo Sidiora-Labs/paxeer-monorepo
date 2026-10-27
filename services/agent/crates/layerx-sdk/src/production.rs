@@ -33,6 +33,8 @@ use crate::{
     Client, Deployment, ReceiptFailureCode, PROGRAM_OUTCOME_TAGS, REQUIRED_NONZERO_CHECKS,
 };
 
+pub type ReceiptKeys<'a> = layerx_proof::receipt::ReceiptKeys<'a>;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ReceiptVerificationFailure {
     pub check: ReceiptFailureCode,
@@ -768,10 +770,21 @@ impl ResumableStream {
 /// Returns the exact canonical, invariant, root-chain, or signature failure.
 pub fn verify_receipt(
     canonical_receipt: &[u8],
-    authorised_batch: &AuthorizedBatch,
+    receipt_keys: ReceiptKeys<'_>,
+    asset: [u8; 32],
+    previous_state_root: [u8; 32],
+    resulting_state_root: [u8; 32],
 ) -> Result<VerifiedReceipt, ReceiptVerificationFailure> {
     decode_receipt_invariants(canonical_receipt)?;
-    verify_outcome(canonical_receipt, authorised_batch).map_err(proof_receipt_failure)
+    let authorised_batch = AuthorizedBatch::from_receipt_keys(
+        canonical_receipt,
+        receipt_keys,
+        asset,
+        previous_state_root,
+        resulting_state_root,
+    )
+    .map_err(proof_receipt_failure)?;
+    verify_outcome(canonical_receipt, &authorised_batch).map_err(proof_receipt_failure)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
