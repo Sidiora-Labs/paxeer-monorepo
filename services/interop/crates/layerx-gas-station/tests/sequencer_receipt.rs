@@ -24,6 +24,44 @@ fn fixed<const N: usize>(value: &Value) -> Result<[u8; N], Box<dyn std::error::E
 }
 
 #[test]
+fn the_shared_sequencer_receipt_vector_decodes_in_the_gas_station() -> TestResult {
+    let vector: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )))?;
+    let cases = vector["cases"].as_array().ok_or("missing receipt cases")?;
+    assert!(!cases.is_empty(), "shared receipt vector has no cases");
+    for case in cases {
+        let id = case["id"].as_str().ok_or("missing case id")?;
+        let answer = &case["receiptJson"];
+        let hash: Word = fixed(&answer["txHash"])?;
+        let receipt = decode_full_sequencer_receipt(answer, &hash)
+            .unwrap_or_else(|error| panic!("{id}: receipt did not decode: {error:?}"));
+        for (field, actual) in [
+            ("seq", receipt.seq),
+            ("height", receipt.height),
+            ("status", receipt.status),
+        ] {
+            let expected = u64::from_str_radix(
+                answer[field]
+                    .as_str()
+                    .ok_or("missing quantity")?
+                    .strip_prefix("0x")
+                    .ok_or("missing quantity prefix")?,
+                16,
+            )?;
+            assert_eq!(actual, Some(expected), "{id}: {field}");
+        }
+        assert_eq!(
+            receipt.key_id,
+            Some(fixed(&answer["keyId"])?),
+            "{id}: keyId"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 fn a_committed_answer_decodes_logs_receipt_bytes_and_block() -> TestResult {
     let fixture = fixtures()?;
     let answer = &fixture["committed"];

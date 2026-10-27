@@ -120877,7 +120877,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.12.1]
 title = "Serve 0x101A layerxledger from the merge plan height through the activation list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.0.2", "6.6.5", "2.0.3", "5.19.4"]
@@ -146370,7 +146370,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.0.4]
 title = "Document the sequencer variables in the gateway deploy template and README"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.0.3"]
