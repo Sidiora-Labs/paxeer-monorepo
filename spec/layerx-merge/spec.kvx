@@ -149336,7 +149336,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.29.4]
 title = "Retire the v1 portable receipt and the batch-authority path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.29.3", "11.7.2", "11.10.2"]
