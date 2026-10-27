@@ -156669,7 +156669,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.1]
 title = "Serve deploy through the kernel deploy activity without a fee limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8"]
