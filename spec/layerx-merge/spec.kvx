@@ -149737,7 +149737,7 @@ fulfils = ["wiring.J44.27"]
 do_1 = "Rewrite Plane::recover and Plane::conclude at services/interop/crates/x-websearch/src/payment.rs:2045-2113 over SettlementRpc::sequencer_receipt, removing the lx_getActivityStatus and lx_getReceipt calls at :2063 and :2071."
 do_2 = "Rewrite verify_receipt at services/interop/crates/x-websearch/src/payment.rs:2158-2196 to verify SettlementReceipt.receipt with verify_sequencer_signature under ReceiptKeys::HeightRanges, compare seq, height and status with the answer, match the PaymentDrawn log, and drop the AuthorizedBatch construction at :2186-2192."
 do_3 = "Change Plane::finish (services/interop/crates/x-websearch/src/payment.rs:2115-2156) to claim the receipt digest and return ExecutedPayment without an authorised batch, and keep PaymentStore::release at services/interop/crates/x-websearch/src/payment.rs:1018 as the single release record."
-do_4 = "Delete GatewayRpc, RpcAnswer and gateway_authorization at services/interop/crates/x-websearch/src/payment.rs:353-640 and PROTOCOL_VERSION at :70, and replace PaymentGate.rpc at :1078 with SettlementRpc."
+do_4 = "Replace PaymentGate.rpc at services/interop/crates/x-websearch/src/payment.rs:1078 with SettlementRpc and delete PROTOCOL_VERSION at :70. Keep GatewayRpc, RpcAnswer and gateway_authorization at :353-640: src/kernel.rs:25 (eighteen uses, deleted by task 11.36.1) and src/watch.rs:9,127-146,784-926 (eth_blockNumber, eth_getLogs and eth_chainId through GatewayRpc) still import them, and neither file is in this task. Attempt two deleted them and failed the crate build with E0432 at those imports."
 do_5 = "Re-record services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json with eth_ and pax_sequencerReceipt answers and write the three tests in services/interop/crates/x-websearch/tests/payment.rs:729."
 do_6 = "Replace the layerx_crypto::send::encode_payment_envelope and layerx_crypto::signer::sign_disclosed imports at services/interop/crates/x-websearch/src/payment.rs:30-32 with ledger_payment_call and sign_disclosed_call, fulfilling wiring.J44.27 before task 9.35.1 deletes them."
 symbols = ["Plane::recover", "Plane::conclude", "Plane::finish", "verify_receipt"]
@@ -149904,7 +149904,7 @@ do_3 = "Delete services/interop/crates/x-websearch/tests/kernel.rs:1 and the ker
 do_4 = "Update the crate doc at services/interop/crates/x-websearch/src/lib.rs:7-8 to say /content is served before serving eligibility and that paid routes settle on the 0x101A ledger precompile."
 do_5 = "Write the two tests in services/interop/crates/x-websearch/tests/binary.rs:593."
 symbols = ["main", "RelayParts"]
-touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs"]
+touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/src/payment.rs"]
 tests = ["services/interop/crates/x-websearch/tests/binary.rs::the_binary_runs_the_evm_program_relay_without_a_kernel_section", "services/interop/crates/x-websearch/tests/binary.rs::readiness_lists_no_kernel_roles"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
@@ -149920,6 +149920,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Task 11.34.5 kept GatewayRpc, RpcAnswer and gateway_authorization in services/interop/crates/x-websearch/src/payment.rs:353-640 because kernel.rs used them. With kernel.rs deleted, delete gateway_authorization and GatewayRpc::with_authorization_file together with every lx_ helper only the kernel called; keep GatewayRpc, RpcAnswer and the eth_ helpers (call, block_number, quantity) that src/watch.rs:127-146 and :784-926 still use."
 
 [task.11.36.2]
 title = "Remove the kernel config section and gateway.authorization_file from x-websearch"

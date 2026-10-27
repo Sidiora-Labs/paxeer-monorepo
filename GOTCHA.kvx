@@ -9500,3 +9500,9 @@ area = "cargo workspaces"
 symptom = "cargo --locked: the lock file <ws>/Cargo.lock needs to be updated, in workspaces the change never touched"
 cause = "a crate manifest changed its dependency list and only its own workspace lock was refreshed; other workspace locks pin that crate as a path dependency and record its dependency list"
 do = "after editing any crate manifest, run cargo metadata without --locked in every workspace whose Cargo.lock names the crate (grep -l 'name = \"<crate>\"' $(git ls-files '*Cargo.lock')) and commit those locks with the change"
+
+[gotcha.1963]
+area = "x-websearch"
+symptom = "error[E0432]: unresolved imports crate::payment::GatewayRpc, crate::payment::RpcAnswer after deleting them as a do item asked"
+cause = "the do item listed only the payment.rs sites; kernel.rs and watch.rs import the same items and neither is in the task"
+do = "before deleting a pub item, git grep its name across the crate and either add every importer to the task or keep the item and hand its deletion to the task that removes the last importer"

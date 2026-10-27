@@ -7909,3 +7909,11 @@ symbol = "layerx-mirror"
 observed = "edd77cf4a dropped layerx-agent-api, layerx-client and the layerx-types dev-dependency from the mirror manifest and refreshed only services/interop/Cargo.lock; fourteen other workspace locks still list them in the layerx-mirror entry, so cargo --locked fails there (8.28.3 a7 at 3d1cd7584, services/platform)."
 assumption = "Integration task 11.26.5 refreshes the fourteen locks; 11.26.4 is not reopened."
 severity = "major"
+
+[finding.11.34.5]
+task = "11.34.5"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "GatewayRpc"
+observed = "Attempt two (base 9b59add17) deleted GatewayRpc and RpcAnswer as do_4 asked and the crate failed to build: src/kernel.rs:25 and src/watch.rs:9 import them, kernel.rs goes only with task 11.36.1 and watch.rs uses GatewayRpc for its eth_ calls."
+assumption = "11.34.5 keeps the three items; 11.36.1 deletes the authorization path with the kernel and watch.rs keeps GatewayRpc as its eth_ client."
+severity = "major"
