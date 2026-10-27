@@ -38,6 +38,84 @@ const KEY_DOMAIN: &[u8] = b"paxeer-x/agent-envelope/idempotency\0";
 type Failure = Box<dyn std::error::Error>;
 type Outcome = Result<ApiSuccess<Value>, EnvelopeError>;
 
+#[test]
+fn envelope_signed_transaction_decodes_as_eip1559_and_binds_the_sender() -> Result<(), Failure> {
+    use layerx_crypto::evm_transaction::{assemble, decode_signed, recover_sender, Eip1559Call};
+    use layerx_sdk::agent_envelope::{decode_signed_envelope_call, encode_envelope};
+    let call = Eip1559Call {
+        chain_id: 1,
+        nonce: 7,
+        max_priority_fee_per_gas: 2,
+        max_fee_per_gas: 3,
+        gas_limit: 30_000,
+        to: [0x11; 20],
+        data: vec![0xde, 0xad, 0xbe, 0xef],
+    };
+    let sender = [
+        0x1a, 0x64, 0x2f, 0x0e, 0x3c, 0x3a, 0xf5, 0x45, 0xe7, 0xac, 0xbd, 0x38, 0xb0, 0x72, 0x51,
+        0xb3, 0x99, 0x09, 0x14, 0xf1,
+    ];
+    let signed = call.sign(&[1; 32])?;
+    let credential = EnvelopeCredential::new("tenant", [1; 32], [2; 32], 0)
+        .map_err(|error| format!("{error:?}"))?;
+    let envelope = encode_envelope(
+        Operation::Prepare,
+        RequestId(1),
+        &json!({"canonical_bytes": hex(&signed)}),
+        Some(&credential),
+        Some(Key::new([3; 32]).map_err(|error| format!("{error:?}"))?),
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    let envelope: Value = serde_json::from_slice(&serde_json::to_vec(&envelope)?)?;
+    let decoded = decode_signed_envelope_call(&envelope["request"], sender)
+        .map_err(|error| format!("{error:?}"))?;
+    assert_eq!(decoded, call);
+    let (_, signature) = decode_signed(&signed)?;
+    assert_eq!(recover_sender(&decoded, &signature)?, sender);
+    assert_eq!(assemble(&decoded, &signature), signed);
+    assert_eq!(
+        decode_signed_envelope_call(&envelope["request"], [0; 20]),
+        Err(EnvelopeError::InvalidCredential)
+    );
+    let mut other_signer = envelope["request"].clone();
+    other_signer["canonical_bytes"] = json!(hex(&call.sign(&[2; 32])?));
+    assert_eq!(
+        decode_signed_envelope_call(&other_signer, sender),
+        Err(EnvelopeError::InvalidCredential)
+    );
+    for length in 0..signed.len() {
+        assert!(decode_signed_envelope_call(
+            &json!({"canonical_bytes": hex(&signed[..length])}),
+            sender
+        )
+        .is_err());
+    }
+    let mut trailing = signed.clone();
+    trailing.push(0);
+    assert!(
+        decode_signed_envelope_call(&json!({"canonical_bytes": hex(&trailing)}), sender).is_err()
+    );
+    let mut wrong_type = signed;
+    wrong_type[0] = 1;
+    assert!(
+        decode_signed_envelope_call(&json!({"canonical_bytes": hex(&wrong_type)}), sender).is_err()
+    );
+    for malformed in [
+        json!({}),
+        json!({"canonical_bytes": null}),
+        json!({"canonical_bytes": 2}),
+        json!({"canonical_bytes": ""}),
+        json!({"canonical_bytes": "0"}),
+        json!({"canonical_bytes": "gg"}),
+    ] {
+        assert_eq!(
+            decode_signed_envelope_call(&malformed, sender),
+            Err(EnvelopeError::InvalidRequest)
+        );
+    }
+    Ok(())
+}
+
 fn field<'a>(value: &'a Value, name: &str) -> Result<&'a Value, Failure> {
     value
         .get(name)
@@ -978,11 +1056,15 @@ impl Probe {
                 let purpose = field(field(&request, "purpose")?, "purpose")?;
                 let activity = field(&request, "activity")?;
                 let digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-                let signing: [u8; 32] = Sha256::new()
-                    .chain_update(b"LXP/v1/signature-preimage\0")
-                    .chain_update(&value.canonical_bytes)
-                    .finalize()
-                    .into();
+                let (transaction, signature) =
+                    layerx_crypto::evm_transaction::decode_signed(&value.canonical_bytes)?;
+                let sender =
+                    layerx_crypto::evm_transaction::recover_sender(&transaction, &signature)?;
+                let authority = text(&request, "authority")?;
+                if authority.strip_prefix("0x").unwrap_or(authority) != hex(&sender) {
+                    return Err("native preparation sender differs from its authority".into());
+                }
+                let signing = transaction.signing_hash();
                 if value.preparation_id != digest
                     || digest != bytes32(text(purpose, "canonical_digest")?)?
                     || value.preparation_id != bytes32(text(purpose, "preparation_id")?)?
