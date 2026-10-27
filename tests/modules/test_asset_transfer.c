@@ -214,7 +214,7 @@ int main(void)
         lxp_arena_init(&arena, arena_bytes, sizeof(arena_bytes)) != LXP_OK)
         return 1;
     runtime = (lx_asset_runtime){ &accounts, &asset, 1U, &asset_state, 1U,
-                                  7U, LXP_PROTOCOL_VERSION_OCCUPANCY };
+                                  7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false };
     if (lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET, &runtime) !=
             LXP_OK ||
         lxp_kernel_module_for_activity(&kernel, LX_ASSET_SEND, 0U,

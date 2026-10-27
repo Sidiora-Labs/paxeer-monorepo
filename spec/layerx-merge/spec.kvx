@@ -91494,7 +91494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.6]
 title = "Relink the kernel archive members whose call sites still exist and prune stale archive members"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["16.0.2", "16.2.2"]
@@ -92382,7 +92382,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.11.6]
 title = "Honour binding_authority in the module custody account staging call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["1.11.2"]
@@ -92707,7 +92707,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.6]
 title = "Resolve the governed occupancy asset when validating a fee-bearing grant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -96429,7 +96429,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.4.2]
 title = "Mint and burn kernel asset units from the ledger keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.3.3", "2.3.5", "2.3.6", "2.3.7"]
@@ -96494,7 +96494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.4.4]
 title = "Send kernel asset units between DID accounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.3.3", "2.3.5", "2.3.6", "2.3.7"]
@@ -106608,7 +106608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.18]
 title = "Keep the launchpad unknown-market code through mustMarket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["4.4.7"]
@@ -148604,7 +148604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.26.2]
 title = "Replace CheckpointCoordinate with CommittedCoordinate in heads, cursors and freshness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.25.5", "11.37.2", "9.1.6", "11.26.3"]
@@ -149852,7 +149852,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.38.5]
 title = "Answer cross-origin attestation reads for the configured bridge app origins"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.38.4", "9.1.6"]
@@ -152617,7 +152617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.27.3]
 title = "Assign the EVM review storage only when configured so apps/web typechecks the wallet SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -160674,7 +160674,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.30.1]
 title = "Add a sig-provider source that answers the paxeer precompile selectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]

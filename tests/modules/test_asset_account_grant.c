@@ -210,7 +210,7 @@ static int grant_setup(grant_fixture *f, uint8_t salt_tag)
     GRANT_CHECK(lxp_kernel_set_capabilities(
         &f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
     f->runtime = (lx_asset_runtime){&f->accounts, &f->genesis_asset, 1U,
-        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     GRANT_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET,
                                                &f->runtime) == LXP_OK);
 

@@ -767,6 +767,11 @@ type Config struct {
 	GasLimit          uint64
 }
 
+// TimestampWindowMs returns the maximum activity timestamp window in milliseconds.
+func (h *Host) TimestampWindowMs() uint64 {
+	return h.cfg.TimestampWindowMs
+}
+
 type Activity struct {
 	ProtocolVersion uint16
 	Type            uint32
