@@ -93466,7 +93466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.4]
 title = "Let the Programs signer binding accept host binding authority for an unsigned protocol-3 activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.23.1"]
@@ -95341,7 +95341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.93.2]
 title = "Add Host.Simulate over the kernel activity simulation in a new host file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.0.1", "1.23.1", "1.23.3"]
@@ -106549,7 +106549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.3]
 title = "Add the launchpad market query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["4.5.1", "4.4.2", "4.4.3", "15.0.5"]
@@ -106580,7 +106580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.4]
 title = "Add the launchpad markets query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["4.5.1", "4.4.4", "4.4.5", "15.0.5"]
@@ -113423,7 +113423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.4]
 title = "Compare SealBatch with giga ProcessBlock on the same sequenced block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.8.1", "5.17.2"]
@@ -134073,7 +134073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.6]
 title = "Review agent spend preparations in the owner wallet as EVM transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.24.2", "9.92.2", "12.27.1"]
@@ -149758,7 +149758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.0.4]
 title = "Demo supported-wallet panel drops the custody handoff"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3"]
@@ -151173,7 +151173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.2]
 title = "Attestor retires sign kind custody and the LX:CUSTODY:v2 digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.14.1", "12.3.3"]
@@ -151205,7 +151205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.3]
 title = "Gateway attestor client drops custody exports and the retired sign kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.11.2", "12.14.1"]
@@ -151236,7 +151236,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.4]
 title = "Migration 019 drops the retired custody and LayerX mirror tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.14.1", "12.0.3", "12.7.1"]
@@ -151449,7 +151449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.19.1]
 title = "Five-daemon conformance: EVM review then sign of the same transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["12.0.2", "12.11.3", "12.14.2", "12.3.3"]
@@ -151479,7 +151479,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.19.2]
 title = "Gateway end-to-end: EVM review, approve and sign with the signed receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3", "12.10.4"]
@@ -152242,7 +152242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.26.1]
 title = "Quote sponsored gas through the gateway sponsored quote route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3"]
@@ -152273,7 +152273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.26.2]
 title = "Answer the sequencer rung from paxeer_sponsoredStatus in the provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.23.4", "12.0.3"]
@@ -152303,7 +152303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.26.3]
 title = "Carry the sequencer receipt in sponsored submission evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.26.1", "12.23.2"]
@@ -152333,7 +152333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.27.1]
 title = "Add EVM transaction review, approval and status to PaxeerWallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.23.3", "12.0.3", "12.10.3"]
@@ -152366,7 +152366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.27.2]
 title = "Retire the lx_activity review, approval and signing from PaxeerWallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.27.1"]
@@ -152760,7 +152760,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.5]
 title = "Await the swap receipt and refuse a reverted swap in the swap executor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.33.3"]
@@ -152792,7 +152792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.6]
 title = "Delete the receipt polling helpers from the surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.33.4", "12.33.5"]
@@ -162524,7 +162524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.0.5]
 title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["15.0.3"]
