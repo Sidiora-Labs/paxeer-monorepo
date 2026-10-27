@@ -66,6 +66,51 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "Surface":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001234")
+				require.NoError(t, err)
+				surface := keeper.Surface{Role: types.RolePool, Generation: types.Generation1, Market: "surface-market"}
+				require.NoError(t, k.SetSurface(ctx, address, surface))
+				data, err := cdc.Marshal(&types.QuerySurfaceRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QuerySurfaceResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QuerySurfaceResponse{
+					Found: true,
+					Surface: &types.SurfaceInfo{
+						Role: surface.Role, Generation: uint32(surface.Generation), Market: surface.Market,
+					},
+				}, result)
+			case "Retired":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001235")
+				require.NoError(t, err)
+				retired := types.RetiredAddress{
+					Address: address.Hex(), Role: types.RoleRouter,
+					Replacement: keeper.Generation2Surfaces[types.RoleRouter].Hex(),
+				}
+				require.NoError(t, k.RecordRetired(ctx, retired))
+				data, err := cdc.Marshal(&types.QueryRetiredRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryRetiredResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				info := types.RetiredInfoOf(retired)
+				require.Equal(t, types.QueryRetiredResponse{Found: true, Retired: &info}, result)
+			case "Treasury":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryTreasuryResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, sdk.ZeroInt().String(), result.Balance)
+				require.Equal(t, sdk.ZeroInt().String(), result.Held)
 			case "Quote":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "amount_in must be a positive base-10 integer", status.Convert(err).Message())

@@ -27,30 +27,6 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	return sdk.UnwrapSDKContext(goCtx), nil
 }
 
-func (q Querier) Treasury(goCtx context.Context, req *types.QueryTreasuryRequest) (*types.QueryTreasuryResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.Treasury(sdk.WrapSDKContext(ctx), req)
-}
-
-func (q Querier) Surface(goCtx context.Context, req *types.QuerySurfaceRequest) (*types.QuerySurfaceResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.Surface(sdk.WrapSDKContext(ctx), req)
-}
-
-func (q Querier) Retired(goCtx context.Context, req *types.QueryRetiredRequest) (*types.QueryRetiredResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.Retired(sdk.WrapSDKContext(ctx), req)
-}
-
 func (q Querier) FeeRight(goCtx context.Context, req *types.QueryFeeRightRequest) (*types.QueryFeeRightResponse, error) {
 	ctx, err := queryContext(goCtx, req)
 	if err != nil {

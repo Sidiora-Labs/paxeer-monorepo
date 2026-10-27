@@ -9,13 +9,17 @@ use layerx_bridge_relayer::abi::{encode_bridge_in, encode_release, LAYERX_BRIDGE
 use layerx_bridge_relayer::attestation::{
     to_attestor_signature, uint256_from_u64, InboundAttestation, OutboundAttestation,
 };
+use layerx_bridge_relayer::attestation_api::{deposit_answer, release_answer};
 use layerx_bridge_relayer::cosign::CosignDirectory;
 use layerx_bridge_relayer::hex;
-use layerx_bridge_relayer::journal::{inbound_key, outbound_key, Completion, Journal};
-use layerx_bridge_relayer::relayer::{
-    ChainLink, ChainSettings, GasPolicy, PaxeerLink, PaxeerSettings, Relayer, RelayerParts,
-    StepReport,
+use layerx_bridge_relayer::journal::{
+    inbound_key, outbound_key, Completion, Entry, Journal, SubmissionStatus,
 };
+use layerx_bridge_relayer::relayer::{
+    ChainLink, ChainSettings, GasPolicy, PaxeerLink, PaxeerSettings, Relayer, RelayerError,
+    RelayerParts, StepReport,
+};
+use layerx_bridge_relayer::rpc::RpcFault;
 use layerx_bridge_relayer::signer::{
     Attestor, Submitter, ATTEST_INBOUND_DOMAIN, ATTEST_OUTBOUND_DOMAIN,
     ETHEREUM_TRANSACTION_DOMAIN, PAXEER_TRANSACTION_DOMAIN,
@@ -99,6 +103,7 @@ fn start(recording: &Recording, signer: &SignerServer, instance: &Instance<'_>) 
         attestor: Attestor::new(signer.remote(instance.attestor.0, &key(instance.attestor.1)))
             .unwrap_or_else(|error| panic!("attestor: {error:?}")),
         paxeer: PaxeerLink {
+            receipt_keys: support::receipt_keys(),
             settings: PAXEER,
             rpc: recording.endpoint("paxeer"),
             submitter: Submitter::paxeer(
@@ -227,6 +232,236 @@ fn journal_path(directory: &Path, name: &str) -> PathBuf {
     directory.join(format!("{name}.jsonl"))
 }
 
+#[test]
+fn the_attestation_view_holds_every_item_after_a_tick() {
+    let signer = signer("attestation-view");
+    let directory = work_directory("attestation-view");
+    let mut document: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/inbound_threshold_one.json"))
+            .unwrap_or_else(|error| panic!("inbound fixture: {error}"));
+    let sequencer: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/inbound_sequencer_receipt.json"))
+            .unwrap_or_else(|error| panic!("sequencer fixture: {error}"));
+    let restart = &mut document["endpoints"]["paxeer"]["restart"];
+    restart[0] = sequencer["endpoints"]["paxeer"]["committed"][0].clone();
+    let pending_hash = restart[1]["params"].clone();
+    restart[1] = sequencer["endpoints"]["paxeer"]["unknown"][0].clone();
+    restart[1]["params"] = pending_hash;
+    let fixture = directory.join("attestation-recording.json");
+    std::fs::write(
+        &fixture,
+        serde_json::to_vec(&document).unwrap_or_else(|error| panic!("combined recording: {error}")),
+    )
+    .unwrap_or_else(|error| panic!("write recording: {error}"));
+    let recording = Recording::load(
+        fixture
+            .to_str()
+            .unwrap_or_else(|| panic!("recording path is not UTF-8")),
+    );
+    let instance = Instance {
+        attestor: ("attestor-1", ATTESTOR_1),
+        paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
+        journal: journal_path(&directory, "inbound"),
+        cosign: None,
+    };
+    recording.set_phase("scan");
+    let mut relayer = start(&recording, &signer, &instance);
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("scan: {error}"));
+    assert_eq!(report.observed, 3);
+    assert_eq!(report.submitted, 2);
+    assert_eq!(report.refused, 1);
+
+    recording.set_phase("restart");
+    let tick = relayer.tick();
+    assert_eq!(tick.len(), 2);
+    assert_eq!(
+        tick[0].1,
+        Ok(StepReport {
+            completed: 1,
+            waiting: 1,
+            ..StepReport::default()
+        })
+    );
+    assert_eq!(tick[1].1, Ok(StepReport::default()));
+    let view = relayer.attestation_view();
+    assert_eq!(view.items, relayer.journal().state().items);
+    assert_eq!(view.items.len(), 3);
+    assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
+    assert_eq!(view.signatures.len(), 3);
+    for attestation in [
+        deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000),
+        deposit(0xcc, 7, padded(0x88), 5),
+    ] {
+        let digest = attestation.digest();
+        assert_eq!(view.signatures[&digest], vec![attest(ATTESTOR_1, &digest)]);
+        let answer = deposit_answer(
+            &view,
+            attestation.chain_id,
+            &attestation.tx_hash,
+            attestation.log_index,
+        )
+        .unwrap_or_else(|| panic!("missing deposit"));
+        assert_eq!(answer["status"], "ready");
+    }
+    let refused = &view.items[&inbound_key(1, &[0xdd; 32], 0)];
+    assert!(refused.refusal.is_some());
+    assert_eq!(refused.signature, None);
+    let refused_digest = refused
+        .observation
+        .inbound_attestation()
+        .unwrap_or_else(|| panic!("missing refused deposit"))
+        .digest();
+    assert!(view.signatures[&refused_digest].is_empty());
+    assert_all_matched(&recording);
+
+    let recording = Recording::load("outbound_release.json");
+    let instance = Instance {
+        journal: journal_path(&directory, "outbound"),
+        ..instance
+    };
+    let mut journal =
+        Journal::open(&instance.journal).unwrap_or_else(|error| panic!("journal: {error}"));
+    journal
+        .append(&Entry::Cursor {
+            stream: "in:1".to_owned(),
+            next_block: 0x101,
+        })
+        .unwrap_or_else(|error| panic!("inbound cursor: {error}"));
+    drop(journal);
+    recording.set_phase("release");
+    let mut relayer = start(&recording, &signer, &instance);
+    assert_eq!(
+        relayer
+            .outbound_step()
+            .unwrap_or_else(|error| panic!("release: {error}"))
+            .submitted,
+        1
+    );
+    recording.set_phase("released");
+    let tick = relayer.tick();
+    assert_eq!(tick.len(), 2);
+    assert_eq!(tick[0].1, Ok(StepReport::default()));
+    assert_eq!(
+        tick[1].1,
+        Ok(StepReport {
+            completed: 1,
+            ..StepReport::default()
+        })
+    );
+    let view = relayer.attestation_view();
+    assert_eq!(view.items, relayer.journal().state().items);
+    assert_eq!(view.items.len(), 1);
+    let item = &view.items[&outbound_key(1, &[0x22; 32], 7)];
+    assert!(matches!(item.completion, Some(Completion::Included { .. })));
+    let digest = item
+        .observation
+        .outbound_attestation()
+        .unwrap_or_else(|| panic!("missing release"))
+        .digest();
+    assert_eq!(view.signatures[&digest], vec![attest(ATTESTOR_1, &digest)]);
+    assert_eq!(view.thresholds.get(&CHAIN.chain_id), Some(&1));
+    assert_eq!(
+        release_answer(&view, 1, &[0x22; 32], 7)
+            .unwrap_or_else(|| panic!("missing release answer"))["status"],
+        "ready"
+    );
+    assert_all_matched(&recording);
+}
+
+#[test]
+fn the_attestation_view_is_a_snapshot() {
+    let recording = Recording::load("cosign_threshold_two.json");
+    let signer = signer("attestation-snapshot");
+    let directory = work_directory("attestation-snapshot");
+    let cosign = directory.join("cosign");
+    let one = Instance {
+        attestor: ("attestor-1", ATTESTOR_1),
+        paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
+        journal: journal_path(&directory, "one"),
+        cosign: Some(cosign.clone()),
+    };
+    let two = Instance {
+        attestor: ("attestor-2", ATTESTOR_2),
+        paxeer_fees: ("paxeer-fees-2", FEES_2),
+        journal: journal_path(&directory, "two"),
+        cosign: Some(cosign),
+    };
+    recording.set_phase("pending");
+    let mut first = start(&recording, &signer, &one);
+    let empty = first.attestation_view();
+    let mut second = start(&recording, &signer, &two);
+    let attestation = deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000);
+    let digest = attestation.digest();
+    let item = inbound_key(1, &[0xaa; 32], 3);
+    assert_eq!(
+        first
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("first: {error}"))
+            .waiting,
+        1
+    );
+    let before = first.attestation_view();
+    assert_eq!(before.items, first.journal().state().items);
+    assert_eq!(
+        before.signatures[&digest],
+        vec![attest(ATTESTOR_1, &digest)]
+    );
+    assert_eq!(before.thresholds.get(&CHAIN.chain_id), Some(&2));
+    assert_eq!(before.items[&item].completion, None);
+    assert_eq!(
+        deposit_answer(&before, 1, &[0xaa; 32], 3).unwrap_or_else(|| panic!("missing deposit"))
+            ["status"],
+        "attesting"
+    );
+    let saved_items = before.items.clone();
+    let saved_signatures = before.signatures.clone();
+    let saved_thresholds = before.thresholds.clone();
+    assert_eq!(
+        second
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("second: {error}"))
+            .submitted,
+        1
+    );
+    recording.set_phase("bridged");
+    let tick = first.tick();
+    assert_eq!(tick.len(), 2);
+    assert_eq!(
+        tick[0].1,
+        Ok(StepReport {
+            completed: 1,
+            ..StepReport::default()
+        })
+    );
+    assert_eq!(tick[1].1, Ok(StepReport::default()));
+    let after = first.attestation_view();
+    assert_eq!(after.items, first.journal().state().items);
+    assert_eq!(
+        after.items[&item].completion,
+        Some(Completion::AlreadyBridged)
+    );
+    assert_eq!(
+        after.signatures[&digest],
+        vec![attest(ATTESTOR_2, &digest), attest(ATTESTOR_1, &digest)]
+    );
+    assert_eq!(after.thresholds.get(&CHAIN.chain_id), Some(&2));
+    assert_eq!(
+        deposit_answer(&after, 1, &[0xaa; 32], 3).unwrap_or_else(|| panic!("missing deposit"))
+            ["status"],
+        "ready"
+    );
+    assert_eq!(before.items, saved_items);
+    assert_eq!(before.signatures, saved_signatures);
+    assert_eq!(before.thresholds, saved_thresholds);
+    assert!(empty.items.is_empty());
+    assert!(empty.signatures.is_empty());
+    assert!(empty.thresholds.is_empty());
+    assert_eq!(recording.sent().len(), 1);
+    assert_all_matched(&recording);
+}
+
 /// Restart: the first transaction is final, the second is unknown to the node
 /// and is rebroadcast byte for byte without being signed again. Returns every
 /// transaction sent so far.
@@ -257,6 +492,296 @@ fn restart_and_rebroadcast_the_unknown_deposit(
     assert_eq!(recording.count("ethereum-1", "eth_getLogs"), 1);
     drop(relayer);
     sent
+}
+
+fn sequencer_submission(
+    name: &str,
+) -> (Recording, SignerServer, Instance<'static>, Relayer, String) {
+    let recording = Recording::load("inbound_sequencer_receipt.json");
+    let signer = signer(name);
+    let instance = Instance {
+        attestor: ("attestor-1", ATTESTOR_1),
+        paxeer_fees: ("paxeer-fees-1", PAXEER_FEES_1),
+        journal: journal_path(&work_directory(name), "relayer"),
+        cosign: None,
+    };
+    recording.set_phase("scan");
+    let mut relayer = start(&recording, &signer, &instance);
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("scan: {error}"));
+    assert_eq!(
+        report,
+        StepReport {
+            observed: 1,
+            submitted: 1,
+            completed: 0,
+            waiting: 0,
+            refused: 0
+        }
+    );
+    let raw = bridge_in(
+        5,
+        &deposit(0xaa, 3, padded(0x77), 1_000_000_000_000_000_000),
+        &[ATTESTOR_1],
+        PAXEER_FEES_1,
+    );
+    assert_eq!(recording.sent(), vec![("paxeer".to_owned(), raw.clone())]);
+    let document: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/inbound_sequencer_receipt.json"))
+            .unwrap_or_else(|error| panic!("receipt fixture: {error}"));
+    assert_eq!(hex::prefixed(&hash(&raw)), document["transactionHash"]);
+    assert_all_matched(&recording);
+    (
+        recording,
+        signer,
+        instance,
+        relayer,
+        inbound_key(1, &[0xaa; 32], 3),
+    )
+}
+
+#[test]
+fn an_inbound_bridge_in_is_receipted_then_committed_from_the_sequencer_receipt() {
+    let (recording, signer, instance, mut relayer, item) = sequencer_submission("sequencer-rungs");
+    let initial = support::journal_entries(&instance.journal);
+    for phase in ["known", "unknown", "submitted"] {
+        recording.set_phase(phase);
+        let report = relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("{phase}: {error}"));
+        assert_eq!(report.waiting, 1);
+        assert_eq!(report.completed, 0);
+        assert_eq!(support::journal_entries(&instance.journal), initial);
+        assert_eq!(
+            relayer.journal().state().items[&item].submissions[0].status,
+            SubmissionStatus::Pending
+        );
+    }
+    let sent = recording.sent();
+    assert_eq!(sent.len(), 2);
+    assert_eq!(sent[0], sent[1]);
+    assert_eq!(handle_requests(&signer, "paxeer-fees-1"), 1);
+    recording.set_phase("receipted");
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("receipted: {error}"));
+    assert_eq!(report.waiting, 1);
+    assert_eq!(report.completed, 0);
+    let receipted = SubmissionStatus::Receipted {
+        sequence: 2,
+        height: 1000,
+    };
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        receipted
+    );
+    assert_eq!(completion(&relayer, &item), None);
+    let entries = support::journal_entries(&instance.journal);
+    assert_eq!(entries.len(), initial.len() + 1);
+    assert_eq!(
+        entries.last(),
+        Some(&Entry::Receipted {
+            item: item.clone(),
+            tx_hash: hash(&sent[0].1),
+            sequence: 2,
+            height: 1000
+        })
+    );
+    drop(relayer);
+    let mut relayer = start(&recording, &signer, &instance);
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        receipted
+    );
+    assert_eq!(
+        relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("repeat receipt: {error}"))
+            .waiting,
+        1
+    );
+    assert_eq!(support::journal_entries(&instance.journal), entries);
+    recording.set_phase("committed");
+    let report = relayer
+        .inbound_step(0)
+        .unwrap_or_else(|error| panic!("committed: {error}"));
+    assert_eq!(report.completed, 1);
+    assert_eq!(report.waiting, 0);
+    assert_eq!(
+        completion(&relayer, &item),
+        Some(Completion::Included {
+            tx_hash: hash(&sent[0].1),
+            block_number: 1003
+        })
+    );
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Committed {
+            sequence: 2,
+            height: 1000
+        }
+    );
+    let replay = Journal::open(&instance.journal).unwrap_or_else(|error| panic!("replay: {error}"));
+    assert_eq!(replay.state(), relayer.journal().state());
+    assert_eq!(recording.count("paxeer", "eth_getTransactionReceipt"), 0);
+    assert_eq!(recording.count("paxeer", "eth_blockNumber"), 0);
+    assert_eq!(recording.count("paxeer", "pax_sequencerReceipt"), 6);
+    assert_eq!(recording.sent(), sent);
+    assert_all_matched(&recording);
+
+    let (recording, _signer, instance, mut relayer, item) =
+        sequencer_submission("sequencer-direct-commit");
+    recording.set_phase("committed");
+    assert_eq!(
+        relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("direct commit: {error}"))
+            .completed,
+        1
+    );
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Committed {
+            sequence: 2,
+            height: 1000
+        }
+    );
+    let entries = support::journal_entries(&instance.journal);
+    assert!(matches!(
+        entries[entries.len() - 2],
+        Entry::Receipted {
+            sequence: 2,
+            height: 1000,
+            ..
+        }
+    ));
+    assert!(matches!(
+        entries.last(),
+        Some(Entry::Completed {
+            completion: Completion::Included {
+                block_number: 1003,
+                ..
+            },
+            ..
+        })
+    ));
+    assert_all_matched(&recording);
+}
+
+#[test]
+fn a_receipt_with_status_zero_reverts_the_paxeer_submission() {
+    for (phase, name) in [
+        ("reverted", "sequencer-reverted"),
+        ("consumed", "sequencer-consumed"),
+    ] {
+        let (recording, _signer, instance, mut relayer, item) = sequencer_submission(name);
+        let before = support::journal_entries(&instance.journal);
+        let calls_before = recording.count("paxeer", "eth_call");
+        recording.set_phase(phase);
+        let report = relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("{phase}: {error}"));
+        let entries = support::journal_entries(&instance.journal);
+        assert_eq!(entries.len(), before.len() + 2);
+        assert!(matches!(
+            entries[before.len()],
+            Entry::Receipted {
+                sequence: 5,
+                height: 1002,
+                ..
+            }
+        ));
+        let tx_hash = hash(&recording.sent()[0].1);
+        if phase == "reverted" {
+            assert_eq!(report.waiting, 1);
+            assert_eq!(report.completed, 0);
+            assert_eq!(
+                entries.last(),
+                Some(&Entry::Reverted {
+                    item: item.clone(),
+                    tx_hash
+                })
+            );
+            assert_eq!(completion(&relayer, &item), None);
+            assert_eq!(
+                relayer.journal().state().items[&item].submissions[0].status,
+                SubmissionStatus::Reverted
+            );
+            assert!(relayer.journal().state().items[&item].pending().is_none());
+            assert!(relayer.journal().state().items[&item].is_open());
+        } else {
+            assert_eq!(report.completed, 1);
+            assert_eq!(report.waiting, 0);
+            assert_eq!(
+                completion(&relayer, &item),
+                Some(Completion::AlreadyBridged)
+            );
+            assert_eq!(
+                entries.last(),
+                Some(&Entry::Completed {
+                    item: item.clone(),
+                    completion: Completion::AlreadyBridged
+                })
+            );
+            assert!(!entries
+                .iter()
+                .any(|entry| matches!(entry, Entry::Reverted { .. })));
+        }
+        assert_eq!(recording.count("paxeer", "eth_call"), calls_before + 1);
+        assert_eq!(recording.sent().len(), 1);
+        let replay =
+            Journal::open(&instance.journal).unwrap_or_else(|error| panic!("replay: {error}"));
+        assert_eq!(replay.state(), relayer.journal().state());
+        assert_all_matched(&recording);
+    }
+}
+
+#[test]
+fn an_unverifiable_sequencer_receipt_leaves_the_submission_pending() {
+    let (recording, signer, instance, mut relayer, item) =
+        sequencer_submission("sequencer-invalid");
+    recording.set_phase("invalid");
+    let before =
+        std::fs::read(&instance.journal).unwrap_or_else(|error| panic!("journal: {error}"));
+    let state = relayer.journal().state().clone();
+    assert!(matches!(
+        relayer.inbound_step(0),
+        Err(RelayerError::Rpc(RpcFault::Malformed))
+    ));
+    assert_eq!(relayer.journal().state(), &state);
+    assert_eq!(
+        std::fs::read(&instance.journal).unwrap_or_else(|error| panic!("journal: {error}")),
+        before
+    );
+    assert_eq!(completion(&relayer, &item), None);
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Pending
+    );
+    assert_eq!(recording.sent().len(), 1);
+    assert_eq!(recording.count("paxeer", "pax_sequencerReceipt"), 1);
+    assert_eq!(recording.count("paxeer", "eth_getTransactionReceipt"), 0);
+    assert_eq!(handle_requests(&signer, "paxeer-fees-1"), 1);
+    drop(relayer);
+    let mut relayer = start(&recording, &signer, &instance);
+    assert_eq!(relayer.journal().state(), &state);
+    recording.set_phase("receipted");
+    assert_eq!(
+        relayer
+            .inbound_step(0)
+            .unwrap_or_else(|error| panic!("valid retry: {error}"))
+            .waiting,
+        1
+    );
+    assert_eq!(
+        relayer.journal().state().items[&item].submissions[0].status,
+        SubmissionStatus::Receipted {
+            sequence: 2,
+            height: 1000
+        }
+    );
+    assert_all_matched(&recording);
 }
 
 #[test]
