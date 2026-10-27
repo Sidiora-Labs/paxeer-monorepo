@@ -21702,7 +21702,7 @@ ac_1 = "to_finding of a failed result returns a block with the six ledger keys o
 
 [req.17027]
 title = "Write the off-chain service catalogue"
-ac_1 = "every catalogue entry has a domain in 3..14, a completion_task N.0.9 of that domain and an operation_task of that domain."
+ac_1 = "every catalogue entry has a domain in 3..16, a completion_task N.0.9 of that domain and an operation_task of that domain."
 ac_2 = "the catalogue slugs equal the [service.*] slugs of the merged spec."
 
 [req.17028]
@@ -40096,7 +40096,7 @@ reqs = ["11049.1"]
 touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
 tests = ["services/interop/crates/layerx-committed-proof/tests/receipted.rs::receipted_fixture_cases_verify_or_refuse"]
 verification_contract = "contracts/interop-committed-proof.md#rs-committed-proof-crate"
-do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned)."
+do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], receipt_json: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], [u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned), keys being (key id, public key, first height, last height)."
 symbols = ["verify_receipted"]
 
 [capability.11.3.1]
@@ -90757,7 +90757,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.0.2]
 title = "Freeze the kernel result registry and module id surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "1.1.3", "1.1.1", "1.11.1", "16.2.1", "9.23.7"]
@@ -91465,7 +91465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.5.2]
 title = "Refuse host-supplied fee meter values at activity execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -92481,7 +92481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.5]
 title = "Declare the programs event log encoder exported by the sandbox staticlib"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.14.1", "16.2.1", "9.23.7"]
@@ -92740,7 +92740,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.17.3]
 title = "Delete the handover trust builder declaration from lxp_genesis_builder.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.17.1", "16.2.1", "9.23.7"]
@@ -97039,7 +97039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.1]
 title = "Build the 0x101C layerxauth precompile executor and register its merge constructor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.2.2", "2.2.4", "2.2.6", "2.6.2", "2.6.3"]
@@ -98537,7 +98537,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.27.3]
 title = "Add the layerxpay AppModule with genesis, services and no block hooks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.22.5", "2.27.1", "2.27.2"]
@@ -100709,7 +100709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.5.3]
 title = "Round-trip perps genesis after governance changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.4", "3.1.5", "3.1.6"]
@@ -101824,7 +101824,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.10.2]
 title = "Report a governance-disabled market as inactive in isMarketActive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -101917,7 +101917,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.10.5]
 title = "Show a governed open-interest cap in the getOpenInterest view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -113021,7 +113021,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.15.3]
 title = "Fence the executor so a superseded primary writes nothing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.4.5", "5.17.1", "5.4.3", "5.4.7"]
@@ -115476,7 +115476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.48.1]
 title = "Remove read-node, --socket and --actor from layerx-module-registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.0.1", "16.0.2", "9.23.7"]
@@ -124999,7 +124999,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.69.4]
 title = "Register the xweb query service, gateway routes and query command on the module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.69.1", "6.70.1"]
@@ -125275,7 +125275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.74.1]
 title = "Prove the origin-2 round trip from program request to EVM read after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["6.65.3", "6.61.2", "6.61.3", "6.64.3"]
@@ -126161,8 +126161,9 @@ do_2 = "Write rpc/testdata/served_methods_ws.golden (planned) with the WebSocket
 do_3 = "Write TestServedMethodsHTTPGolden in rpc/served_methods_golden_test.go (planned) comparing HTTPMethods of the HTTP server started by the package setup with the HTTP golden line by line."
 do_4 = "Write TestServedMethodsWSGolden in rpc/served_methods_golden_test.go (planned) comparing WSMethods of the WebSocket server started by the package setup (rpc/setup_test.go:761) with the WS golden."
 do_5 = "Assert in both tests that no golden line starts with lx_ (decision 701) and that eth_cleanup, eth_setReceiptLogFeed, eth_gasPriceHelper and eth_calculateGasUsedRatio are absent (planned)."
+do_6 = "Turn the InfoAPI methods GasPriceHelperForTest and CalculateGasUsedRatioForTest at rpc/export_info_test.go:10-16 into package-level functions GasPriceHelperForTest(i *InfoAPI, ...) and CalculateGasUsedRatioForTest(i *InfoAPI, ...) as rpc/export_filter_test.go:3 does, and call them at the ten call sites of rpc/info_test.go (292, 348, 380, 445, 468, 491, 539, 559, 565, 591), so the test binary serves no *ForTest method and both goldens stay as written."
 symbols = ["HTTPMethods", "WSMethods", "TestServedMethodsHTTPGolden", "TestServedMethodsWSGolden"]
-touches = ["rpc/testdata/served_methods_http.golden", "rpc/testdata/served_methods_ws.golden", "rpc/served_methods_golden_test.go"]
+touches = ["rpc/testdata/served_methods_http.golden", "rpc/testdata/served_methods_ws.golden", "rpc/served_methods_golden_test.go", "rpc/export_info_test.go", "rpc/info_test.go"]
 tests = ["rpc/served_methods_golden_test.go::TestServedMethodsHTTPGolden", "rpc/served_methods_golden_test.go::TestServedMethodsWSGolden"]
 planned_paths = ["rpc/testdata/served_methods_http.golden", "rpc/testdata/served_methods_ws.golden", "rpc/served_methods_golden_test.go"]
 build_cmd = "go build ./rpc/..."
@@ -127709,7 +127710,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.17.2]
 title = "Answer unknown block for eth_getLogs with an unknown blockHash"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.17.1"]
@@ -139768,7 +139769,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.2]
 title = "Request and report rungs in complete offline export verification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.27.1"]
@@ -140619,7 +140620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.33.13]
 title = "Encode perps writes as exchange v2 calls and drop the activity type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["9.33.10"]
@@ -140852,7 +140853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.3]
 title = "Delete the layerx-crypto kernel activity onboarding, rotation and envelope tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.31.2", "9.31.3"]
@@ -145787,11 +145788,12 @@ requires = ["11.2.4"]
 reqs = ["11049.1"]
 capabilities = ["11.2.5"]
 interfaces = ["interface.11.rs-committed-proof-verify-receipted-j47"]
-do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned)."
+do_1 = "Add `pub fn verify_receipted(raw_transaction: &[u8], signed_receipt: &[u8], receipt_json: &[u8], prev_seq_hash: [u8; 32], keys: &[([u8; 32], [u8; 32], u64, u64)]) -> Result<[u8; 32], ProofError>` to services/interop/crates/layerx-committed-proof/src/lib.rs (planned), keys being (key id, public key, first height, last height)."
 do_2 = "Require the receipt activity id to equal the raw transaction hash, the receipt's previous sequence hash to equal `prev_seq_hash`, and the signing key to be pinned for the receipt height, the refusals the V3 cases of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:263-307 record."
 do_3 = "Create services/interop/crates/layerx-committed-proof/tests/receipted.rs (planned) running every V1 and V3 case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:12."
+do_4 = "Refuse R3 when the receipt's keyId is not a pinned key id and R5 when the receipt_json view differs from the decoded receipt bytes; add `serde_json.workspace = true` to services/interop/crates/layerx-committed-proof/Cargo.toml."
 symbols = ["verify_receipted"]
-touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
+touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs", "services/interop/crates/layerx-committed-proof/Cargo.toml"]
 tests = ["services/interop/crates/layerx-committed-proof/tests/receipted.rs::receipted_fixture_cases_verify_or_refuse"]
 planned_paths = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --tests"
@@ -147745,7 +147747,7 @@ do_2 = "Compute the day as now / DID_BUDGET_INTERVAL_SECONDS, the constant task 
 do_3 = "Keep the status route at services/interop/crates/layerx-gas-station/src/service.rs:291 and its identity fields at services/interop/crates/layerx-gas-station/src/service.rs:588-590 unchanged."
 do_4 = "Write status_reports_the_did_gas_budget in services/interop/crates/layerx-gas-station/tests/service.rs:927 beside the registered-sender budget test."
 do_5 = "Add `pub const fn policy(&self) -> &QuotePolicy` returning &self.station.policy to GasStation beside journal() at services/interop/crates/layerx-gas-station/src/station.rs:277, and read the budget through it in service.rs."
-symbols = ["Service::report", "QuotePolicy::did_budget"]
+symbols = ["status_reports_the_did_gas_budget"]
 touches = ["services/interop/crates/layerx-gas-station/src/service.rs", "services/interop/crates/layerx-gas-station/tests/service.rs", "services/interop/crates/layerx-gas-station/src/station.rs"]
 tests = ["services/interop/crates/layerx-gas-station/tests/service.rs::status_reports_the_did_gas_budget"]
 planned_paths = []
@@ -152490,7 +152492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.1]
 title = "Label the account status ladder submitted, receipted and committed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["12.22.1", "12.35.1"]
@@ -166530,7 +166532,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.26.3]
 title = "Retire the benchmark wasm OCC scenarios built on the sourceless pax_tester.wasm"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["16.26.2"]
@@ -166562,7 +166564,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.27.1]
 title = "Retire the nested paxload workflows that the repository CI never runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["16.37.1", "16.4.5"]
@@ -169249,7 +169251,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.2.4]
 title = "Add the requires_sei contracts to the retired inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.2.3", "16.94.2"]
@@ -169460,7 +169462,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.3.3]
 title = "Record rehearsal evidence in the qualification ledger format"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.3.2", "17.0.2"]
@@ -170378,6 +170380,7 @@ interfaces = ["interface.17.fmt-service-catalogue-j60"]
 do_1 = "Create spec/layerx-merge/programme/data/services.kvx (planned) with one [service.<slug>] per service block of the merged spec: the eight platform services of domain 8, the agent, human, interop, wallet, web, explorer and bridge services, and perps-data (services/platform/perps-data, domain 3) and the launchpad services (services/launchpad, domain 4)."
 do_2 = "Give each service its domain, route, readiness probe path, completion_task N.0.9 and operation_task, the same values its [service.*] block carries; the change lands in spec/layerx-merge/programme/data/services.kvx (planned)."
 do_3 = "Create spec/layerx-merge/programme/services.py (planned) and spec/layerx-merge/programme/tests/test_service_catalogue.py (planned) with the two tests named below."
+do_4 = "Bound the domain check of test_every_service_has_domain_and_tasks at spec/layerx-merge/programme/tests/test_service_catalogue.py:17-18 to 3..16 per req.17027 ac_1, so merge-tools and rollout-controller (domain 16, completion_task 16.0.9) are accepted."
 symbols = ["diff_spec"]
 touches = ["spec/layerx-merge/programme/data/services.kvx", "spec/layerx-merge/programme/services.py", "spec/layerx-merge/programme/tests/test_service_catalogue.py"]
 tests = ["spec/layerx-merge/programme/tests/test_service_catalogue.py::test_every_service_has_domain_and_tasks", "spec/layerx-merge/programme/tests/test_service_catalogue.py::test_catalogue_matches_spec_service_blocks"]
@@ -170458,7 +170461,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.10.2]
 title = "Check the qualification ledger header against the v2 task ids and entry keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["17.10.1", "17.0.2"]
@@ -170548,7 +170551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.13.1]
 title = "Register the external artefacts the repository references but does not carry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.0.2"]
