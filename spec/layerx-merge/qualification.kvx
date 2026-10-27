@@ -7965,3 +7965,11 @@ symbol = "every_shared_refusal_case_is_refused_by_the_mirror"
 observed = "Attempt five (0ecefcceb) expected MirrorVerifyError::Receipt for the R4, R6 and R5 cases, whose expected.verifier is accepts; the mirror correctly accepts canonical, correctly signed bytes and cannot see the raw transaction, prevSeqHash or JSON view those rules need."
 assumption = "The test asserts acceptance for those three cases and applies R4 and R6 itself from the vector fields; the mirror verifier stays as written."
 severity = "medium"
+
+[finding.11.34.5.2]
+task = "11.34.5"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "verify_receipt"
+observed = "Attempt four (ae3131562) saved leaf_hash of the signed receipt as PaymentRecord.receipt_digest while SellerOutcome::Settled carries canonical_receipt_digest from settle_with_sequencer_evidence, so PaymentStore::release compared unequal digests and settle_request answered receipt_consumed on the first receipted retry; its reverted-draw test retried twice and the second retry was answered payment_refused by Seller::settle for the already refused idempotency key."
+assumption = "verify_receipt returns canonical_receipt_digest and the reverted-draw test retries once; the seller and store stay as written."
+severity = "medium"
