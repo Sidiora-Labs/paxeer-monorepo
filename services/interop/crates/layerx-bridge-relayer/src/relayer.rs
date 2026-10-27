@@ -42,6 +42,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use layerx_crypto::evm_transaction::Eip1559Call;
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde_json::{json, Value};
 
 use crate::abi::{
@@ -56,8 +57,9 @@ use crate::cosign::CosignDirectory;
 use crate::hex;
 use crate::journal::{
     Completion, Entry, Journal, JournalError, Observation, Position, Recipient, ReleaseSubmission,
-    Submission,
+    Submission, SubmissionStatus,
 };
+use crate::receipt::{Rung, SequencerReceipt};
 use crate::rpc::{JsonRpc, RpcFault};
 use crate::signer::{Attestor, FeePayer, KeyError, Submitter};
 use crate::solana::observe::{observe_deposits, AssetRecord, Finding, SolanaSettings};
@@ -223,6 +225,7 @@ pub struct ChainLink {
 
 pub struct PaxeerLink {
     pub settings: PaxeerSettings,
+    pub receipt_keys: Vec<SequencerAuthorization>,
     pub rpc: Box<dyn JsonRpc>,
     pub submitter: Submitter,
 }
@@ -762,20 +765,45 @@ impl Relayer {
             ..StepReport::default()
         };
         let releases = self.release.is_some();
-        let mut items = self.journal.state().items.iter().filter_map(|(key, item)| {
-            let Observation::Outbound { chain_id, position, paxeer_nonce, .. } = item.observation else {
-                return None;
-            };
-            if !item.is_open() || (chain_id == SOLANA_CHAIN_ID && !releases) {
-                return None;
-            }
-            let transaction = item.pending().map(|submission| {
-                (submission.submitter, submission.nonce)
-            });
-            Some((chain_id, transaction, position.block_number, paxeer_nonce, key.clone()))
-        }).collect::<Vec<_>>();
+        let mut items = self
+            .journal
+            .state()
+            .items
+            .iter()
+            .filter_map(|(key, item)| {
+                let Observation::Outbound {
+                    chain_id,
+                    position,
+                    paxeer_nonce,
+                    ..
+                } = item.observation
+                else {
+                    return None;
+                };
+                if !item.is_open() || (chain_id == SOLANA_CHAIN_ID && !releases) {
+                    return None;
+                }
+                let transaction = item
+                    .pending()
+                    .map(|submission| (submission.submitter, submission.nonce));
+                Some((
+                    chain_id,
+                    transaction,
+                    position.block_number,
+                    paxeer_nonce,
+                    key.clone(),
+                ))
+            })
+            .collect::<Vec<_>>();
         items.sort_by_key(|(chain, transaction, block, nonce, key)| {
-            (*chain, transaction.is_none(), *transaction, *block, *nonce, key.clone())
+            (
+                *chain,
+                transaction.is_none(),
+                *transaction,
+                *block,
+                *nonce,
+                key.clone(),
+            )
         });
         let mut blocked = BTreeSet::new();
         for (chain_id, _, _, _, key) in items {
@@ -1207,7 +1235,9 @@ impl Relayer {
         })?;
         // The journaled bytes are authoritative from here on: whatever this
         // broadcast returns, the next pass resolves the same transaction.
-        let broadcast = self.rpc(side).send_raw_transaction(&signed.raw, &signed.hash);
+        let broadcast = self
+            .rpc(side)
+            .send_raw_transaction(&signed.raw, &signed.hash);
         if matches!(observation, Observation::Outbound { .. }) {
             broadcast?;
         }
@@ -1307,7 +1337,12 @@ impl Relayer {
         let rpc = self.rpc(side);
         let (_, depth, _, _) = self.transaction_chain(side);
         let hash = hex::prefixed(&pending.tx_hash);
-        let receipt = rpc.call("eth_getTransactionReceipt", json!([hash]))?;
+        let receipt = match side {
+            Side::Paxeer => rpc
+                .sequencer_receipt(&pending.tx_hash)?
+                .unwrap_or(Value::Null),
+            Side::Chain(_) => rpc.call("eth_getTransactionReceipt", json!([hash]))?,
+        };
         if receipt.is_null() {
             let known = rpc.call("eth_getTransactionByHash", json!([hash]))?;
             if !known.is_null() {
@@ -1335,15 +1370,62 @@ impl Relayer {
                 Err(error) => Err(RelayerError::Rpc(error)),
             };
         }
-        if text(&receipt, "transactionHash")? != hash {
-            return Err(RelayerError::Rpc(RpcFault::Malformed));
-        }
-        let included = quantity_of(receipt.get("blockNumber").unwrap_or(&Value::Null))?;
-        let status = quantity_of(receipt.get("status").unwrap_or(&Value::Null))?;
-        let head = block_number(rpc)?;
-        if head < included || head - included < depth {
-            return Ok(Progress::Waiting);
-        }
+        let (included, status) = match side {
+            Side::Paxeer => {
+                let answer = SequencerReceipt::decode(&receipt)
+                    .map_err(|_| RelayerError::Rpc(RpcFault::Malformed))?;
+                if answer.tx_hash != pending.tx_hash || answer.nonce != pending.nonce {
+                    return Err(RelayerError::Rpc(RpcFault::Malformed));
+                }
+                if answer.rung == Rung::Submitted {
+                    return Ok(Progress::Waiting);
+                }
+                answer
+                    .verify(&self.paxeer.receipt_keys)
+                    .map_err(|_| RelayerError::Rpc(RpcFault::Malformed))?;
+                let view = answer
+                    .view
+                    .as_ref()
+                    .ok_or(RelayerError::Rpc(RpcFault::Malformed))?;
+                match pending.status {
+                    SubmissionStatus::Pending => {
+                        self.journal.append(&Entry::Receipted {
+                            item: key.to_owned(),
+                            tx_hash: pending.tx_hash,
+                            sequence: view.seq,
+                            height: view.height,
+                        })?;
+                    }
+                    SubmissionStatus::Receipted { sequence, height }
+                        if sequence == view.seq && height == view.height => {}
+                    _ => return Err(RelayerError::Rpc(RpcFault::Malformed)),
+                }
+                if view.status == 1 && answer.rung == Rung::Receipted {
+                    return Ok(Progress::Waiting);
+                }
+                let included = if view.status == 0 {
+                    view.height
+                } else {
+                    answer
+                        .block
+                        .ok_or(RelayerError::Rpc(RpcFault::Malformed))?
+                        .0
+                };
+                (included, view.status)
+            }
+            Side::Chain(_) => {
+                if text(&receipt, "transactionHash")? != hash {
+                    return Err(RelayerError::Rpc(RpcFault::Malformed));
+                }
+                let included = quantity_of(receipt.get("blockNumber").unwrap_or(&Value::Null))?;
+                let status = quantity_of(receipt.get("status").unwrap_or(&Value::Null))?;
+                let head = block_number(rpc)?;
+                if head < included || head - included < depth {
+                    return Ok(Progress::Waiting);
+                }
+                (included, status)
+            }
+        };
         match status {
             1 => {
                 self.journal.append(&Entry::Completed {
@@ -1666,7 +1748,9 @@ impl Relayer {
         })?;
         // The journaled bytes are authoritative from here on: whatever this
         // broadcast returns, the next pass resolves the same transaction.
-        self.solana_link()?.rpc.send_transaction(&raw, &fee_signature)?;
+        self.solana_link()?
+            .rpc
+            .send_transaction(&raw, &fee_signature)?;
         Ok(Progress::Submitted)
     }
 
