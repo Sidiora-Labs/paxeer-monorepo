@@ -25,6 +25,7 @@ import (
 	authprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
 	ledgerprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	perpsprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps"
 	pricefeedprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/pricefeed"
 	spotprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
