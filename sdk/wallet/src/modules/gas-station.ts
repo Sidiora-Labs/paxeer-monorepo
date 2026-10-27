@@ -37,6 +37,7 @@ import {
 } from './index.js';
 
 export const SPONSORED_SUBMIT_PATH = '/v1/wallet/sponsored/submit';
+export const SPONSORED_QUOTE_PATH = '/v1/wallet/sponsored/quote';
 
 const RATE = /^(0|[1-9][0-9]*)(?:\.([0-9]{1,18}))?$/u;
 const RATE_SCALE = 10n ** 18n;
@@ -45,11 +46,16 @@ const HASH = /^0x[0-9a-fA-F]{64}$/u;
 
 export class GasStationError extends Error {
   readonly refusal: GasRefusal;
+  readonly code: GasRefusal['code'];
+  readonly field: string;
 
   constructor(refusal: GasRefusal) {
     super(`${refusal.code}: ${refusal.field}`);
+    Object.setPrototypeOf(GasStationError.prototype, ModuleError.prototype);
     this.name = 'GasStationError';
     this.refusal = refusal;
+    this.code = refusal.code;
+    this.field = refusal.field;
   }
 }
 
@@ -80,6 +86,7 @@ export interface SponsoredSubmissionEvidence {
 }
 
 export interface GasBudget {
+  readonly account: string;
   readonly gasLimit: bigint;
   readonly rate: string;
   readonly gasPrice?: bigint;
@@ -89,6 +96,7 @@ export interface GasBudgetQuote {
   readonly gasLimit: bigint;
   readonly gasPrice: bigint;
   readonly gasCost: bigint;
+  readonly dailyRemaining: bigint;
   readonly rate: string;
   readonly tokenAmount: bigint;
   readonly token: string;
@@ -158,6 +166,17 @@ export function feeTokenAmount(gasCost: bigint, rate: string): bigint {
 
 function decimal(value: bigint): string {
   return value.toString(10);
+}
+
+function budgetQuantity(value: unknown, field: string): bigint {
+  if (typeof value !== 'string' || !/^(0|[1-9][0-9]*)$/u.test(value) || value.length > 78) {
+    throw new ModuleError('invalid_answer', field);
+  }
+  const quantity = BigInt(value);
+  if (quantity >= 1n << 256n) {
+    throw new ModuleError('invalid_answer', field);
+  }
+  return quantity;
 }
 
 function hexAddress(value: string, field: string): `0x${string}` {
@@ -298,7 +317,7 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
     const account = (body as {account?:unknown}).account;
     if(typeof account!=='string') throw new ModuleError('refused','account');
     await assertSession(account);
-    if(options.accessToken===undefined){
+    if(options.accessToken===undefined && path!==SPONSORED_QUOTE_PATH){
       if((provider as ModuleProvider & {isPaxeer?:boolean}).isPaxeer!==true)throw new GasStationError({code:'refused',field:'safe_first_delegation'});
       if(signal?.aborted)throw new GasStationError({code:'cancelled',field:'submission_status_unknown'});
       const answer=await provider.request({method:path===SPONSORED_SUBMIT_PATH?'paxeer_submitSponsored':'paxeer_sponsoredStatus',params:[body]});
@@ -316,6 +335,14 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
     }); } catch {
       if (signal?.aborted) throw new GasStationError({code:'cancelled',field:'submission_status_unknown'});
       throw new ModuleError('unavailable','submission_status_unknown');
+    }
+    if (path === SPONSORED_QUOTE_PATH && response.status === 429) {
+      let refusal: unknown;
+      try { refusal = await response.json(); } catch { throw new ModuleError('invalid_answer', 'sponsored quote'); }
+      if (typeof refusal === 'object' && refusal !== null && !Array.isArray(refusal) &&
+        (refusal as Record<string, unknown>).error === 'budget_exhausted') {
+        throw new GasStationError({ code: 'budget_exhausted', field: 'dailyRemaining' });
+      }
     }
     if (!response.ok) throw new ModuleError(response.status>=500?'unavailable':'refused',`status ${response.status}`);
     try { return await response.json(); } catch { throw new ModuleError('invalid_answer','sponsored submit'); }
@@ -429,18 +456,32 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
   return {
     config,
     quote: async (budget) => {
+      const account = hexAddress(budget.account, 'account');
       if (typeof budget.gasLimit !== 'bigint' || budget.gasLimit <= 0n) {
         throw new ModuleError('invalid_value', 'gasLimit');
       }
+      rateScaled(budget.rate);
       const gasPrice = budget.gasPrice ?? (await ethQuantity(provider, 'eth_gasPrice'));
-      if (gasPrice <= 0n) {
+      if (typeof gasPrice !== 'bigint' || gasPrice <= 0n) {
         throw new ModuleError('invalid_value', 'gasPrice');
       }
-      const gasCost = budget.gasLimit * gasPrice;
+      const answer = await post(SPONSORED_QUOTE_PATH, {
+        account,
+        gasLimit: decimal(budget.gasLimit),
+        gasPrice: decimal(gasPrice),
+        rate: budget.rate,
+      });
+      if (typeof answer !== 'object' || answer === null || Array.isArray(answer)) {
+        throw new ModuleError('invalid_answer', 'sponsored quote');
+      }
+      const result = answer as Record<string, unknown>;
+      const gasCost = budgetQuantity(result.gasCost, 'gasCost');
+      const dailyRemaining = budgetQuantity(result.dailyRemaining, 'dailyRemaining');
       return {
         gasLimit: budget.gasLimit,
         gasPrice,
         gasCost,
+        dailyRemaining,
         rate: budget.rate,
         tokenAmount: feeTokenAmount(gasCost, budget.rate),
         token: config.token,

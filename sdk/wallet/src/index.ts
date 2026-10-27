@@ -7,6 +7,7 @@ import {
 } from '@supabase/supabase-js';
 import { ed25519 } from '@noble/curves/ed25519.js';
 import { sha256 } from '@noble/hashes/sha2.js';
+import { keccak256, serializeTransaction, type Hex, type TransactionSerializable } from 'viem';
 import { JsonRpcClient } from './rpc.js';
 import { decodeSequencerReceipt, readSequencerReceipt } from './receipt.js';
 import {
@@ -108,8 +109,41 @@ export interface LxActivityOptions {
   readonly confirm: (review: LxActivityReview) => boolean | Promise<boolean>;
 }
 
+export interface EvmTransactionReview {
+  readonly id: string;
+  readonly state: 'reviewed';
+  readonly to: Hex;
+  readonly value: string;
+  readonly data: Hex;
+  readonly signing_hash: Hex;
+  readonly transaction: Hex;
+  readonly principal: string;
+  readonly chain_id: number;
+  readonly method: string;
+  readonly destination: string;
+  readonly key_id: string;
+  readonly public_key: string;
+  readonly epoch: number;
+  readonly session_id: string;
+  readonly expires_at: string;
+  readonly participants: readonly string[];
+}
+
+export type EvmApproval = Omit<EvmTransactionReview, 'state'> & {
+  readonly state: 'approved' | 'signing_unknown' | 'signed';
+  readonly approval: {
+    readonly version: 1;
+    readonly principal: string;
+    readonly key_id: string;
+    readonly session_id: string;
+    readonly signing_hash: Hex;
+    readonly expires_at: string;
+  };
+};
+
 export type LxActivityWalletConfig = PaxeerWalletConfig & {
   readonly lxActivity?: LxActivityOptions;
+  readonly evmReview?: { readonly storage: LxActivityStorage };
 };
 
 interface LxActivityRecord {
@@ -135,6 +169,7 @@ export class PaxeerWallet {
   private readonly fetchImpl: typeof fetch;
   private readonly lxActivity?: LxActivityOptions;
   private readonly lxLocks = new Map<string, Promise<unknown>>();
+  private readonly evmStorage?: LxActivityStorage;
 
   constructor(config: LxActivityWalletConfig) {
     if (!config.apiUrl) throw new Error('PaxeerWallet: apiUrl required');
@@ -149,6 +184,11 @@ export class PaxeerWallet {
       typeof config.lxActivity.storage?.setItem !== 'function'
     )) throw lxError('LX_ACTIVITY_CONFIGURATION', 'Explicit confirmation and durable storage are required');
     if (config.lxActivity) this.lxActivity = { storage: config.lxActivity.storage, confirm: config.lxActivity.confirm };
+    if (config.evmReview && (
+      typeof config.evmReview.storage?.getItem !== 'function' ||
+      typeof config.evmReview.storage?.setItem !== 'function'
+    )) throw new TypeError('EVM review storage is required');
+    this.evmStorage = config.evmReview?.storage;
     this.supabase = createClient(config.supabaseUrl, config.supabaseAnonKey, {
       auth: {
         persistSession: true,
@@ -290,6 +330,68 @@ export class PaxeerWallet {
   /** EIP-191 personal_sign over a message string. */
   signMessage(message: string): Promise<SignMessageResponse> {
     return this.callJson<SignMessageResponse>('POST', '/v1/wallet/sign-message', { message });
+  }
+
+  async reviewEvmTransaction(unsignedTransaction: TransactionSerializable): Promise<EvmTransactionReview> {
+    if (unsignedTransaction.type !== 'eip1559' || !unsignedTransaction.to ||
+      unsignedTransaction.r !== undefined || unsignedTransaction.s !== undefined ||
+      unsignedTransaction.v !== undefined || unsignedTransaction.yParity !== undefined) {
+      throw new TypeError('unsigned EIP-1559 transaction required');
+    }
+    const transaction = serializeTransaction(unsignedTransaction);
+    const expected = {
+      to: unsignedTransaction.to.toLowerCase(), value: (unsignedTransaction.value ?? 0n).toString(),
+      data: (unsignedTransaction.data ?? '0x').toLowerCase(), signing_hash: keccak256(transaction),
+      chainId: unsignedTransaction.chainId,
+    };
+    const principal = await this.evmPrincipal();
+    const review = await this.callJson<EvmTransactionReview>('POST', '/v1/wallet/evm/review', { transaction });
+    if (!review || review.state !== 'reviewed' || review.principal !== principal ||
+      typeof review.to !== 'string' || review.to.toLowerCase() !== expected.to ||
+      review.value !== expected.value || typeof review.data !== 'string' || review.data.toLowerCase() !== expected.data ||
+      review.signing_hash !== expected.signing_hash || review.chain_id !== expected.chainId ||
+      typeof review.id !== 'string' || !review.id) {
+      throw new TypeError('review does not match the transaction');
+    }
+    await this.evmSave(principal, review);
+    return freezeLx(review);
+  }
+
+  async approveEvmTransaction(reviewId: string): Promise<EvmApproval> {
+    return this.lxExclusive(`evm:${reviewId}`, async () => {
+      const principal = await this.evmPrincipal();
+      const review = (await this.evmLoad(principal)).find((entry) => entry.id === reviewId);
+      if (!review) throw new TypeError('original EVM review is required');
+      const approval = await this.callJson<EvmApproval>('POST', '/v1/wallet/evm/approve', {
+        review_id: reviewId, signing_hash: review.signing_hash, decision: 'approve',
+      });
+      this.evmMatch(review, approval);
+      if (!['approved', 'signing_unknown', 'signed'].includes(approval.state) ||
+        approval.approval?.version !== 1 || approval.approval.signing_hash !== review.signing_hash ||
+        approval.approval.principal !== principal || approval.approval.key_id !== review.key_id ||
+        approval.approval.session_id !== review.session_id || approval.approval.expires_at !== review.expires_at) {
+        throw new TypeError('approval does not match the review');
+      }
+      await this.evmSave(principal, approval);
+      return freezeLx(approval);
+    });
+  }
+
+  async evmApprovalStatus(reviewId: string): Promise<EvmTransactionReview | EvmApproval> {
+    const principal = await this.evmPrincipal();
+    const artifact = await this.callJson<EvmTransactionReview | EvmApproval>(
+      'GET', `/v1/wallet/evm/approvals/${encodeURIComponent(reviewId)}`,
+    );
+    if (!artifact || artifact.id !== reviewId || artifact.principal !== principal ||
+      !['reviewed', 'approved', 'signing_unknown', 'signed'].includes(artifact.state)) {
+      throw new TypeError('approval does not match the review');
+    }
+    const prior = (await this.evmLoad(principal)).find((entry) => entry.id === reviewId);
+    if (prior) {
+      this.evmMatch(prior, artifact);
+      await this.evmSave(principal, artifact);
+    }
+    return freezeLx(artifact);
   }
 
   async reviewLxActivity(activity: string): Promise<LxActivityReview> {
@@ -454,6 +556,46 @@ export class PaxeerWallet {
 
   private lxStorageKey(principal: string, id: string): string {
     return `paxeer:lx-activity:v1:${encodeURIComponent(this.apiUrl)}:${principal}:${id}`;
+  }
+
+  private evmStorageKey(principal: string): string {
+    return `paxeer:evm-review:v1:${principal}`;
+  }
+
+  private async evmPrincipal(): Promise<string> {
+    if (!this.evmStorage) throw new TypeError('EVM review storage is required');
+    const session = await this.getSession();
+    if (!session?.access_token) throw new PaxeerWalletError('not_authenticated', 'NO_SESSION', 401);
+    return session.user.id;
+  }
+
+  private async evmLoad(principal: string): Promise<(EvmTransactionReview | EvmApproval)[]> {
+    const raw = await this.evmStorage!.getItem(this.evmStorageKey(principal));
+    if (raw === null) return [];
+    const saved: unknown = JSON.parse(raw);
+    if (!Array.isArray(saved) || saved.some((entry) => !entry || entry.principal !== principal ||
+      typeof entry.id !== 'string' || typeof entry.signing_hash !== 'string')) {
+      throw new TypeError('invalid retained EVM reviews');
+    }
+    return saved;
+  }
+
+  private evmMatch(review: EvmTransactionReview | EvmApproval, artifact: EvmTransactionReview | EvmApproval): void {
+    if (!artifact || ['id', 'principal', 'to', 'value', 'data', 'signing_hash', 'chain_id', 'key_id',
+      'session_id', 'expires_at'].some((field) =>
+      review[field as keyof EvmTransactionReview] !== artifact[field as keyof EvmTransactionReview])) {
+      throw new TypeError('approval does not match the review');
+    }
+  }
+
+  private async evmSave(principal: string, artifact: EvmTransactionReview | EvmApproval): Promise<void> {
+    if (await this.evmPrincipal() !== principal) throw new TypeError('authenticated principal changed');
+    await this.lxExclusive(`evm-storage:${principal}`, async () => {
+      const saved = await this.evmLoad(principal);
+      await this.evmStorage!.setItem(this.evmStorageKey(principal), JSON.stringify([
+        ...saved.filter((entry) => entry.id !== artifact.id), artifact,
+      ]));
+    });
   }
 
   private async lxLoad(principal: string, id: string): Promise<LxActivityRecord | null> {
