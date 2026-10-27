@@ -37,7 +37,9 @@ var precompileAddresses = map[string]common.Address{
 	"launchpad":      common.HexToAddress("0x0000000000000000000000000000000000001017"),
 	"feetoken":       common.HexToAddress("0x0000000000000000000000000000000000001018"),
 	"xweb":           common.HexToAddress("0x0000000000000000000000000000000000001019"),
+	"layerxledger":   common.HexToAddress("0x000000000000000000000000000000000000101A"),
 	"layerxpay":      common.HexToAddress("0x000000000000000000000000000000000000101B"),
+	"layerxauth":     common.HexToAddress("0x000000000000000000000000000000000000101C"),
 	"layerxprograms": common.HexToAddress("0x000000000000000000000000000000000000101D"),
 }
 
