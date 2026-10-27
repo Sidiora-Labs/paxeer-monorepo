@@ -106101,7 +106101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.6]
 title = "Serve Query/PriceHistory from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["4.3.1", "4.3.2", "4.4.5"]
@@ -106133,7 +106133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.7]
 title = "Serve Query/Quote from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["4.3.1", "4.4.6"]
@@ -127870,7 +127870,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.16.1]
 title = "Check no lx_* name is served by the node over HTTP or WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.0.2", "7.9.1", "7.12.2", "7.13.4"]
@@ -128115,7 +128115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.3]
 title = "Check ethclient decodes receipts from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.0.2", "7.13.4"]
@@ -128296,7 +128296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.9]
 title = "Check ethclient newHead subscription hashes match blocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.10.3"]
@@ -139442,7 +139442,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.22.5]
 title = "Read the withdrawal registry snapshot through SequencerEndpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["9.21.7", "9.22.4"]
@@ -148282,7 +148282,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.25.4]
 title = "Run the mirror runtime on the committed block source and its config section"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.25.3", "11.26.1", "9.1.6"]
@@ -149410,7 +149410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.37.1]
 title = "Verify v4 archive receipts and the committed coordinate in MirrorVerifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.26.1", "9.1.6"]
@@ -149723,7 +149723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.0.3]
 title = "Gateway entry mounts the EVM approval routes and drops the LayerX mirror worker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["12.10.3", "12.7.1", "12.5.5", "7.0.2"]
@@ -151139,7 +151139,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.1]
 title = "Remove the gateway custody consent routes and the custody authorization store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.11.2", "12.0.3"]
@@ -151384,7 +151384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.18.1]
 title = "FROST receipt test verifies through codec.DomainHash and Ed25519Digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3"]
@@ -158663,7 +158663,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.3]
 title = "Unlist the explorer verify page from navigation, the state matrix and budgets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.7.1"]
@@ -158727,7 +158727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.1]
 title = "Remove the deposit, withdraw, journey and exit routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.7.5", "14.8.2"]
