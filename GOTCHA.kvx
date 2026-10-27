@@ -9321,3 +9321,15 @@ area = "local node"
 symptom = "tests reading LOCAL_NODE_RPC or PERPS_DATA_TEST_RPC fail with connection refused in a clean environment"
 cause = "the perps and spot precompiles, the 18 markets and the 3 spot tokens exist only after the v6.12.0 upgrade handler; a fresh genesis cannot run it"
 do = "start tools/qualification/localnode/v6120-node.sh (task 5.98.1) first and source its env file"
+
+[gotcha.1933]
+area = "layerxpay keeper tests"
+symptom = "budget activities submitted through paySubmitExecute fail with LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE"
+cause = "payActor.authority() (modules/layerxpay/keeper/harness_test.go:39) binds the DID id as principal and budget_authorized_signer (src/modules/budget/lx_budget_module.c:292) resolves principals through lxp_ctx_account_find"
+do = "submit budget activities through Keeper.Submit, which binds the main account as principal"
+
+[gotcha.1934]
+area = "terminal v5 corpus"
+symptom = "program-terminal-v5.py refuses with `native signed corpus was not emitted` although the native build passed"
+cause = "test_terminal_v5 --dump-corpus exited non-zero on a V5_CHECK; the producer parses its truncated stdout and raises before printing the case names"
+do = "read native-result.json next to the producer output: stderr names the failing fixture line and the receipt codes of the completed cases"

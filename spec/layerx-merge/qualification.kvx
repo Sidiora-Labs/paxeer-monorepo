@@ -3621,3 +3621,19 @@ symbol = "vectors"
 observed = "The first attempt 8066f7e30 built and the verifier `cg spec done 9.24.4` exited 1 (logs-verify-1.log): budget_refuses_malformed_and_arithmetic_bounds panicked `native vector producer output required: NotPresent` because the gate neither built build/native-vectors.json nor exported LAYERX_CAPS_VECTORS, the same gap finding.9.24.1.3 closed for 9.24.1."
 assumption = "9.24.4 and 9.24.6 take 9.24.1's producer build_cmd and LAYERX_CAPS_VECTORS export unchanged in test and decoder; 8066f7e30 is requalified unchanged."
 severity = "blocker"
+
+[finding.2.24.3]
+task = "2.24.3"
+file = "modules/lxphost/read.go:847"
+symbol = "ReadPayerGrant"
+observed = "The second attempt 3433726d2 built and the verifier `cg spec done 2.24.3` exited 1 (logs-verify-2.log): TestBudgetPullWithPayerGrant failed in the budgetCreate fixture with LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE because paySubmitExecute binds the DID id as principal, and the first attempt d6705c336, whose fixture uses Keeper.Submit, failed only on the LXP_BAD_SIGNATURE that 2.24.6 (4606c88a8) closed; its next assertions (budget_pull_test.go:174-175) cannot pass because ReadPayerGrant reads only the asset module grant record while LX_BUDGET_PULL records draws in the budget module record budget-grant:<id>."
+assumption = "Task 1.98.1 folds the budget draws into ReadPayerGrant as budget_grant_combine does; 2.24.3 continues from d6705c336 after 1.98.1 lands, keeping the DrawnTotal 40 assertion; 1.25.2 lands after 2.24.3 so its removal of ReadIdempotentReceipt is reconciled with budget_pull_test.go:129 by its owner."
+severity = "blocker"
+
+[finding.9.1.7.6]
+task = "9.1.7"
+file = "tests/programs/test_terminal_v5.c:161"
+symbol = "v5_callback_module"
+observed = "The seventh attempt 3b4e21fb3 built and the verifier `cg spec done 9.1.7` exited 1 (logs-verify-1.log): scripts/qualification/paxeer-x/program-terminal-v5.py refused with `native signed corpus was not emitted` because test_terminal_v5 --dump-corpus failed its V5_CHECK at line 161 for case abi3-callback, whose call returns LXP_OK since ad8a576e8 (task 1.18.1) removed the web request intake that refused the fixture's PAXEERX_WEB_REQUEST_V1 event with LXP_ERR_FEE_UNPAYABLE."
+assumption = "Task 1.18.4 moves the callback fixture to an event the kernel event callback still refuses; the corpus shape is unchanged and 3b4e21fb3 is requalified unchanged once 1.18.4 is on main."
+severity = "blocker"
