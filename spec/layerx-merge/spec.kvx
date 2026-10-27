@@ -100380,7 +100380,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.40.6]
 title = "Bound the worst-case scheduler end block by MaxBlockGas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["2.32.4", "2.38.3"]
