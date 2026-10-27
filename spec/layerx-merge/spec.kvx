@@ -104202,7 +104202,7 @@ touches = ["services/platform/perps-data/internal/markets/markets.go", "services
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestRunRefreshesAgain"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestRunRefreshesAgain)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestRunRefreshesAgain)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -104264,7 +104264,7 @@ touches = ["services/platform/perps-data/cmd/perps-indexer/main.go", "services/p
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestMarketsCheck"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestMarketsCheck)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestMarketsCheck)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -104294,7 +104294,7 @@ touches = ["services/platform/perps-data/internal/markets/markets_test.go"]
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestSeedMatchesChainConfig"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestSeedMatchesChainConfig)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestSeedMatchesChainConfig)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -104324,7 +104324,7 @@ touches = ["services/platform/perps-data/internal/markets/markets.go", "services
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestRefreshMarginTiers"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestRefreshMarginTiers)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/internal/markets/ -run '^(TestRefreshMarginTiers)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -105439,7 +105439,7 @@ touches = ["services/platform/perps-data/e2e_test.go"]
 tests = ["services/platform/perps-data/e2e_test.go::TestEndToEndChainMarkets"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/ -run '^(TestEndToEndChainMarkets)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/ -run '^(TestEndToEndChainMarkets)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -105532,7 +105532,7 @@ touches = ["services/platform/perps-data/e2e_test.go"]
 tests = ["services/platform/perps-data/e2e_test.go::TestEndToEndGraphQLMarkets"]
 planned_paths = []
 build_cmd = "go build ./services/platform/perps-data/..."
-verify_cmd = "go test -count=1 ./services/platform/perps-data/ -run '^(TestEndToEndGraphQLMarkets)$'"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./services/platform/perps-data/ -run '^(TestEndToEndGraphQLMarkets)$'"
 gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-markets"
@@ -126875,6 +126875,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Both attempts failed on the transaction index: the sequencer numbers accepted transactions from 1 within the open block (node/sequencer/accept.go:40 and node/sequencer/microbatch.go:333 set txIndex to len(open.txs)+1; node/sequencer/executor.go:358 reports TxIndex i+1) and rpc/sequencer_receipt_test.go:515 treats an index of 0 as an invalid receipt. The first accepted transaction's receipt therefore carries Index 1 and both of its logs carry transactionIndex 0x1; assert those values in rpc/sequencer_options_integration_test.go:214 and :255 instead of 0."
 
 [task.7.0.4]
 title = "Check every client-called method is served on the matching transport"
@@ -149658,6 +149659,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "The first attempt's two tests failed before the settlement probe: the binary refused startup with 'kernel_network_id: evm endpoint unavailable' because the loopback gateway of tests/binary.rs answers only the events method and returns method-not-found for everything else, while assemble (services/interop/crates/x-websearch/src/main.rs:461-466) first calls eth_call on XWEB_PRECOMPILE with the getKernelNetworkId() selector (services/interop/crates/x-websearch/src/watch.rs:184). Extend answer_rpc to serve that eth_call with a 32-byte word carrying the harness network id, eth_chainId with the configured chain id (and a different id for the refusal test) and pax_sequencerReceipt for the zero hash; the binary and the probe are not relaxed."
 
 [task.11.34.5]
 title = "Recover metered draws from pax_sequencerReceipt and retire the gateway lx_ client"
