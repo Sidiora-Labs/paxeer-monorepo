@@ -39,7 +39,6 @@ Some data has to be extracted from already fetched data, and there're several tr
 - `optimism/withdrawal`: fetches withdrawals from Optimism chain
 - `optimism/withdrawal_event`: fetches withdrawal events on L1 chain
 - `withdrawals`: optionally fetches withdrawals for old blocks (in the given from boundary of block numbers)
-- `paxeer_x_kernel_receipts`: projects LayerX kernel receipts from a relay or archive into `lx_receipts`; started only when `INDEXER_PAXEER_X_KERNEL_RECEIPTS_RELAY_URL` is set
 
 Both block fetchers retrieve/extract the blocks themselves and the following additional data:
 
