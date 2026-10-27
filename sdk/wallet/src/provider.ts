@@ -1,5 +1,5 @@
 import { concat, decodeAbiParameters, decodeFunctionData, encodeAbiParameters, encodeFunctionData, parseAbi, recoverAddress, recoverMessageAddress, hashMessage, keccak256, toHex, toRlp } from 'viem';
-import { waitForSequencerReceipt } from './receipt.js';
+import { readSequencerReceipt, waitForSequencerReceipt } from './receipt.js';
 import {
   ChainDisconnectedError,
   DisconnectedError,
@@ -183,7 +183,7 @@ export class PaxeerProvider implements Eip1193Provider {
       case 'paxeer_submitSponsored':
         return this.sponsoredGateway(params, false);
       case 'paxeer_sponsoredStatus':
-        return this.sponsoredGateway(params, true);
+        return this.paxeer_sponsoredStatus(params);
       case 'eth_chainId':
         return toQuantity(BigInt(this.chainId));
       case 'net_version':
@@ -356,6 +356,18 @@ export class PaxeerProvider implements Eip1193Provider {
     const message = decodeMessage(first);
     const response = await this.gateway<SignMessageResponse>('POST', '/v1/wallet/sign-message', { message });
     return response.signature;
+  }
+
+  private async paxeer_sponsoredStatus(
+    params: readonly unknown[],
+  ): Promise<Record<string, unknown> & { rung: SequencerReceiptAnswer['rung'] | null }> {
+    const answer = await this.sponsoredGateway(params, true);
+    if (!isRecord(answer) || (answer.tx_hash !== null && typeof answer.tx_hash !== 'string')) {
+      throw new InvalidParamsError('tx_hash', 'gateway returned an invalid sponsored status');
+    }
+    const receipt =
+      answer.tx_hash === null ? null : await readSequencerReceipt(this.proxy.bind(this), answer.tx_hash);
+    return { ...answer, rung: receipt === null ? null : receipt.rung };
   }
 
   private async sponsoredGateway(params:readonly unknown[],readOnly:boolean):Promise<unknown> {

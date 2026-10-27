@@ -11732,9 +11732,9 @@ ac_3 = "CheckWrite admits every view method of precompiles/layerxpay/abi.json:13
 
 [req.2252]
 title = "Submit one kernel activity per pay write through HostExecute"
-ac_1 = "Submit(ctx, caller, method, payload, idempotencyKey) in modules/layerxpay/keeper/execute.go (planned) builds an lxphost.Activity (modules/lxphost/host.go:555-566) with ProtocolVersion 3, Type from MethodActivity, AccountSequence = identity sequence + 1, NotBefore/NotAfter = block-open ms -/+ TimestampWindowMs, runs HostExecute (modules/lxphost/host.go:678) under WithSequence(last + 1) (modules/lxphost/ctx.go:71) and returns the receipt."
+ac_1 = "Submit(ctx, caller, method, payload, idempotencyKey) in modules/layerxpay/keeper/execute.go (planned) builds an lxphost.Activity (modules/lxphost/host.go:768-780) with ProtocolVersion 3, Type from MethodActivity, AccountSequence = ReadIdentitySequence, NotBefore = block-open ms and NotAfter = block-open ms + TimestampWindowMs, runs HostExecute (modules/lxphost/host.go:922) under WithSequence(last + 1) (modules/lxphost/ctx.go:71) and returns the receipt."
 ac_2 = "A nonzero Receipt.ResultCode becomes an error whose registry code is pcommon.LXPCodeName(code) (precompiles/common/lxp_errors.go:320) and no host-store write survives the refused call."
-ac_3 = "A second Submit with the same idempotency key returns the stored receipt through ReadIdempotentReceipt (modules/lxphost/read.go:444) instead of executing again."
+ac_3 = "A second Submit with the same idempotency key is not answered from a stored receipt (1.2.1 retired the kernel idempotency table): it is admitted at the actor's next account sequence with a new global sequence, and a repeated escrowRelease is refused with a nonzero kernel code while the escrow record and host store stay unchanged."
 
 [req.2253]
 title = "Import and export layerxpay genesis with kernel records in the host store"
@@ -18874,8 +18874,8 @@ title = "Bound the refusal metric label to the published error codes"
 ac_1 = "Refused (services/wallet/attestor/internal/health/health.go:194) with a code outside the configured set increments attestor_refusals_total{reason=\"other\"} and creates no new label value."
 
 [req.12060]
-title = "Agent action store drops the layerx_deposit kind and the custody authorization write"
-ac_1 = "The action store (services/wallet/gateway/src/db/actions.ts:19) creates allowance_and_call actions only and exports no retainActionCustodyAuthorization."
+title = "Agent action store drops the layerx_deposit kind"
+ac_1 = "The action store (services/wallet/gateway/src/db/actions.ts:19) creates allowance_and_call actions only and still exports retainActionCustodyAuthorization for the allowance-and-call reauthorization replay."
 
 [req.12241]
 title = "Add the merged-chain read and receipt types to the wallet SDK beside the joined ones"
@@ -51584,9 +51584,9 @@ qualification = "UNRUN"
 [acceptance.2.252.3]
 feature = "2"
 req = "2252.3"
-scenario = "Given escrowRelease submitted once with key K, when Submit runs again with K, then the receipt equals the first one and the escrow record is unchanged"
+scenario = "Given escrowRelease submitted once with key K, when Submit runs escrowRelease again with K, then it runs at the next account sequence and is refused with a kernel code named by LXPCodeName, and the escrow record and host store dump are unchanged"
 contract = "contracts/pay.md#execution"
-test = "modules/layerxpay/keeper/execute_test.go::TestSubmitReplayReturnsStoredReceipt (planned)"
+test = "modules/layerxpay/keeper/execute_test.go::TestSubmitReusedKeyExecutesAtNextSequence (planned)"
 qualification = "UNRUN"
 
 [acceptance.2.253.1]
@@ -72736,7 +72736,7 @@ qualification = "UNRUN"
 [acceptance.12.60.1]
 feature = "12"
 req = "12060.1"
-scenario = "Given the edited db/actions module, when its exports are listed and an allowance_and_call action is created on the Postgres harness, then retainActionCustodyAuthorization is undefined and the row kind is allowance_and_call."
+scenario = "Given the edited db/actions module, when its exports are listed and an allowance_and_call action is created on the Postgres harness, then ActionKind admits only allowance_and_call, retainActionCustodyAuthorization is a function and the row kind is allowance_and_call."
 contract = "contracts/services.md#s27-embedded-wallet-gateway"
 test = "services/wallet/gateway/test/agent-actions-retired.test.ts::actionKindsExcludeLayerxDeposit (planned)"
 qualification = "UNRUN"
@@ -93466,7 +93466,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.4]
 title = "Let the Programs signer binding accept host binding authority for an unsigned protocol-3 activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.23.1"]
@@ -95341,7 +95341,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.93.2]
 title = "Add Host.Simulate over the kernel activity simulation in a new host file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.0.1", "1.23.1", "1.23.3"]
@@ -98052,23 +98052,23 @@ title = "Submit one kernel activity per pay write through HostExecute"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["2.22.1", "2.22.2", "2.22.3", "2.21.3", "2.21.4", "1.92.1", "1.24.1"]
+requires = ["2.22.1", "2.22.2", "2.22.3", "2.21.3", "2.21.4", "1.92.1", "1.23.3"]
 reqs = ["2252.1", "2252.2", "2252.3"]
 capabilities = ["2.22.4"]
 interfaces = ["interface.2.go-layerxpay-keeper-submit-j24"]
 wiring = ["wiring.J24.3"]
 do_1 = "Write Submit(ctx sdk.Context, caller common.Address, method string, payload []byte, idempotencyKey [32]byte) (lxphost.Receipt, error) in modules/layerxpay/keeper/execute.go (planned) calling CheckWrite and AuthorityFor first."
-do_2 = "Read the last global sequence and the actor identity sequence through the lxphost readers requested by wiring.J24.3 (insertion point modules/lxphost/read.go:444), the values newBranchCtx and identitySequence read privately at modules/lxphost/ctx.go:111-131."
-do_3 = "Set Activity.ProtocolVersion 3 (stateCommitment, modules/lxphost/host_test.go:28) and the timestamp window read through an exported `func (h *Host) TimestampWindowMs() uint64` added to modules/lxphost/host.go beside the ReadLastSequence and ReadIdentitySequence exports, returning the host config TimestampWindowMs (modules/lxphost/host.go:546-553)."
-do_4 = "Before executing, look up the key with ReadIdempotentReceipt (modules/lxphost/read.go:444) and return the stored receipt on a hit."
+do_2 = "Read the last global sequence with ReadLastSequence (modules/lxphost/read.go:930) and the actor's next account sequence with ReadIdentitySequence (modules/lxphost/read.go:943), the values newBranchCtx and identitySequence read privately at modules/lxphost/ctx.go:111-140."
+do_3 = "Set Activity.ProtocolVersion 3 (stateCommitment, modules/lxphost/host_test.go:28), AccountSequence to the ReadIdentitySequence value unchanged (the host stores the next sequence the kernel admits, modules/lxphost/ctx.go:294-296 and modules/lxphost/host.go:966-970), NotBefore to the block-open ms and NotAfter to the block-open ms plus the window read through an exported `func (h *Host) TimestampWindowMs() uint64` added to modules/lxphost/host.go beside the Config struct (modules/lxphost/host.go:764); a bound wider than the window is refused LXP_ERR_MALFORMED_ENVELOPE (src/sequencer/lxp_admission.c:13-15)."
+do_4 = "Do not look up or return a stored receipt: since 1.2.1 the kernel records no idempotency entry (a lookup answers LXP_ERR_UNKNOWN_FIELD at modules/lxphost/read.go:164) and 1.25.2 deletes ReadIdempotentReceipt; the idempotency key only fills Activity.IdempotencyKey and the account sequence is the replay refusal."
 do_5 = "Convert a nonzero ResultCode into a coded error through pcommon.LXPCodeName (precompiles/common/lxp_errors.go:320) and discard the branch so the host store is untouched."
-do_6 = "Write TestSubmitCommitsKernelActivity, TestSubmitKernelRefusalCarriesRegistryCode and TestSubmitReplayReturnsStoredReceipt in modules/layerxpay/keeper/execute_test.go (planned)."
-symbols = ["Submit", "TestSubmitCommitsKernelActivity", "TestSubmitKernelRefusalCarriesRegistryCode", "TestSubmitReplayReturnsStoredReceipt"]
+do_6 = "Write TestSubmitCommitsKernelActivity, TestSubmitKernelRefusalCarriesRegistryCode and TestSubmitReusedKeyExecutesAtNextSequence in modules/layerxpay/keeper/execute_test.go (planned) over escrowOpen, escrowCapture and escrowRelease, which the hosted kernel registers since 1.23.3 (modules/lxphost/host.go:167), and change no file outside the touches to register other modules."
+symbols = ["Submit", "TimestampWindowMs", "TestSubmitCommitsKernelActivity", "TestSubmitKernelRefusalCarriesRegistryCode", "TestSubmitReusedKeyExecutesAtNextSequence"]
 touches = ["modules/layerxpay/keeper/execute.go", "modules/layerxpay/keeper/execute_test.go", "modules/lxphost/host.go"]
-tests = ["modules/layerxpay/keeper/execute_test.go::TestSubmitCommitsKernelActivity", "modules/layerxpay/keeper/execute_test.go::TestSubmitKernelRefusalCarriesRegistryCode", "modules/layerxpay/keeper/execute_test.go::TestSubmitReplayReturnsStoredReceipt"]
+tests = ["modules/layerxpay/keeper/execute_test.go::TestSubmitCommitsKernelActivity", "modules/layerxpay/keeper/execute_test.go::TestSubmitKernelRefusalCarriesRegistryCode", "modules/layerxpay/keeper/execute_test.go::TestSubmitReusedKeyExecutesAtNextSequence"]
 planned_paths = ["modules/layerxpay/keeper/execute.go", "modules/layerxpay/keeper/execute_test.go"]
 build_cmd = "go build ./modules/layerxpay/keeper/"
-verify_cmd = "go test -count=1 ./modules/layerxpay/keeper/ -run '^(TestSubmitCommitsKernelActivity|TestSubmitKernelRefusalCarriesRegistryCode|TestSubmitReplayReturnsStoredReceipt)$'"
+verify_cmd = "go test -count=1 ./modules/layerxpay/keeper/ -run '^(TestSubmitCommitsKernelActivity|TestSubmitKernelRefusalCarriesRegistryCode|TestSubmitReusedKeyExecutesAtNextSequence)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-ledger-auth-pay"
@@ -106101,7 +106101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.6]
 title = "Serve Query/PriceHistory from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["4.3.1", "4.3.2", "4.4.5"]
@@ -106133,7 +106133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.7]
 title = "Serve Query/Quote from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["4.3.1", "4.4.6"]
@@ -106177,8 +106177,9 @@ do_2 = "Parse token with ParseHexAddress and read TreasuryGetBalance at modules/
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryTreasuryServes and TestQueryTreasuryRefusals in modules/launchpad/keeper/grpc_query_treasury_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
 do_5 = "Delete the forwarding stub func (q Querier) Treasury from modules/launchpad/keeper/grpc_query.go (line 46 at 66448a171; it sits right after queryContext once 4.4.7 and its predecessors have removed theirs), remove the \"Treasury\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"Treasury\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
+do_6 = "Declare QueryTreasuryResponse.balance and .held (api/launchpad/query.proto:350-359) as plain string fields without the gogoproto customtype and nullable options, keeping field numbers 1 and 2, regenerate modules/launchpad/types/query.pb.go with scripts/protoc.sh as 4.2.1 do_4 did, and fill them from TreasuryGetBalance(...).String() and TreasuryHeld(...).String(): sdk/baseapp/grpcrouter.go:18,100 marshals every query response with the grpc default proto codec, whose reflection panics on a top-level non-pointer customtype Int field, while Int fields nested in a message (SwapQuote of QueryQuoteResponse) are marshalled by the gogo Marshal method and pass, so the wire bytes and JSON form stay the decimal string they are now."
 symbols = ["Querier.Treasury", "TestQueryTreasuryServes", "TestQueryTreasuryRefusals"]
-touches = ["modules/launchpad/keeper/grpc_query_treasury.go", "modules/launchpad/keeper/grpc_query_treasury_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
+touches = ["modules/launchpad/keeper/grpc_query_treasury.go", "modules/launchpad/keeper/grpc_query_treasury_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go", "api/launchpad/query.proto", "modules/launchpad/types/query.pb.go"]
 tests = ["modules/launchpad/keeper/grpc_query_treasury_test.go::TestQueryTreasuryServes", "modules/launchpad/keeper/grpc_query_treasury_test.go::TestQueryTreasuryRefusals"]
 planned_paths = ["modules/launchpad/keeper/grpc_query_treasury.go", "modules/launchpad/keeper/grpc_query_treasury_test.go"]
 build_cmd = "go build ./modules/launchpad/..."
@@ -106186,7 +106187,7 @@ verify_cmd = "go test -count=1 ./modules/launchpad/keeper/ -run '^(TestQueryTrea
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-launchpad"
-rollback = "Delete modules/launchpad/keeper/grpc_query_treasury.go and its test; the embedded UnimplementedQueryServer answers Treasury again."
+rollback = "Delete modules/launchpad/keeper/grpc_query_treasury.go and its test and revert api/launchpad/query.proto and modules/launchpad/types/query.pb.go; the embedded UnimplementedQueryServer answers Treasury again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -106392,7 +106393,7 @@ title = "Serve Query/QuoteLedger from the launchpad keeper"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["4.3.1", "4.2.3", "4.2.5", "4.4.14"]
+requires = ["4.3.1", "4.2.3", "4.2.5", "4.4.14", "4.4.8"]
 reqs = ["4031.1", "4031.2"]
 capabilities = ["4.4.15"]
 interfaces = ["interface.4.qry-launchpad-quote-ledger-j28"]
@@ -106401,8 +106402,9 @@ do_2 = "Parse kind with ParseQuoteLedgerKind of modules/launchpad/types/query_le
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryQuoteLedgerServes and TestQueryQuoteLedgerRefusals in modules/launchpad/keeper/grpc_query_quote_ledger_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
 do_5 = "Delete the forwarding stub func (q Querier) QuoteLedger from modules/launchpad/keeper/grpc_query.go (line 102 at 66448a171; it sits right after queryContext once 4.4.14 and its predecessors have removed theirs), remove the \"QuoteLedger\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"QuoteLedger\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
+do_6 = "Declare QueryQuoteLedgerResponse.amount (api/launchpad/query.proto:425-427) as a plain string field without the gogoproto customtype option, keeping its field number, regenerate modules/launchpad/types/query.pb.go with scripts/protoc.sh and fill it with the ledger amount's String(), for the reason 4.4.8 do_6 states."
 symbols = ["Querier.QuoteLedger", "TestQueryQuoteLedgerServes", "TestQueryQuoteLedgerRefusals"]
-touches = ["modules/launchpad/keeper/grpc_query_quote_ledger.go", "modules/launchpad/keeper/grpc_query_quote_ledger_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
+touches = ["modules/launchpad/keeper/grpc_query_quote_ledger.go", "modules/launchpad/keeper/grpc_query_quote_ledger_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go", "api/launchpad/query.proto", "modules/launchpad/types/query.pb.go"]
 tests = ["modules/launchpad/keeper/grpc_query_quote_ledger_test.go::TestQueryQuoteLedgerServes", "modules/launchpad/keeper/grpc_query_quote_ledger_test.go::TestQueryQuoteLedgerRefusals"]
 planned_paths = ["modules/launchpad/keeper/grpc_query_quote_ledger.go", "modules/launchpad/keeper/grpc_query_quote_ledger_test.go"]
 build_cmd = "go build ./modules/launchpad/..."
@@ -106547,7 +106549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.3]
 title = "Add the launchpad market query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["4.5.1", "4.4.2", "4.4.3", "15.0.5"]
@@ -106578,7 +106580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.4]
 title = "Add the launchpad markets query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["4.5.1", "4.4.4", "4.4.5", "15.0.5"]
@@ -110191,11 +110193,12 @@ do_4 = "Write apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts (planned
 do_5 = "Close the `{price && <Copyable …/>` JSX expression at apps/launchpad/mobile/src/screens/token.tsx:2 column 1180 with its missing `}` (TS1005, present since 145164d70) and change nothing else in Token."
 do_6 = "Add \"skipLibCheck\": true to apps/launchpad/mobile/tsconfig.json compilerOptions and keep lib, types, include [\"src\", \"test\"], strict, module NodeNext, allowImportingTsExtensions, noEmit and jsx react-jsx as on main (no tsconfig.test.json): the default lib with DOM is what the launchpad SDK sources the app imports by relative path are typed against (sdk/launchpad/packages/sdk/tsconfig.json), and react-native's src/types/globals.d.ts conflicts with lib.dom.d.ts and @types/node only inside declaration files (46 positions at b6763f366), which skipLibCheck leaves unchecked while every source file stays checked."
 do_7 = "Type WalletProtocolStorage.load (apps/launchpad/mobile/src/platform/protected-storage.ts:15) as Promise<Record<string, unknown>>, assigning the parsed object to a local before storing it in this.values, and write the 204 return of service-client.ts (:48) as `undefined as unknown as ContractTypes[N]`."
+do_8 = "In apps/launchpad/mobile/vitest.config.ts add a resolve.alias entry that maps the three relative specifiers ./validators-v1.gen.js, ./validators-v2.gen.js and ./validators-operations.gen.js (one regular expression over the three names) to the same-named files under sdk/launchpad/packages/sdk/dist resolved with fileURLToPath(new URL(..., import.meta.url)), and set test.deps { interopDefault: false } as apps/launchpad/web/vitest.config.ts:23 does, keeping environment node and include test/vitest/**/*.test.ts: sdk/launchpad/packages/sdk/scripts/compile-validators.mjs writes those three generated modules only into dist/ and the repository tracks only their src/*.d.ts declarations, so the SDK source that the route modules (do_3) and service-client.ts:1 import is loadable at run time only with those specifiers resolved to the built files."
 symbols = ["MobileServices", "marketRoutes", "routeModulesPreserveHeadPaths"]
-touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/src/platform/protected-storage.ts"]
+touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/src/platform/protected-storage.ts", "apps/launchpad/mobile/vitest.config.ts"]
 tests = ["apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts::routeModulesPreserveHeadPaths"]
 planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"]
-build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
+build_cmd = "pnpm --dir sdk/launchpad/packages/sdk-v2 run build && pnpm --dir sdk/launchpad/packages/sdk run build && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
 verify_cmd = "pnpm --dir apps/launchpad/mobile exec vitest run --config vitest.config.ts test/vitest/routes-scaffold.test.ts -t '(?:^|\\s)(routeModulesPreserveHeadPaths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -110366,7 +110369,7 @@ title = "Move the mobile market session to the v2 stream transport"
 status = "pending"
 mode = "BUILD"
 wave = 22
-requires = ["4.46.1", "4.0.3"]
+requires = ["4.46.1", "4.0.3", "4.46.2"]
 reqs = ["4507.1"]
 capabilities = ["4.46.8"]
 interfaces = ["interface.4.ts-mobile-market-session-j30"]
@@ -110428,7 +110431,7 @@ title = "Quote mobile trades on chain through Quoter.quoteExactInput"
 status = "pending"
 mode = "BUILD"
 wave = 22
-requires = ["4.46.1", "4.0.3"]
+requires = ["4.46.1", "4.0.3", "4.46.2"]
 reqs = ["4509.1", "4509.2"]
 capabilities = ["4.47.2"]
 interfaces = ["interface.4.ts-mobile-onchain-quote-j30"]
@@ -113420,7 +113423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.4]
 title = "Compare SealBatch with giga ProcessBlock on the same sequenced block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.8.1", "5.17.2"]
@@ -127870,7 +127873,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.16.1]
 title = "Check no lx_* name is served by the node over HTTP or WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.0.2", "7.9.1", "7.12.2", "7.13.4"]
@@ -128115,7 +128118,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.3]
 title = "Check ethclient decodes receipts from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.0.2", "7.13.4"]
@@ -128296,7 +128299,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.9]
 title = "Check ethclient newHead subscription hashes match blocks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.10.3"]
@@ -134070,7 +134073,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.34.6]
 title = "Review agent spend preparations in the owner wallet as EVM transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.24.2", "9.92.2", "12.27.1"]
@@ -139442,7 +139445,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.22.5]
 title = "Read the withdrawal registry snapshot through SequencerEndpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["9.21.7", "9.22.4"]
@@ -148282,7 +148285,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.25.4]
 title = "Run the mirror runtime on the committed block source and its config section"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.25.3", "11.26.1", "9.1.6"]
@@ -149410,7 +149413,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.37.1]
 title = "Verify v4 archive receipts and the committed coordinate in MirrorVerifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.26.1", "9.1.6"]
@@ -149723,7 +149726,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.0.3]
 title = "Gateway entry mounts the EVM approval routes and drops the LayerX mirror worker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["12.10.3", "12.7.1", "12.5.5", "7.0.2"]
@@ -149755,7 +149758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.0.4]
 title = "Demo supported-wallet panel drops the custody handoff"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3"]
@@ -150523,7 +150526,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.12.7.2]
-title = "Agent action store drops the layerx_deposit kind and the custody authorization write"
+title = "Agent action store drops the layerx_deposit kind"
 status = "pending"
 mode = "BUILD"
 wave = 8
@@ -150532,9 +150535,9 @@ reqs = ["12060.1"]
 capabilities = ["12.7.2"]
 interfaces = ["interface.12.ts-gw-action-kind-j49"]
 do_1 = "Change ActionKind (services/wallet/gateway/src/db/actions.ts:19) to 'allowance_and_call' only."
-do_2 = "Delete retainActionCustodyAuthorization (services/wallet/gateway/src/db/actions.ts:314), whose only caller was the deposit route removed from services/wallet/gateway/src/routes/agentActions.ts:181 in task 12.7.1."
+do_2 = "Keep retainActionCustodyAuthorization (services/wallet/gateway/src/db/actions.ts:298): its caller is the shared submit replay path at services/wallet/gateway/src/routes/agentActions.ts:157, which serves the allowance-and-call reauthorization replay after 12.7.1."
 do_3 = "Add actionKindsExcludeLayerxDeposit to services/wallet/gateway/test/agent-actions-retired.test.ts (planned)."
-symbols = ["ActionKind", "retainActionCustodyAuthorization", "actionKindsExcludeLayerxDeposit"]
+symbols = ["ActionKind", "actionKindsExcludeLayerxDeposit"]
 touches = ["services/wallet/gateway/src/db/actions.ts", "services/wallet/gateway/test/agent-actions-retired.test.ts"]
 tests = ["services/wallet/gateway/test/agent-actions-retired.test.ts::actionKindsExcludeLayerxDeposit"]
 planned_paths = ["services/wallet/gateway/test/agent-actions-retired.test.ts"]
@@ -151139,7 +151142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.1]
 title = "Remove the gateway custody consent routes and the custody authorization store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.11.2", "12.0.3"]
@@ -151170,7 +151173,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.2]
 title = "Attestor retires sign kind custody and the LX:CUSTODY:v2 digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.14.1", "12.3.3"]
@@ -151202,7 +151205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.3]
 title = "Gateway attestor client drops custody exports and the retired sign kinds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.11.2", "12.14.1"]
@@ -151233,7 +151236,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.14.4]
 title = "Migration 019 drops the retired custody and LayerX mirror tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.14.1", "12.0.3", "12.7.1"]
@@ -151384,7 +151387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.18.1]
 title = "FROST receipt test verifies through codec.DomainHash and Ed25519Digest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3"]
@@ -151446,7 +151449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.19.1]
 title = "Five-daemon conformance: EVM review then sign of the same transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["12.0.2", "12.11.3", "12.14.2", "12.3.3"]
@@ -151476,7 +151479,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.19.2]
 title = "Gateway end-to-end: EVM review, approve and sign with the signed receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3", "12.10.4"]
@@ -152239,7 +152242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.26.1]
 title = "Quote sponsored gas through the gateway sponsored quote route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.0.3"]
@@ -152270,7 +152273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.26.2]
 title = "Answer the sequencer rung from paxeer_sponsoredStatus in the provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.23.4", "12.0.3"]
@@ -152300,7 +152303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.26.3]
 title = "Carry the sequencer receipt in sponsored submission evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.26.1", "12.23.2"]
@@ -152330,7 +152333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.27.1]
 title = "Add EVM transaction review, approval and status to PaxeerWallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.23.3", "12.0.3", "12.10.3"]
@@ -152363,7 +152366,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.27.2]
 title = "Retire the lx_activity review, approval and signing from PaxeerWallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.27.1"]
@@ -152757,7 +152760,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.5]
 title = "Await the swap receipt and refuse a reverted swap in the swap executor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.33.3"]
@@ -152789,7 +152792,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.6]
 title = "Delete the receipt polling helpers from the surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.33.4", "12.33.5"]
@@ -158663,7 +158666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.3]
 title = "Unlist the explorer verify page from navigation, the state matrix and budgets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.7.1"]
@@ -158727,7 +158730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.1]
 title = "Remove the deposit, withdraw, journey and exit routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.7.5", "14.8.2"]
@@ -158772,7 +158775,7 @@ do_3 = "Delete apps/web/src/journeys/exit/model.ts:72 (exitPlan) with ExitContro
 do_4 = "Delete apps/web/e2e/custody.spec.ts:1 and drop custody.spec.ts and custody-evidence.test.ts from the test and test:component scripts at apps/web/package.json:13-14."
 do_5 = "Create apps/web/e2e/retired-journeys.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39 with retired_journey_modules_do_not_resolve and web_test_list_names_no_custody_suite."
 symbols = ["retired_journey_modules_do_not_resolve", "web_test_list_names_no_custody_suite"]
-touches = ["apps/web/src/journeys/deposit/index.ts", "apps/web/src/journeys/deposit/model.ts", "apps/web/src/journeys/deposit/screen.tsx", "apps/web/src/journeys/withdraw/index.ts", "apps/web/src/journeys/withdraw/model.ts", "apps/web/src/journeys/withdraw/screen.tsx", "apps/web/src/journeys/exit/index.ts", "apps/web/src/journeys/exit/model.ts", "apps/web/src/journeys/exit/screen.tsx", "apps/web/e2e/custody.spec.ts", "apps/web/package.json", "apps/web/e2e/retired-journeys.test.ts"]
+touches = ["apps/web/src/journeys/deposit/index.ts", "apps/web/src/journeys/deposit/model.ts", "apps/web/src/journeys/deposit/screen.tsx", "apps/web/src/journeys/withdraw/index.ts", "apps/web/src/journeys/withdraw/model.ts", "apps/web/src/journeys/withdraw/screen.tsx", "apps/web/src/journeys/exit/index.ts", "apps/web/src/journeys/exit/model.ts", "apps/web/src/journeys/exit/screen.tsx", "apps/web/e2e/custody.spec.ts", "apps/web/package.json", "apps/web/e2e/retired-journeys.test.ts", "apps/web/src/journeys/custody/journey-screen.tsx", "apps/web/src/journeys/custody/index.ts"]
 tests = ["apps/web/e2e/retired-journeys.test.ts::retired_journey_modules_do_not_resolve", "apps/web/e2e/retired-journeys.test.ts::web_test_list_names_no_custody_suite"]
 planned_paths = ["apps/web/e2e/retired-journeys.test.ts"]
 build_cmd = "npm --prefix apps/web run typecheck"
@@ -158780,8 +158783,9 @@ verify_cmd = "node --test --test-name-pattern '^(retired_journey_modules_do_not_
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
-rollback = "Restore the eleven files from version control."
+rollback = "Restore the thirteen files from version control."
 do_6 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: retired_journey_modules_do_not_resolve in apps/web/e2e/retired-journeys.test.ts (planned); web_test_list_names_no_custody_suite in apps/web/e2e/retired-journeys.test.ts (planned)."
+do_7 = "Delete apps/web/src/journeys/custody/journey-screen.tsx:1, which imports the deposit, exit and withdraw models and the withdraw screen at apps/web/src/journeys/custody/journey-screen.tsx:12-19 and has no importer left after 14.7.1, and drop its re-export at apps/web/src/journeys/custody/index.ts:63."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -158799,12 +158803,12 @@ requires = ["14.7.2", "14.8.1", "14.11.2"]
 reqs = ["14050.1", "14050.2"]
 capabilities = ["14.7.4"]
 interfaces = ["interface.14.ts-web-journeys-custody-journey-screen-journeyscreen", "interface.14.ts-web-journeys-custody-timeline-usecustodyshell", "interface.14.ts-web-journeys-custody-timeline-journeytimelineview", "interface.14.ts-web-journeys-custody-timeline-journeytechnicaldetails", "interface.14.ts-web-journeys-custody-timeline-walletpanelview", "interface.14.ts-web-journeys-custody-timeline-refusalview", "interface.14.ts-web-journeys-custody-timeline-delaynotice", "interface.14.ts-web-journeys-custody-timeline-safetoclosenotice", "interface.14.ts-web-journeys-custody-timeline-completeview", "interface.14.ts-web-journeys-custody-recovery-unknownoutcomerecovery", "interface.14.ts-web-journeys-custody-recovery-journeyoutcomeunknownerror", "interface.14.ts-web-journeys-custody-recovery-mutationoutcomeisunknown", "interface.14.ts-web-journeys-custody-recovery-isjourneyoutcomeunknown"]
-do_1 = "Delete apps/web/src/journeys/custody/journey-screen.tsx:1 and apps/web/src/journeys/custody/timeline.tsx:1, whose only importers were the deposit, withdraw and exit screens deleted by 14.7.2, per stale req.8033 ac_1."
+do_1 = "Delete apps/web/src/journeys/custody/timeline.tsx:1, whose importers were the deposit, withdraw and exit screens deleted by 14.7.2 and the wallet settings screen trimmed by 14.8.1; journey-screen.tsx went with 14.7.2, per stale req.8033 ac_1."
 do_2 = "Delete apps/web/src/journeys/custody/recovery.ts:1 and the barrel apps/web/src/journeys/custody/index.ts:1."
 do_3 = "Delete apps/web/e2e/custody-evidence.test.ts:1, already dropped from apps/web/package.json by 14.7.2."
 do_4 = "Create apps/web/e2e/retired-custody-screens.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39 with custody_screens_do_not_resolve and wallet_api_imports_no_custody_module."
 symbols = ["custody_screens_do_not_resolve", "wallet_api_imports_no_custody_module"]
-touches = ["apps/web/src/journeys/custody/index.ts", "apps/web/src/journeys/custody/journey-screen.tsx", "apps/web/src/journeys/custody/timeline.tsx", "apps/web/src/journeys/custody/recovery.ts", "apps/web/e2e/custody-evidence.test.ts", "apps/web/e2e/retired-custody-screens.test.ts"]
+touches = ["apps/web/src/journeys/custody/index.ts", "apps/web/src/journeys/custody/timeline.tsx", "apps/web/src/journeys/custody/recovery.ts", "apps/web/e2e/custody-evidence.test.ts", "apps/web/e2e/retired-custody-screens.test.ts"]
 tests = ["apps/web/e2e/retired-custody-screens.test.ts::custody_screens_do_not_resolve", "apps/web/e2e/retired-custody-screens.test.ts::wallet_api_imports_no_custody_module"]
 planned_paths = ["apps/web/e2e/retired-custody-screens.test.ts"]
 build_cmd = "npm --prefix apps/web run typecheck"
@@ -162520,7 +162524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.15.0.5]
 title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["15.0.3"]
