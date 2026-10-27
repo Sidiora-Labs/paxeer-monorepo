@@ -1,6 +1,7 @@
 import { gasStation, GasStationError, ModuleError, type GasSubmissionStore, type SponsoredSubmissionEvidence } from "@paxeer/wallet";
 import { sidioraAccountDid, sidioraStationMetadata } from "./gas-station.ts";
 import { windowWalletProvider } from "./provider.ts";
+import { ethTransactionReceipt, type GatewayReceipt } from "./gateway.ts";
 import { copyEntry } from "../../copy/runtime.ts";
 import { parseFeeAmount } from "../auth/native-fee-budget.ts";
 import {
@@ -10,8 +11,12 @@ import {
 } from "./sdk.ts";
 
 export type PrecompileSendOutcome =
-  | Readonly<{ outcome: "sent"; transactionHash: string }>
+  | Readonly<{ outcome: "sent"; transactionHash: string; receipt?: GatewayReceipt }>
+  | Readonly<{ outcome: "reverted"; transactionHash: string; receipt: GatewayReceipt }>
   | Readonly<{ outcome: "cancelled" | "rejected" | "unavailable" | "failed"; detail?: string }>;
+
+export const RECEIPT_POLL_LIMIT = 20;
+export const RECEIPT_POLL_INTERVAL_MS = 500;
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 const USER_REJECTED_REQUEST = 4001;
@@ -50,7 +55,11 @@ export async function connectWalletAccount(): Promise<string | undefined> {
 }
 
 /** Sends one SDK-built precompile call through the Paxeer wallet. */
-export async function sendWalletPrecompileCall(from: string, build: () => PrecompileCall): Promise<PrecompileSendOutcome> {
+export async function sendWalletPrecompileCall(
+  from: string,
+  build: () => PrecompileCall,
+  sleep: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
+): Promise<PrecompileSendOutcome> {
   const wallet = windowWalletProvider();
   if (wallet === undefined) {
     return { outcome: "unavailable" };
@@ -82,6 +91,13 @@ export async function sendWalletPrecompileCall(from: string, build: () => Precom
       return await sendWalletSponsoredBatch(quoted.value, consent ? review.identity : undefined);
     }
     const transactionHash = await sendPrecompileCall(wallet, from, build());
+    for (let attempt = 0; attempt < RECEIPT_POLL_LIMIT; attempt += 1) {
+      if (attempt > 0) await sleep(RECEIPT_POLL_INTERVAL_MS);
+      const receipt = await ethTransactionReceipt(transactionHash);
+      if (receipt !== undefined) {
+        return { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
+      }
+    }
     return { outcome: "sent", transactionHash };
   } catch (error) {
     return walletSendFailure(error);
