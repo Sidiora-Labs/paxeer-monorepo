@@ -7901,3 +7901,11 @@ symbol = "AnchorStoreDeleteUpgrade"
 observed = "At 2c845cf12 package node fails to build: app.go:1553 and store_delete_test.go:25,31,36 read storekeys.LayerXAnchorStoreKey, which 5.41.3 deleted; 13.23.1, 13.23.3, 13.26.2, 13.27.2 and 13.28.1 failed at build on it, and pending_store_test.go:19 lists the same key."
 assumption = "Integration task 5.41.4 names the retired store by its literal name and drops the fork-store entry; neither source task is reopened."
 severity = "major"
+
+[finding.11.26.4.2]
+task = "11.26.4"
+file = "services/interop/crates/layerx-mirror/Cargo.toml"
+symbol = "layerx-mirror"
+observed = "edd77cf4a dropped layerx-agent-api, layerx-client and the layerx-types dev-dependency from the mirror manifest and refreshed only services/interop/Cargo.lock; fourteen other workspace locks still list them in the layerx-mirror entry, so cargo --locked fails there (8.28.3 a7 at 3d1cd7584, services/platform)."
+assumption = "Integration task 11.26.5 refreshes the fourteen locks; 11.26.4 is not reopened."
+severity = "major"

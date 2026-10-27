@@ -9494,3 +9494,9 @@ area = "node store upgrades"
 symptom = "node/app.go:1553: undefined: storekeys.LayerXAnchorStoreKey; every Go test importing node fails at build"
 cause = "one task retired the store key constant while the store deletion upgrade and its tests from another task still named the store through it"
 do = "a deletion upgrade names a retired store by a literal of its historical name; when retiring a store key constant, grep node/ and storage/ tests for the constant and port them in the same change"
+
+[gotcha.1962]
+area = "cargo workspaces"
+symptom = "cargo --locked: the lock file <ws>/Cargo.lock needs to be updated, in workspaces the change never touched"
+cause = "a crate manifest changed its dependency list and only its own workspace lock was refreshed; other workspace locks pin that crate as a path dependency and record its dependency list"
+do = "after editing any crate manifest, run cargo metadata without --locked in every workspace whose Cargo.lock names the crate (grep -l 'name = \"<crate>\"' $(git ls-files '*Cargo.lock')) and commit those locks with the change"
