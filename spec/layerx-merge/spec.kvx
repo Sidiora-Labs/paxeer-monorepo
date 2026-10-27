@@ -104392,7 +104392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.5]
 title = "Run the periodic market refresh in perps-indexer and gate readiness on it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["3.42.3", "3.0.2"]
