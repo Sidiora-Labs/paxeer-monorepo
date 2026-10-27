@@ -7965,3 +7965,19 @@ symbol = "every_shared_refusal_case_is_refused_by_the_mirror"
 observed = "Attempt five (0ecefcceb) expected MirrorVerifyError::Receipt for the R4, R6 and R5 cases, whose expected.verifier is accepts; the mirror correctly accepts canonical, correctly signed bytes and cannot see the raw transaction, prevSeqHash or JSON view those rules need."
 assumption = "The test asserts acceptance for those three cases and applies R4 and R6 itself from the vector fields; the mirror verifier stays as written."
 severity = "medium"
+
+[finding.11.34.5.2]
+task = "11.34.5"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "verify_receipt"
+observed = "Attempt four (ae3131562) saved leaf_hash of the signed receipt as PaymentRecord.receipt_digest while SellerOutcome::Settled carries canonical_receipt_digest from settle_with_sequencer_evidence, so PaymentStore::release compared unequal digests and settle_request answered receipt_consumed on the first receipted retry; its reverted-draw test retried twice and the second retry was answered payment_refused by Seller::settle for the already refused idempotency key."
+assumption = "verify_receipt returns canonical_receipt_digest and the reverted-draw test retries once; the seller and store stay as written."
+severity = "medium"
+
+[finding.13.22.1.3]
+task = "13.22.1"
+file = "precompiles/layerxprograms/submit.go"
+symbol = "Execute"
+observed = "do_8 let the published attempt e894c7ae4 skip the handler table of do_4 because Execute already dispatched, but Execute serves only registryRead and refuses every other method with LXP_PRECOMPILE_UNKNOWN_METHOD and every call under STATICCALL with ErrReadOnlyWrite, so the 21 wave-16 method and view tasks 13.23.1-13.28.7 (13.28.2 excepted) have no registration point and fail their gates on main at 5c37e7713."
+assumption = "New task 13.22.8 writes handlerTable, register, the gasTable Write gate and NewTestExecutorWithHandlers; the 21 tasks now require it and register from init() in their own files, and 13.23.3 relocates registryReadHandler."
+severity = "critical"
