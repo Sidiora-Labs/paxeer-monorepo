@@ -13,14 +13,17 @@ use layerx_proof::export_codec::{
     InclusionRecord, ProofRecord, ReceiptRecord, MAX_FACT_REFS, MAX_FACT_REF_BYTES,
     MAX_RECORD_BYTES, RECORD_VERSION,
 };
-use layerx_proof::merkle::{build_leaf_hash_proof, encode_proof, Proof};
+use layerx_proof::merkle::{build_leaf_hash_proof, build_proof, encode_proof, Proof};
 use layerx_proof::signed_authority::SignedAuthorityHistory;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use layerx_wire::activity::decode_signed;
 use layerx_wire::encode::Encoder;
 use layerx_wire::handover::{decode_genesis_trust, sequencer_id};
-use layerx_wire::hash::{availability_chunk_digest, batch_header_digest, receipt_digest};
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_wire::hash::{
+    availability_chunk_digest, batch_header_digest, program_execution_batch_id, receipt_digest,
+};
+use layerx_wire::limits::{PROTOCOL_VERSION, STATE_COMMITMENT_PROTOCOL_VERSION};
+use layerx_wire::receipt::{decode as decode_receipt, decode_batch_header, encode_unsigned};
 
 const GENESIS: &[u8] = include_bytes!("fixtures/signed-authority/genesis.bin");
 const HEADERS: &[u8] = include_bytes!("fixtures/signed-authority/headers.bin");
@@ -54,22 +57,32 @@ fn lp(out: &mut Vec<u8>, bytes: &[u8]) {
 
 // Signed native receipt in the layout the receipt verifier decodes.
 fn receipt(activity: [u8; 32], signer: &EdSigningKey) -> Vec<u8> {
+    receipt_with_batch(activity, signer, [2; 32], [4; 32], PROTOCOL_VERSION)
+}
+
+fn receipt_with_batch(
+    activity: [u8; 32],
+    signer: &EdSigningKey,
+    previous_state_root: [u8; 32],
+    batch_id: [u8; 32],
+    protocol_version: u16,
+) -> Vec<u8> {
     let encode = |signature: Option<[u8; 64]>| {
         let mut encoder = Encoder::new(4096);
         assert_eq!(
-            encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
+            encoder.structure_header_version(0x5201, protocol_version),
             Ok(())
         );
-        assert_eq!(encoder.u16(PROTOCOL_VERSION), Ok(()));
+        assert_eq!(encoder.u16(protocol_version), Ok(()));
         assert_eq!(encoder.bytes(&activity, 32), Ok(()));
         assert_eq!(encoder.u64(9), Ok(()));
-        assert_eq!(encoder.bytes(&[2; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
         assert_eq!(encoder.bytes(&[3; 32], 32), Ok(()));
         assert_eq!(encoder.bytes(&[8; 32], 32), Ok(()));
         assert_eq!(encoder.i32(0), Ok(()));
         assert_eq!(encoder.sequence_length(0, 512), Ok(()));
         assert_eq!(encoder.u128(1), Ok(()));
-        assert_eq!(encoder.bytes(&[4; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&batch_id, 32), Ok(()));
         assert_eq!(encoder.u16(1), Ok(()));
         assert_eq!(encoder.u32(1), Ok(()));
         assert_eq!(encoder.u32(1), Ok(()));
@@ -203,17 +216,14 @@ fn receipt_record_bytes(activity: [u8; 32], receipt: &[u8], sequencer: [u8; 32])
     out.push(1);
     lp(&mut out, receipt_ref(activity).as_bytes());
     lp(&mut out, receipt);
-    out.extend_from_slice(&[4; 32]);
-    out.extend_from_slice(&[5; 32]);
-    out.extend_from_slice(&[2; 32]);
-    out.extend_from_slice(&[3; 32]);
+    let decoded = must(decode_receipt(receipt));
+    let protocol = decoded.protocol().expect("protocol receipt fixture");
+    out.extend_from_slice(&protocol.batch_id());
+    out.extend_from_slice(&protocol.asset());
+    out.extend_from_slice(&protocol.previous_state_root());
+    out.extend_from_slice(&protocol.resulting_state_root());
     out.extend_from_slice(&sequencer);
-    let unsigned_digest = {
-        let signature_offset = receipt.len() - 65;
-        let mut unsigned = receipt[..signature_offset].to_vec();
-        unsigned.push(0);
-        must(receipt_digest(&unsigned))
-    };
+    let unsigned_digest = must(receipt_digest(&must(encode_unsigned(&decoded))));
     out.extend_from_slice(&unsigned_digest);
     out
 }
@@ -954,19 +964,106 @@ fn independent_trust_refuses_false_membership_threshold_and_network() {
     assert_eq!(trust.network_id(), self::native().history.network_id());
 }
 
-#[test]
-fn settlement_anchored_is_refused_without_an_offline_finality_proof() {
-    let native = native();
+fn receipted_export() -> (CompleteOfflineArtifact, IndependentOfflineTrust) {
+    let genesis = must(decode_genesis_trust(GENESIS));
+    let signer = ed_key(9);
+    let public_key = signer.verifying_key().to_bytes();
+    let sequencer = must(sequencer_id(&public_key));
     let activity = id(1);
-    let header = header_record(0, native.first_key, 1, 13);
-    let artifact = decode_artifact(
-        &[receipt_ref(activity)],
-        &receipt_artifact(&header, activity),
-        &[],
+    let previous = must(decode_batch_header(&HEADERS[..HEADER_BYTES])).previous_state_root();
+    let batch = must(program_execution_batch_id(previous, [8; 32], 1, 9, 1));
+    let receipt = receipt_with_batch(
+        activity,
+        &signer,
+        previous,
+        batch,
+        STATE_COMMITMENT_PROTOCOL_VERSION,
     );
+    let (proof, receipt_root) = must(build_proof(&[receipt.as_slice()], 0));
+    let mut encoder = Encoder::new(HEADER_BYTES);
+    must(encoder.structure_header_version(0x1701, STATE_COMMITMENT_PROTOCOL_VERSION));
+    must(encoder.u8(15));
+    must(encoder.tag(1, 15));
+    must(encoder.u16(STATE_COMMITMENT_PROTOCOL_VERSION));
+    must(encoder.tag(2, 15));
+    must(encoder.u32(genesis.network_id));
+    for (tag, value) in [(3, 1), (4, 1), (5, 1), (6, 9)] {
+        must(encoder.tag(tag, 15));
+        must(encoder.u64(value));
+    }
+    for (tag, value) in [
+        (7, previous),
+        (8, [3; 32]),
+        (9, [8; 32]),
+        (10, receipt_root),
+        (11, [10; 32]),
+        (12, [11; 32]),
+        (13, [12; 32]),
+    ] {
+        must(encoder.tag(tag, 15));
+        must(encoder.bytes(&value, 32));
+    }
+    must(encoder.tag(14, 15));
+    must(encoder.u64(1_000));
+    must(encoder.tag(15, 15));
+    must(encoder.bytes(&sequencer, 32));
+    let canonical_header = encoder.finish();
+    let digest = must(batch_header_digest(&canonical_header));
+    let signature = signer.sign(&digest).to_bytes();
+    let mut history = must(SignedAuthorityHistory::from_genesis(
+        genesis.network_id,
+        genesis.canonical_state_root,
+        public_key,
+        genesis.governance_witness,
+    ));
+    must(history.advance(&canonical_header, &signature, None));
+    let trust = must(IndependentOfflineTrust::new(
+        genesis.registry,
+        history,
+        domain(),
+        vec![membership(&[1, 2, 3], 2)],
+    ));
+    let header = HeaderRecord {
+        canonical_header,
+        signature,
+        sequencer_id: sequencer,
+        public_key,
+        first_batch: 1,
+        last_batch: 1,
+    };
+    let parts = vec![
+        receipt_record_bytes(activity, &receipt, public_key),
+        inclusion_bytes(2, &receipt_ref(activity), &receipt, &proof, digest),
+        header_bytes(&header),
+    ];
+    (
+        decode_artifact(&[receipt_ref(activity)], &parts, &[]),
+        trust,
+    )
+}
+
+#[test]
+fn complete_export_reports_the_requested_rung() {
+    let (artifact, trust) = receipted_export();
+    assert!(artifact.certificates.is_empty());
+    let report = must(verify_complete(&artifact, &trust, Rung::Receipted));
+    assert_eq!(report.achieved(), Rung::Receipted);
+    assert_eq!(report.facts().len(), 1);
+    assert_eq!(report.facts()[0].fact(), artifact.facts[0]);
+    assert_eq!(report.facts()[0].achieved(), Rung::Receipted);
+}
+
+#[test]
+fn complete_export_below_the_requested_rung_is_refused() {
+    let (artifact, trust) = receipted_export();
+    assert!(artifact.certificates.is_empty());
     assert_eq!(
-        verify_complete(&artifact, &trust(), VerificationLevel::SETTLEMENT_ANCHORED).err(),
-        Some(CompleteExportError::SettlementAnchoringUnavailable)
+        verify_complete(&artifact, &trust, Rung::Committed),
+        Err(CompleteExportError::RungNotAchieved {
+            fact: 0,
+            achieved: Rung::Receipted,
+            requested: Rung::Committed,
+        })
     );
 }
 
@@ -975,7 +1072,7 @@ fn rogue_sequencer_key_and_false_key_range_are_refused_against_independent_trust
     let native = native();
     let activity = id(1);
     let trust = trust();
-    let level = VerificationLevel::BATCH_INCLUDED;
+    let level = Rung::Receipted;
     let genuine = header_record(0, native.first_key, 1, 13);
     let control = verify_complete(
         &decode_artifact(
@@ -1052,7 +1149,7 @@ fn swapped_and_orphan_records_are_refused() {
     let second = receipt_artifact(&header, id(2));
     let facts = vec![receipt_ref(id(1)), receipt_ref(id(2))];
     let trust = trust();
-    let level = VerificationLevel::SEQUENCER_SIGNED;
+    let level = Rung::Submitted;
     // Each reference names the other fact's receipt bytes.
     let swap = |record: &[u8], from: [u8; 32], to: [u8; 32]| -> Vec<u8> {
         let (old, new) = (receipt_ref(from), receipt_ref(to));
@@ -1135,7 +1232,7 @@ fn state_path_tamper_and_missing_maintenance_link_are_refused() {
             &NO_RECORDS,
             &[header_bytes(&header)],
         ));
-        verify_complete(&artifact, &trust, VerificationLevel::STATE_PROVEN)
+        verify_complete(&artifact, &trust, Rung::Receipted)
     };
     let control = verify(vec![plain.clone()], Vec::new());
     assert!(control.is_err());
@@ -1178,7 +1275,7 @@ fn checkpoint_facts_refuse_wrong_domain_membership_and_incomplete_availability()
     let facts = vec![reference.clone()];
     let run = |trust: &IndependentOfflineTrust, certificate: Vec<u8>| {
         let artifact = decode_artifact(&facts, &parts, &[certificate]);
-        verify_complete(&artifact, trust, VerificationLevel::CHECKPOINT_FINALISED)
+        verify_complete(&artifact, trust, Rung::Committed)
     };
     let full = checkpoint_bytes(&reference, &HEADERS[..HEADER_BYTES], &[0, 1, 2], None);
     assert!(run(&trust(), full.clone()).is_err());
@@ -1230,5 +1327,5 @@ fn checkpoint_facts_refuse_wrong_domain_membership_and_incomplete_availability()
             None,
         )],
     );
-    assert!(verify_complete(&artifact, &trust(), VerificationLevel::CHECKPOINT_FINALISED).is_err());
+    assert!(verify_complete(&artifact, &trust(), Rung::Committed).is_err());
 }

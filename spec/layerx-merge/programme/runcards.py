@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections import Counter
+from collections.abc import Iterable, Mapping
 from functools import cache
 from os import PathLike
 from pathlib import Path
@@ -51,3 +52,66 @@ def check_card(card: Mapping[str, KvxValue], schema: Mapping[str, KvxValue]) -> 
     expected = _domain_roles()[str(domain)]
     if card["role"] != expected:
         raise CardError(f"role: domain {domain} requires {expected}, got {card['role']!r}")
+
+
+def check_against_spec(
+    cards: Iterable[Mapping[str, KvxValue]], spec_path: str | PathLike[str]
+) -> list[dict[str, KvxValue]]:
+    try:
+        sections = load(spec_path)
+    except KvxError as error:
+        raise CardError(str(error)) from error
+
+    domains: dict[str, dict[str, dict[str, KvxValue]]] = {}
+    for name, fields in sections.items():
+        if name.startswith("task."):
+            task_id = name.removeprefix("task.")
+            domain = task_id.split(".", 1)[0]
+            domains.setdefault(domain, {})[task_id] = fields
+
+    checked: list[dict[str, KvxValue]] = []
+    for card in cards:
+        domain = card.get("domain")
+        if type(domain) not in (int, str):
+            raise CardError(f"domain: invalid domain {domain!r}")
+        anchors = card.get("anchors")
+        if not isinstance(anchors, list) or not anchors or not all(
+            isinstance(anchor, str) and anchor for anchor in anchors
+        ):
+            raise CardError(f"domain {domain}: anchors must be a nonempty list of task ids")
+        missing = [anchor for anchor in anchors if f"task.{anchor}" not in sections]
+        if missing:
+            raise CardError(f"domain {domain}: missing anchors: {', '.join(missing)}")
+
+        tasks = domains.get(str(domain))
+        if not tasks:
+            raise CardError(f"domain {domain}: no tasks in {spec_path}")
+        outside = [anchor for anchor in anchors if anchor not in tasks]
+        if outside:
+            raise CardError(
+                f"domain {domain}: anchors belong to another domain: {', '.join(outside)}"
+            )
+
+        waves: Counter[int] = Counter()
+        profiles: Counter[str] = Counter()
+        for task_id, task in tasks.items():
+            wave = task.get("wave")
+            profile = task.get("sandbox_profile")
+            if type(wave) is not int or wave < 0:
+                raise CardError(f"task.{task_id}: wave must be a nonnegative integer")
+            if not isinstance(profile, str) or not profile:
+                raise CardError(
+                    f"task.{task_id}: sandbox_profile must be a nonempty string"
+                )
+            waves[wave] += 1
+            profiles[profile] += 1
+
+        largest = max(profiles.values())
+        expected = [profile for profile, count in profiles.items() if count == largest]
+        if card.get("sandbox_profile") not in expected:
+            raise CardError(
+                f"sandbox_profile: domain {domain} requires one of {expected!r}, "
+                f"got {card.get('sandbox_profile')!r}"
+            )
+        checked.append({**card, "max_parallel": max(waves.values())})
+    return checked

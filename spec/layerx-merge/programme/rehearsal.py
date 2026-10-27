@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import shlex
 import subprocess
 from collections.abc import Mapping, Sequence
@@ -74,3 +75,32 @@ def run_steps(
     return RehearsalResult(
         passed=failed_step is None, failed_step=failed_step, evidence=lines
     )
+
+
+def to_finding(result: RehearsalResult, task_id: str) -> str:
+    if result.passed:
+        return ""
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+", task_id):
+        raise ValueError("task_id must be a valid KVX section identifier")
+    if result.failed_step is None or not 1 <= result.failed_step <= len(result.evidence):
+        raise ValueError("failed result must identify a step with recorded evidence")
+    fields = {
+        "task": task_id,
+        "file": "spec/layerx-merge/programme/rehearsal.py",
+        "symbol": "run_steps",
+        "observed": (
+            f"Rehearsal step {result.failed_step} failed: "
+            f"{result.evidence[result.failed_step - 1]}."
+        ),
+        "assumption": (
+            "The failed rehearsal step is outside this task's scope and remains unresolved."
+        ),
+        "severity": "blocker",
+    }
+    lines = [f"[finding.{task_id}]"]
+    for key, value in fields.items():
+        if any(character in value for character in "\r\n\t"):
+            raise ValueError("finding values must fit on one KVX line without tabs")
+        quoted = value.replace('"', r'\"')
+        lines.append(f'{key} = "{quoted}"')
+    return "\n".join(lines) + "\n"

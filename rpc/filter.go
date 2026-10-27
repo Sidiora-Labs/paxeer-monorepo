@@ -1076,7 +1076,7 @@ func (a *FilterAPI) committedLogs(ctx context.Context, startTime time.Time, crit
 	}
 	earliest, err := a.logFetcher.earliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, err
 	}
 
 	begin, end, err := ComputeBlockBounds(latest, earliest, 0, crit)
@@ -1292,7 +1292,7 @@ func (f *LogFetcher) GetLogsByFilters(ctx context.Context, crit filters.FilterCr
 	}
 	earliest, err := f.earliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, 0, err
 	}
 	begin, end, err := ComputeBlockBounds(latest, earliest, lastToHeight, crit)
 	if err != nil {
@@ -1668,18 +1668,12 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 		// Check for invalid zero hash
 		zeroHash := common.Hash{}
 		if *crit.BlockHash == zeroHash {
-			// For invalid hash, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 
 		block, err := blockByHashRespectingWatermarks(ctx, f.tmClient, f.watermarks, crit.BlockHash[:], 1)
 		if err != nil {
-			// For non-existent blocks, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 		res := make(chan *coretypes.ResultBlock, 1)
 		res <- block
@@ -1694,7 +1688,7 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 	}
 	earliest, err := f.watermarks.EarliestHeight(ctx)
 	if err != nil {
-		earliest = 0
+		return nil, 0, false, err
 	}
 	begin, end, err := ComputeBlockBounds(latest, earliest, lastToHeight, crit)
 	if err != nil {
