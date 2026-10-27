@@ -175,3 +175,11 @@ fn a_source_observation_carries_the_committed_coordinate() {
     altered[22] ^= 1;
     assert_eq!(observe(&altered, 125, 42), Err(MirrorSourceError::Archive));
 }
+
+#[path = "publish.rs"]
+mod publish_suite;
+
+#[test]
+fn the_publish_suite_archives_committed_blocks() {
+    publish_suite::assert_committed_publication_on_both_test_networks();
+}
