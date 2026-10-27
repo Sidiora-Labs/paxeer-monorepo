@@ -32,11 +32,6 @@ The fork runs with `CHAIN_TYPE=paxeer_x` and
   `apps/explorer/lib/explorer/chain/paxeer_x/`, their import runners under
   `apps/explorer/lib/explorer/chain/import/runner/paxeer_x/`, and the
   `*_paxeer_x_*` migrations under `apps/explorer/priv/repo/migrations/`.
-- `Indexer.Fetcher.PaxeerXKernelReceipts`
-  ([`apps/indexer/lib/indexer/fetcher/paxeer_x_kernel_receipts.ex`](apps/indexer/lib/indexer/fetcher/paxeer_x_kernel_receipts.ex)),
-  which projects LayerX kernel receipts from a relay or archive into the
-  database. It starts only when `INDEXER_PAXEER_X_KERNEL_RECEIPTS_RELAY_URL` is
-  set.
 - API routes under `/api/v2`: `/paxeer-x/capabilities`, `/paxeer-x/anchors`,
   `/paxeer-x/receipts`, `/paxeer-x/receipts/:id`,
   `/transactions/:hash/status` and `/addresses/:hash/unified`.

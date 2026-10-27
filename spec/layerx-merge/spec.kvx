@@ -17409,6 +17409,18 @@ ac_1 = "The agentd native read tests no longer run tests/daemon/program-admissio
 title = "Read program balances through eth_call on 0x101D in agentd instead of the protocol adapter"
 ac_1 = "agentd reads program balances through eth_call on 0x101D and neither manifest names the protocol adapter."
 
+[req.9974]
+title = "The guarantor finality evidence suite of layerx-client is gone"
+ac_1 = "services/agent/crates/layerx-client/tests/finality_evidence.rs is absent and no layerx-client test target reads tests/vectors/finality_evidence_v1.vec, while the JSON-RPC evidence tests of task 9.23.5 still pass."
+
+[req.9975]
+title = "The guarantor finality evidence vector is untracked"
+ac_1 = "tests/vectors/finality_evidence_v1.vec is untracked and no tracked file outside the retired set and documentation references it."
+
+[req.9976]
+title = "layerx-sdk refuses finalised waits instead of verifying guarantor certificates"
+ac_1 = "RpcClient::wait_for with Commitment::Finalised answers RpcError::MissingFinalityTrust without calling lx_getNodeInfo or lx_getCheckpoint, and no layerx-sdk source names FinalityEvidenceCandidate or tests/vectors/finality_evidence_v1.vec."
+
 [req.9999]
 title = "Domain 9 is complete"
 ac_1 = "agent_completion_retired_surfaces_absent passes on the merged candidate: no retired domain-9 surface remains and every planned domain-9 wave-6 path exists."
@@ -20094,8 +20106,9 @@ ac_1 = "An import through services/explorer/backend/apps/explorer/test/explorer/
 
 [req.14262]
 title = "Check every kept PaxeerXLogs topic against the precompile ABI files"
-ac_1 = "Every topic in PaxeerXLogs.definitions/0 (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:685) equals keccak256 of an event in the ABI of its precompile."
+ac_1 = "Every topic in PaxeerXLogs.definitions/0 (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:685) equals keccak256 of an event in an ABI file served at its precompile address (precompiles/launchpad/setup.go:11-18 serves the v6.12.0 and the v6.10 file at 0x0000000000000000000000000000000000001017)."
 ac_2 = "No PaxeerXLogs definition targets 0x1013 or 0x1014."
+ac_3 = "PaxeerXLogs.definitions/0 holds one lx_market_events definition at 0x0000000000000000000000000000000000001017 for each of the twelve events of precompiles/launchpad/abi.json and still holds the ten events of precompiles/launchpad/legacy/v610/abi.json, and parse/1 turns a log of each into a launchpad row with kind equal to the underscore spelling of its event name."
 
 [req.14263]
 title = "Delete the dead Finality.Anchor struct"
@@ -68462,6 +68475,30 @@ contract = "contracts/agent-api.md#wiring-integration"
 test = "services/agent/crates/layerx-agentd/tests/program_balances_eth_call.rs::agentd_reads_program_balances_through_eth_call (planned)"
 qualification = "UNRUN"
 
+[acceptance.9.974.1]
+feature = "9"
+req = "9974.1"
+scenario = "Given the layerx-client crate, when its test targets are listed, then finality_evidence is not among them and evidence_rpc::proof_bundle_reads_eth_get_proof_and_the_landing_block passes."
+contract = "contracts/agent-rust-api.md#sdk"
+test = "services/agent/crates/layerx-client/tests/evidence_rpc.rs::proof_bundle_reads_eth_get_proof_and_the_landing_block"
+qualification = "UNRUN"
+
+[acceptance.9.975.1]
+feature = "9"
+req = "9975.1"
+scenario = "Given the repository tree after the finality readers are retired, when test_finality_vector_retired runs, then tests/vectors/finality_evidence_v1.vec is absent and no tracked file outside spec/ and documentation names it."
+contract = "contracts/agent-rust-api.md#sdk"
+test = "tests/ci/test_retired_finality_vector.py::test_finality_vector_retired (planned)"
+qualification = "UNRUN"
+
+[acceptance.9.976.1]
+feature = "9"
+req = "9976.1"
+scenario = "Given an RpcClient whose policy carries a trusted checkpoint context digest, when wait_for is called with Commitment::Finalised against a loopback node that records every method, then it returns RpcError::MissingFinalityTrust and the node recorded neither lx_getNodeInfo nor lx_getCheckpoint."
+contract = "contracts/agent-rust-api.md#sdk"
+test = "services/agent/crates/layerx-sdk/tests/rpc_node.rs::finalised_wait_is_refused_without_reading_a_checkpoint (planned)"
+qualification = "UNRUN"
+
 [acceptance.9.999.1]
 feature = "9"
 req = "9999.1"
@@ -76033,7 +76070,7 @@ qualification = "UNRUN"
 [acceptance.14.262.1]
 feature = "14"
 req = "14262.1"
-scenario = "Given the four precompile abi.json files, when each definition topic is compared with the event selectors of its address, then every topic is found"
+scenario = "Given the precompile ABI files, the launchpad address carrying both its v6.12.0 and its v6.10 file, when each definition topic is compared with the event selectors served at its address, then every topic is found"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
 test = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs::kept_topics_match_precompile_abis (planned)"
 qualification = "UNRUN"
@@ -76044,6 +76081,14 @@ req = "14262.2"
 scenario = "Given PaxeerXLogs.definitions/0, when the addresses are collected, then neither 0x0000000000000000000000000000000000001013 nor 0x0000000000000000000000000000000000001014 is among them"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
 test = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs::no_definition_targets_retired_address (planned)"
+qualification = "UNRUN"
+
+[acceptance.14.262.3]
+feature = "14"
+req = "14262.3"
+scenario = "Given a 0x…1017 log for a v6.12.0 Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256) and one for a v6.10 FeesClaimed(address,address,uint256), when PaxeerXLogs.parse/1 runs, then each yields one lx_market_events row of domain launchpad with its own kind, its party in address_hash and every argument in parameters, and no log is counted undecoded."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs::launchpad_v612_logs_parse (planned)"
 qualification = "UNRUN"
 
 [acceptance.14.263.1]
@@ -96494,6 +96539,7 @@ do_2 = "Call checkPause (modules/layerxledger/keeper/pause.go (planned)) with th
 do_3 = "Run the activity through execute (modules/layerxledger/keeper/execute.go (planned)) and pass the receipt to Mirror (modules/layerxledger/keeper/mirror.go (planned)) and LedgerEvents (modules/layerxledger/keeper/events.go (planned))."
 do_4 = "Derive the context hash with the send-context rule of src/modules/asset/lx_asset_registry.c:101-115 over the fields of PayExactArgs (modules/layerxledger/types/payload_transfer.go (planned)), with the sequence taken from NextSequence."
 do_5 = "Write TestPayExact, TestPayExactExpired in modules/layerxledger/keeper/payexact_test.go (planned) on the keeper harness of modules/layerxledger/keeper/harness_test.go (planned)."
+do_6 = "Do not read the stored idempotent receipt or assert an idempotent replay refusal: since 1.2.1 a reused idempotency key at the next account sequence executes (tests/codec/lxp_test_idempotency_retired.c reused_key_next_sequence_executes) and Host.ReadIdempotentReceipt answers LXP_ERR_UNKNOWN_FIELD (modules/lxphost/read.go:164); the replay refusal is the actor account sequence, so a second PayExact with the same PaymentReference executes at the next sequence."
 symbols = ["PayExact", "PayExactArgs", "TestPayExact", "TestPayExactExpired"]
 touches = ["modules/layerxledger/keeper/payexact.go", "modules/layerxledger/keeper/payexact_test.go"]
 tests = ["modules/layerxledger/keeper/payexact_test.go::TestPayExact", "modules/layerxledger/keeper/payexact_test.go::TestPayExactExpired"]
@@ -106274,7 +106320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.9]
 title = "Serve Query/Surface from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["4.3.1", "4.2.3", "4.4.8"]
@@ -106306,7 +106352,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.10]
 title = "Serve Query/Retired from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.9"]
@@ -106347,7 +106393,7 @@ capabilities = ["4.4.11"]
 interfaces = ["interface.4.qry-launchpad-fee-right-j28"]
 do_1 = "Add func (q Querier) FeeRight(goCtx context.Context, req *types.QueryFeeRightRequest) (*types.QueryFeeRightResponse, error) in modules/launchpad/keeper/grpc_query_fee_right.go (planned), refusing a nil request with codes.InvalidArgument."
 do_2 = "Parse collection with ParseHexAddress, read GetFeeRight at modules/launchpad/keeper/feerights.go:79 and convert with FeeRightInfoOf of modules/launchpad/types/query_registry.go (planned)."
-do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
+do_3 = "ParseHexAddress (modules/launchpad/types/query_validate.go:24) and GetFeeRight (modules/launchpad/keeper/feerights.go:88) wrap their errors with fmt.Errorf(\"%w\") and sdkerrors.ABCIInfo follows only Cause() (sdk/types/errors/abci.go:117-160), so FeeRight returns each refusal inside an unexported error value of modules/launchpad/keeper/grpc_query_fee_right.go whose Error() is the original text, whose Unwrap() is the original error and whose Cause() is its registered root (matched with errors.Is against sdkerrors.ErrInvalidAddress and modules/launchpad/types/errors.go:18-92), as RoleError does at modules/launchpad/keeper/roles.go:32; sdkerrors.Wrap is not used because it changes the text that TestQueryFeeRightRefusals compares with EqualError; ParseHexAddress, GetFeeRight and every test assertion stay unchanged."
 do_4 = "Write TestQueryFeeRightServes and TestQueryFeeRightRefusals in modules/launchpad/keeper/grpc_query_fee_right_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
 do_5 = "Delete the forwarding stub func (q Querier) FeeRight from modules/launchpad/keeper/grpc_query.go (line 70 at 66448a171; it sits right after queryContext once 4.4.10 and its predecessors have removed theirs), remove the \"FeeRight\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"FeeRight\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.FeeRight", "TestQueryFeeRightServes", "TestQueryFeeRightRefusals"]
@@ -137341,8 +137387,8 @@ title = "Port the layerx-sdk decoders and envelopes to rungs and heights"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["9.1.6", "11.2.7"]
-reqs = ["9005.1", "9005.2", "9005.3", "9005.4", "9006.1", "9006.2", "9006.3"]
+requires = ["9.1.6", "11.2.7", "9.32.1"]
+reqs = ["9005.1", "9005.2", "9005.3", "9005.4", "9006.1", "9006.2", "9006.3", "9976.1"]
 capabilities = ["9.1.7"]
 interfaces = ["interface.9.http-rpc-project", "interface.9.rs-agent-api-read-relativeto", "interface.9.rs-agent-api-read-freshness", "interface.9.rs-agent-api-read-verifiedread", "interface.9.rs-agent-api-read-readrequest", "interface.9.rs-agent-api-read-modulestateselector", "interface.9.rs-agent-api-read-historyselector", "interface.9.rs-agent-api-read-balancevalue", "interface.9.rs-agent-api-read-historyvalue", "interface.9.rs-agent-api-read-checkpointvalue", "interface.9.rs-agent-api-read-proofbundle", "interface.9.rs-agent-api-read-offlineexport", "interface.9.rs-agent-api-read-feeprojection", "interface.9.proto-agent-api-read-type-verifiedread", "interface.9.proto-agent-api-read-type-freshness", "interface.9.proto-agent-api-read-type-proofbundle", "interface.9.proto-agent-api-read-type-feeprojection", "interface.9.err-rs-layerx-agent-api-error-class-idempotency-conflict", "interface.9.rs-agent-api-identity-protocolbudgetview", "interface.9.rs-agent-api-stream-receiptreference", "interface.9.rs-agent-api-protocolbudgetview-from-proven-j70"]
 do_1 = "services/agent/crates/layerx-sdk/src/rpc_budget.rs decodes ProtocolBudgetView with achieved_rung (wire key \"achieved_rung\") and BudgetRecord::Protocol reads view.achieved_rung."
@@ -137350,12 +137396,17 @@ do_2 = "services/agent/crates/layerx-sdk/src/agent_envelope.rs, services/agent/c
 do_3 = "services/agent/crates/layerx-sdk/src/rpc_export.rs, services/agent/crates/layerx-sdk/src/rpc_history.rs, services/agent/crates/layerx-sdk/src/rpc_projection.rs, services/agent/crates/layerx-sdk/src/program_http.rs and services/agent/crates/layerx-sdk/src/lib.rs: OfflineExport decodes `bundles` and `height` and no certificates; HistorySelector sends from_height/to_height and the block-position cursor; FeeProjection reads snapshot_height; re-exports follow the agent-api names."
 do_4 = "services/agent/crates/layerx-sdk/tests/sdk.rs: freshness() (:74-84) builds the agent-api Freshness { chain_head: 20, value_height: 17, relative_to: RelativeTo::Block { height: 19, hash: [0x19; 32] } } (services/agent/crates/layerx-agent-api/src/read.rs:98-108) and the BalanceValue literal at :257 gains height: 17 (read.rs:182-188); every assertion of the file stays."
 do_5 = "services/agent/crates/layerx-sdk/tests/offline_export.rs: api() (:190-200) builds layerx_proof::export_codec::EncodedOfflineArtifact { facts: the fact strings, receipts, proofs, certificates: Vec::new(), headers } (export_codec.rs:1105), the tests decode it with decode_historical_offline_export(&export, &trust) (services/agent/crates/layerx-sdk/src/rpc_export.rs), whose CompleteOfflineArtifact is what verify_complete (services/agent/crates/layerx-proof/src/export.rs:937) and encode() take; Rung::Receipted replaces VerificationLevel::BATCH_INCLUDED; the settlement-anchoring case (:293-297) becomes the rung-claim case: verify_complete_historical_offline_export(&decoded, Rung::Committed, Rung::Receipted, &trust) returns Err(OfflineVerificationError::ClaimExceedsVerified { claimed: Rung::Committed, verified: Rung::Receipted }) for the fixture, which carries receipts and headers but no verified commit; the round-trip, misplaced-bucket, certificate and rogue-key refusals stay."
-do_6 = "verify_cmd compiles every integration test target of the crate (--no-run), so tests/offline_export.rs and tests/sdk.rs are part of this task and touches lists them; no test is deleted or skipped."
+do_6 = "verify_cmd compiles every integration test target of the crate (--no-run), so tests/offline_export.rs and tests/sdk.rs are part of this task and touches lists them; no test is deleted or skipped except the retired guarantor finality case of do_9."
 do_7 = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs is ported to the agent-api read types: ProofBundle (services/agent/crates/layerx-agent-api/src/read.rs:214-226) has no record() method and no proofs field, so the checks at :954-960 and :1086-1119 compare the decoded bundle's fields (format, verification_level, raw_transaction, signed_receipt, receipt_digest, receipt_key and the optional block_header, receipt_inclusion, commit, validator_set, account_proof) with the response JSON and build the altered-response cases from Vec<u8> values instead of unsized [u8] frames at :1117, ProofBundleRecord (read.rs:306) is used only where a record is encoded, and :1156 sets requested_rung (read.rs:137-140) to the rung that replaces Level::CheckpointFinalised; every case keeps its intent (a disagreement between outer and inner verification levels and a promotion above the achieved rung are still refused) and no test is deleted or skipped."
 do_8 = "The crate's library tests include three TLS checks that spawn the layerx-paxeer-boundary binary (services/platform/tests/support/tls_boundary.rs:176-190; package layerx-platform-paxeer-boundary, as the Makefile rule public-tls-test-prerequisites builds it), so build_cmd builds it and verify_cmd names it through LAYERX_PAXEER_BOUNDARY_BIN; no library test is skipped."
+do_9 = "Delete verify_rpc_checkpoint (services/agent/crates/layerx-sdk/src/rpc_verification.rs:752-777), the last layerx-sdk use of layerx_client::evidence::FinalityEvidenceCandidate (:763), and the unit test finality_requires_the_exact_trusted_context_and_header (:812-851), which reads tests/vectors/finality_evidence_v1.vec (:815) and exercises only that deleted function, per decision.928."
+do_10 = "Delete RpcClient::verify_finalised_checkpoint (services/agent/crates/layerx-sdk/src/rpc_verification.rs:552-592) and its call in receipt_at_commitment (:674-678): lx_getNodeInfo and lx_getCheckpoint have no node method since task 9.32.1 (do_4), and the committed rung is a verified block commit read through pax_sequencerReceipt (decision.925, task 9.32.2 do_3)."
+do_11 = "In wait_for_authority (services/agent/crates/layerx-sdk/src/rpc_verification.rs:471) return RpcError::MissingFinalityTrust for every Commitment::Finalised request whatever trusted_checkpoint_context_digest holds; keep the ReceiptPolicy field (:26) because services/agent/crates/layerx-sdk/src/wallet.rs:228, services/agent/crates/layerx-sdk/src/bin/layerx-wallet-rpc.rs:137, services/agent/qualification/pay2/pay2e_test.rs:974 and services/platform/hosted/runtime-clock/tests/supervisor.rs:266 still construct it."
+do_12 = "Remove the sha2 import (services/agent/crates/layerx-sdk/src/rpc_verification.rs:14) once no remaining line of the file uses Sha256."
+do_13 = "Add finalised_wait_is_refused_without_reading_a_checkpoint to services/agent/crates/layerx-sdk/tests/rpc_node.rs beside reads_use_only_eth_and_px_methods (:112), using the loopback listener (:12): wait_for(activity, Commitment::Finalised, a policy with Some(digest), 1s) returns RpcError::MissingFinalityTrust and the listener records no lx_getNodeInfo or lx_getCheckpoint call."
 symbols = ["ProtocolBudgetView", "BudgetRecord", "ReadRequest", "VerifiedRead", "ReceiptReference", "OfflineExport", "HistorySelector", "FeeProjection"]
-touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs"]
-tests = []
+touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs", "services/agent/crates/layerx-sdk/tests/rpc_node.rs"]
+tests = ["services/agent/crates/layerx-sdk/tests/rpc_node.rs::finalised_wait_is_refused_without_reading_a_checkpoint"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk && cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-paxeer-boundary"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --no-run && LAYERX_PAXEER_BOUNDARY_BIN=\"${CARGO_TARGET_DIR:-$PWD/services/platform/target}/debug/layerx-paxeer-boundary\" cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib"
@@ -139925,7 +139976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the orphaned LNI request and evidence submodule files"
 status = "pending"
 mode = "BUILD"
-wave = 23
+wave = 32
 requires = ["9.25.1"]
 reqs = ["9276.1"]
 capabilities = ["9.24.6"]
@@ -139955,7 +140006,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the LNI framing, handshake, schema and transport module"
 status = "pending"
 mode = "BUILD"
-wave = 25
+wave = 32
 requires = ["9.25.1", "9.24.4", "9.18.5", "9.13.1", "9.18.1", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1"]
 reqs = ["9277.1"]
 capabilities = ["9.24.7"]
@@ -139986,8 +140037,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the kernel-era read, receipt, submit, stream, batch, payments and evidence modules"
 status = "pending"
 mode = "BUILD"
-wave = 22
-requires = ["9.25.2", "9.24.4", "9.22.3", "9.22.5", "9.23.5", "9.23.6", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1"]
+wave = 32
+requires = ["9.25.2", "9.24.4", "9.22.3", "9.22.5", "9.23.5", "9.23.6", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "8.16.4", "8.11.3", "8.19.5", "10.27.5"]
 reqs = ["9281.1"]
 capabilities = ["9.25.1"]
 interfaces = ["interface.9.rs-client-read-readcontext", "interface.9.rs-client-read-readvalue", "interface.9.rs-client-read-historycursor", "interface.9.rs-client-read-historykind", "interface.9.rs-client-read-historyitem", "interface.9.rs-client-read-historypage", "interface.9.rs-client-read-readerror", "interface.9.rs-client-read-historyrange", "interface.9.rs-client-read-historyproof", "interface.9.rs-client-read-freshness-j44", "interface.9.rs-client-read-balance-j44", "interface.9.rs-client-read-history-with-history-j44", "interface.9.rs-client-receipt-receiptselector", "interface.9.rs-client-receipt-receiptwaitmode", "interface.9.rs-client-receipt-authenticatedlookupcontext", "interface.9.rs-client-receipt-authenticatedlookup", "interface.9.rs-client-receipt-lookup", "interface.9.rs-client-receipt-receipterror", "interface.9.rs-client-submit-submissioncontext", "interface.9.rs-client-submit-unknowncause", "interface.9.rs-client-submit-unknown", "interface.9.rs-client-submit-submission", "interface.9.rs-client-submit-submiterror", "interface.9.rs-client-stream-cursor", "interface.9.rs-client-stream-event", "interface.9.rs-client-stream-streamitem", "interface.9.rs-client-stream-streamconfig", "interface.9.rs-client-stream-streamerror", "interface.9.rs-client-batch-signedbatchheader", "interface.9.rs-client-batch-batchheadererror", "interface.9.rs-client-payments-snapshotcontext", "interface.9.rs-client-payments-committedsnapshot", "interface.9.rs-client-payments-assetmetadata", "interface.9.rs-client-payments-nativefeepolicy", "interface.9.rs-client-payments-feeestimate-j44", "interface.9.rs-client-payments-native-fee-policy-j44", "interface.9.rs-client-payments-session-fee-state-j44", "interface.9.rs-client-withdrawal-withdrawalconfigurationerror", "interface.9.rs-client-head-head", "interface.9.rs-client-head-headtracker", "interface.9.rs-client-head-sequencerkeyrange-j44", "interface.9.rs-client-head-headerror-j44", "interface.9.rs-client-evidence-anchor-settlement-contract", "interface.9.rs-client-evidence-minimum-finality-frame-bytes", "interface.9.rs-client-evidence-rootselector", "interface.9.rs-client-evidence-checkpointselector", "interface.9.rs-client-evidence-proofbundleselector", "interface.9.rs-client-evidence-program-state-request-bytes", "interface.9.rs-client-evidence-program-state-domain", "interface.9.rs-client-evidence-max-program-state-bundle-bytes", "interface.9.rs-client-evidence-programstateselector", "interface.9.rs-client-evidence-evidencecontext", "interface.9.rs-client-evidence-verifiedcheckpoint", "interface.9.rs-client-evidence-finalityevidencecandidate", "interface.9.rs-client-evidence-verifiedproofbundle", "interface.9.rs-client-evidence-accountproofvariant", "interface.9.rs-client-evidence-signedheader", "interface.9.rs-client-evidence-evidenceerror", "interface.9.rs-client-evidence-register-finality-evidence", "interface.9.rs-client-evidence-verify-account-evidence-with-history", "interface.9.rs-client-evidence-accountevidencepolicy", "interface.9.rs-client-evidence-verifiedaccountevidence", "interface.9.rs-client-evidence-verify-account-evidence"]
@@ -140019,19 +140070,19 @@ title = "Delete Client, the handover policy and caps readers and every paxeer-ve
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["9.24.2", "9.24.3", "9.12.5", "9.3.3", "9.5.3", "9.23.6", "9.23.5", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1"]
+requires = ["9.24.2", "9.24.3", "9.12.5", "9.3.3", "9.5.3", "9.23.6", "9.23.5", "11.25.5", "13.30.3", "13.30.4", "13.30.5", "8.94.1", "9.27.7"]
 reqs = ["9282.1"]
 capabilities = ["9.25.2"]
 interfaces = ["interface.9.rs-client-handover-historyerror", "interface.9.rs-client-handover-sequencerhistory", "interface.9.rs-client-handover-policy-decode-finality-policy", "interface.9.rs-client-caps-caps-response-header-bytes", "interface.9.rs-client-caps-max-caps-page-bytes", "interface.9.rs-client-caps-capsprogress", "interface.9.rs-client-caps-capsdiscovery", "interface.9.rs-client-caps-caps-request-bytes-j44", "interface.9.rs-client-caps-max-caps-object-bytes-j44", "interface.9.rs-client-caps-capserror-j44", "interface.9.rs-client-evidence-caps-verifiedcaps", "interface.9.rs-client-evidence-caps-max-caps-object-bytes-j44", "interface.9.rs-client-evidence-caps-max-caps-account-witnesses-j44", "interface.9.rs-client-evidence-caps-capsevidenceerror-j44", "interface.9.rs-client-evidence-caps-verify-caps-object-j44", "interface.9.rs-client-client-reconnectpolicy", "interface.9.rs-client-client-clientconfig", "interface.9.rs-client-client-connectionerror", "interface.9.rs-client-client-max-fee-meter-canonical-bytes", "interface.9.rs-client-client-feemeter", "interface.9.rs-client-client-feeobservation", "interface.9.rs-client-client-feeestimateerror", "interface.9.rs-client-client-client", "interface.9.rs-client-client-connectionstate-j44", "interface.9.rs-client-resolver-resolverpolicy-j44", "interface.9.rs-client-resolver-outcome-j44", "interface.9.rs-client-resolver-resolved-j44", "interface.9.rs-client-resolver-trackerror-j44", "interface.9.rs-client-resolver-unknownresolver-j44", "interface.9.rs-client-resolver-resolverhandle-j44", "interface.9.rs-client-resolver-spawn-j44", "interface.9.rs-client-resolver-spawn-for-client-j44", "interface.9.rs-client-availability-availabilityselector", "interface.9.rs-client-availability-retrievallimits", "interface.9.rs-client-availability-fetchcontext", "interface.9.rs-client-availability-provider", "interface.9.rs-client-availability-providerset", "interface.9.rs-client-availability-progress", "interface.9.rs-client-availability-providerfailure", "interface.9.rs-client-availability-providerreport", "interface.9.rs-client-availability-availabilityresult", "interface.9.rs-client-availability-fetchoutcome", "interface.9.rs-client-availability-fetcherror", "interface.9.rs-client-availability-fetch", "interface.9.rs-client-availability-fetch-sealed-candidate"]
 wiring = ["wiring.J44.22", "wiring.J44.23", "wiring.J44.24"]
-do_1 = "Delete services/agent/crates/layerx-client/src/handover.rs and services/agent/crates/layerx-client/src/handover_policy.rs, which authenticate kernel sequencer key history through layerx_paxeer_verifier (services/agent/crates/layerx-client/src/handover.rs:19, services/agent/crates/layerx-client/src/handover_policy.rs:4), and the example services/agent/crates/layerx-client/examples/native_handover_history.rs (services/agent/crates/layerx-client/examples/native_handover_history.rs:12), per decision.922 and decision.923; delete services/agent/crates/layerx-client/tests/finality_evidence.rs, the kernel finality evidence suite (services/agent/crates/layerx-client/tests/finality_evidence.rs:1) replaced by the tests of task 9.23.5."
+do_1 = "Delete services/agent/crates/layerx-client/src/handover.rs and services/agent/crates/layerx-client/src/handover_policy.rs, which authenticate kernel sequencer key history through layerx_paxeer_verifier (services/agent/crates/layerx-client/src/handover.rs:19, services/agent/crates/layerx-client/src/handover_policy.rs:4), and the example services/agent/crates/layerx-client/examples/native_handover_history.rs (services/agent/crates/layerx-client/examples/native_handover_history.rs:12), per decision.922 and decision.923."
 do_2 = "Delete services/agent/crates/layerx-client/src/caps.rs and services/agent/crates/layerx-client/src/evidence/caps.rs, the caps reader and verifier that consume SequencerHistory (services/agent/crates/layerx-client/src/caps.rs:4), and remove `mod caps;` and its re-export from services/agent/crates/layerx-client/src/evidence.rs (services/agent/crates/layerx-client/src/evidence.rs:10, services/agent/crates/layerx-client/src/evidence.rs:20)."
 do_3 = "Delete services/agent/crates/layerx-client/src/client.rs (Client, whose paxeer verifier parameter is at services/agent/crates/layerx-client/src/client.rs:816), services/agent/crates/layerx-client/src/resolver.rs and services/agent/crates/layerx-client/src/availability.rs; agentd stops using them in tasks 9.12.5, 9.3.3 and 9.5.3."
 do_4 = "Delete the function taking `&layerx_paxeer_verifier::VerifiedCheckpointPublication` in services/agent/crates/layerx-client/src/evidence.rs (services/agent/crates/layerx-client/src/evidence.rs:312) so task 9.28.1 can drop the crate dependency."
 do_5 = "Remove `pub mod availability;`, `pub mod caps;`, `pub mod client;`, `pub mod handover;`, `pub mod handover_policy;`, `pub mod resolver;` and `pub use client::Client;` from services/agent/crates/layerx-client/src/lib.rs (services/agent/crates/layerx-client/src/lib.rs:23)."
 do_6 = "Run the existing endpoint_refuses_plain_remote_urls_and_unpinned_https (services/agent/crates/layerx-client/tests/sequencer.rs:544) unchanged."
 symbols = ["endpoint_refuses_plain_remote_urls_and_unpinned_https"]
-touches = ["services/agent/crates/layerx-client/src/handover.rs", "services/agent/crates/layerx-client/src/handover_policy.rs", "services/agent/crates/layerx-client/src/caps.rs", "services/agent/crates/layerx-client/src/evidence/caps.rs", "services/agent/crates/layerx-client/src/client.rs", "services/agent/crates/layerx-client/src/resolver.rs", "services/agent/crates/layerx-client/src/availability.rs", "services/agent/crates/layerx-client/examples/native_handover_history.rs", "services/agent/crates/layerx-client/tests/finality_evidence.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
+touches = ["services/agent/crates/layerx-client/src/handover.rs", "services/agent/crates/layerx-client/src/handover_policy.rs", "services/agent/crates/layerx-client/src/caps.rs", "services/agent/crates/layerx-client/src/evidence/caps.rs", "services/agent/crates/layerx-client/src/client.rs", "services/agent/crates/layerx-client/src/resolver.rs", "services/agent/crates/layerx-client/src/availability.rs", "services/agent/crates/layerx-client/examples/native_handover_history.rs", "services/agent/crates/layerx-client/src/lib.rs", "services/agent/crates/layerx-client/src/evidence.rs", "services/agent/crates/layerx-client/tests/sequencer.rs"]
 tests = ["services/agent/crates/layerx-client/tests/sequencer.rs::endpoint_refuses_plain_remote_urls_and_unpinned_https"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
@@ -140243,7 +140294,7 @@ title = "Delete the guarantor certificate verifier and the embedded settlement d
 status = "pending"
 mode = "BUILD"
 wave = 37
-requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4"]
+requires = ["9.27.3", "9.27.5", "9.28.2", "9.29.1", "9.5.4", "9.5.5", "9.6.1", "9.4.1", "9.1.4", "9.12.6", "9.25.2", "9.35.2", "8.7.3", "8.8.4", "8.12.3", "8.19.5", "8.19.6", "8.19.7", "8.20.1", "8.20.2", "10.21.3", "10.21.4", "10.27.5", "10.27.6", "10.27.7", "11.26.4", "9.27.8"]
 reqs = ["9310.1"]
 capabilities = ["9.27.4"]
 interfaces = ["interface.9.rs-proof-checkpoint-checkpoint", "interface.9.rs-proof-checkpoint-attestation", "interface.9.rs-proof-checkpoint-guarantorkey", "interface.9.rs-proof-checkpoint-settlementdomain", "interface.9.rs-proof-checkpoint-certificate", "interface.9.rs-proof-checkpoint-thresholdreport", "interface.9.rs-proof-checkpoint-checkpointerror", "interface.9.rs-proof-checkpoint-checkpoint-id", "interface.9.rs-proof-checkpoint-verify-certificate", "interface.9.rs-proof-checkpoint-verify-declared-certificate", "interface.9.rs-proof-settlement-declareddomain", "interface.9.rs-proof-settlement-declared", "interface.9.rs-proof-settlement-maximum-attestation-delay-ms", "interface.9.rs-proof-settlement-declared-domain", "interface.9.rs-proof-settlement-declared-checkpoint-settlement-j44", "interface.9.rs-proof-evidence-evidence-j44", "interface.9.rs-proof-checkpoint-new-j70", "interface.9.rs-proof-checkpoint-header-bytes-j70", "interface.9.rs-proof-checkpoint-validity-proof-j70", "interface.9.rs-proof-attestation-new-j70", "interface.9.rs-proof-attestation-guarantor-id-j70", "interface.9.rs-proof-attestation-signature-j70", "interface.9.rs-proof-attestation-signer-j70", "interface.9.rs-proof-attestation-attested-at-ms-j70", "interface.9.rs-proof-attestation-canonical-statement-j70", "interface.9.rs-proof-settlementdomain-new-j70", "interface.9.rs-proof-settlementdomain-paxeer-chain-id-j70", "interface.9.rs-proof-settlementdomain-settlement-contract-j70", "interface.9.rs-proof-guarantorkey-new-j70", "interface.9.rs-proof-guarantorkey-guarantor-id-j70", "interface.9.rs-proof-guarantorkey-public-key-j70", "interface.9.rs-proof-certificate-new-j70", "interface.9.rs-proof-certificate-attestations-j70", "interface.9.rs-proof-certificate-threshold-j70", "interface.9.rs-proof-certificate-settlement-reference-j70", "interface.9.rs-proof-thresholdreport-level-j70", "interface.9.rs-proof-thresholdreport-evidence-j70", "interface.9.rs-proof-thresholdreport-protocol-version-j70", "interface.9.rs-proof-thresholdreport-network-id-j70", "interface.9.rs-proof-thresholdreport-batch-number-j70", "interface.9.rs-proof-thresholdreport-first-sequence-j70", "interface.9.rs-proof-thresholdreport-last-sequence-j70", "interface.9.rs-proof-thresholdreport-data-availability-root-j70", "interface.9.rs-proof-thresholdreport-record-roots-j70", "interface.9.rs-proof-thresholdreport-resulting-state-root-j70", "interface.9.rs-proof-evidence-checkpoint-id-j70", "interface.9.rs-proof-evidence-settlement-reference-j70", "interface.9.rs-proof-declareddomain-network-id-j70"]
@@ -140329,6 +140380,67 @@ gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the four test files and delete the planned payload fixture; no production code changes."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.27.7]
+title = "Delete the layerx-client kernel finality evidence suite"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["9.23.5"]
+reqs = ["9974.1"]
+capabilities = []
+interfaces = []
+do_1 = "Delete services/agent/crates/layerx-client/tests/finality_evidence.rs (accepts_the_exact_c_typed_cp1_cx1_fixture :55, rejects_corrupt_or_cross_record_finality_bytes :62), which reads tests/vectors/finality_evidence_v1.vec (:5) and checks only FinalityEvidenceCandidate::from_exact_bytes (services/agent/crates/layerx-client/src/evidence.rs:445), the guarantor certificate path retired by decision.928; its replacement is services/agent/crates/layerx-client/tests/evidence_rpc.rs of task 9.23.5."
+do_2 = "Leave services/agent/crates/layerx-client/src/evidence.rs untouched: FinalityEvidenceCandidate still has consumers in the agentd, platform and human crates until task 9.25.1 deletes it."
+do_3 = "Run the existing proof_bundle_reads_eth_get_proof_and_the_landing_block (services/agent/crates/layerx-client/tests/evidence_rpc.rs:30) unchanged as the task gate."
+symbols = ["FinalityEvidenceCandidate"]
+touches = ["services/agent/crates/layerx-client/tests/finality_evidence.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs"]
+tests = ["services/agent/crates/layerx-client/tests/evidence_rpc.rs::proof_bundle_reads_eth_get_proof_and_the_landing_block"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test evidence_rpc -- --exact proof_bundle_reads_eth_get_proof_and_the_landing_block"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Restore services/agent/crates/layerx-client/tests/finality_evidence.rs from the previous revision."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.9.27.8]
+title = "Delete the guarantor finality evidence vector"
+status = "pending"
+mode = "BUILD"
+wave = 33
+requires = ["9.27.7", "9.1.7", "9.25.2", "16.32.11", "16.5.2", "16.37.1"]
+reqs = ["9975.1"]
+capabilities = []
+interfaces = []
+wiring = []
+fulfils = []
+do_1 = "Delete tests/vectors/finality_evidence_v1.vec, the guarantor CP1/CX1 vector whose readers services/agent/crates/layerx-client/tests/finality_evidence.rs:5 (task 9.27.7), services/agent/crates/layerx-sdk/src/rpc_verification.rs:815 (task 9.1.7), tests/storage/lxp_test_finality_evidence.c:55 (task 16.32.11) and scripts/ci/xweb-workflow-check.sh:329 (task 16.5.2) are removed first, per decision.928 and decision.842."
+do_2 = "Write tests/ci/test_retired_finality_vector.py (planned) with test_finality_vector_retired calling assert_paths_absent(['tests/vectors/finality_evidence_v1.vec']) and asserting that no tracked file outside spec/ and documentation names finality_evidence_v1.vec, through tests/ci/retired_tests.py of task 16.37.1."
+symbols = []
+touches = ["tests/vectors/finality_evidence_v1.vec", "tests/ci/test_retired_finality_vector.py"]
+tests = ["tests/ci/test_retired_finality_vector.py::test_finality_vector_retired"]
+planned_paths = ["tests/ci/test_retired_finality_vector.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_retired_finality_vector.py"
+verify_cmd = "python3 -m pytest tests/ci/test_retired_finality_vector.py::test_finality_vector_retired -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Restore tests/vectors/finality_evidence_v1.vec from the previous revision and delete tests/ci/test_retired_finality_vector.py."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -146312,7 +146424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.3.3]
 title = "Accept PaymentDrawn logs for x402 sellers paid from a standing grant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.3.2"]
@@ -149677,7 +149789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.38.3]
 title = "Publish an attestation view from the relay loop after each tick"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.38.2", "11.22.3", "9.1.6"]
@@ -149708,7 +149820,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.38.4]
 title = "Serve the deposit and release attestation routes over HTTP from the relayer binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.38.3", "11.21.3", "9.1.6"]
@@ -159765,7 +159877,7 @@ reqs = ["14251.1", "14251.2", "14251.3"]
 capabilities = ["14.23.2"]
 interfaces = ["interface.14.http-get-api-v2-paxeer-x-archive-anchors", "interface.14.http-get-api-v2-paxeer-x-archive-receipts", "interface.14.http-get-api-v2-paxeer-x-archive-receipts-id-j54"]
 do_1 = "Add get(\"/archive/anchors\"), get(\"/archive/receipts\") and get(\"/archive/receipts/:id\") to V2.PaxeerX.ArchiveController in the paxeer-x scope at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex:273-282."
-do_2 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex (planned) with anchors/2, receipts/2 and receipt/2 reading Explorer.Chain.PaxeerX.Anchor and Receipt the way services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/anchor_controller.ex:47 and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/receipt_controller.ex:59 and :92 do, with the same paging keys."
+do_2 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex (planned) with anchors/2, receipts/2 and receipt/2 reading Explorer.Chain.PaxeerX.Anchor directly for anchors (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/anchor_controller.ex:51 pipes into UnifiedAccount.anchors/3, which no module defines and the compiler reports as undefined or private) and Receipt the way services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/receipt_controller.ex:59 and :92 do, with the same paging keys."
 do_3 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/archive_view.ex (planned) rendering each item through the planned services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_anchor.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex shapes with frozen: true and without the settlement status field."
 do_4 = "Create services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/archive_controller_test.exs (planned) with archive_anchors_lists_frozen_rows, archive_receipts_lists_frozen_rows and archive_receipt_404_for_unknown_id."
 symbols = []
@@ -160035,7 +160147,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.3]
 title = "Run only the bindings and market runners in the paxeer_x import stage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.25.2"]
@@ -160066,7 +160178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.4]
 title = "Delete the custody, deposit-root and guarantor chain schemas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["14.25.3"]
@@ -160104,8 +160216,8 @@ requires = ["14.25.1"]
 reqs = ["14262.1", "14262.2"]
 capabilities = ["14.25.5"]
 interfaces = []
-do_1 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs (planned) with kept_topics_match_precompile_abis, which loads precompiles/addr/abi.json:1, precompiles/layerxexchange/abi.json:1, precompiles/layerxbridge/abi.json:1 and precompiles/launchpad/abi.json:1, computes keccak256 of each event signature and asserts every PaxeerXLogs.definitions/0 entry (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:375-376) has its topic among them for its address."
-do_2 = "Map the addresses through the kept @precompile_names at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:60-65: addr, layerxexchange, layerxbridge, launchpad."
+do_1 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs (planned) with kept_topics_match_precompile_abis, which loads precompiles/addr/abi.json:1, precompiles/layerxexchange/abi.json:1, precompiles/layerxbridge/abi.json:1 and, for launchpad, both precompiles/launchpad/abi.json:1 (the v6.12.0 surface) and precompiles/launchpad/legacy/v610/abi.json:1 (the v6.10 replay copy that decision.401 keeps; precompiles/launchpad/setup.go:11-18 installs both versions at 0x0000000000000000000000000000000000001017), computes keccak256 of each event signature and asserts every PaxeerXLogs.definitions/0 entry (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:375-376) has its topic among the selectors of the ABI file or files served at its address."
+do_2 = "Map the addresses through the kept @precompile_names at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:60-65: addr, layerxexchange, layerxbridge, launchpad. For launchpad the selector set is the union of the two files."
 do_3 = "In services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs (planned) add no_definition_targets_retired_address, which asserts no definition address is 0x...1013 or 0x...1014."
 do_4 = "In services/explorer/deploy/tools/mix-in-builder.sh mount the repository's precompiles directory read-only next to the backend mounts at :308-314 (--volume \"$repo_root/precompiles:/precompiles:ro\"), forward PAXEER_PRECOMPILES_DIR=/precompiles with the fixed environment at :316-323, and make ensure_mounts (:190-194) die when $repo_root/precompiles is not a directory; paxeer_x_logs_abi_test.exs resolves the ABI directory at run time from PAXEER_PRECOMPILES_DIR when it is set and otherwise from the __DIR__ climb to the repository's precompiles directory, because the builder mounts only services/explorer/backend at /app, where the climb stops at /precompiles."
 symbols = []
@@ -160118,6 +160230,39 @@ gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Delete the conformance test file."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.14.25.6]
+title = "Decode the twelve v6.12.0 launchpad events in PaxeerXLogs next to the ten v6.10 ones"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["14.25.5"]
+reqs = ["14262.3"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:219-366 keep the ten v6.10 launchpad definitions unchanged and append twelve %{table: :lx_market_events, address: @launchpad_precompile, domain: :launchpad} definitions whose name, signature, topic and argument list (ABI order, indexed flag per input) follow precompiles/launchpad/abi.json, with kind = Macro.underscore(name): config_updated, fee_distributed, fee_flow, fee_strategy_changed, market_created, nft_mint, nft_transfer, pool_registered, pool_state_updated, router_trade, swap, token_deployed."
+do_2 = "Use the topic0 constants keccak256(signature): ConfigUpdated 0x2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e, FeeDistributed 0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc, FeeFlow 0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4, FeeStrategyChanged 0x337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd, MarketCreated 0xb0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b, NftMint 0xd2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5, NftTransfer 0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3, PoolRegistered 0xda5568642b67660133b1de538c867c58f3037a5722b0e231a959ee8ca11b2ed7, PoolStateUpdated 0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd, RouterTrade 0x17c1899a3fd431f2b2200b90e738d270bb856a4222040c5650bfa208acb3b650, Swap 0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc, TokenDeployed 0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237; the {address, topic} key at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:368 stays unique because the three reused names (MarketCreated, Swap, FeeStrategyChanged) have new signatures."
+do_3 = "Extend @party_argument_names at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:72 to ~w(owner trader recipient holder creator payer sender party to) so the v6.12.0 Swap and RouterTrade (sender), FeeFlow (party) and NftTransfer (to) fill address_hash; no existing definition carries sender, party or to, so v6.10, exchange and bridge rows are unchanged."
+do_4 = "Leave row/3 at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:490-502 and the decoders at :521-531 unchanged: bytes32, uint8 and address topics and uint256, uint8, bool, string, bytes32 and address data are already decoded; token fills asset_address_hash for MarketCreated, PoolRegistered and TokenDeployed and amount fills amount for FeeDistributed and FeeFlow."
+do_5 = "Append the twelve v6.12.0 signatures to the launchpad list of @market_signatures at services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs:31-42, because :138-145 asserts that list equals the signatures of the launchpad definitions exactly."
+do_6 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs (planned) in the paxeer_x_logs_market_test.exs style with launchpad_v612_logs_parse (one log per v6.12.0 event, the full expected row per event, including the TokenDeployed dynamic strings and Swap with fourth_topic nil) and launchpad_v610_logs_still_parse (FeesClaimed and v6.10 Swap rows unchanged)."
+symbols = ["PaxeerXLogs.definitions", "PaxeerXLogs.parse"]
+touches = ["services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs"]
+tests = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs::launchpad_v612_logs_parse", "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs::launchpad_v610_logs_still_parse"]
+planned_paths = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs --only 'test:test launchpad_v612_logs_parse' --only 'test:test launchpad_v610_logs_still_parse'"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Remove the twelve v6.12.0 definitions and the three added party names from paxeer_x_logs.ex, drop the twelve signatures from market_event_test.exs and delete paxeer_x_logs_launchpad_test.exs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -165296,7 +165441,7 @@ fulfils = ["wiring.J33.14", "wiring.J33.16", "wiring.J33.19", "wiring.J33.27", "
 do_1 = "Delete the layerxd batch WAL, LNI and evidence paths at scripts/ci/xweb-workflow-check.sh:72, :73 and :76 (wiring.J33.16, wiring.J33.14, wiring.J33.19)."
 do_2 = "Delete the custody daemon test path at scripts/ci/xweb-workflow-check.sh:286, the bridge credit path at :309, the guarantor Python driver at :310 and the program admission daemon test at :311 (wiring.J33.62, wiring.J36.67, wiring.J33.50, wiring.J33.58)."
 do_3 = "Delete the stale entries scripts/ci/beta-contract-check.sh at scripts/ci/xweb-workflow-check.sh:167 and services/interop/deploy/x-websearch/Dockerfile at :270, which name files missing at HEAD."
-do_4 = "Delete the entries for test sources the tests owner deletes: tests/modules/test_web_intake.c at scripts/ci/xweb-workflow-check.sh:317, tests/network/test_web_adapter.c at :318, tests/sequencer/test_web_root.c at :325, tests/storage/lxp_test_finality_evidence.c at :326 and tests/storage/lxp_test_maintenance_publication.c at :327."
+do_4 = "Delete the entries for test sources the tests owner deletes: tests/modules/test_web_intake.c at scripts/ci/xweb-workflow-check.sh:316, tests/network/test_web_adapter.c at :317, tests/sequencer/test_web_root.c at :324, tests/storage/lxp_test_finality_evidence.c at :325, tests/storage/lxp_test_maintenance_publication.c at :326 and tests/vectors/finality_evidence_v1.vec at :329."
 do_5 = "Create tools/ci/tests/test_xweb_workflow_check.py (planned) with XwebWorkflowCheckTest.test_check_passes_against_head_tree, which runs scripts/ci/xweb-workflow-check.sh and asserts exit 0."
 symbols = ["XwebWorkflowCheckTest", "test_check_passes_against_head_tree"]
 touches = ["scripts/ci/xweb-workflow-check.sh", "tools/ci/tests/test_xweb_workflow_check.py"]

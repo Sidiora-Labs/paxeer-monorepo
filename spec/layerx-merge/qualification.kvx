@@ -3405,3 +3405,51 @@ symbol = "layerx-paxeer-boundary"
 observed = "The fourth attempt 921c1947a compiled every layerx-sdk test target and the verifier `cg spec done 9.1.7` exited 1 (logs-verify-1.log) on five library tests the port does not change: three TLS checks need the layerx-paxeer-boundary binary (tls_boundary.rs:187), v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (src/program_http.rs:2437) needs the privately produced PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS (scripts/qualification/paxeer-x/program-terminal-v5.py), and finality_requires_the_exact_trusted_context_and_header (src/rpc_verification.rs:816) refuses tests/vectors/finality_evidence_v1.vec with Verification; the other 48 passed."
 assumption = "build_cmd builds the boundary binary and verify_cmd names it; the corpus test and the finality vector case are pre-existing failures of the crate's unit suite that no task owns yet, so 9.1.7 stays implemented until they are assigned."
 severity = "blocker"
+
+[finding.2.4.5.1]
+task = "2.4.5"
+file = "modules/layerxledger/keeper/payexact_test.go:107"
+symbol = "TestPayExact"
+observed = "At 5b50cb007 the verifier `cg spec done 2.4.5` exited 1 (logs-verify-1.log) because TestPayExact reads the stored idempotent receipt with Host.ReadIdempotentReceipt at payexact_test.go:107, which modules/lxphost/read.go:164 answers LXP_ERR_UNKNOWN_FIELD since 1.2.1 stopped recording the row, and asserts ErrIdempotentReplay for a same-reference replay at :120, the branch 2.3.7 removed from execute.go; the fourth attempt failed as the second and third did."
+assumption = "The test drops the stored-receipt read and the replay-refusal assertion as do_5 of 2.4.2 and 2.4.4 already require, asserts that a reused payment reference at the next account sequence executes, keeps every other assertion, and 5b50cb007 is continued."
+severity = "blocker"
+
+[finding.14.25.5.1]
+task = "14.25.5"
+file = "services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:221"
+symbol = "PaxeerXLogs.definitions"
+observed = "At 9d93cf10b the verifier `cg spec done 14.25.5` exited 1 (logs-verify-1.log): all ten launchpad definitions at paxeer_x_logs.ex:221-355 (MarketCreated(address,address,string,string,string,uint8), Swap, FeeRecorded, FeesClaimed, FeesBurned, FeeStrategyChanged, AirdropExecuted, AirdropClaimed, LpRewardsExecuted, PauseToggled) are the v6.10 events of precompiles/launchpad/legacy/v610/abi.json, while do_1 checked them against precompiles/launchpad/abi.json, the v6.12.0 surface whose twelve events (MarketCreated(bytes32,address,address,address,address,uint256,uint256) at :2826 among them) none of the definitions decode; precompiles/launchpad/setup.go:11-18 serves both versions at 0x…1017 (decision.401)."
+assumption = "The conformance test accepts a definition whose topic is in either launchpad file, 9d93cf10b is continued, and the missing v6.12.0 launchpad definitions are a separate indexer task to be added once its row shapes are scoped."
+severity = "blocker"
+
+[finding.9.1.7.4]
+task = "9.1.7"
+file = "contracts/config/checkpoint-settlement.json:1"
+symbol = "DECLARED_CHECKPOINT_SETTLEMENT"
+observed = "finality_requires_the_exact_trusted_context_and_header (services/agent/crates/layerx-sdk/src/rpc_verification.rs:813) and accepts_the_exact_c_typed_cp1_cx1_fixture (services/agent/crates/layerx-client/tests/finality_evidence.rs:55) fail with Verification because b284707f6 replaced the layerx/checkpoint-settlement/1 document that services/agent/crates/layerx-proof/src/settlement.rs:12 embeds with an offline_export map no code reads, so DeclaredCheckpointSettlement::parse (services/agent/crates/layerx-types/src/settlement.rs:267) fails and verify_certificate (services/agent/crates/layerx-proof/src/checkpoint.rs:478) refuses every certificate while tests/vectors/finality_evidence_v1.vec is unchanged since 12e11e054."
+assumption = "The document and the certificate verifier are retired by req.6496 ac_3, 9.27.4 (wave 37) and 9.26.3, so the document is not restored; the layerx-client and layerx-sdk callers of the certificate finality path have no retiring task yet and need one that 9.1.7 can require, so 9.1.7 stays implemented until it exists."
+severity = "blocker"
+
+[finding.14.23.2]
+task = "14.23.2"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/anchor_controller.ex:51"
+symbol = "UnifiedAccount.anchors/3"
+observed = "anchor_controller.ex:51 calls Explorer.Chain.PaxeerX.UnifiedAccount.anchors/3, which no module defines (the build warns it is undefined or private), so do_2's model for reading anchors has no working implementation; the first attempt 6387b9cf2 queried Anchor directly and its build `services/explorer/deploy/tools/mix-in-builder.sh compile` was still cold-compiling the explorer dependencies (logs-build-1.log) when the task's time ran out, the cause already recorded as finding.14.22.4."
+assumption = "do_2 names the direct Anchor query; 6387b9cf2 is re-qualified unchanged once the explorer dependency build is warm; the dangling anchor_controller call is an explorer defect no task owns yet."
+severity = "suspect"
+
+[finding.9.25.1.1]
+task = "9.25.1"
+file = "services/agent/crates/layerx-client/src/evidence.rs:388"
+symbol = "FinalityEvidenceCandidate"
+observed = "9.25.1 deletes evidence.rs at wave 22 while FinalityEvidenceCandidate and VerifiedCheckpoint are still used by services/platform/hosted/indexer/src/settlement.rs:310 (removed by 8.16.4, wave 27), services/platform/hosted/authority/src/main.rs:791 (8.11.3, wave 27), services/platform/hosted/gateway/tests/local/funding.rs:241 (8.19.5, wave 32) and services/platform/explorer-index/src/lib.rs:329 (10.27.5, wave 30), and by services/platform/hosted/authority/src/human.rs:134/:1020/:1037, src/human/budget_state.rs:33 and tests/budget_proof_exports.rs:100, which no task removes (8.98.4 changes their import paths only)."
+assumption = "9.25.1 requires the four removers and moves to wave 32; the authority VerifiedCheckpoint uses need a retiring task of their own before 9.25.1, to be scoped with the authority owner."
+severity = "blocker"
+
+[finding.4.4.11.1]
+task = "4.4.11"
+file = "modules/launchpad/keeper/grpc_query_fee_right.go:14"
+symbol = "Querier.FeeRight"
+observed = "At 6a2f851c8 the build `go build ./modules/launchpad/...` exited 0 and the verifier `cg spec done 4.4.11` exited 1 (logs-verify-1.log): TestQueryFeeRightRefusals reads codespace undefined instead of sdk at grpc_query_fee_right_test.go:93 and launchpad at :102, because do_3 returned the refusals unwrapped while ParseHexAddress (modules/launchpad/types/query_validate.go:24) and GetFeeRight (modules/launchpad/keeper/feerights.go:88) wrap with fmt.Errorf and sdkerrors.ABCIInfo follows only Cause() (sdk/types/errors/abci.go:117-160), the cause already recorded as finding.4.4.3.1 for 4.4.3."
+assumption = "FeeRight wraps each refusal in a value with the original Error() text, the original Unwrap chain and a Cause() returning the registered root, as RoleError does, and 6a2f851c8 is continued."
+severity = "blocker"
