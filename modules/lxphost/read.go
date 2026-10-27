@@ -1013,12 +1013,22 @@ func (h *Host) ReadFeeSchedule(ctx sdk.Context) ([]byte, error) {
 	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), []byte("progfee/active/v1"))
 }
 
+func (h *Host) ReadFeeScheduleAt(ctx sdk.Context, version uint32) ([]byte, error) {
+	key := binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), version)
+	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), key)
+}
+
 func (h *Host) ReadPendingFeeSchedule(ctx sdk.Context) ([]byte, error) {
 	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), []byte("progfee/pending/v1"))
 }
 
 func (h *Host) ReadMeteringSchedule(ctx sdk.Context) ([]byte, error) {
 	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), []byte("progmet/active/v1"))
+}
+
+func (h *Host) ReadMeteringScheduleAt(ctx sdk.Context, version uint32) ([]byte, error) {
+	key := binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), version)
+	return h.readRecord(ctx, uint16(C.LXP_MODULE_PROGRAMS), key)
 }
 
 func (h *Host) ReadWebRequest(ctx sdk.Context, programID [32]byte, requestID uint64) ([]byte, error) {

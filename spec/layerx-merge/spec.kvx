@@ -13487,7 +13487,7 @@ ac_4 = "checkSequencerOrder never writes lastSeq or lastSeqHash: DeliverSequence
 
 [req.5004]
 title = "ProcessProposal accepts only proposers from the pinned leader list"
-ac_1 = "checkSequencerProposer (node/process_proposal_proposer.go, planned) accepts every member of the leader list read by Leaders (modules/sequencer/keeper/keeper.go:149)."
+ac_1 = "checkSequencerProposer (node/process_proposal_proposer.go) accepts the 20-byte consensus address crypto.AddressHash(key) (consensus/crypto/crypto.go:27) of every member of the leader list read by Leaders (modules/sequencer/keeper/keeper.go:149), because Header.ProposerAddress (node/app.go:1668) carries that address and never the 32-byte key."
 ac_2 = "checkSequencerProposer refuses a proposer that is not in the leader list with ErrInvalidSequenceBatch (modules/sequencer/types/msgs.go:22)."
 
 [req.5005]
@@ -56700,7 +56700,7 @@ qualification = "UNRUN"
 [acceptance.5.4.1]
 feature = "5"
 req = "5004.1"
-scenario = "Given a merged chain whose leader list holds two keys, when checkSequencerProposer runs with the second key's proposer address, then it returns nil"
+scenario = "Given a merged chain whose leader list holds two keys, when checkSequencerProposer runs with the second key's consensus address crypto.AddressHash(key), then it returns nil"
 contract = "contracts/sequencer.md#node-abci"
 test = "node/process_proposal_proposer_test.go::TestProposerInLeadersAccepts (planned)"
 qualification = "UNRUN"
@@ -97818,7 +97818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.1]
 title = "Ledger parity: 0x101A receipts equal direct kernel host receipts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4"]
@@ -105617,10 +105617,10 @@ reqs = ["3530.1"]
 capabilities = ["3.55.1"]
 interfaces = ["interface.3.ts-perps-core-perps-config-spot-mode-labels", "interface.3.ts-perps-core-perps-config-pofq-tier-labels", "interface.3.ts-perps-core-perps-config-spot-mode-banner-copy", "interface.3.ts-perps-core-perps-config-perpsmarket", "interface.3.ts-perps-core-perps-config-perps-markets"]
 do_1 = "Delete SPOT_MODE_LABELS (apps/perps/src/core/perps/config.ts:163), POFQ_TIER_LABELS (apps/perps/src/core/perps/config.ts:189) and SPOT_MODE_BANNER_COPY (apps/perps/src/core/perps/config.ts:260), which no module imports."
-do_2 = "Delete maxLeverage from PerpsMarket (apps/perps/src/core/perps/config.ts:48-55) and the leverage 1000 of the PERPS_MARKETS rows at apps/perps/src/core/perps/config.ts:57-76, keeping PERPS_MARKETS as the seed list registerVenueSymbols starts from."
+do_2 = "Delete maxLeverage from PerpsMarket (apps/perps/src/core/perps/config.ts:48-55) and the maxLeverage: 1000 of the PERPS_MARKETS rows (apps/perps/src/core/perps/config.ts:57-76), keeping PERPS_MARKETS as the seed list registerVenueSymbols starts from, and add export interface TradeableMarket extends PerpsMarket { maxLeverage: number } beside it for the leverage the gateway catalog supplies."
 do_3 = "Write the top-level test configHasNoSpotDesignExports in apps/perps/tests/perps-config.test.ts:1."
-symbols = ["PERPS_MARKETS", "PerpsMarket", "configHasNoSpotDesignExports"]
-touches = ["apps/perps/src/core/perps/config.ts", "apps/perps/tests/perps-config.test.ts"]
+symbols = ["PERPS_MARKETS", "PerpsMarket", "configHasNoSpotDesignExports", "TradeableMarket"]
+touches = ["apps/perps/src/core/perps/config.ts", "apps/perps/tests/perps-config.test.ts", "apps/perps/src/hooks/perps/usePerpsMarkets.ts", "apps/perps/src/widgets/markets/types.ts", "apps/perps/src/widgets/markets/useMarketsRows.ts", "apps/perps/src/widgets/mobile/MobileTickerBar.tsx", "apps/perps/src/widgets/mobile/MobileAppLayout.tsx"]
 tests = ["apps/perps/tests/perps-config.test.ts::configHasNoSpotDesignExports"]
 planned_paths = []
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
@@ -105630,6 +105630,8 @@ sandbox_profile = "node"
 owner_role = "fm-markets"
 rollback = "Revert the touched app files; the app reads no new chain state that outlives the revert."
 do_4 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: configHasNoSpotDesignExports in apps/perps/tests/perps-config.test.ts (planned)."
+do_5 = "Move the consumers of the live leverage onto TradeableMarket, because MarketRow and the mobile ticker inherit the field from PerpsMarket and attempt da9ceb986 failed tsc at MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68: tradeable: (GatewayCatalogEntry & TradeableMarket)[] (apps/perps/src/hooks/perps/usePerpsMarkets.ts:21), MarketRow extends TradeableMarket (apps/perps/src/widgets/markets/types.ts:10), buildMarketsRows markets: readonly (MarketCatalogEntry & TradeableMarket)[] (apps/perps/src/widgets/markets/useMarketsRows.ts:36), and the market props of MobileTickerBar (apps/perps/src/widgets/mobile/MobileTickerBar.tsx:27) and MobileAppLayout (apps/perps/src/widgets/mobile/MobileAppLayout.tsx:15); page-modules/perps/index.tsx:105 already passes a tradeable entry, and MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68 then compile unchanged."
+do_6 = "Replace the case leverageIsOneThousandForAll (apps/perps/tests/perps-config.test.ts:15-27) with marketIdsAreSequential that keeps the length, marketId and LINK marketId assertions (:16-20, :24-25) and drops the two maxLeverage 1000 assertions (:22, :26), which req.3530 ac_1 now forbids."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -111848,6 +111850,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+
+[task.5.1.3]
+title = "Compare the ProcessProposal proposer against the consensus address of each pinned leader key"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["5.1.2"]
+reqs = ["5004.1", "5004.2"]
+capabilities = ["5.1.3"]
+interfaces = []
+do_1 = "In checkSequencerProposer (node/process_proposal_proposer.go:14) accept proposer when bytes.Equal(proposer, crypto.AddressHash(leader[:])) for any leader (consensus/crypto/crypto.go:27, sha256 of the key truncated to AddressSize 20), because CometBFT fills Header.ProposerAddress (node/app.go:1668) with the validator's 20-byte address and the sequencer executor already requires crypto.AddressSize (node/sequencer/executor.go:207); the raw 32-byte key comparison that 5.1.2 wrote can never match a real proposal."
+do_2 = "Keep refusing every other proposer, including the raw 32-byte leader key, with the existing seqtypes.ErrInvalidSequenceBatch wrap 'proposer %x is outside the pinned leader list'."
+do_3 = "TestProposerInLeadersAccepts (node/process_proposal_proposer_test.go:29) passes crypto.AddressHash(leader[:]) for every leader; TestProposerOutsideLeadersRefused (:42) keeps its cases and adds the raw 32-byte sequencerLeader."
+do_4 = "Move the ProcessProposal test headers onto the leader's address: node/sequenced_optimistic_test.go:69 and the accepting call at node/sequenced_proposal_test.go:110 pass crypto.AddressHash(sequencerLeader), and the refusing loop at node/sequenced_proposal_test.go:103 adds sequencerLeader itself; FinalizeBlock-only headers elsewhere stay as they are."
+symbols = ["checkSequencerProposer", "AddressHash", "TestProposerInLeadersAccepts", "TestProposerOutsideLeadersRefused", "TestProcessProposalRejectsProposerOutsideLeaders", "TestOptimisticProcessingAdoptsSequencedBlock"]
+touches = ["node/process_proposal_proposer.go", "node/process_proposal_proposer_test.go", "node/sequenced_proposal_test.go", "node/sequenced_optimistic_test.go"]
+tests = ["node/process_proposal_proposer_test.go::TestProposerInLeadersAccepts", "node/process_proposal_proposer_test.go::TestProposerOutsideLeadersRefused", "node/sequenced_proposal_test.go::TestProcessProposalRejectsProposerOutsideLeaders", "node/sequenced_optimistic_test.go::TestOptimisticProcessingAdoptsSequencedBlock"]
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 ./node/ -run '^(TestProposerInLeadersAccepts|TestProposerOutsideLeadersRefused|TestProcessProposalRejectsProposerOutsideLeaders|TestOptimisticProcessingAdoptsSequencedBlock)$'"
+gate_kind = "existing"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the files in touches; the change is confined to them and to the activation-gated sequenced path."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.5.2.1]
 title = "Add the sequenced proposal rejection and block halt counters to the app meter"
 status = "done"
@@ -117165,7 +117199,7 @@ title = "Record and re-verify the V1 receipted-positive vector"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["5.55.1", "5.0.3"]
+requires = ["5.55.1", "5.0.3", "5.1.3"]
 reqs = ["5515.1"]
 capabilities = ["5.55.2"]
 interfaces = ["interface.5.fmt-committed-fixture-vector-j33"]
@@ -117192,6 +117226,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Recording the fixture is implementation work, not a qualification gate: build the daemon once with go build -o <tmpdir>/paxd ./daemon/paxd, run go run ./daemon/committed-fixture record --paxd <tmpdir>/paxd --out daemon/committed-fixture/vectors, then restore vector-v2-receipted-revert.json and vector-v3-receipt-refusals.json, which record rewrites for every registered vector and which belong to tasks 5.55.3 and 5.55.4, so that only the V1 file is new. The conformance cases in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json hold no contract creation with two logs, so V1 cannot be derived from them."
 do_5 = "The recorder's primary sequencer config (daemon/committed-fixture/main.go:277-282) carries no standby-address, so paxd exits at node/sequencer/node.go:62 with 'invalid standby-address: missing port in address', and a primary needs a reachable standby because every Release (node/sequencer/node_start.go:111, node/sequencer/driver.go:81) returns the replication error. Fix the recorder here: start a second paxd home in role standby listening at a free loopback address (the pattern of node/sequencer/tcp_ack_test.go:70-90: listen, read the address, close, hand it to both configs) with its own wal-dir and receipt-key-file, write that address as the primary's standby-address and replication-timeout, and stop both processes after recording. The V2 and V3 vectors are not re-recorded by this task."
 do_6 = "Attempt three at 9eb233dec started a second paxd as the standby and it panicked at consensus/internal/consensus/state.go:2622 'validator ... not in committee': the standby home was initialised with --mode validator and its own priv_validator_key, which no gentx placed in the validator set. Initialise the standby home with --mode full (config.toml mode = \"full\"), copy the primary's config/genesis.json into it, give it its own rpc, p2p and evm listeners, set sequencer.role = standby and sequencer.standby-address to its own listener, point the primary's sequencer.standby-address at that listener, and start the standby before the primary; the primary keeps the gentx validator of main.go:178-180."
+do_7 = "Attempt 2484f85f7 built and pinned the validator's 32-byte ed25519 key with add-genesis-sequencer-leader --pubkey, which is right, but recording stalled at height 2 with 'proposer ... is outside the pinned leader list' because checkSequencerProposer compared the 20-byte Header.ProposerAddress with the 32-byte key; task 5.1.3 derives crypto.AddressHash of each leader, so continue from 2484f85f7 once it is in, keep the pubkey pinning, and on a recorder failure print the tail of its log to stderr so the cause is visible in the run output."
 
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
@@ -133943,7 +133978,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.29.3]
 title = "Verify recovery settlement and custody transaction hashes against the sequencer endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["8.28.3"]
