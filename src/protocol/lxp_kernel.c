@@ -3201,35 +3201,6 @@ lxp_result lxp_kernel_idempotency_receipt_validate(
     return status;
 }
 
-static lxp_result receipt_store(lxp_state_journal *journal,
-                                const lxp_activity *activity,
-                                const lxp_receipt *receipt)
-{
-    uint8_t compact[LXP_STATE_MAX_RECEIPT_BYTES];
-    uint8_t *storage;
-    lxp_arena arena;
-    lxp_byte_span encoded;
-    size_t length = 0U;
-    lxp_result status = receipt_compact_projection(receipt, compact, &length);
-    if (status != LXP_OK) return status;
-    storage = malloc(LXP_MAX_ACTIVITY_BYTES);
-    if (storage == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    status = lxp_arena_init(&arena, storage, LXP_MAX_ACTIVITY_BYTES);
-    if (status == LXP_OK) status = lxp_receipt_encode(receipt, true, &arena, &encoded);
-    if (status == LXP_OK && encoded.length > LXP_STATE_MAX_RECEIPT_BYTES)
-        status = LXP_ERR_LENGTH_LIMIT;
-    if (status == LXP_OK)
-        status = lxp_idempotency_record(journal, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key, compact, length);
-    if (status == LXP_OK) {
-        journal->staged_idempotency.canonical_length = (uint32_t)encoded.length;
-        (void)memcpy(journal->staged_idempotency.canonical_receipt,
-                     encoded.bytes, encoded.length);
-    }
-    free(storage);
-    return status;
-}
-
 lxp_result lxp_kernel_idempotency_state_value(
     const uint8_t *bytes, size_t length, uint8_t *output, size_t capacity)
 {
@@ -3271,18 +3242,12 @@ static lxp_result receipt_composite_state_root(
     const lxp_activity *activity, const lxp_receipt *receipt,
     lxp_arena *arena, uint8_t root[32])
 {
-    lxp_state_journal *preview_journal;
     lxp_module_ctx *empty_ctx = NULL;
     bool empty_initialized = false;
-    lxp_result status;
+    lxp_result status = LXP_OK;
     if (kernel == NULL || kernel->journal == NULL || activity == NULL ||
-        receipt == NULL || root == NULL || !kernel->journal->open ||
-        kernel->journal->has_idempotency)
+        receipt == NULL || root == NULL || !kernel->journal->open)
         return LXP_FATAL_INVARIANT;
-    preview_journal = (lxp_state_journal *)malloc(sizeof(*preview_journal));
-    if (preview_journal == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    *preview_journal = *kernel->journal;
-    status = receipt_store(preview_journal, activity, receipt);
     if (status == LXP_OK && module_ctx == NULL) {
         empty_ctx = (lxp_module_ctx *)malloc(sizeof(*empty_ctx));
         if (empty_ctx == NULL) status = LXP_ERR_ARENA_EXHAUSTED;
@@ -3300,10 +3265,9 @@ static lxp_result receipt_composite_state_root(
         }
     }
     if (status == LXP_OK)
-        status = lxp_module_ctx_preview_state_root(module_ctx, preview_journal, root);
+        status = lxp_module_ctx_preview_state_root(module_ctx, kernel->journal, root);
     if (empty_initialized) lxp_module_ctx_rollback(empty_ctx);
     free(empty_ctx);
-    free(preview_journal);
     return status;
 }
 
@@ -3444,8 +3408,6 @@ lxp_result lxp_kernel_prepare_activity(
     lxp_kernel_execution private_execution;
     kernel_private_allowance private_allowance;
     lxp_identity *identity;
-    const uint8_t *prior_receipt;
-    size_t prior_receipt_length;
     lxp_admission_context admission_context;
     lxp_admission_result admission;
     lxp_fee_policy_decision admission_policy;
@@ -3509,11 +3471,6 @@ lxp_result lxp_kernel_prepare_activity(
                                       activity->actor_did.length, &identity);
     if (status == LXP_OK)
         status = kernel_program_signer_binding(activity, execution, identity);
-    if (status == LXP_OK)
-        status = lxp_idempotency_lookup(
-            work->kernel.state, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key,
-            &prior_receipt, &prior_receipt_length);
     if (status != LXP_OK) goto done;
     status = kernel_fee_admission(&work->kernel, activity, execution);
     if (status != LXP_OK) goto done;
@@ -4646,8 +4603,6 @@ static lxp_result kernel_snapshot_apply_prepared_with_capture(
         status = LXP_ERR_IO;
 
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK)
-        status = receipt_store(candidate->kernel.journal, activity, receipt);
     if (status == LXP_OK && canonical_events != NULL)
         status = lxp_programs_project_receipt_events(
             receipt, execution->arena, &projected);
@@ -6786,20 +6741,6 @@ static lxp_result kernel_execute_prepared_call(
             lxp_arena_reset(execution->arena, arena_mark);
         if (status == LXP_OK) status = reset_status;
     }
-    if (status == LXP_ERR_IDEMPOTENT_REPLAY) {
-        const uint8_t *prior;
-        size_t prior_length;
-        lxp_result lookup = lxp_idempotency_canonical_lookup(
-            kernel->state, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key,
-            &prior, &prior_length);
-        if (lookup == LXP_ERR_IDEMPOTENT_REPLAY) {
-            lookup = lxp_receipt_decode(prior, prior_length, true, receipt);
-            status = lookup == LXP_OK ? LXP_ERR_IDEMPOTENT_REPLAY : lookup;
-        } else {
-            status = lookup;
-        }
-    }
     if (status == LXP_OK && execution->replay_witness_out != NULL &&
         prepared->replay_capture != NULL) {
         lxp_byte_span captured = {NULL, 0U};
@@ -6879,8 +6820,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                        lxp_receipt *receipt)
 {
     const lxp_module_registration *registration;
-    const uint8_t *prior_receipt;
-    size_t prior_receipt_length;
     lxp_identity *identity;
     lxp_admission_context admission_context;
     lxp_admission_result admission;
@@ -7014,18 +6953,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                   activity->actor_did.length, &identity);
     if (status == LXP_OK)
         status = kernel_program_signer_binding(activity, execution, identity);
-    if (status != LXP_OK) return status;
-    status = lxp_idempotency_canonical_lookup(kernel->state,
-                                    activity->actor_did.bytes,
-                                    activity->actor_did.length,
-                                    activity->idempotency_key,
-                                    &prior_receipt,
-                                    &prior_receipt_length);
-    if (status == LXP_ERR_IDEMPOTENT_REPLAY) {
-        status = lxp_receipt_decode(prior_receipt,
-                                    prior_receipt_length, true, receipt);
-        return status == LXP_OK ? LXP_ERR_IDEMPOTENT_REPLAY : status;
-    }
     if (status != LXP_OK) return status;
     status = kernel_fee_admission(kernel, activity, execution);
     if (status != LXP_OK) return status;
@@ -7319,8 +7246,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
             kernel, fee_policy.apply_module_effects ? &module_ctx : NULL,
             activity, receipt, execution->arena, receipt->resulting_state_root);
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK) status = receipt_store(kernel->journal, activity,
-                                                 receipt);
     if (status == LXP_OK && programs_call && fee_policy.apply_module_effects &&
         program_outcome != NULL &&
         program_outcome->terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS &&
@@ -7495,8 +7420,6 @@ lxp_result lxp_kernel_terminal_rejection(lxp_kernel *kernel,
                                     execution->arena,
                                     receipt->resulting_state_root);
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK)
-        status = receipt_store(kernel->journal, activity, receipt);
     if (status != LXP_OK) {
         (void)lxp_state_journal_rollback(kernel->journal);
         return status;
