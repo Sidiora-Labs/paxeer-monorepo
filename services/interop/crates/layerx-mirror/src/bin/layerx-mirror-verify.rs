@@ -5,15 +5,15 @@ use std::fs;
 use std::io::{self, Read};
 use std::path::PathBuf;
 
+use layerx_mirror::committed::ReceiptKeyConfig;
 use layerx_mirror::ethereum::EthereumMirrorReadConfig;
 use layerx_mirror::rpc::RpcQuorumConfig;
 use layerx_mirror::solana::SolanaMirrorReadConfig;
 use layerx_mirror::source::{
     MirrorLocator, MirrorReadPolicy, MirrorSource, MirrorSourceId, MirrorSources,
 };
-use layerx_mirror::{ArchiveCommitment, MirrorVerifier, SignedHeaderTrust};
-use layerx_proof::merkle::Proof;
-use layerx_wire::receipt::decode_merkle_proof;
+use layerx_mirror::{ArchiveCommitment, CommittedCoordinate, MirrorVerifier};
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -23,10 +23,7 @@ const MAX_REQUEST_BYTES: u64 = 40 * 1024 * 1024;
 #[serde(deny_unknown_fields)]
 struct Config {
     layerx_network_id: u32,
-    sequencer_id_hex: String,
-    sequencer_public_key_hex: String,
-    first_batch_number: u64,
-    last_batch_number: u64,
+    receipt_keys: Vec<ReceiptKeyConfig>,
     sources: Vec<SourceConfig>,
 }
 
@@ -65,13 +62,8 @@ struct Request {
 #[derive(Deserialize)]
 #[serde(tag = "kind", rename_all = "kebab-case", deny_unknown_fields)]
 enum EvidenceRequest {
-    Receipt {
-        canonical_hex: String,
-    },
-    State {
-        canonical_hex: String,
-        proof_hex: String,
-    },
+    Receipt { index: usize },
+    Committed,
 }
 
 #[derive(Deserialize)]
@@ -125,12 +117,24 @@ fn execute() -> Result<Value, &'static str> {
         return Err("bounds");
     }
     let request: Request = serde_json::from_slice(&request_bytes).map_err(|_| "malformed")?;
-    let trust = SignedHeaderTrust {
-        sequencer_id: fixed_hex(&config.sequencer_id_hex)?,
-        sequencer_public_key: fixed_hex(&config.sequencer_public_key_hex)?,
-        first_batch_number: config.first_batch_number,
-        last_batch_number: config.last_batch_number,
-    };
+    if config.receipt_keys.is_empty() {
+        return Err("configuration");
+    }
+    let keys = config
+        .receipt_keys
+        .iter()
+        .map(|key| {
+            if key.first_height > key.last_height {
+                return Err("configuration");
+            }
+            Ok(SequencerAuthorization::new(
+                fixed_hex(&key.sequencer_id_hex)?,
+                fixed_hex(&key.public_key_hex)?,
+                key.first_height,
+                key.last_height,
+            ))
+        })
+        .collect::<Result<Vec<_>, &'static str>>()?;
     let sources = configured_sources(config)?;
     let policy = policy(&request.policy)?;
     let batch_number = canonical_u64(&request.batch_number)?;
@@ -147,51 +151,23 @@ fn execute() -> Result<Value, &'static str> {
             _ => "source-unavailable",
         })?;
     let evidence_checker =
-        MirrorVerifier::from_source(archive, trust).map_err(|_| "verification")?;
+        MirrorVerifier::from_committed_source(archive).map_err(|_| "verification")?;
+    let committed = evidence_checker.committed().map_err(|_| "verification")?;
     match request.evidence {
-        EvidenceRequest::Receipt { canonical_hex } => {
-            let canonical = hex(&canonical_hex)?;
+        EvidenceRequest::Receipt { index } => {
             let verified = evidence_checker
-                .receipt(&canonical)
+                .committed_receipt(index, &keys)
                 .map_err(|_| "verification")?;
-            let observation = verified.observation().cloned().ok_or("verification")?;
-            let digest = verified
-                .value()
-                .evidence()
-                .receipt_digest()
-                .ok_or("verification")?;
-            Ok(report(
-                &observation,
-                verified.batch_number(),
-                verified.signed_header_digest(),
-                digest,
-                &format!("{:?}", verified.level()),
-            ))
+            let observation = verified.observation().ok_or("verification")?;
+            let unsigned = layerx_wire::receipt::encode_unsigned(verified.value())
+                .map_err(|_| "verification")?;
+            let digest =
+                layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| "verification")?;
+            Ok(report(observation, committed, Some(digest)))
         }
-        EvidenceRequest::State {
-            canonical_hex,
-            proof_hex,
-        } => {
-            let canonical = hex(&canonical_hex)?;
-            let encoded = hex(&proof_hex)?;
-            let decoded = decode_merkle_proof(&encoded).map_err(|_| "proof")?;
-            let proof = Proof::new(
-                decoded.leaf_index(),
-                decoded.leaf_count(),
-                decoded.siblings().to_vec(),
-            )
-            .map_err(|_| "proof")?;
-            let verified = evidence_checker
-                .state(&canonical, &proof)
-                .map_err(|_| "verification")?;
-            let observation = verified.observation().cloned().ok_or("verification")?;
-            Ok(report(
-                &observation,
-                verified.batch_number(),
-                verified.signed_header_digest(),
-                [0; 32],
-                &format!("{:?}", verified.level()),
-            ))
+        EvidenceRequest::Committed => {
+            let observation = evidence_checker.observation().ok_or("verification")?;
+            Ok(report(observation, committed, None))
         }
     }
 }
@@ -251,16 +227,12 @@ fn configured_sources(config: Config) -> Result<MirrorSources, &'static str> {
 
 fn report(
     observation: &layerx_mirror::source::MirrorObservation,
-    batch_number: u64,
-    header: [u8; 32],
-    evidence: [u8; 32],
-    level: &str,
+    committed: CommittedCoordinate,
+    evidence: Option<[u8; 32]>,
 ) -> Value {
     json!({
-        "level": level,
-        "batchNumber": batch_number.to_string(),
-        "headerDigest": encode_hex(&header),
-        "evidenceDigest": encode_hex(&evidence),
+        "level": "Committed",
+        "evidenceDigest": evidence.map(|digest| encode_hex(&digest)),
         "sourceId": observation.source.as_str(),
         "target": target(&observation.target),
         "canonicalPosition": position(observation.position),
@@ -269,7 +241,8 @@ fn report(
         "batchLag": format!("{:?}", observation.freshness.batch_lag),
         "failoverCount": observation.failover_count,
         "agreeingSources": observation.agreeing_sources,
-        "checkpointLevel": "unavailable"
+        "committedHeight": committed.height.to_string(),
+        "committedBlockHash": encode_hex(&committed.block_hash)
     })
 }
 

@@ -1,29 +1,14 @@
 use std::collections::BTreeMap;
 
-use layerx_agent_api::read::{CheckpointValue, VerifiedRead};
-use layerx_agent_api::verify::Rung;
-use layerx_crypto::ed25519;
-use layerx_proof::availability::{
-    reassemble, AvailabilityClass, AvailabilityFailure, AvailabilityRecords, RootCommitments,
-    VerifiedChunk,
-};
-use layerx_proof::checkpoint::ThresholdReport;
-use layerx_proof::merkle::{root, root_from_leaf_hashes};
-use layerx_wire::hash::{availability_chunk_digest, batch_header_digest, checkpoint_id};
-use layerx_wire::receipt::{
-    decode_batch_header, decode_checkpoint, encode_batch_header, encode_checkpoint,
-};
 use sha2::{Digest, Sha256};
 
 use crate::committed::{CommittedBlock, CommittedCoordinate};
 
 const ARCHIVE_MAGIC: &[u8; 8] = b"LXMIRROR";
-const ARCHIVE_VERSION: u16 = 2;
 const ARCHIVE_VERSION_V4: u16 = 4;
 const ARCHIVE_DOMAIN: &[u8] = b"LXP/mirror/archive/v2\0";
 const ARCHIVE_DOMAIN_V4: &[u8] = b"LXP/mirror/archive/v4\0";
 const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
-const MAX_ARCHIVE_CHUNKS: usize = 65_536;
 const MAX_ARCHIVE_RECORDS: usize = 1_048_576;
 const MAX_FIELD_BYTES: usize = 32 * 1024 * 1024;
 
@@ -70,123 +55,6 @@ impl NodeHead {
     }
 }
 
-/// Exact core-published sequencer authorization covering one signed header.
-/// The signature and range are retained in the archive so a mirror consumer
-/// never has to trust a publisher assertion about batch authority.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct BatchAuthorization {
-    pub sequencer_id: [u8; 32],
-    pub sequencer_public_key: [u8; 32],
-    pub first_batch_number: u64,
-    pub last_batch_number: u64,
-    pub header_signature: [u8; 64],
-}
-
-/// Proof-gated batch material paired with its exact core authorization.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct NodeBatch {
-    canonical_header: Vec<u8>,
-    authorization: BatchAuthorization,
-}
-
-impl NodeBatch {
-    /// Admits batch material only after canonical decoding and exact sequencer
-    /// authorization verification. Authenticated transports use the same
-    /// constructor after binding the key to their handshake identity.
-    ///
-    /// # Errors
-    /// Returns an error for noncanonical headers or mismatched or invalid sequencer authorization.
-    pub fn verify(
-        canonical_header: Vec<u8>,
-        authorization: BatchAuthorization,
-        trust: &crate::SignedHeaderTrust,
-    ) -> Result<Self, SourceError> {
-        let header =
-            decode_batch_header(&canonical_header).map_err(|_| SourceError::BatchHeader)?;
-        let reproduced = encode_batch_header(&header).map_err(|_| SourceError::BatchHeader)?;
-        if reproduced != canonical_header {
-            return Err(SourceError::BatchHeader);
-        }
-        if authorization.sequencer_id != trust.sequencer_id
-            || authorization.sequencer_public_key != trust.sequencer_public_key
-            || authorization.first_batch_number != trust.first_batch_number
-            || authorization.last_batch_number != trust.last_batch_number
-        {
-            return Err(SourceError::BatchAuthorization);
-        }
-        verify_batch_authorization(&header, &canonical_header, authorization)
-            .map_err(|_| SourceError::BatchAuthorization)?;
-        Ok(Self {
-            canonical_header,
-            authorization,
-        })
-    }
-
-    pub(crate) fn authenticated(
-        canonical_header: Vec<u8>,
-        authorization: BatchAuthorization,
-    ) -> Self {
-        Self {
-            canonical_header,
-            authorization,
-        }
-    }
-}
-
-/// Proof-gated checkpoint material paired with its exact node read.
-#[derive(Clone, Copy)]
-pub struct NodeCheckpoint<'a> {
-    read: &'a VerifiedRead<CheckpointValue>,
-    verification: &'a ThresholdReport,
-}
-
-impl<'a> NodeCheckpoint<'a> {
-    #[must_use]
-    pub const fn verified(
-        read: &'a VerifiedRead<CheckpointValue>,
-        verification: &'a ThresholdReport,
-    ) -> Self {
-        Self { read, verification }
-    }
-}
-
-/// Exact chunk bytes retained in a mirror archive.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArchivedChunk {
-    pub index: u32,
-    pub class: AvailabilityClass,
-    pub class_offset: u64,
-    pub claimed_hash: [u8; 32],
-    pub bytes: Vec<u8>,
-}
-
-/// Exact public record streams retained in a mirror archive.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArchivedRecords {
-    pub activities: Vec<Vec<u8>>,
-    pub receipts: Vec<Vec<u8>>,
-    pub events: Vec<Vec<u8>>,
-    pub oracle_inputs: Vec<Vec<u8>>,
-}
-
-impl From<&AvailabilityRecords> for ArchivedRecords {
-    fn from(records: &AvailabilityRecords) -> Self {
-        Self {
-            activities: records.activities.clone(),
-            receipts: records.receipts.clone(),
-            events: records.events.clone(),
-            oracle_inputs: records.oracle_inputs.clone(),
-        }
-    }
-}
-
-/// Exact finalised checkpoint certificate retained with the archive.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ArchivedCheckpoint {
-    pub coordinate: CommittedCoordinate,
-    pub canonical_certificate: Vec<u8>,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArchivedCommittedBlock {
     pub block_hash: [u8; 32],
@@ -215,36 +83,25 @@ impl ArchivedCommittedBlock {
 /// Decoded, independently checkable mirror archive contents.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArchiveData {
-    pub protocol_version: u16,
     pub network_id: u32,
     pub batch_number: u64,
-    pub canonical_batch_header: Vec<u8>,
-    pub batch_authorization: BatchAuthorization,
-    pub data_availability_root: [u8; 32],
-    pub record_roots: RootCommitments,
-    pub chunks: Vec<ArchivedChunk>,
-    pub records: ArchivedRecords,
-    pub checkpoint: Option<ArchivedCheckpoint>,
-    pub committed: Option<ArchivedCommittedBlock>,
+    pub committed: ArchivedCommittedBlock,
 }
 
 impl ArchiveData {
     #[must_use]
     pub fn committed_coordinate(&self) -> Option<CommittedCoordinate> {
-        self.committed.as_ref().map(|block| CommittedCoordinate {
+        Some(CommittedCoordinate {
             height: self.batch_number,
-            block_hash: block.block_hash,
+            block_hash: self.committed.block_hash,
         })
     }
 
-    /// Decodes and verifies archive framing, canonical headers, chunk hashes,
-    /// availability and record roots, and checkpoint certificate encoding.
+    /// Decodes a committed block archive and validates its framing.
     ///
     /// # Errors
-    ///
-    /// Returns a typed archive error for malformed, oversized, or
-    /// commitment-inconsistent data.
-    #[allow(clippy::too_many_lines)]
+    /// Returns a typed archive error for unsupported versions, malformed,
+    /// oversized or incomplete committed block data.
     pub fn decode(bytes: &[u8]) -> Result<Self, ArchiveError> {
         if bytes.len() > MAX_ARCHIVE_BYTES {
             return Err(ArchiveError::ArchiveTooLarge);
@@ -253,221 +110,34 @@ impl ArchiveData {
         if reader.take(ARCHIVE_MAGIC.len())? != ARCHIVE_MAGIC {
             return Err(ArchiveError::Format);
         }
-        let archive_version = reader.u16()?;
-        if archive_version == ARCHIVE_VERSION_V4 {
-            let network_id = reader.u32()?;
-            let batch_number = reader.u64()?;
-            let committed = ArchivedCommittedBlock {
-                block_hash: reader.array()?,
-                parent_hash: reader.array()?,
-                app_hash: reader.array()?,
-                timestamp: reader.u64()?,
-                receipts: reader.records().map_err(|error| match error {
-                    ArchiveError::Format => ArchiveError::Length,
-                    other => other,
-                })?,
-            };
-            reader.finish()?;
-            if committed.block_hash == [0; 32] || committed.receipts.iter().any(Vec::is_empty) {
-                return Err(ArchiveError::Format);
-            }
-            return Ok(Self {
-                protocol_version: 0,
-                network_id,
-                batch_number,
-                canonical_batch_header: Vec::new(),
-                batch_authorization: BatchAuthorization {
-                    sequencer_id: [0; 32],
-                    sequencer_public_key: [0; 32],
-                    first_batch_number: 0,
-                    last_batch_number: 0,
-                    header_signature: [0; 64],
-                },
-                data_availability_root: [0; 32],
-                record_roots: RootCommitments {
-                    activity: [0; 32],
-                    receipt: [0; 32],
-                    event: [0; 32],
-                    oracle: [0; 32],
-                },
-                chunks: Vec::new(),
-                records: ArchivedRecords {
-                    activities: Vec::new(),
-                    receipts: Vec::new(),
-                    events: Vec::new(),
-                    oracle_inputs: Vec::new(),
-                },
-                checkpoint: None,
-                committed: Some(committed),
-            });
-        }
-        if archive_version != ARCHIVE_VERSION {
+        if reader.u16()? != ARCHIVE_VERSION_V4 {
             return Err(ArchiveError::Version);
         }
-        let protocol_version = reader.u16()?;
         let network_id = reader.u32()?;
         let batch_number = reader.u64()?;
-        let canonical_batch_header = reader.bytes(MAX_FIELD_BYTES)?;
-        let header =
-            decode_batch_header(&canonical_batch_header).map_err(|_| ArchiveError::BatchHeader)?;
-        let reproduced = encode_batch_header(&header).map_err(|_| ArchiveError::BatchHeader)?;
-        if reproduced != canonical_batch_header
-            || header.protocol_version() != protocol_version
-            || header.network_id() != network_id
-            || header.batch_number() != batch_number
-        {
-            return Err(ArchiveError::BatchHeader);
-        }
-        let batch_authorization = BatchAuthorization {
-            sequencer_id: reader.array()?,
-            sequencer_public_key: reader.array()?,
-            first_batch_number: reader.u64()?,
-            last_batch_number: reader.u64()?,
-            header_signature: reader.array()?,
-        };
-        verify_batch_authorization(&header, &canonical_batch_header, batch_authorization)?;
-        let data_availability_root = reader.array()?;
-        let record_roots = RootCommitments {
-            activity: reader.array()?,
-            receipt: reader.array()?,
-            event: reader.array()?,
-            oracle: reader.array()?,
-        };
-        if header.data_availability_root() != data_availability_root
-            || header.activity_merkle_root() != record_roots.activity
-            || header.receipt_merkle_root() != record_roots.receipt
-            || header.event_merkle_root() != record_roots.event
-            || header.oracle_root() != record_roots.oracle
-        {
-            return Err(ArchiveError::RootMismatch);
-        }
-        let chunk_count = reader.count(MAX_ARCHIVE_CHUNKS)?;
-        let mut chunks = Vec::with_capacity(chunk_count);
-        for _ in 0..chunk_count {
-            let index = reader.u32()?;
-            let class = decode_class(reader.u8()?)?;
-            let class_offset = reader.u64()?;
-            let claimed_hash = reader.array()?;
-            let chunk_bytes = reader.bytes(MAX_FIELD_BYTES)?;
-            let computed = availability_chunk_digest(
-                batch_number,
-                index,
-                class as u8,
-                class_offset,
-                &chunk_bytes,
-            )
-            .map_err(|_| ArchiveError::ChunkHash)?;
-            if computed != claimed_hash {
-                return Err(ArchiveError::ChunkHash);
-            }
-            chunks.push(ArchivedChunk {
-                index,
-                class,
-                class_offset,
-                claimed_hash,
-                bytes: chunk_bytes,
-            });
-        }
-        verify_chunk_set(&chunks, batch_number, data_availability_root)?;
-        let records = ArchivedRecords {
-            activities: reader.records()?,
-            receipts: reader.records()?,
-            events: reader.records()?,
-            oracle_inputs: reader.records()?,
-        };
-        verify_record_roots(&records, record_roots)?;
-        let checkpoint = match reader.u8()? {
-            0 => None,
-            1 => {
-                let coordinate = CommittedCoordinate {
-                    height: reader.u64()?,
-                    block_hash: reader.array()?,
-                };
-                let canonical_certificate = reader.bytes(MAX_FIELD_BYTES)?;
-                let certificate = decode_checkpoint(&canonical_certificate)
-                    .map_err(|_| ArchiveError::Checkpoint)?;
-                let reproduced =
-                    encode_checkpoint(&certificate).map_err(|_| ArchiveError::Checkpoint)?;
-                let certificate_header = certificate.header();
-                let computed_id = checkpoint_id(
-                    &encode_batch_header(certificate_header)
-                        .map_err(|_| ArchiveError::Checkpoint)?,
-                    certificate.validity_proof(),
-                )
-                .map_err(|_| ArchiveError::Checkpoint)?;
-                if reproduced != canonical_certificate
-                    || certificate_header.protocol_version() != protocol_version
-                    || certificate_header.network_id() != network_id
-                    || certificate_header.batch_number() != coordinate.height
-                    || computed_id != coordinate.block_hash
-                {
-                    return Err(ArchiveError::Checkpoint);
-                }
-                Some(ArchivedCheckpoint {
-                    coordinate,
-                    canonical_certificate,
-                })
-            }
-            _ => return Err(ArchiveError::Format),
+        let committed = ArchivedCommittedBlock {
+            block_hash: reader.array()?,
+            parent_hash: reader.array()?,
+            app_hash: reader.array()?,
+            timestamp: reader.u64()?,
+            receipts: reader.records().map_err(|error| match error {
+                ArchiveError::Format => ArchiveError::Length,
+                other => other,
+            })?,
         };
         reader.finish()?;
+        if committed.block_hash == [0; 32] || committed.receipts.iter().any(Vec::is_empty) {
+            return Err(ArchiveError::Format);
+        }
         Ok(Self {
-            protocol_version,
             network_id,
             batch_number,
-            canonical_batch_header,
-            batch_authorization,
-            data_availability_root,
-            record_roots,
-            chunks,
-            records,
-            checkpoint,
-            committed: None,
+            committed,
         })
     }
 
     fn encode(&self) -> Result<Vec<u8>, ArchiveError> {
-        if let Some(committed) = &self.committed {
-            return committed.encode(self.network_id, self.batch_number);
-        }
-        let mut writer = Writer::new();
-        writer.raw(ARCHIVE_MAGIC)?;
-        writer.u16(ARCHIVE_VERSION)?;
-        writer.u16(self.protocol_version)?;
-        writer.u32(self.network_id)?;
-        writer.u64(self.batch_number)?;
-        writer.bytes(&self.canonical_batch_header)?;
-        writer.raw(&self.batch_authorization.sequencer_id)?;
-        writer.raw(&self.batch_authorization.sequencer_public_key)?;
-        writer.u64(self.batch_authorization.first_batch_number)?;
-        writer.u64(self.batch_authorization.last_batch_number)?;
-        writer.raw(&self.batch_authorization.header_signature)?;
-        writer.raw(&self.data_availability_root)?;
-        writer.raw(&self.record_roots.activity)?;
-        writer.raw(&self.record_roots.receipt)?;
-        writer.raw(&self.record_roots.event)?;
-        writer.raw(&self.record_roots.oracle)?;
-        writer.count(self.chunks.len(), MAX_ARCHIVE_CHUNKS)?;
-        for chunk in &self.chunks {
-            writer.u32(chunk.index)?;
-            writer.u8(chunk.class as u8)?;
-            writer.u64(chunk.class_offset)?;
-            writer.raw(&chunk.claimed_hash)?;
-            writer.bytes(&chunk.bytes)?;
-        }
-        writer.records(&self.records.activities)?;
-        writer.records(&self.records.receipts)?;
-        writer.records(&self.records.events)?;
-        writer.records(&self.records.oracle_inputs)?;
-        if let Some(checkpoint) = &self.checkpoint {
-            writer.u8(1)?;
-            writer.u64(checkpoint.coordinate.height)?;
-            writer.raw(&checkpoint.coordinate.block_hash)?;
-            writer.bytes(&checkpoint.canonical_certificate)?;
-        } else {
-            writer.u8(0)?;
-        }
-        writer.finish()
+        self.committed.encode(self.network_id, self.batch_number)
     }
 }
 
@@ -538,174 +208,6 @@ impl Archive {
         })
     }
 
-    /// Builds one archive exclusively from an authoritative batch read, a
-    /// complete proof-gated availability chunks, and optional verified checkpoint.
-    ///
-    /// # Errors
-    ///
-    /// Rejects insufficient proof levels, cross-batch/root data, non-canonical
-    /// node bytes, inconsistent checkpoint evidence, or dishonest head values.
-    pub fn from_node(
-        batch: &NodeBatch,
-        availability: &[VerifiedChunk],
-        checkpoint: Option<NodeCheckpoint<'_>>,
-        node_head: NodeHead,
-    ) -> Result<Self, SourceError> {
-        let canonical_batch_header = batch.canonical_header.clone();
-        let header =
-            decode_batch_header(&canonical_batch_header).map_err(|_| SourceError::BatchHeader)?;
-        let reproduced = encode_batch_header(&header).map_err(|_| SourceError::BatchHeader)?;
-        if reproduced != canonical_batch_header {
-            return Err(SourceError::BatchHeader);
-        }
-        verify_batch_authorization(&header, &canonical_batch_header, batch.authorization)
-            .map_err(|_| SourceError::BatchAuthorization)?;
-        if availability
-            .iter()
-            .any(|verified| verified.chunk().batch_number != header.batch_number())
-        {
-            return Err(SourceError::BatchMismatch);
-        }
-        if availability
-            .iter()
-            .any(|verified| verified.data_availability_root() != header.data_availability_root())
-        {
-            return Err(SourceError::RootMismatch);
-        }
-        let record_roots = RootCommitments {
-            activity: header.activity_merkle_root(),
-            receipt: header.receipt_merkle_root(),
-            event: header.event_merkle_root(),
-            oracle: header.oracle_root(),
-        };
-        let (records, _) =
-            reassemble(availability, record_roots).map_err(SourceError::Availability)?;
-        if node_head.sealed_height() < header.batch_number() {
-            return Err(SourceError::HeadBehindBatch);
-        }
-        if node_head
-            .committed_coordinate()
-            .is_some_and(|coordinate| coordinate.height > node_head.sealed_height())
-        {
-            return Err(SourceError::HeadBehindCheckpoint);
-        }
-        let chunks = availability
-            .iter()
-            .map(|verified| {
-                let chunk = verified.chunk();
-                ArchivedChunk {
-                    index: chunk.index,
-                    class: chunk.class,
-                    class_offset: chunk.class_offset,
-                    claimed_hash: chunk.claimed_hash,
-                    bytes: chunk.bytes.clone(),
-                }
-            })
-            .collect::<Vec<_>>();
-        let archived_checkpoint = checkpoint
-            .map(|material| {
-                let network_id = header.network_id();
-                let head = node_head.committed_coordinate();
-                if material.read.achieved_rung < Rung::Committed {
-                    return Err(SourceError::CheckpointVerificationLevel);
-                }
-                if material.read.value.height != material.verification.last_sequence() {
-                    return Err(SourceError::CheckpointMismatch);
-                }
-                let certificate_bytes = material.read.value.commit.as_bytes().to_vec();
-                let certificate = decode_checkpoint(&certificate_bytes)
-                    .map_err(|_| SourceError::CheckpointCertificate)?;
-                let reproduced = encode_checkpoint(&certificate)
-                    .map_err(|_| SourceError::CheckpointCertificate)?;
-                let certificate_header = certificate.header();
-                let canonical_header = encode_batch_header(certificate_header)
-                    .map_err(|_| SourceError::CheckpointCertificate)?;
-                let canonical_checkpoint_id =
-                    checkpoint_id(&canonical_header, certificate.validity_proof())
-                        .map_err(|_| SourceError::CheckpointCertificate)?;
-                let report_roots = material.verification.record_roots();
-                let certificate_roots = RootCommitments {
-                    activity: certificate_header.activity_merkle_root(),
-                    receipt: certificate_header.receipt_merkle_root(),
-                    event: certificate_header.event_merkle_root(),
-                    oracle: certificate_header.oracle_root(),
-                };
-                if reproduced != certificate_bytes
-                    || certificate_header.network_id() != network_id
-                    || material.verification.protocol_version()
-                        != certificate_header.protocol_version()
-                    || material.verification.network_id() != certificate_header.network_id()
-                    || material.verification.batch_number() != certificate_header.batch_number()
-                    || material.verification.first_sequence() != certificate_header.first_sequence()
-                    || material.verification.last_sequence() != certificate_header.last_sequence()
-                    || material.verification.data_availability_root()
-                        != certificate_header.data_availability_root()
-                    || material.verification.resulting_state_root()
-                        != certificate_header.resulting_state_root()
-                    || report_roots != certificate_roots
-                    || material.verification.required
-                        != usize::try_from(certificate.threshold())
-                            .map_err(|_| SourceError::CheckpointMismatch)?
-                    || material.verification.achieved < material.verification.required
-                    || material.verification.achieved != certificate.guarantor_signatures().len()
-                    || material.verification.evidence().settlement_reference()
-                        != (!certificate.settlement_reference().is_empty())
-                            .then_some(certificate.settlement_reference())
-                {
-                    return Err(SourceError::CheckpointMismatch);
-                }
-                let checkpoint_id = material
-                    .verification
-                    .evidence()
-                    .checkpoint_id()
-                    .ok_or(SourceError::CheckpointMismatch)?;
-                if checkpoint_id != canonical_checkpoint_id {
-                    return Err(SourceError::CheckpointMismatch);
-                }
-                let coordinate = CommittedCoordinate {
-                    height: material.verification.batch_number(),
-                    block_hash: checkpoint_id,
-                };
-                let head = head.ok_or(SourceError::HeadBehindCheckpoint)?;
-                if coordinate.height > head.height
-                    || (coordinate.height == head.height
-                        && coordinate.block_hash != head.block_hash)
-                {
-                    return Err(SourceError::CheckpointMismatch);
-                }
-                Ok(ArchivedCheckpoint {
-                    coordinate,
-                    canonical_certificate: certificate_bytes,
-                })
-            })
-            .transpose()?;
-        let data = ArchiveData {
-            protocol_version: header.protocol_version(),
-            network_id: header.network_id(),
-            batch_number: header.batch_number(),
-            canonical_batch_header,
-            batch_authorization: batch.authorization,
-            data_availability_root: header.data_availability_root(),
-            record_roots,
-            chunks,
-            records: (&records).into(),
-            checkpoint: archived_checkpoint,
-            committed: None,
-        };
-        let bytes = data.encode().map_err(SourceError::Archive)?;
-        let decoded = ArchiveData::decode(&bytes).map_err(SourceError::Archive)?;
-        if decoded != data {
-            return Err(SourceError::Archive(ArchiveError::Format));
-        }
-        let commitment = archive_commitment(&bytes);
-        Ok(Self {
-            data,
-            bytes,
-            commitment,
-            node_head,
-        })
-    }
-
     #[must_use]
     pub const fn data(&self) -> &ArchiveData {
         &self.data
@@ -727,103 +229,6 @@ impl Archive {
     }
 }
 
-fn verify_batch_authorization(
-    header: &layerx_wire::receipt::BatchHeader,
-    canonical_header: &[u8],
-    authorization: BatchAuthorization,
-) -> Result<(), ArchiveError> {
-    if authorization.sequencer_id == [0; 32]
-        || authorization.sequencer_public_key == [0; 32]
-        || authorization.first_batch_number > authorization.last_batch_number
-        || header.sequencer_id() != authorization.sequencer_id
-        || header.batch_number() < authorization.first_batch_number
-        || header.batch_number() > authorization.last_batch_number
-    {
-        return Err(ArchiveError::BatchAuthorization);
-    }
-    let digest =
-        batch_header_digest(canonical_header).map_err(|_| ArchiveError::BatchAuthorization)?;
-    ed25519::verify_digest(
-        &authorization.sequencer_public_key,
-        &authorization.header_signature,
-        &digest,
-    )
-    .map_err(|_| ArchiveError::BatchAuthorization)
-}
-
-fn verify_chunk_set(
-    chunks: &[ArchivedChunk],
-    batch_number: u64,
-    expected_root: [u8; 32],
-) -> Result<(), ArchiveError> {
-    if chunks.is_empty() {
-        return Err(ArchiveError::ChunkOrder);
-    }
-    let mut offsets = [0_u64; 5];
-    let mut present = [false; 5];
-    for (position, chunk) in chunks.iter().enumerate() {
-        let expected_index = u32::try_from(position).map_err(|_| ArchiveError::ChunkOrder)?;
-        if chunk.index != expected_index {
-            return Err(ArchiveError::ChunkOrder);
-        }
-        let class_index = usize::from(chunk.class as u8 - 1);
-        if chunk.class_offset != offsets[class_index] {
-            return Err(ArchiveError::ChunkOrder);
-        }
-        let length = u64::try_from(chunk.bytes.len()).map_err(|_| ArchiveError::Length)?;
-        offsets[class_index] = offsets[class_index]
-            .checked_add(length)
-            .ok_or(ArchiveError::Length)?;
-        present[class_index] = true;
-        let computed = availability_chunk_digest(
-            batch_number,
-            chunk.index,
-            chunk.class as u8,
-            chunk.class_offset,
-            &chunk.bytes,
-        )
-        .map_err(|_| ArchiveError::ChunkHash)?;
-        if computed != chunk.claimed_hash {
-            return Err(ArchiveError::ChunkHash);
-        }
-    }
-    if present.iter().any(|value| !value) {
-        return Err(ArchiveError::MissingClass);
-    }
-    let hashes = chunks
-        .iter()
-        .map(|chunk| chunk.claimed_hash)
-        .collect::<Vec<_>>();
-    let computed = root_from_leaf_hashes(&hashes).map_err(|_| ArchiveError::RootMismatch)?;
-    if computed != expected_root {
-        return Err(ArchiveError::RootMismatch);
-    }
-    Ok(())
-}
-
-fn verify_record_roots(
-    records: &ArchivedRecords,
-    expected: RootCommitments,
-) -> Result<(), ArchiveError> {
-    let activities = record_root(&records.activities)?;
-    let receipts = record_root(&records.receipts)?;
-    let events = record_root(&records.events)?;
-    let oracle = record_root(&records.oracle_inputs)?;
-    if activities != expected.activity
-        || receipts != expected.receipt
-        || events != expected.event
-        || oracle != expected.oracle
-    {
-        return Err(ArchiveError::RecordRoot);
-    }
-    Ok(())
-}
-
-fn record_root(records: &[Vec<u8>]) -> Result<[u8; 32], ArchiveError> {
-    let leaves = records.iter().map(Vec::as_slice).collect::<Vec<_>>();
-    root(&leaves).map_err(|_| ArchiveError::RecordRoot)
-}
-
 #[must_use]
 pub fn archive_commitment(bytes: &[u8]) -> ArchiveCommitment {
     let mut hasher = Sha256::new();
@@ -839,21 +244,9 @@ pub fn archive_commitment(bytes: &[u8]) -> ArchiveCommitment {
     ArchiveCommitment(hasher.finalize().into())
 }
 
-fn decode_class(value: u8) -> Result<AvailabilityClass, ArchiveError> {
-    match value {
-        1 => Ok(AvailabilityClass::Activities),
-        2 => Ok(AvailabilityClass::Receipts),
-        3 => Ok(AvailabilityClass::Oracle),
-        4 => Ok(AvailabilityClass::StateDiff),
-        5 => Ok(AvailabilityClass::Recovery),
-        _ => Err(ArchiveError::Format),
-    }
-}
-
 /// Failure while admitting node data to an archive.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SourceError {
-    Availability(AvailabilityFailure),
     Committed,
     BatchVerificationLevel,
     BatchHeader,
@@ -907,10 +300,6 @@ impl Writer {
         self.ensure(value.len())?;
         self.bytes.extend_from_slice(value);
         Ok(())
-    }
-
-    fn u8(&mut self, value: u8) -> Result<(), ArchiveError> {
-        self.raw(&[value])
     }
 
     fn u16(&mut self, value: u16) -> Result<(), ArchiveError> {
@@ -979,10 +368,6 @@ impl<'a> Reader<'a> {
             .ok_or(ArchiveError::Format)?;
         self.offset = end;
         Ok(value)
-    }
-
-    fn u8(&mut self) -> Result<u8, ArchiveError> {
-        self.take(1)?.first().copied().ok_or(ArchiveError::Format)
     }
 
     fn u16(&mut self) -> Result<u16, ArchiveError> {
@@ -2230,6 +1615,30 @@ mod tests {
     }
 
     #[test]
+    fn batch_era_archive_versions_are_refused() {
+        let archive = Archive::from_committed(&committed_block(), 125, committed_head())
+            .unwrap_or_else(|error| panic!("committed archive: {error:?}"));
+        assert!(ArchiveData::decode(archive.bytes()).is_ok());
+        let native =
+            include_bytes!("../../../contracts/solana-mirror/tests/fixtures/native.archive");
+        for version in [2_u16, 3] {
+            for bytes in [archive.bytes(), native.as_slice()] {
+                let mut legacy = bytes.to_vec();
+                legacy[8..10].copy_from_slice(&version.to_be_bytes());
+                assert_eq!(ArchiveData::decode(&legacy), Err(ArchiveError::Version));
+                assert_eq!(
+                    ArchiveData::decode(&legacy[..10]),
+                    Err(ArchiveError::Version)
+                );
+                assert_eq!(
+                    Archive::from_spool(legacy, committed_head()),
+                    Err(SourceError::Archive(ArchiveError::Version))
+                );
+            }
+        }
+    }
+
+    #[test]
     fn a_v4_archive_round_trips_a_committed_block() {
         let block = committed_block();
         let head = committed_head();
@@ -2256,13 +1665,13 @@ mod tests {
         assert_eq!(decoded.batch_number, block.header.height);
         assert_eq!(
             decoded.committed,
-            Some(ArchivedCommittedBlock {
+            ArchivedCommittedBlock {
                 block_hash: block.header.block_hash,
                 parent_hash: block.header.parent_hash,
                 app_hash: block.header.app_hash,
                 timestamp: block.header.timestamp,
                 receipts: block.receipts,
-            })
+            }
         );
         assert_eq!(archive.data(), &decoded);
         assert_eq!(archive.node_head(), head);

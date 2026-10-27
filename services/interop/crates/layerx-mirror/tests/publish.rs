@@ -1,31 +1,18 @@
-// Publication and retrieval of batch mirror archives against in-memory
+// Publication and retrieval of committed block archives against in-memory
 // Ethereum and Solana test networks, including stall and reorg scenarios.
-//
-// The archives are built exclusively from the node boundary types
-// (an authorized batch and complete proof-gated availability chunks), the
-// Publisher drives the real chain-boundary traits, and the two networks are
-// genuine in-memory ledgers that store and return the exact archive bytes by
-// commitment. Only the external L1s are simulated; every LayerX code path -
-// archive assembly, commitment, publication, confirmation, reorg handling,
-// retrieval validation and freshness accounting - runs for real.
 
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::rc::Rc;
 
+use layerx_mirror::committed::{CommittedBlock, CommittedHeader};
 use layerx_mirror::{
-    Archive, ArchiveCommitment, ArchiveData, BatchAuthorization, ChainFailure, ChainPosition,
-    CommittedCoordinate, CommittedFreshness, ConfigError, EthereumArchiveClient,
-    EthereumArchiveWrite, EthereumConfig, EthereumObservation, EthereumSubmission,
-    GenericPublisher, MirrorDegradation, MirrorState, NodeBatch, NodeHead, PublicationId,
-    RetrievalState, SignedHeaderTrust, SolanaArchiveClient, SolanaArchiveWrite, SolanaConfig,
+    Archive, ArchiveCommitment, ArchiveData, ChainFailure, ChainPosition, CommittedCoordinate,
+    CommittedFreshness, ConfigError, EthereumArchiveClient, EthereumArchiveWrite, EthereumConfig,
+    EthereumObservation, EthereumSubmission, GenericPublisher, MirrorDegradation, MirrorState,
+    NodeHead, PublicationId, RetrievalState, SolanaArchiveClient, SolanaArchiveWrite, SolanaConfig,
     SolanaObservation, SolanaSubmission,
 };
-use layerx_proof::availability::{
-    reassemble, verify_chunk, AvailabilityClass, Chunk, RootCommitments,
-};
-use layerx_proof::merkle::build_leaf_hash_proof;
-use layerx_wire::receipt::decode_batch_header;
 
 const NETWORK_ID: u32 = 77;
 const REQUIRED_CONFIRMATIONS: u64 = 3;
@@ -52,128 +39,32 @@ fn solana_config() -> SolanaConfig {
     }
 }
 
-fn fixture_bytes(name: &str) -> Vec<u8> {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("tests/fixtures/native-publisher")
-        .join(name);
-    std::fs::read(&path)
-        .unwrap_or_else(|error| panic!("native fixture {}: {error}", path.display()))
-}
-
-fn take<const N: usize>(input: &mut &[u8]) -> [u8; N] {
-    let (value, remaining) = input
-        .split_at_checked(N)
-        .unwrap_or_else(|| panic!("truncated native fixture field"));
-    *input = remaining;
-    value
-        .try_into()
-        .unwrap_or_else(|error| panic!("exact native fixture field length: {error:?}"))
-}
-
-fn stored_chunks(batch_number: u64, committed_root: [u8; 32]) -> Vec<Chunk> {
-    let file = fixture_bytes(&format!("{batch_number}.lxda"));
-    let mut input = file.as_slice();
-    assert_eq!(take::<4>(&mut input), *b"LXD1");
-    assert_eq!(u64::from_be_bytes(take(&mut input)), batch_number);
-    assert_eq!(take::<32>(&mut input), committed_root);
-    let count = u32::from_be_bytes(take(&mut input));
-    let total = u64::from_be_bytes(take(&mut input));
-    let mut chunks = Vec::new();
-    let mut actual_total = 0_u64;
-    for _ in 0..count {
-        let index = u32::from_be_bytes(take(&mut input));
-        let class = match take::<1>(&mut input)[0] {
-            1 => AvailabilityClass::Activities,
-            2 => AvailabilityClass::Receipts,
-            3 => AvailabilityClass::Oracle,
-            4 => AvailabilityClass::StateDiff,
-            5 => AvailabilityClass::Recovery,
-            value => panic!("native fixture availability class {value}"),
-        };
-        let class_offset = u64::from_be_bytes(take(&mut input));
-        let length = u32::from_be_bytes(take(&mut input));
-        let claimed_hash = take(&mut input);
-        let length = usize::try_from(length)
-            .unwrap_or_else(|error| panic!("native chunk length: {error:?}"));
-        let (bytes, remaining) = input
-            .split_at_checked(length)
-            .unwrap_or_else(|| panic!("truncated native chunk bytes"));
-        input = remaining;
-        actual_total += u64::try_from(bytes.len())
-            .unwrap_or_else(|error| panic!("native chunk total: {error:?}"));
-        chunks.push(Chunk {
-            batch_number,
-            index,
-            class,
-            class_offset,
-            bytes: bytes.to_vec(),
-            claimed_hash,
-        });
-    }
-    assert_eq!(actual_total, total);
-    assert!(input.is_empty());
-    chunks
-}
-
-fn build_archive(batch_number: u64, node_head: NodeHead) -> Archive {
-    let header_bytes = fixture_bytes(&format!("{batch_number}.header"));
-    let header = decode_batch_header(&header_bytes)
-        .unwrap_or_else(|error| panic!("native signed batch header: {error:?}"));
-    assert_eq!(header.network_id(), NETWORK_ID);
-    assert_eq!(header.batch_number(), batch_number);
-    let trust = SignedHeaderTrust {
-        sequencer_id: fixture_bytes("sequencer.id")
-            .try_into()
-            .unwrap_or_else(|error| panic!("native sequencer ID: {error:?}")),
-        sequencer_public_key: fixture_bytes("sequencer.public")
-            .try_into()
-            .unwrap_or_else(|error| panic!("native sequencer public key: {error:?}")),
-        first_batch_number: 1,
-        last_batch_number: 6,
-    };
-    let batch = NodeBatch::verify(
-        header_bytes,
-        BatchAuthorization {
-            sequencer_id: trust.sequencer_id,
-            sequencer_public_key: trust.sequencer_public_key,
-            first_batch_number: trust.first_batch_number,
-            last_batch_number: trust.last_batch_number,
-            header_signature: fixture_bytes(&format!("{batch_number}.signature"))
-                .try_into()
-                .unwrap_or_else(|error| panic!("native batch signature: {error:?}")),
-        },
-        &trust,
-    )
-    .unwrap_or_else(|error| panic!("authenticated native batch: {error:?}"));
-    let chunks = stored_chunks(batch_number, header.data_availability_root());
-    let hashes = chunks
+fn build_archive(height: u64, node_head: NodeHead) -> Archive {
+    let fixture: serde_json::Value =
+        serde_json::from_str(include_str!("fixtures/committed_blocks.json"))
+            .unwrap_or_else(|error| panic!("recorded committed block: {error}"));
+    let mut header = CommittedHeader::from_block_json(&fixture["committedBlock"])
+        .unwrap_or_else(|error| panic!("committed header: {error:?}"));
+    header.height = height;
+    let receipts = fixture["receipts"]
+        .as_array()
+        .unwrap_or_else(|| panic!("recorded receipts"))
         .iter()
-        .map(|chunk| chunk.claimed_hash)
-        .collect::<Vec<_>>();
-    let verified = chunks
-        .into_iter()
-        .enumerate()
-        .map(|(index, chunk)| {
-            let (proof, computed_root) = build_leaf_hash_proof(&hashes, index)
-                .unwrap_or_else(|error| panic!("native availability inclusion proof: {error:?}"));
-            assert_eq!(computed_root, header.data_availability_root());
-            verify_chunk(chunk, &proof, batch_number, &computed_root).unwrap_or_else(|error| {
-                panic!("authenticated native availability chunk: {error:?}")
-            })
+        .map(|receipt| {
+            let digits = receipt["receipt"]
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .unwrap_or_else(|| panic!("receipt hex"));
+            (0..digits.len())
+                .step_by(2)
+                .map(|index| {
+                    u8::from_str_radix(&digits[index..index + 2], 16)
+                        .unwrap_or_else(|error| panic!("receipt hex: {error}"))
+                })
+                .collect()
         })
-        .collect::<Vec<_>>();
-    let roots = RootCommitments {
-        activity: header.activity_merkle_root(),
-        receipt: header.receipt_merkle_root(),
-        event: header.event_merkle_root(),
-        oracle: header.oracle_root(),
-    };
-    let (records, _) = reassemble(&verified, roots)
-        .unwrap_or_else(|error| panic!("canonical native record streams: {error:?}"));
-    records
-        .verify(&verified, roots)
-        .unwrap_or_else(|error| panic!("complete authenticated native availability: {error:?}"));
-    Archive::from_node(&batch, &verified, None, node_head)
+        .collect();
+    Archive::from_committed(&CommittedBlock { header, receipts }, NETWORK_ID, node_head)
         .unwrap_or_else(|error| panic!("archive assembly failed: {error:?}"))
 }
 
@@ -549,6 +440,45 @@ fn new_publisher(ethereum: &Ethereum, solana: &Solana) -> GenericPublisher<Ether
     .unwrap_or_else(|error| panic!("publisher construction failed: {error:?}"))
 }
 
+pub(crate) fn assert_committed_publication_on_both_test_networks() {
+    let archive = build_archive(4, sealed_head(4));
+    assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
+    let expected = Some(CommittedCoordinate {
+        height: 4,
+        block_hash: archive.data().committed.block_hash,
+    });
+    assert_eq!(archive.data().committed_coordinate(), expected);
+    assert!(!archive.data().committed.receipts.is_empty());
+    let ethereum = Ethereum::new();
+    let solana = Solana::new();
+    ethereum.confirmed(REQUIRED_CONFIRMATIONS);
+    solana.confirmed(REQUIRED_ROOTED_SLOTS);
+    let mut publisher = new_publisher(&ethereum, &solana);
+    let report = publisher.publish(&archive);
+    for state in [&report.ethereum, &report.solana] {
+        let MirrorState::Confirmed {
+            freshness,
+            commitment,
+            ..
+        } = state
+        else {
+            panic!("publication did not confirm: {state:?}");
+        };
+        assert_eq!(*commitment, archive.commitment());
+        assert_eq!(freshness.latest_committed_mirrored, expected);
+    }
+    assert_eq!(publisher.ethereum_cursor().latest_committed, expected);
+    assert_eq!(publisher.solana_cursor().latest_committed, expected);
+    let retrieved = publisher.retrieve(archive.commitment());
+    for state in [retrieved.ethereum, retrieved.solana] {
+        let RetrievalState::Retrieved(data) = state else {
+            panic!("archive was not retrieved: {state:?}");
+        };
+        assert_eq!(*data, *archive.data());
+        assert_eq!(data.committed_coordinate(), expected);
+    }
+}
+
 // -------------------------------------------------------------------------
 // Tests.
 // -------------------------------------------------------------------------
@@ -648,7 +578,7 @@ fn publishes_pure_archives_without_custody_semantics() {
     assert_eq!(eth_append.commitment, archive.commitment());
     assert_eq!(eth_append.network_id, NETWORK_ID);
     assert_eq!(eth_append.batch_number, 2);
-    assert_eq!(eth_append.checkpoint, None);
+    assert_eq!(eth_append.checkpoint, archive.data().committed_coordinate());
     assert_eq!(eth_append.archive, archive.bytes());
 
     let sol_append = solana.last_append();
@@ -658,18 +588,15 @@ fn publishes_pure_archives_without_custody_semantics() {
     assert_eq!(sol_append.commitment, archive.commitment());
     assert_eq!(sol_append.network_id, NETWORK_ID);
     assert_eq!(sol_append.batch_number, 2);
-    assert_eq!(sol_append.checkpoint, None);
+    assert_eq!(sol_append.checkpoint, archive.data().committed_coordinate());
     assert_eq!(sol_append.archive, archive.bytes());
 
-    // The published bytes decode to a pure batch archive: canonical batch
-    // header, availability chunks, public record streams and an optional
-    // checkpoint - and nothing resembling a vault, portal or custody claim.
     let decoded = ArchiveData::decode(&eth_append.archive)
         .unwrap_or_else(|error| panic!("published archive did not decode: {error:?}"));
     assert_eq!(&decoded, archive.data());
     assert_eq!(decoded.network_id, NETWORK_ID);
     assert_eq!(decoded.batch_number, 2);
-    assert!(decoded.checkpoint.is_none());
+    assert_eq!(decoded.committed, archive.data().committed);
 }
 
 #[test]
@@ -990,7 +917,10 @@ fn freshness_states_committed_lag_honestly() {
         report.ethereum.freshness().committed,
         CommittedFreshness::NodeHasNoCommittedBlock
     );
-    assert_eq!(report.ethereum.freshness().latest_committed_mirrored, None);
+    assert_eq!(
+        report.ethereum.freshness().latest_committed_mirrored,
+        no_committed.data().committed_coordinate()
+    );
 
     // The node has committed a block but its archive has not been mirrored yet:
     // the mirror reports the target it must still reach.
@@ -1007,8 +937,6 @@ fn freshness_states_committed_lag_honestly() {
     );
     let fresh_eth = Ethereum::new();
     let fresh_sol = Solana::new();
-    fresh_eth.confirmed(REQUIRED_CONFIRMATIONS);
-    fresh_sol.confirmed(REQUIRED_ROOTED_SLOTS);
     let mut second = new_publisher(&fresh_eth, &fresh_sol);
     let report = second.publish(&awaiting);
     assert_eq!(
