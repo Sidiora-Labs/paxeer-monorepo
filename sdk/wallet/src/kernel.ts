@@ -1,6 +1,8 @@
 import { EndpointClient } from './endpoint.js';
 import { JsonRpcError, isRecord } from './rpc.js';
 import type {
+  Balances,
+  ChainAccount,
   KernelAvailabilityState,
   KernelBackendName,
   KernelDocument,
@@ -91,13 +93,14 @@ export class KernelClient {
     this.availability = availability;
   }
 
-  getAccount(accountId: string): Promise<KernelRead<KernelDocument>> {
-    return this.read('lx_getAccount', [hex32(accountId, 'account id')]);
+  getAccount(address: string): Promise<KernelRead<ChainAccount>> {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) throw new RangeError('account address is malformed');
+    return this.readEndpoint(() => this.endpoint.getChainAccount(address));
   }
 
-  getBalances(did: string): Promise<KernelRead<KernelDocument>> {
-    if (!/^[A-Za-z0-9._:-]{1,255}$/.test(did)) throw new RangeError('did is malformed');
-    return this.read('lx_getBalances', [did]);
+  getBalances(address: string): Promise<KernelRead<Balances>> {
+    if (!/^[A-Za-z0-9._:-]{1,255}$/.test(address)) throw new RangeError('account address is malformed');
+    return this.readEndpoint(() => this.endpoint.getBankBalances(address));
   }
 
   getSequence(accountId: string): Promise<KernelRead<KernelDocument>> {
@@ -113,19 +116,24 @@ export class KernelClient {
   }
 
   private async read(method: string, params: readonly unknown[]): Promise<KernelRead<KernelDocument>> {
+    return this.readEndpoint(async () => {
+      const result: unknown = await this.endpoint.rpc.call(method, params);
+      if (!isRecord(result)) throw new TypeError(`${method} answered a non-object result`);
+      return result;
+    });
+  }
+
+  private async readEndpoint<T>(request: () => Promise<T>): Promise<KernelRead<T>> {
     const state = await this.availability.current();
     if (!state.available) return state;
-    let result: unknown;
     try {
-      result = await this.endpoint.rpc.call(method, params);
+      return { available: true, result: await request() };
     } catch (error) {
       const unavailable = kernelUnavailableFrom(error);
       if (unavailable === null) throw error;
       this.availability.record(unavailable);
       return unavailable;
     }
-    if (!isRecord(result)) throw new TypeError(`${method} answered a non-object result`);
-    return { available: true, result };
   }
 }
 
