@@ -1,63 +1,21 @@
 //! `read.history` over the version 1 Agent operation envelope.
 
 use layerx_agent_api::error::RequestId;
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::{Rung, VerificationStatus};
 use serde_json::{json, Value};
 
 use crate::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
 use crate::rpc_subscription::{decimal, object, violation};
 use crate::Operation;
 
-const CURSOR_TEXT_LENGTH: usize = 112;
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct HistoryCursor {
-    pub next_sequence: u64,
-    pub end_sequence: u64,
-    pub observed_head_sequence: u64,
-    pub observed_checkpoint: [u8; 32],
-}
-
-impl HistoryCursor {
-    /// Renders the 112 lowercase hex cursor text: big-endian next, end and observed head
-    /// sequences followed by the observed checkpoint.
-    #[must_use]
-    pub fn to_text(&self) -> String {
-        let mut bytes = Vec::with_capacity(CURSOR_TEXT_LENGTH / 2);
-        bytes.extend_from_slice(&self.next_sequence.to_be_bytes());
-        bytes.extend_from_slice(&self.end_sequence.to_be_bytes());
-        bytes.extend_from_slice(&self.observed_head_sequence.to_be_bytes());
-        bytes.extend_from_slice(&self.observed_checkpoint);
-        crate::rpc::encode_hex(&bytes)
-    }
-
-    /// Parses exactly 112 lowercase hex characters.
-    #[must_use]
-    pub fn from_text(text: &str) -> Option<Self> {
-        if text.len() != CURSOR_TEXT_LENGTH {
-            return None;
-        }
-        let bytes = lower_hex(text)?;
-        let sequence = |offset: usize| {
-            bytes
-                .get(offset..offset + 8)
-                .and_then(|slice| <[u8; 8]>::try_from(slice).ok())
-                .map(u64::from_be_bytes)
-        };
-        Some(Self {
-            next_sequence: sequence(0)?,
-            end_sequence: sequence(8)?,
-            observed_head_sequence: sequence(16)?,
-            observed_checkpoint: bytes.get(24..56)?.try_into().ok()?,
-        })
-    }
-}
+pub use layerx_agent_api::read::{HistoryCursor, HistorySelector};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HistoryItem {
-    pub global_sequence: u64,
+    pub height: u64,
+    pub tx_index: u64,
+    pub log_index: u64,
     pub kind: u8,
-    pub achieved_verification_level: Level,
     pub canonical: Vec<u8>,
     pub proof: Option<Vec<u8>>,
 }
@@ -65,8 +23,30 @@ pub struct HistoryItem {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct HistoryPage {
     pub items: Vec<HistoryItem>,
-    pub cursor: Option<HistoryCursor>,
+    pub next_cursor: Option<HistoryCursor>,
+    pub height: u64,
     pub verification_status: VerificationStatus,
+}
+
+pub fn encode_cursor(cursor: &HistoryCursor) -> Value {
+    json!([
+        cursor.block_height.to_string(),
+        cursor.tx_index.to_string(),
+        cursor.log_index.to_string()
+    ])
+}
+
+pub fn decode_cursor(value: &Value) -> Option<HistoryCursor> {
+    let values = value.as_array()?;
+    if values.len() != 3 {
+        return None;
+    }
+    let number = |i: usize| crate::agent_envelope::canonical_u64(values.get(i)?.as_str()?);
+    Some(HistoryCursor {
+        block_height: number(0)?,
+        tx_index: number(1)?,
+        log_index: number(2)?,
+    })
 }
 
 pub(crate) fn lower_hex(text: &str) -> Option<Vec<u8>> {
@@ -89,50 +69,19 @@ pub(crate) fn lower_hex(text: &str) -> Option<Vec<u8>> {
         .collect()
 }
 
-const fn level_wire(level: Level) -> &'static str {
-    match level {
-        Level::Unverified => "unverified",
-        Level::SequencerSigned => "sequencer-signed",
-        Level::BatchIncluded => "batch-included",
-        Level::StateProven => "state-proven",
-        Level::CheckpointFinalised => "checkpoint-finalised",
-        Level::SettlementAnchored => "settlement-anchored",
-    }
-}
-
-fn level(text: &str) -> Option<Level> {
-    Some(match text {
-        "unverified" => Level::Unverified,
-        "sequencer-signed" => Level::SequencerSigned,
-        "batch-included" => Level::BatchIncluded,
-        "state-proven" => Level::StateProven,
-        "checkpoint-finalised" => Level::CheckpointFinalised,
-        "settlement-anchored" => Level::SettlementAnchored,
-        _ => return None,
-    })
-}
-
-fn decode_item(
-    value: &Value,
-    requested: Level,
-    operation: Operation,
-) -> Result<HistoryItem, EnvelopeError> {
+fn decode_item(value: &Value, operation: Operation) -> Result<HistoryItem, EnvelopeError> {
     let item = object(
         value,
         &[
-            "global_sequence",
+            "height",
+            "txIndex",
+            "logIndex",
             "kind",
-            "achieved_verification_level",
             "canonical",
             "proof",
         ],
         operation,
     )?;
-    let achieved = item["achieved_verification_level"]
-        .as_str()
-        .and_then(level)
-        .filter(|achieved| *achieved >= requested)
-        .ok_or_else(|| violation(operation))?;
     let bytes = |value: &Value| {
         value
             .as_str()
@@ -140,9 +89,13 @@ fn decode_item(
             .ok_or_else(|| violation(operation))
     };
     Ok(HistoryItem {
-        global_sequence: decimal(&item["global_sequence"], operation)?,
-        kind: u8::try_from(decimal(&item["kind"], operation)?).map_err(|_| violation(operation))?,
-        achieved_verification_level: achieved,
+        height: decimal(&item["height"], operation)?,
+        tx_index: decimal(&item["txIndex"], operation)?,
+        log_index: decimal(&item["logIndex"], operation)?,
+        kind: u8::try_from(decimal(&item["kind"], operation)?)
+            .ok()
+            .filter(|kind| matches!(kind, 1..=3))
+            .ok_or_else(|| violation(operation))?,
         canonical: bytes(&item["canonical"])?,
         proof: match &item["proof"] {
             Value::Null => None,
@@ -158,59 +111,123 @@ fn decode_item(
 }
 
 impl AgentEnvelopeTransport {
-    /// Reads one bounded history page over `first..=last`, resuming from `cursor`.
+    /// Reads one bounded history page over `from_height..=to_height`, resuming from `cursor`.
     ///
     /// # Errors
     ///
-    /// Returns the established error envelope, `Transport`, or `Decode` for any item below
-    /// the requested level, a malformed cursor or any other schema violation.
+    /// Returns the established error envelope, `Transport`, or `Decode` for a below-requested
+    /// rung, a malformed cursor or any other schema violation.
     #[allow(clippy::too_many_arguments)]
     pub fn read_history(
         &self,
         request_id: RequestId,
         credential: &EnvelopeCredential,
-        first: u64,
-        last: u64,
+        from_height: u64,
+        to_height: u64,
         cursor: Option<&HistoryCursor>,
         page_limit: u32,
-        requested: Level,
+        requested: Rung,
     ) -> Result<HistoryPage, EnvelopeError> {
         let operation = Operation::ReadHistory;
+        HistorySelector {
+            from_height,
+            to_height,
+            cursor: cursor.copied(),
+            page_limit,
+        }
+        .validate()
+        .map_err(|_| EnvelopeError::InvalidRequest)?;
         let success = self.send_operation(
             operation,
             request_id,
             &json!({
-                "range": {"first": first.to_string(), "last": last.to_string()},
-                "cursor": cursor.map(HistoryCursor::to_text),
+                "range": {"from_height": from_height.to_string(), "to_height": to_height.to_string()},
+                "cursor": cursor.map(encode_cursor),
                 "page_limit": page_limit.to_string(),
-                "requested_verification_level": level_wire(requested),
+                "requested_rung": requested.name(),
             }),
             Some(credential),
             None,
         )?;
-        let page = object(&success.value, &["items", "cursor"], operation)?;
+        let read = object(
+            &success.value,
+            &["value", "achieved_rung", "freshness"],
+            operation,
+        )?;
+        let achieved = crate::rpc_export::rung_from_wire(&read["achieved_rung"], operation)?;
+        if achieved < requested
+            || !matches!(success.verification_status, VerificationStatus::Achieved(level) if level.rung() == Some(achieved))
+        {
+            return Err(violation(operation));
+        }
+        let freshness = crate::rpc_projection::decode_freshness(&read["freshness"], operation)?;
+        let page = object(&read["value"], &["items", "cursor", "height"], operation)?;
+        let height = decimal(&page["height"], operation)?;
+        if height != freshness.value_height {
+            return Err(violation(operation));
+        }
         let items = page["items"]
             .as_array()
             .ok_or_else(|| violation(operation))?
             .iter()
-            .map(|item| decode_item(item, requested, operation))
+            .map(|item| decode_item(item, operation))
             .collect::<Result<Vec<_>, _>>()?;
         if u32::try_from(items.len()).map_or(true, |count| count > page_limit) {
             return Err(violation(operation));
         }
         let cursor = match &page["cursor"] {
             Value::Null => None,
-            value => Some(
-                value
-                    .as_str()
-                    .and_then(HistoryCursor::from_text)
-                    .ok_or_else(|| violation(operation))?,
-            ),
+            value => Some(decode_cursor(value).ok_or_else(|| violation(operation))?),
         };
         Ok(HistoryPage {
             items,
-            cursor,
+            next_cursor: cursor,
+            height,
             verification_status: success.verification_status,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn block_position_cursor_is_lossless_and_strict() {
+        let cursor = HistoryCursor {
+            block_height: u64::MAX,
+            tx_index: 7,
+            log_index: 0,
+        };
+        assert_eq!(decode_cursor(&encode_cursor(&cursor)), Some(cursor));
+        for invalid in [
+            json!("00".repeat(56)),
+            json!(["1", "2"]),
+            json!(["1", "2", "3", "4"]),
+            json!([1, "2", "3"]),
+            json!(["01", "2", "3"]),
+            json!(["18446744073709551616", "2", "3"]),
+            json!(["1", " 2", "3"]),
+        ] {
+            assert_eq!(decode_cursor(&invalid), None);
+        }
+        for (from_height, to_height, page_limit) in [(2, 1, 1), (1, 2, 0), (1, 2, 65_536)] {
+            assert!(HistorySelector {
+                from_height,
+                to_height,
+                page_limit,
+                cursor: None
+            }
+            .validate()
+            .is_err());
+        }
+        assert!(HistorySelector {
+            from_height: 1,
+            to_height: 1,
+            page_limit: 65_535,
+            cursor: Some(cursor)
+        }
+        .validate()
+        .is_ok());
     }
 }

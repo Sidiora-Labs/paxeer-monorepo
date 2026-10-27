@@ -328,6 +328,8 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_ARBITER_REQUIRED | arbiter required | layerxpay 0x101B serviceDisputeOpen, serviceDisputeResolve (linked escrow has no arbiter) | LXP_ERR_ARBITER_REQUIRED = -737, include/layerx/lxp_result.h:142; pay.md A.6 | no |
 | LXP_UNAUTHORIZED_ARBITER | unauthorized arbiter | layerxpay 0x101B serviceDisputeResolve (principal is not the linked escrow arbiter) | LXP_ERR_UNAUTHORIZED_ARBITER = -738, include/layerx/lxp_result.h:143; pay.md A.6 | no |
 | LXP_ESCROW_LINK_MISMATCH | escrow link mismatch | layerxpay 0x101B serviceDisputeOpen, serviceDisputeResolve (escrow `owner`, beneficiary or asset differ from the agreement) | LXP_ERR_ESCROW_LINK_MISMATCH = -739, include/layerx/lxp_result.h:144; pay.md A.6 | no |
+| LXP_PAY_UNBOUND_CALLER | unbound caller | layerxpay 0x101B | PayRevertCode(ErrUnboundCaller), modules/layerxpay/types/errors.go:17-18; precompiles/layerxpay/errors.go:20-21 | no |
+| LXP_PAY_KERNEL_GATE_MISMATCH | kernel gate mismatch | layerxpay 0x101B | PayRevertCode(ErrKernelGateMismatch), modules/layerxpay/types/errors.go:21-22; precompiles/layerxpay/errors.go:20-21 | no |
 | LXP_BATCH_GAP | batch gap | layerxprograms 0x101D; shared cgo host (all kernel-backed precompiles) | LXP_ERR_BATCH_GAP = -800, include/layerx/lxp_result.h:145; emitted src/modules/programs/occupancy_evidence.c:673 | no |
 | LXP_ROOT_MISMATCH | root mismatch | layerxprograms 0x101D; shared cgo host (all kernel-backed precompiles) | LXP_ERR_ROOT_MISMATCH = -801, include/layerx/lxp_result.h:146; emitted src/modules/programs/fees.c:606 | no |
 | LXP_TIMESTAMP_REGRESSION | timestamp regression | layerxexchange 0x1015; layerxpay 0x101B; shared cgo host (all kernel-backed precompiles) | LXP_ERR_TIMESTAMP_REGRESSION = -802, include/layerx/lxp_result.h:147; emitted src/modules/perps/lx_oracle_intake.c:162 | no |
@@ -415,6 +417,54 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_LAUNCHPAD_INVALID_AIRDROP_EPOCH | airdrop epoch not opened | launchpad 0x1017 | ErrInvalidAirdropEpoch (code 27), modules/launchpad/types/errors.go:33 | yes |
 | LXP_LAUNCHPAD_LEGACY_AIRDROP_EPOCH | airdrop epoch has no entitlement basis | launchpad 0x1017 | ErrLegacyAirdropEpoch (code 28), modules/launchpad/types/errors.go:34 | no |
 | LXP_LAUNCHPAD_AIRDROP_BASIS | invalid airdrop entitlement basis | launchpad 0x1017 | ErrAirdropBasis (code 29), modules/launchpad/types/errors.go:35 | no |
+| LXP_LAUNCHPAD_INVALID_PARAMS | invalid params | launchpad 0x1017 | ErrInvalidParams (code 2), modules/launchpad/types/errors.go:18 | no |
+| LXP_LAUNCHPAD_INVALID_GENESIS | invalid genesis | launchpad 0x1017 | ErrInvalidGenesis (code 24), modules/launchpad/types/errors.go:40 | no |
+| LXP_LAUNCHPAD_INVALID_RANGE | invalid range | launchpad 0x1017 | ErrInvalidRange (code 30), modules/launchpad/types/errors.go:46 | no |
+| LXP_LAUNCHPAD_ALREADY_INITIALIZED | already initialized | launchpad 0x1017 | ErrAlreadyInitialized (code 31), modules/launchpad/types/errors.go:48 | no |
+| LXP_LAUNCHPAD_ALREADY_MINTED | already minted | launchpad 0x1017 | ErrAlreadyMinted (code 32), modules/launchpad/types/errors.go:49 | no |
+| LXP_LAUNCHPAD_APPROVE_FAILED | approve failed | launchpad 0x1017 | ErrApproveFailed (code 33), modules/launchpad/types/errors.go:50 | no |
+| LXP_LAUNCHPAD_DUPLICATE_POOL | duplicate pool | launchpad 0x1017 | ErrDuplicatePool (code 34), modules/launchpad/types/errors.go:51 | no |
+| LXP_LAUNCHPAD_DUPLICATE_TOKEN | duplicate token | launchpad 0x1017 | ErrDuplicateToken (code 35), modules/launchpad/types/errors.go:52 | no |
+| LXP_LAUNCHPAD_FEE_OUT_OF_RANGE | fee out of range | launchpad 0x1017 | ErrFeeOutOfRange (code 36), modules/launchpad/types/errors.go:53 | no |
+| LXP_LAUNCHPAD_INDEX_OUT_OF_BOUNDS | index out of bounds | launchpad 0x1017 | ErrIndexOutOfBounds (code 37), modules/launchpad/types/errors.go:54 | no |
+| LXP_LAUNCHPAD_INSUFFICIENT_BALANCE | insufficient balance | launchpad 0x1017 | ErrInsufficientBalance (code 38), modules/launchpad/types/errors.go:55 | yes |
+| LXP_LAUNCHPAD_INSUFFICIENT_CREATION_FEE | insufficient creation fee | launchpad 0x1017 | ErrInsufficientCreationFee (code 39), modules/launchpad/types/errors.go:56 | yes |
+| LXP_LAUNCHPAD_INSUFFICIENT_SURPLUS | insufficient surplus | launchpad 0x1017 | ErrInsufficientSurplus (code 40), modules/launchpad/types/errors.go:57 | yes |
+| LXP_LAUNCHPAD_INVALID_BALANCE | invalid balance | launchpad 0x1017 | ErrInvalidBalance (code 41), modules/launchpad/types/errors.go:58 | no |
+| LXP_LAUNCHPAD_INVALID_CONFIGURATION | invalid configuration | launchpad 0x1017 | ErrInvalidConfiguration (code 42), modules/launchpad/types/errors.go:59 | no |
+| LXP_LAUNCHPAD_INVALID_HOOK_RESPONSE | invalid hook response | launchpad 0x1017 | ErrInvalidHookResponse (code 43), modules/launchpad/types/errors.go:60 | no |
+| LXP_LAUNCHPAD_INVALID_IMPLEMENTATION | invalid implementation | launchpad 0x1017 | ErrInvalidImplementation (code 44), modules/launchpad/types/errors.go:61 | no |
+| LXP_LAUNCHPAD_INVALID_ROLE_ACCOUNT | invalid role account | launchpad 0x1017 | ErrInvalidRoleAccount (code 45), modules/launchpad/types/errors.go:62 | no |
+| LXP_LAUNCHPAD_LAST_DEFAULT_ADMIN | last default admin | launchpad 0x1017 | ErrLastDefaultAdmin (code 46), modules/launchpad/types/errors.go:63 | no |
+| LXP_LAUNCHPAD_MISSING_ROLE | missing role | launchpad 0x1017 | ErrMissingRole (code 47), modules/launchpad/types/errors.go:64 | no |
+| LXP_LAUNCHPAD_MULTICALL_FAILED | multicall failed | launchpad 0x1017 | ErrMulticallFailed (code 48), modules/launchpad/types/errors.go:65 | no |
+| LXP_LAUNCHPAD_NON_ERC721_RECEIVER | non erc721 receiver | launchpad 0x1017 | ErrNonERC721Receiver (code 49), modules/launchpad/types/errors.go:66 | no |
+| LXP_LAUNCHPAD_NON_PAYABLE_UPGRADE | non payable upgrade | launchpad 0x1017 | ErrNonPayableUpgrade (code 50), modules/launchpad/types/errors.go:67 | no |
+| LXP_LAUNCHPAD_NOT_APPROVED | not approved | launchpad 0x1017 | ErrNotApproved (code 51), modules/launchpad/types/errors.go:68 | no |
+| LXP_LAUNCHPAD_NOT_INITIALIZING | not initializing | launchpad 0x1017 | ErrNotInitializing (code 52), modules/launchpad/types/errors.go:69 | no |
+| LXP_LAUNCHPAD_NOT_TOKEN_OWNER | not token owner | launchpad 0x1017 | ErrNotTokenOwner (code 53), modules/launchpad/types/errors.go:70 | no |
+| LXP_LAUNCHPAD_OPTICAL_QUOTE_UNSUPPORTED | optical quote unsupported | launchpad 0x1017 | ErrOpticalQuoteUnsupported (code 54), modules/launchpad/types/errors.go:71 | no |
+| LXP_LAUNCHPAD_POOL_INDEX_MIGRATION_REQUIRED | pool index migration required | launchpad 0x1017 | ErrPoolIndexMigrationRequired (code 55), modules/launchpad/types/errors.go:72 | no |
+| LXP_LAUNCHPAD_REENTRANCY_GUARD_REENTRANT_CALL | reentrancy guard reentrant call | launchpad 0x1017 | ErrReentrancyGuardReentrantCall (code 56), modules/launchpad/types/errors.go:73 | no |
+| LXP_LAUNCHPAD_SAME_TOKEN | same token | launchpad 0x1017 | ErrSameToken (code 57), modules/launchpad/types/errors.go:74 | no |
+| LXP_LAUNCHPAD_TOKEN_NOT_FOUND | token not found | launchpad 0x1017 | ErrTokenNotFound (code 58), modules/launchpad/types/errors.go:75 | no |
+| LXP_LAUNCHPAD_TRANSFER_FAILED | transfer failed | launchpad 0x1017 | ErrTransferFailed (code 59), modules/launchpad/types/errors.go:76 | no |
+| LXP_LAUNCHPAD_TRANSFER_FROM_FAILED | transfer from failed | launchpad 0x1017 | ErrTransferFromFailed (code 60), modules/launchpad/types/errors.go:77 | no |
+| LXP_LAUNCHPAD_UUPS_NOT_THROUGH_ACTIVE_PROXY | uups not through active proxy | launchpad 0x1017 | ErrUUPSNotThroughActiveProxy (code 61), modules/launchpad/types/errors.go:78 | no |
+| LXP_LAUNCHPAD_UUPS_NOT_THROUGH_PROXY | uups not through proxy | launchpad 0x1017 | ErrUUPSNotThroughProxy (code 62), modules/launchpad/types/errors.go:79 | no |
+| LXP_LAUNCHPAD_UNAUTHORIZED_UPGRADE | unauthorized upgrade | launchpad 0x1017 | ErrUnauthorizedUpgrade (code 63), modules/launchpad/types/errors.go:80 | no |
+| LXP_LAUNCHPAD_UNEXECUTABLE_QUOTE | unexecutable quote | launchpad 0x1017 | ErrUnexecutableQuote (code 64), modules/launchpad/types/errors.go:81 | no |
+| LXP_LAUNCHPAD_UNSUPPORTED_SNAPSHOT_TOKEN | unsupported snapshot token | launchpad 0x1017 | ErrUnsupportedSnapshotToken (code 65), modules/launchpad/types/errors.go:82 | no |
+| LXP_LAUNCHPAD_UPGRADE_INITIALIZATION_FAILED | upgrade initialization failed | launchpad 0x1017 | ErrUpgradeInitializationFailed (code 66), modules/launchpad/types/errors.go:83 | no |
+| LXP_LAUNCHPAD_INVALID_TOKEN | invalid token | launchpad 0x1017 | ErrInvalidToken (code 67), modules/launchpad/types/errors.go:84 | no |
+| LXP_LAUNCHPAD_REENTRANT_CALL | reentrant call | launchpad 0x1017 | ErrReentrantCall (code 68), modules/launchpad/types/errors.go:85 | no |
+| LXP_LAUNCHPAD_ACCESS_CONTROL_UNAUTHORIZED_ACCOUNT | access control unauthorized account | launchpad 0x1017 | ErrAccessControlUnauthorizedAccount (code 69), modules/launchpad/types/errors.go:86 | no |
+| LXP_LAUNCHPAD_RETIRED | retired | launchpad 0x1017 | ErrRetired (code 70), modules/launchpad/types/errors.go:87 | no |
+| LXP_LAUNCHPAD_FUTURE_LOOKUP | future lookup | launchpad 0x1017 | ErrFutureLookup (code 71), modules/launchpad/types/errors.go:88 | yes |
+| LXP_LAUNCHPAD_INSUFFICIENT_ALLOWANCE | insufficient allowance | launchpad 0x1017 | ErrInsufficientAllowance (code 72), modules/launchpad/types/errors.go:89 | yes |
+| LXP_LAUNCHPAD_INVALID_PERMIT | invalid permit | launchpad 0x1017 | ErrInvalidPermit (code 73), modules/launchpad/types/errors.go:90 | no |
+| LXP_LAUNCHPAD_INVALID_POOL_BINDING | invalid pool binding | launchpad 0x1017 | ErrInvalidPoolBinding (code 74), modules/launchpad/types/errors.go:91 | no |
+| LXP_LAUNCHPAD_PERMIT_EXPIRED | permit expired | launchpad 0x1017 | ErrPermitExpired (code 75), modules/launchpad/types/errors.go:92 | no |
 | LXP_ANCHOR_CHECKPOINT_UNKNOWN | checkpoint unknown | layerxanchor 0x1014 read methods until the store-delete step (writes retired) | ErrCheckpointUnknown (code 8), modules/layerxanchor/types/errors.go:12 | no |
 | LXP_ANCHOR_GUARANTOR_UNKNOWN | guarantor unknown | layerxanchor 0x1014 read methods until the store-delete step (writes retired) | ErrGuarantorUnknown (code 10), modules/layerxanchor/types/errors.go:14 | no |
 | LXP_TOKENFACTORY_DENOM_EXISTS | attempting to create a denom that already exists (has bank metadata) | layerxledger 0x101A register/mint/burn through the tokenfactory keeper | ErrDenomExists (code 2), modules/tokenfactory/types/errors.go:13 | no |
@@ -496,6 +546,66 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_AGENT_TEE_DEBUG_REFUSED | debug enclave refused | agent functions 0x0901-0x0908: verify, verifyAndExpect | agent-functions.md A.0; new under precompiles/layerxagent | no |
 | LXP_AGENT_TEE_REPORT_DATA_MISMATCH | report data mismatch | agent functions 0x0901-0x0908: verifyAndExpect | agent-functions.md A.0; new under precompiles/layerxagent | no |
 | LXP_AGENT_TEE_UNAUTHORIZED_UPDATE | unauthorized root update | agent functions 0x0901-0x0908: tee root update (governance) | agent-functions.md A.0; new under precompiles/layerxagent | no |
+| LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE | scheduler calldata too large | agent scheduler 0x0905: schedule | ErrSchedulerCallDataTooLarge, precompiles/layerxagent/common/common.go:54 | no |
+| LXP_PERPS_INVALID_PARAMS | invalid params | perps 0x1015 | ErrInvalidParams (code 2), modules/perps/types/errors.go:14 | no |
+| LXP_PERPS_UNKNOWN_MARKET | unknown market | perps 0x1015 | ErrUnknownMarket (code 3), modules/perps/types/errors.go:15 | no |
+| LXP_PERPS_MARKET_DISABLED | market disabled | perps 0x1015 | ErrMarketDisabled (code 4), modules/perps/types/errors.go:16 | yes |
+| LXP_PERPS_PRICE_STALE | price stale | perps 0x1015 | ErrPriceStale (code 5), modules/perps/types/errors.go:17 | yes |
+| LXP_PERPS_ZERO_AMOUNT | zero amount | perps 0x1015 | ErrZeroAmount (code 6), modules/perps/types/errors.go:18 | no |
+| LXP_PERPS_UNSUPPORTED_COLLATERAL | unsupported collateral | perps 0x1015 | ErrUnsupportedCollateral (code 7), modules/perps/types/errors.go:19 | no |
+| LXP_PERPS_INSUFFICIENT_COLLATERAL | insufficient collateral | perps 0x1015 | ErrInsufficientCollateral (code 8), modules/perps/types/errors.go:20 | yes |
+| LXP_PERPS_INSUFFICIENT_MARGIN | insufficient margin | perps 0x1015 | ErrInsufficientMargin (code 9), modules/perps/types/errors.go:21 | yes |
+| LXP_PERPS_LEVERAGE_TOO_HIGH | leverage too high | perps 0x1015 | ErrLeverageTooHigh (code 10), modules/perps/types/errors.go:22 | no |
+| LXP_PERPS_TICK_SIZE | tick size | perps 0x1015 | ErrTickSize (code 11), modules/perps/types/errors.go:23 | no |
+| LXP_PERPS_LOT_SIZE | lot size | perps 0x1015 | ErrLotSize (code 12), modules/perps/types/errors.go:24 | no |
+| LXP_PERPS_MIN_ORDER_VALUE | min order value | perps 0x1015 | ErrMinOrderValue (code 13), modules/perps/types/errors.go:25 | no |
+| LXP_PERPS_MAX_ORDER_VALUE | max order value | perps 0x1015 | ErrMaxOrderValue (code 14), modules/perps/types/errors.go:26 | no |
+| LXP_PERPS_OPEN_INTEREST_CAP | open interest cap | perps 0x1015 | ErrOpenInterestCap (code 15), modules/perps/types/errors.go:27 | yes |
+| LXP_PERPS_INVALID_TIME_IN_FORCE | invalid time in force | perps 0x1015 | ErrInvalidTimeInForce (code 16), modules/perps/types/errors.go:28 | no |
+| LXP_PERPS_INVALID_ORDER_TYPE | invalid order type | perps 0x1015 | ErrInvalidOrderType (code 17), modules/perps/types/errors.go:29 | no |
+| LXP_PERPS_POST_ONLY_WOULD_CROSS | post only would cross | perps 0x1015 | ErrPostOnlyWouldCross (code 18), modules/perps/types/errors.go:30 | no |
+| LXP_PERPS_FOK_NOT_FILLED | fok not filled | perps 0x1015 | ErrFokNotFilled (code 19), modules/perps/types/errors.go:31 | yes |
+| LXP_PERPS_NO_LIQUIDITY | no liquidity | perps 0x1015 | ErrNoLiquidity (code 20), modules/perps/types/errors.go:32 | yes |
+| LXP_PERPS_SLIPPAGE_EXCEEDED | slippage exceeded | perps 0x1015 | ErrSlippageExceeded (code 21), modules/perps/types/errors.go:33 | yes |
+| LXP_PERPS_DEADLINE_EXPIRED | deadline expired | perps 0x1015 | ErrDeadlineExpired (code 22), modules/perps/types/errors.go:34 | no |
+| LXP_PERPS_REDUCE_ONLY_VIOLATION | reduce only violation | perps 0x1015 | ErrReduceOnlyViolation (code 23), modules/perps/types/errors.go:35 | no |
+| LXP_PERPS_DUPLICATE_CLOID | duplicate cloid | perps 0x1015 | ErrDuplicateCloid (code 24), modules/perps/types/errors.go:36 | no |
+| LXP_PERPS_UNKNOWN_ORDER | unknown order | perps 0x1015 | ErrUnknownOrder (code 25), modules/perps/types/errors.go:37 | no |
+| LXP_PERPS_NOT_ORDER_HOLDER | not order holder | perps 0x1015 | ErrNotOrderHolder (code 26), modules/perps/types/errors.go:38 | no |
+| LXP_PERPS_UNKNOWN_POSITION | unknown position | perps 0x1015 | ErrUnknownPosition (code 27), modules/perps/types/errors.go:39 | no |
+| LXP_PERPS_NOT_POSITION_HOLDER | not position holder | perps 0x1015 | ErrNotPositionHolder (code 28), modules/perps/types/errors.go:40 | no |
+| LXP_PERPS_INVALID_TRIGGER_PRICE | invalid trigger price | perps 0x1015 | ErrInvalidTriggerPrice (code 29), modules/perps/types/errors.go:41 | no |
+| LXP_PERPS_TRIGGER_NOT_REACHED | trigger not reached | perps 0x1015 | ErrTriggerNotReached (code 30), modules/perps/types/errors.go:42 | no |
+| LXP_PERPS_TOO_MANY_OPEN_ORDERS | too many open orders | perps 0x1015 | ErrTooManyOpenOrders (code 31), modules/perps/types/errors.go:43 | yes |
+| LXP_PERPS_CROSS_MARGIN_ONLY | cross margin only | perps 0x1015 | ErrCrossMarginOnly (code 32), modules/perps/types/errors.go:44 | no |
+| LXP_PERPS_NOT_LIQUIDATABLE | not liquidatable | perps 0x1015 | ErrNotLiquidatable (code 33), modules/perps/types/errors.go:45 | no |
+| LXP_PERPS_LIQUIDATION_COOLDOWN | liquidation cooldown | perps 0x1015 | ErrLiquidationCooldown (code 34), modules/perps/types/errors.go:46 | yes |
+| LXP_PERPS_UNAUTHORIZED | unauthorized | perps 0x1015 | ErrUnauthorized (code 35), modules/perps/types/errors.go:47 | no |
+| LXP_PERPS_STATIC_CALL | static call | perps 0x1015 | ErrStaticCall (code 36), modules/perps/types/errors.go:48 | no |
+| LXP_PERPS_DELEGATECALL | delegatecall | perps 0x1015 | ErrDelegatecall (code 37), modules/perps/types/errors.go:49 | no |
+| LXP_PERPS_OVERFLOW | overflow | perps 0x1015 | ErrOverflow (code 38), modules/perps/types/errors.go:50 | no |
+| LXP_PERPS_INVALID_GENESIS | invalid genesis | perps 0x1015 | ErrInvalidGenesis (code 39), modules/perps/types/errors.go:51 | no |
+| LXP_PERPS_CLOSE_SIZE_EXCEEDS_POSITION | close size exceeds position | perps 0x1015 | ErrCloseSizeExceedsPosition (code 40), modules/perps/types/errors.go:52 | no |
+| LXP_PERPS_SELF_TRANSFER | self transfer | perps 0x1015 | ErrSelfTransfer (code 41), modules/perps/types/errors.go:53 | no |
+| LXP_PERPS_ZERO_ADDRESS | zero address | perps 0x1015 | ErrZeroAddress (code 42), modules/perps/types/errors.go:54 | no |
+| LXP_PERPS_NO_ACCOUNT | no account | perps 0x1015 | ErrNoAccount (code 43), modules/perps/types/errors.go:55 | no |
+| LXP_PERPS_TOKEN_TRANSFER_FAILED | token transfer failed | perps 0x1015 | ErrTokenTransferFailed (code 44), modules/perps/types/errors.go:56 | no |
+| LXP_PERPS_PAUSED | paused | perps 0x1015 | ErrPaused (code 45), modules/perps/types/errors.go:57 | yes |
+| LXP_PRICEFEED_UNAUTHORIZED | unauthorized | pricefeed 0x1020 | ErrUnauthorized (code 2), modules/pricefeed/types/errors.go:12 | no |
+| LXP_PRICEFEED_INVALID_PARAMS | invalid params | pricefeed 0x1020 | ErrInvalidParams (code 3), modules/pricefeed/types/errors.go:13 | no |
+| LXP_PRICEFEED_INVALID_GENESIS | invalid genesis | pricefeed 0x1020 | ErrInvalidGenesis (code 4), modules/pricefeed/types/errors.go:14 | no |
+| LXP_PRICEFEED_NOT_VALIDATOR | not a bonded validator | pricefeed 0x1020 | ErrNotValidator (code 5), modules/pricefeed/types/errors.go:15 | no |
+| LXP_PRICEFEED_INVALID_KEY | feed key must be a 33-byte compressed secp256k1 public key | pricefeed 0x1020 | ErrInvalidKey (code 6), modules/pricefeed/types/errors.go:16 | no |
+| LXP_PRICEFEED_KEY_IN_USE | feed account is registered to another validator | pricefeed 0x1020 | ErrKeyInUse (code 7), modules/pricefeed/types/errors.go:17 | no |
+| LXP_PRICEFEED_NO_KEY | validator has no feed key | pricefeed 0x1020 | ErrNoKey (code 8), modules/pricefeed/types/errors.go:18 | no |
+| LXP_PRICEFEED_UNKNOWN_MARKET | market is not listed | pricefeed 0x1020 | ErrUnknownMarket (code 9), modules/pricefeed/types/errors.go:19 | no |
+| LXP_PRICEFEED_UNREGISTERED_FEEDER | feeder is not a registered feed account | pricefeed 0x1020 | ErrUnregisteredFeeder (code 10), modules/pricefeed/types/errors.go:20 | no |
+| LXP_PRICEFEED_RATE_LIMITED | the validator has already submitted prices at this height | pricefeed 0x1020 | ErrRateLimited (code 11), modules/pricefeed/types/errors.go:21 | yes |
+| LXP_PRICEFEED_TOO_MANY_OBSERVATIONS | too many observations in one submission | pricefeed 0x1020 | ErrTooManyObservations (code 12), modules/pricefeed/types/errors.go:22 | no |
+| LXP_PRICEFEED_SUBMISSION_TOO_LARGE | submission is over the byte bound | pricefeed 0x1020 | ErrSubmissionTooLarge (code 13), modules/pricefeed/types/errors.go:23 | no |
+| LXP_PRICEFEED_DUPLICATE_MARKET | a submission carries one observation per market | pricefeed 0x1020 | ErrDuplicateMarket (code 14), modules/pricefeed/types/errors.go:24 | no |
+| LXP_PRICEFEED_SUBMISSION_ALONE | price submissions cannot be in the same tx as other messages | pricefeed 0x1020 | ErrSubmissionAlone (code 15), modules/pricefeed/types/errors.go:25 | no |
+| LXP_PRICEFEED_INVALID_OBSERVATION | invalid observation | pricefeed 0x1020 | ErrInvalidObservation (code 16), modules/pricefeed/types/errors.go:26 | no |
 
 ## (c) Activation
 One named plan for the merge; per-method gates read its done height through IsUpgradeActiveAtHeight (sdk/x/upgrade/keeper/keeper.go:296-299) as modules/layerxcustody/keeper/keeper.go:42 does.
