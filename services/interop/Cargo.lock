@@ -1225,7 +1225,6 @@ dependencies = [
  "k256",
  "layerx-crypto",
  "layerx-mirror",
- "layerx-paxeer-verifier",
  "layerx-proof",
  "openssl",
  "serde",

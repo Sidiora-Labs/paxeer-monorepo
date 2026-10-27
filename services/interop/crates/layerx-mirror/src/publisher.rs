@@ -2,9 +2,11 @@ use std::collections::BTreeMap;
 
 use layerx_agent_api::read::{CheckpointValue, VerifiedRead};
 use layerx_agent_api::verify::Rung;
-use layerx_client::availability::{AvailabilityRecords, AvailabilityResult};
 use layerx_crypto::ed25519;
-use layerx_proof::availability::{AvailabilityClass, RootCommitments};
+use layerx_proof::availability::{
+    reassemble, AvailabilityClass, AvailabilityFailure, AvailabilityRecords, RootCommitments,
+    VerifiedChunk,
+};
 use layerx_proof::checkpoint::ThresholdReport;
 use layerx_proof::merkle::{root, root_from_leaf_hashes};
 use layerx_wire::hash::{availability_chunk_digest, batch_header_digest, checkpoint_id};
@@ -17,9 +19,7 @@ use crate::committed::CommittedBlock;
 
 const ARCHIVE_MAGIC: &[u8; 8] = b"LXMIRROR";
 const ARCHIVE_VERSION: u16 = 2;
-const NATIVE_ARCHIVE_VERSION: u16 = 3;
 const ARCHIVE_VERSION_V4: u16 = 4;
-const NATIVE_CERTIFICATE_MAGIC: &[u8; 8] = b"LXCPAUTH";
 const ARCHIVE_DOMAIN: &[u8] = b"LXP/mirror/archive/v2\0";
 const ARCHIVE_DOMAIN_V4: &[u8] = b"LXP/mirror/archive/v4\0";
 const MAX_ARCHIVE_BYTES: usize = 64 * 1024 * 1024;
@@ -300,7 +300,7 @@ impl ArchiveData {
                 committed: Some(committed),
             });
         }
-        if archive_version != ARCHIVE_VERSION && archive_version != NATIVE_ARCHIVE_VERSION {
+        if archive_version != ARCHIVE_VERSION {
             return Err(ArchiveError::Version);
         }
         let protocol_version = reader.u16()?;
@@ -383,13 +383,8 @@ impl ArchiveData {
                     checkpoint_id: reader.array()?,
                 };
                 let canonical_certificate = reader.bytes(MAX_FIELD_BYTES)?;
-                let native = canonical_certificate.starts_with(NATIVE_CERTIFICATE_MAGIC);
-                if native != (archive_version == NATIVE_ARCHIVE_VERSION) {
-                    return Err(ArchiveError::Version);
-                }
-                let projection = checkpoint_certificate_projection(&canonical_certificate)?;
-                let certificate =
-                    decode_checkpoint(&projection).map_err(|_| ArchiveError::Checkpoint)?;
+                let certificate = decode_checkpoint(&canonical_certificate)
+                    .map_err(|_| ArchiveError::Checkpoint)?;
                 let reproduced =
                     encode_checkpoint(&certificate).map_err(|_| ArchiveError::Checkpoint)?;
                 let certificate_header = certificate.header();
@@ -399,7 +394,7 @@ impl ArchiveData {
                     certificate.validity_proof(),
                 )
                 .map_err(|_| ArchiveError::Checkpoint)?;
-                if reproduced != projection
+                if reproduced != canonical_certificate
                     || certificate_header.protocol_version() != protocol_version
                     || certificate_header.network_id() != network_id
                     || certificate_header.batch_number() != coordinate.batch_number
@@ -414,9 +409,6 @@ impl ArchiveData {
             }
             _ => return Err(ArchiveError::Format),
         };
-        if archive_version == NATIVE_ARCHIVE_VERSION && checkpoint.is_none() {
-            return Err(ArchiveError::Checkpoint);
-        }
         reader.finish()?;
         Ok(Self {
             protocol_version,
@@ -439,17 +431,7 @@ impl ArchiveData {
         }
         let mut writer = Writer::new();
         writer.raw(ARCHIVE_MAGIC)?;
-        writer.u16(
-            if self.checkpoint.as_ref().is_some_and(|checkpoint| {
-                checkpoint
-                    .canonical_certificate
-                    .starts_with(NATIVE_CERTIFICATE_MAGIC)
-            }) {
-                NATIVE_ARCHIVE_VERSION
-            } else {
-                ARCHIVE_VERSION
-            },
-        )?;
+        writer.u16(ARCHIVE_VERSION)?;
         writer.u16(self.protocol_version)?;
         writer.u32(self.network_id)?;
         writer.u64(self.batch_number)?;
@@ -556,7 +538,7 @@ impl Archive {
     }
 
     /// Builds one archive exclusively from an authoritative batch read, a
-    /// complete verified availability result, and optional verified checkpoint.
+    /// complete proof-gated availability chunks, and optional verified checkpoint.
     ///
     /// # Errors
     ///
@@ -564,7 +546,7 @@ impl Archive {
     /// node bytes, inconsistent checkpoint evidence, or dishonest head values.
     pub fn from_node(
         batch: &NodeBatch,
-        availability: &AvailabilityResult,
+        availability: &[VerifiedChunk],
         checkpoint: Option<NodeCheckpoint<'_>>,
         node_head: NodeHead,
     ) -> Result<Self, SourceError> {
@@ -577,18 +559,26 @@ impl Archive {
         }
         verify_batch_authorization(&header, &canonical_batch_header, batch.authorization)
             .map_err(|_| SourceError::BatchAuthorization)?;
-        if header.batch_number() != availability.batch_number() {
+        if availability
+            .iter()
+            .any(|verified| verified.chunk().batch_number != header.batch_number())
+        {
             return Err(SourceError::BatchMismatch);
         }
-        let record_roots = availability.record_roots();
-        if header.data_availability_root() != availability.data_availability_root()
-            || header.activity_merkle_root() != record_roots.activity
-            || header.receipt_merkle_root() != record_roots.receipt
-            || header.event_merkle_root() != record_roots.event
-            || header.oracle_root() != record_roots.oracle
+        if availability
+            .iter()
+            .any(|verified| verified.data_availability_root() != header.data_availability_root())
         {
             return Err(SourceError::RootMismatch);
         }
+        let record_roots = RootCommitments {
+            activity: header.activity_merkle_root(),
+            receipt: header.receipt_merkle_root(),
+            event: header.event_merkle_root(),
+            oracle: header.oracle_root(),
+        };
+        let (records, _) =
+            reassemble(availability, record_roots).map_err(SourceError::Availability)?;
         if node_head.sealed_height() < header.batch_number() {
             return Err(SourceError::HeadBehindBatch);
         }
@@ -599,7 +589,6 @@ impl Archive {
             return Err(SourceError::HeadBehindCheckpoint);
         }
         let chunks = availability
-            .chunks
             .iter()
             .map(|verified| {
                 let chunk = verified.chunk();
@@ -614,11 +603,79 @@ impl Archive {
             .collect::<Vec<_>>();
         let archived_checkpoint = checkpoint
             .map(|material| {
-                verify_node_checkpoint(
-                    material,
-                    header.network_id(),
-                    node_head.committed_checkpoint(),
-                )
+                let network_id = header.network_id();
+                let head = node_head.committed_checkpoint();
+                if material.read.achieved_rung < Rung::Committed {
+                    return Err(SourceError::CheckpointVerificationLevel);
+                }
+                if material.read.value.height != material.verification.last_sequence() {
+                    return Err(SourceError::CheckpointMismatch);
+                }
+                let certificate_bytes = material.read.value.commit.as_bytes().to_vec();
+                let certificate = decode_checkpoint(&certificate_bytes)
+                    .map_err(|_| SourceError::CheckpointCertificate)?;
+                let reproduced = encode_checkpoint(&certificate)
+                    .map_err(|_| SourceError::CheckpointCertificate)?;
+                let certificate_header = certificate.header();
+                let canonical_header = encode_batch_header(certificate_header)
+                    .map_err(|_| SourceError::CheckpointCertificate)?;
+                let canonical_checkpoint_id =
+                    checkpoint_id(&canonical_header, certificate.validity_proof())
+                        .map_err(|_| SourceError::CheckpointCertificate)?;
+                let report_roots = material.verification.record_roots();
+                let certificate_roots = RootCommitments {
+                    activity: certificate_header.activity_merkle_root(),
+                    receipt: certificate_header.receipt_merkle_root(),
+                    event: certificate_header.event_merkle_root(),
+                    oracle: certificate_header.oracle_root(),
+                };
+                if reproduced != certificate_bytes
+                    || certificate_header.network_id() != network_id
+                    || material.verification.protocol_version()
+                        != certificate_header.protocol_version()
+                    || material.verification.network_id() != certificate_header.network_id()
+                    || material.verification.batch_number() != certificate_header.batch_number()
+                    || material.verification.first_sequence() != certificate_header.first_sequence()
+                    || material.verification.last_sequence() != certificate_header.last_sequence()
+                    || material.verification.data_availability_root()
+                        != certificate_header.data_availability_root()
+                    || material.verification.resulting_state_root()
+                        != certificate_header.resulting_state_root()
+                    || report_roots != certificate_roots
+                    || material.verification.required
+                        != usize::try_from(certificate.threshold())
+                            .map_err(|_| SourceError::CheckpointMismatch)?
+                    || material.verification.achieved < material.verification.required
+                    || material.verification.achieved != certificate.guarantor_signatures().len()
+                    || material.verification.evidence().settlement_reference()
+                        != (!certificate.settlement_reference().is_empty())
+                            .then_some(certificate.settlement_reference())
+                {
+                    return Err(SourceError::CheckpointMismatch);
+                }
+                let checkpoint_id = material
+                    .verification
+                    .evidence()
+                    .checkpoint_id()
+                    .ok_or(SourceError::CheckpointMismatch)?;
+                if checkpoint_id != canonical_checkpoint_id {
+                    return Err(SourceError::CheckpointMismatch);
+                }
+                let coordinate = CheckpointCoordinate {
+                    batch_number: material.verification.batch_number(),
+                    checkpoint_id,
+                };
+                let head = head.ok_or(SourceError::HeadBehindCheckpoint)?;
+                if coordinate.batch_number > head.batch_number
+                    || (coordinate.batch_number == head.batch_number
+                        && coordinate.checkpoint_id != head.checkpoint_id)
+                {
+                    return Err(SourceError::CheckpointMismatch);
+                }
+                Ok(ArchivedCheckpoint {
+                    coordinate,
+                    canonical_certificate: certificate_bytes,
+                })
             })
             .transpose()?;
         let data = ArchiveData {
@@ -627,10 +684,10 @@ impl Archive {
             batch_number: header.batch_number(),
             canonical_batch_header,
             batch_authorization: batch.authorization,
-            data_availability_root: availability.data_availability_root(),
+            data_availability_root: header.data_availability_root(),
             record_roots,
             chunks,
-            records: availability.records().into(),
+            records: (&records).into(),
             checkpoint: archived_checkpoint,
             committed: None,
         };
@@ -669,72 +726,6 @@ impl Archive {
     }
 }
 
-pub(crate) fn wrap_native_certificate(
-    projection: &[u8],
-    checkpoint: &[u8],
-    context: &[u8],
-) -> Result<Vec<u8>, ArchiveError> {
-    let mut writer = Writer::new();
-    writer.raw(NATIVE_CERTIFICATE_MAGIC)?;
-    writer.u16(1)?;
-    writer.bytes(projection)?;
-    writer.bytes(checkpoint)?;
-    writer.bytes(context)?;
-    writer.finish()
-}
-
-pub(crate) fn native_archive_candidate(
-    bytes: &[u8],
-) -> Result<layerx_client::evidence::FinalityEvidenceCandidate, ArchiveError> {
-    let mut reader = Reader::new(bytes);
-    if reader.take(8)? != NATIVE_CERTIFICATE_MAGIC || reader.u16()? != 1 {
-        return Err(ArchiveError::Version);
-    }
-    let projection = reader.bytes(MAX_FIELD_BYTES)?;
-    let checkpoint = reader.bytes(MAX_FIELD_BYTES)?;
-    let context = reader.bytes(MAX_FIELD_BYTES)?;
-    reader.finish()?;
-    if checkpoint.get(..2) != Some(&[0, 1]) || context.get(..2) != Some(&[0, 2]) {
-        return Err(ArchiveError::Version);
-    }
-    let certificate = decode_checkpoint(&projection).map_err(|_| ArchiveError::Checkpoint)?;
-    let candidate = layerx_client::evidence::FinalityEvidenceCandidate::from_exact_bytes(
-        checkpoint,
-        context,
-        certificate.header().protocol_version(),
-        certificate.header().network_id(),
-    )
-    .map_err(|_| ArchiveError::Checkpoint)?;
-    if candidate
-        .observed_block_hash()
-        .map_err(|_| ArchiveError::Checkpoint)?
-        .is_none()
-        || crate::node::native_certificate_projection(
-            &candidate
-                .certificate()
-                .map_err(|_| ArchiveError::Checkpoint)?,
-        )
-        .map_err(|_| ArchiveError::Checkpoint)?
-            != projection
-    {
-        return Err(ArchiveError::Checkpoint);
-    }
-    Ok(candidate)
-}
-
-fn checkpoint_certificate_projection(bytes: &[u8]) -> Result<Vec<u8>, ArchiveError> {
-    if !bytes.starts_with(NATIVE_CERTIFICATE_MAGIC) {
-        return Ok(bytes.to_vec());
-    }
-    let candidate = native_archive_candidate(bytes)?;
-    crate::node::native_certificate_projection(
-        &candidate
-            .certificate()
-            .map_err(|_| ArchiveError::Checkpoint)?,
-    )
-    .map_err(|_| ArchiveError::Checkpoint)
-}
-
 fn verify_batch_authorization(
     header: &layerx_wire::receipt::BatchHeader,
     canonical_header: &[u8],
@@ -757,90 +748,6 @@ fn verify_batch_authorization(
         &digest,
     )
     .map_err(|_| ArchiveError::BatchAuthorization)
-}
-
-fn verify_node_checkpoint(
-    material: NodeCheckpoint<'_>,
-    network_id: u32,
-    head: Option<CheckpointCoordinate>,
-) -> Result<ArchivedCheckpoint, SourceError> {
-    if material.read.achieved_rung < Rung::Committed {
-        return Err(SourceError::CheckpointVerificationLevel);
-    }
-    if material.read.value.height != material.verification.last_sequence() {
-        return Err(SourceError::CheckpointMismatch);
-    }
-    let certificate_bytes = material.read.value.commit.as_bytes().to_vec();
-    if certificate_bytes.starts_with(NATIVE_CERTIFICATE_MAGIC) {
-        let candidate = native_archive_candidate(&certificate_bytes)
-            .map_err(|_| SourceError::CheckpointCertificate)?;
-        if candidate.context_bytes() != material.read.value.validator_set.as_bytes() {
-            return Err(SourceError::CheckpointMismatch);
-        }
-    }
-    let projection = checkpoint_certificate_projection(&certificate_bytes)
-        .map_err(|_| SourceError::CheckpointCertificate)?;
-    let certificate =
-        decode_checkpoint(&projection).map_err(|_| SourceError::CheckpointCertificate)?;
-    let reproduced =
-        encode_checkpoint(&certificate).map_err(|_| SourceError::CheckpointCertificate)?;
-    let certificate_header = certificate.header();
-    let canonical_header =
-        encode_batch_header(certificate_header).map_err(|_| SourceError::CheckpointCertificate)?;
-    let canonical_checkpoint_id = checkpoint_id(&canonical_header, certificate.validity_proof())
-        .map_err(|_| SourceError::CheckpointCertificate)?;
-    let report_roots = material.verification.record_roots();
-    let certificate_roots = RootCommitments {
-        activity: certificate_header.activity_merkle_root(),
-        receipt: certificate_header.receipt_merkle_root(),
-        event: certificate_header.event_merkle_root(),
-        oracle: certificate_header.oracle_root(),
-    };
-    if reproduced != projection
-        || certificate_header.network_id() != network_id
-        || material.verification.protocol_version() != certificate_header.protocol_version()
-        || material.verification.network_id() != certificate_header.network_id()
-        || material.verification.batch_number() != certificate_header.batch_number()
-        || material.verification.first_sequence() != certificate_header.first_sequence()
-        || material.verification.last_sequence() != certificate_header.last_sequence()
-        || material.verification.data_availability_root()
-            != certificate_header.data_availability_root()
-        || material.verification.resulting_state_root() != certificate_header.resulting_state_root()
-        || report_roots != certificate_roots
-        || material.verification.required
-            != usize::try_from(certificate.threshold())
-                .map_err(|_| SourceError::CheckpointMismatch)?
-        || material.verification.achieved < material.verification.required
-        || material.verification.achieved != certificate.guarantor_signatures().len()
-        || material.verification.evidence().settlement_reference()
-            != (!certificate.settlement_reference().is_empty())
-                .then_some(certificate.settlement_reference())
-    {
-        return Err(SourceError::CheckpointMismatch);
-    }
-    let checkpoint_id = material
-        .verification
-        .evidence()
-        .checkpoint_id()
-        .ok_or(SourceError::CheckpointMismatch)?;
-    if checkpoint_id != canonical_checkpoint_id {
-        return Err(SourceError::CheckpointMismatch);
-    }
-    let coordinate = CheckpointCoordinate {
-        batch_number: material.verification.batch_number(),
-        checkpoint_id,
-    };
-    let head = head.ok_or(SourceError::HeadBehindCheckpoint)?;
-    if coordinate.batch_number > head.batch_number
-        || (coordinate.batch_number == head.batch_number
-            && coordinate.checkpoint_id != head.checkpoint_id)
-    {
-        return Err(SourceError::CheckpointMismatch);
-    }
-    Ok(ArchivedCheckpoint {
-        coordinate,
-        canonical_certificate: certificate_bytes,
-    })
 }
 
 fn verify_chunk_set(
@@ -945,6 +852,7 @@ fn decode_class(value: u8) -> Result<AvailabilityClass, ArchiveError> {
 /// Failure while admitting node data to an archive.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum SourceError {
+    Availability(AvailabilityFailure),
     Committed,
     BatchVerificationLevel,
     BatchHeader,

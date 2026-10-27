@@ -560,7 +560,10 @@ impl State {
                     .iter_mut()
                     .find(|submission| {
                         submission.tx_hash == *tx_hash
-                            && submission.status == SubmissionStatus::Pending
+                            && matches!(
+                                submission.status,
+                                SubmissionStatus::Pending | SubmissionStatus::Receipted { .. }
+                            )
                     })
                     .ok_or_else(|| {
                         JournalError::Conflict(format!("{item} has no pending {tx_hash:02x?}"))

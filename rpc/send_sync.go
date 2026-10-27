@@ -23,7 +23,12 @@ var (
 	_ rpc.DataError = (*transactionNotIncludedError)(nil)
 )
 
-func (s *SendAPI) SendRawTransactionSync(ctx context.Context, input hexutil.Bytes, timeoutMs *hexutil.Uint64) (map[string]interface{}, error) {
+func (s *SendAPI) SendRawTransactionSync(ctx context.Context, input hexutil.Bytes, timeoutMs *hexutil.Uint64) (result map[string]interface{}, returnErr error) {
+	startTime := time.Now()
+	defer func() {
+		recordMetricsWithError(ctx, "eth_sendRawTransactionSync", s.connectionType, startTime, returnErr, recover())
+	}()
+
 	hash, err := s.SendRawTransaction(ctx, input)
 	if err != nil {
 		return nil, err
