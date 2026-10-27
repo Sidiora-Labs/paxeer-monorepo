@@ -156,8 +156,17 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "Surface",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.Surface(goCtx, &types.QuerySurfaceRequest{})
-				require.Nil(t, response)
+				address := keeper.Generation2Surfaces[types.RoleRouter]
+				surface := keeper.Surface{Role: types.RoleRouter, Generation: types.Generation2}
+				require.NoError(t, querier.SetSurface(ctx, address, surface))
+				response, err := client.Surface(goCtx, &types.QuerySurfaceRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				require.Equal(t, &types.QuerySurfaceResponse{
+					Found: true,
+					Surface: &types.SurfaceInfo{
+						Role: surface.Role, Generation: uint32(surface.Generation), Market: surface.Market,
+					},
+				}, response)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -297,7 +306,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury":
+			case "Params", "Markets", "Treasury", "Surface":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
