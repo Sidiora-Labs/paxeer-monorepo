@@ -11678,6 +11678,11 @@ ac_2 = "After grants and revokes through 0x101C, iterating the layerxauth module
 title = "Ledger and auth share one kernel idempotency space per DID"
 ac_1 = "An idempotency key used by a DID for a ledger send cannot be reused by the same DID for grantSession (ErrIdempotentReplay, modules/layerxauth/types/errors.go:16) because both keepers run on one host store (modules/lxphost/ctx.go:65), while another DID may use the same key."
 
+
+[req.2072]
+title = "The layerxauth keeper test package builds"
+ac_1 = "go test ./modules/layerxauth/keeper/ reaches test execution: the in-package tests that import tests/testutil/keeper, which imports node, which imports the auth keeper, are package keeper_test behind an export_test.go bridge, as the modules/layerxledger/keeper tests are."
+
 [req.2241]
 title = "Generate layerxpay Params and MsgUpdateParams from api/layerxpay/tx.proto"
 ac_1 = "MsgUpdateParams.ValidateBasic in modules/layerxpay/types/msgs.go (planned) refuses a non-bech32 authority with sdkerrors.ErrInvalidAddress and accepts a bech32 governance authority with every combination of the five Params booleans, matching the rule of modules/layerxledger/types/msgs.go:23-28."
@@ -52711,6 +52716,15 @@ req = "2999.1"
 scenario = "Given the candidate after every domain-2 wave-6 task, when TestLedgerCompletionRetiredSurfacesAbsent runs, then no retired surface remains and every planned path exists"
 contract = "contracts/ledger-auth.md#layerxledger-0x101a"
 test = "precompiles/layerxledger/completion_gate_test.go::TestLedgerCompletionRetiredSurfacesAbsent (planned)"
+qualification = "UNRUN"
+
+
+[acceptance.2.72.1]
+feature = "2"
+req = "2072.1"
+scenario = "Given the merged tree, when go test runs the layerxauth keeper package, then its setup succeeds and TestAuthKeeperParamsRoundTrip runs"
+contract = "contracts/auth.md#keeper"
+test = "modules/layerxauth/keeper/keeper_test.go::TestAuthKeeperParamsRoundTrip"
 qualification = "UNRUN"
 
 [acceptance.3.1.1]
@@ -97857,7 +97871,7 @@ capabilities = ["2.14.2"]
 interfaces = []
 do_1 = "Write TestAuthPrecompileKernelParity in precompiles/layerxauth/parity_test.go (planned)."
 do_2 = "Read the fixtures tests/fixtures/authority/native-sessions/authentication/grant.activity:1 and the matching files of the fee, legacy and replacement directories."
-do_3 = "Compare the grant id with grant.activity-id and the result code with grant.receipt (tests/fixtures/authority/native-sessions/authentication/grant.receipt:1)."
+do_3 = "Compare the grant id returned by 0x101C with codec.DomainHash(DomainAuthorityHash, grant body) and the result code of the receipt the call produces with grant.receipt (tests/fixtures/authority/native-sessions/authentication/grant.receipt:1); do not read receipts back by idempotency key, which 1.2.1 retired (attempt f7dd7a41b saw LXP_ERR_UNKNOWN_FIELD from Host.ReadIdempotentReceipt in every case and grant.activity-id, the outer activity id, never equals the grant-body hash 0x101C returns)."
 symbols = ["TestAuthPrecompileKernelParity"]
 touches = ["precompiles/layerxauth/parity_test.go"]
 tests = ["precompiles/layerxauth/parity_test.go::TestAuthPrecompileKernelParity"]
@@ -97888,6 +97902,7 @@ interfaces = []
 do_1 = "Write TestLedgerGasConformance in precompiles/layerxledger/gas_conformance_test.go (planned)."
 do_2 = "Write TestAuthGasConformance in precompiles/layerxauth/gas_conformance_test.go (planned)."
 do_3 = "Compute the expected value with MethodGas.Gas (precompiles/common/precompiles.go:59) and DefaultGasCost (precompiles/common/precompiles.go:441)."
+do_4 = "Do not assert results through resultByIdempotency or Host.ReadIdempotentReceipt: since 1.2.1 the kernel records no idempotency entry, so the read-back at precompiles/layerxledger/gas_conformance_test.go:181 is empty (attempt c5f624b44); assert the result code and receipt directly, and drop the unused modules/lxphost import at gas_conformance_test.go:17."
 symbols = ["TestLedgerGasConformance", "TestAuthGasConformance"]
 touches = ["precompiles/layerxledger/gas_conformance_test.go", "precompiles/layerxauth/gas_conformance_test.go"]
 tests = ["precompiles/layerxledger/gas_conformance_test.go::TestLedgerGasConformance", "precompiles/layerxauth/gas_conformance_test.go::TestAuthGasConformance"]
@@ -97911,7 +97926,7 @@ title = "Retirement conformance: module stores hold params only"
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["2.0.4"]
+requires = ["2.0.4", "2.14.6"]
 reqs = ["2070.1", "2070.2"]
 capabilities = ["2.14.4"]
 interfaces = []
@@ -97941,7 +97956,7 @@ title = "Shared host conformance: idempotency keys are per DID across ledger and
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["2.0.4"]
+requires = ["2.0.4", "2.14.6"]
 reqs = ["2071.1"]
 capabilities = ["2.14.5"]
 interfaces = []
@@ -97958,6 +97973,37 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-ledger-auth-pay"
 rollback = "Revert the touched files; the keeper is not constructed by node/app.go until the wave-4 wiring lands, so no chain path reaches it."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+
+[task.2.14.6]
+title = "Break the layerxauth keeper test import cycle by moving the testutil-backed tests to package keeper_test"
+status = "pending"
+mode = "BUILD"
+wave = 18
+requires = ["5.19.2"]
+reqs = ["2072.1"]
+capabilities = ["2.14.6"]
+interfaces = []
+do_1 = "go test ./modules/layerxauth/keeper/ fails at setup with 'import cycle not allowed in test' (attempts 1a1e85319 and 1bf3eb4c7): modules/layerxauth/keeper/authority_test.go, capability_test.go, execute_test.go, harness_test.go, keeper_test.go and revoke_test.go are package keeper and import tests/testutil/keeper, which imports node (node/epoch.go), which imports modules/layerxauth/keeper (ante.go). Change those six files to package keeper_test, importing the keeper as keeper and referring to its exported names."
+do_2 = "Create modules/layerxauth/keeper/export_test.go (planned) in package keeper exporting, as `var X = x` or thin wrappers, every unexported function, type or variable the six moved files use; the other in-package test files (events_test.go, genesis_test.go, kernel_codes_test.go, msg_server_test.go, pause_test.go, sessions_test.go, views_test.go) stay package keeper and must still compile."
+do_3 = "Change no production file and no assertion; the tests keep their names and expectations."
+symbols = ["TestAuthKeeperParamsRoundTrip", "TestAuthActorBound", "TestAuthActorUnbound"]
+touches = ["modules/layerxauth/keeper/authority_test.go", "modules/layerxauth/keeper/capability_test.go", "modules/layerxauth/keeper/execute_test.go", "modules/layerxauth/keeper/harness_test.go", "modules/layerxauth/keeper/keeper_test.go", "modules/layerxauth/keeper/revoke_test.go", "modules/layerxauth/keeper/export_test.go"]
+tests = ["modules/layerxauth/keeper/keeper_test.go::TestAuthKeeperParamsRoundTrip"]
+planned_paths = ["modules/layerxauth/keeper/export_test.go"]
+build_cmd = "go vet ./modules/layerxauth/keeper/"
+verify_cmd = "go test -count=1 ./modules/layerxauth/keeper/"
+gate_kind = "existing"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the files in touches; production code is untouched."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -131259,8 +131305,9 @@ do_1 = "Delete the /v1/programs/{program_id} and /v1/programs/{program_id}/reads
 do_2 = "Delete NativeExplorerPublicRoute and native_explorer_public_route (services/platform/hosted/gateway/src/lib.rs:872-905) and their import at services/platform/hosted/gateway/src/main.rs:27, so the gateway no longer parses kernel program identifiers."
 do_3 = "A GET of either path answers the gateway not_found refusal; the explorer page routes of the bundled route catalogue read at services/platform/hosted/gateway/src/routes.rs:527 are unchanged."
 do_4 = "Add explorer_program_paths_are_not_proxied to services/platform/hosted/gateway/tests/unified_service_paths.rs beside lx_reads_switched_off (services/platform/hosted/gateway/tests/unified_service_paths.rs:422)."
-symbols = ["native_explorer_public_route", "NativeExplorerPublicRoute", "explorer_program_paths_are_not_proxied"]
-touches = ["services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+do_5 = "Remove the native_explorer_public_route and NativeExplorerPublicRoute import (services/platform/hosted/gateway/tests/browser_profiles.rs:11) and their assertions in native_program_and_name_reads_use_exact_public_owner_routes (:290-295, :346, :366, :392-393), keeping its production_route assertions; attempt 56e51091a deleted both names and left that test target uncompilable."
+symbols = ["explorer_program_paths_are_not_proxied"]
+touches = ["services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs", "services/platform/hosted/gateway/tests/browser_profiles.rs"]
 tests = ["services/platform/hosted/gateway/tests/unified_service_paths.rs::explorer_program_paths_are_not_proxied"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
@@ -132575,7 +132622,7 @@ do_1 = "Remove layerx-relay-archive from IMAGE_NAMES (services/platform/hosted/t
 do_2 = "Delete the relay variables (services/platform/hosted/tests/beta-cluster.sh:304-307), including the archive codec path, and the relay-archive certificate (services/platform/hosted/tests/beta-cluster.sh:667-668)."
 do_3 = "Delete relay_archive_config_write (services/platform/hosted/tests/beta-cluster.sh:1748) and relay_archive_apply (services/platform/hosted/tests/beta-cluster.sh:1855-1876), the relay manifest render (services/platform/hosted/tests/beta-cluster.sh:1943-1946) and the relay_archive_apply call (services/platform/hosted/tests/beta-cluster.sh:3877)."
 do_4 = "Add services/platform/hosted/tests/test_beta_relay_archive_retired.py (planned) with test_beta_cluster_deploys_no_relay_archive."
-symbols = ["relay_archive_config_write", "relay_archive_apply", "image_build_args", "test_beta_cluster_deploys_no_relay_archive"]
+symbols = ["image_build_args", "test_beta_cluster_deploys_no_relay_archive"]
 touches = ["services/platform/hosted/tests/beta-images.sh", "services/platform/hosted/tests/beta-cluster.sh", "services/platform/hosted/tests/test_beta_relay_archive_retired.py"]
 tests = ["services/platform/hosted/tests/test_beta_relay_archive_retired.py::test_beta_cluster_deploys_no_relay_archive"]
 planned_paths = ["services/platform/hosted/tests/test_beta_relay_archive_retired.py"]
@@ -133920,7 +133967,7 @@ requires = ["8.28.3"]
 reqs = ["8271.1", "8271.2"]
 capabilities = ["8.29.1"]
 interfaces = ["interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-rampengine", "interface.8.rs-ramp-toolkit-journal-transitionevidence-j41", "interface.8.fmt-ramp-toolkit-journal"]
-do_1 = "services/platform/ramps/toolkit/src/engine.rs:178-250 submit_layerx, submit_native_receive and submit_payment record activity_id and canonical bytes; record tx_hash and raw_transaction and remove submit_native_receive per decision.827."
+do_1 = "services/platform/ramps/toolkit/src/engine.rs:178-250 submit_layerx, submit_native_receive and submit_payment record activity_id and canonical bytes; record tx_hash and raw_transaction and keep submit_native_receive recording the same fields until task 8.30.2 removes its last caller at services/platform/ramps/reference/src/main.rs:1049 (attempts 5ef277951 and eabd3e15b broke that caller)."
 do_2 = "services/platform/ramps/toolkit/src/engine.rs:252-346 resolve_layerx resolves by activity id and records receipt_digest; resolve by tx_hash, record receipt_digest, height and rung, and keep a Submitted answer in the pending stage."
 do_3 = "services/platform/ramps/toolkit/src/journal.rs:43-50 TransitionEvidence holds activity_id and canonical_activity; hold tx_hash, raw_transaction, receipt_digest, receipt_height and rung."
 do_4 = "services/platform/ramps/toolkit/src/journal.rs:12 binds records to the v1 journal domain; write v2 records under a v2 domain and replay v1 records read-only so existing journals still project per decision.834."
@@ -134054,8 +134101,9 @@ do_1 = "services/platform/ramps/reference/src/main.rs:1027-1076 perform_work che
 do_2 = "services/platform/ramps/reference/src/main.rs:1177-1185 Work carries account_sequence and a native payload; carry account_sequence for draws only."
 do_3 = "services/platform/ramps/reference/src/main.rs:223-275 verify_receipt_command takes ACTIVITY_HEX and prints batch_id, network_id and wire_version; take a 0x transaction hash and print transaction_hash, receipt_digest, height, rung and chain_id."
 do_4 = "Create services/platform/ramps/reference/tests/work_routes.rs (planned) with the two tests below."
+do_5 = "Remove RampEngine::submit_native_receive (services/platform/ramps/toolkit/src/engine.rs) once perform_work no longer calls it, per decision.827; task 8.29.1 left it in place because this file held its last caller."
 symbols = ["perform_work", "verify_receipt_command", "Work"]
-touches = ["services/platform/ramps/reference/src/main.rs", "services/platform/ramps/reference/tests/work_routes.rs"]
+touches = ["services/platform/ramps/reference/src/main.rs", "services/platform/ramps/reference/tests/work_routes.rs", "services/platform/ramps/toolkit/src/engine.rs"]
 tests = ["services/platform/ramps/reference/tests/work_routes.rs::verify_receipt_mode_refuses_activity_hex", "services/platform/ramps/reference/tests/work_routes.rs::work_route_refuses_native_payload_field"]
 planned_paths = ["services/platform/ramps/reference/tests/work_routes.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp"
@@ -150073,6 +150121,7 @@ do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from 
 do_2 = "Build the receipt keys from the vector's pinned keys and run settlement::decode and the payment receipt check of services/interop/crates/x-websearch/src/settlement.rs (planned) on each case."
 do_3 = "Skip no case: fail the test when sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 holds a case id the test does not classify."
 do_4 = "Derive each V3 case's expected refusal from the vector's expected.verifier field: receipt_unverified when it is SequencerSignature or Decode (the R2 and R3 cases), receipt_mismatch when it is accepts (the R4, R5 and R6 cases), because services/interop/crates/x-websearch/src/payment.rs:2231-2263 refuses a verified receipt whose activity id, seqHash chain or log view differs with receipt_mismatch under req.11395 ac_3. Attempt b58477b26 built, decoded all eleven cases and withheld every payment, failing only on a hardcoded receipt_unverified expectation for the three accepts cases."
+do_5 = "The six V3 cases of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json carry an empty receiptJson and no txHash, and since e7e345ed7 exact_payload (services/interop/crates/x-websearch/src/payment.rs:2661-2686) refuses a payload without a 32-byte txHash as invalid_payment_payload before any receipt check, which is what attempt 5787209ee got for all six: for a V3 case use keccak(rawTransaction) as the payload txHash (the derivation sequencer_vectors.rs:428 already makes) and script the gateway's pax_sequencerReceipt answer for that hash with a result shaped like the V1 cases' receiptJson (:153) whose receipt is the case's signedReceipt, so the refusal comes from verify_receipt (payment.rs:2362-2483) as do_4 expects."
 symbols = ["settlement::decode"]
 touches = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs"]
 tests = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs::every_shared_answer_case_decodes_through_the_settlement_client", "services/interop/crates/x-websearch/tests/sequencer_vectors.rs::shared_refusal_cases_do_not_release_a_payment"]
@@ -156620,7 +156669,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.1]
 title = "Serve deploy through the kernel deploy activity without a fee limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8"]
