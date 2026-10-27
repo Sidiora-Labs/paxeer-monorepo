@@ -130388,7 +130388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.2]
 title = "Publish every router method in the OpenRPC document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["8.0.1", "7.0.2", "8.1.2", "8.1.4", "8.1.5"]
@@ -149514,7 +149514,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.34.2]
 title = "Encode the 0x101A draw call and read getPayerGrant before a metered draw"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["11.34.1", "11.31.1", "2.0.2"]
