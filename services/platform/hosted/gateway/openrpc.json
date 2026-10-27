@@ -2344,10 +2344,92 @@
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "account",
+            "paxeer"
+          ],
+          "properties": {
+            "account": {
+              "type": "object",
+              "required": [
+                "evm_address",
+                "pax_address",
+                "layerx_did",
+                "layerx_account",
+                "bound"
+              ],
+              "properties": {
+                "evm_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pax_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_did": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bound": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "paxeer": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "balance",
+                    "nonce",
+                    "height"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
+                    },
+                    "balance": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]+$"
+                    },
+                    "nonce": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]+$"
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       },
-      "description": "Resolves the account and joins both halves: paxeer is {address, balance, nonce} read with eth_getBalance and eth_getTransactionCount at latest, layerx is the public core account read for the DID's main account. Either half is null when the account is not bound or the domain has no record. Balances and sequences are never fabricated: an unavailable domain is an explicit -32001 rather than a zero.",
+      "description": "Reads account resolution, EVM balance and nonce from chain state at one height returned by eth_blockNumber. The result is {account, paxeer:{address, balance, nonce, height}}; paxeer is null for an account without an EVM binding. No kernel backend is required.",
       "errors": [
         {
           "code": -32602,
@@ -2380,10 +2462,82 @@
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "account",
+            "height",
+            "balances"
+          ],
+          "properties": {
+            "account": {
+              "type": "object",
+              "required": [
+                "evm_address",
+                "pax_address",
+                "layerx_did",
+                "layerx_account",
+                "bound"
+              ],
+              "properties": {
+                "evm_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pax_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_did": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bound": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "balances": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "denom",
+                  "amount"
+                ],
+                "properties": {
+                  "denom": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
-      "description": "Per-asset balances on both domains for one account. Assets come from the public core asset registry ordered by asset_id and are joined with the custody precompile's getAsset; the Paxeer amount is the bank precompile's balance(address,denom) and the LayerX amount is the DID's account for that asset. At most the first 16 assets are joined per answer, reported as joined_limit. Amounts are exact decimal strings of the on-chain 256-bit values.",
+      "description": "Reads the bound EVM address coin list from bank all_balances(address), with account resolution and every eth_call pinned to one height returned by eth_blockNumber. The result is {account, height, balances:[{denom, amount}]}; amounts are exact decimal strings of on-chain 256-bit values. No kernel backend is required.",
       "errors": [
         {
           "code": -32602,
@@ -2396,38 +2550,6 @@
         {
           "code": -32005,
           "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
         }
       ]
     },
