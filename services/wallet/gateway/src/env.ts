@@ -158,13 +158,6 @@ export const EnvSchema = z
     // wallet, survives a client disconnect, and is polled via GET
     // /v1/agent/actions/:id. Every knob below is safe to leave at its default.
 
-    // Read-only connection to the LayerX sequencer Postgres (whitelisted). Used
-    // to (a) authoritatively verify a deposit credited (deposits.deposit_tx =
-    // our on-chain call hash) and (b) mirror per-DID escrow/balance into the
-    // wallet DB. Unset → credit verification degrades to on-chain-only and the
-    // mirror sync worker stays disabled. NEVER logged.
-    LAYER_X_DB_URI: z.string().min(1).optional(),
-
     // Block confirmations before an approval or call tx is treated as final.
     // Paxeer has instant CometBFT finality (no reorgs) so 1 is correct; kept
     // configurable for safety on other chains.
@@ -180,10 +173,6 @@ export const EnvSchema = z
     // Deterministic fee-bump (percent) applied when REPLACING a provably-pending
     // stuck tx at a wedged nonce. 12% clears most min-bump rules in one step.
     ACTION_FEE_BUMP_PERCENT: z.coerce.number().int().min(10).max(100).default(12),
-    // How often the LayerX mirror-sync worker pulls accounts/claims (ms). Only
-    // runs when LAYER_X_DB_URI is set.
-    LAYERX_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(120_000),
-
     // Bearer token for the operator-only admin routes (legacy wallet import).
     // When unset the admin routes are not mounted.
     GATEWAY_ADMIN_TOKEN: z.string().min(32, 'GATEWAY_ADMIN_TOKEN must be >=32 chars').optional(),
