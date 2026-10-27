@@ -16,7 +16,6 @@ use crate::attest::{
 use crate::content::{ContentStore, PEER_HEADER};
 use crate::fetch::{Fetcher, HttpClient, Url};
 use crate::index::WebIndex;
-use crate::kernel::KernelError;
 use crate::payment::{hex, unhex};
 use crate::search;
 use crate::server::{Response, RouteError, RouteTable};
@@ -34,6 +33,82 @@ pub const MAX_OBSERVATION_SIGNATURES: usize = 16;
 const PEER_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const PEER_TOTAL_TIMEOUT: Duration = Duration::from_secs(10);
 const DISCARD_LOG: &str = "program-discarded.jsonl";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KernelError {
+    Authorization,
+    /// The gateway endpoint is not an http or https URL with a host.
+    Endpoint,
+    /// No well-formed answer arrived.
+    Unavailable,
+    /// The gateway answered with a JSON-RPC error.
+    Rejected {
+        code: i64,
+    },
+    /// The answer does not have the shape the method defines.
+    Malformed,
+    /// A request record is not a canonical program web request.
+    Record,
+    /// The watcher's cursor could not be read or written.
+    Cursor,
+    /// The observation or its activity could not be encoded.
+    Encode,
+    /// The relay journal could not be read, is not this version or could
+    /// not be written.
+    Journal,
+}
+
+impl std::fmt::Display for KernelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Authorization => f.write_str("kernel gateway authorization refused"),
+            Self::Endpoint => f.write_str("gateway endpoint refused"),
+            Self::Unavailable => f.write_str("gateway unavailable"),
+            Self::Rejected { code } => write!(f, "gateway rejected the call with {code}"),
+            Self::Malformed => f.write_str("gateway answer malformed"),
+            Self::Record => f.write_str("program web request record malformed"),
+            Self::Cursor => f.write_str("kernel watch cursor unreadable or unwritable"),
+            Self::Encode => f.write_str("observation activity could not be encoded"),
+            Self::Journal => f.write_str("kernel relay journal unreadable or unwritable"),
+        }
+    }
+}
+
+impl std::error::Error for KernelError {}
+
+/// Decodes the record a program emits: the request id big-endian, the kind,
+/// the payload length big-endian and the payload.
+///
+/// # Errors
+/// Refuses an unknown kind, an empty payload and a length that does not
+/// match the record.
+pub fn decode_request_record(
+    program_id: [u8; 32],
+    sequence: u64,
+    data: &[u8],
+) -> Result<ProgramRequest, KernelError> {
+    const HEADER_BYTES: usize = 13;
+    if data.len() < HEADER_BYTES {
+        return Err(KernelError::Record);
+    }
+    let (header, payload) = data.split_at(HEADER_BYTES);
+    let mut id = [0; 8];
+    id.copy_from_slice(&header[..8]);
+    let mut length = [0; 4];
+    length.copy_from_slice(&header[9..13]);
+    let length = usize::try_from(u32::from_be_bytes(length)).map_err(|_| KernelError::Record)?;
+    let kind = header[8];
+    if !matches!(kind, 1 | 2) || length == 0 || payload.len() != length {
+        return Err(KernelError::Record);
+    }
+    Ok(ProgramRequest {
+        program_id,
+        request_id: u64::from_be_bytes(id),
+        kind,
+        payload: payload.to_vec(),
+        sequence,
+    })
+}
 
 /// One committed program web request.
 #[derive(Clone, Debug, Eq, PartialEq)]

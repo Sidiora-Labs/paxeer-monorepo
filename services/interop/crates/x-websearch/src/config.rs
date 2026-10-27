@@ -24,8 +24,6 @@ pub const DEFAULT_CRAWL_INTERVAL_SECONDS: u64 = 900;
 pub const MAX_CRAWL_INTERVAL_SECONDS: u64 = 86_400;
 const MAX_PATH_BYTES: usize = 4_096;
 pub const MAX_DID_BYTES: usize = 255;
-/// The longest `kernel.poll_interval_ms` accepted: one minute.
-pub const MAX_KERNEL_POLL_INTERVAL_MS: u64 = 60_000;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Refusal {
@@ -150,7 +148,6 @@ impl FetchLimits {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GatewayConfig {
     pub endpoint: String,
-    pub authorization_file: Option<PathBuf>,
     pub receipt_keys: Vec<SequencerAuthorization>,
 }
 
@@ -210,36 +207,6 @@ pub fn payer_did_valid(did: &str) -> bool {
             .all(|byte| matches!(byte, b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b':' | b'-'))
 }
 
-/// The kernel relay settings: the optional `kernel` object. Present, the
-/// attesting sidecar watches program web requests through the gateway and
-/// posts their observations; absent, it does not.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct KernelConfig {
-    /// `kernel.endpoint`: the gateway the relay reads program events from
-    /// and posts observation activities to.
-    pub endpoint: String,
-    /// `kernel.poll_interval_ms`: the time from the start of one relay step
-    /// to the start of the next, from 1 to [`MAX_KERNEL_POLL_INTERVAL_MS`].
-    pub poll_interval_ms: u64,
-    /// `kernel.topics`: the program event topics the watcher reads, each a
-    /// topic whose records are program web requests, none repeated.
-    pub topics: Vec<String>,
-    /// `kernel.submitter_did`: the DID the receiver key posts observation
-    /// activities as.
-    pub submitter_did: String,
-    /// `kernel.fee_limit`: the fee limit of each observation activity, as a
-    /// canonical decimal string.
-    pub fee_limit: u128,
-}
-
-impl KernelConfig {
-    /// The time from the start of one relay step to the start of the next.
-    #[must_use]
-    pub const fn poll_interval(&self) -> Duration {
-        Duration::from_millis(self.poll_interval_ms)
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     pub listen: SocketAddr,
@@ -256,7 +223,6 @@ pub struct Config {
     pub payment: PaymentConfig,
     pub evm: EvmConfig,
     pub kernel_network_id: Option<u32>,
-    pub kernel: Option<KernelConfig>,
     pub peers: Vec<String>,
 }
 
@@ -294,7 +260,6 @@ impl Config {
                 u32::try_from(number).map_err(|_| ConfigError::new(path, Refusal::Invalid))
             })
             .transpose()?;
-        let kernel = kernel(&mut root)?;
         let peers = peers(&mut root)?;
         root.finish()?;
         Ok(Self {
@@ -309,7 +274,6 @@ impl Config {
             payment,
             evm,
             kernel_network_id,
-            kernel,
             peers,
         })
     }
@@ -876,22 +840,6 @@ fn assets(root: &mut Object) -> Result<[AssetConfig; 4], ConfigError> {
 fn gateway(root: &mut Object) -> Result<GatewayConfig, ConfigError> {
     let mut object = root.object("gateway")?;
     let endpoint = endpoint(&mut object)?;
-    let authorization_file = object
-        .optional("authorization_file")?
-        .map(|(value, path)| {
-            let text = optional_text(value, &path)?;
-            let file = absolute_directory(&text)
-                .ok_or_else(|| ConfigError::new(&path, Refusal::Invalid))?;
-            if file.components().any(|part| {
-                part.as_os_str()
-                    .to_str()
-                    .is_some_and(|part| part == ".env" || part.starts_with(".env."))
-            }) {
-                return Err(ConfigError::new(path, Refusal::Invalid));
-            }
-            Ok(file)
-        })
-        .transpose()?;
     for legacy in ["sequencer_id", "sequencer_public_key"] {
         if object.map.contains_key(legacy) {
             return Err(ConfigError::new(
@@ -948,7 +896,6 @@ fn gateway(root: &mut Object) -> Result<GatewayConfig, ConfigError> {
     object.finish()?;
     Ok(GatewayConfig {
         endpoint,
-        authorization_file,
         receipt_keys,
     })
 }
@@ -990,64 +937,16 @@ fn payment(root: &mut Object) -> Result<PaymentConfig, ConfigError> {
     Ok(config)
 }
 
-fn decimal_u128(value: Value, path: &str) -> Result<u128, ConfigError> {
-    let text = optional_text(value, path)?;
-    text.parse::<u128>()
-        .ok()
-        .filter(|limit| *limit != 0 && limit.to_string() == text)
-        .ok_or_else(|| ConfigError::new(path, Refusal::Invalid))
-}
+/// The topic every program web request record is emitted under.
+pub const REQUEST_TOPIC: &[u8] = b"PAXEERX_WEB_REQUEST_V1";
 
-fn topics(object: &mut Object) -> Result<Vec<String>, ConfigError> {
-    let (value, path) = object.take("topics")?;
-    let Value::Array(items) = value else {
-        return Err(ConfigError::new(path, Refusal::Invalid));
-    };
-    if items.is_empty() {
-        return Err(ConfigError::new(path, Refusal::Missing));
-    }
-    let mut topics: Vec<String> = Vec::with_capacity(items.len());
-    for item in items {
-        let Value::String(text) = item else {
-            return Err(ConfigError::new(path, Refusal::Invalid));
-        };
-        if placeholder_text(&text) {
-            return Err(ConfigError::new(path, Refusal::Placeholder));
-        }
-        if !crate::kernel::request_topic(text.as_bytes()) || topics.contains(&text) {
-            return Err(ConfigError::new(path, Refusal::Invalid));
-        }
-        topics.push(text);
-    }
-    Ok(topics)
-}
+/// The topics whose records the watcher decodes as program web requests.
+pub const REQUEST_TOPICS: [&[u8]; 1] = [REQUEST_TOPIC];
 
-fn kernel(root: &mut Object) -> Result<Option<KernelConfig>, ConfigError> {
-    let Some((value, path)) = root.optional("kernel")? else {
-        return Ok(None);
-    };
-    let Value::Object(map) = value else {
-        return Err(ConfigError::new(path, Refusal::Invalid));
-    };
-    let mut object = Object { path, map };
-    let endpoint = endpoint(&mut object)?;
-    let poll_interval_ms = bounded(&mut object, "poll_interval_ms", MAX_KERNEL_POLL_INTERVAL_MS)?;
-    let topics = topics(&mut object)?;
-    let (value, did_path) = object.take("submitter_did")?;
-    let submitter_did = optional_text(value, &did_path)?;
-    if !payer_did_valid(&submitter_did) {
-        return Err(ConfigError::new(did_path, Refusal::Invalid));
-    }
-    let (value, fee_path) = object.take("fee_limit")?;
-    let fee_limit = decimal_u128(value, &fee_path)?;
-    object.finish()?;
-    Ok(Some(KernelConfig {
-        endpoint,
-        poll_interval_ms,
-        topics,
-        submitter_did,
-        fee_limit,
-    }))
+/// Whether `topic` is one whose records the watcher decodes.
+#[must_use]
+pub fn request_topic(topic: &[u8]) -> bool {
+    REQUEST_TOPICS.contains(&topic)
 }
 
 /// The text of an optional string field, refusing another JSON type as
