@@ -157355,7 +157355,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.7]
 title = "Serve getSandbox and getRetirementControl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
