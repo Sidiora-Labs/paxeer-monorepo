@@ -1,10 +1,13 @@
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_ucp::{
     ucp_adapter_descriptor, Capability, CheckoutStatus, CheckoutSubmission, ExecutedUcpPayment,
@@ -122,7 +125,7 @@ impl LayerXSeller {
             &self.principal,
             &submission,
             payment,
-            &receipt_keys([0x88; 32]),
+            &receipt_keys(),
             trace,
             now,
         )
@@ -136,9 +139,13 @@ impl LayerXSeller {
     }
 
     fn get_order(&self, order_id: &str) -> Result<layerx_ucp::UcpOrder, UcpError> {
-        let stored = self.orders.get(order_id).ok_or(UcpError::InvalidOrder)?;
+        let stored = self.get_executed_receipt(order_id)?;
 
-        UcpAdapter::read_order(stored, &receipt_keys([0x88; 32]))
+        UcpAdapter::read_order(stored, &receipt_keys())
+    }
+
+    fn get_executed_receipt(&self, order_id: &str) -> Result<&StoredOrder, UcpError> {
+        self.orders.get(order_id).ok_or(UcpError::InvalidOrder)
     }
 }
 
@@ -149,12 +156,33 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-fn receipt_keys(seed: [u8; 32]) -> [SequencerAuthorization; 1] {
+fn fixture_case() -> serde_json::Value {
+    let fixture: serde_json::Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )))
+    .unwrap_or_else(|error| panic!("sequencer fixture: {error}"));
+    fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("missing cases"))
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .unwrap_or_else(|| panic!("missing pay-exact fixture"))
+        .clone()
+}
+
+fn receipt_keys() -> [SequencerAuthorization; 1] {
+    let case = fixture_case();
+    let key = &case["pinnedKey"];
     [SequencerAuthorization::new(
-        [0x6b; 32],
-        SigningKey::from_bytes(&seed).verifying_key().to_bytes(),
-        1000,
-        1999,
+        fixture_array(&key["keyId"]),
+        fixture_array(&key["publicKey"]),
+        key["firstHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("missing first height")),
+        key["lastHeight"]
+            .as_u64()
+            .unwrap_or_else(|| panic!("missing last height")),
     )]
 }
 
@@ -194,19 +222,8 @@ fn signed_receipt(
     amount: u128,
     asset: [u8; 32],
     recipient: [u8; 32],
-    sequencer_seed: [u8; 32],
 ) -> SequencerEvidence {
-    let fixture: serde_json::Value = serde_json::from_str(include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
-    )))
-    .unwrap_or_else(|error| panic!("sequencer fixture: {error}"));
-    let case = fixture["cases"]
-        .as_array()
-        .unwrap_or_else(|| panic!("missing cases"))
-        .iter()
-        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
-        .unwrap_or_else(|| panic!("missing pay-exact fixture"));
+    let case = fixture_case();
     let log = &case["receiptJson"]["logs"][0];
     let mut topics: Vec<[u8; 32]> = log["topics"]
         .as_array()
@@ -215,6 +232,19 @@ fn signed_receipt(
         .map(fixture_array)
         .collect();
     let signed = fixture_bytes(&case["signedReceipt"]);
+    let verified = verify_sequencer_signature(&signed, &receipt_keys())
+        .unwrap_or_else(|error| panic!("recorded signature: {error:?}"));
+    assert_eq!(
+        verified
+            .protocol()
+            .unwrap_or_else(|| panic!("missing protocol receipt"))
+            .activity_id(),
+        fixture_array(&case["receiptJson"]["txHash"])
+    );
+    assert_eq!(
+        canonical_receipt_digest(&signed),
+        Ok(fixture_array(&case["receiptDigest"]))
+    );
     let mut unsigned = signed[..signed.len() - 69].to_vec();
     replace_signed_field(&mut unsigned, topics[2], recipient);
     replace_signed_field(&mut unsigned, topics[3], idempotency_key);
@@ -232,9 +262,12 @@ fn signed_receipt(
     digest.update(b"LXP/v1/receipt\0");
     digest.update(&unsigned);
     digest.update([0]);
-    let signature = SigningKey::from_bytes(&sequencer_seed)
-        .sign(&digest.finalize())
-        .to_bytes();
+    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    assert_eq!(
+        signer.verifying_key().to_bytes(),
+        fixture_array(&case["pinnedKey"]["publicKey"])
+    );
+    let signature = signer.sign(&digest.finalize()).to_bytes();
     unsigned.extend_from_slice(&[1, 0, 0, 0, 64]);
     unsigned.extend_from_slice(&signature);
     SequencerEvidence {
@@ -250,7 +283,7 @@ fn signed_receipt(
     }
 }
 
-fn checkout_payment(submission: &CheckoutSubmission, seed: [u8; 32]) -> ExecutedUcpPayment {
+fn checkout_payment(submission: &CheckoutSubmission) -> ExecutedUcpPayment {
     let key = submission.idempotency_key.gateway_key();
     ExecutedUcpPayment {
         metadata: OrderMetadata {
@@ -262,13 +295,12 @@ fn checkout_payment(submission: &CheckoutSubmission, seed: [u8; 32]) -> Executed
             submission.total_minor,
             submission.layerx_asset,
             submission.layerx_recipient,
-            seed,
         ),
     }
 }
 
 #[test]
-fn ucp_client_completes_checkout_with_layerx_seller() {
+fn client_and_seller_complete_on_the_recorded_receipt() {
     let client = UcpClient::new().unwrap_or_else(|error| panic!("client setup: {error}"));
     let mut seller = LayerXSeller::new().unwrap_or_else(|error| panic!("seller setup: {error}"));
 
@@ -282,22 +314,38 @@ fn ucp_client_completes_checkout_with_layerx_seller() {
         "client and seller must agree on checkout capability"
     );
 
-    let asset = [0xe1; 32];
-    let recipient = [0xe2; 32];
+    let case = fixture_case();
+    let log = &case["receiptJson"]["logs"][0];
+    let data = fixture_bytes(&log["data"]);
+    let asset = data[..32]
+        .try_into()
+        .unwrap_or_else(|_| panic!("fixture asset"));
+    let recipient = fixture_array(&log["topics"][2]);
+    let total_minor = u128::from_be_bytes(
+        data[48..64]
+            .try_into()
+            .unwrap_or_else(|_| panic!("fixture amount")),
+    );
     let idempotency_key = UcpIdempotencyKey::parse("aaaabbbb-cccc-dddd-eeee-ffff00001111")
         .unwrap_or_else(|error| panic!("idempotency key: {error}"));
 
     let submission = CheckoutSubmission {
         checkout_id: "chk_e2e_test".to_owned(),
         currency: *b"USD",
-        total_minor: 25000,
+        total_minor,
         layerx_asset: asset,
         layerx_recipient: recipient,
         idempotency_key,
         negotiated,
     };
 
-    let mut payment = checkout_payment(&submission, [0x88; 32]);
+    let mut payment = checkout_payment(&submission);
+    assert_eq!(payment.evidence.logs[0].data(), data);
+    assert_eq!(payment.evidence.logs[0].topics()[2], recipient);
+    assert_eq!(
+        payment.evidence.transaction_hash,
+        fixture_array(&case["receiptJson"]["txHash"])
+    );
     payment.evidence.rung = SettlementRung::Submitted;
     let trace = TraceId::mint([0xe3; 16]);
 
@@ -309,6 +357,14 @@ fn ucp_client_completes_checkout_with_layerx_seller() {
         CheckoutStatus::CompleteInProgress,
         "first attempt must be pending"
     );
+    assert!(
+        seller.orders.is_empty(),
+        "pending checkout has no stored order"
+    );
+    assert_eq!(
+        seller.get_order(&payment.metadata.order_id),
+        Err(UcpError::InvalidOrder)
+    );
 
     payment.evidence.rung = SettlementRung::Receipted;
     let second_attempt = seller
@@ -319,6 +375,39 @@ fn ucp_client_completes_checkout_with_layerx_seller() {
         CheckoutStatus::Completed,
         "second attempt must complete with receipt"
     );
+
+    let stored = seller
+        .get_executed_receipt(&payment.metadata.order_id)
+        .unwrap_or_else(|error| panic!("stored receipt: {error}"));
+    assert_eq!(stored.submission, submission);
+    assert_eq!(stored.signed_receipt, payment.evidence.signed_receipt);
+    assert_eq!(stored.logs, payment.evidence.logs);
+    assert_eq!(stored.rung, SettlementRung::Receipted);
+    let order = seller
+        .get_order(&payment.metadata.order_id)
+        .unwrap_or_else(|error| panic!("order retrieval: {error}"));
+    assert_eq!(order.id, payment.metadata.order_id);
+    assert_eq!(order.permalink_url, payment.metadata.permalink_url);
+    assert_eq!(order.checkout_id, submission.checkout_id);
+    assert_eq!(order.currency, submission.currency);
+    assert_eq!(order.total_minor, submission.total_minor);
+    assert_eq!(order.transaction_hash, payment.evidence.transaction_hash);
+    assert_eq!(
+        canonical_receipt_digest(&stored.signed_receipt),
+        Ok(order.receipt_digest)
+    );
+    assert_ne!(order.receipt_digest, [0; 32]);
+
+    let replay = seller
+        .process_checkout(submission, &mut payment, &trace, 102)
+        .unwrap_or_else(|error| panic!("checkout replay: {error}"));
+    assert_eq!(replay, CheckoutStatus::Completed);
+    assert_eq!(
+        seller.orders.len(),
+        1,
+        "retry must preserve the stored order"
+    );
+    assert_eq!(seller.get_order(&order.id), Ok(order));
 }
 
 #[test]
@@ -346,7 +435,7 @@ fn ucp_client_retrieves_order_with_verified_receipt() {
         negotiated,
     };
 
-    let mut payment = checkout_payment(&submission, [0x88; 32]);
+    let mut payment = checkout_payment(&submission);
     payment.evidence.rung = SettlementRung::Submitted;
     let trace = TraceId::mint([0xf3; 16]);
 
@@ -399,7 +488,7 @@ fn ucp_client_and_seller_maintain_idempotency_across_retries() {
         negotiated,
     };
 
-    let mut payment = checkout_payment(&submission, [0x88; 32]);
+    let mut payment = checkout_payment(&submission);
     payment.evidence.rung = SettlementRung::Submitted;
     let trace = TraceId::mint([0xb3; 16]);
 

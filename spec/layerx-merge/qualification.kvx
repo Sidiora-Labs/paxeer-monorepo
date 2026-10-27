@@ -2213,3 +2213,171 @@ symbol = "admit"
 observed = "The fifth attempt (2fa906880, base 4acd0e5d4) built and both SealBatch tests failed at Accept with \"gas wanted 200000 (resp. 21000) exceeds Block.MaxGasWanted 0\" (logs-verify-1.log): the admission check of 5.4.3 (f3ef8c257) refuses gas above Block.MaxGasWanted, the tests build their chain with newSourceHarness whose app.DefaultConsensusParams (node/test_helpers.go:664) leave it at 0, and the test file was written on 6c0eca168 before 5.4.3 landed; the candidate's three files are unchanged since its second attempt and touch neither accept.go nor limits.go."
 assumption = "Both tests store a non-zero block gas bound in their setup as resolutionBlockGas and admissionParams already do in the package; limits.go stays unchanged."
 severity = "note"
+
+[finding.2.6.4.1]
+task = "2.6.4"
+file = "modules/layerxauth/keeper/execute_test.go:83"
+symbol = "TestAuthExecuteIdempotentReplay"
+observed = "At 7c163c6ce (fifth attempt, base 306b315aa) the build passed and the verifier exited 1 (logs-verify-1.log): the session, capability and revoke cases at :83, :94 and TestAuthExecuteSequenceReused at :127 fail `require.Equal(t, result.Encoded, stored)` because the stored record is 68 bytes longer — the trailing 0x00 becomes 0x01, 0x00000040 and a 64-byte all-zero signature — since Host.Execute returns the unsigned encoding (modules/lxphost/host.go:555) and the idempotency record holds the signed canonical form (src/protocol/lxp_kernel.c:3214); both values come from the code under test, no landed commit changed them, and the equality was written by the fourth attempt itself."
+assumption = "The test asserts the signed-form relation exactly (do_6) and the kernel behaviour stands."
+severity = "suspect"
+
+[finding.2.11.1.1]
+task = "2.11.1"
+file = "precompiles/layerxauth/harness_test.go:31"
+symbol = "authKeepers"
+observed = "At 231049131 (fourth attempt, base 1b20d42f3) the build passed and the verifier exited 1 (logs-verify-1.log): TestAuthMergeConstructorRegistered (layerxauth_test.go:31) panics in precompiles/launchpad/setup.go:22 \"launchpad: keepers do not provide the launchpad keeper\" because authKeepers embeds the utils.Keepers interface, which hides the LaunchpadV610K accessor that the v6.10 launchpad entry registered by 0b92983f9 type-asserts (setup.go:16); the fixture is inside the task's own touches."
+assumption = "The fixture embeds *node.PrecompileKeepers as precompiles/layerxledger/harness_test.go:31 does; no production change."
+severity = "blocker"
+
+[finding.9.33.13.1]
+task = "9.33.13"
+file = "services/agent/sdk/typescript/src/perps.ts:180"
+symbol = "EncodedActivity"
+observed = "At 81e39e369 (second attempt) the build and both named tests passed and the verifier exited 1 (logs-verify-1.log) on `symbol EncodedActivity — not defined in the graph`, the interface do_2 deletes, while perpsOpenPositionCall, perpsCancelOrderCall and all three touched paths passed."
+assumption = "The deleted name leaves the symbol list and 81e39e369 is requalified unchanged."
+severity = "note"
+
+[finding.12.34.1.1]
+task = "12.34.1"
+file = "apps/wallet/src/surfaces/useSurface.ts:502"
+symbol = "WalletCapsObservation"
+observed = "At 676b65202 (fifth attempt, base 1b20d42f3 with 12.35.1 merged) the whole-app build `pnpm --dir apps/wallet run typecheck` exited 2 (logs-build-1.log) on 14 errors in apps/wallet/src/surfaces (useSurface.ts, WebDataView.tsx, WebDataView.test.tsx), red since cd777e460 (12.25.1 retyped observations as { rung, block_number, state_root }), none in the task's StatusLadder files; those files belong to 12.33.1, which requires 12.34.1, so no requires edge can order them."
+assumption = "12.34.1's build is scoped to its own test file and the candidate requalifies unchanged; the app-wide typecheck is a release gate."
+severity = "blocker"
+
+[finding.8.34.1]
+task = "8.34.1"
+file = "services/platform/middleware/merchant/src/index.ts:490"
+symbol = "layerXReceiptDigest"
+observed = "At be3114e36 (second attempt, base 4acd0e5d4) the build passed and the verifier exited 1 (logs-verify-1.log): merchantCheckoutOfferUsesReceiptedRung (merchant-app.test.mjs:266) got 400 {\"state\":\"refused\",\"error\":\"verification-failure\"} because MerchantMiddleware (8.25.2) accepts only a bare 64-hex extensions.layerx.receiptDigest while SellerMiddleware (8.22.1/8.22.3) emits the PortableReceiptV2 digest 0x-prefixed; the first attempt failed identically and no open task touches the merchant file."
+assumption = "The 0x-prefixed PortableReceiptV2 form is canonical and the merchant normalises it (do_8)."
+severity = "blocker"
+
+[finding.8.33.3]
+task = "8.33.3"
+file = "services/agent/sdk/typescript/package.json:1"
+symbol = "@sidiora/layerx-sdk"
+observed = "At cdbdb33da (second attempt, base 4acd0e5d4) the build passed and the verifier exited 1 (logs-verify-1.log) before either test ran: ERR_MODULE_NOT_FOUND for node_modules/@sidiora/layerx-sdk/dist/src/index.js imported by test/receipt-outcome.test.mjs, because the package exports ./dist/src/index.js, produced only by its `tsc -p tsconfig.json` build, which neither the dependency install of these attempts nor the build_cmd runs; the first attempt failed identically."
+assumption = "The build_cmd builds the TypeScript SDK first (as 4.46.1 does); tsc only, no Rust crate involved."
+severity = "blocker"
+
+[finding.11.23.3]
+task = "11.23.3"
+file = "services/interop/crates/layerx-gas-station/src/station.rs:191"
+symbol = "GasStation"
+observed = "At 351bad396 (first attempt, base 4acd0e5d4) the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-gas-station --all-targets` exited 101 (logs-build-1.log) with E0616 at service.rs:681: do_1 reads QuotePolicy::did_budget (policy.rs:153) but the policy sits behind GasStation's private field station (station.rs:191) and GasStation exposes journal() (station.rs:277) and no policy accessor; the report and the test are written and verify did not run."
+assumption = "A read-only accessor beside journal() is the minimal change; no open task owns station.rs."
+severity = "blocker"
+
+[finding.3.5.3]
+task = "3.5.3"
+file = "modules/perps/keeper/genesis_governed_test.go:14"
+symbol = "ExportGenesis"
+observed = "Attempts two to four of 3.5.3 (last eb3990212) stopped on the lxphost read_program.go:141 break already recorded for 1.22.3; the fourth attempt also added package-level test helpers named ExportGenesis and InitGenesis in package keeper_test to satisfy the declared symbols, although the real (*Keeper).ExportGenesis and (*Keeper).InitGenesis at modules/perps/keeper/genesis.go:253 and :30 are indexed and bare method names pass the graph check for done tasks 2.5.1, 2.9.1 and 6.21.4."
+assumption = "The third attempt's test (identical in attempts one to three), which calls the real keeper methods, is requalified; the helpers are not taken."
+severity = "suspect"
+
+[finding.14.0.1.1]
+task = "14.0.1"
+file = "sdk/js/package.json:1"
+symbol = "exports"
+observed = "At 1974874ce (eleventh attempt, base 4f54a0819) the build passed, the three node:test cases passed and `cg spec done` exited 1 (logs-verify-1.log) on `symbol exports — not defined in the graph` alone; all five touched paths, including the deleted sdk/js/VENDOR.kvx, are evidenced. The tenth attempt had matched `exports` only against a vendored node_modules file that the index no longer reads."
+assumption = "`exports` names the package.json field do_2/do_3 edit, not a declaration, and leaves the symbol list; 1974874ce is requalified unchanged."
+severity = "note"
+
+[finding.12.35.2]
+task = "12.35.2"
+file = "apps/wallet/src/surfaces/WebDataView.tsx:42"
+symbol = "send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"
+observed = "Both attempts (fb0a9b3b1, c3255a2de on 4f54a0819) failed the build `pnpm --dir apps/wallet run typecheck` (exit 2, logs-build-1.log) on the same 15 errors in apps/wallet/src/account/StatusLadder.test.tsx and apps/wallet/src/surfaces, the whole-app red already recorded as finding.12.34.1.1, with no error in the touched apps/wallet/e2e/send.spec.ts; verify never ran."
+assumption = "The build is scoped to listing its own Playwright spec; the verify additionally needs a controlled chain reachable through WALLET_TRANSFER_TRUTH_ANVIL_URL, WALLET_TRANSFER_TRUTH_SENDER and WALLET_TRANSFER_TRUTH_BROWSER_RPC_URL, which the qualifying environment does not provide yet (held)."
+severity = "blocker"
+
+[finding.12.10.4.1]
+task = "12.10.4"
+file = "services/wallet/gateway/test/evm-sign.test.ts:28"
+symbol = "evmSignRequiresApprovedRow"
+observed = "With PostgreSQL available, the eighth attempt (6bde1c273, requalify of 69067b7e6 on 1b20d42f3) built and the verifier exited 1 (logs-verify-1.log) inside both tests: the review of the fixture's native value transfer answered 502 evm_review_invalid because the attestor reports an empty method for calldata-free transfers and parseEvmReview (client.ts:1203) requires one, and evmSignSendsThroughSequencerWithReceipt (:397) demands EVM_SIGN_TEST_SEQUENCER_RPC_URL and EVM_SIGN_TEST_FUNDING_KEY for a real sequencer."
+assumption = "do_5 moves the fixture to an ERC-20 transfer and an in-process sequencer; whether EVM review should admit native value transfers is left to 12.14.3, the owner of client.ts."
+severity = "blocker"
+
+[finding.12.6.2.1]
+task = "12.6.2"
+file = "services/wallet/gateway/src/env.ts:253"
+symbol = "loadEnv"
+observed = "With PostgreSQL available, the sixth attempt (85a901be7, requalify of 8b1ce003a on 1b20d42f3) built and the verifier exited 1 (logs-verify-1.log) in beforeAll: startPostgres passed the binaries check and failed at test/support/postgres.ts:89 importing src/env.ts, whose loadEnv exits because the four WALLET_* variables \"are required when ATTESTOR_ENDPOINTS is set\"; all seven tests skipped."
+assumption = "do_6 hands the gateway the authority key, tenant and signed inventory that do_5 already gives the attestors; the bind.ts change of 85a901be7 is kept."
+severity = "blocker"
+
+[finding.4.22.3]
+task = "4.22.3"
+file = "services/launchpad/gateway/internal/internaltest/containers.go:63"
+symbol = "NewMinIO"
+observed = "Four attempts (last d0fb58398 on 4acd0e5d4, candidate identical since the first) built and the verifier exited 1 (logs-verify-1.log) because TestRetiredConnectedTemplatesAnswerNotServed boots the development gateway harness, whose NewMinIO fails when GATEWAY_TEST_MINIO_ENDPOINT, GATEWAY_TEST_MINIO_ACCESS_KEY_ID and GATEWAY_TEST_MINIO_SECRET_ACCESS_KEY are unset; the same harness gates app_test.go:81, :265 and dev_identity_test.go:136."
+assumption = "The qualifying environment provides a running MinIO through those variables and d0fb58398 is requalified unchanged (held until then)."
+severity = "blocker"
+
+[finding.4.46.2]
+task = "4.46.2"
+file = "apps/launchpad/mobile/src/screens/token.tsx:2"
+symbol = "Token"
+observed = "The build `pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json` exited 2 (logs-build-1.log) in both attempts (the first on 1b20d42f3, 9b7454455 on 306b315aa) on `token.tsx(2,1180): error TS1005: '}' expected`, a defect outside the touches present unchanged since 145164d70; the same build gates 4.46.3–4.46.8 and 4.47.1–4.47.3, and 4.46.3 (which owns token.tsx) requires 4.46.2, so a requires edge would cycle."
+assumption = "4.46.2 is widened to token.tsx with the one-character repair; 4.46.3 then edits the repaired file."
+severity = "blocker"
+
+[finding.4.4.3.1]
+task = "4.4.3"
+file = "modules/launchpad/keeper/grpc_query_market_by_address.go:14"
+symbol = "Querier.MarketByAddress"
+observed = "The fifth attempt (363ba64b6 on 1b20d42f3, the first to reach verify) built and the verifier exited 1 (logs-verify-1.log) because TestQueryMarketByAddressRefusals reads codespace \"undefined\" for the address and invalid-configuration refusals: ParseHexAddress and poolMarket wrap with fmt.Errorf(\"%w\") and sdkerrors.ABCIInfo follows only Cause() (gotcha.1251), so do_3's \"unwrapped\" return cannot deliver the codespace the test requires."
+assumption = "MarketByAddress re-wraps on the registered root error (do_5); the shared helpers and the assertions are kept."
+severity = "blocker"
+
+[finding.16.24.5.1]
+task = "16.24.5"
+file = "tools/loadtest/profiles/profiles_test.go:13"
+symbol = "BoundsConfig"
+observed = "The third attempt (425891fc7 on 47ada8bb8) ran `go -C tools/loadtest build ./profiles/` (exit 1, logs-build-1.log) before build_cmd became `go -C tools/loadtest vet ./profiles/` at 09444d8b4, and every candidate declares a test-only alias `type BoundsConfig = config.BoundsConfig` to cover the declared symbol while the seven profiles still carry no bounds, because no release-candidate TPS or p99 measurement is recorded."
+assumption = "The owner supplies seven minAverageTps / maxP99LatencyMs pairs or names the run to take them from; the symbol list names only the test and the alias is removed."
+severity = "blocker"
+
+[finding.3.10.1]
+task = "3.10.1"
+file = "modules/perps/types/market.go:67"
+symbol = "Market.Validate"
+observed = "The third and fourth attempts (d5c9ab02d, 87ecfc37a on 306b315aa) built and the verifier exited 1 (logs-verify-1.log) on `market 0 max leverage 500 differs from its tier 0 leverage 1000`, because req.3010 ac_1 and do_1/do_3 change MaxLeverage through MsgSetMarket while Market.Validate pins it to the tier 0 leverage 1000 of every class, as finding.3.1.5 records."
+assumption = "ac_1 and do_1/do_3 change OiCapUsd and TierClass (A to B) instead, and the test asserts getMarketConfig returns the new values with maxLeverage still 1000."
+severity = "blocker"
+
+[finding.3.6.21]
+task = "3.6.21"
+file = "modules/perps/types/market.go:67"
+symbol = "Market.Validate"
+observed = "The third and fourth attempts (bbf824114, bb11a5f6d on 306b315aa) built and the verifier exited 1 (logs-verify-1.log) on `market 0 max leverage 20 differs from its tier 0 leverage 1000`, because req.3006 ac_23 and do_1 lower MaxLeverage of BTC through MsgSetMarket while Market.Validate pins it to the tier 0 leverage 1000, as finding.3.1.5 records."
+assumption = "ac_23 and do_1–do_3 move BTC from TierClassA to TierClassB so a 600,000 USD order at 500x, accepted under class A, is refused with ErrLeverageTooHigh under the class B 200x tier above 500,000 USD; the checkOrderValue half of ac_23 is dropped."
+severity = "blocker"
+
+[finding.3.42.2]
+task = "3.42.2"
+file = "services/platform/perps-data/internal/markets/markets_test.go:67"
+symbol = "testClient"
+observed = "Both attempts (e5ab8ac6a, ef5a4f0c8 on 7f5fc9cea) passed `go build ./services/platform/perps-data/...` and the verifier exited 1 (logs-verify-1.log) only on `TestMarkets requires PERPS_DATA_TEST_RPC`, because do_5 builds TestRefreshMarketConfig on testClient, which dials a running node serving the perps precompile; twelve test files of services/platform/perps-data read the same variable."
+assumption = "The result is requalified unchanged where PERPS_DATA_TEST_RPC names a test node whose perps precompile serves getMarket and getMarketConfig for the seeded markets (held until then)."
+severity = "blocker"
+
+[finding.3.46.4]
+task = "3.46.4"
+file = "services/platform/perps-data/internal/rest/spotusers_test.go:194"
+symbol = "spotNode"
+observed = "The first, second and sixth attempts (2af8200e7, 41d4be7af, b3d535ee0 on 1b20d42f3) passed the build and the verifier exited 1 (logs-verify-1.log) only on `PERPS_DATA_TEST_RPC is unset`, because TestStreamItemsSingleFold reads token balances and registered spot tokens from a running node through spotNode."
+assumption = "Requalified unchanged where PERPS_DATA_TEST_RPC names a test node serving the spot vault getRegisteredTokens and token balances (held until then)."
+severity = "blocker"
+
+[finding.3.93.1]
+task = "3.93.1"
+file = "modules/lxphost/host.go:150"
+symbol = "lxphost_reset"
+observed = "The first attempt (ccb4b1943 on 1b20d42f3) passed `go build ./modules/layerxexchange/...` and the verifier exited 1 (logs-verify-1.log) on LXP_ERR_MODULE_DISABLED at oracle_test.go:128, because do_3 routes the observation through the hosted kernel, which registers only governance, Programs and asset (host.go:150-157) until 1.24.1 registers perps; host.go is in the touches of 1.23.1, 1.23.3, 1.25.1, 1.26.1 and 2.22.4, so widening would collide."
+assumption = "3.93.1 requires 1.24.1 and is continued from ccb4b1943 once perps is registered, with the observation backed by the host's committed read."
+severity = "blocker"
