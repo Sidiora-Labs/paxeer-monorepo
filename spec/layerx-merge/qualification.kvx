@@ -2981,3 +2981,43 @@ symbol = "FinalityEvidence"
 observed = "13.29.1 (faad391ea) renamed ReadProof.batch_id to block_hash and replaced the checkpoint and settlement fields of FinalityEvidence and SnapshotBinding with block_height, block_hash, app_hash and store_proof_digest (programs/crates/layerx-programs-ai-market/src/queries.rs:164-171, :275-306) with touches confined to that crate, so layerx-indexer (ai_market.rs:336-343, :812-817, :1420-1425, :2012-2017; ai_reputation.rs:431-436) and layerx-platform-gateway (ai_views.rs:235-236) no longer compile and every task whose build or verify compiles them stops before its own change."
 assumption = "A wave-1 task 8.1.5 ports the five files, filling the new fields from the stored checkpoint id, batch id, state root and execution height as a bridge until 8.96.2 sources them from the block commit (req 8963.1 stays unclaimed); the 32 pending tasks that compile these crates require 8.1.5."
 severity = "blocker"
+
+[finding.9.24.1.2]
+task = "9.24.1"
+file = "Makefile:41"
+symbol = "LIB_SOURCES"
+observed = "Since 75765cd1f (16.2.2) and f2a8c304f (16.0.2) LIB_SOURCES filters out seventeen sources, twelve of which (lxp_idempotency.c, lxp_checkpoint_cert.c, lxp_batch_seal.c, lxp_replica_ingest.c, lxp_da_service.c, lxp_da_kernel.c, lxp_da_bundle.c, lxp_da_verified.c, lxp_da_possession.c, lxp_guarantor.c, lx_web_adapter.c, lx_web_root.c) define symbols still called from kept members (lxp_kernel.c:7872, lxp_journal.c:186-1076, lxp_module_ctx.c:1463, lxp_replay.c:188-348, lxp_handover.c:948-954, lxp_receipt_verify.c:141-145, lxp_attestation.c:165, lxp_finalisation.c:31,162, lxp_paxeer_client.c:107, lx_web_intake.c:143) and from cmd/layerxd, cmd/layerx-guarantor and cmd/layerx-verify, so a freshly built build/liblayerx.a has no link closure: the sixth attempt's producer link (88450dbf0) and 1.4.3's eighth attempt (25d8f1e60) stopped on undefined references (logs-build-1.log, logs-verify-1.log); the two Makefile tests run only `make -n` and the retiring tasks sit at waves 24-44."
+assumption = "Task 1.4.6 (wave 2) relinks the twelve members, prunes stale archive members, restores the checkpoint settlement header rule and keeps the five unreferenced exclusions; 9.24.1, 1.4.3 and 1.11.4 require it and 88450dbf0 is requalified unchanged."
+severity = "blocker"
+
+[finding.1.4.3.4]
+task = "1.4.3"
+file = "tests/fuzz/lxp_prop_prepare_workers.c:1"
+symbol = "prepare_one_vs_four_workers_equal"
+observed = "The eighth attempt (25d8f1e60 on 037c54952) rebuilt build/liblayerx.a from scratch as its build_cmd now directs and the verifier's link of the fuzz test exited 1 (logs-verify-1.log) with twenty-five undefined references (lxp_idempotency_*, lxp_batch_sign, lx_web_observation_encode, lxp_da_receipt_section_*, lxp_batch_availability_root, lxp_checkpoint_certificate_hash, lxp_guarantor_cert_verify) from kept members to the sources LIB_SOURCES filters out; the stale-archive cause of finding.1.4.3.3 is gone and the missing link closure of finding.9.24.1.2 remains."
+assumption = "1.4.3 requires 1.4.6 and 25d8f1e60 is requalified unchanged once the archive links again."
+severity = "blocker"
+
+[finding.1.11.4]
+task = "1.11.4"
+file = "Makefile:203"
+symbol = "lxp_batch_verify_signature"
+observed = "Both attempts (7fbabb491 on 488b4748c, 82ff6e160 on 037c54952) compiled every object of `make -C . layerxd layerx-guarantor` and the link exited 2 (logs-build-1.log) on a duplicate lxp_batch_verify_signature between lxp_batch_seal.o and lxp_batch_header.o: the function is defined only in src/sequencer/lxp_batch_header.c:154 (moved by 465829782, 14.29.2) and lxp_batch_seal.c is filtered out of LIB_SOURCES, so the member is a stale object of a pre-existing build/liblayerx.a that `ar rcsD` (Makefile:203) never prunes; the first real error is in no touched file."
+assumption = "1.4.6 prunes the archive before every `ar` and relinks the members the candidate needs; 1.11.4 requires it and 82ff6e160 is requalified unchanged."
+severity = "blocker"
+
+[finding.1.29.1]
+task = "1.29.1"
+file = "modules/lxphost/oracle_codec_test.go:13"
+symbol = "TestOracleCodecObjectDefinesEncoders"
+observed = "The done test (1.29.1, wave 1) calls t.Fatal when build/liblayerx.a has no member lx_oracle_adapter.o, while 16.2.2 (75765cd1f) filters src/network/lx_oracle_adapter.c out of LIB_SOURCES and tools/ci/tests/test_makefile_wave1.py asserts the name never appears in a dry run, so on a freshly built archive the two done tasks contradict each other; nothing built references lx_oracle_adapter.c."
+assumption = "The exclusion stands and 1.29.2 (wave 44), which owns the oracle codec retirement, resolves the test; recorded, not chased."
+severity = "note"
+
+[finding.1.2.3]
+task = "1.2.3"
+file = "src/protocol/lxp_kernel.c:7872"
+symbol = "lxp_idempotency_canonical_lookup"
+observed = "1.2.3 (wave 26) deletes src/state/lxp_idempotency.c while the capacity-receipt call at lxp_kernel.c:7872 is removed only by 1.2.4 (wave 32), which 1.2.3 did not require although its do_4 names it; the reserve call at src/protocol/lxp_module_ctx.c:1463 (left by 1.2.1's preview deletion) and the lxp_idempotency_append use in tests/codec/lxp_test_snapshot_idempotency.c:39 (the 1.2.2 test) had no removing task; the lxp_snapshot.c calls do_3 names are already gone on main (a66af7c87, 1.2.2)."
+assumption = "1.2.3 moves behind 1.2.4 and takes the two remaining call sites into its scope; do_3 stays as written and finds nothing to remove."
+severity = "blocker"
