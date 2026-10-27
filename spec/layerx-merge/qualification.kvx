@@ -1733,3 +1733,107 @@ symbol = "Freshness"
 observed = "At 2aec05a6a the third attempt's build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests` exited 101 (log /out/logs/build-1.log) with nine errors in the untouched dependency layerx-mirror (node.rs:428-441, publisher.rs:602 and :605) against the layerx-agent-api read types changed at 71550012a, after the second attempt at 73d3ebc72 had exited 101 on the stale services/agent/Cargo.lock refreshed at 8905cf9fe; main 5e0fff0b4 carries the same layerx-mirror lines."
 assumption = "Tasks 9.1.6 and 9.1.7 (in requires) port layerx-mirror and layerx-sdk first; because 9.1.7 also edits services/agent/crates/layerx-sdk/src/program_http.rs, the 2aec05a6a program_http.rs and native_programs.rs changes are carried forward onto the ported file and qualified there rather than re-run unchanged."
 severity = "blocker"
+
+[finding.2.11.1]
+task = "2.11.1"
+file = "precompiles/layerxauth/errors.go:29"
+symbol = "ErrPausedScope"
+observed = "The second attempt (e98398cdb) failed the build `go build ./precompiles/layerxauth/...` with exit 1 (log /out/logs/build-1.log) on `undefined: types.ErrPausedScope` at precompiles/layerxauth/errors.go:29, a file outside the task's touches: task 2.2.4 (6857bfc89) wrote the row against layerxauth code 11, task 2.1.7 (0a5d4de23) later deleted that registration, and no task updated the row or the errors_test.go:49 case, so the package has not compiled at main since 2.1.7 landed."
+assumption = "The task's touches now hold precompiles/layerxauth/errors.go and precompiles/layerxauth/errors_test.go with a do_7 that replaces the row with layerxgov ErrPausedScope (modules/layerxgov/types/proposal.go:26, code 735) and moves the errors_test.go:49 case out of the layerxauth-codespace table; the work at e98398cdb continues unchanged."
+severity = "blocker"
+
+[finding.1.7.2.1]
+task = "1.7.2"
+file = "src/modules/stream/lx_stream_record.c:115"
+symbol = "lx_stream_record_decode"
+observed = "do_3 of 1.7.2 expects an extended lx_stream_record to be refused with LXP_ERR_TRAILING_BYTES (src/modules/stream/lx_stream_record.c:159) or LXP_ERR_LENGTH_LIMIT, yet lx_stream_record_decode returns LXP_ERR_NON_CANONICAL at :115-116 for any `length != LX_STREAM_RECORD_BYTES` before :159 is reached, so the seventh attempt's test (b408330ce, whose record branch expects LXP_ERR_TRAILING_BYTES or LXP_ERR_LENGTH_LIMIT and whose payload branches now expect LXP_ERR_NON_CANONICAL) cannot pass once the gate reaches it; attempts 1, 2, 3 and 5 failed the verifier `cg spec done 1.7.2` (exit 1, log /out/logs/verify-1.log) on the same code mismatch for the five payload codecs, and the seventh stopped earlier because programs/vendor lacked tungstenite at 5e0fff0b4 (vendored at e713b182a)."
+assumption = "Every stream codec refuses a one-byte extension with LXP_ERR_NON_CANONICAL (the record at lx_stream_record.c:115-116, the fixed-length payloads at lx_stream_payload.c:33 and :98-99); do_3 is now corrected to expect LXP_ERR_NON_CANONICAL for the record too, dropping the LXP_ERR_TRAILING_BYTES or LXP_ERR_LENGTH_LIMIT alternative, and the seventh attempt's test is continued with its record branch changed to that code on a revision at or after e713b182a."
+severity = "blocker"
+
+[finding.17.0.1.2]
+task = "17.0.1"
+file = "spec/layerx-merge/qualification.kvx:73"
+symbol = "test_refuses_duplicate_section"
+observed = "The ninth and eleventh attempts of 17.0.1 (d70d5a03e, e2bdbc397) passed test_loads_workflow_sections, test_evidence_line_shape and test_run_records_nonzero_exit and failed the verifier `cg spec done 17.0.1` (exit 1, log /out/logs/verify-2.log) only on test_refuses_duplicate_section, whose fixture appends `[finding.1.0.1]` twice to a copy of spec/layerx-merge/qualification.kvx and expects the error at the second appended header (`:633`, `:1025`) while load reports the first appended header (`:625`, `:1017`) because the ledger already holds [finding.1.0.1] at :73; the sixth and seventh attempts failed the same way (`:81` against `:89`), and the ninth and eleventh each also spent their first repair on the backslash-backslash-quote text of [finding.17.0.1.1] at qualification.kvx:493."
+assumption = "The reader of e2bdbc397 is right and the fixture is wrong: do_5 now states that test_refuses_duplicate_section appends a section name no ledger entry uses ([finding.0.0.0]) twice and expects the second appended header's line, and the eleventh attempt's tree is continued with that single fixture change."
+severity = "blocker"
+
+[finding.12.6.2]
+task = "12.6.2"
+file = "services/wallet/attestor/internal/auth/agent/authority.go:115"
+symbol = "NewSignedVerifier"
+observed = "The harness of services/wallet/gateway/test/provisioning.test.ts spawns five attestor binaries without ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER or ATTESTOR_AUTHORITY_TENANT, so NewSignedVerifier returns ErrAuthority, every node exits with `attestor: pinned custody producer authority: custody authority unavailable or refused`, beforeAll throws `attestors did not become ready` at line 173, and `cg spec done 12.6.2` exited 1 on four consecutive attempts (2b2f2af3a, 220c31f02, cb083b984, f2caa096e) with all seven tests skipped and the task's two tests never executed."
+assumption = "The harness predates the authority pin introduced at b7962041c and is red at every base since; 12.6.2 repairs it inside its own touches by writing a PKIX `PUBLIC KEY` PEM in beforeAll and passing the three ATTESTOR_AUTHORITY_* variables to each node (NewAuthority tolerates a missing stored snapshot), after which bindReadsSequencerReceipt and bindBroadcastIsIdempotent can run."
+severity = "blocker"
+
+[finding.10.25.3.1]
+task = "10.25.3"
+file = "services/human/crates/layerx-human-test-support/Cargo.toml:13"
+symbol = "layerx-client"
+observed = "The fifth attempt (b969d28b2, base 5e0fff0b4) continued the third attempt's candidate unchanged, so it still removed `layerx-client.workspace = true` at Cargo.toml:13 (the deleted do_4) and still imported the envelope and node-info codec from `layerx_human_service::frame`, which exports only `read_frame`, `write_frame`, `Limits`, `ConnectionGate`, `FrameTransport`, `Uds` and `Tls`; the build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests` exited 101 on `the lock file ... needs to be updated but --locked was passed` (log /out/logs/build-1.log) and the result was refused for changing Cargo.toml, which the task no longer touches, while req.10252 ac_1 still asks for `no layerx_client::lni import left in the crate`."
+assumption = "The b969d28b2 candidate, whose commit carries only the three touched files, is continued; do_1 now says that `layerx_client::lni::handshake` and `layerx_client::lni::schema` stay imported, `connect_evidence_node` keeps returning `layerx_client::lni::transport::Uds` for `handshake_gate` (boot.rs:156), the `layerx-client` dependency stays, and only `read_frame`/`write_frame` move to `layerx_human_service::frame`; req.10252 ac_1 drops the clause `with no layerx_client::lni import left in the crate`, which wiring.J44.21 (task 10.98.6, a later wave) delivers."
+severity = "blocker"
+
+[finding.6.23.2]
+task = "6.23.2"
+file = "modules/tokenfactory/keeper/admins.go:11"
+symbol = "Keeper.GetAuthorityMetadata"
+observed = "At 89d0c8e2e the verifier `cg spec done 6.23.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because TestQueryDenomPausedReportsState/unknown_denom (grpc_denom_paused_test.go:67) received codes.OK instead of codes.NotFound: Keeper.DenomPaused, written by 6.23.1 at ea9995ca1 in the shape its do_5 prescribes, maps only a GetAuthorityMetadata error to NotFound, and GetAuthorityMetadata (admins.go:11-20) unmarshals an absent DenomAuthorityMetadataKey into an empty message with a nil error, so do_1 of 6.23.2 ('this task adds no production code') cannot satisfy req 6255.2."
+assumption = "6.23.2 now also touches modules/tokenfactory/keeper/grpc_query.go and its do_1 makes Keeper.DenomPaused answer status.Errorf(codes.NotFound, ...) when k.GetDenomPrefixStore(ctx, req.Denom).Has([]byte(types.DenomAuthorityMetadataKey)) is false, before reading the metadata; GetAuthorityMetadata and DenomAuthorityMetadata keep their behaviour and the two tests at 89d0c8e2e stay as written."
+severity = "blocker"
+
+[finding.6.1.3]
+task = "6.1.3"
+file = "precompiles/common/precompiles.go:186"
+symbol = "WithRetirement"
+observed = "The second attempt (4fd30be75) built but the verifier `cg spec done 6.1.3` exited 1 (log /out/logs/verify-1.log): do_2 reads the plan through UpgradeReaderOf(evmKeeper) inside Precompile.Run, yet Run has no keeper to pass, since Precompile (precompiles/common/precompiles.go:44-52) holds none, PrecompileExecutor (:39-42) declares no EVMKeeper() and state.DBImpl keeps its keeper in the unexported field k (modules/evm/state/statedb.go:45), so the asserted StateEVMKeeperGetter failed on the real DBImpl and every gated call reverted with LXP_UNKNOWN \"cannot get EVM keeper from EVM for retirement\" above and below the plan height."
+assumption = "do_2 now resolves the reader from the executor as mergePlanActive does (precompiles/common/precompiles.go:313-319, DynamicGasPrecompileExecutor.EVMKeeper at :270): when p.executor satisfies interface{ EVMKeeper() putils.EVMKeeper } it passes UpgradeReaderOf(getter.EVMKeeper()), otherwise nothing is retired (precompiles/common/retire.go:31-32); do_4 now builds the tests on an executor declared in the test file that returns &testkeeper.EVMTestApp.EvmKeeper (the shape of precompiles/common/precompiles_test.go:95-110), since layerxverify's executor exposes no EVMKeeper()."
+severity = "blocker"
+
+[finding.3.42.1.1]
+task = "3.42.1"
+file = "services/platform/perps-data/internal/store/migrate_test.go:293"
+symbol = "TestMigrate"
+observed = "Since 27719562b (3.46.1) the embedded migrations are 0001-0011 and 0015, so TestMigrate/applies_all fails on main at migrate_test.go:293 (`want prefix 0012_`) before 3.42.1 touches anything, and the ninth, tenth and eleventh attempts (3f5e80874, 96a856378, b6a45a2ee) with PERPS_DATA_TEST_DATABASE_URL provided passed `go build ./services/platform/perps-data/...` and TestSchemaFiles and failed the verifier `cg spec done 3.42.1` (exit 1, log /out/logs/verify-1.log) only on `embedded file 12 is 0015_spot_leaderboard.sql, want prefix 0013_`."
+assumption = "The 0012 migration, schema_test.go and migrate_test.go changes of 75420a6fc are complete and unchanged; 3.42.1 now requires 3.45.1 (0013) and 3.42.8 (0014) and is re-qualified unchanged on a tree holding 0012 through 0015, where the sequence is contiguous, and loadSchema skips CREATE FUNCTION and CREATE TRIGGER statements so 0013 does not disturb TestSchemaFiles."
+severity = "blocker"
+
+[finding.5.13.2]
+task = "5.13.2"
+file = "node/wasmbinding/queries.go:127"
+symbol = "GetDenomPaused"
+observed = "The second attempt (ca2ea1e0c) failed the build `go build ./node/wasmbinding/...` with exit 1 (log /out/logs/build-1.log): PaxTokenFactoryQuery.DenomPaused, TokenFactoryWasmQueryHandler.GetDenomPaused and EncodeTokenFactorySetDenomPaused are undefined at main because tasks 6.23.5 and 6.24.3 create them, yet both list 5.13.2 in their requires while 5.13.2 requires neither, so the dispatch task is scheduled before the symbols it dispatches to exist."
+assumption = "The edges were reversed: 5.13.2 now requires 6.23.5 and 6.24.3 with its wave above theirs, and 5.13.2 has left their requires since `go build ./modules/tokenfactory/...` does not import node/wasmbinding; the work at ca2ea1e0c then continues unchanged on a base that carries both providers."
+severity = "blocker"
+
+[finding.11.4.1.2]
+task = "11.4.1"
+file = "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:150"
+symbol = "facilitator_settles_receipted_evidence"
+observed = "The fourth attempt at 6afb84bcb built `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests` at exit 0 with tests/transports.rs moved to receipt_keys and SequencerEvidence, and the verifier `cg spec done 11.4.1` on 03ed62ef2 exited 1 (log /out/logs/verify-1.log) with facilitator_pending_reports_the_relayed_hash passing and facilitator_settles_receipted_evidence refused as `settlement evidence does not match` because the request's asset literal carried one extra hex digit against the signed payment log; the literal is 64 hex digits at 6afb84bcb but the second repair cycle left no verify run for it, and the candidate predates the ordering 11.3.1 -> 11.4.1 settled at 625b4e264."
+assumption = "The 6afb84bcb candidate is complete for do_1 to do_5 and needs one build plus one run of its verify_cmd unchanged; since it removes every ExecutedPayment use from facilitator.rs and tests/transports.rs, 11.3.1 is now ordered after 11.4.1 (11.3.1 requires 11.4.1 and 11.4.1 is back to requires 11.1.1 and 11.6.1) so the near-qualified candidate is not re-merged under a task that has no building candidate."
+severity = "suspect"
+
+[finding.6.72.1]
+task = "6.72.1"
+file = "wasm-runtime/types/msg.go:139"
+symbol = "GovMsg.VoteWeighted"
+observed = "At 3ebec9a03 the verifier `cg spec done 6.72.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, reporting ✗ symbol GovMsg.VoteWeighted — not defined in the graph: the name is the pointer field VoteWeighted of the struct GovMsg declared at wasm-runtime/types/msg.go:135-139, a type the task reads but does not define and whose directory the task does not touch, while EncodeGovMsg and ErrUnknownMsg resolved."
+assumption = "The symbol list now names only the declarations the task defines or changes, EncodeGovMsg and ErrUnknownMsg; the result at 3ebec9a03 is re-qualified unchanged."
+severity = "note"
+
+[finding.16.12.1]
+task = "16.12.1"
+file = "contracts/CheckpointRegistry.sol:4"
+symbol = "NativePublicationVerifier"
+observed = "The 6.58.3 candidate d22b1f102 (verifier `cg spec done 6.58.3 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, log /out/logs/verify-1.log, refused only on the .cgignore line) deletes contracts/libraries/NativePublicationVerifier.sol while contracts/CheckpointRegistry.sol:4 still imports ./libraries/NativePublicationVerifier.sol and the root Foundry profile (foundry.toml src = contracts, skip naming only contracts/src, test, lib, node_modules, bridge and launchpad) compiles every source under contracts/, so the 16.12.1 build_cmd `forge build --offline` cannot pass between 6.58.3 landing and 6.52.1 retiring CheckpointRegistry.sol."
+assumption = "16.12.1 now requires 6.52.1 and its wave rises above it, so the root profile is built only once CheckpointRegistry.sol is gone; the root Foundry profile is not changed to skip retired sources."
+severity = "blocker"
+
+[finding.13.1.9]
+task = "13.1.9"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs:13"
+symbol = "tx"
+observed = "At 3ae510177, 672d8ba44 and 0e09c793b the builds `cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests` of 13.1.11, 13.1.12 and 13.1.13 exited 0 (logs /out/logs/build-1.log, /out/logs/build-1.log and /out/logs/build-2.log) only because tests/chain_tx.rs, tests/chain_results.rs and tests/chain_trust.rs include src/chain_proof/tx.rs, results.rs, trust.rs and merkle.rs as #[path] modules: programs/crates/layerx-programs-registry/src/chain_proof.rs as left by 13.1.9 (ca2306195) still declares `pub mod merkle {}`, `pub mod tx {}`, `pub mod results {}` and `pub mod trust {}` as empty inline modules, so the library exports no verify_tx, verify_tx_result or ChainProofVerifier::advance and no open task after 13.1.9 listed chain_proof.rs in its touches."
+assumption = "The three verify_cmds qualify through the #[path] includes, and 13.0.2 (the first later task whose do_* names verify_tx_result) now owns chain_proof.rs with a do item replacing each empty inline module whose file exists under src/chain_proof/ with `pub mod <name>;` before any caller outside the crate uses them."
+severity = "suspect"
