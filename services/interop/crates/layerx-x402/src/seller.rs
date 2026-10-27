@@ -33,6 +33,10 @@ const PAYMENT_EXACT_TOPIC: [u8; 32] = [
     0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e, 0x56,
     0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
 ];
+const PAYMENT_DRAWN_TOPIC: [u8; 32] = [
+    0x13, 0x47, 0x3d, 0x10, 0x3a, 0x2d, 0x52, 0x17, 0x20, 0x16, 0xc8, 0x72, 0xee, 0xae, 0x01, 0x53,
+    0xe2, 0x54, 0xaf, 0x3c, 0x21, 0xa1, 0xd9, 0x87, 0x49, 0x2a, 0xb7, 0x37, 0xf1, 0xa3, 0x4f, 0xe1,
+];
 
 /// Typed request handed to the plane's existing payment authority. The x402
 /// adapter never constructs `LayerX` payload bytes; it passes meaning and the
@@ -200,7 +204,7 @@ impl Seller {
             amount: accepted.amount,
             asset: accepted.asset.clone(),
             pay_to: accepted.pay_to.clone(),
-            scheme_payload: payload.payload,
+            scheme_payload: payload.payload.clone(),
             idempotency_key,
             request_digest,
         };
@@ -229,6 +233,7 @@ impl Seller {
                 principal,
                 idempotency_key,
                 accepted,
+                &payload.payload,
                 &executed,
                 &self.receipt_keys,
                 trace,
@@ -283,6 +288,7 @@ impl Seller {
         principal: &PrincipalId,
         idempotency_key: [u8; 32],
         accepted: &PaymentRequirements,
+        scheme_payload: &Value,
         executed: &ExecutedPayment,
         receipt_keys: &[SequencerAuthorization],
         trace: &TraceId,
@@ -305,7 +311,26 @@ impl Seller {
         }
         let verified = verify_logs(&receipt, evidence.logs.clone())
             .map_err(|_| X402Error::EvidenceMismatch)?;
-        let payer = pay_exact_matches(accepted, verified.logs(), &idempotency_key)?;
+        let mut payments = verified.logs().iter().filter(|log| {
+            log.address() == LEDGER_ADDRESS
+                && matches!(
+                    log.topics().first(),
+                    Some(topic) if *topic == PAYMENT_EXACT_TOPIC || *topic == PAYMENT_DRAWN_TOPIC
+                )
+        });
+        let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
+        if payments.next().is_some() {
+            return Err(X402Error::EvidenceMismatch);
+        }
+        let payer = match payment.topics().first() {
+            Some(topic) if *topic == PAYMENT_EXACT_TOPIC => {
+                pay_exact_matches(accepted, verified.logs(), &idempotency_key)?
+            }
+            Some(topic) if *topic == PAYMENT_DRAWN_TOPIC => {
+                pay_drawn_matches(accepted, payment, &idempotency_key, scheme_payload)?
+            }
+            _ => return Err(X402Error::EvidenceMismatch),
+        };
         let purpose = grant_purpose(accepted)?;
         let status = gateway
             .settle_with_sequencer_evidence(
@@ -419,6 +444,39 @@ fn pay_exact_matches(
     if reference != idempotency_key
         || payment.data().len() != 64
         || payment.data()[32..48] != [0; 16]
+    {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let asset = payment.data()[..32]
+        .try_into()
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+    let amount = u128::from_be_bytes(
+        payment.data()[48..64]
+            .try_into()
+            .map_err(|_| X402Error::EvidenceMismatch)?,
+    );
+    payment_matches(accepted, asset, *recipient, amount)?;
+    Ok(*payer)
+}
+
+fn pay_drawn_matches(
+    accepted: &PaymentRequirements,
+    payment: &SequencerLog,
+    idempotency_key: &[u8; 32],
+    scheme_payload: &Value,
+) -> Result<[u8; 32], X402Error> {
+    let [_, grant, payer, recipient] = payment.topics() else {
+        return Err(X402Error::EvidenceMismatch);
+    };
+    let expected_grant = payment_reference(
+        scheme_payload
+            .get("grantId")
+            .ok_or(X402Error::EvidenceMismatch)?,
+    )?;
+    if *grant != expected_grant
+        || payment.data().len() != 128
+        || payment.data()[32..48] != [0; 16]
+        || payment.data()[64..96] != idempotency_key[..]
     {
         return Err(X402Error::EvidenceMismatch);
     }
@@ -726,6 +784,7 @@ pub(crate) mod tests {
             &principal,
             [0x74; 32],
             accepted,
+            &json!({"idempotencyKey": "74".repeat(32)}),
             &executed,
             &receipt_keys(),
             &trace,
