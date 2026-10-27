@@ -9518,3 +9518,57 @@ area = "node tests"
 symptom = "a task written to restore one retired symbol in node/store_delete_test.go fails because the same file references a second retired keeper method"
 cause = "the task was scoped from the first compile error only; go reports errors per package and stops at the first file set, hiding later dead references"
 do = "before publishing a compile-repair task, list every a.<Keeper>.<Method> reference in the test file and confirm each method still exists on the live keeper (git grep 'func (k *Keeper) <Method>('), then cover all of them in one task"
+
+[gotcha.1966]
+area = "cargo workspaces"
+symptom = "a lock-refresh task fails its build with E0432/E0599 inside a path dependency, not in the lock"
+cause = "a crate in another workspace deleted public items (SignedHeaderTrust, MirrorVerifier::from_source) that a shared library crate still uses, so every workspace depending on that library stops building"
+do = "before deleting a pub item from a crate other workspaces depend on, git grep the item across services/ and tools/ and put the dependents' port in the same task or a required follow-up; gate lock-only tasks with cargo metadata --locked rather than a compile"
+
+[gotcha.1967]
+area = "conformance vectors"
+symptom = "a vector-driven test fails on cases whose expected.verifier is accepts or Decode even though the component under test behaves per the vector"
+cause = "expected.verifier is the signature verifier's verdict over the signed bytes: Decode is raised by verify_sequencer_signature, not by a JSON view decoder, and accepts means the refusal (R4, R5, R6) is a client rule that a bytes-only verifier such as the mirror cannot and must not raise"
+do = "classify cases by expected.verifier; for accepts cases assert the verifier accepts and apply the client rule in the test from rawTransaction, prevSeqHash and the JSON view; for Decode cases call the verifier and assert ReceiptCheck::Decode"
+
+[gotcha.1968]
+area = "x402 payment plane"
+symptom = "a settled metered draw answers receipt_consumed on its first receipted retry although the record was released once"
+cause = "the plane saved leaf_hash of the signed receipt (LXP/v1/merkle-leaf domain) as the record digest while the seller compares the canonical_receipt_digest the gateway recorded at settlement, so PaymentStore::release saw two different digests for one receipt"
+do = "when a digest is stored by one component and compared by another, grep the comparer first and use its exact function (canonical_receipt_digest for sequencer receipts); never derive the stored digest with a different hash domain"
+
+[gotcha.1969]
+area = "spec"
+symptom = "A done task's late do item said a planned dispatch table was unnecessary because an existing Execute already dispatched; it dispatched one method, and 21 dependant tasks that add handlers in their own files found no seam and failed with LXP_PRECOMPILE_UNKNOWN_METHOD."
+cause = "The reading that excused the table checked the task's own tests, not the touches of its dependants."
+do = "Before excusing a planned registration or dispatch seam, list the dependants' touches; if they add handlers in separate files the seam is required, so add it as a small task in the dependants' wave and make them require it."
+
+[gotcha.1970]
+area = "spec"
+symptom = "A delete-the-module task listed the module, its tests and the files its do items named; the build failed because three other files imported the module's re-exports and one enum."
+cause = "The do items were written from the module's own callers, not from a grep of crate::<module> across the crate."
+do = "Before writing a module-deletion task, grep crate::<module>:: and <module>:: across the crate and every test, and give each surviving symbol a destination file in a do item and in touches."
+
+[gotcha.1971]
+area = "spec"
+symptom = "An acceptance criterion generalised a refusal reason to every negative case of a shared vector file, and three cases returned a different reason that another criterion in the same feature requires."
+cause = "The criterion was written from the three cases its parenthesis names and did not read the vector file's verifier column, which separates signature failures from content mismatches."
+do = "When a criterion ranges over the cases of a shared vector file, derive the expected outcome per case from the file's own classification fields and cite the sibling criterion that governs each class."
+
+[gotcha.1972]
+area = "precompiles/layerxprograms"
+symptom = "View tests that seeded kernel state by submitting a module activity were refused LXP_ERR_UNKNOWN_ACTIVITY, and versioned schedule views had no host reader for the history rows."
+cause = "The hosted programs registration does not route every module activity, and the host read wiring named only the active-row readers."
+do = "Seed module state in view tests with kv.Set under the kernel key layout, and when a view takes a version argument check modules/lxphost/read.go for a reader over the history prefix before writing the handler."
+
+[gotcha.1973]
+area = "node/abci"
+symptom = "A merged chain refused every proposal at height 2 with proposer ... is outside the pinned leader list although the validator key was pinned as a leader."
+cause = "Header.ProposerAddress is the 20-byte crypto.AddressHash of the validator key while the leader list stores 32-byte keys, and the check compared the two directly."
+do = "Compare the proposer with crypto.AddressHash(leader) for each pinned key, and drive ProcessProposal tests with the derived address, never the raw key."
+
+[gotcha.1974]
+area = "apps/perps"
+symptom = "Removing a field from the static PerpsMarket seed type broke tsc in widgets and tests that never read the seed list."
+cause = "MarketRow and the mobile market props extend PerpsMarket, so the gateway-fed consumers inherit every seed field."
+do = "Keep live-only fields on a type that extends the seed type (TradeableMarket) and point the gateway-fed consumers at it before deleting the seed field."

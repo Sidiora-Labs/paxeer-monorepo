@@ -130,7 +130,7 @@ impl MirrorVerifier {
         Self::admit_committed(&archive_bytes, observation)
     }
 
-    fn admit_committed(
+    pub fn admit_committed(
         archive_bytes: &[u8],
         observation: MirrorObservation,
     ) -> Result<Self, MirrorVerifyError> {

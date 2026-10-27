@@ -434,8 +434,8 @@ struct RecoveryAuthority {
 impl RecoveryAuthority {
     fn protected() -> Self {
         use layerx_ramp_toolkit::clients::{
-            configured_sequencer, parse_hex32, ActivityConfig, Endpoint, LayerxClient,
-            MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderClient, SecretFile,
+            parse_hex32, Endpoint, LayerxConfig, MutualTlsClient, MutualTlsFiles,
+            PaxeerCustodyClient, ProviderClient, SecretFile,
         };
         use std::time::Duration;
         fn field<T: serde::de::DeserializeOwned>(value: &serde_json::Value, key: &str) -> T {
@@ -488,34 +488,10 @@ impl RecoveryAuthority {
             settlement_path: field(provider_config, "settlement_path"),
             status_path: field(provider_config, "status_path"),
         };
-        let layerx_config = &config["layerx"];
-        let layerx = LayerxClient {
-            http: http(),
-            gateway: endpoint(layerx_config, "gateway_endpoint"),
-            receipt_authority: endpoint(layerx_config, "receipt_authority_endpoint"),
-            signer: endpoint(layerx_config, "signer_endpoint"),
-            gateway_key: secret(layerx_config, "gateway_key_file"),
-            authority_token: secret(layerx_config, "authority_token_file"),
-            signer_token: secret(layerx_config, "signer_token_file"),
-            sequencer_authorization: configured_sequencer(
-                &field::<String>(layerx_config, "sequencer_id"),
-                &field::<String>(layerx_config, "sequencer_public_key"),
-                &field::<String>(layerx_config, "sequencer_first_batch"),
-                &field::<String>(layerx_config, "sequencer_last_batch"),
-            )
-            .unwrap_or_else(|_| panic!("recovery sequencer authorization refused")),
-            activity: ActivityConfig {
-                actor_did: field::<String>(layerx_config, "actor_did").into_bytes(),
-                protocol_version: field(layerx_config, "protocol_version"),
-                network_id: field(layerx_config, "network_id"),
-                fee_limit: field(layerx_config, "fee_limit"),
-                signer_public_key: parse_hex32(&field::<String>(
-                    layerx_config,
-                    "signer_public_key",
-                ))
-                .unwrap_or_else(|_| panic!("recovery signer identity refused")),
-            },
-        };
+        let layerx = serde_json::from_value::<LayerxConfig>(config["layerx"].clone())
+            .unwrap_or_else(|_| panic!("protected recovery sequencer configuration invalid"))
+            .build(http())
+            .unwrap_or_else(|_| panic!("recovery sequencer endpoint refused"));
         let custody_config = &config["paxeer"];
         let custody = PaxeerCustodyClient {
             http: http(),
@@ -528,26 +504,12 @@ impl RecoveryAuthority {
             vault_id: field(custody_config, "vault_id"),
             signer_key_handle: field(custody_config, "signer_key_handle"),
         };
-        let trust: PathBuf = field(custody_config, "rpc_trust_anchor_der");
-        let trust =
-            fs::read(trust).unwrap_or_else(|_| panic!("recovery RPC trust anchor unavailable"));
-        assert!(!trust.is_empty());
         let tracker = layerx_paxeer_client::TrackerConfig {
-            endpoints: field::<Vec<String>>(custody_config, "rpc_endpoints")
-                .into_iter()
-                .map(|url| layerx_paxeer_client::EndpointConfig {
-                    url,
-                    request_timeout: timeout,
-                    transport: layerx_paxeer_client::EndpointTransport::PinnedTls {
-                        trust_anchor_der: trust.clone(),
-                    },
-                    expected_chain_id: field(custody_config, "rpc_chain_id"),
-                })
-                .collect(),
-            minimum_endpoint_agreement: field(custody_config, "rpc_minimum_agreement"),
-            required_confirmations: field(custody_config, "required_confirmations"),
-            poll_cadence: Duration::from_secs(field(custody_config, "poll_cadence_seconds")),
-            delayed_after_polls: field(custody_config, "delayed_after_polls"),
+            endpoints: Vec::new(),
+            minimum_endpoint_agreement: 0,
+            required_confirmations: 0,
+            poll_cadence: Duration::from_secs(1),
+            delayed_after_polls: 0,
         };
         fn protected_input<T: serde::de::DeserializeOwned>(name: &str) -> T {
             let path = std::env::var_os(name)

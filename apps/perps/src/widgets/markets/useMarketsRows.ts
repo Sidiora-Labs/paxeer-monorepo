@@ -1,11 +1,9 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  MARKET_CATEGORIES,
-  PERPS_MARKETS,
-  getMarketCategory,
-} from "@/core/perps/config";
+import { getMarketCategory, type PerpsMarket } from "@/core/perps/config";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import {
   useMarketsSnapshot,
   type MarketSnapshot,
@@ -13,72 +11,66 @@ import {
 import type { MarketRow } from "./types";
 
 /**
- * Canonical "new listing" market IDs. Matches the existing convention
- * from `page-modules/markets`. When the backend grows a dedicated "new"
- * flag this list can move to config.
- */
-export const NEW_MARKET_IDS: ReadonlySet<number> = new Set([5, 6, 7, 8, 9, 10]);
-
-/**
  * True if the category filter should include this market.
  *
  * - `rwa` bundles stocks + indices + commodities (as labelled in the
  *   reference design's filter chip).
  * - `crypto` maps 1:1 to the canonical crypto market list.
- * - `new` uses `NEW_MARKET_IDS`.
+ * - `new` uses the catalog listing category.
  * - `all` (and anything unrecognised) includes every market.
  * - `favorites` is resolved upstream in the page — it's out of scope here.
  */
 function matchesCategory(category: string, row: MarketRow): boolean {
   if (category === "all" || category === "favorites") return true;
   if (category === "new") return row.isNew;
+  const assetCategory =
+    row.category === "new" ? getMarketCategory(row.marketId) : row.category;
   if (category === "rwa") {
-    return (
-      MARKET_CATEGORIES.stocks.includes(row.marketId) ||
-      MARKET_CATEGORIES.indices.includes(row.marketId) ||
-      MARKET_CATEGORIES.commodities.includes(row.marketId)
-    );
+    return ["stocks", "indices", "commodities"].includes(assetCategory);
   }
-  if (category === "crypto") {
-    return MARKET_CATEGORIES.crypto.includes(row.marketId);
-  }
+  if (category === "crypto") return assetCategory === "crypto";
   return true;
 }
 
-/**
- * Build the canonical `MarketRow[]` for the page. The order returned
- * follows `PERPS_MARKETS` (i.e. stable, deterministic); callers apply
- * their own sort/filter on top.
- */
-export function useMarketsRows(): { rows: MarketRow[]; bySymbol: Map<string, MarketRow>; hasAnyLive: boolean } {
+export function buildMarketsRows(
+  markets: readonly (MarketCatalogEntry & PerpsMarket)[],
+  snapshots: readonly MarketSnapshot[],
+): MarketRow[] {
+  const snapBySymbol = new Map<string, MarketSnapshot>();
+  for (const snapshot of snapshots) {
+    snapBySymbol.set(snapshot.symbol.toUpperCase(), snapshot);
+  }
+
+  return markets.map((market) => {
+    const snapshot = snapBySymbol.get(market.symbol.toUpperCase());
+    return {
+      ...market,
+      price: snapshot?.price ?? 0,
+      change24h: snapshot?.change_24h ?? 0,
+      volume24h: snapshot?.volume_24h ?? 0,
+      openInterest: snapshot?.open_interest ?? 0,
+      funding8h: snapshot?.funding_8h ?? null,
+      fundingHourly: snapshot?.last_funding_rate_hourly ?? null,
+      isNew: market.category === "new",
+      hasLiveData: Boolean(snapshot),
+      snapshot,
+    };
+  });
+}
+
+export function useMarketsRows(): {
+  rows: MarketRow[];
+  bySymbol: Map<string, MarketRow>;
+  hasAnyLive: boolean;
+} {
+  const { tradeable } = usePerpsMarkets();
   const snapshots = useMarketsSnapshot();
 
   return useMemo(() => {
-    const snapBySymbol = new Map<string, MarketSnapshot>();
-    for (const s of snapshots) {
-      snapBySymbol.set(s.symbol.toUpperCase(), s);
-    }
-
-    const rows: MarketRow[] = PERPS_MARKETS.map((m) => {
-      const snap = snapBySymbol.get(m.symbol.toUpperCase());
-      return {
-        ...m,
-        price: snap?.price ?? 0,
-        change24h: snap?.change_24h ?? 0,
-        volume24h: snap?.volume_24h ?? 0,
-        openInterest: snap?.open_interest ?? 0,
-        funding8h: snap?.funding_8h ?? null,
-        fundingHourly: snap?.last_funding_rate_hourly ?? null,
-        category: getMarketCategory(m.marketId),
-        isNew: NEW_MARKET_IDS.has(m.marketId),
-        hasLiveData: Boolean(snap),
-        snapshot: snap,
-      };
-    });
-
-    const bySymbol = new Map(rows.map((r) => [r.symbol, r]));
-    return { rows, bySymbol, hasAnyLive: snapshots.length > 0 };
-  }, [snapshots]);
+    const rows = buildMarketsRows(tradeable, snapshots);
+    const bySymbol = new Map(rows.map((row) => [row.symbol, row]));
+    return { rows, bySymbol, hasAnyLive: rows.some((row) => row.hasLiveData) };
+  }, [tradeable, snapshots]);
 }
 
 /**
