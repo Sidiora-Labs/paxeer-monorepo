@@ -130,14 +130,6 @@ class PxAssetTable:
 
 
 @dataclass(frozen=True)
-class PxAnchorHead:
-    latest_finalized_batch: int | None
-    status: int | None
-    status_name: str | None
-    status_ladder: Mapping[str, str] | None
-
-
-@dataclass(frozen=True)
 class PxPaxeerHead:
     chain_id: int
     latest_block: int
@@ -614,27 +606,11 @@ def _receipt_key_bytes(value: object) -> str:
     return decoded.hex()
 
 
-def decode_px_anchor_head(value: object) -> PxAnchorHead:
-    anchor = _document(value)
-    _present(
-        anchor, ("latest_finalized_batch", "status", "status_name", "status_ladder")
-    )
-    ladder = anchor["status_ladder"]
-    status_ladder: Mapping[str, str] | None = None
-    if ladder is not None:
-        rungs = _document(ladder)
-        for rung in rungs.values():
-            if not isinstance(rung, str) or not 0 < len(rung) <= 64:
-                raise ValueError("invalid-px-anchor-ladder")
-        status_ladder = MappingProxyType(
-            {key: str(rung) for key, rung in rungs.items()}
-        )
-    return PxAnchorHead(
-        _px_optional_counted(anchor["latest_finalized_batch"]),
-        _px_optional_counted(anchor["status"]),
-        _optional_text(anchor["status_name"], 64),
-        status_ladder,
-    )
+def history_cursor(block_height: int, tx_index: int, log_index: int) -> str:
+    block_height = _history_position(block_height, _MAX_U64)
+    tx_index = _history_position(tx_index, 0xFFFFFFFF)
+    log_index = _history_position(log_index, 0xFFFFFFFF)
+    return f"{block_height:016x}{tx_index:08x}{log_index:08x}"
 
 
 def history_params(

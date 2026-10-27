@@ -1,3 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
 import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { cn } from "@/ui/utils/cn";
 import { Tabs, TabsContent } from "@/ui/atoms/tabs";
@@ -94,7 +97,21 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
 }) {
   const symbol = getMarketSymbol(pos.marketId);
   const parsed = parsePositionRow(pos, symbol);
-  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice));
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () => getPublicClient().readContract(buildGetMarginTiers(BigInt(parsed.marketId))),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <div role={tiersError || tiers ? "alert" : "status"}>
+        {tiersError || tiers
+          ? "Market margin tiers unavailable. Please try again."
+          : "Loading market margin tiers…"}
+      </div>
+    );
+  }
+  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice), tiers);
   const pnlColor = pnlData.unrealizedPnl >= 0n ? "var(--success)" : "var(--danger)";
 
   // Liquidation safety: 0 = dead, 1 = safe (bigint bps, display ratio only).
@@ -324,7 +341,23 @@ const DesktopPositionRow = React.memo(function DesktopPositionRow({
 }: DesktopPositionRowProps) {
   const symbol = getMarketSymbol(pos.marketId);
   const parsed = parsePositionRow(pos, symbol);
-  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice));
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () => getPublicClient().readContract(buildGetMarginTiers(BigInt(parsed.marketId))),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <tr>
+        <td colSpan={13} role={tiersError || tiers ? "alert" : "status"}>
+          {tiersError || tiers
+            ? "Market margin tiers unavailable. Please try again."
+            : "Loading market margin tiers…"}
+        </td>
+      </tr>
+    );
+  }
+  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice), tiers);
   const marginPct = pnlData.marginPct;
   // The TP/SL and adjust modals take display numbers; the PnL math above stays in bigint.
   const entryPrice = weiToNumber(parsed.entryPrice);
