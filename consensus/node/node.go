@@ -269,8 +269,10 @@ func makeNode(
 			nodeMetrics.state,
 			consensusPolicy,
 		)
-		if src, ok := app.(types.SequencerSource); ok {
-			blockExec.SetSequencerSource(src)
+		if provider, ok := app.(interface{ SequencerSource() types.SequencerSource }); ok {
+			if src := provider.SequencerSource(); src != nil {
+				blockExec.SetSequencerSource(src)
+			}
 		}
 		closers = append([]closer{func() error {
 			blockExec.Stop()
