@@ -3493,3 +3493,59 @@ symbol = "finality_evidence.rs"
 observed = "scripts/ci/xweb-workflow-check.sh:177 lists services/agent/crates/layerx-client/tests/finality_evidence.rs, which task 9.27.7 deletes; until task 16.5.2 lands the check names a missing file"
 assumption = "16.5.2 (now requiring 9.27.7) removes the entry with the other retired test paths; no gate runs the check between the two tasks"
 severity = "minor"
+
+[finding.17.5.1.1]
+task = "17.5.1"
+file = "scripts/gates/wave-0.sh"
+symbol = "workspace-build"
+observed = "At 02f32be54 the third attempt's verifier ran scripts/gates/wave-0.sh, which exited 2 after its `make -n build test` stage passed, so `make workspace-build` or `make workspace-lint` fails on the merged tree; the gate log under logs/waves/0 was not kept with the result"
+assumption = "The agent crates do not compile until 9.1.8 and the webhooks crate until 8.1.6 land, so both gate tasks require them and are requalified on a main that contains both"
+severity = "blocker"
+
+[finding.17.5.2.1]
+task = "17.5.2"
+file = "scripts/gates/wave-1.sh"
+symbol = "workspace-build"
+observed = "The fourth attempt's verifier ran scripts/gates/wave-1.sh, whose first stage is the same `make workspace-build` as finding.17.5.1.1 and which also runs workspace-test, core-test-all and test-sanitizer-suite"
+assumption = "The agent crates do not compile until 9.1.8 and the webhooks crate until 8.1.6 land, so both gate tasks require them and are requalified on a main that contains both"
+severity = "blocker"
+
+[finding.2.11.2.3]
+task = "2.11.2"
+file = "modules/lxphost/host.go:1062"
+symbol = "activityModules"
+observed = "The fourth attempt 0ab578731 built and `cg spec done 2.11.2` exited 1 (logs-verify-1.log): the fee-bearing predecessor grantSession reverted LXP_VERSION_UNSUPPORTED because the governance loading set {1,7} (host.go:1062-1069, ctx.go:142) never loads module-9 progfee/active/v1, so lxp_programs_fee_governance_resolve_runtime finds no active record (fees.c:1474) when grant_scope_validate resolves the occupancy asset (lxp_governance.c:484)."
+assumption = "A host task loads the Programs fee governance rows for governance activities, 2.11.2 requires it, and 0ab578731 is continued unchanged."
+severity = "blocker"
+
+[finding.9.1.7.5]
+task = "9.1.7"
+file = "spec/layerx-merge/spec.kvx:task.9.1.7.verify_cmd"
+symbol = "LAYERX_PAXEER_BOUNDARY_BIN"
+observed = "The fifth attempt (6e43043fa) built the layerx-paxeer-boundary binary in its build step, yet the verifier `cg spec done 9.1.7` exited 1 (logs-verify-1.log) with three TLS checks panicking at services/platform/tests/support/tls_boundary.rs:187, because the kvx reader passes the escaped quotes of verify_cmd to sh literally (gotcha.111) so LAYERX_PAXEER_BOUNDARY_BIN holds the path wrapped in quote characters and is_file() is false; the fourth library failure, v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes (src/program_http.rs:2437), still returns Verification because PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS is unset."
+assumption = "verify_cmd assigns the boundary path without escaped quotes, do_14 states the corpus input of the fourth library test, and 6e43043fa is requalified unchanged with the corpus produced beside the gate."
+severity = "blocker"
+
+[finding.9.24.1.3]
+task = "9.24.1"
+file = "spec/layerx-merge/spec.kvx:task.9.24.1.verify_cmd"
+symbol = "LAYERX_CAPS_VECTORS"
+observed = "The seventh attempt (56132ffa7) built build/native-vectors.json in its build step now that task 1.4.6 relinked build/liblayerx.a, yet the verifier `cg spec done 9.24.1` exited 1 (logs-verify-1.log) with native_budget_versions_fields_and_extremes panicking at services/agent/crates/layerx-client/tests/committed_caps.rs:10 on NotFound, because the kvx reader passes the escaped quotes of verify_cmd to sh literally (gotcha.111), so LAYERX_CAPS_VECTORS holds the path wrapped in quote characters."
+assumption = "verify_cmd assigns LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json without escaped quotes, the test and decoder stay unchanged, and 56132ffa7 is requalified unchanged."
+severity = "blocker"
+
+[finding.2.24.2]
+task = "2.24.2"
+file = "src/modules/budget/lx_budget_module.c:288"
+symbol = "budget_authorized_signer"
+observed = "The first attempt at 589654bc5 built and the verifier `cg spec done 2.24.2` exited 1 (log /out/logs/verify-1.log) on `LXP_BAD_SIGNATURE: layerxpay budgetCreate` in both tests, because Submit sends an unsigned bound activity and budget_authorized_signer calls lxp_activity_verify_signature unconditionally, while 1.11.6 taught only the module custody staging call to honour binding_authority; the same refusal stops 2.24.1 and 2.24.4."
+assumption = "New task 2.24.6 (wave 24, fm-ledger-auth-pay) skips that signature check when the asset runtime carries binding_authority, as lxp_module_ctx.c:895-897 does; 2.24.1, 2.24.2, 2.24.3 and 2.24.4 require it and continue their first attempts unchanged."
+severity = "blocker"
+
+[finding.2.25.1]
+task = "2.25.1"
+file = "modules/lxphost/host.go:150"
+symbol = "lxphost_reset"
+observed = "The first attempts of 2.25.1, 2.25.2, 2.25.3, 2.26.1, 2.26.2 and 2.26.3 (base 27fe3d99a) each built and their verifiers exited 1 (log /out/logs/verify-1.log) on LXP_ERR_MODULE_DISABLED for streamOpen or serviceOfferPublish, because lxphost_reset registers governance, Programs, asset, budget and escrow but not the stream and service modules, which 1.24.1 adds; none of the six requires 1.24.1."
+assumption = "The six tasks gain a requires edge on 1.24.1 (pending, wave 23, so they stay in wave 25) and continue their first attempts unchanged once it is merged."
+severity = "blocker"
