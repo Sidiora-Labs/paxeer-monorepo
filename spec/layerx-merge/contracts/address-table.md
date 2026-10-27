@@ -375,6 +375,9 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_XWEB_FULFIL_EVM_ONLY | xweb: fulfil runs only through the EVM, which meters its callback | xweb 0x1019 | precompile site precompiles/xweb/xweb.go:243 | no |
 | LXP_XWEB_CALLBACK_BUDGET | xweb: fulfil of request <id> needs <n> gas for its callback and its record, <m> left | xweb 0x1019 | precompile site precompiles/xweb/xweb.go:416 (text :417-418) | no |
 | LXP_BANK_INSUFFICIENT_FUNDS | insufficient funds | xweb 0x1019 `request`, `fulfil`, `refund` bank legs; any precompile moving coins through bank SendCoins | ErrInsufficientFunds (root codespace "sdk", code 5), sdk/types/errors/errors.go:32, surfaced by sdk/x/bank/keeper/send.go:238; xweb legs modules/xweb/keeper/request.go:53, fulfil.go:148, refund.go:35 (web.md RQ, FU, RF) | yes |
+| LXP_BANK_STATICCALL | cannot call <method> from staticcall | bank 0x1001: send, sendNative | precompile site precompiles/bank/bank.go:218,262,338 | no |
+| LXP_BANK_DELEGATECALL | cannot delegatecall <method> | bank 0x1001: sendNative | precompile site precompiles/bank/bank.go:341 | no |
+| LXP_BANK_ZERO_VALUE | set `value` field to non-zero to send | bank 0x1001: sendNative | precompile site precompiles/bank/bank.go:347 | no |
 | LXP_BRIDGE_UNAUTHORIZED | unauthorized | layerxbridge 0x1016 | ErrUnauthorized (code 2), modules/layerxbridge/types/errors.go:6 | no |
 | LXP_BRIDGE_UNKNOWN_CHAIN | chain not registered | layerxbridge 0x1016 | ErrUnknownChain (code 5), modules/layerxbridge/types/errors.go:9 | no |
 | LXP_BRIDGE_CHAIN_DISABLED | chain disabled | layerxbridge 0x1016 | ErrChainDisabled (code 6), modules/layerxbridge/types/errors.go:10 | yes |
@@ -445,6 +448,10 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_FEETOKEN_UNKNOWN_METHOD | feetoken: unknown method | feetoken 0x1018 | precompiles/feetoken/feetoken.go:108 | no |
 | LXP_FEETOKEN_SWITCH_OFF | fee token preference: fee-token switch is off | feetoken 0x1018 | modules/evm/keeper/feetoken.go:27 | yes |
 | LXP_FEETOKEN_DENOM_NOT_ALLOWED | fee token preference: denom is not allowed | feetoken 0x1018 | modules/evm/keeper/feetoken.go:30 (ErrFeeTokenDenomNotAllowed :43) | no |
+| LXP_PRICEFEED_DELEGATECALL | cannot delegatecall pricefeed | pricefeed 0x1020 | precompile site precompiles/pricefeed/pricefeed.go:157 | no |
+| LXP_PRICEFEED_STATICCALL | cannot call pricefeed <method> from staticcall | pricefeed 0x1020: state changes | precompile site precompiles/pricefeed/pricefeed.go:160 | no |
+| LXP_PRICEFEED_KEEPER_MISSING | pricefeed: the pricefeed keeper is not wired into this application | pricefeed 0x1020 | precompile site precompiles/pricefeed/pricefeed.go:163 | no |
+| LXP_PRICEFEED_BATCH_TOO_LARGE | getPrices takes at most 64 market ids | pricefeed 0x1020: getPrices | precompile site precompiles/pricefeed/views.go:89 | no |
 | LXP_PRECOMPILE_NO_CONTEXT | cannot get context from EVM | every precompile (framework) | precompiles/common/precompiles.go:125 | no |
 | LXP_PRECOMPILE_UNKNOWN_METHOD | no method with id: <selector> | every precompile (framework) | precompiles/common/precompiles.go:131 (abi MethodById); text from pax-geth v1.15.7-pax.17 `no method with id: %#x` (go.mod:280 replaces go-ethereum) | no |
 | LXP_PRECOMPILE_INPUT_TOO_SHORT | input too short to extract method ID | every precompile (framework) | precompiles/common/precompiles.go:281 | no |
@@ -452,6 +459,7 @@ Encoding rules first, then every code; kernel codes are the lxp_result enum (inc
 | LXP_PRECOMPILE_NON_PAYABLE | sending funds to a non-payable function | every precompile (framework) | precompiles/common/precompiles.go:221 | no |
 | LXP_PRECOMPILE_WEI_REMAINDER | selected precompile function does not allow payment with non-zero wei remainder | every payable precompile (framework); xweb 0x1019 `request` and `fulfil` (web.md A1; precompiles/xweb/xweb_test.go:296-298) | precompiles/common/precompiles.go:230 | no |
 | LXP_PRECOMPILE_INVALID_ADDR | invalid addr | every precompile taking an address argument (framework) | precompiles/common/precompiles.go:318 | no |
+| LXP_AGENT_NOT_ACTIVE | <plan> not active at height <height>; no merge upgrade activation reader bound | agent functions 0x0901-0x0908: every agent function | ErrNotActive, precompiles/layerxagent/common/common.go:66; HeightGate :99,103 | no |
 | LXP_AGENT_ABI_DECODE | argument decode failed | agent functions 0x0901-0x0908: every agent function | agent-functions.md A.0; new under precompiles/layerxagent | no |
 | LXP_AGENT_READ_ONLY | write under staticcall | agent functions 0x0901-0x0908: submitPrice, schedule, cancel, reschedule, open, settle, close, updateRate | agent-functions.md A.0; new under precompiles/layerxagent | no |
 | LXP_AGENT_DELEGATECALL | cannot delegatecall an agent function | agent functions 0x0901-0x0908: every write method | agent-functions.md A.0; new under precompiles/layerxagent | no |

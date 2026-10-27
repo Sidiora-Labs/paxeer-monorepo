@@ -1,9 +1,9 @@
 {
-  "status": 403,
+  "status": 410,
   "body": {
     "ok": false,
     "error": {
-      "code": "step-up-required",
+      "code": "operation-retired",
       "copy_key": "error.step-up.required",
       "retry": "structural"
     },

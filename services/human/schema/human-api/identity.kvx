@@ -5,6 +5,7 @@ compatibility = "additive_only"
 spine = "One account held by passkeys, carried by sessions, linked to one payout wallet. Everything a person can do on the authenticated plane starts with the operations declared here: creating the account, confirming it is really them, watching onboarding finish honestly, and linking the wallet their money arrives from and returns to."
 separation = "The application identity a passkey unlocks, the protocol identity the custody service establishes underneath it, and the wallet a person links for money in and out are three distinct things. Protocol mechanics stay behind evidence references, and the browser never holds signing power."
 ceremonies = "Passkey ceremonies travel as typed records whose ceremony and credential fields are opaque base64 strings produced and consumed by the platform credential machinery. This plane relays them without interpreting them."
+sponsorship = "Onboarding uses gas station sponsorship: bindLayerX at 0x1004 is quoted and submitted through the gas station and confirmed by the LayerXBound log. The journey reports the sponsor and actual transaction hash when known."
 
 [scalar.AccountId]
 json = "string"
@@ -473,7 +474,7 @@ authorization_class = "read"
 method = "GET"
 path = "/v1/onboarding"
 request = "Empty"
-response = "Journey"
+response = "OnboardingJourney"
 kind = "The journey of kind onboarding: creating the account, adding the passkey, establishing the protocol identity, putting recovery in place, each stage reported honestly."
 active = "The account reads as active only when the journey's protocol-identity stage carries evidence of class layerx-receipt at verification receipt-verified or higher. No stage is presented as done from local state alone."
 
@@ -482,33 +483,40 @@ authorization_class = "money-movement"
 method = "POST"
 path = "/v1/onboarding/resume"
 request = "Empty"
-response = "Journey"
+response = "OnboardingJourney"
 resumption = "Resuming after a crash, a timeout or a repeated request converges on the one journey account creation started, without restarting completed stages and without orphaned protocol state."
 
 [type.BindingStatementRequest]
+retired = "true"
 required = ["address:EvmAddress"]
 
 [type.BindingStatement]
+retired = "true"
 required = ["statement:string","address:EvmAddress","expires_at:Timestamp"]
 exactness = "statement is the exact text the wallet must sign, character for character. The wallet opens once to sign it and at no other moment."
 authority = "The linked wallet is a payout and provenance association only. It cannot move LayerX funds."
 
 [type.BindingSubmission]
+retired = "true"
 required = ["address:EvmAddress","statement:string","signature:EvmSignature"]
 
 [type.BindingState]
+retired = "true"
 variants = ["none","binding","bound","rebinding"]
 
 [type.WalletBinding]
+retired = "true"
 required = ["state:BindingState"]
 optional = ["address:EvmAddress","bound_at:Timestamp","evidence:EvidenceRef"]
 checksum = "address always carries the full checksummed mixed-case rendering."
 evidence = "evidence references the receipt-backed record that established the current binding, and the binding reads as bound only once it verifies."
 
 [type.RebindingSubmission]
+retired = "true"
 required = ["address:EvmAddress","statement:string","signature:EvmSignature","step_up:StepUpEvidence"]
 
 [operation.binding.statement]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/wallet-binding/statement"
@@ -516,6 +524,7 @@ request = "BindingStatementRequest"
 response = "BindingStatement"
 
 [operation.binding.submit]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/wallet-binding"
@@ -525,6 +534,7 @@ idempotency = true
 journey = "Returns the journey of kind wallet-binding. The binding reads as established only when its receipt-backed evidence verifies, and a signature from any address other than the named one is refused, never silently accepted."
 
 [operation.binding.status]
+retired = "true"
 authorization_class = "read"
 method = "GET"
 path = "/v1/wallet-binding"
@@ -532,10 +542,12 @@ request = "Empty"
 response = "WalletBinding"
 
 [type.BindingRebindAction]
+retired = "true"
 required = ["binding:BindingStatement","confirms:OperationDigest"]
 binding = "The service issues the exact replacement statement and derives confirms from the current receipt-backed binding and that statement. The browser signs the returned statement and never constructs the operation digest."
 
 [operation.binding.rebind.action]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/wallet-binding/rebind/action"
@@ -544,6 +556,7 @@ response = "BindingRebindAction"
 step_up = "This is the only source of the operation digest used to request fresh passkey evidence for a wallet replacement."
 
 [operation.binding.rebind]
+retired = "true"
 authorization_class = "wallet-rebind"
 method = "POST"
 path = "/v1/wallet-binding/rebind"
@@ -574,3 +587,8 @@ method = "PATCH"
 path = "/v1/profile"
 request = "ProfileUpdate"
 response = "Profile"
+
+[type.OnboardingJourney]
+required = ["journey_id:JourneyId","kind:JourneyKind","state:JourneyState","state_copy_key:CopyKey","stages:JourneyStage[]","evidence:EvidenceRef[]","started_at:Timestamp","updated_at:Timestamp"]
+optional = ["refusal:Refusal","wallet_request:WalletSignRequest","sponsor:WalletAddress","tx_hash:WalletTxId"]
+compatibility = "Retains every required and optional Journey field with the same types, adding only optional metadata."

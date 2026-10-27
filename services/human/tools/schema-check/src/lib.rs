@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -352,6 +352,7 @@ struct SchemaFile {
     name: String,
     path: PathBuf,
     sections: Sections,
+    section_order: Vec<String>,
 }
 
 struct Header {
@@ -421,6 +422,15 @@ fn load_kvx(root: &Path, name: &str, violations: &mut Vec<Violation>) -> Option<
             name: name.to_owned(),
             path,
             sections,
+            section_order: body
+                .lines()
+                .filter_map(|line| {
+                    line.trim()
+                        .strip_prefix('[')
+                        .and_then(|name| name.strip_suffix(']'))
+                        .map(str::to_owned)
+                })
+                .collect(),
         }),
         Err(detail) => {
             violations.push(violation(&path, "invalid-kvx", detail));
@@ -2336,9 +2346,10 @@ fn check_compatibility(
         )),
     }
     let rows: Vec<(&String, &BTreeMap<String, String>)> = file
-        .sections
+        .section_order
         .iter()
-        .filter(|(name, _)| name.starts_with("compatibility.row."))
+        .filter(|name| name.starts_with("compatibility.row."))
+        .filter_map(|name| file.sections.get_key_value(name))
         .collect();
     if rows.is_empty() {
         violations.push(violation(
@@ -2347,6 +2358,9 @@ fn check_compatibility(
             "the matrix must record at least one row",
         ));
     }
+    let mut recorded_minors = BTreeSet::new();
+    let mut previous_minor = None;
+    let prefix = format!("{major}.");
     for (name, entries) in &rows {
         for key in ["schema", "service", "web_app"] {
             if quoted(entries, key).is_none_or(str::is_empty) {
@@ -2357,6 +2371,36 @@ fn check_compatibility(
                 ));
             }
         }
+        let schema = quoted(entries, "schema");
+        let row_minor = schema
+            .and_then(|version| version.strip_prefix(&prefix))
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| schema == Some(format!("{major}.{value}").as_str()));
+        match row_minor {
+            Some(value) => {
+                if previous_minor.is_some_and(|previous| value <= previous) {
+                    violations.push(violation(
+                        &file.path,
+                        "compatibility-row-order",
+                        format!("{name} schema {major}.{value} must follow earlier minors in strictly ascending order without duplicates"),
+                    ));
+                }
+                recorded_minors.insert(value);
+                previous_minor = Some(value);
+            }
+            None => violations.push(violation(
+                &file.path,
+                "compatibility-row-order",
+                format!("{name} schema must be a version of the form {major}.<minor>"),
+            )),
+        }
+    }
+    if let Some(missing) = (0..=minor).find(|value| !recorded_minors.contains(value)) {
+        violations.push(violation(
+            &file.path,
+            "compatibility-row-missing",
+            format!("no matrix row records schema version {major}.{missing}"),
+        ));
     }
     let wanted = format!("{major}.{minor}");
     let recorded = rows

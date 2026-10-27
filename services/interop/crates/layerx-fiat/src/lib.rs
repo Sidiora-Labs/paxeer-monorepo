@@ -4,11 +4,18 @@ use std::fmt::{Debug, Display, Formatter};
 
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
 use layerx_interop_gateway::error::GatewayError;
-use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
+use layerx_interop_gateway::gateway::{
+    SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
-use layerx_proof::receipt::{verify, AuthorizedBatch};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
+use layerx_proof::sequencer_logs::verify_logs;
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -18,6 +25,13 @@ const TOKEN_LIMIT: usize = 512;
 const IDENTIFIER_LIMIT: usize = 96;
 const IDEMPOTENCY_DOMAIN: &[u8] = b"LayerX/interop/fiat/idempotency/v1\0";
 const REQUEST_DOMAIN: &[u8] = b"LayerX/interop/fiat/request/v1\0";
+const LEDGER_ADDRESS: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+];
+const PAYMENT_EXACT_TOPIC: [u8; 32] = [
+    0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e, 0x56,
+    0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
+];
 
 /// Supported certified-provider edge rails. Card data terminates at the
 /// provider; this crate accepts only opaque token references for all rails.
@@ -262,8 +276,7 @@ pub enum PlaneFiatOutcome {
 
 #[derive(Debug)]
 pub struct ExecutedFiatOutcome {
-    pub canonical_receipt: Vec<u8>,
-    pub authorised_batch: AuthorizedBatch,
+    pub evidence: SequencerEvidence,
 }
 
 #[derive(Debug)]
@@ -275,6 +288,12 @@ pub enum FiatPlaneResult {
 /// Real `LayerX` transition boundary used for credits, reversals and
 /// chargebacks. Implementations preserve the supplied idempotency key.
 pub trait FiatPlane {
+    fn receipt_keys(&self) -> &[SequencerAuthorization];
+
+    fn capture_evidence(&self, _facts: &VerifiedProviderFacts) -> Option<&SequencerEvidence> {
+        None
+    }
+
     /// Executes one receipt-producing `LayerX` intent.
     ///
     /// # Errors
@@ -444,42 +463,212 @@ impl FiatAdapter {
                     .map_err(|error| trace.wrap(FiatError::Gateway(error.into_error())))?;
                 Ok(FiatJourneyState::Refused)
             }
-            FiatPlaneResult::Executed(executed) => {
-                let verified = verify(&executed.canonical_receipt, &executed.authorised_batch)
-                    .map_err(|_| fail(FiatError::ReceiptMismatch))?;
-                let protocol = verified
-                    .receipt()
-                    .protocol()
-                    .ok_or_else(|| fail(FiatError::ReceiptMismatch))?;
-                let account_matches = match facts.class {
-                    EvidenceClass::Settled => protocol.to() == facts.destination,
-                    EvidenceClass::Reversed | EvidenceClass::Chargeback => {
-                        protocol.from() == facts.destination
-                    }
-                    EvidenceClass::Authorised | EvidenceClass::Clearing => false,
-                };
-                if protocol.asset() != facts.asset
-                    || protocol.amount() != facts.amount
-                    || !account_matches
+            FiatPlaneResult::Executed(executed) => Self::settle_with_capture(
+                gateway,
+                principal,
+                idempotency_key,
+                facts,
+                &executed.evidence,
+                plane.capture_evidence(facts),
+                plane.receipt_keys(),
+                trace,
+                now,
+            ),
+        }
+    }
+
+    /// Settles a reserved fiat translation against its provider-authenticated facts.
+    ///
+    /// # Errors
+    /// Returns a trace-bound refusal if receipt, payment or translation checks fail.
+    #[allow(clippy::too_many_arguments)]
+    pub fn settle_evidence(
+        gateway: &mut GatewayCore,
+        principal: &PrincipalId,
+        idempotency_key: [u8; 32],
+        facts: &VerifiedProviderFacts,
+        evidence: &SequencerEvidence,
+        receipt_keys: &[SequencerAuthorization],
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<FiatJourneyState, Traced<FiatError>> {
+        Self::settle_with_capture(
+            gateway,
+            principal,
+            idempotency_key,
+            facts,
+            evidence,
+            None,
+            receipt_keys,
+            trace,
+            now,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn settle_refund_evidence(
+        gateway: &mut GatewayCore,
+        principal: &PrincipalId,
+        idempotency_key: [u8; 32],
+        facts: &VerifiedProviderFacts,
+        evidence: &SequencerEvidence,
+        capture: &SequencerEvidence,
+        receipt_keys: &[SequencerAuthorization],
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<FiatJourneyState, Traced<FiatError>> {
+        if !matches!(
+            facts.class,
+            EvidenceClass::Reversed | EvidenceClass::Chargeback
+        ) {
+            return Err(trace.wrap(FiatError::UnsupportedTransition));
+        }
+        Self::settle_with_capture(
+            gateway,
+            principal,
+            idempotency_key,
+            facts,
+            evidence,
+            Some(capture),
+            receipt_keys,
+            trace,
+            now,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn settle_with_capture(
+        gateway: &mut GatewayCore,
+        principal: &PrincipalId,
+        idempotency_key: [u8; 32],
+        facts: &VerifiedProviderFacts,
+        evidence: &SequencerEvidence,
+        capture: Option<&SequencerEvidence>,
+        receipt_keys: &[SequencerAuthorization],
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<FiatJourneyState, Traced<FiatError>> {
+        let fail = |error| trace.wrap(error);
+        facts.validate().map_err(fail)?;
+        intent_kind(facts.class).map_err(fail)?;
+        if evidence.rung == SettlementRung::Submitted {
+            return Ok(pending_state(facts));
+        }
+        let receipt = verify_sequencer_signature(
+            &evidence.signed_receipt,
+            ReceiptKeys::HeightRanges(receipt_keys),
+        )
+        .map_err(|error| fail(FiatError::Gateway(GatewayError::ReceiptRejected(error))))?;
+        let protocol = receipt
+            .protocol()
+            .ok_or_else(|| fail(FiatError::ReceiptMismatch))?;
+        if protocol.activity_id() != evidence.transaction_hash || protocol.result_code() != 0 {
+            return Err(fail(FiatError::ReceiptMismatch));
+        }
+        let mut amount = [0_u8; 32];
+        amount[16..].copy_from_slice(&facts.amount.to_be_bytes());
+        let original_payer = match facts.class {
+            EvidenceClass::Reversed | EvidenceClass::Chargeback => {
+                let capture = capture.ok_or_else(|| fail(FiatError::ReceiptMismatch))?;
+                if capture.rung == SettlementRung::Submitted
+                    || capture.transaction_hash == evidence.transaction_hash
                 {
                     return Err(fail(FiatError::ReceiptMismatch));
                 }
-                let status = gateway
-                    .settle_with_receipt(
-                        principal,
-                        idempotency_key,
-                        &executed.canonical_receipt,
-                        &executed.authorised_batch,
-                        trace,
-                        now,
-                    )
-                    .map_err(|error| trace.wrap(FiatError::Gateway(error.into_error())))?;
-                let TranslationStatus::ReceiptVerified { receipt_digest } = status else {
-                    return Err(fail(FiatError::ReceiptRequired));
-                };
-                Ok(completed_state(facts.class, receipt_digest))
+                let receipt = verify_sequencer_signature(
+                    &capture.signed_receipt,
+                    ReceiptKeys::HeightRanges(receipt_keys),
+                )
+                .map_err(|_| fail(FiatError::ReceiptMismatch))?;
+                let protocol = receipt
+                    .protocol()
+                    .ok_or_else(|| fail(FiatError::ReceiptMismatch))?;
+                if protocol.activity_id() != capture.transaction_hash || protocol.result_code() != 0
+                {
+                    return Err(fail(FiatError::ReceiptMismatch));
+                }
+                let verified = verify_logs(&receipt, capture.logs.clone())
+                    .map_err(|_| fail(FiatError::ReceiptMismatch))?;
+                let mut capture_facts = facts.clone();
+                capture_facts.class = EvidenceClass::Settled;
+                let capture_key = Self::idempotency_key(&capture_facts);
+                let digest = canonical_receipt_digest(&capture.signed_receipt)
+                    .map_err(|_| fail(FiatError::ReceiptMismatch))?;
+                if gateway.translation(principal, capture_key)
+                    != Some(TranslationStatus::ReceiptVerified {
+                        receipt_digest: digest,
+                    })
+                {
+                    return Err(fail(FiatError::ReceiptMismatch));
+                }
+                let mut payments = verified.logs().iter().filter(|log| {
+                    let [event, _, to, reference] = log.topics() else {
+                        return false;
+                    };
+                    log.address() == LEDGER_ADDRESS
+                        && *event == PAYMENT_EXACT_TOPIC
+                        && *reference == capture_key
+                        && *to == facts.destination
+                        && log.data().len() == 64
+                        && log.data()[..32] == facts.asset
+                        && log.data()[32..] == amount
+                });
+                let payment = payments
+                    .next()
+                    .ok_or_else(|| fail(FiatError::ReceiptMismatch))?;
+                if payments.next().is_some() {
+                    return Err(fail(FiatError::ReceiptMismatch));
+                }
+                Some(payment.topics()[1])
             }
+            _ => None,
+        };
+        let matches = evidence
+            .logs
+            .iter()
+            .filter(|log| {
+                let [event, from, to, reference] = log.topics() else {
+                    return false;
+                };
+                let account_matches = match facts.class {
+                    EvidenceClass::Settled => *to == facts.destination,
+                    EvidenceClass::Reversed | EvidenceClass::Chargeback => {
+                        *from == facts.destination && Some(*to) == original_payer
+                    }
+                    EvidenceClass::Authorised | EvidenceClass::Clearing => false,
+                };
+                log.address() == LEDGER_ADDRESS
+                    && *event == PAYMENT_EXACT_TOPIC
+                    && *reference == idempotency_key
+                    && log.data().len() == 64
+                    && log.data()[..32] == facts.asset
+                    && log.data()[32..] == amount
+                    && account_matches
+            })
+            .count();
+        if matches != 1 {
+            return Err(fail(FiatError::ReceiptMismatch));
         }
+        let status = gateway
+            .settle_with_sequencer_evidence(
+                principal,
+                idempotency_key,
+                evidence,
+                receipt_keys,
+                trace,
+                now,
+            )
+            .map_err(|error| {
+                fail(match error.into_error() {
+                    SequencerSettlementError::Gateway(error) => FiatError::Gateway(error),
+                    SequencerSettlementError::Logs(_)
+                    | SequencerSettlementError::PaymentUnmatched => FiatError::ReceiptMismatch,
+                })
+            })?;
+        let TranslationStatus::ReceiptVerified { receipt_digest } = status else {
+            return Err(fail(FiatError::ReceiptRequired));
+        };
+        Ok(completed_state(facts.class, receipt_digest))
     }
 }
 

@@ -1,0 +1,572 @@
+[meta]
+format_version = 1
+
+[decision.1]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D1.md"
+binds = ["17.8.2", "17.8.1", "17.0.4"]
+
+[decision.2]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D2.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.3]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D3.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.4]
+carry = "superseded"
+record = "spec/layerx-merge/docs/decisions/D4.md"
+binds = ["17.8.2", "17.8.1", "17.1.8"]
+
+[decision.5]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D5.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.6]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D6.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.7]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D7.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.8]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D8.md"
+binds = ["17.8.2", "17.8.1", "17.0.4"]
+
+[decision.9]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D9.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.10]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D10.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.11]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D11.md"
+binds = ["17.8.2", "17.8.1"]
+
+[decision.12]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D12.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.13]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D13.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.14]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D14.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.15]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D15.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.16]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D16.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.17]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D17.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.18]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D18.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.19]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D19.md"
+binds = ["17.8.3", "17.8.1"]
+
+[decision.20]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D20.md"
+binds = ["17.8.3", "17.8.1", "17.1.4"]
+
+[decision.21]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D21.md"
+binds = ["17.8.3", "17.8.1", "17.1.8"]
+
+[decision.22]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D22.md"
+binds = ["17.8.3", "17.8.1", "17.1.4"]
+
+[decision.23]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D23.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.24]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D24.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.25]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D25.md"
+binds = ["17.8.4", "17.8.1", "17.2.3"]
+
+[decision.26]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D26.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.27]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D27.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.28]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D28.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.29]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D29.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.30]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D30.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.31]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D31.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.32]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D32.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.33]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D33.md"
+binds = ["17.8.4", "17.8.1"]
+
+[decision.34]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D34.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.35]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D35.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.36]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D36.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.37]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D37.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.38]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D38.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.39]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D39.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.40]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D40.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.41]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D41.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.42]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D42.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.43]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D43.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.44]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D44.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.45]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D45.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.46]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D46.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.47]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D47.md"
+binds = ["17.8.5", "17.8.1", "17.6.1"]
+
+[decision.48]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D48.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.49]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D49.md"
+binds = ["17.8.5", "17.8.1", "17.1.4"]
+
+[decision.50]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D50.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.51]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D51.md"
+binds = ["17.8.5", "17.8.1", "17.1.5"]
+
+[decision.52]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D52.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.53]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D53.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.54]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D54.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.55]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D55.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.56]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D56.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.57]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D57.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.58]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D58.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.59]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D59.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.60]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D60.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.61]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D61.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.62]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D62.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.63]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D63.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.64]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D64.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.65]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D65.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.66]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D66.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.67]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D67.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.68]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D68.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.69]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D69.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.70]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D70.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.71]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D71.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.72]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D72.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.73]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D73.md"
+binds = ["17.8.5", "17.8.1", "17.2.3"]
+
+[decision.74]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D74.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.75]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D75.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.76]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D76.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.77]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D77.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.78]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D78.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.79]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D79.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.80]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D80.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.81]
+carry = "rewritten"
+record = "spec/layerx-merge/docs/decisions/D81.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.82]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D82.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.83]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D83.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.84]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D84.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.85]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D85.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.86]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D86.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.87]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D87.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.88]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D88.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.89]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D89.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.90]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D90.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.91]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D91.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.92]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D92.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.93]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D93.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.94]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D94.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.1701]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1701.md"
+binds = ["17.8.5", "17.8.1", "17.0.4", "17.1.1"]
+
+[decision.1702]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1702.md"
+binds = ["17.8.5", "17.8.1", "17.0.4", "17.1.1"]
+
+[decision.1703]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1703.md"
+binds = ["17.8.5", "17.8.1", "17.0.4", "17.1.1"]
+
+[decision.1704]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1704.md"
+binds = ["17.8.5", "17.8.1", "17.1.1", "17.0.4"]
+
+[decision.1705]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1705.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.1706]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1706.md"
+binds = ["17.8.5", "17.8.1", "17.1.4", "17.1.5"]
+
+[decision.1707]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1707.md"
+binds = ["17.8.5", "17.8.1", "17.2.4"]
+
+[decision.1708]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1708.md"
+binds = ["17.8.5", "17.8.1", "17.13.1"]
+
+[decision.1709]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1709.md"
+binds = ["17.8.5", "17.8.1", "17.6.1", "17.6.2", "17.12.1"]
+
+[decision.1710]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1710.md"
+binds = ["17.8.5", "17.8.1", "17.0.9", "17.5.8"]
+
+[decision.1711]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1711.md"
+binds = ["17.8.5", "17.8.1", "17.10.1"]
+
+[decision.1712]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1712.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.1713]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1713.md"
+binds = ["17.8.5", "17.8.1", "5.97.1", "5.53.1", "5.54.2", "5.54.10", "2.95.2", "6.97.2", "6.60.5", "5.55.5", "5.0.9", "17.93.1", "8.93.1", "16.93.1", "10.96.1", "16.97.5"]
+
+[decision.1714]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1714.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.1715]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1715.md"
+binds = ["17.8.5", "17.8.1", "16.97.4", "16.1.1", "16.1.7", "17.5.1", "17.5.7", "17.5.8", "17.0.9"]
+
+[decision.1716]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1716.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.1717]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1717.md"
+binds = ["17.8.5", "17.8.1"]
+
+[decision.1718]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1718.md"
+binds = ["17.8.5", "17.8.1", "1.2.1", "1.2.3", "1.25.1", "1.25.2", "2.7.4", "2.22.4", "2.40.1", "13.22.4", "13.30.3"]
+
+[decision.1719]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1719.md"
+binds = ["17.8.5", "17.8.1", "13.98.1", "1.26.1"]
+
+[decision.1720]
+carry = "kept"
+record = "spec/layerx-merge/docs/decisions/D1720.md"
+binds = ["17.8.5", "17.8.1", "9.24.3", "9.35.1", "10.20.3", "10.25.2", "10.0.3"]
