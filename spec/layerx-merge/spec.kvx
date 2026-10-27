@@ -107039,7 +107039,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.7]
 title = "Add the launchpad surface query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["4.5.1", "4.4.9", "4.4.10", "4.4.14", "15.0.5"]
