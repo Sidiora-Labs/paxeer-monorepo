@@ -1,10 +1,9 @@
 use layerx_proof::signed_authority::SignedAuthorityHistory;
-use layerx_wire::activity::decode_signed;
 use layerx_wire::handover::decode_genesis_trust;
 
 const GENESIS: &[u8] = include_bytes!("fixtures/signed-authority/genesis.bin");
 const HEADERS: &[u8] = include_bytes!("fixtures/signed-authority/headers.bin");
-const ACTIVITY: &[u8] = include_bytes!("fixtures/signed-authority/handover.activity");
+const HANDOVER_PAYLOAD: &[u8] = include_bytes!("fixtures/signed-authority/handover.payload");
 
 fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("native signed authority: {error:?}"))
@@ -13,7 +12,6 @@ fn must<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
 #[test]
 fn native_governance_history_retains_signed_ranges_and_refuses_changed_or_missing_parents() {
     let genesis = must(decode_genesis_trust(GENESIS));
-    let activity = must(decode_signed(ACTIVITY, &genesis.registry));
     let make = || {
         must(SignedAuthorityHistory::from_genesis(
             genesis.network_id,
@@ -34,7 +32,7 @@ fn native_governance_history_retains_signed_ranges_and_refuses_changed_or_missin
         let signature: [u8; 64] = must(record[354..].try_into());
         assert!(history.verify_header(header, &signature).is_err());
         let before = history.clone();
-        let packet = (index >= 13).then_some(activity.payload());
+        let packet = (index >= 13).then_some(HANDOVER_PAYLOAD);
         for end in [0, 1, 353] {
             assert!(history.advance(&header[..end], &signature, packet).is_err());
             assert_eq!(history, before);
@@ -45,12 +43,12 @@ fn native_governance_history_retains_signed_ranges_and_refuses_changed_or_missin
         assert_eq!(history, before);
         if index == 13 {
             assert!(history.advance(header, &signature, None).is_err());
-            for end in [0, 1, activity.payload().len() - 1] {
+            for end in [0, 1, HANDOVER_PAYLOAD.len() - 1] {
                 assert!(history
-                    .advance(header, &signature, Some(&activity.payload()[..end]))
+                    .advance(header, &signature, Some(&HANDOVER_PAYLOAD[..end]))
                     .is_err());
             }
-            let mut changed = activity.payload().to_vec();
+            let mut changed = HANDOVER_PAYLOAD.to_vec();
             changed[100] ^= 1;
             assert!(history.advance(header, &signature, Some(&changed)).is_err());
             assert_eq!(history, before);

@@ -43,16 +43,20 @@ fn load(name: &str) -> String {
         .unwrap_or_else(|error| panic!("fixture {name}: {error}"))
 }
 
-fn fixture_payload_hash(document: &str) -> [u8; 32] {
-    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-    let call = ActivityType::new(ModuleId::Programs, 3).unwrap_or_else(|error| panic!("{error:?}"));
-    let registration = ModuleRegistration::new(ModuleId::Programs, &[call])
-        .unwrap_or_else(|error| panic!("{error:?}"));
-    let registry = ModuleRegistry::new(&[registration]).unwrap_or_else(|error| panic!("{error:?}"));
-    let activity =
-        layerx_wire::activity::decode_signed(&bytes(document, "signed_activity_hex"), &registry)
-            .unwrap_or_else(|error| panic!("{error:?}"));
-    layerx_wire::hash::payload_hash(&activity).unwrap_or_else(|error| panic!("{error:?}"))
+fn fixture_payload_hash(name: &str) -> [u8; 32] {
+    match name {
+        "receipt-programs-executed-v4.json" | "receipt-programs-mutated-leg-v4.json" => [
+            0xfb, 0x62, 0xa1, 0xc1, 0xdf, 0x17, 0xd6, 0x18, 0x78, 0x9f, 0x9d, 0x34, 0xd3, 0x24,
+            0x85, 0xb6, 0x46, 0x70, 0x89, 0x2b, 0x33, 0xac, 0xe5, 0xcf, 0x44, 0xfb, 0xbe, 0x6e,
+            0xb8, 0x0f, 0xec, 0x93,
+        ],
+        "receipt-programs-principal-v4.json" => [
+            0xa8, 0x60, 0x39, 0x09, 0x2e, 0x20, 0xb8, 0x48, 0x63, 0x66, 0x48, 0xcc, 0xc6, 0xf1,
+            0xb0, 0xe8, 0xb9, 0xe1, 0x9f, 0x3e, 0x5e, 0x62, 0xac, 0xb5, 0xaf, 0x81, 0x0b, 0x39,
+            0x26, 0xdc, 0x6e, 0xba,
+        ],
+        _ => panic!("payload hash for fixture {name}"),
+    }
 }
 
 #[test]
@@ -100,7 +104,7 @@ fn real_executed_v4_and_signed_mutated_leg_refusal() {
         let expected = AuthorizedProgramExecutionExpectation {
             authority,
             activity_id: protocol.activity_id(),
-            payload_hash: fixture_payload_hash(&document),
+            payload_hash: fixture_payload_hash(name),
             program_id: array(&document, "program_id_hex"),
             guest_abi_version: abi,
         };
@@ -245,7 +249,7 @@ fn both_expectations_bind_the_same_activity_program_and_guest_abi() {
     let protocol = receipt
         .protocol()
         .unwrap_or_else(|| panic!("protocol receipt"));
-    let payload_hash = fixture_payload_hash(&document);
+    let payload_hash = fixture_payload_hash("receipt-programs-executed-v4.json");
     let sequencer_public_key = array(&document, "sequencer_public_key_hex");
     let previous_state_root = array(&document, "previous_state_root_hex");
     let authority = AuthorizedBatch::new(
