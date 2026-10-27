@@ -7,7 +7,6 @@ import (
 	layerxgov "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov"
 	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	minttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
@@ -21,10 +20,6 @@ import (
 	stakingtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/staking/types"
 	"github.com/stretchr/testify/require"
 )
-
-func Aggregate(ctx sdk.Context, k keeper.Keeper) {
-	pricefeed.MidBlocker(ctx, k)
-}
 
 func GetPrice(t *testing.T, k keeper.Keeper, ctx sdk.Context, marketID uint64) keeper.Price {
 	t.Helper()
@@ -90,7 +85,7 @@ func TestGovernedDisabledMarketStalesPrice(t *testing.T) {
 		require.Equal(t, uint64(1), record.Sequence)
 		observations[i] = record
 	}
-	Aggregate(ctx, k)
+	MidBlocker(ctx, k)
 	before := GetPrice(t, k, ctx, solID)
 	require.True(t, before.Fresh)
 	require.Equal(t, sdk.NewIntWithDecimal(151, 18), before.Index)
@@ -157,7 +152,7 @@ func TestGovernedDisabledMarketStalesPrice(t *testing.T) {
 		}, attributes(event))
 	}
 
-	Aggregate(ctx, k)
+	MidBlocker(ctx, k)
 	require.Equal(t, stored, ctx.KVStore(key).Get(types.AggregateKey(solID)))
 	after := GetPrice(t, k, ctx, solID)
 	require.False(t, after.Fresh)

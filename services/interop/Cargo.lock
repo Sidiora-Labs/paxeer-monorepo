@@ -1327,6 +1327,7 @@ name = "layerx-indexer"
 version = "0.1.0"
 dependencies = [
  "layerx-client",
+ "layerx-committed-proof",
  "layerx-paxeer-verifier",
  "layerx-platform-internal",
  "layerx-programs-ai-market",
@@ -1341,19 +1342,6 @@ dependencies = [
  "sha2 0.10.9",
  "sha3",
  "tokio-postgres-rustls",
-]
-
-[[package]]
-name = "layerx-intent-ingester"
-version = "0.1.0"
-dependencies = [
- "ed25519-dalek",
- "layerx-crypto",
- "layerx-intents",
- "layerx-types",
- "layerx-wire",
- "native-tls",
- "serde_json",
 ]
 
 [[package]]

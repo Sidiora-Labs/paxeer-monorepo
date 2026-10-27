@@ -7,6 +7,7 @@ use serde_json::{json, Value};
 use sha3::{Digest as _, Keccak256};
 
 use crate::payment::{GatewayRpc, RpcAnswer};
+use crate::program::ProgramRequest;
 
 /// The xweb precompile every request is made through and every fulfil is
 /// posted to.
@@ -16,6 +17,9 @@ pub const XWEB_PRECOMPILE: [u8; 20] = [
 
 /// The event the precompile emits for every request.
 pub const REQUESTED_EVENT: &str = "XWebRequested(uint64,address,uint8,bytes,uint64,uint256,uint64)";
+
+/// The event emitted for a committed program request.
+pub const PROGRAM_REQUESTED_EVENT: &str = "XWebProgramRequested(bytes32,uint64,uint8,bytes,uint64)";
 
 pub const GET_KERNEL_NETWORK_ID_SIGNATURE: &str = "getKernelNetworkId()";
 
@@ -42,6 +46,11 @@ pub fn keccak(bytes: &[u8]) -> [u8; 32] {
 #[must_use]
 pub fn requested_topic() -> [u8; 32] {
     keccak(REQUESTED_EVENT.as_bytes())
+}
+
+#[must_use]
+pub fn program_requested_topic() -> [u8; 32] {
+    keccak(PROGRAM_REQUESTED_EVENT.as_bytes())
 }
 
 /// `0x` followed by lower-case hexadecimal.
@@ -309,7 +318,102 @@ pub fn decode_requested(log: &Value) -> Result<WebRequest, EvmError> {
     })
 }
 
-/// Follows `XWebRequested` logs of the precompile to the configured
+/// Decodes a program request with indexed program and request ids, followed
+/// by the canonical ABI encoding of `(uint8 kind, bytes payload, uint64 sequence)`.
+/// The watcher journals the log's block number and source beside the request,
+/// since those fields are not part of `ProgramRequest`.
+///
+/// # Errors
+/// Refuses foreign or removed logs, invalid fetch/search kinds, oversized
+/// or empty payloads, and any field that does not decode exactly.
+pub fn decode_program_requested(log: &Value) -> Result<ProgramRequest, EvmError> {
+    let address = log
+        .get("address")
+        .and_then(Value::as_str)
+        .and_then(unhex0x)
+        .ok_or(EvmError::Malformed)?;
+    let topics = log
+        .get("topics")
+        .and_then(Value::as_array)
+        .ok_or(EvmError::Malformed)?;
+    if address != XWEB_PRECOMPILE
+        || topics.first().and_then(topic) != Some(program_requested_topic())
+        || log.get("removed").and_then(Value::as_bool) == Some(true)
+    {
+        return Err(EvmError::ForeignLog);
+    }
+    let [_, program_topic, id_topic] = topics.as_slice() else {
+        return Err(EvmError::Malformed);
+    };
+    let program_id = topic(program_topic).ok_or(EvmError::Malformed)?;
+    let request_id = topic(id_topic)
+        .and_then(|word| word_u64(&word))
+        .ok_or(EvmError::Malformed)?;
+    log_block_number(log)?;
+    let data = log
+        .get("data")
+        .and_then(Value::as_str)
+        .and_then(unhex0x)
+        .ok_or(EvmError::Malformed)?;
+    if data.len() < 4 * 32 || !data.len().is_multiple_of(32) {
+        return Err(EvmError::Malformed);
+    }
+    let kind = word_u64(&data[..32])
+        .and_then(|kind| u8::try_from(kind).ok())
+        .filter(|kind| matches!(kind, 1 | 2))
+        .ok_or(EvmError::Malformed)?;
+    if word_u64(&data[32..64]) != Some(3 * 32) {
+        return Err(EvmError::Malformed);
+    }
+    let sequence = word_u64(&data[64..96]).ok_or(EvmError::Malformed)?;
+    let length = word_u64(&data[96..128])
+        .and_then(|length| usize::try_from(length).ok())
+        .filter(|length| *length > 0 && *length <= MAX_PAYLOAD_BYTES)
+        .ok_or(EvmError::Malformed)?;
+    if data.len() != 4 * 32 + length.div_ceil(32) * 32 {
+        return Err(EvmError::Malformed);
+    }
+    let tail = &data[128..];
+    if tail[length..].iter().any(|byte| *byte != 0) {
+        return Err(EvmError::Malformed);
+    }
+    Ok(ProgramRequest {
+        program_id,
+        request_id,
+        kind,
+        payload: tail[..length].to_vec(),
+        sequence,
+    })
+}
+
+fn log_block_number(log: &Value) -> Result<u64, EvmError> {
+    log.get("blockNumber")
+        .and_then(Value::as_str)
+        .and_then(parse_quantity)
+        .and_then(|number| u64::try_from(number).ok())
+        .ok_or(EvmError::Malformed)
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(remote = "ProgramRequest")]
+struct ProgramRequestData {
+    program_id: [u8; 32],
+    request_id: u64,
+    kind: u8,
+    payload: Vec<u8>,
+    sequence: u64,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct PendingProgram {
+    #[serde(with = "ProgramRequestData")]
+    request: ProgramRequest,
+    block_number: u64,
+    source: SourceIdentity,
+}
+
+/// Follows web and program request logs of the precompile to the configured
 /// confirmation depth. The next block to read is kept in a cursor file under
 /// the state directory, so a restart resumes where the last poll stopped.
 pub struct RequestWatcher {
@@ -320,6 +424,7 @@ pub struct RequestWatcher {
     last_head: u64,
     pending_path: PathBuf,
     pending: BTreeMap<u64, Pending>,
+    program_pending: BTreeMap<([u8; 32], u64), PendingProgram>,
     chain_id: Option<u64>,
     _lock: Option<std::fs::File>,
 }
@@ -372,6 +477,8 @@ struct Progress {
     next_block: Option<u64>,
     chain_id: Option<u64>,
     entries: Vec<Pending>,
+    #[serde(default)]
+    program_entries: Vec<PendingProgram>,
 }
 
 pub(crate) fn source_identity(log: &Value, chain_id: u64) -> Result<SourceIdentity, EvmError> {
@@ -421,6 +528,7 @@ impl RequestWatcher {
         let pending_path = state_dir.join(PENDING_FILE);
         let mut next_block = stored.or(start);
         let mut chain_id = None;
+        let mut program_pending = BTreeMap::new();
         let pending = match std::fs::read(&pending_path) {
             Ok(bytes) => {
                 let entries = if let Ok(progress) = serde_json::from_slice::<Progress>(&bytes) {
@@ -432,6 +540,15 @@ impl RequestWatcher {
                     }
                     next_block = progress.next_block;
                     chain_id = progress.chain_id;
+                    for entry in progress.program_entries {
+                        let key = (entry.request.program_id, entry.request.request_id);
+                        if program_pending.insert(key, entry).is_some() {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                "duplicate watch program request",
+                            ));
+                        }
+                    }
                     progress.entries
                 } else {
                     serde_json::from_slice::<Vec<Pending>>(&bytes).map_err(|_| {
@@ -465,6 +582,7 @@ impl RequestWatcher {
             last_head: 0,
             pending_path,
             pending,
+            program_pending,
             chain_id,
             _lock: None,
         })
@@ -478,6 +596,10 @@ impl RequestWatcher {
                     .as_ref()
                     .is_some_and(|source| source.chain_id != chain_id)
             })
+            || self
+                .program_pending
+                .values()
+                .any(|entry| entry.source.chain_id != chain_id)
         {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -556,6 +678,32 @@ impl RequestWatcher {
             .filter(|entry| entry.refused.is_none())
             .map(|entry| entry.request.clone())
             .collect()
+    }
+
+    /// The journalled program requests, ordered by program id and request id.
+    #[must_use]
+    pub fn program_work(&self) -> Vec<ProgramRequest> {
+        self.program_pending
+            .values()
+            .map(|entry| entry.request.clone())
+            .collect()
+    }
+
+    /// Durably drops only the request belonging to this program.
+    ///
+    /// # Errors
+    /// Returns the error writing the journal.
+    pub fn retire_program(
+        &mut self,
+        program_id: [u8; 32],
+        request_id: u64,
+    ) -> Result<(), EvmError> {
+        let mut pending = self.program_pending.clone();
+        if pending.remove(&(program_id, request_id)).is_some() {
+            self.store_progress(&self.pending, &pending, self.next_block, self.chain_id)?;
+            self.program_pending = pending;
+        }
+        Ok(())
     }
 
     /// Records a failed attempt. A terminal failure, or the last retryable
@@ -644,10 +792,14 @@ impl RequestWatcher {
                 "address": hex0x(&XWEB_PRECOMPILE),
                 "fromBlock": quantity(u128::from(request.block_number)),
                 "toBlock": quantity(u128::from(request.block_number)),
-                "topics": [hex0x(&requested_topic())],
+                "topics": [[hex0x(&requested_topic()), hex0x(&program_requested_topic())]],
             }]),
         )?;
         for log in logs.as_array().ok_or(EvmError::Malformed)? {
+            if log.pointer("/topics/0").and_then(topic) == Some(program_requested_topic()) {
+                decode_program_requested(log)?;
+                continue;
+            }
             if decode_requested(log)? == *request {
                 if let Some(chain_id) = self.chain_id {
                     if self.rpc.quantity("eth_chainId", &json!([]))? != u128::from(chain_id) {
@@ -674,19 +826,27 @@ impl RequestWatcher {
     }
 
     fn store_pending(&self, pending: &BTreeMap<u64, Pending>) -> Result<(), EvmError> {
-        self.store_progress(pending, self.next_block)
+        self.store_progress(
+            pending,
+            &self.program_pending,
+            self.next_block,
+            self.chain_id,
+        )
     }
 
     fn store_progress(
         &self,
         pending: &BTreeMap<u64, Pending>,
+        program_pending: &BTreeMap<([u8; 32], u64), PendingProgram>,
         next_block: Option<u64>,
+        chain_id: Option<u64>,
     ) -> Result<(), EvmError> {
         let progress = Progress {
             version: 1,
             next_block,
-            chain_id: self.chain_id,
+            chain_id,
             entries: pending.values().cloned().collect(),
+            program_entries: program_pending.values().cloned().collect(),
         };
         let bytes = serde_json::to_vec(&progress).map_err(|_| EvmError::Journal)?;
         let temporary = self.pending_path.with_extension("tmp");
@@ -746,32 +906,51 @@ impl RequestWatcher {
                 "address": hex0x(&XWEB_PRECOMPILE),
                 "fromBlock": quantity(u128::from(from)),
                 "toBlock": quantity(u128::from(to)),
-                "topics": [hex0x(&requested_topic())],
+                "topics": [[hex0x(&requested_topic()), hex0x(&program_requested_topic())]],
             }]),
         )?;
-        let requests = logs
-            .as_array()
-            .ok_or(EvmError::Malformed)?
-            .iter()
-            .map(decode_requested)
-            .collect::<Result<Vec<_>, _>>()?;
-        if requests
-            .iter()
-            .any(|request| request.block_number < from || request.block_number > to)
-        {
-            return Err(EvmError::Malformed);
-        }
+        let mut requests = Vec::new();
         let mut pending = self.pending.clone();
-        for (request, log) in requests
-            .iter()
-            .zip(logs.as_array().ok_or(EvmError::Malformed)?)
-        {
+        let mut program_pending = self.program_pending.clone();
+        let mut program_chain_id = self.chain_id;
+        for log in logs.as_array().ok_or(EvmError::Malformed)? {
+            let block_number = log_block_number(log)?;
+            if block_number < from || block_number > to {
+                return Err(EvmError::Malformed);
+            }
+            if log.pointer("/topics/0").and_then(topic) == Some(program_requested_topic()) {
+                let request = decode_program_requested(log)?;
+                let chain_id = match program_chain_id {
+                    Some(chain_id) => chain_id,
+                    None => {
+                        let chain_id = u64::try_from(self.rpc.quantity("eth_chainId", &json!([]))?)
+                            .map_err(|_| EvmError::Malformed)?;
+                        program_chain_id = Some(chain_id);
+                        chain_id
+                    }
+                };
+                let key = (request.program_id, request.request_id);
+                let entry = PendingProgram {
+                    request,
+                    block_number,
+                    source: source_identity(log, chain_id)?,
+                };
+                if let Some(existing) = program_pending.get(&key) {
+                    if existing != &entry {
+                        return Err(EvmError::Malformed);
+                    }
+                } else {
+                    program_pending.insert(key, entry);
+                }
+                continue;
+            }
+            let request = decode_requested(log)?;
             let source = self
                 .chain_id
                 .map(|chain_id| source_identity(log, chain_id))
                 .transpose()?;
             if let Some(existing) = pending.get(&request.request_id) {
-                if existing.request != *request
+                if existing.request != request
                     || (existing.source.is_some() && existing.source != source)
                 {
                     return Err(EvmError::Malformed);
@@ -790,10 +969,13 @@ impl RequestWatcher {
                     },
                 );
             }
+            requests.push(request);
         }
         let next = to.checked_add(1).ok_or(EvmError::Malformed)?;
-        self.store_progress(&pending, Some(next))?;
+        self.store_progress(&pending, &program_pending, Some(next), program_chain_id)?;
         self.pending = pending;
+        self.program_pending = program_pending;
+        self.chain_id = program_chain_id;
         self.next_block = Some(next);
         self.store_cursor(next)?;
         Ok(requests)
