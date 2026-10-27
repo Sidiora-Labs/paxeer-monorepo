@@ -367,7 +367,7 @@ func NewEVMWebSocketServer(
 		IdleTimeout:       config.IdleTimeout,
 	})
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
-	if err := httpServer.SetListenAddr(LocalAddress, config.WSPort); err != nil {
+	if err := httpServer.SetListenAddr(config.HTTPAddress, config.WSPort); err != nil {
 		return nil, err
 	}
 	simulateConfig := &SimulateConfig{
@@ -474,7 +474,10 @@ func NewEVMWebSocketServer(
 		},
 	}
 
-	wsConfig := WsConfig{Origins: strings.Split(config.WSOrigins, ",")}
+	wsConfig := WsConfig{
+		Origins:  strings.Split(config.WSOrigins, ","),
+		DenyList: config.DenyList,
+	}
 	wsConfig.readLimit = DefaultWebsocketMaxMessageSize
 	if err := httpServer.EnableWS(apis, wsConfig); err != nil {
 		return nil, err
