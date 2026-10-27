@@ -106275,7 +106275,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.9]
 title = "Serve Query/Surface from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["4.3.1", "4.2.3", "4.4.8"]
@@ -106307,7 +106307,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.10]
 title = "Serve Query/Retired from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.9"]
@@ -146313,7 +146313,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.3.3]
 title = "Accept PaymentDrawn logs for x402 sellers paid from a standing grant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.3.2"]
@@ -149678,7 +149678,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.38.3]
 title = "Publish an attestation view from the relay loop after each tick"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.38.2", "11.22.3", "9.1.6"]
@@ -149709,7 +149709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.38.4]
 title = "Serve the deposit and release attestation routes over HTTP from the relayer binary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.38.3", "11.21.3", "9.1.6"]
@@ -160036,7 +160036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.3]
 title = "Run only the bindings and market runners in the paxeer_x import stage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.25.2"]
@@ -160067,7 +160067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.4]
 title = "Delete the custody, deposit-root and guarantor chain schemas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["14.25.3"]
