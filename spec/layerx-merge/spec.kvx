@@ -12154,7 +12154,7 @@ ac_19 = "After MsgUpdateParams served by the perps msg server of task 3.1.4 sets
 ac_20 = "After MsgUpdateParams served by the perps msg server of task 3.1.4 changes BackstopRatioNumerator and BackstopRatioDenominator (modules/perps/types/params.go:72-73), belowBackstopLine (modules/perps/keeper/insurance.go:593) uses the new ratio at modules/perps/keeper/insurance.go:600-601."
 ac_21 = "After MsgUpdateParams served by the perps msg server of task 3.1.4 changes MarkEmaSeconds (modules/perps/types/params.go:64), EndBlock passes the new value to updateMarketPrice at modules/perps/keeper/endblock.go:166 and the mark moves by the new smoothing weight."
 ac_22 = "After MsgSetPaused true then MsgSetPaused false, PlaceOrder passes the pause gate at modules/perps/keeper/orders.go:63-64 and CheckPause (modules/perps/keeper/pause.go:24) admits openPosition again."
-ac_23 = "After MsgSetMarket lowers MaxLeverage of BTC, checkOrderValue selects the order value row at modules/perps/keeper/orders.go:319 for the new MaxLeverage and checkOrderLeverage (modules/perps/keeper/orders.go:339) refuses leverage above the tier limit with ErrLeverageTooHigh."
+ac_23 = "After MsgSetMarket moves BTC from TierClassA to TierClassB, checkOrderLeverage (modules/perps/keeper/orders.go:339) refuses with ErrLeverageTooHigh an order whose leverage the class A tier allowed at the same notional."
 
 [req.3007]
 title = "0x1015 view outputs frozen in goldens"
@@ -12180,7 +12180,7 @@ ac_6 = "After a LayerX proposal (modules/layerxgov/handler.go:11) carrying price
 
 [req.3010]
 title = "Perps views reflect governance changes"
-ac_1 = "After MsgSetMarket changes MaxLeverage and OiCapUsd of BTC, getMarketConfig (precompiles/perps/views.go:595) returns the new values."
+ac_1 = "After MsgSetMarket changes OiCapUsd and TierClass (A to B) of BTC, getMarketConfig (precompiles/perps/views.go:595) returns the new values and MaxLeverage stays the tier 0 leverage 1000."
 ac_2 = "After MsgSetMarket disables ETH, isMarketActive (precompiles/perps/views.go:645) returns false for ETH and getActiveMarketIds (precompiles/perps/views.go:621) omits it."
 ac_3 = "After MsgUpdateParams replaces FeeTiers and RebateTiers, getFeeTier (precompiles/perps/views.go:669) and getFees (precompiles/perps/views.go:656) return the new rates."
 ac_4 = "After MsgUpdateParams lowers FundingCapPpmPerHour, getFundingDetails (precompiles/perps/views.go:773) reports a rate clamped by viewHourlyRate (precompiles/perps/views.go:716) to the new cap."
@@ -98476,7 +98476,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.27.1]
 title = "Serve layerxpay MsgUpdateParams with the governance authority"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.22.3", "2.21.1", "2.0.1"]
@@ -99271,7 +99271,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve the 0x0903 oracle aggregator with aggregate, submitPrice and getValidatorPrice"
 status = "pending"
 mode = "BUILD"
-wave = 6
+wave = 25
 requires = ["2.39.1", "2.0.1", "3.93.1"]
 reqs = ["2297.1", "2297.2", "2297.3"]
 capabilities = ["2.36.1"]
@@ -99305,7 +99305,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Register the 0x0903 merge constructor with the provisional feed caps"
 status = "pending"
 mode = "BUILD"
-wave = 7
+wave = 26
 requires = ["2.36.1"]
 reqs = ["2298.1"]
 capabilities = ["2.36.2"]
@@ -100679,7 +100679,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.5.2]
 title = "Validate perps genesis in the module with the keeper checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["3.5.1", "3.0.2"]
@@ -101366,10 +101366,11 @@ requires = ["3.1.5", "1.22.3"]
 reqs = ["3006.23"]
 capabilities = ["3.6.21"]
 interfaces = []
-do_1 = "Lower MaxLeverage of BTC with MsgSetMarket of task 3.1.5, in modules/perps/keeper/governed_max_leverage_test.go (planned)."
-do_2 = "Place an order at the previous maximum leverage with PlaceOrder (modules/perps/keeper/orders.go:58)."
-do_3 = "Assert the refusal at modules/perps/keeper/orders.go:355-358."
+do_1 = "Move BTC from TierClassA to TierClassB with MsgSetMarket of task 3.1.5, in modules/perps/keeper/governed_max_leverage_test.go (planned)."
+do_2 = "Place an order of 600,000 USD notional at 500x with PlaceOrder (modules/perps/keeper/orders.go:58): accepted under class A (below its 1,000,000 USD tier 1 bound), placed again after the change."
+do_3 = "Assert the refusal with ErrLeverageTooHigh at modules/perps/keeper/orders.go:355-358 under the class B 200x tier above 500,000 USD."
 do_4 = "Write TestGovernedMaxLeverageRefusesHigherLeverage in modules/perps/keeper/governed_max_leverage_test.go (planned)."
+do_5 = "MaxLeverage is pinned by Market.Validate (modules/perps/types/market.go:67; finding.3.1.5) and is not changed; the test declares no helper named checkOrderLeverage — that symbol is the keeper function at orders.go:339."
 symbols = ["checkOrderLeverage", "TestGovernedMaxLeverageRefusesHigherLeverage"]
 touches = ["modules/perps/keeper/governed_max_leverage_test.go"]
 tests = ["modules/perps/keeper/governed_max_leverage_test.go::TestGovernedMaxLeverageRefusesHigherLeverage"]
@@ -101798,10 +101799,11 @@ requires = ["3.1.5", "1.22.3"]
 reqs = ["3010.1"]
 capabilities = ["3.10.1"]
 interfaces = []
-do_1 = "Apply MsgSetMarket of task 3.1.5 on real keepers, in precompiles/perps/governed_view_market_config_test.go (planned)."
+do_1 = "Apply MsgSetMarket of task 3.1.5 on real keepers to change OiCapUsd and TierClass of BTC, in precompiles/perps/governed_view_market_config_test.go (planned)."
 do_2 = "Execute viewGetMarketConfig (precompiles/perps/views.go:595) through Execute (precompiles/perps/perps.go:153)."
-do_3 = "Unpack the outputs and compare MaxLeverage and the open-interest cap, in precompiles/perps/governed_view_market_config_test.go (planned)."
+do_3 = "Unpack the outputs and compare OiCapUsd, TierClass and MaxLeverage (unchanged at 1000), in precompiles/perps/governed_view_market_config_test.go (planned)."
 do_4 = "Write TestGovernedMarketConfigView in precompiles/perps/governed_view_market_config_test.go (planned)."
+do_5 = "MaxLeverage is pinned by Market.Validate (modules/perps/types/market.go:67) to the tier 0 leverage 1000 of every class (finding.3.1.5): set market.TierClass = TierClassB and a new OiCapUsd in the MsgSetMarket, never MaxLeverage, and assert maxLeverage unchanged."
 symbols = ["viewGetMarketConfig", "TestGovernedMarketConfigView"]
 touches = ["precompiles/perps/governed_view_market_config_test.go"]
 tests = ["precompiles/perps/governed_view_market_config_test.go::TestGovernedMarketConfigView"]
@@ -103549,7 +103551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.41.3]
 title = "Carry market_id on the market record and retire records.MarketIDs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.41.2"]
@@ -104069,7 +104071,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.45.5]
 title = "Scope store.Rebuild to the accounts and markets of the rewritten range"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -105255,8 +105257,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Export the oracle observation submit and committed price read on the exchange keeper"
 status = "pending"
 mode = "BUILD"
-wave = 5
-requires = ["3.0.2"]
+wave = 24
+requires = ["3.0.2", "1.24.1"]
 reqs = ["3963.1", "3963.2"]
 capabilities = []
 interfaces = []
@@ -105813,8 +105815,9 @@ capabilities = ["4.4.3"]
 interfaces = ["interface.4.qry-launchpad-market-by-address-j28"]
 do_1 = "Add func (q Querier) MarketByAddress(goCtx context.Context, req *types.QueryMarketByAddressRequest) (*types.QueryMarketByAddressResponse, error) in modules/launchpad/keeper/grpc_query_market_by_address.go (planned), refusing a nil request with codes.InvalidArgument."
 do_2 = "Parse the address with ParseHexAddress, try poolMarket at modules/launchpad/keeper/airdrop.go:45, then PoolByToken at modules/launchpad/keeper/market.go:107 followed by poolMarket."
-do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
+do_3 = "Preserve the registered codespace and code of keeper errors so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryMarketByAddressServes and TestQueryMarketByAddressRefusals in modules/launchpad/keeper/grpc_query_market_by_address_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "ParseHexAddress and poolMarket (modules/launchpad/keeper/airdrop.go:45) wrap their errors with fmt.Errorf(\"%w\") and sdkerrors.ABCIInfo follows only Cause(), so MarketByAddress re-wraps each refusal with sdkerrors.Wrap on its registered root error (matched with errors.Is against modules/launchpad/types/errors.go:18-92 and the sdk address error) before returning; ParseHexAddress, poolMarket and the test assertions stay unchanged."
 symbols = ["Querier.MarketByAddress", "TestQueryMarketByAddressServes", "TestQueryMarketByAddressRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_market_by_address.go", "modules/launchpad/keeper/grpc_query_market_by_address_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_market_by_address_test.go::TestQueryMarketByAddressServes", "modules/launchpad/keeper/grpc_query_market_by_address_test.go::TestQueryMarketByAddressRefusals"]
@@ -109444,7 +109447,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.41.4]
 title = "Retire the telegram-bot scripts and the pm2 ecosystem template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -109973,8 +109976,9 @@ do_1 = "MobileServices (apps/launchpad/mobile/src/runtime/service-client.ts:20) 
 do_2 = "Change the eleven MobileServices methods at apps/launchpad/mobile/src/runtime/service-client.ts:29-32, apps/launchpad/mobile/src/runtime/service-client.ts:38-39 and apps/launchpad/mobile/src/runtime/service-client.ts:53-58 to delegate to the route modules; keep watchlist, profile, preferences and device methods (apps/launchpad/mobile/src/runtime/service-client.ts:33-51) unchanged."
 do_3 = "Route modules import only from sdk/launchpad/packages/sdk/src and never from src/platform, so they load without react-native (apps/launchpad/mobile/src/platform/protected-storage.ts:1)."
 do_4 = "Write apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts (planned) test routeModulesPreserveHeadPaths: serve a node:http loopback server, call each route function through a real SdkClient with production false and assert the eleven observed method and path pairs equal the HEAD pairs."
+do_5 = "Close the `{price && <Copyable …/>` JSX expression at apps/launchpad/mobile/src/screens/token.tsx:2 column 1180 with its missing `}` (TS1005, present since 145164d70) and change nothing else in Token."
 symbols = ["MobileServices", "marketRoutes", "routeModulesPreserveHeadPaths"]
-touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"]
+touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx"]
 tests = ["apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts::routeModulesPreserveHeadPaths"]
 planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"]
 build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
@@ -110396,7 +110400,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.48.5]
 title = "Retire the SDK phase scripts and the evidence manifest key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -110458,7 +110462,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.49.1]
 title = "Repoint the SDK generator at the monorepo layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["4.48.5"]
@@ -118445,7 +118449,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.1.3]
 title = "Add the WithRetirement option to the common Precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.0.1", "6.1.4"]
@@ -118507,7 +118511,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.2.1]
 title = "Register the pricefeed, agent and bank site codes in the LXP table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.0.1", "17.93.1"]
@@ -121068,7 +121072,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.23.2]
 title = "Serve the DenomPaused gRPC query from the tokenfactory keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.23.1", "6.0.1"]
@@ -124889,7 +124893,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.69.1]
 title = "Serve the Params, Attestors, Request, Result, ProgramRequest, ProgramResult and ProgramCounters queries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.68.1", "6.62.1", "6.63.1"]
@@ -126800,7 +126804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.9.2]
 title = "Register raw, uncle and filter services and the pax filter service"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["7.3.2", "7.5.2", "7.6.2", "7.8.1", "7.2.1"]
@@ -127673,7 +127677,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.17.1]
 title = "Fail eth_getLogs when the earliest height is unavailable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["7.2.1"]
@@ -146390,7 +146394,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.9.3]
 title = "Move the UCP client and seller end-to-end test off AuthorizedBatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.9.4"]
@@ -149975,7 +149979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.5.5]
 title = "Agent action receipt wait reads pax_sequencerReceipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["12.5.1"]
@@ -150078,6 +150082,7 @@ do_2 = "Change waitForReceipt (services/wallet/gateway/src/provision/bind.ts:309
 do_3 = "Keep broadcastOnce (services/wallet/gateway/src/provision/bind.ts:296) idempotent: a known receipt returns the hash without sending; the send goes to the sequencer endpoint through rpc.sendRawTransaction."
 do_4 = "Add bindReadsSequencerReceipt and bindBroadcastIsIdempotent to services/wallet/gateway/test/provisioning.test.ts. Both use the existing harness of services/wallet/gateway/test/provisioning.test.ts:1."
 do_5 = "In services/wallet/gateway/test/provisioning.test.ts beforeAll generate a key pair (node:crypto generateKeyPairSync, spki PEM), write the public key to the temp dir and pass ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER and ATTESTOR_AUTHORITY_TENANT in every attestor node's env (NewSignedVerifier at services/wallet/attestor/internal/auth/agent/authority.go:115 refuses to start without them); make the fake chain answer pax_sequencerReceipt."
+do_6 = "In services/wallet/gateway/test/provisioning.test.ts beforeAll, before startPostgres, set WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE (the do_5 authority private key written to the temp dir), WALLET_IDENTITY_BINDING_TENANT (the do_5 tenant), WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE (a signed inventory and its public key built as test/evm-approvals.test.ts builds them), because loadEnv (services/wallet/gateway/src/env.ts:253) requires all four whenever ATTESTOR_ENDPOINTS is set."
 symbols = ["readReceipt", "waitForReceipt", "broadcastOnce", "bindReadsSequencerReceipt", "bindBroadcastIsIdempotent"]
 touches = ["services/wallet/gateway/src/provision/bind.ts", "services/wallet/gateway/test/provisioning.test.ts"]
 tests = ["services/wallet/gateway/test/provisioning.test.ts::bindReadsSequencerReceipt", "services/wallet/gateway/test/provisioning.test.ts::bindBroadcastIsIdempotent"]
@@ -150479,6 +150484,7 @@ do_1 = "Add POST /v1/wallet/evm/sign {approval_id} to evmApprovalRoutes (planned
 do_2 = "Move the row to signing_unknown, sign with kind evm_tx through attestors.sign (services/wallet/gateway/src/attestor/client.ts:630), refuse a signature whose signedBytes differ from the retained signing_hash with 502 evm_signature_evidence_mismatch, and broadcast through rpc.sendRawTransactionVia (services/wallet/gateway/src/rpc/pool.ts:344)."
 do_3 = "Read rpc.sequencerReceipt(hash) (planned in services/wallet/gateway/src/rpc/pool.ts:146), store tx_hash and receipt as evidence and answer state signed with tx_hash, rung and receipt."
 do_4 = "Write services/wallet/gateway/test/evm-sign.test.ts (planned)."
+do_5 = "In services/wallet/gateway/test/evm-sign.test.ts have the fixture review an ERC-20 transfer whose calldata carries a method, not a calldata-free native value transfer (parseEvmReview at services/wallet/gateway/src/attestor/client.ts:1203 refuses the attestor's empty method with evm_review_invalid), and answer pax_sequencerReceipt and eth_sendRawTransaction from an in-process JSON-RPC server started in beforeAll, as test/evm-approvals.test.ts and the wallet send-receipt test do; the test reads no EVM_SIGN_TEST_SEQUENCER_RPC_URL or EVM_SIGN_TEST_FUNDING_KEY."
 symbols = ["evmApprovalRoutes", "evmSignRequiresApprovedRow", "evmSignSendsThroughSequencerWithReceipt"]
 touches = ["services/wallet/gateway/src/routes/evmApprovals.ts", "services/wallet/gateway/test/evm-sign.test.ts"]
 tests = ["services/wallet/gateway/test/evm-sign.test.ts::evmSignRequiresApprovedRow", "services/wallet/gateway/test/evm-sign.test.ts::evmSignSendsThroughSequencerWithReceipt"]
@@ -151171,7 +151177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.19.3]
 title = "Attestor daemon refuses an activity-types input wider than the asset send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.12.1", "12.3.3"]
@@ -152833,7 +152839,7 @@ symbols = ["send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_relo
 touches = ["apps/wallet/e2e/send.spec.ts"]
 tests = ["apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/wallet run typecheck"
+build_cmd = "pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts --list"
 verify_cmd = "pnpm --dir apps/wallet exec playwright test --config=playwright.wallet-app.config.ts e2e/send.spec.ts -g 'send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -156926,7 +156932,7 @@ do_3 = "sdk/js/package.json:60-64 maps ./types/* to ./dist/types/types/*/index.j
 do_4 = "Replace the yarn, tsc, buf, tsx and jest scripts of sdk/js/package.json:11-23, which name a tsconfig.json and buf templates absent from sdk/js, with the single script test = node --test test/, and replace the tsx devDependency at sdk/js/package.json:43-45 with typescript, which the declaration probes of 14.3.7 and 14.3.9 load."
 do_5 = "Create sdk/js/package-lock.json (planned) with npm install --package-lock-only against the three dependencies at sdk/js/package.json:38-42 so npm --prefix sdk/js ci is reproducible."
 do_6 = "Create sdk/js/test/package.test.cjs (planned) with sdk_js_has_no_vendor_pin; package_entries_resolve_under_require, which require()s @pax-js/cosmos/encoding, @pax-js/cosmos/rest and @pax-js/cosmos/types/evm through the package self-reference and asserts Encoder, Querier and an object namespace come back, and package_types_subpath_resolves_to_runtime_module, which asserts require.resolve('@pax-js/cosmos/types/evm') ends in dist/cjs/types/evm/index.js."
-symbols = ["exports", "sdk_js_has_no_vendor_pin", "package_entries_resolve_under_require", "package_types_subpath_resolves_to_runtime_module"]
+symbols = ["sdk_js_has_no_vendor_pin", "package_entries_resolve_under_require", "package_types_subpath_resolves_to_runtime_module"]
 touches = ["sdk/js/package.json", "sdk/js/package-lock.json", "sdk/js/test/package.test.cjs", "sdk/js/VENDOR.kvx", "sdk/js/README.md"]
 tests = ["sdk/js/test/package.test.cjs::sdk_js_has_no_vendor_pin", "sdk/js/test/package.test.cjs::package_entries_resolve_under_require", "sdk/js/test/package.test.cjs::package_types_subpath_resolves_to_runtime_module"]
 planned_paths = ["sdk/js/package-lock.json", "sdk/js/test/package.test.cjs"]
@@ -159094,7 +159100,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.22.3]
 title = "Pass R7 and R8 evidence to SequencerReceipt.verify from the status controller"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.22.2"]
@@ -160690,7 +160696,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.36.1]
 title = "Describe the R1-R8 committed path in the transaction status schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.22.2"]
@@ -166120,7 +166126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.22.2]
 title = "Retire the unimported testutil network and fuzzing packages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["16.37.1"]
@@ -166347,7 +166353,8 @@ interfaces = []
 do_1 = "Add \"bounds\": {\"minAverageTps\": <n>, \"maxP99LatencyMs\": <m>} to each profile (tools/loadtest/profiles/autobake_evm_transfer.json:1, tools/loadtest/profiles/conflict.json:1, tools/loadtest/profiles/evm_transfer.json:1, tools/loadtest/profiles/evm_transfer_write_file.json:1, tools/loadtest/profiles/loadtest_default.json:1, tools/loadtest/profiles/local.json:1, tools/loadtest/profiles/local_docker.json:1), taking n as the floor of the TPS the profile reached in the release-candidate run recorded in the feature qualification log and m as its observed p99 plus 20 percent."
 do_2 = "Add TestProfilesDeclarePerformanceBounds to tools/loadtest/profiles/profiles_test.go after TestProfilesRequiredFields at tools/loadtest/profiles/profiles_test.go:103, iterating files the way TestProfilesAlignment does at tools/loadtest/profiles/profiles_test.go:15."
 do_3 = "Keep tools/loadtest/profiles/profiles_test.go:15 TestProfilesAlignment passing: the bounds object decodes into BoundsConfig (planned in task 16.24.4)."
-symbols = ["TestProfilesDeclarePerformanceBounds", "BoundsConfig"]
+do_4 = "Declare no BoundsConfig alias or other test-only type in tools/loadtest/profiles/profiles_test.go; read the bounds through config.BoundsConfig."
+symbols = ["TestProfilesDeclarePerformanceBounds"]
 touches = ["tools/loadtest/profiles/autobake_evm_transfer.json", "tools/loadtest/profiles/conflict.json", "tools/loadtest/profiles/evm_transfer.json", "tools/loadtest/profiles/evm_transfer_write_file.json", "tools/loadtest/profiles/loadtest_default.json", "tools/loadtest/profiles/local.json", "tools/loadtest/profiles/local_docker.json", "tools/loadtest/profiles/profiles_test.go"]
 tests = ["tools/loadtest/profiles/profiles_test.go::TestProfilesDeclarePerformanceBounds"]
 planned_paths = []
@@ -168756,7 +168763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.0.2]
 title = "Freeze the programme artifact formats"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["17.0.1", "17.1.2", "17.2.2", "17.3.2", "17.4.2", "17.6.2", "17.5.8", "17.8.1"]
@@ -168909,7 +168916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.1.2]
 title = "Validate the activation plan against the plan gates and refused names"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.1.1"]
@@ -168970,7 +168977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.1.4]
 title = "Tabulate the precompile activation gates and what HEAD serves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["17.1.2"]
@@ -169211,7 +169218,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.2.3]
 title = "Write the refusal expectations of every retired surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["17.2.2"]
@@ -170120,7 +170127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.4]
 title = "Check the run cards against the merged task graph"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["17.7.2", "17.7.3"]

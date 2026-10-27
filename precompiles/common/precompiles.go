@@ -354,7 +354,6 @@ func (d DynamicGasPrecompile) RunAndCalculateGas(evm *vm.EVM, caller common.Addr
 	defer func() {
 		HandlePrecompileError(err, evm, operation)
 		if err != nil {
-			fmt.Printf("precompile %s encountered error: %v\n", d.name, err)
 			if d.reasons && d.mergePlanActive(evm) {
 				ret = revertData(err, d.lxp)
 			}
