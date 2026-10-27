@@ -123319,7 +123319,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.49.3]
 title = "Pin the 0x1016 Go method constants to the ABI methods they dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -123349,7 +123349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.50.1]
 title = "Pin the vault attestation document to the module attestation vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -136051,7 +136051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.47.3]
 title = "Python streaming conformance resumes eth_subscribe log streams by log position"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "7.0.2"]
