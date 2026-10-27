@@ -13731,7 +13731,7 @@ ac_3 = "The micro-batch executor (node/sequencer/microbatch.go:123) forwards Fen
 
 [req.5052]
 title = "Every merge precompile package with a constructor is linked into the node"
-ac_1 = "The imports of node/precompiles.go:3 register a merge constructor for 0x101A, 0x101B, 0x101C, 0x101D, 0x0901, 0x0902, 0x0904, 0x0907 and 0x0908 (precompiles/setup.go:89)."
+ac_1 = "The imports of node/precompiles.go:3 register a merge constructor for 0x101A, 0x101B, 0x101C, 0x0901, 0x0902, 0x0904, 0x0907 and 0x0908 (precompiles/setup.go:89); 0x101D is linked by task 13.22.1."
 ac_2 = "NewPrecompileKeepers (node/precompiles.go:56) hands the ledger and auth keepers to precompiles."
 
 [req.5053]
@@ -88826,14 +88826,14 @@ requester = "6.24.3"
 path = "node/app.go"
 domain = 5
 wave_needed = 4
-what = "Drop the app.DistrKeeper argument of tokenfactorykeeper.NewKeeper at node/app.go:764."
+what = "Drop the app.DistrKeeper argument of tokenfactorykeeper.NewKeeper at node/app.go:807."
 requester = "6.26.2"
 
 [wiring.J35.7]
 path = "node/app.go"
 domain = 5
 wave_needed = 4
-what = "Build the anchor module as layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper) at node/app.go:1029."
+what = "Build the anchor module as layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper) at node/app.go:1105."
 requester = "6.31.5"
 
 [wiring.J35.8]
@@ -97758,7 +97758,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.5]
 title = "Prove layerxledger and layerxauth genesis export and import through the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.2", "5.41.2"]
@@ -111689,7 +111689,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.5.0.3]
-title = "Pass the sequencer RPC options and wire the merged keepers, the served spot set and the anchor module"
+title = "Pass the sequencer RPC options and wire the merged keepers, the served spot set"
 status = "pending"
 mode = "BUILD"
 wave = 14
@@ -111697,13 +111697,13 @@ requires = ["5.0.2", "5.5.4", "5.5.10", "5.19.2", "3.0.2", "6.0.2"]
 reqs = ["5044.1", "5044.2", "5044.3"]
 capabilities = ["5.20.3"]
 interfaces = ["interface.5.go-node-app-register-local-services", "interface.6.cfg-v6120-next-spot"]
-fulfils = ["wiring.J26.1", "wiring.J26.2", "wiring.J35.2", "wiring.J35.5", "wiring.J35.7", "wiring.J38.1", "wiring.J38.2"]
+fulfils = ["wiring.J26.1", "wiring.J26.2", "wiring.J35.2", "wiring.J38.1", "wiring.J38.2"]
 do_1 = "After traceCtxProvider at node/app.go:3266 pass the SequencerOption (rpc/server.go:55) and SequencerReceiptOption (rpc/sequencer_receipt.go:100) set by SetSequencerRPC, the pending option over the app pending snapshot and, on a follower node, the sequencer forward option (both planned by the RPC domain, wiring.J38.1) to evmrpc.NewEVMHTTPServer."
 do_2 = "After headNotifier at node/app.go:3275 pass the same SequencerOption and pending option to evmrpc.NewEVMWebSocketServer, so the WS logs and newPendingTransactions subscriptions read the same feed (wiring.J38.2)."
 do_3 = "Replace spotprecompile.NewPrecompileSet(keepers) at node/app.go:3524 with spotprecompile.NewServedSet(keepers) (precompiles/spot/setup.go, planned change) and keep the loop at node/app.go:3533-3535, so 0x1021-0x1025 serve the spot precompile through RunAndCalculateGas."
 do_4 = "After the exchange keeper is built at node/app.go:833-834 call app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper), as custody receives it at node/app.go:828-829."
 do_5 = "Register app.TokenFactoryKeeper.SendEnabledChecker on app.GigaBankKeeper beside node/app.go:918, mirroring the BankKeeper registration at node/app.go:766."
-do_6 = "Drop the app.DistrKeeper argument of tokenfactorykeeper.NewKeeper at node/app.go:764, and build the anchor module as layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper) at node/app.go:1029."
+do_6 = "Leave the tokenfactorykeeper.NewKeeper call at node/app.go:807 and the layerxanchormodule.NewAppModule call at node/app.go:1105 as they are: tasks 6.26.2 and 6.31.5 change those signatures and now own the two call-site changes, since either order of the two halves breaks the build when they are split across tasks."
 do_7 = "Write node/sequencer_rpc_option_test.go (planned) and node/app_merge_wiring_test.go (planned) in package app_test with the three tests below."
 symbols = ["RegisterLocalServices", "NewServedSet", "SetUpgradeKeeper", "SendEnabledChecker", "TestEVMServerServesSequencerReceiptOption", "TestV6120SpotServesThroughServedSet", "TestGigaBankRefusesPausedTokenFactoryDenom"]
 touches = ["node/app.go", "node/sequencer_rpc_option_test.go", "node/app_merge_wiring_test.go"]
@@ -112865,15 +112865,15 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Complete the merge plan: mount the merged stores, close the gate on missing constructors and retire anchor and custody"
 status = "pending"
 mode = "BUILD"
-wave = 14
-requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2"]
+wave = 15
+requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5"]
 reqs = ["5049.1", "5049.2", "5049.3", "5049.4"]
 capabilities = ["5.6.5"]
 interfaces = ["interface.6.cfg-merge-gate"]
 fulfils = ["wiring.J23.13", "wiring.J34.5", "wiring.J35.8", "wiring.J36.2"]
 do_1 = "Add keys.LayerXLedgerStoreKey, LayerXAuthStoreKey, LayerXPayStoreKey, LayerXProgramsStoreKey, LayerXAgentStoreKey and LayerXHostStoreKey to Added in mergeStoreUpgrades (node/upgrades.go:416-421) beside storekeys.SequencerStoreKey."
 do_2 = "Replace the literals \"layerxpay\" and \"layerxagent\" in mergePrecompileGate (node/upgrades.go:521-539) with layerxpaytypes.ModuleName (modules/layerxpay/types/keys.go:6) and the layerxagent module name constant; keep the 0x101D row gated on the layerxprograms name."
-do_3 = "Make the merge activation built by mergePrecompileGate refuse to start when precompiles.MissingMergeConstructors or the evm keeper ActivationAddressesWithoutPrecompile (planned by the precompile domain, wiring.J34.5) is non-empty, naming each missing address, through the constructor registry of precompiles/setup.go:89."
+do_3 = "Make the merge activation built by mergePrecompileGate refuse to start when precompiles.MissingMergeConstructors or the evm keeper ActivationAddressesWithoutPrecompile (planned by the precompile domain, wiring.J34.5) is non-empty, naming each missing address, through the constructor registry of precompiles/setup.go:89 (precompiles.MissingMergeConstructors comes from task 6.6.5, which this task now requires; ActivationAddressesWithoutPrecompile is on main from 6.7.3)."
 do_4 = "In mergeUpgradePlan call app.LayerXAnchorKeeper.RetireAtMerge(ctx) (planned by the anchor domain, wiring.J35.8) after the RunMigrations error check at node/upgrades.go:443-446 and return its error so a failed bond return stops the plan."
 do_5 = "After the sequencer InitGenesis at node/upgrades.go:447 succeeds, call app.LayerXCustodyKeeper.ReleaseRetired(ctx) (planned by the custody domain, wiring.J36.2) and return its error."
 do_6 = "Write node/upgrades_merge_stores_test.go (planned) and node/upgrades_merge_bonds_test.go (planned) in package app, and add TestMergePrecompileGateUsesModuleNameConstants and TestMergePlanRefusesMissingMergeConstructors to node/upgrades_merge_gate_test.go."
@@ -114114,12 +114114,12 @@ title = "Import the merge precompile packages and expose the ledger and auth kee
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["5.19.2", "2.0.2", "6.0.2"]
+requires = ["5.19.2", "2.0.2", "6.0.2", "5.94.2"]
 reqs = ["5052.1", "5052.2"]
 capabilities = ["5.19.4"]
 interfaces = ["interface.5.go-node-app-layerx-ledger-k-j31", "interface.5.go-node-app-layerx-auth-k-j31"]
 fulfils = ["wiring.J23.14", "wiring.J23.15", "wiring.J34.6", "wiring.J34.7", "wiring.J34.8", "wiring.J34.9", "wiring.J34.10", "wiring.J34.11", "wiring.J34.13", "wiring.J34.16", "wiring.J34.17"]
-do_1 = "Add blank imports to the import block at node/precompiles.go:3-24 for precompiles/layerxledger and precompiles/layerxauth (planned by the ledger and auth domain), precompiles/layerxpay, precompiles/layerxprograms and precompiles/layerxagent/orob, clearing, pofq, teeattestor and eip712, so their init calls RegisterMergeConstructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
+do_1 = "Add blank imports to the import block at node/precompiles.go:3-24 for precompiles/layerxledger and precompiles/layerxauth (planned by the ledger and auth domain), precompiles/layerxpay and precompiles/layerxagent/orob, clearing, pofq, teeattestor and eip712, so their init calls RegisterMergeConstructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set; the blank import of precompiles/layerxprograms (0x101D) belongs to task 13.22.1, which writes that constructor, and importing precompiles/layerxpay needs the LayerXPayK accessor task 5.94.2 adds, which is why this task requires it and adds no pay accessor of its own."
 do_2 = "Add a layerxLedger keeper field next to node/precompiles.go:46, its accessor LayerXLedgerK next to node/precompiles.go:110 and the assertion var _ ledgerprecompile.LedgerKeepers next to node/precompiles.go:150."
 do_3 = "Add a layerxAuth keeper field next to node/precompiles.go:46, its accessor LayerXAuthK next to node/precompiles.go:110 and the assertion var _ authprecompile.AuthKeepers next to node/precompiles.go:150."
 do_4 = "Fill both fields from app.LayerXLedgerKeeper and app.LayerXAuthKeeper in NewPrecompileKeepers (node/precompiles.go:56-80)."
@@ -115446,7 +115446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.5]
 title = "Export and import the merge stores through state sync"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.42.1"]
@@ -118507,7 +118507,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.94.2]
 title = "Expose the pay and agent keepers and the shared host to precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.0.2", "2.0.2", "5.19.2"]
@@ -118518,7 +118518,7 @@ fulfils = ["wiring.J24.12", "wiring.J24.13", "wiring.J52.12"]
 do_1 = "Add no blank import here: the imports of precompiles/layerxagent/oracle (0x0903), precompiles/layerxagent/scheduler (0x0905) and precompiles/layerxagent/streams (0x0906) belong to task 5.94.4 (wave 29), after tasks 2.36.1, 2.34.1 and 2.35.1 create those packages and 2.36.2, 2.34.2 and 2.35.2 register their merge constructors; at this wave the packages do not exist and node/precompiles.go would not build with them."
 do_2 = "Add layerxPay and layerxAgent keeper fields to PrecompileKeepers (node/precompiles.go:26), fill them from the App keepers in NewPrecompileKeepers (node/precompiles.go:56), and add the accessors LayerXPayK and LayerXAgentK beside the accessors that start at node/precompiles.go:110."
 do_3 = "Leave the blank imports of precompiles/layerxpay, orob, clearing, pofq, teeattestor and eip712 to task 5.19.4 (wave 4), which adds them to the same import block at node/precompiles.go:3-24, so no import is declared twice."
-do_4 = "Add a layerxHost field holding the shared *lxphost.Host that task 5.19.2 builds in wave 3, fill it in NewPrecompileKeepers (node/precompiles.go:56) and add the accessor LayerXHost() *lxphost.Host beside XWebK (node/precompiles.go:127), which already hands precompiles the xweb keeper, so 0x101D reaches the host through the keepers passed to merge constructors (wiring.J52.12); the blank import of precompiles/layerxprograms stays with task 5.19.4."
+do_4 = "Add a layerxHost field holding the shared *lxphost.Host that task 5.19.2 builds in wave 3, fill it in NewPrecompileKeepers (node/precompiles.go:56) and add the accessor LayerXHost() *lxphost.Host beside XWebK (node/precompiles.go:127), which already hands precompiles the xweb keeper, so 0x101D reaches the host through the keepers passed to merge constructors (wiring.J52.12); the blank import of precompiles/layerxprograms stays with task 13.22.1."
 do_5 = "Write node/precompiles_agent_imports_test.go (planned) in package app with the two tests below."
 symbols = ["TestPrecompileKeepersExposePayAndAgent", "TestPrecompileKeepersExposeSharedHost"]
 touches = ["node/precompiles.go", "node/precompiles_agent_imports_test.go"]
@@ -119204,12 +119204,12 @@ reqs = ["6038.1"]
 capabilities = ["6.2.2"]
 interfaces = ["interface.6.err-rev-lxp-arbiter-required", "interface.6.err-rev-lxp-unauthorized-arbiter", "interface.6.err-rev-lxp-escrow-link-mismatch"]
 wiring = ["wiring.J34.3"]
-do_1 = "Set kernel: true, value: -737, -738 and -739 on the LXP_ARBITER_REQUIRED, LXP_UNAUTHORIZED_ARBITER and LXP_ESCROW_LINK_MISMATCH rows at precompiles/common/lxp_errors.go:151-153"
+do_1 = "Set kernel: true, value: -737, -738 and -739 on the LXP_ARBITER_REQUIRED, LXP_UNAUTHORIZED_ARBITER and LXP_ESCROW_LINK_MISMATCH rows at precompiles/common/lxp_errors.go:151-153 (at the current base the three arbiter rows already carry kernel: true and the values -737 to -739; keep them)."
 do_2 = "Rely on the header rows of wiring.J34.3 after LXP_ERR_PROGRAM_REFUSED (include/layerx/lxp_result.h:141), matching the origins spec/layerx-merge/contracts/address-table.md:328-330 already state"
 do_3 = "Check that LXPCodeName (precompiles/common/lxp_errors.go:320) returns the three codes for -737, -738 and -739"
 do_4 = "Run TestLXPRevertTable (precompiles/common/lxp_errors_test.go:122), which fails at HEAD on these three rows"
 symbols = ["lxpRevertTable", "LXPCodeName", "TestLXPRevertTable"]
-touches = ["precompiles/common/lxp_errors.go", "precompiles/common/lxp_errors_test.go"]
+touches = ["precompiles/common/lxp_errors.go", "precompiles/common/lxp_errors_test.go", "spec/layerx-merge/contracts/address-table.md"]
 tests = ["precompiles/common/lxp_errors_test.go::TestLXPRevertTable"]
 planned_paths = []
 build_cmd = "go build ./precompiles/common/"
@@ -119225,7 +119225,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_5 = "Add to section (b) of spec/layerx-merge/contracts/address-table.md, in lxpRevertTable order, the 110 rows precompiles/common/lxp_errors.go registers without a table row (LXP_LAUNCHPAD_*, LXP_PERPS_*, LXP_PRICEFEED_* from 6.92.1, LXP_PAY_UNBOUND_CALLER, LXP_PAY_KERNEL_GATE_MISMATCH, LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE), each with the five registry columns and its Go or site origin, so TestLXPRevertTable finds every registered code in the table."
 [task.6.2.3]
 title = "Check the Python SDK retryable map against the LXP registry"
 status = "pending"
@@ -119414,7 +119414,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.3.5]
 title = "Code sendNative zero-value and malformed-receiver refusals"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "6.3.3"]
@@ -119541,7 +119541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.4]
 title = "Add GetPrecompileInfoE and keep merge precompiles out of the VM tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "6.6.3"]
@@ -119575,7 +119575,7 @@ title = "Add MissingMergeConstructors for the node start check"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["6.0.2", "6.6.4", "6.7.3", "5.6.5", "5.45.1"]
+requires = ["6.0.2", "6.6.4", "6.7.3", "5.45.1"]
 reqs = ["6056.1"]
 capabilities = ["6.6.5"]
 interfaces = ["interface.6.go-pc-setup-missingmergeconstructors-j34", "interface.6.cfg-serve-merge"]
@@ -121416,7 +121416,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.21.5]
 title = "Prove an app export and re-import keeps paused tokenfactory denoms"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.21.4", "6.0.2"]
@@ -122072,13 +122072,13 @@ interfaces = ["interface.6.go-tokenfactory-newkeeper-j35", "interface.6.go-token
 wiring = ["wiring.J35.5"]
 do_1 = "Remove the distrKeeper field at modules/tokenfactory/keeper/keeper.go:22, the parameter at modules/tokenfactory/keeper/keeper.go:33 and its assignment in the struct literal at modules/tokenfactory/keeper/keeper.go:45."
 do_2 = "Delete the DistrKeeper interface at modules/tokenfactory/types/expected_keepers.go:39-42."
-do_3 = "Request the call-site change at node/app.go:764 through wiring.J35.5."
+do_3 = "Drop the app.DistrKeeper argument of tokenfactorykeeper.NewKeeper at node/app.go:807, and update the six-argument NewKeeper calls at modules/tokenfactory/client/wasm/denom_paused_query_test.go:30 and modules/tokenfactory/keeper/migrations_test.go:61 and :129 to the new parameter list (wiring.J35.5)."
 do_4 = "Create modules/tokenfactory/keeper/keeper_deps_test.go (planned) with TestNewKeeperWithoutDistrKeeper."
 symbols = ["NewKeeper", "TestNewKeeperWithoutDistrKeeper"]
-touches = ["modules/tokenfactory/keeper/keeper.go", "modules/tokenfactory/types/expected_keepers.go", "modules/tokenfactory/keeper/keeper_deps_test.go"]
+touches = ["modules/tokenfactory/keeper/keeper.go", "modules/tokenfactory/types/expected_keepers.go", "modules/tokenfactory/keeper/keeper_deps_test.go", "node/app.go", "modules/tokenfactory/client/wasm/denom_paused_query_test.go", "modules/tokenfactory/keeper/migrations_test.go"]
 tests = ["modules/tokenfactory/keeper/keeper_deps_test.go::TestNewKeeperWithoutDistrKeeper"]
 planned_paths = ["modules/tokenfactory/keeper/keeper_deps_test.go"]
-build_cmd = "go build ./modules/tokenfactory/..."
+build_cmd = "go build ./modules/tokenfactory/... ./node/..."
 verify_cmd = "go test -count=1 ./modules/tokenfactory/keeper/ -run '^(TestNewKeeperWithoutDistrKeeper)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -122091,7 +122091,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+fulfils = ["wiring.J35.5"]
 [task.6.26.3]
 title = "Trim the tokenfactory BankKeeper expected interface to the methods it calls"
 status = "done"
@@ -122528,13 +122528,13 @@ interfaces = ["interface.6.go-layerxanchor-newappmodule-j35", "interface.6.go-la
 wiring = ["wiring.J35.7"]
 do_1 = "Add an upgrades keeper.UpgradeReader field to AppModule (modules/layerxanchor/module.go:72-75) and change NewAppModule at modules/layerxanchor/module.go:78 to `func NewAppModule(k keeper.Keeper, upgrades keeper.UpgradeReader) AppModule`."
 do_2 = "Register keeper.NewMsgServerImplWithUpgrades(am.keeper, am.upgrades) in RegisterServices at modules/layerxanchor/module.go:86-88."
-do_3 = "Request the call-site change at node/app.go:1029 through wiring.J35.7."
+do_3 = "Build the anchor module as layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper) at node/app.go:1105 (wiring.J35.7), and pass the upgrade reader to the moduleimpl.NewAppModule(k) call at modules/layerxanchor/keeper/keeper_test.go:624 so the keeper tests still compile."
 do_4 = "Create modules/layerxanchor/module_retired_route_test.go (planned) with TestAppRoutesAnchorUpdateParamsRetired."
 symbols = ["NewAppModule", "RegisterServices", "TestAppRoutesAnchorUpdateParamsRetired"]
-touches = ["modules/layerxanchor/module.go", "modules/layerxanchor/module_retired_route_test.go"]
+touches = ["modules/layerxanchor/module.go", "modules/layerxanchor/module_retired_route_test.go", "node/app.go", "modules/layerxanchor/keeper/keeper_test.go"]
 tests = ["modules/layerxanchor/module_retired_route_test.go::TestAppRoutesAnchorUpdateParamsRetired"]
 planned_paths = ["modules/layerxanchor/module_retired_route_test.go"]
-build_cmd = "go build ./modules/layerxanchor/..."
+build_cmd = "go build ./modules/layerxanchor/... ./node/..."
 verify_cmd = "go test -count=1 ./modules/layerxanchor/ -run '^(TestAppRoutesAnchorUpdateParamsRetired)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -122547,7 +122547,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+fulfils = ["wiring.J35.7"]
 [task.6.32.1]
 title = "Refuse every layerxAnchor 0x1014 write with LXP_MODULE_DISABLED after the merge plan"
 status = "done"
@@ -123319,7 +123319,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.49.3]
 title = "Pin the 0x1016 Go method constants to the ABI methods they dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -123349,7 +123349,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.50.1]
 title = "Pin the vault attestation document to the module attestation vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2"]
@@ -126613,7 +126613,7 @@ title = "Retire the guarantor checkpoint path of the layerxanchor keeper and pre
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["6.0.3"]
+requires = ["6.0.3", "6.31.5"]
 reqs = ["6967.1", "6967.2", "6967.3"]
 capabilities = []
 interfaces = []
@@ -130116,7 +130116,7 @@ do_2 = "Register app.TokenFactoryKeeper (node/app.go:496) as the tokenfactory Qu
 do_3 = "Assert GET /pax-protocol/paxchain/tokenfactory/denom_paused?denom=<url-escaped denom>, the binding wiring.J39.3 adds to the planned DenomPaused rpc after api/tokenfactory/query.proto:40-42, answers 200 with paused true, and answers paused false for a second denom that was created and not paused."
 do_4 = "Assert the planned path route /pax-protocol/paxchain/tokenfactory/denoms/{denom}/paused answers 404 for the factory denom, for the same one-segment binding pattern_Query_DenomAuthorityMetadata_0 shows at modules/tokenfactory/types/query.pb.gw.go:520."
 symbols = ["TestTokenfactoryDenomPausedFactoryDenomOverREST", "DenomPaused", "CreateDenom"]
-touches = ["api/tokenfactory_paused_rest_test.go"]
+touches = ["api/tokenfactory_paused_rest_test.go", "api/tokenfactory_rest_test.go"]
 tests = ["api/tokenfactory_paused_rest_test.go::TestTokenfactoryDenomPausedFactoryDenomOverREST"]
 planned_paths = ["api/tokenfactory_paused_rest_test.go"]
 build_cmd = "go test -c -o /dev/null ./api/"
@@ -130132,7 +130132,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_5 = "Rename the CreateDenom helper of api/tokenfactory_rest_test.go:48 (and its call at line 20) to createTokenfactoryDenom so it no longer collides with CreateDenom at api/bank_rest_test.go:21 and the api test package compiles again."
 [task.7.27.1]
 title = "Require reserved numbers for the removed evm Params fields"
 status = "done"
@@ -130202,7 +130202,7 @@ title = "Prove the xevm descriptors no longer shadow the evm proto file names"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["7.21.1", "7.24.4", "5.0.3", "5.95.2"]
+requires = ["7.21.1", "7.24.4", "5.0.3", "5.95.2", "7.26.4"]
 reqs = ["7284.1"]
 capabilities = ["7.28.1"]
 interfaces = []
@@ -130234,7 +130234,7 @@ title = "Prove the xbank descriptors no longer shadow the bank proto file names"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["7.21.1", "7.26.2", "5.0.3", "5.95.3"]
+requires = ["7.21.1", "7.26.2", "5.0.3", "5.95.3", "7.26.4"]
 reqs = ["7285.1"]
 capabilities = ["7.28.2"]
 interfaces = []
@@ -130266,7 +130266,7 @@ title = "Check the layerxprograms proto sources against their generated descript
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["7.21.1", "13.0.3", "13.95.1"]
+requires = ["7.21.1", "13.0.3", "13.95.1", "7.26.4"]
 reqs = ["7286.1"]
 capabilities = ["7.28.3"]
 interfaces = []
@@ -130330,7 +130330,7 @@ title = "Check buf generate reproduces the checked-in Go for api and sdk/proto"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["7.21.1", "7.22.2", "7.28.3"]
+requires = ["7.21.1", "7.22.2", "7.28.3", "7.26.4"]
 reqs = ["7288.1"]
 capabilities = ["7.29.2"]
 interfaces = []
@@ -130989,7 +130989,7 @@ do_3 = "get_account (services/platform/hosted/gateway/src/paxeer.rs:493) answers
 do_4 = "Update the px_getAccount and px_getBalances result schemas of services/platform/hosted/gateway/openrpc.json (services/platform/hosted/gateway/openrpc.json:1402, services/platform/hosted/gateway/openrpc.json:1438)."
 do_5 = "Add services/platform/hosted/gateway/tests/one_source_reads.rs (planned) that starts the gateway against a local chain listener in the harness shape of services/platform/hosted/gateway/tests/degraded.rs (chain_answer at services/platform/hosted/gateway/tests/degraded.rs:300) with px_get_balances_reads_bank_all_balances_at_one_height and px_get_account_reads_no_kernel_backend."
 symbols = ["get_balances", "get_account", "decode_coins", "px_get_balances_reads_bank_all_balances_at_one_height", "px_get_account_reads_no_kernel_backend"]
-touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs"]
+touches = ["services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/openrpc.json", "services/platform/hosted/gateway/tests/one_source_reads.rs", "services/platform/hosted/gateway/src/rpc.rs", "services/platform/hosted/gateway/tests/degraded.rs"]
 tests = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_balances_reads_bank_all_balances_at_one_height", "services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_account_reads_no_kernel_backend"]
 planned_paths = ["services/platform/hosted/gateway/tests/one_source_reads.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
@@ -130997,7 +130997,7 @@ verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
-rollback = "Revert paxeer.rs and the schema; the joined answers return."
+rollback = "Revert paxeer.rs and the schema; the joined answers return; services/platform/hosted/gateway/src/rpc.rs and services/platform/hosted/gateway/tests/degraded.rs return to their previous text."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -131005,7 +131005,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "Remove px_getBalances from kernel_backend (services/platform/hosted/gateway/src/rpc.rs:356) so dispatch reaches paxeer::dispatch without a kernel, and replace the px_getBalances assert_kernel_unavailable of services/platform/hosted/gateway/tests/degraded.rs:582-585 with an assertion of the chain-state answer {account, height, balances} that do_1 defines."
 [task.8.5.2]
 title = "Answer px_listAssets from the indexer asset list and chain metadata"
 status = "pending"
@@ -131683,7 +131683,7 @@ capabilities = ["8.12.3"]
 interfaces = ["interface.8.env-registry-layerx-registry-lni-socket"]
 fulfils = ["wiring.J44.15"]
 do_1 = "Delete LAYERX_REGISTRY_LNI_SOCKET (services/platform/hosted/registry/src/main.rs:434), its notice (services/platform/hosted/registry/src/main.rs:927-931) and deployment_lni_socket (services/platform/hosted/registry/src/routes.rs:69, services/platform/hosted/registry/src/routes.rs:141, services/platform/hosted/registry/src/routes.rs:736)."
-do_2 = "Delete services/platform/hosted/registry/src/deployment.rs and the LNI head attestation verification of services/platform/hosted/registry/src/head_attestation.rs:15-22 with its module, since heads come from the chain since task 8.12.1."
+do_2 = "Delete services/platform/hosted/registry/src/deployment.rs and the LNI head attestation verification of services/platform/hosted/registry/src/head_attestation.rs:15-22 with its module, since heads come from the chain since task 8.12.1, together with the layerx_client::lni::head_attestation import at services/platform/hosted/registry/src/routes.rs:13 and discovery_proof (services/platform/hosted/registry/src/routes.rs:708-741)."
 do_3 = "Delete the kernel imports of services/platform/hosted/registry/src/node_state.rs:4 and the readers that only served the retired ingestion paths."
 do_4 = "Delete services/platform/hosted/registry/tests/relayed_head_attestation.rs (services/platform/hosted/registry/tests/relayed_head_attestation.rs:1-441) and the kernel deployment cases of services/platform/hosted/registry/tests/native_deployment.rs (services/platform/hosted/registry/tests/native_deployment.rs:1-1731), which drive the retired ingestion paths."
 do_5 = "Add registry_starts_without_an_lni_socket to services/platform/hosted/registry/tests/programs_chain.rs (planned)."
@@ -132056,7 +132056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.5]
 title = "Load the perps and price feed ABIs from their nested directories"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["8.16.1", "6.0.2", "8.1.5"]
@@ -132087,7 +132087,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.16.6]
 title = "Register the spot order book contracts in the indexer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["8.16.5", "6.0.2", "8.1.5"]
@@ -136051,7 +136051,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.47.3]
 title = "Python streaming conformance resumes eth_subscribe log streams by log position"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "7.0.2"]
@@ -137299,12 +137299,12 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Migrate the registry callers of wiring.J44.20 (wave 2)"
 status = "pending"
 mode = "BUILD"
-wave = 8
-requires = ["8.0.2"]
+wave = 27
+requires = ["8.0.2", "8.12.3"]
 reqs = ["8952.1"]
 capabilities = ["8.98.12"]
 interfaces = []
-do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/registry/src/routes.rs:13 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
+do_1 = "After task 8.12.3 removes the LNI head attestation path of the registry (the layerx_client::lni::head_attestation import at services/platform/hosted/registry/src/routes.rs:13 and discovery_proof at routes.rs:708-741), confirm services/platform/hosted/registry/src/routes.rs carries no retired layerx_client path; ProgramDiscoveryHead has no sequencer, px or rpc counterpart, so no import is renamed to a path that does not exist, and the routes.rs rename of the first attempt is discarded while tests/retired_client_modules_w2.rs from it is kept."
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-platform-registry (services/platform/hosted/registry/Cargo.toml:1) and every existing test of the crate stay unchanged."
 do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/registry/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths_w2"]
@@ -137317,7 +137317,7 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 fulfils = ["wiring.J44.20"]
-rollback = "Revert the 1 migrated files of registry and delete services/platform/hosted/registry/tests/retired_client_modules_w2.rs."
+rollback = "Delete services/platform/hosted/registry/tests/retired_client_modules_w2.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -156200,7 +156200,7 @@ title = "Write the 0x101D executor, merge constructor and method dispatch table"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["13.21.7", "13.21.9", "5.94.2"]
+requires = ["13.21.7", "13.21.9", "5.94.2", "5.19.4"]
 reqs = ["13250.1", "13250.2"]
 capabilities = ["13.22.1"]
 interfaces = ["interface.13.go-layerxprograms-address-j52", "interface.13.go-layerxprograms-precompilename-j52", "interface.13.go-layerxprograms-hostkeepers-j52", "interface.13.go-layerxprograms-precompileexecutor-j52", "interface.13.go-layerxprograms-newprecompile-j52", "interface.13.go-layerxprograms-newmergeprecompile-j52"]
@@ -156211,10 +156211,10 @@ do_4 = "Write type handler func(ctx sdk.Context, p *PrecompileExecutor, call cal
 do_5 = "Keep RequiredGas on gasTable unchanged (precompiles/layerxprograms/gas.go:33); the executor's RequiredGas returns gasTable.RequiredGas for the method."
 do_6 = "Write both tests in precompiles/layerxprograms/layerxprograms_test.go (planned)."
 symbols = ["Address", "PrecompileName", "HostKeepers", "PrecompileExecutor", "NewPrecompile", "NewMergePrecompile", "register", "TestProgramsMergeConstructorRegistered", "TestProgramsExecuteUnknownMethodRefused"]
-touches = ["precompiles/layerxprograms/layerxprograms.go", "precompiles/layerxprograms/layerxprograms_test.go"]
+touches = ["precompiles/layerxprograms/layerxprograms.go", "precompiles/layerxprograms/layerxprograms_test.go", "node/precompiles.go"]
 tests = ["precompiles/layerxprograms/layerxprograms_test.go::TestProgramsMergeConstructorRegistered", "precompiles/layerxprograms/layerxprograms_test.go::TestProgramsExecuteUnknownMethodRefused"]
 planned_paths = ["precompiles/layerxprograms/layerxprograms.go", "precompiles/layerxprograms/layerxprograms_test.go"]
-build_cmd = "go build ./precompiles/layerxprograms/..."
+build_cmd = "go build ./precompiles/layerxprograms/... ./node/..."
 verify_cmd = "go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsMergeConstructorRegistered|TestProgramsExecuteUnknownMethodRefused)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
@@ -156227,7 +156227,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_7 = "Add the blank import of precompiles/layerxprograms to the import block at node/precompiles.go:3-24 beside the imports task 5.19.4 left, so init registers the 0x101D merge constructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
 [task.13.22.2]
 title = "Gate 0x101D calls on the merge plan height, value and static-call context"
 status = "done"
