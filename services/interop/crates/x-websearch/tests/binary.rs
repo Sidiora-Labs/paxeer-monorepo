@@ -16,11 +16,14 @@ use serde_json::{json, Value};
 use sha2::{Digest as _, Sha256};
 use x_websearch::canonical::digest_hex;
 use x_websearch::index::WebIndex;
-use x_websearch::kernel::{EVENTS_METHOD, PROGRAM_ATTESTATION_PATH, REQUEST_TOPIC};
 use x_websearch::keys::{ATTESTOR_KEY_FILE, RECEIVER_KEY_FILE, SUBMITTER_KEY_FILE};
 use x_websearch::payment::{hex, PAYER_DID, PAYMENT_REQUIRED};
+use x_websearch::program::PROGRAM_ATTESTATION_PATH;
 use x_websearch::search::search;
-use x_websearch::watch::{hex0x, keccak, GET_KERNEL_NETWORK_ID_SIGNATURE, XWEB_PRECOMPILE};
+use x_websearch::watch::{
+    hex0x, keccak, program_requested_topic, requested_topic, GET_KERNEL_NETWORK_ID_SIGNATURE,
+    XWEB_PRECOMPILE,
+};
 
 type TestResult<T = ()> = Result<T, Box<dyn std::error::Error>>;
 
@@ -205,8 +208,7 @@ fn attestor_key(scratch: &Scratch) -> TestResult<PathBuf> {
 }
 
 /// A loopback JSON-RPC gateway recording every call. It answers
-/// `lx_getProgramEvents` with no events and the cursor it was asked from,
-/// optionally serves the settlement chain and receipt probe, and rejects
+/// recorded EVM calls, optionally serves the settlement chain and receipt probe, and rejects
 /// other methods with a method-not-found error.
 struct Gateway {
     address: SocketAddr,
@@ -275,12 +277,6 @@ fn answer_rpc(
         .find(|recorded| recorded["method"] == method && recorded["params"] == params)
     {
         json!({ "jsonrpc": "2.0", "id": request["id"], "result": recorded["result"] })
-    } else if method == EVENTS_METHOD {
-        json!({
-            "jsonrpc": "2.0",
-            "id": request["id"],
-            "result": { "events": [], "next_sequence": params[0]["from_sequence"] },
-        })
     } else {
         json!({
             "jsonrpc": "2.0",
@@ -302,12 +298,8 @@ fn answer_rpc(
 }
 
 impl Gateway {
-    fn start() -> std::io::Result<Self> {
-        Self::start_with_chain_id(None)
-    }
-
     fn start_with_chain_id(chain_id: Option<u64>) -> std::io::Result<Self> {
-        let ledger_calls = if chain_id.is_some() {
+        let mut ledger_calls = if chain_id.is_some() {
             let recording: Value =
                 serde_json::from_slice(&std::fs::read(fixtures().join("gateway/metered.json"))?)?;
             recording["endpoints"]["gateway"]["*"]
@@ -325,6 +317,20 @@ impl Gateway {
         } else {
             Vec::new()
         };
+        if chain_id.is_some() {
+            for name in ["chain.json", "watch.json"] {
+                let recording: Value =
+                    serde_json::from_slice(&std::fs::read(fixtures().join("evm").join(name))?)?;
+                ledger_calls.extend(
+                    recording["endpoints"]["evm"]["*"]
+                        .as_array()
+                        .ok_or_else(|| std::io::Error::other("missing recorded EVM calls"))?
+                        .iter()
+                        .filter(|call| call["method"] != "eth_getLogs")
+                        .cloned(),
+                );
+            }
+        }
         let listener = TcpListener::bind("127.0.0.1:0")?;
         let address = listener.local_addr()?;
         let calls = Arc::new(Mutex::new(Vec::new()));
@@ -379,35 +385,6 @@ impl Drop for Gateway {
     }
 }
 
-/// Points the configuration's kernel relay and EVM endpoint at `gateway`,
-/// so the attesting sidecar dials nothing but the loopback listeners.
-/// A gateway authorization file in the scratch directory, in the
-/// `LayerX-Key <id>:lxp_live_<64 hex>` form the sidecar reads, owner-only.
-fn gateway_authorization(scratch: &Scratch) -> TestResult<PathBuf> {
-    let mut secret = [0_u8; 32];
-    File::open("/dev/urandom")?.read_exact(&mut secret)?;
-    let path = std::fs::canonicalize(&scratch.0)?.join("gateway.authorization");
-    std::fs::write(
-        &path,
-        format!("LayerX-Key relay-test:lxp_live_{}\n", hex(&secret)),
-    )?;
-    std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
-    Ok(path)
-}
-
-fn relay_settings(config: &mut Value, gateway: &Gateway, authorization: &Path) {
-    config["crawl_interval_seconds"] = json!(86_400);
-    config["gateway"]["authorization_file"] = json!(authorization);
-    config["evm"]["endpoint"] = json!(gateway.url());
-    config["kernel"] = json!({
-        "endpoint": gateway.url(),
-        "poll_interval_ms": 50,
-        "topics": [String::from_utf8_lossy(REQUEST_TOPIC)],
-        "submitter_did": "did:layerx:web-attestor",
-        "fee_limit": "100",
-    });
-}
-
 /// The real x-websearch executable, its standard error kept in a file.
 struct Sidecar {
     child: Child,
@@ -423,13 +400,14 @@ impl Drop for Sidecar {
 }
 
 fn launch(scratch: &Scratch, receiver: Option<&Path>) -> TestResult<(Child, PathBuf)> {
-    launch_with(scratch, receiver, None)
+    launch_with(scratch, receiver, None, None)
 }
 
 fn launch_with(
     scratch: &Scratch,
     receiver: Option<&Path>,
     attestor: Option<&Path>,
+    submitter: Option<&Path>,
 ) -> TestResult<(Child, PathBuf)> {
     let log = scratch.0.join("stderr.log");
     let mut command = Command::new(env!("CARGO_BIN_EXE_x-websearch"));
@@ -447,6 +425,9 @@ fn launch_with(
     }
     if let Some(attestor) = attestor {
         command.env(ATTESTOR_KEY_FILE, attestor);
+    }
+    if let Some(submitter) = submitter {
+        command.env(SUBMITTER_KEY_FILE, submitter);
     }
     Ok((command.spawn()?, log))
 }
@@ -466,7 +447,7 @@ fn wait_exit(child: &mut Child) -> TestResult<ExitStatus> {
 
 impl Sidecar {
     fn start(scratch: &Scratch, config: &Value, receiver: &Path) -> TestResult<Self> {
-        Self::start_with(scratch, config, receiver, None)
+        Self::start_with(scratch, config, receiver, None, None)
     }
 
     fn start_with(
@@ -474,9 +455,10 @@ impl Sidecar {
         config: &Value,
         receiver: &Path,
         attestor: Option<&Path>,
+        submitter: Option<&Path>,
     ) -> TestResult<Self> {
         let address: SocketAddr = config["listen"].as_str().ok_or("listen")?.parse()?;
-        let (child, log) = launch_with(scratch, Some(receiver), attestor)?;
+        let (child, log) = launch_with(scratch, Some(receiver), attestor, submitter)?;
         let mut sidecar = Self {
             child,
             address,
@@ -668,6 +650,128 @@ fn settlement_receiver_key(scratch: &Scratch) -> TestResult<PathBuf> {
     std::fs::write(&path, hex(&receiver.to_bytes()))?;
     std::fs::set_permissions(&path, std::fs::Permissions::from_mode(0o600))?;
     Ok(path)
+}
+
+fn program_sidecar(scratch: &Scratch) -> TestResult<(Sidecar, Site, Gateway, Value)> {
+    let site = Site::start(&fixtures().join("binary/site"))?;
+    let gateway = Gateway::start_with_chain_id(Some(125))?;
+    let config = configure(scratch, &site, |config| {
+        settlement_settings(config, &gateway);
+        config["crawl_interval_seconds"] = json!(86_400);
+    })?;
+    assert!(config.get("kernel").is_none());
+    let attestor = attestor_key(scratch)?;
+    let (temporary, _) = receiver_key(scratch)?;
+    let submitter = scratch.0.join("submitter.key");
+    std::fs::rename(temporary, &submitter)?;
+    let receiver = settlement_receiver_key(scratch)?;
+    let sidecar = Sidecar::start_with(
+        scratch,
+        &config,
+        &receiver,
+        Some(&attestor),
+        Some(&submitter),
+    )?;
+    Ok((sidecar, site, gateway, config))
+}
+
+#[test]
+fn the_binary_runs_the_evm_program_relay_without_a_kernel_section() -> TestResult {
+    let scratch = Scratch::new("evm-program-relay")?;
+    let (mut sidecar, _site, gateway, config) = program_sidecar(&scratch)?;
+    assert!(config.get("kernel").is_none());
+    sidecar.wait_for_log("x-websearch program relay started")?;
+    let (status, _, body) = sidecar.get("/health", "")?;
+    assert_eq!(status, 200);
+    let health: Value = serde_json::from_slice(&body)?;
+    assert_eq!(health["program_attestation_enabled"], true);
+    let deadline = Instant::now() + WAIT;
+    while gateway.params("eth_getLogs").len() < 2 {
+        assert!(Instant::now() < deadline, "{}", sidecar.stderr()?);
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(gateway.params("eth_getLogs").iter().all(|params| {
+        params[0]["address"] == hex0x(&XWEB_PRECOMPILE)
+            && params[0]["topics"]
+                == json!([[hex0x(&requested_topic()), hex0x(&program_requested_topic()),]])
+    }));
+    for directory in ["program-watch", "program-attest", "program-submit"] {
+        assert!(scratch.0.join("data").join(directory).is_dir());
+    }
+    assert!(!scratch.0.join("data/kernel").exists());
+    let (status, _, body) = sidecar.get(
+        &format!("{PROGRAM_ATTESTATION_PATH}{}/5", "a0".repeat(32)),
+        "",
+    )?;
+    assert_eq!(status, 503);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body)?,
+        json!({ "error": "service_not_ready" })
+    );
+    loop {
+        let (_, _, body) = sidecar.get("/readyz", "")?;
+        let readiness: Value = serde_json::from_slice(&body)?;
+        if readiness["relay_lag"]["role"] == "program_relay" && readiness["relay_lag"]["head"] == 32
+        {
+            break;
+        }
+        assert!(Instant::now() < deadline, "{readiness}");
+        thread::sleep(Duration::from_millis(20));
+    }
+    assert!(gateway
+        .calls
+        .lock()
+        .map_err(|_| "gateway calls poisoned")?
+        .iter()
+        .all(|(method, _)| !method.starts_with("lx_")));
+    assert_eq!(
+        sidecar.signal("TERM")?.code(),
+        Some(0),
+        "{}",
+        sidecar.stderr()?
+    );
+    let log = sidecar.stderr()?;
+    assert!(log.contains("x-websearch program relay stopped\n"), "{log}");
+    assert!(log.ends_with("x-websearch stopped cleanly\n"), "{log}");
+    let polls = gateway.params("eth_getLogs").len();
+    thread::sleep(Duration::from_millis(200));
+    assert_eq!(gateway.params("eth_getLogs").len(), polls);
+    Ok(())
+}
+
+#[test]
+fn readiness_lists_no_kernel_roles() -> TestResult {
+    let scratch = Scratch::new("readiness-no-kernel")?;
+    let (sidecar, _site, _gateway, _) = program_sidecar(&scratch)?;
+    sidecar.wait_for_log("x-websearch program relay started")?;
+    let (status, _, body) = sidecar.get("/readyz", "")?;
+    assert!([200, 503].contains(&status));
+    let readiness: Value = serde_json::from_slice(&body)?;
+    let roles = readiness["roles"]
+        .as_array()
+        .ok_or("missing readiness roles")?;
+    assert_eq!(
+        roles
+            .iter()
+            .map(|role| role["role"].as_str().ok_or("role name"))
+            .collect::<Result<Vec<_>, _>>()?,
+        ["evm_attestor", "paid_delivery", "program_relay"]
+    );
+    for role in roles {
+        assert!(!role["role"].as_str().ok_or("role name")?.contains("kernel"));
+        for dependency in role["dependencies"].as_array().ok_or("dependencies")? {
+            assert!(!dependency["dependency"]
+                .as_str()
+                .ok_or("dependency name")?
+                .contains("kernel"));
+        }
+    }
+    assert_eq!(readiness["network_id"], 1);
+    assert_eq!(
+        readiness["protocol_version"],
+        x_websearch::payment::PROTOCOL_VERSION
+    );
+    Ok(())
 }
 
 #[test]
@@ -871,110 +975,35 @@ fn sigint_stops_the_binary_cleanly_and_other_signals_keep_their_default_action()
 }
 
 #[test]
-fn the_kernel_relay_starts_and_stops_with_the_binary_under_a_configuration_that_names_it(
-) -> TestResult {
-    let scratch = Scratch::new("relay")?;
-    let site = Site::start(&fixtures().join("binary/site"))?;
-    let gateway = Gateway::start()?;
-    let authorization = gateway_authorization(&scratch)?;
-    let config = configure(&scratch, &site, |config| {
-        relay_settings(config, &gateway, &authorization);
-    })?;
-    let (receiver, secret) = receiver_key(&scratch)?;
-    let attestor = attestor_key(&scratch)?;
-    let mut sidecar = Sidecar::start_with(&scratch, &config, &receiver, Some(&attestor))?;
-
-    let log = sidecar.wait_for_log("x-websearch kernel relay started from sequence 0")?;
-    assert!(!log.contains("kernel relay stopped"), "{log}");
-    let deadline = Instant::now() + WAIT;
-    while gateway.params(EVENTS_METHOD).len() < 2 {
-        assert!(Instant::now() < deadline, "{}", sidecar.stderr()?);
-        thread::sleep(Duration::from_millis(20));
-    }
-    let topic = hex(REQUEST_TOPIC);
-    assert!(gateway
-        .params(EVENTS_METHOD)
-        .iter()
-        .all(|params| *params == json!([{ "topic": topic, "from_sequence": 0, "limit": 256 }])));
-    assert!(std::fs::read_dir(scratch.0.join("data/kernel"))?
-        .next()
-        .is_none());
-
-    let program = "a0".repeat(32);
-    let (status, _, body) = sidecar.get(&format!("{PROGRAM_ATTESTATION_PATH}{program}/5"), "")?;
-    assert_eq!(status, 404);
-    assert_eq!(
-        serde_json::from_slice::<Value>(&body)?,
-        json!({ "error": "attestation_not_found" })
-    );
-
-    let status = sidecar.signal("TERM")?;
-    assert_eq!(status.code(), Some(0), "{}", sidecar.stderr()?);
-    let log = sidecar.stderr()?;
-    assert!(log.contains("x-websearch stopping on SIGTERM"), "{log}");
-    assert!(log.contains("x-websearch kernel relay stopped\n"), "{log}");
-    assert!(log.ends_with("x-websearch stopped cleanly\n"), "{log}");
-    assert!(!log.contains(&secret));
-    let polls = gateway.params(EVENTS_METHOD).len();
-    thread::sleep(Duration::from_millis(200));
-    assert_eq!(
-        gateway.params(EVENTS_METHOD).len(),
-        polls,
-        "no poll after stop"
-    );
-    TcpListener::bind(sidecar.address)?;
-    Ok(())
-}
-
-#[test]
-fn a_binary_without_the_kernel_settings_serves_no_program_exchange() -> TestResult {
-    let scratch = Scratch::new("no-relay")?;
-    let site = Site::start(&fixtures().join("binary/site"))?;
-    let config = configure(&scratch, &site, |config| {
-        config["crawl_interval_seconds"] = json!(86_400);
-    })?;
-    let (receiver, _) = receiver_key(&scratch)?;
-    let sidecar = Sidecar::start(&scratch, &config, &receiver)?;
-    let program = "a0".repeat(32);
-    let (status, _, body) = sidecar.get(&format!("{PROGRAM_ATTESTATION_PATH}{program}/5"), "")?;
-    assert_eq!(status, 404);
-    assert_eq!(
-        serde_json::from_slice::<Value>(&body)?,
-        json!({ "error": "not_found" })
-    );
-    assert!(!sidecar.stderr()?.contains("kernel relay"));
-    Ok(())
-}
-
-#[test]
 fn the_binary_refuses_to_start_naming_the_configuration_field_or_key() -> TestResult {
     let scratch = Scratch::new("refusals")?;
     let site = Site::start(&fixtures().join("binary/site"))?;
     let (receiver, _) = receiver_key(&scratch)?;
-
-    configure(&scratch, &site, |config| {
-        config["kernel_network_id"] = json!(0);
-    })?;
-    let (mut child, log) = launch(&scratch, Some(&receiver))?;
-    assert_eq!(wait_exit(&mut child)?.code(), Some(2));
-    assert!(std::fs::read_to_string(&log)?.contains("kernel_network_id"));
 
     configure(&scratch, &site, |_| {})?;
     let (mut child, log) = launch(&scratch, None)?;
     assert_eq!(wait_exit(&mut child)?.code(), Some(2));
     assert!(std::fs::read_to_string(&log)?.contains(RECEIVER_KEY_FILE));
 
-    let gateway = Gateway::start()?;
-    let authorization = gateway_authorization(&scratch)?;
+    let gateway = Gateway::start_with_chain_id(Some(125))?;
     configure(&scratch, &site, |config| {
-        relay_settings(config, &gateway, &authorization);
+        settlement_settings(config, &gateway);
     })?;
-    let (mut child, log) = launch(&scratch, Some(&receiver))?;
+    let attestor = attestor_key(&scratch)?;
+    let (mut child, log) = launch_with(
+        &scratch,
+        Some(&receiver),
+        Some(&scratch.0.join("missing-attestor.key")),
+        None,
+    )?;
+    assert_eq!(wait_exit(&mut child)?.code(), Some(2));
+    assert!(std::fs::read_to_string(&log)?.contains(ATTESTOR_KEY_FILE));
+    let (mut child, log) = launch_with(&scratch, Some(&receiver), Some(&attestor), None)?;
     assert_eq!(wait_exit(&mut child)?.code(), Some(2));
     let refused = std::fs::read_to_string(&log)?;
-    assert!(refused.contains("kernel"), "{refused}");
-    assert!(refused.contains(ATTESTOR_KEY_FILE), "{refused}");
-    assert!(gateway.params(EVENTS_METHOD).is_empty());
+    assert!(refused.contains("program relay"), "{refused}");
+    assert!(refused.contains(SUBMITTER_KEY_FILE), "{refused}");
+    assert!(gateway.params("eth_getLogs").is_empty());
 
     configure(&scratch, &site, |_| {})?;
     std::fs::set_permissions(&receiver, std::fs::Permissions::from_mode(0o644))?;

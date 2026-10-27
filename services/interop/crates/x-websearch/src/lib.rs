@@ -5,7 +5,8 @@
 //! read only from the files `X_WEBSEARCH_ATTESTOR_KEY_FILE`,
 //! `X_WEBSEARCH_SUBMITTER_KEY_FILE` and `X_WEBSEARCH_RECEIVER_KEY_FILE` name.
 //! `server::Server` serves `GET /health` free, `GET /search` and `GET /fetch`
-//! behind `payment::PaymentGate`, and `GET /content/<digest>` unpaid.
+//! behind `payment::PaymentGate`, settling on the 0x101A ledger precompile.
+//! `GET /content/<digest>` is served unpaid before serving eligibility.
 
 pub mod api;
 pub mod assets;
@@ -17,7 +18,6 @@ pub mod crawl;
 pub mod extract;
 pub mod fetch;
 pub mod index;
-pub mod kernel;
 pub mod keys;
 pub mod payment;
 pub mod program;
