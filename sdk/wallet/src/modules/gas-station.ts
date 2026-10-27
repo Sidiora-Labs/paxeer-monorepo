@@ -21,9 +21,11 @@ import {
 
 import { recoverAddress } from 'viem';
 import { constructionDigest, sponsoredBatchDigest, wireSponsoredBatch } from '../provider.js';
+import { readSequencerReceipt } from '../receipt.js';
 export type { SponsoredBatch, SponsoredConsent, SignedGasQuote, GasQuoteRequest } from '@sidiora/layerx-sdk/browser';
 import type {
   Hex,
+  SequencerReceiptAnswer,
   SponsoredBatchConstruction,
   SponsoredSubmitRequest,
   WireSponsoredBatch,
@@ -83,6 +85,7 @@ export interface SponsoredSubmissionEvidence {
   readonly tx_hash: `0x${string}` | null;
   readonly status: 'pending' | 'confirmed' | 'reverted' | 'cancelled';
   readonly station: Readonly<Record<string, unknown>> | null;
+  readonly receipt: SequencerReceiptAnswer | null;
 }
 
 export interface GasBudget {
@@ -352,7 +355,12 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
     const out=input as Record<string,unknown>;
     if ((out.tx_hash!==null&&(typeof out.tx_hash!=='string'||!HASH.test(out.tx_hash)))||
       !['pending','confirmed','reverted','cancelled'].includes(String(out.status))) throw new ModuleError('invalid_answer','status');
-    if(out.station===null){if(out.status!=='pending'||typeof out.tx_hash!=='string'||!HASH.test(out.tx_hash))throw new ModuleError('invalid_answer','status');return Object.freeze(out as unknown as SponsoredSubmissionEvidence);}
+    if (out.station === null) {
+      if (out.status !== 'pending' || typeof out.tx_hash !== 'string' || !HASH.test(out.tx_hash)) {
+        throw new ModuleError('invalid_answer', 'status');
+      }
+      return Object.freeze({ ...out, receipt: null } as unknown as SponsoredSubmissionEvidence);
+    }
     if(typeof out.station!=='object'||Array.isArray(out.station))throw new ModuleError('invalid_answer','station');
     const station=out.station as Record<string,unknown>;const completion=station.completion as Record<string,unknown>|null;
     const canonicalUint=(value:unknown):boolean=>typeof value==='string'&&/^(0|[1-9][0-9]*)$/u.test(value)&&BigInt(value)<(1n<<256n);
@@ -367,13 +375,25 @@ export function gasStation(provider: ModuleProvider, options: GasStationOptions)
       if (station.state!=='completed'||!completion||completion.outcome!==expected||completion.transactionHash!==out.tx_hash||
         (out.status==='confirmed'&&(!canonicalUint(completion.blockNumber)||!canonicalUint(completion.sidCollected)||!canonicalUint(completion.paxSpent)))) throw new ModuleError('invalid_answer','completion');
     }
-    return Object.freeze(out as unknown as SponsoredSubmissionEvidence);
+    return Object.freeze({ ...out, receipt: null } as unknown as SponsoredSubmissionEvidence);
   };
   const submissionStatus = async (batch:SponsoredBatch,relayerSignature:string,signal?:AbortSignal):Promise<SponsoredSubmissionEvidence> => {
     const report=evidence(await post('/v1/wallet/sponsored/status',{account:hexAddress(batch.account,'account'),sponsor:hexAddress(batch.quote.sponsor,'sponsor'),
       quoteNonce:decimal(batch.quote.quoteNonce),relayerSignature:signature(relayerSignature,'relayerSignature')},signal));
+    let receipt: SequencerReceiptAnswer | null = null;
+    if (report.status === 'confirmed' || report.status === 'reverted') {
+      if (report.tx_hash === null) throw new ModuleError('invalid_answer', 'tx_hash');
+      receipt = await readSequencerReceipt(
+        (method, params) => provider.request({ method, params }),
+        report.tx_hash,
+      );
+      if (receipt === null || receipt.rung === 'submitted' ||
+        receipt.status !== (report.status === 'confirmed' ? '0x1' : '0x0')) {
+        throw new ModuleError('invalid_answer', 'receipt');
+      }
+    }
     if(report.status!=='pending')await store().setItem(pendingKey(batch.account),'null');
-    return report;
+    return Object.freeze({ ...report, receipt });
   };
   const retained = async (batch:SponsoredBatch,relayerSignature:string):Promise<SponsoredAdapterRequest|null> => {
     const raw=await store().getItem(identityKey(batch));if(raw===null)return null;

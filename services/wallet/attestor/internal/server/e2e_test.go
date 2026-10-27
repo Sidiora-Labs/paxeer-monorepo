@@ -727,6 +727,108 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 
 const mailTypedData = `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"Ether Mail","version":"1","chainId":125,"verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"from":{"name":"Cow","wallet":"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},"to":{"name":"Bob","wallet":"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},"contents":"Hello, Bob!"}}`
 
+func TestEVMReviewThenSignAcrossQuorum(t *testing.T) {
+	tokenAddress := common.HexToAddress("0x2222222222222222222222222222222222222222")
+	recipient := common.HexToAddress("0x3333333333333333333333333333333333333333")
+	amount := big.NewInt(600)
+	doc := testPolicy()
+	doc.Defaults.Caps[tokenAddress.Hex()] = policy.Cap{PerTransaction: "1000", Daily: "1000"}
+	c := newTestClusterWith(t, 5, true, doc, nil)
+	const keyID = "review-then-sign-evm"
+	imported, authority := importMetricsKey(t, c, keyID)
+	address := common.HexToAddress(imported[0].Address)
+	for _, result := range imported {
+		if !common.IsHexAddress(result.Address) || common.HexToAddress(result.Address) != address {
+			t.Fatalf("%s: imported address %s, want %s", result.NodeID, result.Address, address)
+		}
+	}
+	epoch := uint64(0)
+	refreshed := decodeOK[KeyResponse](t, "refresh EVM review key", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
+		return RefreshRequest{
+			SessionID: "refresh-review-then-sign", KeyID: keyID, CeremonyID: "metrics-ceremony",
+			ImportSessionID: "import-" + keyID, ExpectedEpoch: &epoch,
+		}
+	}, ""))
+	for _, result := range refreshed {
+		if result.Epoch != 1 || !result.Refreshed || result.PublicKey != imported[0].PublicKey {
+			t.Fatalf("%s: unexpected refreshed key: %+v", result.NodeID, result)
+		}
+	}
+	authority.keys[0].Epoch = 1
+	authority.publish(t)
+
+	data := append(common.FromHex("0xa9059cbb"), common.LeftPadBytes(recipient.Bytes(), 32)...)
+	data = append(data, common.LeftPadBytes(amount.Bytes(), 32)...)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID: big.NewInt(testChainID), Nonce: 7, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(2),
+		Gas: 80000, To: &tokenAddress, Value: big.NewInt(0), Data: data,
+	})
+	raw, err := tx.MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := "0x" + hex.EncodeToString(raw)
+	wantHash := types.LatestSignerForChainID(big.NewInt(testChainID)).Hash(tx)
+	signers := []string{"node-1", "node-3", "node-5"}
+	nodes := c.byID(signers...)
+	account := policy.AccountKey(address.Hex())
+	assertSpent := func(stage string, want *big.Int) {
+		t.Helper()
+		for _, node := range c.nodes {
+			var ledger policy.Ledger = node.server.spends
+			now, err := ledger.Now()
+			if err != nil {
+				t.Fatalf("%s %s: ledger clock: %v", stage, node.id, err)
+			}
+			spent, err := ledger.Spent(account, policy.TokenAsset(tokenAddress), now.Add(-policy.SpendWindow))
+			if err != nil || spent.Cmp(want) != 0 {
+				t.Fatalf("%s %s: spent %v, want %s: %v", stage, node.id, spent, want, err)
+			}
+		}
+	}
+	assertSpent("before review", big.NewInt(0))
+	reviews := decodeOK[EVMReviewResponse](t, "EVM review across quorum", c.callAll(t, nodes, PathEVMReview, func(*testNode) any {
+		return EVMReviewRequest{SessionID: "review-then-sign", KeyID: keyID, Transaction: transaction}
+	}, c.idp.mint(t, c.idp.key, testOwner)))
+	for i, review := range reviews {
+		if review.NodeID != signers[i] || review.KeyID != keyID || review.Decision != policy.CodeAllowed ||
+			review.SigningHash != wantHash.Hex() || review.SigningHash != reviews[0].SigningHash ||
+			review.To != tokenAddress.Hex() || review.Value != "0" || review.Data != "0x"+hex.EncodeToString(data) ||
+			review.Method != "transfer" || review.Destination != "erc20" || review.ChainID != testChainID || review.AuditSequence == 0 {
+			t.Fatalf("%s: unexpected ERC-20 review: %+v, want signing hash %s", signers[i], review, wantHash)
+		}
+	}
+	assertSpent("after review", big.NewInt(0))
+	reviewedHash, err := hex.DecodeString(strings.TrimPrefix(reviews[0].SigningHash, "0x"))
+	if err != nil || len(reviewedHash) != 32 {
+		t.Fatalf("invalid reviewed signing hash %s: %v", reviews[0].SigningHash, err)
+	}
+	results := decodeOK[SignResponse](t, "sign reviewed EVM transaction", c.callAll(t, nodes, PathSign, func(*testNode) any {
+		return SignRequest{
+			SessionID: "sign-reviewed-evm", KeyID: keyID, Kind: KindEVMTransaction,
+			Signers: signers, Transaction: transaction,
+		}
+	}, c.idp.mint(t, c.idp.key, testOwner)))
+	for i, result := range results {
+		if result.NodeID != signers[i] || result.KeyID != keyID || result.Kind != KindEVMTransaction ||
+			result.SignedBytes != hex.EncodeToString(reviewedHash) || result.AuditSequence == 0 {
+			t.Fatalf("%s: signing response differs from reviewed digest %s: %+v", signers[i], reviews[i].SigningHash, result)
+		}
+		signature, err := hex.DecodeString(result.Signature)
+		if err != nil || len(signature) != 65 || result.RecoveryID == nil || signature[64] != *result.RecoveryID {
+			t.Fatalf("%s: invalid signature %s or recovery id %v: %v", result.NodeID, result.Signature, result.RecoveryID, err)
+		}
+		publicKey, err := gethcrypto.SigToPub(reviewedHash, signature)
+		if err != nil {
+			t.Fatalf("%s: recover signature over reviewed signing hash: %v", result.NodeID, err)
+		}
+		if recovered := gethcrypto.PubkeyToAddress(*publicKey); recovered != address {
+			t.Fatalf("%s: signature over reviewed signing hash recovers %s, want %s", result.NodeID, recovered, address)
+		}
+	}
+	assertSpent("after signing once", amount)
+}
+
 func TestFiveNodeEndToEnd(t *testing.T) {
 	c := newTestCluster(t, 5, true)
 	token := c.idp.mint(t, c.idp.key, testOwner)

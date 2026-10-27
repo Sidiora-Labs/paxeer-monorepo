@@ -19,10 +19,10 @@ use crate::{archive_commitment, Archive, ArchiveCommitment, MirrorCursor};
 
 const SYSTEM_PROGRAM: [u8; 32] = [0; 32];
 const PDA_MARKER: &[u8] = b"ProgramDerivedAddress";
-const MANIFEST_MAGIC: &[u8; 8] = b"LXMMAN03";
+const MANIFEST_MAGIC: &[u8; 8] = b"LXMMAN04";
 const CHUNK_MAGIC: &[u8; 8] = b"LXMCHK03";
 const INSTRUCTION_MAGIC: &[u8; 4] = b"LXMA";
-const INSTRUCTION_VERSION: u16 = 3;
+const INSTRUCTION_VERSION: u16 = 4;
 const MAX_TRANSACTION_BYTES: usize = 1232;
 const MIN_CHUNK_BYTES: usize = 128;
 const MAX_CHUNK_BYTES: usize = 720;
@@ -300,6 +300,7 @@ pub enum SolanaError {
     Pda,
     Blockhash,
     Transaction,
+    Manifest,
     SignatureHistory,
     Finality,
     Reorg,
@@ -477,11 +478,7 @@ impl SolanaArchiveClient {
             chain: MirrorChain::Solana,
             batch_number: archive.data().batch_number,
             commitment: archive.commitment(),
-            checkpoint: archive
-                .data()
-                .checkpoint
-                .as_ref()
-                .map(|value| value.coordinate),
+            committed: archive.data().committed_coordinate(),
             stage: stage.stage,
             phase: PublicationPhase::Prepared,
             stage_payload_digest: digest,
@@ -957,11 +954,12 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StageInstruction>
     let manifest = [0; 32];
     let chunk_count = u32::try_from(archive.bytes().len().div_ceil(chunk_bytes))
         .map_err(|_| SolanaError::Transaction)?;
-    let checkpoint = archive
+    let block_hash = archive
         .data()
-        .checkpoint
+        .committed
         .as_ref()
-        .map_or([0; 32], |value| value.coordinate.checkpoint_id);
+        .ok_or(SolanaError::Transaction)?
+        .block_hash;
     let mut begin = Vec::new();
     begin.extend_from_slice(INSTRUCTION_MAGIC);
     begin.extend_from_slice(&INSTRUCTION_VERSION.to_be_bytes());
@@ -969,7 +967,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StageInstruction>
     begin.extend_from_slice(commitment.as_bytes());
     begin.extend_from_slice(&archive.data().network_id.to_be_bytes());
     begin.extend_from_slice(&archive.data().batch_number.to_be_bytes());
-    begin.extend_from_slice(&checkpoint);
+    begin.extend_from_slice(&block_hash);
     begin.extend_from_slice(
         &u64::try_from(archive.bytes().len())
             .map_err(|_| SolanaError::Transaction)?
@@ -1248,6 +1246,9 @@ fn decode_manifest(
     commitment: ArchiveCommitment,
     publisher: [u8; 32],
 ) -> Result<Manifest, SolanaError> {
+    if bytes.get(..8) == Some(b"LXMMAN03") {
+        return Err(SolanaError::Manifest);
+    }
     if bytes.len() != 334
         || &bytes[..8] != MANIFEST_MAGIC
         || bytes[8..40] != *commitment.as_bytes()
@@ -1484,6 +1485,7 @@ fn base58_digit(value: u8) -> Option<u8> {
 #[cfg(test)]
 mod tests {
     use super::{decode_manifest, stages, Archive, SolanaError};
+    use crate::committed::{CommittedBlock, CommittedHeader};
     use crate::{archive_commitment, NodeHead};
     use sha2::{Digest, Sha256};
 
@@ -1493,6 +1495,67 @@ mod tests {
         include_bytes!("../../../contracts/solana-mirror/tests/fixtures/finalized.manifest");
     const PUBLISHER: &[u8; 32] =
         include_bytes!("../../../contracts/solana-mirror/tests/fixtures/publisher.public");
+
+    #[test]
+    fn the_begin_instruction_is_version_4_with_the_committed_block_hash() -> Result<(), String> {
+        let block = CommittedBlock {
+            header: CommittedHeader {
+                height: 0x0102_0304_0506_0708,
+                block_hash: [0x42; 32],
+                parent_hash: [0x21; 32],
+                app_hash: [0x63; 32],
+                timestamp: 1234,
+                transactions: Vec::new(),
+            },
+            receipts: Vec::new(),
+        };
+        let archive = Archive::from_committed(&block, 77, NodeHead::new(block.header.height, None))
+            .map_err(|error| format!("committed archive: {error:?}"))?;
+        assert!(archive.data().checkpoint.is_none());
+        assert_ne!(&block.header.block_hash, archive.commitment().as_bytes());
+        let instructions =
+            stages(&archive, 720).map_err(|error| format!("committed instructions: {error:?}"))?;
+        assert_eq!(instructions.len(), 3);
+        let begin = &instructions[0].data;
+        assert_eq!(begin.len(), 159);
+        assert_eq!(&begin[..7], b"LXMA\0\x04\x01");
+        assert_eq!(&begin[7..39], archive.commitment().as_bytes());
+        assert_eq!(&begin[39..43], &77_u32.to_be_bytes());
+        assert_eq!(&begin[43..51], &block.header.height.to_be_bytes());
+        assert_eq!(&begin[51..83], &block.header.block_hash);
+        assert_eq!(&instructions[1].data[..7], b"LXMA\0\x04\x02");
+        assert_eq!(&instructions[2].data[..7], b"LXMA\0\x04\x03");
+
+        let legacy = Archive::from_spool(ARCHIVE.to_vec(), NodeHead::new(1, None))
+            .map_err(|error| format!("legacy archive: {error:?}"))?;
+        assert!(legacy.data().committed.is_none());
+        assert!(matches!(
+            stages(&legacy, 720),
+            Err(SolanaError::Transaction)
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn a_version_3_manifest_account_is_not_read_as_a_v4_archive() -> Result<(), String> {
+        let commitment = archive_commitment(ARCHIVE);
+        assert_eq!(&MANIFEST[..8], b"LXMMAN03");
+        assert!(matches!(
+            decode_manifest(MANIFEST, commitment, *PUBLISHER),
+            Err(SolanaError::Manifest)
+        ));
+
+        let mut version_4 = MANIFEST.to_vec();
+        version_4[..8].copy_from_slice(b"LXMMAN04");
+        assert_eq!(super::MANIFEST_MAGIC, b"LXMMAN04");
+        let decoded = decode_manifest(&version_4, commitment, *PUBLISHER)
+            .map_err(|error| format!("version 4 manifest: {error:?}"))?;
+        assert!(decoded.finalized);
+        assert_eq!(decoded.length, ARCHIVE.len());
+        assert_eq!(decoded.chunk_count, 8);
+        assert_eq!(decoded.digest, <[u8; 32]>::from(Sha256::digest(ARCHIVE)));
+        Ok(())
+    }
 
     #[test]
     fn publisher_and_reader_match_real_runtime_manifest() -> Result<(), String> {
