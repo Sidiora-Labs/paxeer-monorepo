@@ -16,13 +16,15 @@ func principalOf(ctx sdk.Context, evm EVMKeeper, caller common.Address) (lxphost
 	if !bound {
 		return lxphost.KernelAuthority{}, nil, ErrUnboundCaller
 	}
-	_, accountID, err := lxphost.MainAccountID(didKey)
+	did := []byte(evmtypes.LayerXDid(didKey))
+	actorID, err := lxphost.DIDID(did)
 	if err != nil {
 		return lxphost.KernelAuthority{}, nil, err
 	}
 	return lxphost.KernelAuthority{
-		Actor:       didKey,
-		Principal:   accountID,
+		Bound:       true,
+		Actor:       actorID,
+		Principal:   actorID,
 		VerifiedKey: didKey,
-	}, []byte(evmtypes.LayerXDid(didKey)), nil
+	}, did, nil
 }
