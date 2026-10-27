@@ -107070,7 +107070,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.8]
 title = "Add the launchpad feeright query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["4.5.1", "4.4.11", "4.4.17", "15.0.5"]
