@@ -40,6 +40,7 @@ resolved = "The route resolver derives the mechanism from source, destination an
 boundary = "deposit, withdraw and exit are never mechanisms of an internal movement: they name custody-boundary journeys exclusively."
 
 [type.SettlementDomain]
+retired = "true"
 variants = ["paxeer"]
 sole_domain = "paxeer is the sole valid settlement domain in this contract version. The custody and withdrawal guarantee remains Paxeer exclusively, and no other venue is ever presented as a place funds live."
 reservation = "Every custody-boundary claim and receipt shape names its settlement domain through this vocabulary, so adding a settlement domain later is an additive schema change by construction: a new variant appended to this list with every existing declaration untouched."
@@ -82,33 +83,39 @@ required = ["quote_id:QuoteId"]
 optional = ["native_access_id:string"]
 
 [type.DepositStartRequest]
+retired = "true"
 required = ["money:Money"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
 
 [type.DepositConfirmRequest]
+retired = "true"
 required = ["wallet_transaction:WalletTxId"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
 
 [type.WithdrawStartRequest]
+retired = "true"
 required = ["money:Money","destination:WalletAddress"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
 review = "The review before commitment shows the amount, the full destination address and the explicit statement that a committed withdrawal cannot be cancelled, only completed."
 
 [type.WithdrawClaimRequest]
+retired = "true"
 required = ["claim_signature:WalletSignature"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
 
 [type.ExitStartRequest]
+retired = "true"
 required = ["confirmation:string"]
 optional = ["settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
 typed_confirmation = "confirmation carries the exact typed phrase the irreversible-action grammar requires. Anything else is refused."
 
 [type.ExitEligibility]
+retired = "true"
 required = ["eligible:boolean","copy_key:CopyKey"]
 optional = ["withdraw_instead_path:string","settlement_domain:SettlementDomain"]
 settlement_domain = "paxeer"
@@ -132,6 +139,7 @@ idempotency = true
 journey = "Committing a quote starts a journey of kind move. Repeating the request returns the original journey."
 
 [operation.deposit.start]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/deposits"
@@ -141,6 +149,7 @@ idempotency = true
 first_stage = "The returned journey of kind deposit starts at the stage waiting on the wallet, and the journey carries the wallet request to sign for exactly that stage. Where no wallet is bound the journey starts with a linking stage instead, folding binding into the journey rather than a separate errand."
 
 [operation.deposit.confirm]
+retired = "true"
 authorization_class = "money-movement"
 method = "POST"
 path = "/v1/deposits/{journey_id}/confirm"
@@ -149,6 +158,7 @@ response = "Journey"
 handoff = "The wallet's transaction reference hands the journey to the service, which runs it server-side from here with no further user action required."
 
 [operation.withdraw.start]
+retired = "true"
 authorization_class = "withdrawal"
 method = "POST"
 path = "/v1/withdrawals"
@@ -158,6 +168,7 @@ idempotency = true
 commitment = "Starting a withdrawal commits it: a committed withdrawal cannot be cancelled, only completed, and the review states this explicitly before the user commits."
 
 [operation.withdraw.claim]
+retired = "true"
 authorization_class = "withdrawal"
 method = "POST"
 path = "/v1/withdrawals/{journey_id}/claim"
@@ -166,6 +177,7 @@ response = "Journey"
 claim = "The wallet's claim signature reference advances the journey through its ready-to-claim stage toward paid out."
 
 [operation.exit.start]
+retired = "true"
 authorization_class = "exit"
 method = "POST"
 path = "/v1/exit"
@@ -175,6 +187,7 @@ idempotency = true
 framing = "A guided flow under Settings framed as getting my money out. It requires the typed confirmation of its irreversibility and stays operable when ordinary LayerX operation is degraded."
 
 [operation.exit.eligibility]
+retired = "true"
 authorization_class = "read"
 method = "GET"
 path = "/v1/exit/eligibility"

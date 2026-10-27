@@ -7,17 +7,6 @@ PACKAGES=$(shell go list ./...)
 
 BINDIR ?= $(GOPATH)/bin
 
-## required to be run first by most tests
-build_docker_test_image:
-	docker build -t tester -f ./test/docker/Dockerfile .
-.PHONY: build_docker_test_image
-
-### coverage, app, persistence, and libs tests
-test_cover:
-	# run the go unit tests with coverage
-	bash test/test_cover.sh
-.PHONY: test_cover
-
 test_release:
 	@go test -tags release $(PACKAGES)
 .PHONY: test_release
