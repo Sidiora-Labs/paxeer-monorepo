@@ -10,7 +10,7 @@ import { Separator } from '@/components/ui/separator';
 import { toast } from '@/components/ui/sonner';
 import { Spinner } from '@/components/ui/spinner';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { capPercent, formatAmountDisplay, hasExcessPrecision, parseAmount } from '@/lib/bridge/amount';
+import { capPercent, formatAmountDisplay, parseAmount } from '@/lib/bridge/amount';
 import {
   BRIDGE_CHAINS,
   bridgeChainByKey,
@@ -19,6 +19,7 @@ import {
   PAXEER_ROUTE_KEY,
   type BridgeChain,
 } from '@/lib/bridge/chains';
+import { cardState } from '@/lib/bridge/card-state';
 import { erc20Abi, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS } from '@/lib/bridge/contracts';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { isSolanaAddress, solanaRecipientHandle } from '@/lib/bridge/solana';
@@ -26,6 +27,7 @@ import { planDeposit } from '@/lib/bridge/submission';
 import { depositRecord, withdrawalRecord } from '@/lib/bridge/submitted';
 import { saveTransfer } from '@/lib/bridge/transfers';
 import {
+  attestationApiConfigured,
   paxeerConfigured,
   useBridgedBalance,
   useForeignBalance,
@@ -33,7 +35,7 @@ import {
   useVaultState,
 } from '@/lib/bridge/use-bridge-state';
 import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { isAddress } from 'viem';
 import { useAccount, useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
 
@@ -104,7 +106,6 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
 
   const parsedAmount = parseAmount(amount, asset.decimals);
   const amountValue = parsedAmount ?? 0n;
-  const excessPrecision = hasExcessPrecision(amount, asset.decimals);
   const finality = paxeerState.finalityDepth ?? foreign.finalityDepth;
 
   const destination = destTouched ? destOverride.trim() : (address ?? '');
@@ -120,72 +121,8 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
 
   const sourceChainId = direction === 'in' ? foreign.viemChain?.id : paxeer.id;
   const onSourceChain = isConnected && sourceChainId !== undefined && walletChainId === sourceChainId;
-  const vaultMatches = !paxeerConfigured || !paxeerState.loaded || !paxeerState.registered || !foreign.vault || !paxeerState.vault ?
-    true :
-    paxeerState.vault.toLowerCase() === foreign.vault.toLowerCase();
-
   const balanceForDirection = direction === 'in' ? foreignBalance.data?.value : bridgedBalance.data;
-  const overBalance = balanceForDirection !== undefined && amountValue > balanceForDirection;
   const vaultPerTx = vaultState.loaded ? vaultState.perTx : BigInt(asset.perTxCap);
-  const overVaultPerTx = foreign.vault !== undefined && amountValue > vaultPerTx && vaultPerTx > 0n;
-  const vaultTotal = vaultState.loaded ? vaultState.total : BigInt(asset.totalCap);
-  const overVaultTotal =
-    direction === 'in' &&
-    foreign.vault !== undefined &&
-    vaultState.loaded &&
-    vaultTotal > 0n &&
-    vaultState.outstanding + amountValue > vaultTotal;
-  const overPaxeerPerTx =
-    paxeerConfigured && paxeerState.loaded && paxeerState.registered && paxeerState.maxPerTx > 0n && amountValue > paxeerState.maxPerTx;
-  const overInFlight =
-    direction === 'in' &&
-    paxeerConfigured &&
-    paxeerState.loaded &&
-    paxeerState.registered &&
-    paxeerState.maxInFlight > 0n &&
-    paxeerState.inFlight + amountValue > paxeerState.maxInFlight;
-
-  const blockers = useMemo<Array<string>>(() => {
-    const list: Array<string> = [];
-    if (foreign.state === 'not-deployed') {
-      list.push(`The ${ foreign.label } vault is not deployed yet. This route opens once the deployment record is published.`);
-    }
-    if (foreign.state === 'awaiting-backend') {
-      list.push(
-        direction === 'in' ?
-          'Deposits from Solana need a Solana wallet and the deployed custody program — its program id is still a placeholder in the bridge configuration.' :
-          'Withdrawals to Solana also need the bridge backend to relay your full Solana address to the custody program. That backend is not connected yet.',
-      );
-    }
-    if (!paxeerConfigured) {
-      list.push('The Paxeer RPC is not configured for this deployment, so the bridge cannot be verified on-chain here.');
-    } else if (paxeerState.loaded) {
-      if (paxeerState.paused) list.push('The bridge is paused on Paxeer. No deposits or withdrawals will be accepted until it reopens.');
-      if (!paxeerState.registered) list.push(`${ foreign.label } is not registered with the Paxeer bridge yet. Governance registers a chain after its vault is deployed.`);
-      else if (!paxeerState.enabled) list.push(`${ foreign.label } is registered but currently disabled on Paxeer.`);
-      if (!vaultMatches) list.push('The vault registered on Paxeer for this chain does not match the vault this app is configured with. Do not deposit.');
-    }
-    if (foreign.vault && vaultState.loaded && vaultState.paused) {
-      list.push(`The vault on ${ foreign.label } is paused.`);
-    }
-    if (direction === 'in' && !asset.isNative && allowance.isError) {
-      list.push('Could not read the token allowance. Wait for the allowance to refresh before depositing.');
-    }
-    return list;
-  }, [ direction, foreign, paxeerState.enabled, paxeerState.loaded, paxeerState.paused, paxeerState.registered, vaultMatches, vaultState.loaded, vaultState.paused, asset.isNative, allowance.isError ]);
-
-  const inputError = useMemo<string | undefined>(() => {
-    if (amount.trim() === '') return undefined;
-    if (excessPrecision) return `${ asset.symbol } supports at most ${ asset.decimals } decimal places.`;
-    if (parsedAmount === undefined) return 'Enter a valid amount.';
-    if (amountValue === 0n) return 'Enter an amount greater than zero.';
-    if (overBalance) return `That is more than your ${ direction === 'in' ? foreign.label : 'bridged' } balance.`;
-    if (overVaultPerTx) return `Above the vault per-transaction cap of ${ formatAmountDisplay(vaultPerTx, asset.decimals) } ${ asset.symbol }.`;
-    if (overVaultTotal) return 'That would exceed the vault\'s total capacity for this asset.';
-    if (overPaxeerPerTx) return `Above the Paxeer per-transaction cap of ${ formatAmountDisplay(paxeerState.maxPerTx, asset.decimals) } ${ asset.symbol }.`;
-    if (overInFlight) return 'That would exceed the bridge\'s in-flight capacity for this asset right now.';
-    return undefined;
-  }, [ amount, amountValue, asset.decimals, asset.symbol, direction, excessPrecision, foreign.label, overBalance, overInFlight, overPaxeerPerTx, overVaultPerTx, overVaultTotal, parsedAmount, paxeerState.maxPerTx, vaultPerTx ]);
 
   const destinationError =
     destination === '' ?
@@ -226,17 +163,24 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   const depositStep = depositPlan?.find((step) => step.functionName !== 'approve');
 
   const busy = deposit.isSigning || deposit.isConfirming || withdraw.isSigning || withdraw.isConfirming || approve.isSigning || approve.isConfirming;
-  const ready =
-    isConnected &&
-    onSourceChain &&
-    blockers.length === 0 &&
-    amountValue > 0n &&
-    parsedAmount !== undefined &&
-    !inputError &&
-    !destinationError &&
-    destination !== '' &&
-    (direction !== 'in' || depositPlan !== undefined) &&
-    !busy;
+  const { inputError, blockers, maxAmount, ready } = cardState({
+    direction,
+    asset,
+    amount,
+    balance: balanceForDirection,
+    gasReserve: 10n ** BigInt(asset.decimals) / 1000n,
+    foreign,
+    paxeerState,
+    vaultState,
+    paxeerConfigured,
+    attestationApiConfigured,
+    allowanceError: allowance.isError,
+    isConnected,
+    onSourceChain,
+    destinationValid: destination !== '' && destinationValid,
+    depositPlanAvailable: depositPlan !== undefined,
+    busy,
+  });
 
   const fire = (request: Parameters<typeof deposit.write.writeContract>[0], which: 'deposit' | 'withdraw') => {
     if (!address) return;
@@ -384,8 +328,8 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
             invalid={ inputError !== undefined }
             disabled={ busy }
             onMax={
-              balanceForDirection !== undefined ?
-                () => setAmount(formatAmountDisplay(balanceForDirection, asset.decimals).replace(/,/g, '')) :
+              maxAmount !== undefined ?
+                () => setAmount(maxAmount) :
                 undefined
             }
           />
