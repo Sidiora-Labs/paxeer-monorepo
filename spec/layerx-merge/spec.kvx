@@ -130103,7 +130103,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.26.4]
 title = "Prove the tokenfactory paused flag of a factory denom over REST"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["7.21.1", "6.0.2", "6.92.3"]
@@ -130976,7 +130976,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.5.1]
 title = "Answer px_getAccount and px_getBalances from chain state alone"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.4.1", "8.0.2", "8.1.5"]
@@ -137715,7 +137715,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.1.7]
 title = "Port the layerx-sdk decoders and envelopes to rungs and heights"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["9.1.6", "11.2.7", "9.32.1", "1.18.4"]
