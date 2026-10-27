@@ -97635,7 +97635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.1]
 title = "Prove 0x101A is served by the node only after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.41.2", "5.19.2", "5.6.5", "5.19.4"]
@@ -100159,7 +100159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.7]
 title = "Prove the application imports and exports layerxagent genesis with stored jobs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.32.8", "2.0.2", "5.19.2", "2.34.2"]
@@ -105857,7 +105857,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.98.1]
 title = "Start a local perps gateway against the disposable chain-125 node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.98.1"]
@@ -112897,7 +112897,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_7 = "Split mergeUpgradePlan so the constructor gate of do_3 runs first and the store migrations, RetireAtMerge and ReleaseRetired run in an unexported continuation; TestMergePlanReturnsGuarantorBonds and TestMergeStoreUpgradesAddsLayerXStores drive the continuation directly, because the merge address table still has constructors registered by tasks that have not landed, while TestMergePlanRefusesMissingMergeConstructors proves the gate on the registry as it stands."
 [task.5.6.8]
 title = "Export and re-import a chain after the merge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.6.5"]
@@ -112992,7 +112992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.7.2]
 title = "Make the precompile keepers answer no anchor keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.19.4", "5.6.5"]
@@ -118699,7 +118699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.96.1]
 title = "Drop the deleted handover read consumer from the handover chain test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.0.4"]
@@ -122337,7 +122337,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.5]
 title = "Prove the gov route refuses layerxanchor MsgUpdateParams after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["6.31.5", "6.0.2"]
@@ -141042,7 +141042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.32.2]
 title = "Build Wallet writes as signed layerxledger EIP-1559 calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.32.1", "9.31.2", "9.31.3", "9.26.2", "9.1.7"]
@@ -148136,7 +148136,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_5 = "Before the relay work, make layerx-interop-service compile against the SequencerEvidence results that tasks 11.3.1, 11.4.1 and 11.9.1 landed: implement FacilitatorPlane::receipt_keys for X402VerifyPlane (services/interop/crates/layerx-interop-service/src/server.rs:1161) and X402SettlePlane (:1244) from the plane's configured sequencer authorities, build the x402 ExecutedPayment at :1312-1314 and the ExecutedUcpPayment at :1778-1779 from the SequencerEvidence that PlaneOutcome::Executed now carries, and pass the receipt keys as the fifth argument of UcpAdapter::complete_checkout at :1862; the AP2 and UCP relay itself stays with task 11.16.3."
 [task.11.16.3]
 title = "Execute AP2 and UCP payments in the service through the chain relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["11.16.2", "11.7.1", "11.9.1", "9.1.7"]
@@ -148167,7 +148167,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.16.4]
 title = "Execute Visa TAP and fiat payments in the service through the chain relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.16.3", "11.17.1", "11.8.1", "9.1.7"]
@@ -170025,7 +170025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.1.5]
 title = "Bind the activation plan to the shared merge plan constant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["17.1.4", "5.0.3"]
