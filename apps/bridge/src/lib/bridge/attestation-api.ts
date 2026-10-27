@@ -128,6 +128,13 @@ function readSignatures(value: unknown): Hex[] {
   });
 }
 
+export function attestationPollInterval(
+  data: DepositAttestation | ReleaseAttestation | null | undefined,
+  periodMs: number,
+): number | false {
+  return data?.status === 'ready' && data.signatures.length > 0 ? false : periodMs;
+}
+
 /** GET /v1/deposit/{chainId}/{txHash}/{logIndex} — null while unobserved. */
 export async function fetchDepositAttestation(args: {
   chainId: bigint;
