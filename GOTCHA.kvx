@@ -9536,3 +9536,9 @@ area = "x402 payment plane"
 symptom = "a settled metered draw answers receipt_consumed on its first receipted retry although the record was released once"
 cause = "the plane saved leaf_hash of the signed receipt (LXP/v1/merkle-leaf domain) as the record digest while the seller compares the canonical_receipt_digest the gateway recorded at settlement, so PaymentStore::release saw two different digests for one receipt"
 do = "when a digest is stored by one component and compared by another, grep the comparer first and use its exact function (canonical_receipt_digest for sequencer receipts); never derive the stored digest with a different hash domain"
+
+[gotcha.1969]
+area = "spec"
+symptom = "A done task's late do item said a planned dispatch table was unnecessary because an existing Execute already dispatched; it dispatched one method, and 21 dependant tasks that add handlers in their own files found no seam and failed with LXP_PRECOMPILE_UNKNOWN_METHOD."
+cause = "The reading that excused the table checked the task's own tests, not the touches of its dependants."
+do = "Before excusing a planned registration or dispatch seam, list the dependants' touches; if they add handlers in separate files the seam is required, so add it as a small task in the dependants' wave and make them require it."
