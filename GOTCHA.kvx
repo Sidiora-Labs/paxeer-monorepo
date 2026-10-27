@@ -9129,3 +9129,51 @@ area = "spec / done evidence"
 symptom = "`cg spec done` refuses a candidate whose build and verify evidence sits at an earlier revision (1.23.3: the fixture repair committed as 041f841c2 after verifying 89b201c0b)"
 cause = "the repair commit was never built or verified at its own revision"
 do = "give a repair commit its own build and verify run within the task's budget"
+
+[gotcha.1901]
+area = "Go modules / error codes"
+symptom = "a registered error wrapped with fmt.Errorf(\"%w: ...\") keeps errors.Is but reaches the gRPC caller as codespace undefined, code 1 (4.4.6: modules/launchpad/keeper/price_history.go:13)"
+cause = "in the Cosmos SDK fork sdkerrors.ABCIInfo follows only the causer interface (sdk/types/errors/abci.go:142-158), which fmt.Errorf %w does not implement"
+do = "wrap a registered error with sdkerrors.Wrap so its codespace and code survive"
+
+[gotcha.1902]
+area = "spec / symbols"
+symptom = "`cg spec done` fails `symbol startLayerxSync — not defined in the graph` although build and tests pass (12.0.3)"
+cause = "the task deletes the symbol, and the gate resolves every listed symbol in the code graph after the change"
+do = "never list a symbol the task deletes in its symbols"
+
+[gotcha.1903]
+area = "rpc / JSON-RPC dispatch"
+symptom = "a retired <namespace>_unsubscribe name (lx_unsubscribe, 7.16.1) answers -32000 instead of -32601 over HTTP and WebSocket"
+cause = "the JSON-RPC library routes every <namespace>_unsubscribe method name to its built-in unsubscribe callback whether or not the namespace is registered"
+do = "refuse retired *_unsubscribe names through the pre-dispatch DenyList of rpc/server.go:336 and :517"
+
+[gotcha.1904]
+area = "rpc / metrics tests"
+symptom = "a test that installs a global meter provider sees no evmrpc_request_latency_seconds point for any method, and about 50 methods called with empty parameters never reach their handler (7.14.6)"
+cause = "the rpc package's metric instruments (rpc/metrics.go:42-43) are bound at package init, before an external test package can install a provider; argument decoding refuses empty parameters before any handler runs"
+do = "swap metrics.requestLatencySeconds through an internal test hook (rpc/info_metric_labels_test.go:22-28) and call each method with minimal valid arguments"
+
+[gotcha.1905]
+area = "Rust / cross-crate shapes"
+symptom = "layerx-indexer and layerx-platform-gateway stop compiling after a change confined to programs/crates/layerx-programs-ai-market/src/queries.rs (13.29.1)"
+cause = "those crates construct the changed query shapes, and the task's touches stayed inside the programs crate"
+do = "pair a query-shape change with a port task for its dependents and a requires edge to it (13.29.1 -> 8.1.5)"
+
+[gotcha.1906]
+area = "C build / static archive"
+symptom = "a freshly built build/liblayerx.a lacks link closure (25 undefined references at 1.4.3 a8) while a pre-existing build directory links, then collides with moved definitions (lxp_batch_verify_signature, 1.11.4 a2)"
+cause = "a source filtered out of LIB_SOURCES (Makefile:41-50) is still referenced by kept members, and `ar rcsD` (Makefile:203) never prunes the stale member that masks it"
+do = "keep LIB_SOURCES link-closed when filtering a source and build the archive from an empty build directory"
+
+[gotcha.1907]
+area = "C build / Makefile tests"
+symptom = "a Makefile verify passes while the library it shapes no longer links"
+cause = "a verify that runs only `make -n` (tools/ci/tests/test_makefile_wave1.py, test_makefile_wave2.py) proves that rules exist or are gone, never that the library links"
+do = "a task that removes sources from LIB_SOURCES links layerxd or another consumer in its gate (16.2.2, 16.0.2 vs 1.4.3 a8, 9.24.1 a6)"
+
+[gotcha.1908]
+area = "C build / archive symbol tests"
+symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
+cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
+do = "pair an archive symbol check with a link of a consumer built from an empty build directory"

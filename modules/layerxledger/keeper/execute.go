@@ -9,11 +9,9 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-type Event = lxphost.ReceiptEvent
-
 type Result struct {
 	Receipt lxphost.Receipt
-	Events  []Event
+	Events  []lxphost.ReceiptEvent
 }
 
 func WithSequence(ctx sdk.Context) (sdk.Context, error) {
