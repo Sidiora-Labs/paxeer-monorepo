@@ -9027,3 +9027,57 @@ area = "tooling"
 symptom = "an attempt adds test-only helpers or types named after the declared symbols so the graph check passes"
 cause = "the symbol list named an item a do line deletes, or a method the graph already indexes under its bare name"
 do = "fix the symbol list (drop deleted names) and requalify the candidate without the helpers; a name added only to satisfy a check is a fake (9.33.13, 3.5.3, 3.10.2)"
+
+[gotcha.1884]
+area = "go"
+symptom = "a perps governance test fails `market N max leverage X differs from its tier 0 leverage 1000` after MsgSetMarket"
+cause = "Market.Validate pins MaxLeverage to the tier 0 leverage of the market's class (modules/perps/types/market.go:67); it is never a governed field"
+do = "govern OiCapUsd or TierClass instead and assert MaxLeverage unchanged (3.1.5, 3.10.1, 3.6.21)"
+
+[gotcha.1885]
+area = "typescript"
+symptom = "wallet gateway tests skip or exit in beforeAll with `... are required when ATTESTOR_ENDPOINTS is set`"
+cause = "loadEnv (services/wallet/gateway/src/env.ts:253) requires WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE, WALLET_IDENTITY_BINDING_TENANT, WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE alongside ATTESTOR_ENDPOINTS"
+do = "set all four in the test harness before importing src/env.ts, as test/evm-approvals.test.ts does (12.6.2)"
+
+[gotcha.1886]
+area = "go"
+symptom = "a gRPC query test reads codespace `undefined` although the keeper returned a registered sdkerrors error"
+cause = "the error was wrapped with fmt.Errorf(\"%w\") and sdkerrors.ABCIInfo follows only Cause() (gotcha.1251)"
+do = "re-wrap with sdkerrors.Wrap on the registered root error at the handler boundary (4.4.3)"
+
+[gotcha.1887]
+area = "go"
+symptom = "a served-method golden test of rpc/ counts eth_gasPriceHelperForTest and eth_calculateGasUsedRatioForTest that production does not serve"
+cause = "every exported method of a registered service is served by go-ethereum's rpc reflection, so a *_test.go shim written as a method of InfoAPI (rpc/export_info_test.go) becomes an eth_* method of the test binary"
+do = "write test shims as package-level functions (rpc/export_filter_test.go:3) so served-method goldens hold (7.0.2)"
+
+[gotcha.1888]
+area = "spec"
+symptom = "`cg spec done` refuses a task symbol as not defined in the graph although the method exists (layerx-gas-station Service::report)"
+cause = "symbols of a task list declarations the graph indexes; a method of a generic `impl<...>` block was refused while methods of concrete impls in the same crate pass"
+do = "name the task's test function or a concrete declaration instead (11.23.3)"
+
+[gotcha.1889]
+area = "kernel / Makefile"
+symptom = "a kernel test links a duplicate lxp_batch_verify_signature (or an lxp_batch_sign) although the sources define it once and lxp_batch_seal.c is no longer in LIB_SOURCES"
+cause = "a reused build/liblayerx.a still carries members of object files dropped from LIB_SOURCES (lxp_batch_seal.o supplied lxp_batch_sign and an old lxp_batch_verify_signature)"
+do = "treat a clean archive as the authority: a duplicate-symbol link error after a Makefile source change means a stale member, not a second definition in the sources (1.15.1)"
+
+[gotcha.1890]
+area = "kernel tests"
+symptom = "a test encoding several activities into one arena fails lxp_activity_encode(...) == LXP_OK after a few encodes"
+cause = "lxp_activity_encode takes a full LXP_MAX_ACTIVITY_BYTES (1 MiB) writer from the arena it is given on every call and does not return it (src/protocol/lxp_activity.c:36)"
+do = "give a test encoding N activities N MiB of arena or a scratch arena reset per activity (1.4.3)"
+
+[gotcha.1891]
+area = "Rust gate tests"
+symptom = "a kept gate test that reads its input file from an environment variable (tests/committed_caps.rs:9, LAYERX_CAPS_VECTORS) fails under its declared verify_cmd although it passed when the input was prepared by hand"
+cause = "neither the build_cmd nor the verify_cmd produced the file or exported the variable, so the test only passed in a hand-prepared environment"
+do = "declare the producer in the gate: the build_cmd produces the file and the verify_cmd exports the variable, instead of relying on a hand-prepared environment (9.24.1)"
+
+[gotcha.1892]
+area = "spec / task dependencies"
+symptom = "every build of a package fails after a landed deletion task removed types it still imports (9.34.2 removed SDK types still imported by seller/src/checkpoint.ts), and the task that deletes the importer never becomes eligible"
+cause = "the importer is deleted only by a late task (8.22.6 at wave 29) that requires the very package tasks whose builds fail on it, so a requires edge to it deadlocks"
+do = "split the deletion into a dependency-free early task (8.22.7) and make the package tasks require it"

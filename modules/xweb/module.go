@@ -6,6 +6,7 @@
 package xweb
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -66,13 +67,17 @@ func (am AppModuleBasic) ValidateGenesisStream(cdc codec.JSONCodec, config clien
 
 func (AppModuleBasic) RegisterRESTRoutes(_ client.Context, _ *mux.Router) {}
 
-func (AppModuleBasic) RegisterGRPCGatewayRoutes(_ client.Context, _ *runtime.ServeMux) {}
+func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) {
+	if err := types.RegisterQueryHandlerClient(context.Background(), mux, types.NewQueryClient(clientCtx)); err != nil {
+		panic(err)
+	}
+}
 
 // GetTxCmd returns the module's transaction command: one subcommand per
 // authority message.
 func (AppModuleBasic) GetTxCmd() *cobra.Command { return cli.GetTxCmd() }
 
-func (AppModuleBasic) GetQueryCmd() *cobra.Command { return nil }
+func (AppModuleBasic) GetQueryCmd() *cobra.Command { return cli.GetQueryCmd() }
 
 type AppModule struct {
 	AppModuleBasic
@@ -87,9 +92,10 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 
 func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return nil }
 
-// RegisterServices routes the authority messages to the keeper.
+// RegisterServices routes authority messages and queries to the keeper.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterQueryServer(cfg.QueryServer(), keeper.NewQueryServer(am.keeper))
 }
 
 func (am AppModule) RegisterInvariants(ir sdk.InvariantRegistry) {

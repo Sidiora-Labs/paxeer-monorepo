@@ -27,14 +27,6 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	return sdk.UnwrapSDKContext(goCtx), nil
 }
 
-func (q Querier) MarketByAddress(goCtx context.Context, req *types.QueryMarketByAddressRequest) (*types.QueryMarketByAddressResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.MarketByAddress(sdk.WrapSDKContext(ctx), req)
-}
-
 func (q Querier) Markets(goCtx context.Context, req *types.QueryMarketsRequest) (*types.QueryMarketsResponse, error) {
 	ctx, err := queryContext(goCtx, req)
 	if err != nil {
