@@ -9189,3 +9189,33 @@ area = "apps/launchpad/mobile"
 symptom = "tsc over the mobile app reports dozens of errors inside react-native globals.d.ts, lib.dom.d.ts and @types/node, or, without the DOM lib, in the launchpad SDK sources."
 cause = "react-native's global declarations overlap the DOM lib the DOM-typed SDK sources need; the conflict sits only in declaration files."
 do = "Keep the default lib and set skipLibCheck true in tsconfig.json as @react-native/typescript-config does; never drop DOM or add a second tsconfig for the tests."
+
+[gotcha.1911]
+area = "spec task symbols"
+symptom = "cg spec done reports N graph check(s) failed — symbol X not defined in the graph — although verify_cmd passed"
+cause = "symbols named things the code graph never indexes (Elixir modules and functions, ExUnit test names, env vars, Makefile variables, Python Class.method paths, script or file names, metric strings) or definitions the task itself deletes"
+do = "list in symbols only functions, methods, types, macros and test functions, by bare name, that exist after the change in a language the graph parses (C, Go, Rust, TypeScript, Python, Solidity); Elixir tasks use symbols = []; test names belong in tests; a deletion task lists only what it keeps or rewrites"
+
+[gotcha.1912]
+area = "kernel C structs"
+symptom = "-Werror=missing-field-initializers refuses the lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor after the struct gained a member"
+cause = "positional compound literals stop at the old last member; the task that appended the member built only its own test"
+do = "a task that appends a struct member updates every positional literal of that struct in the same change (grep for `(type){`) or names the task that will"
+
+[gotcha.1913]
+area = "launchpad gRPC queries"
+symptom = "a Query handler test panics `invalid Go type types.Int for field ...Response.<field>` although the handler returns the right value"
+cause = "sdk/baseapp/grpcrouter.go:100 marshals query responses with the grpc default proto codec, which cannot reflect a top-level non-pointer gogoproto customtype Int field; nested messages go through the gogo Marshal method and pass"
+do = "declare top-level amounts in query responses as plain decimal strings (wire and JSON unchanged) or nest them in a message"
+
+[gotcha.1914]
+area = "launchpad mobile tests"
+symptom = "vitest fails `Cannot find module './validators-v1.gen.js'` from sdk/launchpad/packages/sdk/src/validate.ts even after the SDK build"
+cause = "compile-validators.mjs emits the generated validator modules only into dist/; the repository tracks only their .d.ts declarations, so importing the SDK from src finds no runtime module"
+do = "alias the three ./validators-*.gen.js specifiers to the built dist files in the consumer's vitest config and build sdk-v2 then sdk before the test"
+
+[gotcha.1915]
+area = "kernel activity envelope"
+symptom = "every HostExecute from a keeper is refused LXP_ERR_MALFORMED_ENVELOPE and the refusal receipt carries code 0"
+cause = "the activity's NotBefore/NotAfter bound was wider than the admission window (src/sequencer/lxp_admission.c:13-15), or AccountSequence was set to identity sequence + 1 although the host already stores the next admitted sequence"
+do = "set NotBefore = block time, NotAfter = block time + TimestampWindowMs and AccountSequence = ReadIdentitySequence unchanged"
