@@ -1,17 +1,21 @@
-//! Minimal F10 AI market projection: exact-root snapshot capture, checkpoint promotion,
+//! Minimal F10 AI market projection: exact-root snapshot capture, block-commit promotion,
 //! atomic snapshot/rows/cursor/outbox commits, pinned participant paging and quarantine.
 //!
 //! State bytes come from a whole same-root chunk capture and are decoded only with the
-//! `layerx-programs-ai-market` codecs. Promotion to finalized needs an actual checkpoint
-//! certificate verified by `layerx_proof::checkpoint::verify_certificate` whose header
-//! commits the snapshot's exact batch, sequence and native root. Elapsed time, depth or a
-//! matching height never promotes. Components whose producers are absent keep their
-//! explicit availability status.
+//! `layerx-programs-ai-market` codecs. Promotion to finalized requires a verified block
+//! commit from the configured validator set for the capture's exact height, block hash
+//! and native root. Elapsed time, depth or a matching height never promotes. Components
+//! whose producers are absent keep their explicit availability status.
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
+use layerx_committed_proof::{
+    commit::{self, Commit},
+    header::Header,
+    ProofError,
+};
 use layerx_programs_ai_market::{
     codec,
     errors::{
@@ -26,10 +30,6 @@ use layerx_programs_ai_market::{
     types::{ChainDomain, Digest32, MarketId, PrincipalId, ProgramId, StateDigest},
     MAX_STATE_BYTES,
 };
-use layerx_proof::checkpoint::{verify_certificate, Certificate, GuarantorKey, SettlementDomain};
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::hash::program_execution_batch_id;
-use layerx_wire::receipt::decode_batch_header;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use sha2::{Digest, Sha256};
 
@@ -41,7 +41,7 @@ pub use layerx_programs_ai_market::queries::{
 };
 pub use layerx_programs_ai_market::types::Presence;
 
-/// Canonical publication minimum checkpoint rank.
+/// Canonical publication minimum finalized rank.
 pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;
 /// F02 authority freshness limit in execution heights.
 pub const AUTHORITY_FRESHNESS_HEIGHTS: u64 = 8;
@@ -236,7 +236,7 @@ impl From<rusqlite::Error> for ViewError {
 
 pub type ViewResult<T> = Result<T, ViewError>;
 
-/// Projection states. Only verified checkpoint evidence reaches `FinalizedPublishable`.
+/// Projection states. Only verified block commit evidence reaches `FinalizedPublishable`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ProjectionState {
@@ -285,20 +285,72 @@ pub struct Observation<'a> {
     pub observed_at_ms: u64,
 }
 
-/// Configured finality authority: network, settlement domain and bonded guarantor set.
+/// Configured chain and consensus validator set.
 #[derive(Clone, Debug)]
 pub struct FinalityAuthority {
-    pub network_id: u32,
-    pub settlement: SettlementDomain,
-    pub guarantors: Vec<GuarantorKey>,
+    pub chain_id: String,
+    pub validators: Vec<layerx_committed_proof::header::Validator>,
 }
 
-/// Checkpoint material with the identifier registered for it on the settlement chain.
+/// Block header, consensus precommits and store proof bytes.
 #[derive(Clone, Copy, Debug)]
-pub struct CheckpointProof<'a> {
-    pub certificate: &'a Certificate,
-    pub registered_checkpoint_id: [u8; 32],
-    pub registered_settlement_reference: Option<&'a [u8]>,
+pub struct BlockCommitProof<'a> {
+    pub header: &'a Header,
+    pub commit: &'a Commit,
+    pub store_proof: &'a [u8],
+}
+
+/// Commitments established by a verified block commit.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedCommit {
+    pub chain_id: String,
+    pub height: u64,
+    pub block_hash: [u8; 32],
+    pub app_hash: [u8; 32],
+    pub store_proof_digest: [u8; 32],
+}
+
+/// Verifies the header's validator commitment and strictly greater than two thirds
+/// voting power, then hashes the supplied store proof bytes.
+///
+/// # Errors
+/// Refuses malformed headers or empty proofs before hashing, and propagates validator
+/// set, commit metadata, signature and voting power verification errors.
+pub fn verify_block_commit(
+    proof: &BlockCommitProof<'_>,
+    authority: &FinalityAuthority,
+) -> Result<VerifiedCommit, ProofError> {
+    if !(-62_135_596_800..=253_402_300_799).contains(&proof.header.time.seconds)
+        || proof.header.time.nanos >= 1_000_000_000
+        || proof.header.height < 0
+    {
+        return Err(ProofError::InvalidCommit);
+    }
+    let app_hash = proof
+        .header
+        .app_hash
+        .as_slice()
+        .try_into()
+        .map_err(|_| ProofError::InvalidProof)?;
+    if proof.store_proof.is_empty() {
+        return Err(ProofError::InvalidProof);
+    }
+    let height = u64::try_from(proof.header.height).map_err(|_| ProofError::InvalidCommit)?;
+    let block_hash = layerx_committed_proof::verify_header(proof.header, &authority.validators)?;
+    commit::verify_commit(
+        &proof.header.chain_id,
+        &authority.validators,
+        block_hash,
+        height,
+        proof.commit,
+    )?;
+    Ok(VerifiedCommit {
+        chain_id: proof.header.chain_id.clone(),
+        height,
+        block_hash,
+        app_hash,
+        store_proof_digest: Sha256::digest(proof.store_proof).into(),
+    })
 }
 
 /// One stored snapshot, as committed.
@@ -321,7 +373,7 @@ pub struct SnapshotRecord {
     pub availability: [Availability; FEATURES],
     pub source_activity: Digest32,
     pub epoch: Presence<u64>,
-    /// Canonical `SnapshotBindingV1` bytes once finalized.
+    /// Canonical `SnapshotBindingV2` bytes once finalized.
     pub binding: Option<Vec<u8>>,
     pub checkpoint: Option<Digest32>,
     pub rank: u8,
@@ -339,7 +391,7 @@ impl SnapshotRecord {
                 native_state_root: self.native_state_root,
                 observed_sequence: self.observed_sequence,
                 execution_height: self.execution_height,
-                batch_id: self.batch_id,
+                block_hash: self.batch_id,
             },
             revision: self.revision,
             digest: self.state_digest,
@@ -806,13 +858,15 @@ fn rows_of(state: &[u8]) -> ViewResult<Vec<ParticipantRow>> {
     Ok(rows)
 }
 
-/// Content identity of a capture. `SnapshotId` excludes checkpoint, settlement, rank and
+/// Content identity of a capture. `SnapshotId` excludes block-commit evidence, rank and
 /// publication time, so it is derived before any finality evidence exists.
 fn content_identity(state: &[u8], facts: &CaptureFacts) -> ViewResult<(Digest32, SnapshotBinding)> {
     let provisional = FinalityEvidence {
         native_state_root: facts.proof.native_state_root,
-        checkpoint: facts.proof.batch_id,
-        settlement: Presence::Absent,
+        block_height: facts.proof.execution_height,
+        block_hash: facts.proof.block_hash,
+        app_hash: facts.proof.native_state_root,
+        store_proof_digest: facts.proof.block_hash,
         rank: 0,
     };
     let binding = queries::bind_snapshot(state, facts, &provisional, 0)?;
@@ -1318,7 +1372,7 @@ impl ProjectionStore {
                 proof.program.as_bytes().as_slice(),
                 signed(proof.observed_sequence)?,
                 signed(proof.execution_height)?,
-                proof.batch_id.as_bytes().as_slice(),
+                proof.block_hash.as_bytes().as_slice(),
                 proof.native_state_root.as_bytes().as_slice(),
                 signed(binding.revision)?,
                 facts.digest.as_bytes().as_slice(),
@@ -1356,17 +1410,17 @@ impl ProjectionStore {
         load_record(tx, &snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)
     }
 
-    /// Promotes a saved capture to finalized-publishable with an actual checkpoint certificate
+    /// Promotes a saved capture to finalized-publishable with a verified block commit
     /// for its exact root. The saved state is re-bound; latest mutable state is never reread.
     ///
     /// # Errors
-    /// `FinalityUnavailable` for a certificate that does not verify at rank 4, `WrongDomain`
-    /// for another network (alerted), `BindingMismatch` for another batch, sequence or root,
+    /// `FinalityUnavailable` for an invalid block commit, `WrongDomain`
+    /// for another chain (alerted), `BindingMismatch` for another height, block hash or root,
     /// `ProjectionUnavailable` for an unknown or archived snapshot.
     pub fn promote(
         &self,
         snapshot_id: &Digest32,
-        proof: &CheckpointProof<'_>,
+        proof: &BlockCommitProof<'_>,
         authority: &FinalityAuthority,
         publication_time_ms: u64,
     ) -> ViewResult<SnapshotRecord> {
@@ -1380,47 +1434,30 @@ impl ProjectionStore {
         if record.read != ReadVerification::SequencerSigned {
             return Err(ViewError::BindingMismatch);
         }
-        let report = verify_certificate(
-            proof.certificate,
-            &authority.guarantors,
-            &proof.registered_checkpoint_id,
-            authority.settlement,
-            proof.registered_settlement_reference,
-        )
-        .map_err(|_| ViewError::FinalityUnavailable)?;
-        if report.level().wire_rank() < VerificationLevel::CHECKPOINT_FINALISED.wire_rank() {
-            return Err(ViewError::FinalityUnavailable);
-        }
-        let checkpoint = report
-            .evidence()
-            .checkpoint_id()
-            .ok_or(ViewError::FinalityUnavailable)?;
-        if report.network_id() != authority.network_id {
+        let verified =
+            verify_block_commit(proof, authority).map_err(|_| ViewError::FinalityUnavailable)?;
+        if verified.chain_id != authority.chain_id {
             let error = ViewError::WrongDomain;
-            record_alert(&conn, record.market.as_bytes(), &checkpoint, &error)?;
+            record_alert(
+                &conn,
+                record.market.as_bytes(),
+                &verified.block_hash,
+                &error,
+            )?;
             return Err(error);
         }
-        let header = decode_batch_header(proof.certificate.checkpoint().header_bytes())
-            .map_err(|_| ViewError::FinalityUnavailable)?;
-        let root = record.native_state_root.bytes();
-        let batch = program_execution_batch_id(
-            header.previous_state_root(),
-            header.activity_merkle_root(),
-            header.first_sequence(),
-            header.last_sequence(),
-            header.batch_number(),
-        )
-        .map_err(|_| ViewError::BindingMismatch)?;
-        if header.last_sequence() != record.observed_sequence
-            || header.resulting_state_root() != root
-            || batch != record.batch_id.bytes()
+        if verified.height != record.execution_height
+            || verified.block_hash != record.batch_id.bytes()
+            || verified.app_hash != record.native_state_root.bytes()
         {
             return Err(ViewError::BindingMismatch);
         }
         let finality = FinalityEvidence {
             native_state_root: record.native_state_root,
-            checkpoint: Digest32::new(checkpoint)?,
-            settlement: Presence::Absent,
+            block_height: verified.height,
+            block_hash: Digest32::new(verified.block_hash)?,
+            app_hash: Digest32::new(verified.app_hash)?,
+            store_proof_digest: Digest32::new(verified.store_proof_digest)?,
             rank: MINIMUM_PUBLICATION_RANK,
         };
         let binding =
@@ -1438,7 +1475,7 @@ impl ProjectionStore {
             params![
                 snapshot_id.as_bytes().as_slice(),
                 encoded.get(..n).ok_or(ViewError::CapacityExceeded)?,
-                checkpoint.as_slice(),
+                verified.store_proof_digest.as_slice(),
                 binding.rank,
                 signed(publication_time_ms)?,
                 match binding.epoch {
@@ -2011,8 +2048,10 @@ fn rebind(record: &SnapshotRecord, state: &[u8]) -> ViewResult<SnapshotBinding> 
     let checkpoint = record.checkpoint.ok_or(ViewError::FinalityUnavailable)?;
     let finality = FinalityEvidence {
         native_state_root: record.native_state_root,
-        checkpoint,
-        settlement: Presence::Absent,
+        block_height: record.execution_height,
+        block_hash: record.batch_id,
+        app_hash: record.native_state_root,
+        store_proof_digest: checkpoint,
         rank: record.rank,
     };
     let binding = queries::bind_snapshot(

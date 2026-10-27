@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
@@ -9,11 +8,9 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-type Event = lxphost.ReceiptEvent
-
 type Result struct {
 	Receipt lxphost.Receipt
-	Events  []Event
+	Events  []lxphost.ReceiptEvent
 }
 
 func WithSequence(ctx sdk.Context) (sdk.Context, error) {
@@ -59,20 +56,7 @@ func (k *Keeper) execute(ctx sdk.Context, actor Actor, activityType uint32, payl
 	}
 	receipt, err := k.host.Execute(ctx, activity, actor.Authority)
 	if err != nil {
-		err = ledgerReadError(err)
-		if errors.Is(err, types.ErrIdempotentReplay) {
-			stored, readErr := k.host.ReadIdempotentReceipt(ctx, actor.DID, idempotencyKey)
-			if readErr != nil {
-				return Result{}, ledgerReadError(readErr)
-			}
-			return Result{Receipt: stored, Events: stored.Events}, err
-		}
-		return Result{}, err
+		return Result{}, ledgerReadError(err)
 	}
-	stored, err := k.host.ReadIdempotentReceipt(ctx, actor.DID, idempotencyKey)
-	if err != nil {
-		return Result{Receipt: receipt, Events: receipt.Events}, ledgerReadError(err)
-	}
-	receipt.Encoded = stored.Encoded
 	return Result{Receipt: receipt, Events: receipt.Events}, FromKernel(receipt.ResultCode)
 }

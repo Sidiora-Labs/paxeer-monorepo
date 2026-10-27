@@ -3,6 +3,7 @@ package evmrpc
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -269,7 +270,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewUncleAPI(tmClient, watermarks),
+			Service:   NewUncleAPI(tmClient, watermarks, ConnectionTypeHTTP),
 		},
 		{
 			Namespace: "pax",
@@ -317,7 +318,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "web3",
-			Service:   &Web3API{},
+			Service:   &Web3API{connectionType: ConnectionTypeHTTP},
 		},
 		{
 			Namespace: "debug",
@@ -342,7 +343,7 @@ func NewEVMHTTPServer(
 	if err := httpServer.EnableRPC(apis, HTTPConfig{
 		CorsAllowedOrigins: strings.Split(config.CORSOrigins, ","),
 		Vhosts:             []string{"*"},
-		DenyList:           config.DenyList,
+		DenyList:           append(slices.Clone(config.DenyList), "lx_unsubscribe", "eth_lx_unsubscribe"),
 		PaxLegacyAllowlist: paxLegacyAllowlist,
 		RPCEndpointConfig:  newRPCEndpointConfig(config),
 	}); err != nil {
@@ -486,7 +487,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewUncleAPI(tmClient, watermarks),
+			Service:   NewUncleAPI(tmClient, watermarks, ConnectionTypeWS),
 		},
 		{
 			Namespace: "eth",
@@ -518,13 +519,13 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "web3",
-			Service:   &Web3API{},
+			Service:   &Web3API{connectionType: ConnectionTypeWS},
 		},
 	}
 
 	wsConfig := WsConfig{
 		Origins:           strings.Split(config.WSOrigins, ","),
-		DenyList:          config.DenyList,
+		DenyList:          append(slices.Clone(config.DenyList), "lx_unsubscribe", "eth_lx_unsubscribe"),
 		RPCEndpointConfig: newRPCEndpointConfig(config),
 	}
 	wsConfig.readLimit = DefaultWebsocketMaxMessageSize

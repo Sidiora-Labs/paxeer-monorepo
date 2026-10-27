@@ -115,7 +115,7 @@ static int prepare_names(fixture *f, uint16_t version, bool success,
         (void)memcpy(f->transfer_asset.asset_id, send.asset, 32U);
         f->transfer_asset.registered = true;
         f->runtime = (lx_asset_runtime){&f->accounts, &f->asset, 1U,
-            &f->transfer_asset, 1U, 7U, version};
+            &f->transfer_asset, 1U, 7U, version, false};
         REQUIRE(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->runtime) == LXP_OK);
     }
     f->activity.protocol_version = version;

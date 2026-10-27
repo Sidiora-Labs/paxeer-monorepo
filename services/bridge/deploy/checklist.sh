@@ -21,6 +21,7 @@
 #   the variable the configuration names in environment.rpc_url   the chain's endpoint
 #   PAXEER_BRIDGE_PAXEER_RPC_URL        the Paxeer X Network endpoint the precompile is read through
 #   PAXEER_BRIDGE_DEPLOYMENT_RECORD     the record deploy-evm-chain.sh or deploy-solana-program.sh wrote
+#   PAXEER_BRIDGE_APP_ENV               optional app env file checked against the deployment record directory
 #   PAXEER_BRIDGE_GOVERNANCE_AUTHORITY  the bech32 governance authority the bodies are generated for
 #   PAXEER_BRIDGE_ATTESTOR_MANIFEST     optional attestor-set manifest; services/bridge/deploy/attestors.json otherwise
 #   PAXEER_BRIDGE_EVM_CHAINS_ROOT       optional chains root, as deploy-evm-chain.sh reads it
@@ -172,6 +173,7 @@ rpc_variable=$(jq -r '.environment.rpc_url // empty' "$config")
 for variable in "$rpc_variable" "$PAXEER_RPC_VARIABLE" PAXEER_BRIDGE_DEPLOYMENT_RECORD PAXEER_BRIDGE_GOVERNANCE_AUTHORITY; do
     [ -n "${!variable:-}" ] || fail "$variable is required and is not set"
 done
+PAXEER_BRIDGE_APP_ENV=${PAXEER_BRIDGE_APP_ENV:-}
 record=$(absolute "$PAXEER_BRIDGE_DEPLOYMENT_RECORD")
 [ -r "$record" ] || fail "$record is not readable"
 jq -e . "$record" > /dev/null 2>&1 || fail "$record is not JSON"
@@ -179,6 +181,17 @@ jq -e . "$record" > /dev/null 2>&1 || fail "$record is not JSON"
 work=$(mktemp -d)
 trap 'rm -rf "$work" ${OVERLAY_ROOT:+"$OVERLAY_ROOT"}' EXIT
 chmod 0700 "$work"
+
+if [ -n "$PAXEER_BRIDGE_APP_ENV" ]; then
+    app_env=$(absolute "$PAXEER_BRIDGE_APP_ENV")
+    if app_env_check=$(cd "$REPO_ROOT" && go run ./services/bridge/deploy/cmd/paxeer-bridge-app-env \
+        --check "$app_env" "$(dirname "$record")" 2>&1); then
+        check "bridge app env" "values matching deployment records" "values matching deployment records"
+    else
+        check "bridge app env" "values matching deployment records" "$app_env_check"
+    fi
+    stop_on_failure
+fi
 
 found=$(jq -r '.chain // "nothing"' "$record")
 check "deployment record chain" "$chain" "$found"

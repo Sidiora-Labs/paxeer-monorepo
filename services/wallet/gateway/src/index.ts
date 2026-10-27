@@ -9,6 +9,9 @@ import { closePool, getPool } from './db/pool.js';
 import { runMigrations } from './db/migrate.js';
 import { walletRoutes, walletSponsorRoutes } from './routes/wallet.js';
 import { signRoutes } from './routes/sign.js';
+import { evmApprovalRoutes as registerEvmApprovalRoutes } from './routes/evmApprovals.js';
+import { defaultWalletAttestors } from './db/wallets.js';
+import { RateLimiter } from './audit.js';
 import { readinessRoutes } from './routes/readiness.js';
 import { agentAuthRoutes } from './routes/agentAuth.js';
 import { agentRoutes } from './routes/agent.js';
@@ -20,12 +23,23 @@ import { adminRoutes } from './routes/admin.js';
 import { agentLaneEnabled } from './auth/agentToken.js';
 import { installRawBodyParser } from './agent/verify.js';
 import { startActionWorker, type WorkerHandle } from './agent/actions/worker.js';
-import { startLayerxSync, type LayerxSyncHandle } from './jobs/layerxSync.js';
-import { closeLayerxPool } from './layerx/db.js';
 
 /** Response header that names this service on every response it sends. */
 export const SERVED_BY_HEADER = 'x-served-by';
 export const SERVED_BY = 'paxeer-wallet-gateway';
+
+async function evmApprovalRoutes(app: FastifyInstance): Promise<void> {
+  await registerEvmApprovalRoutes(
+    app,
+    getPool(),
+    defaultWalletAttestors(),
+    new RateLimiter({
+      pool: getPool(),
+      clientPerMinute: env.RATE_LIMIT_CLIENT_PER_MINUTE,
+      accountPerMinute: env.RATE_LIMIT_ACCOUNT_PER_MINUTE,
+    })
+  );
+}
 
 /**
  * Build the Paxeer Embedded Wallet API: connect and migrate the database,
@@ -38,7 +52,10 @@ export async function buildApp(): Promise<FastifyInstance> {
       level: env.LOG_LEVEL,
       transport:
         env.NODE_ENV === 'development'
-          ? { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', colorize: true } }
+          ? {
+              target: 'pino-pretty',
+              options: { translateTime: 'HH:MM:ss', colorize: true },
+            }
           : undefined,
     },
     trustProxy: env.LAYERX_TRUSTED_PROXIES.length > 0 ? env.LAYERX_TRUSTED_PROXIES : false,
@@ -91,6 +108,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   await app.register(walletRoutes);
   await app.register(walletSponsorRoutes);
   await app.register(signRoutes);
+  await evmApprovalRoutes(app);
 
   // Agent-native lane: DID auth + dedicated kind='agent' wallets, the agent
   // capability surface, network-native precompiles, and the owner control
@@ -107,7 +125,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   if (agentLaneEnabled()) {
     app.log.info('[agent] agent-native lane enabled');
   } else {
-    app.log.warn('[agent] AGENT_JWT_SECRET unset — agent auth routes return 503 (owner control plane still mounted)');
+    app.log.warn(
+      '[agent] AGENT_JWT_SECRET unset — agent auth routes return 503 (owner control plane still mounted)'
+    );
   }
 
   // Global error handler — never leak internal details to clients in prod.
@@ -117,8 +137,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       (err as Error & { statusCode?: number }).statusCode ?? reply.statusCode ?? 500;
     void reply.code(statusCode >= 400 && statusCode < 600 ? statusCode : 500).send({
       error: 'internal_error',
-      message:
-        env.NODE_ENV === 'development' ? (err as Error).message : 'unexpected error',
+      message: env.NODE_ENV === 'development' ? (err as Error).message : 'unexpected error',
     });
   });
 
@@ -142,19 +161,13 @@ async function main(): Promise<void> {
   // SELECT FOR UPDATE SKIP LOCKED keep the cluster from double-driving a row.
   const actionWorker: WorkerHandle = startActionWorker(app.log);
 
-  // LayerX mirror-sync + credit-backfill (read-only against the sequencer DB).
-  // No-op when LAYER_X_DB_URI is unset; single-syncs per tick via advisory lock.
-  const layerxSync: LayerxSyncHandle | null = startLayerxSync(app.log);
-
   // Graceful shutdown — drain Fastify, then close the pg pool so the process
   // exits cleanly on SIGTERM/SIGINT (Docker sends SIGTERM on `stop`).
   const shutdown = async (signal: string): Promise<void> => {
     app.log.info(`[shutdown] received ${signal}`);
     try {
       actionWorker.stop();
-      layerxSync?.stop();
       await app.close();
-      await closeLayerxPool();
       await closePool();
       process.exit(0);
     } catch (err) {
@@ -168,7 +181,7 @@ async function main(): Promise<void> {
   try {
     await app.listen({ port: env.PORT, host: '::' });
     app.log.info(
-      `paxeer-wallet-api listening on :${env.PORT} (chain_id=${env.HYPERPAXEER_CHAIN_ID})`,
+      `paxeer-wallet-api listening on :${env.PORT} (chain_id=${env.HYPERPAXEER_CHAIN_ID})`
     );
   } catch (err) {
     app.log.error({ err }, 'failed to start');
@@ -211,7 +224,7 @@ function bootstrap(): void {
     cluster.on('exit', (worker, code, signal) => {
       // eslint-disable-next-line no-console
       console.error(
-        `[cluster] worker ${worker.process.pid} exited (code=${code} signal=${signal}) — respawning`,
+        `[cluster] worker ${worker.process.pid} exited (code=${code} signal=${signal}) — respawning`
       );
       cluster.fork();
     });
