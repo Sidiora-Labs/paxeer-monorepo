@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+import json
 import re
 import shlex
+import subprocess
 import tomllib
 from collections.abc import Mapping
+from os import PathLike
 from pathlib import Path, PurePosixPath
 
-from .kvx import KvxValue
+from .kvx import KvxValue, load
 
 ROOT = Path(__file__).resolve().parents[3]
 
@@ -116,3 +119,45 @@ def command_for(row: Mapping[str, KvxValue]) -> str:
             for file, names in tests.items()
         )
     raise ParityError(f"unsupported selector toolchain: {suffix}")
+
+
+def count_go_tests(command: str, root: str | PathLike[str]) -> int:
+    arguments = shlex.split(command)
+    if arguments[:2] != ["go", "test"]:
+        raise ParityError("expected a go test command")
+    result = subprocess.run(
+        [*arguments, "-json"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    count = 0
+    for line in result.stdout.splitlines():
+        if not line.strip():
+            continue
+        event = json.loads(line)
+        name = event.get("Test")
+        if (
+            event.get("Action") == "run"
+            and isinstance(name, str)
+            and name.startswith("Test")
+            and "/" not in name
+        ):
+            count += 1
+    return count
+
+
+def zero_test_commands(
+    spec_path: str | PathLike[str], root: str | PathLike[str]
+) -> list[str]:
+    task_ids: list[str] = []
+    for section, task in load(spec_path).items():
+        if not section.startswith("task."):
+            continue
+        command = task.get("verify_cmd")
+        if not isinstance(command, str) or shlex.split(command)[:2] != ["go", "test"]:
+            continue
+        if count_go_tests(command, root) == 0:
+            task_ids.append(section.removeprefix("task."))
+    return task_ids
