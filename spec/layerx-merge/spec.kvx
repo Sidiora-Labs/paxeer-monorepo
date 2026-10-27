@@ -111015,7 +111015,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.48.6]
 title = "Prove web development-only panels render Unsupported in production"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["4.48.3", "4.0.4"]
