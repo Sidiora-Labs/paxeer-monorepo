@@ -103016,7 +103016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.21.2]
 title = "Pin production spot addresses to the dynamic-gas wrapper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.21.1", "3.0.3", "5.0.3"]
@@ -103967,7 +103967,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.27.4]
 title = "Prove the app refuses exchange governance after v6.12.0"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.27.3", "3.0.3", "5.0.3", "16.8.5"]
@@ -107531,7 +107531,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.3]
 title = "Prove the launchpad market REST routes against a live network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -112863,7 +112863,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.6.5]
 title = "Complete the merge plan: mount the merged stores, close the gate on missing constructors and retire anchor and custody"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5", "5.19.4"]
@@ -113853,7 +113853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.16.6]
 title = "Check that an empty sequenced block is idempotent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -121972,7 +121972,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.25.1]
 title = "Refuse paused tokenfactory denoms on the GigaBankKeeper send path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "5.56.1", "5.0.3"]
@@ -147034,7 +147034,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.7.1]
 title = "Settle the AP2 intent plane on SequencerEvidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.1.1", "9.1.7"]
@@ -156211,7 +156211,7 @@ do_3 = "Write NewMergePrecompile(keepers utils.Keepers, planName string) after t
 do_4 = "Write type handler func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), register(name string, h handler) refusing a duplicate name, and Execute (precompiles/common/precompiles.go:40) looking up method.Name in the table and returning LXP_PRECOMPILE_UNKNOWN_METHOD for a missing row."
 do_5 = "Keep RequiredGas on gasTable unchanged (precompiles/layerxprograms/gas.go:33); the executor's RequiredGas returns gasTable.RequiredGas for the method."
 do_6 = "Write both tests in precompiles/layerxprograms/layerxprograms_test.go (planned)."
-symbols = ["Address", "PrecompileName", "HostKeepers", "PrecompileExecutor", "NewPrecompile", "NewMergePrecompile", "register", "TestProgramsMergeConstructorRegistered", "TestProgramsExecuteUnknownMethodRefused"]
+symbols = ["Address", "PrecompileName", "HostKeepers", "PrecompileExecutor", "NewPrecompile", "NewMergePrecompile", "TestProgramsMergeConstructorRegistered", "TestProgramsExecuteUnknownMethodRefused"]
 touches = ["precompiles/layerxprograms/layerxprograms.go", "precompiles/layerxprograms/layerxprograms_test.go", "node/precompiles.go"]
 tests = ["precompiles/layerxprograms/layerxprograms_test.go::TestProgramsMergeConstructorRegistered", "precompiles/layerxprograms/layerxprograms_test.go::TestProgramsExecuteUnknownMethodRefused"]
 planned_paths = ["precompiles/layerxprograms/layerxprograms.go", "precompiles/layerxprograms/layerxprograms_test.go"]
@@ -156229,7 +156229,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Add the blank import of precompiles/layerxprograms to the import block at node/precompiles.go:3-24 beside the imports task 5.19.4 left, so init registers the 0x101D merge constructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
-do_8 = "Tasks 13.22.4 to 13.22.6 already landed submit.go, the event and test files of this package, and they reference Address as a common.Address value and a PrecompileExecutor carrying evmKeeper *evmkeeper.Keeper (precompiles/layerxprograms/submit.go:20,32); declare Address = common.HexToAddress(\"0x000000000000000000000000000000000000101D\") and give PrecompileExecutor every field the sibling files use, instead of the string constant of do_1, so the package builds as one."
+do_8 = "On the merged tree the package already declares Address (precompiles/layerxprograms/events.go:14), PrecompileExecutor with host and evmKeeper fields and callContext (submit.go:18-26), and the executor RequiredGas and Execute methods (submit.go:70-74), where Execute serves registryRead and refuses every other method with LXP_PRECOMPILE_UNKNOWN_METHOD; layerxprograms.go therefore declares only PrecompileName, HostKeepers (LayerXHost() *lxphost.Host as node/precompiles.go:166 exposes it), NewPrecompile building that executor, NewMergePrecompile and the init registration, and the handler table of do_4 is not written because submit.go already dispatches; the unknown-method test drives the existing Execute."
 [task.13.22.2]
 title = "Gate 0x101D calls on the merge plan height, value and static-call context"
 status = "done"
