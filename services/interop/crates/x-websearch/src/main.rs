@@ -16,8 +16,9 @@ use x_websearch::crawl::{CrawlBudget, CrawlReport, Crawler, StopSignal};
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
 use x_websearch::keys::ATTESTOR_KEY_FILE;
-use x_websearch::payment::{system_clock, GatewayRpc, PaymentGate, RpcAnswer};
+use x_websearch::payment::{system_clock, PaymentGate};
 use x_websearch::program::{self, ProgramAttestor, ProgramExchange, ProgramRelay, Step};
+use x_websearch::settlement::SettlementRpc;
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -205,32 +206,11 @@ fn directory_usable(path: &std::path::Path) -> bool {
             .is_ok()
 }
 
-fn settlement_usable(config: &Config, network_id: u32, endpoint: &str) -> bool {
-    let Ok(rpc) = GatewayRpc::new(endpoint) else {
+fn settlement_usable(config: &Config, endpoint: &str) -> bool {
+    let Ok(rpc) = SettlementRpc::new(endpoint, config.evm.chain_id) else {
         return false;
     };
-    let rpc = match config.gateway.authorization_file.as_deref() {
-        Some(path) => match rpc.with_authorization_file(path) {
-            Ok(rpc) => rpc,
-            Err(_) => return false,
-        },
-        None => return false,
-    };
-    let Some(RpcAnswer::Result(node)) = rpc.call("lx_getNodeInfo", &serde_json::json!([])) else {
-        return false;
-    };
-    node.get("network_id").and_then(serde_json::Value::as_u64) == Some(u64::from(network_id))
-        && node
-            .get("protocol_version")
-            .and_then(serde_json::Value::as_u64)
-            == Some(u64::from(x_websearch::payment::PROTOCOL_VERSION))
-        && config.gateway.receipt_keys.iter().any(|key| {
-            node.get("authorised_sequencer_key")
-                .and_then(serde_json::Value::as_str)
-                == Some(x_websearch::payment::hex(&key.public_key()).as_str())
-                && layerx_wire::handover::sequencer_id(&key.public_key()).ok()
-                    == Some(key.sequencer_id())
-        })
+    rpc.sequencer_receipt(&[0; 32]).is_ok()
 }
 
 fn peer_quorum_usable(
@@ -364,11 +344,7 @@ impl ReadinessProbe {
         self.readiness.update(
             "paid_delivery",
             "settlement_authority",
-            settlement_usable(
-                &self.config,
-                self.readiness.network_id,
-                &self.config.gateway.endpoint,
-            ),
+            settlement_usable(&self.config, &self.config.gateway.endpoint),
         );
         if let Some(signer) = self.signer {
             let rpc = EvmRpc::new(&self.config.evm.endpoint);
