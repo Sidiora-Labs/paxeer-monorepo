@@ -104369,7 +104369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.9]
 title = "Serve Market.marginTiers from perps.market_tiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.42.4", "3.42.7"]
