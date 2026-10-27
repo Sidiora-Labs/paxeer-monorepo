@@ -134,15 +134,25 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 	}
 	ordinal := uint32(counter.Uint64())
 	key := paytypes.DeriveIdempotencyKey([32]byte(ctx.EVMTxHash()), ordinal, selector)
-	payload, key, err := payPayload(method.Name, args, key)
+	var output []byte
+	switch method.Name {
+	case "escrowOpen", "escrowCapture", "escrowPartialCapture", "escrowRelease", "escrowTimeout", "escrowDisputeOpen", "escrowDisputeResolve":
+		output, err = p.escrowHandlers(ctx, method, caller, args, key, evm)
+	default:
+		var payload []byte
+		payload, key, err = payPayload(method.Name, args, key)
+		if err == nil {
+			_, err = p.keeper.Submit(ctx, caller, method.Name, payload, key)
+		}
+		if err == nil {
+			output, err = method.Outputs.Pack()
+		}
+	}
 	if err != nil {
 		return nil, err
 	}
-	if _, err = p.keeper.Submit(ctx, caller, method.Name, payload, key); err != nil {
-		return nil, err
-	}
 	evm.StateDB.SetTransientState(address, ordinalKey, common.BigToHash(counter.Add(counter, big.NewInt(1))))
-	return method.Outputs.Pack()
+	return output, nil
 }
 
 func payU128(v interface{}) codec.U128 {
@@ -240,29 +250,16 @@ func payPayload(name string, a []interface{}, key [32]byte) ([]byte, [32]byte, e
 }
 
 func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{}) ([]byte, error) {
+	if output, handled, err := p.serviceViewHandlers(ctx, method, args); handled {
+		return output, err
+	}
 	id := args[0].([32]byte)
 	var record interface{}
 	found := true
 	var err error
 	switch method.Name {
-	case "getEscrow":
-		record, found = p.keeper.GetEscrow(ctx, id)
-	case "escrowRemaining":
-		value, ok := p.keeper.EscrowRemaining(ctx, id)
-		if !ok {
-			return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: escrow not found")
-		}
-		return method.Outputs.Pack(payAmount(value))
-	case "getEscrowResult":
-		_, found = p.keeper.GetEscrowResult(ctx, id)
-		if found {
-			key := paytypes.KernelKVKey(paytypes.EscrowModuleID, append([]byte("result:"), id[:]...))
-			for _, pair := range p.keeper.ExportGenesis(ctx).KernelRecords {
-				if bytes.Equal(pair.Key, key) {
-					return method.Outputs.Pack(pair.Value)
-				}
-			}
-		}
+	case "getEscrow", "escrowRemaining", "getEscrowResult":
+		return p.escrowHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
 	case "getStream":
 		r, e := p.keeper.GetStream(ctx, id)
 		if e != nil {
@@ -281,29 +278,6 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 			return nil, e
 		}
 		return method.Outputs.Pack(accrued.BigInt(), unsettled.BigInt())
-	case "getOffer":
-		record, found = p.keeper.GetOffer(ctx, id)
-	case "getAgreement":
-		record, found = p.keeper.GetAgreement(ctx, id)
-	case "getCommitment":
-		record, found = p.keeper.GetCommitment(ctx, id)
-	case "getDelivery":
-		record, found = p.keeper.GetDelivery(ctx, id)
-	case "latestDelivery":
-		record, found = p.keeper.LatestDelivery(ctx, id)
-	case "getProgress":
-		record, found = p.keeper.GetProgress(ctx, id)
-	case "getDispute":
-		record, found = p.keeper.GetDispute(ctx, id)
-	case "progressHighWater":
-		value, _ := p.keeper.ProgressHighWater(ctx, id)
-		return method.Outputs.Pack(value)
-	case "getExecution":
-		r, ok := p.keeper.GetExecution(ctx, id)
-		if !ok {
-			return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: execution not found")
-		}
-		return method.Outputs.Pack(append(append([]byte{}, r.CanonicalPayload[:r.CanonicalPayloadLength]...), r.Signature[:]...))
 	case "getBudget", "budgetRemaining":
 		key := paytypes.KernelKVKey(paytypes.BudgetModuleID, append([]byte("budget:"), id[:]...))
 		found = false
