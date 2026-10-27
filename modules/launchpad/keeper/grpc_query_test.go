@@ -283,9 +283,13 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
-			if tc.name == "Params" {
+			switch tc.name {
+			case "Params":
 				require.NoError(t, err)
-			} else {
+			case "Market":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "empty denom", status.Convert(err).Message())
+			default:
 				require.Equal(t, codes.Unimplemented, status.Code(err))
 				require.Equal(t, "method "+tc.name+" not implemented", status.Convert(err).Message())
 			}
