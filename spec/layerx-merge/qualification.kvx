@@ -7357,3 +7357,51 @@ symbol = "do_1"
 observed = "do_1 asked wave 14 to blank-import precompiles/layerxagent/oracle, scheduler and streams, packages created at waves 25 and 27 (2.36.1, 2.35.1) and registered at waves 26, 15 and 28 (2.36.2, 2.34.2, 2.35.2); the build of attempt e15bf0336 failed on the two missing packages while the keeper and host accessors and their two tests were complete. 2.34.2 and 13.22.1 wait on 5.94.2's accessors (finding.2.34.2, finding.13.22.1), so the edge cannot run the other way."
 assumption = "The imports and TestMergeConstructorsRegisteredForAgentOracleSchedulerStreams move to the new task 5.94.4 at wave 29 with req.5965 ac_1; 5.94.2 keeps the accessors and reqs 5965.2 and 5965.3. Recorded once."
 severity = "major"
+
+[finding.5.0.3]
+task = "5.0.3"
+file = "node/app.go"
+symbol = "do_6"
+observed = "do_6 asked this wave-14 task to drop the DistrKeeper argument of tokenfactorykeeper.NewKeeper at node/app.go:807 and to build the anchor module with NewAppModule(keeper, &app.UpgradeKeeper) at node/app.go:1105, but those signatures only exist after 6.26.2 and 6.31.5, which require 5.0.3; attempt 51fe7c929 failed the build on both call sites and no requires edge can fix an order that breaks either way."
+assumption = "Each call-site change moves to the task that changes the signature (6.26.2 and 6.31.5, which now touch node/app.go and the test files that call the old signatures, with 6.96.1 ordered after 6.31.5); wiring.J35.5 and J35.7 now carry the live line numbers. Recorded once."
+severity = "major"
+
+[finding.5.19.4]
+task = "5.19.4"
+file = "node/precompiles.go"
+symbol = "do_1"
+observed = "Attempt 7a11a9665 imported precompiles/layerxpay, whose merge constructor needs the LayerXPayK accessor that task 5.94.2 adds, so node.New panicked without it; the attempt also added its own LayerXPayK and the precompiles/layerxprograms import whose constructor task 13.22.1 writes later."
+assumption = "5.19.4 requires 5.94.2 and imports no layerxprograms; the 0x101D import moves to 13.22.1 with req.5052 ac_1 adjusted. Same family as finding.5.94.2. Recorded once."
+severity = "major"
+
+[finding.8.5.1]
+task = "8.5.1"
+file = "services/platform/hosted/gateway/src/rpc.rs"
+symbol = "kernel_backend"
+observed = "Attempt cee5014da made px_getBalances read bank balances at one height, but kernel_backend at rpc.rs:356 still routes px_getBalances to the kernel and degraded.rs:582-585 asserts that refusal, so the balances test answered kernel_unavailable and the fix lay outside the declared touches."
+assumption = "Both files join the touches with a do_6 that removes the kernel routing and replaces the degraded assertion with the chain-state answer the task defines. Recorded once."
+severity = "major"
+
+[finding.6.2.2]
+task = "6.2.2"
+file = "spec/layerx-merge/contracts/address-table.md"
+symbol = "TestLXPRevertTable"
+observed = "TestLXPRevertTable fails at the base for 110 registered codes (LXP_LAUNCHPAD_*, LXP_PERPS_*, LXP_PRICEFEED_*, LXP_PAY_UNBOUND_CALLER, LXP_PAY_KERNEL_GATE_MISMATCH, LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE) that have no address-table row, while the three arbiter rows the task names already carry their values; attempt a08c12c6b could not add rows to a file outside its touches."
+assumption = "The address table joins the touches with a do_5 adding the missing rows in lxpRevertTable order; the test is unchanged. Recorded once."
+severity = "major"
+
+[finding.5.6.5]
+task = "5.6.5"
+file = "precompiles/setup.go"
+symbol = "MissingMergeConstructors"
+observed = "do_3 of 5.6.5 calls precompiles.MissingMergeConstructors, which task 6.6.5 writes, while 6.6.5 required 5.6.5; attempt 6a63762e6 failed the build on the missing symbol."
+assumption = "The edge is reversed: 5.6.5 requires 6.6.5 (published at 6ae4a9196) and 6.6.5 no longer requires 5.6.5. Recorded once."
+severity = "major"
+
+[finding.7.26.4]
+task = "7.26.4"
+file = "api/tokenfactory_rest_test.go"
+symbol = "CreateDenom"
+observed = "The api test package does not compile at the base: CreateDenom is declared at api/tokenfactory_rest_test.go:48 and api/bank_rest_test.go:21, so every go test -c of ./api/ fails (attempt 9d5ed51f6 of 7.26.4; 7.28.1, 7.28.2, 7.28.3, 7.29.1 and 7.29.2 would fail the same way)."
+assumption = "7.26.4 owns the rename of the tokenfactory helper and the five sibling tasks require 7.26.4. Recorded once."
+severity = "major"
