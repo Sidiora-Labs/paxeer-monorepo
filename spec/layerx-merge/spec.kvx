@@ -104217,7 +104217,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.4]
 title = "Expose chain decimals, tick, lot, tier class and listing time on GraphQL Market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.42.2"]
@@ -147571,7 +147571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.12.2]
 title = "Report settlement readiness from the sequencer instead of the hosted gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.0.3", "9.1.7"]
@@ -149631,7 +149631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.34.4]
 title = "Check the settlement endpoint with eth_chainId and pax_ support at startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.34.3"]
@@ -156214,7 +156214,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.22.1]
 title = "Write the 0x101D executor, merge constructor and method dispatch table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["13.21.7", "13.21.9", "5.94.2", "5.19.4"]
