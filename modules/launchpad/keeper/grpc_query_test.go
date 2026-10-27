@@ -295,8 +295,13 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "FeeAccounting",
 			call: func(t *testing.T, goCtx context.Context) error {
+				liabilities, err := querier.TotalLiabilities(ctx)
+				require.NoError(t, err)
 				response, err := client.FeeAccounting(goCtx, &types.QueryFeeAccountingRequest{})
-				require.Nil(t, response)
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, liabilities, response.Accounting.TotalLiabilities)
+				require.Equal(t, sdk.ZeroInt(), response.Accounting.PendingProtocolFees)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -345,7 +350,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed", "HasRole", "QuoteLedger":
+			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed", "HasRole", "QuoteLedger", "FeeAccounting":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
