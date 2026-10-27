@@ -20094,7 +20094,7 @@ ac_1 = "An import through services/explorer/backend/apps/explorer/test/explorer/
 
 [req.14262]
 title = "Check every kept PaxeerXLogs topic against the precompile ABI files"
-ac_1 = "Every topic in PaxeerXLogs.definitions/0 (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:685) equals keccak256 of an event in the ABI of its precompile."
+ac_1 = "Every topic in PaxeerXLogs.definitions/0 (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:685) equals keccak256 of an event in an ABI file served at its precompile address (precompiles/launchpad/setup.go:11-18 serves the v6.12.0 and the v6.10 file at 0x0000000000000000000000000000000000001017)."
 ac_2 = "No PaxeerXLogs definition targets 0x1013 or 0x1014."
 
 [req.14263]
@@ -76033,7 +76033,7 @@ qualification = "UNRUN"
 [acceptance.14.262.1]
 feature = "14"
 req = "14262.1"
-scenario = "Given the four precompile abi.json files, when each definition topic is compared with the event selectors of its address, then every topic is found"
+scenario = "Given the precompile ABI files, the launchpad address carrying both its v6.12.0 and its v6.10 file, when each definition topic is compared with the event selectors served at its address, then every topic is found"
 contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
 test = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs::kept_topics_match_precompile_abis (planned)"
 qualification = "UNRUN"
@@ -96494,6 +96494,7 @@ do_2 = "Call checkPause (modules/layerxledger/keeper/pause.go (planned)) with th
 do_3 = "Run the activity through execute (modules/layerxledger/keeper/execute.go (planned)) and pass the receipt to Mirror (modules/layerxledger/keeper/mirror.go (planned)) and LedgerEvents (modules/layerxledger/keeper/events.go (planned))."
 do_4 = "Derive the context hash with the send-context rule of src/modules/asset/lx_asset_registry.c:101-115 over the fields of PayExactArgs (modules/layerxledger/types/payload_transfer.go (planned)), with the sequence taken from NextSequence."
 do_5 = "Write TestPayExact, TestPayExactExpired in modules/layerxledger/keeper/payexact_test.go (planned) on the keeper harness of modules/layerxledger/keeper/harness_test.go (planned)."
+do_6 = "Do not read the stored idempotent receipt or assert an idempotent replay refusal: since 1.2.1 a reused idempotency key at the next account sequence executes (tests/codec/lxp_test_idempotency_retired.c reused_key_next_sequence_executes) and Host.ReadIdempotentReceipt answers LXP_ERR_UNKNOWN_FIELD (modules/lxphost/read.go:164); the replay refusal is the actor account sequence, so a second PayExact with the same PaymentReference executes at the next sequence."
 symbols = ["PayExact", "PayExactArgs", "TestPayExact", "TestPayExactExpired"]
 touches = ["modules/layerxledger/keeper/payexact.go", "modules/layerxledger/keeper/payexact_test.go"]
 tests = ["modules/layerxledger/keeper/payexact_test.go::TestPayExact", "modules/layerxledger/keeper/payexact_test.go::TestPayExactExpired"]
@@ -159765,7 +159766,7 @@ reqs = ["14251.1", "14251.2", "14251.3"]
 capabilities = ["14.23.2"]
 interfaces = ["interface.14.http-get-api-v2-paxeer-x-archive-anchors", "interface.14.http-get-api-v2-paxeer-x-archive-receipts", "interface.14.http-get-api-v2-paxeer-x-archive-receipts-id-j54"]
 do_1 = "Add get(\"/archive/anchors\"), get(\"/archive/receipts\") and get(\"/archive/receipts/:id\") to V2.PaxeerX.ArchiveController in the paxeer-x scope at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex:273-282."
-do_2 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex (planned) with anchors/2, receipts/2 and receipt/2 reading Explorer.Chain.PaxeerX.Anchor and Receipt the way services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/anchor_controller.ex:47 and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/receipt_controller.ex:59 and :92 do, with the same paging keys."
+do_2 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex (planned) with anchors/2, receipts/2 and receipt/2 reading Explorer.Chain.PaxeerX.Anchor directly for anchors (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/anchor_controller.ex:51 pipes into UnifiedAccount.anchors/3, which no module defines and the compiler reports as undefined or private) and Receipt the way services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/receipt_controller.ex:59 and :92 do, with the same paging keys."
 do_3 = "Create services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/archive_view.ex (planned) rendering each item through the planned services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_anchor.ex and services/explorer/backend/apps/block_scout_web/lib/block_scout_web/schemas/api/v2/paxeer_x/archive_receipt.ex shapes with frozen: true and without the settlement status field."
 do_4 = "Create services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/archive_controller_test.exs (planned) with archive_anchors_lists_frozen_rows, archive_receipts_lists_frozen_rows and archive_receipt_404_for_unknown_id."
 symbols = []
@@ -160104,8 +160105,8 @@ requires = ["14.25.1"]
 reqs = ["14262.1", "14262.2"]
 capabilities = ["14.25.5"]
 interfaces = []
-do_1 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs (planned) with kept_topics_match_precompile_abis, which loads precompiles/addr/abi.json:1, precompiles/layerxexchange/abi.json:1, precompiles/layerxbridge/abi.json:1 and precompiles/launchpad/abi.json:1, computes keccak256 of each event signature and asserts every PaxeerXLogs.definitions/0 entry (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:375-376) has its topic among them for its address."
-do_2 = "Map the addresses through the kept @precompile_names at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:60-65: addr, layerxexchange, layerxbridge, launchpad."
+do_1 = "Create services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs (planned) with kept_topics_match_precompile_abis, which loads precompiles/addr/abi.json:1, precompiles/layerxexchange/abi.json:1, precompiles/layerxbridge/abi.json:1 and, for launchpad, both precompiles/launchpad/abi.json:1 (the v6.12.0 surface) and precompiles/launchpad/legacy/v610/abi.json:1 (the v6.10 replay copy that decision.401 keeps; precompiles/launchpad/setup.go:11-18 installs both versions at 0x0000000000000000000000000000000000001017), computes keccak256 of each event signature and asserts every PaxeerXLogs.definitions/0 entry (services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:375-376) has its topic among the selectors of the ABI file or files served at its address."
+do_2 = "Map the addresses through the kept @precompile_names at services/explorer/backend/apps/indexer/lib/indexer/transform/paxeer_x_logs.ex:60-65: addr, layerxexchange, layerxbridge, launchpad. For launchpad the selector set is the union of the two files."
 do_3 = "In services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_abi_test.exs (planned) add no_definition_targets_retired_address, which asserts no definition address is 0x...1013 or 0x...1014."
 do_4 = "In services/explorer/deploy/tools/mix-in-builder.sh mount the repository's precompiles directory read-only next to the backend mounts at :308-314 (--volume \"$repo_root/precompiles:/precompiles:ro\"), forward PAXEER_PRECOMPILES_DIR=/precompiles with the fixed environment at :316-323, and make ensure_mounts (:190-194) die when $repo_root/precompiles is not a directory; paxeer_x_logs_abi_test.exs resolves the ABI directory at run time from PAXEER_PRECOMPILES_DIR when it is set and otherwise from the __DIR__ climb to the repository's precompiles directory, because the builder mounts only services/explorer/backend at /app, where the climb stops at /precompiles."
 symbols = []
