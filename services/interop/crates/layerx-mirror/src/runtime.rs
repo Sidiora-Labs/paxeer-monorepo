@@ -227,7 +227,7 @@ fn spawn_node(
             match source.acquire(next_batch) {
                 Ok(acquired) => {
                     update_status(&status, |value| {
-                        value.node.latest_batch_observed = Some(acquired.head.latest_sealed_batch);
+                        value.node.latest_batch_observed = Some(acquired.head.sealed_height());
                         record_checkpoint(value, &acquired.checkpoint);
                     });
                     if !acquired
@@ -289,10 +289,10 @@ fn spawn_node(
                 }
                 Err(error) => match source.observe_checkpoint() {
                     Ok((head, checkpoint))
-                        if head.latest_sealed_batch.checked_add(1) == Some(next_batch) =>
+                        if head.sealed_height().checked_add(1) == Some(next_batch) =>
                     {
                         update_status(&status, |value| {
-                            value.node.latest_batch_observed = Some(head.latest_sealed_batch);
+                            value.node.latest_batch_observed = Some(head.sealed_height());
                             record_checkpoint(value, &checkpoint);
                             value.node.ready =
                                 matches!(checkpoint, CheckpointAcquisition::Verified(_));
@@ -1202,18 +1202,26 @@ mod tests {
                 "deadline_ms": 30000,
                 "maximum_archive_bytes": 67108864,
                 "maximum_archive_chunks": 65536,
-                "checkpoint_policy": {}
+                "checkpoint_policy": {{
+                  "rpc": {{
+                    "endpoints": [
+                      {{"url":"https://ethereum-a.invalid/rpc","ca_certificate_der":"/run/secrets/a.der","bearer_token_file":"/run/secrets/a.token","independent_backend":"ethereum-a"}},
+                      {{"url":"https://ethereum-b.invalid/rpc","ca_certificate_der":"/run/secrets/b.der","bearer_token_file":"/run/secrets/b.token","independent_backend":"ethereum-b"}},
+                      {{"url":"https://ethereum-c.invalid/rpc","ca_certificate_der":"/run/secrets/c.der","bearer_token_file":"/run/secrets/c.token","independent_backend":"ethereum-c"}}
+                    ],
+                    "quorum": 2,
+                    "connect_timeout_ms": 3000,
+                    "request_timeout_ms": 15000,
+                    "maximum_response_bytes": 16777216
+                  }},
+                  "chain_id": 125,
+                  "genesis_hash_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+                  "sequencer_public_key_hex": "0000000000000000000000000000000000000000000000000000000000000001",
+                  "confirmations": 12
+                }}
               }},
               {}
             }}"#,
-            serde_json::to_string(
-                &serde_json::from_str::<serde_json::Value>(include_str!(
-                    "../../../deploy/mirror/config.example.json"
-                ))
-                .unwrap_or_else(|error| panic!("portable config: {error:?}"))["node"]
-                    ["checkpoint_policy"]
-            )
-            .unwrap_or_else(|error| panic!("portable policy: {error:?}")),
             sections.join(",\n")
         )
     }
@@ -1291,14 +1299,7 @@ mod tests {
         let bytes = b"inventory object removed before recovery";
         let missing = archive_commitment(bytes);
         spool
-            .put(
-                missing,
-                bytes,
-                NodeHead {
-                    latest_sealed_batch: 1,
-                    latest_finalised_checkpoint: None,
-                },
-            )
+            .put(missing, bytes, NodeHead::new(1, None))
             .unwrap_or_else(|error| panic!("spool missing archive fixture: {error:?}"));
         let commitments = spool
             .commitments()
@@ -1323,14 +1324,7 @@ mod tests {
             .unwrap_or_else(|error| panic!("open archive spool: {error:?}"));
         let bytes = b"not a canonical LayerX mirror archive";
         spool
-            .put(
-                archive_commitment(bytes),
-                bytes,
-                NodeHead {
-                    latest_sealed_batch: 1,
-                    latest_finalised_checkpoint: None,
-                },
-            )
+            .put(archive_commitment(bytes), bytes, NodeHead::new(1, None))
             .unwrap_or_else(|error| panic!("spool corrupt archive fixture: {error:?}"));
 
         assert!(matches!(

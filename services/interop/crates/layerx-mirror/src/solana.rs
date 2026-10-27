@@ -437,15 +437,26 @@ impl SolanaArchiveClient {
     ///
     /// # Errors
     /// Refuses identity, RPC, archive, and canonical-coordinate failures.
-    pub fn retrieve_finalized(&self, commitment: ArchiveCommitment) -> Result<Option<Vec<u8>>, SolanaError> {
+    pub fn retrieve_finalized(
+        &self,
+        commitment: ArchiveCommitment,
+    ) -> Result<Option<Vec<u8>>, SolanaError> {
         let reader = SolanaMirrorReader::open(SolanaMirrorReadConfig {
-            rpc: self.config.rpc.clone(), genesis_hash: self.config.genesis_hash,
-            archive_program: self.config.archive_program, upgradeable_loader: self.config.upgradeable_loader,
-            program_data_account: self.config.program_data_account, program_code_hash: self.config.program_code_hash,
+            rpc: self.config.rpc.clone(),
+            genesis_hash: self.config.genesis_hash,
+            archive_program: self.config.archive_program,
+            upgradeable_loader: self.config.upgradeable_loader,
+            program_data_account: self.config.program_data_account,
+            program_code_hash: self.config.program_code_hash,
             publisher: self.payer,
         })?;
         match reader.retrieve(commitment)? {
-            Some(observed) if reader.is_coordinate_canonical(observed.rooted_slot, observed.rooted_blockhash)? => Ok(Some(observed.archive)),
+            Some(observed)
+                if reader
+                    .is_coordinate_canonical(observed.rooted_slot, observed.rooted_blockhash)? =>
+            {
+                Ok(Some(observed.archive))
+            }
             Some(_) => Err(SolanaError::Reorg),
             None => Ok(None),
         }
@@ -1492,14 +1503,8 @@ mod tests {
         assert_eq!(decoded.length, ARCHIVE.len());
         assert_eq!(decoded.chunk_count, 8);
         assert_eq!(decoded.digest, <[u8; 32]>::from(Sha256::digest(ARCHIVE)));
-        let archive = Archive::from_spool(
-            ARCHIVE.to_vec(),
-            NodeHead {
-                latest_sealed_batch: 1,
-                latest_finalised_checkpoint: None,
-            },
-        )
-        .map_err(|error| format!("native archive: {error:?}"))?;
+        let archive = Archive::from_spool(ARCHIVE.to_vec(), NodeHead::new(1, None))
+            .map_err(|error| format!("native archive: {error:?}"))?;
         let instructions =
             stages(&archive, 720).map_err(|error| format!("publisher instructions: {error:?}"))?;
         assert_eq!(instructions.len(), 10);

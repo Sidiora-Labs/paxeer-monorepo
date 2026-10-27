@@ -10700,6 +10700,27 @@
       "connect_timeout_seconds": 3
     },
     {
+      "id": "explorer-backend:GET:/api/v2/transactions/{transaction_hash_param}/signature",
+      "service": "explorer",
+      "method": "GET",
+      "path": "/explorer/backend/api/v2/transactions/{transaction_hash_param}/signature",
+      "upstream_path": "/api/v2/transactions/{transaction_hash_param}/signature",
+      "transport": "http",
+      "authentication": "public-read",
+      "upstream": "explorer-backend",
+      "proxy": true,
+      "timeout_seconds": 8,
+      "retries": 0,
+      "source": "services/platform/hosted/gateway/src/explorer_proxy.rs",
+      "version": "2",
+      "consumers": [
+        "explorer"
+      ],
+      "health_predicate": "actual-upstream-operation-and-response-contract",
+      "timeout_scope": "per-io",
+      "connect_timeout_seconds": 3
+    },
+    {
       "id": "explorer-backend:GET:/api/v2/proxy/account-abstraction/status",
       "service": "explorer",
       "method": "GET",
