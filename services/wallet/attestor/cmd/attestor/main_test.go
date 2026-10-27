@@ -217,6 +217,69 @@ func TestRunRefusesPeerWithoutPin(t *testing.T) {
 	}
 }
 
+func TestRunRefusesWideActivityTypes(t *testing.T) {
+	t.Run("wide activity types", func(t *testing.T) {
+		dir := t.TempDir()
+		keyFile := filepath.Join(dir, "store.key")
+		if err := os.WriteFile(keyFile, []byte(hex.EncodeToString(make([]byte, 31))+"07"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		env := map[string]string{
+			config.EnvNodeID:         "node-1",
+			config.EnvListenAddr:     "127.0.0.1:0",
+			config.EnvPeerListenAddr: "127.0.0.1:0",
+			config.EnvNodeKeyFile:    keyFile,
+			config.EnvDataDir:        filepath.Join(dir, "data"),
+			config.EnvChainID:        "125",
+			config.EnvActivityTypes:  "0x10005,0x30002",
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		listened := false
+		err := run(ctx, func(k string) string { return env[k] }, func(listening) { listened = true })
+		const want = `config: ATTESTOR_ACTIVITY_TYPES: activity type "0x30002" is not the asset send`
+		if err == nil || err.Error() != want {
+			t.Fatalf("run returned %v, want %s", err, want)
+		}
+		if listened {
+			t.Fatal("run listened with wide activity types")
+		}
+		if _, err := os.Stat(env[config.EnvDataDir]); !errors.Is(err, os.ErrNotExist) {
+			t.Fatalf("run reached storage initialization before refusing wide activity types: %v", err)
+		}
+	})
+
+	t.Run("asset send", func(t *testing.T) {
+		url, _, client := runMetricsDaemon(t)
+		url = strings.TrimSuffix(url, server.PathMetrics) + "/health"
+		resp, err := client.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var report health.Report
+		if err := json.NewDecoder(resp.Body).Decode(&report); err != nil {
+			t.Fatal(err)
+		}
+		if report.NodeID != "node-1" || report.ShareCount != 0 {
+			t.Fatalf("health report %+v", report)
+		}
+		if resp.StatusCode != http.StatusServiceUnavailable || report.Ready {
+			t.Fatalf("a node with no reachable peer reported ready: %d %+v", resp.StatusCode, report)
+		}
+
+		mutual := client.Transport.(*http.Transport).TLSClientConfig
+		anonymous := &http.Client{Timeout: 10 * time.Second, Transport: &http.Transport{TLSClientConfig: &tls.Config{
+			MinVersion: tls.VersionTLS13, RootCAs: mutual.RootCAs,
+		}}}
+		t.Cleanup(anonymous.CloseIdleConnections)
+		if resp, err := anonymous.Get(url); err == nil {
+			resp.Body.Close()
+			t.Fatalf("health answered without a client certificate: %d", resp.StatusCode)
+		}
+	})
+}
+
 func postStatus(t *testing.T, client *http.Client, url string) (int, string) {
 	t.Helper()
 	resp, err := client.Post(url, "application/json", strings.NewReader(`{}`))

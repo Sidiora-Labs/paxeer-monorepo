@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 import {
@@ -7,7 +8,9 @@ import {
   decodeNativeProgramCall,
   ReceiptFailureCode,
   ReceiptVerificationError,
+  Rung,
   verifyReceipt,
+  verifyReceiptOutcome,
   type AuthorizedReceiptBatch,
   type ReceiptVerification,
 } from "../src/index.js";
@@ -95,6 +98,40 @@ function authorizedBatch(fixture: ReceiptFixture): AuthorizedReceiptBatch {
     sequencerPublicKey: hexBytes(fixture.authorized_batch.sequencer_public_key_hex),
   };
 }
+
+async function verifyReceipt_reports_the_submitted_rung_under_an_authority_key(): Promise<void> {
+  for (const name of [
+    "receipt-positive-v2.json",
+    "receipt-programs-positive-v2.json",
+    "receipt-positive-v3.json",
+    "receipt-programs-positive-v3.json",
+  ]) {
+    const fixture = loadFixture(name);
+    const canonical = hexBytes(fixture.canonical_receipt_hex);
+    const authority = authorizedBatch(fixture);
+    const selection = { protocolVersion: name.endsWith("v3.json") ? 3 as const : 2 as const };
+    for (const verify of [verifyReceipt, verifyReceiptOutcome]) {
+      const verified = await verify(canonical, authority, selection);
+      assert(verified.rung === Rung.Submitted, `${name} overstates the authority key's proof rung`);
+      assert(verified.level === "sequencer-signed", `${name} verification level diverged`);
+      hexEqual(verified.receiptDigest, fixture.expected.receipt_digest_hex, `${name} receipt digest`);
+
+      const wrongKey = authority.sequencerPublicKey.slice();
+      wrongKey[0] = wrongKey[0]! ^ 1;
+      let refused = false;
+      try {
+        await verify(canonical, { ...authority, sequencerPublicKey: wrongKey }, selection);
+      } catch (error) {
+        assert(error instanceof ReceiptVerificationError, `${name} returned an untyped key failure`);
+        assert(error.check === ReceiptFailureCode.SequencerSignature, `${name} key failure taxonomy diverged`);
+        refused = true;
+      }
+      assert(refused, `${name} verified under an unrelated authority key`);
+    }
+  }
+}
+
+test(verifyReceipt_reports_the_submitted_rung_under_an_authority_key);
 
 export async function verifyReceiptFixture(): Promise<void> {
   const outcome = decodeProgramReceiptOutcome(hexBytes(PROGRAM_OUTCOME_V3), 1);
