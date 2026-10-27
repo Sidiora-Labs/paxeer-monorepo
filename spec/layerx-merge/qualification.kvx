@@ -7821,3 +7821,11 @@ symbol = "MigrationPlaneResult"
 observed = "At 9f3341181 the dependents build failed: layerx-migrate completes a migration through GatewayCore::settle_with_receipt (lib.rs:1020) with the AuthorizedBatch of MigrationPlaneResult (lib.rs:586-591), and no task migrates that path to the sequencer receipt."
 assumption = "Retiring the method orphans the migrate crate's completion; whether 11.1.4 ports MigrationPlaneResult to the signed sequencer receipt or a new task does is the owner's call. The task is held once its live attempt ends."
 severity = "major"
+
+[finding.11.0.4]
+task = "11.0.4"
+file = "services/interop/deploy/gateway/railway.env.example"
+symbol = "test_template_names_every_variable_the_service_reads"
+observed = "At aeddaac1d the graph check refused symbol railway.env.example, a file name rather than a declared symbol."
+assumption = "The task's symbols now name the test function; no other undone task declares a file name as a symbol."
+severity = "minor"
