@@ -32,7 +32,6 @@ const (
 	TokenfactoryStoreKey = "tokenfactory" // modules/tokenfactory/types.StoreKey
 
 	LayerXCustodyStoreKey  = "layerxcustody"  // modules/layerxcustody/types.StoreKey
-	LayerXAnchorStoreKey   = "layerxanchor"   // modules/layerxanchor/types.StoreKey
 	LayerXExchangeStoreKey = "layerxexchange" // modules/layerxexchange/types.StoreKey
 	LayerXBridgeStoreKey   = "layerxbridge"   // modules/layerxbridge/types.StoreKey
 	LaunchpadStoreKey      = "launchpad"      // modules/launchpad/types.StoreKey
@@ -75,7 +74,6 @@ var MemIAVLStoreKeys = []string{
 	EpochStoreKey,
 	TokenfactoryStoreKey,
 	LayerXCustodyStoreKey,
-	LayerXAnchorStoreKey,
 	LayerXExchangeStoreKey,
 	LayerXBridgeStoreKey,
 	LaunchpadStoreKey,
