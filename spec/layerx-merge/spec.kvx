@@ -149781,7 +149781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.35.2]
 title = "Serve /program-attestations from the program exchange of the EVM relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["11.32.3"]
