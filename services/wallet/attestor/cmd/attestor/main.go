@@ -135,7 +135,12 @@ func policies(cfg *config.Config, st *store.Store) (*policy.Policy, *policy.Spen
 }
 
 func NewMetrics(registry *prometheus.Registry) (*health.Metrics, error) {
-	return health.NewMetrics(registry)
+	codes := server.ErrorCodes()
+	refusalCodes := make([]string, 0, len(codes))
+	for code := range codes {
+		refusalCodes = append(refusalCodes, code)
+	}
+	return health.NewMetrics(registry, refusalCodes)
 }
 
 func run(ctx context.Context, getenv func(string) string, ready func(listening)) error {

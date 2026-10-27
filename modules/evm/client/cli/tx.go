@@ -78,7 +78,7 @@ func GetTxCmd() *cobra.Command {
 
 func CmdAssociateAddress() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "associate-address [optional priv key hex] --rpc=<url> --from=<sender>",
+		Use:   "associate-address [optional priv key hex] --evm-rpc=<url> --from=<sender>",
 		Short: "associate EVM and Pax address for the sender",
 		Long:  "",
 		Args:  cobra.MaximumNArgs(1),
@@ -228,7 +228,7 @@ type Response struct {
 
 func CmdDeployContract() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy [path to binary] --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
+		Use:   "deploy [path to binary] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: "Deploy an EVM contract for binary at specified path",
 		Long:  "",
 		Args:  cobra.ExactArgs(1),
@@ -301,7 +301,7 @@ func CmdDeployContract() *cobra.Command {
 
 func CmdCallContract() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "call-contract [addr] [payload hex] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
+		Use:   "call-contract [addr] [payload hex] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: "Call EVM contract with a bytes payload in hex",
 		Long:  "",
 		Args:  cobra.ExactArgs(2),
@@ -371,7 +371,7 @@ func CmdCallContract() *cobra.Command {
 
 func CmdERC20Send() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "erc20-send [addr] [recipient] [amount] --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
+		Use:   "erc20-send [addr] [recipient] [amount] --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: "send recipient <amount> (in smallest unit) ERC20 tokens",
 		Long:  "",
 		Args:  cobra.ExactArgs(3),
@@ -440,7 +440,7 @@ func CmdERC20Send() *cobra.Command {
 
 func CmdCallPrecompile() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
+		Use:   "call-precompile [precompile name] [method] [args...] --value=<payment> --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: "call method on precompile",
 		Long:  "",
 		Args:  cobra.MinimumNArgs(2),
@@ -515,7 +515,7 @@ func CmdCallPrecompile() *cobra.Command {
 
 func CmdDeployWPAX() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "deploy-wpax --from=<sender> --gas-fee-cap=<cap> --gas-limt=<limit> --evm-rpc=<url>",
+		Use:   "deploy-wpax --from=<sender> --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: "Deploy ERC20 contract for a native Pax token",
 		Long:  "",
 		Args:  cobra.NoArgs,

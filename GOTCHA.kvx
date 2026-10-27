@@ -8945,3 +8945,27 @@ area = "spec"
 symptom = "a task passes its build and verify gate and the verifier still refuses it with `not defined in the graph` for a name in its symbols"
 cause = "the symbol check indexes declarations only (functions, types, Go, Rust, TypeScript and Python declarations, #define macros); an enumerator, an X-macro result code, a Makefile target, a struct field or a type the task consumes but does not define is never in the graph"
 do = "list in symbols only names the task itself declares; move consumed types, enumerators, result codes, Makefile targets and struct fields out of the list before the task is re-qualified"
+
+[gotcha.1870]
+area = "spec"
+symptom = "every open task of one package parks on the same build failure although none of them touches the files the errors name"
+cause = "the tasks share a package-wide typecheck as their per-task build gate, so pre-existing errors elsewhere in the package fail each task's build before its own files are compiled"
+do = "make the per-task build the test runner's list of the task's own spec file (vitest list <spec>) and keep the package typecheck as a wave-level gate"
+
+[gotcha.1871]
+area = "spec"
+symptom = "a Go test keeps failing with <MODULE>_TEST_POSTGRES_URL or <MODULE>_TEST_REDIS_URL unset although the gate provisions database fixtures for tests that name them"
+cause = "Go test fixtures often read their database and cache URLs in a module-level test-support package (internal/internaltest) rather than in the package under test, so a gate that provisions fixtures by scanning only the task's own paths never sees the variable names"
+do = "scan the enclosing Go module (the directory of the nearest go.mod, including its internal test-support packages) for fixture variable names before deciding what to provision"
+
+[gotcha.1872]
+area = "build"
+symptom = "every `cargo build --locked` in several workspaces fails at the base with `Cargo.lock needs to be updated but --locked was passed` after one task changed a shared crate's dependencies"
+cause = "the task refreshed only its own workspace lockfile while other Cargo.lock files also resolve that crate through path dependencies"
+do = "a task that changes a crate's dependencies must refresh every Cargo.lock that resolves that crate (`cargo update -w --offline` per lockfile, verified with `cargo metadata --locked`); otherwise every `--locked` build in those workspaces fails at the base for everyone"
+
+[gotcha.1873]
+area = "build"
+symptom = "programs-build fails its vendored checksum step (`failed to calculate checksum of: programs/vendor/cc-1.4.4/src/target/apple.rs`) after a vendor refresh that built cleanly in the tree where it was made"
+cause = "a broad ignore pattern such as programs/.gitignore `/**/target/` also hides vendored crate sources (cc src/target/*.rs) and test fixtures (*.pem, *.key), so the refresh commit silently omits files the crates' .cargo-checksum.json lists"
+do = "a vendor refresh must `git add -f` those paths or carry negation patterns, and must be verified with `cargo build --offline` from a fresh clone, not from the tree that still holds the ignored files"

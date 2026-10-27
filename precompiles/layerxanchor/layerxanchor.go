@@ -31,6 +31,7 @@ import (
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/tracing"
@@ -138,6 +139,16 @@ func isView(method string) bool {
 	}
 }
 
+func (p PrecompileExecutor) upgrades() pcommon.UpgradeActivationReader {
+	getter, ok := p.evmKeeper.(interface {
+		UpgradeKeeper() *upgradekeeper.Keeper
+	})
+	if !ok || getter.UpgradeKeeper() == nil {
+		return nil
+	}
+	return getter.UpgradeKeeper()
+}
+
 // CertificateWork reads the attestation count and the validity proof length
 // from a certificate's length prefixes. A certificate too short to carry them
 // reports the maximum attestation count.
@@ -201,6 +212,9 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	}
 	if !isView(method.Name) && readOnly {
 		return nil, errors.New("cannot change layerxAnchor state from staticcall")
+	}
+	if !isView(method.Name) && pcommon.RetiredAt(ctx, p.upgrades(), pcommon.MergeUpgrade, ctx.BlockHeight()) {
+		return pcommon.RetiredRevert(PrecompileName), vm.ErrExecutionReverted
 	}
 	switch method.Name {
 	case RegisterGuarantorMethod, IncreaseBondMethod, OpenChallengeMethod:
