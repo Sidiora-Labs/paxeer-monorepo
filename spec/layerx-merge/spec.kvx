@@ -157155,7 +157155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.1]
 title = "Serve getProgram, getInterface, getProgramOwner and getStateHead from the host store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
@@ -157321,7 +157321,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.6]
 title = "Serve the current and versioned metering schedule views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8", "13.28.4"]
