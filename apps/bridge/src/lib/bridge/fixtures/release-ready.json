@@ -1,0 +1,14 @@
+{
+  "chainId": "1",
+  "vault": "0x1111111111111111111111111111111111111111",
+  "asset": "0x3333333333333333333333333333333333333333",
+  "amount": "100",
+  "paxeerTxHash": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "paxeerNonce": "3",
+  "recipient": "0x2222222222222222222222222222222222222222",
+  "digest": "0xcf04e7b95390c026242eb7d30a7d801e6d8e90d8029db07c2f7254886c885e13",
+  "signatures": [
+    "0x3e1304e4afe41d70613096eefd58b591dc5f10d5e2236e77b5386c594bd67c811f72d5c2f8fb2c1c9bf386590b6373559c3d3e2c951bcee01d4157d9205212fe1b"
+  ],
+  "status": "ready"
+}

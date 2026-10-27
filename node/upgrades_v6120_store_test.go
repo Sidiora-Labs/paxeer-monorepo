@@ -55,7 +55,7 @@ func TestV6120StoreUpgradesAddOnlyTheNewModules(t *testing.T) {
 	require.Empty(t, a.unmountedPlanStores(V6120Upgrade))
 	require.Empty(t, a.unmountedPlanStores(ActivationUpgrade))
 	require.Nil(t, a.unmountedPlanStores(V610Upgrade))
-	require.Nil(t, a.unmountedPlanStores(MergeUpgrade))
+	require.Empty(t, a.unmountedPlanStores(MergeUpgrade))
 }
 
 func TestV6120RefusesUnmountedStores(t *testing.T) {

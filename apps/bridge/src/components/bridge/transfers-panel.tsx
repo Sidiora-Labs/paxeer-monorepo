@@ -1,7 +1,6 @@
 'use client';
 
 import { useQuery } from '@tanstack/react-query';
-import { parseEventLogs } from 'viem';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAccount, useChainId, useSwitchChain, useWriteContract } from 'wagmi';
 import { getTransactionReceipt } from 'wagmi/actions';
@@ -14,7 +13,7 @@ import { Spinner } from '@/components/ui/spinner';
 import { toast } from '@/components/ui/sonner';
 import { formatAmount } from '@/lib/bridge/amount';
 import { bridgeChainByKey, finalityEstimate, paxeer } from '@/lib/bridge/chains';
-import { paxeerXVaultAbi } from '@/lib/bridge/contracts';
+import { enrichRecord } from '@/lib/bridge/enrich';
 import { describeWriteError } from '@/lib/bridge/errors';
 import { foreignTxUrl, paxeerTxUrl } from '@/lib/bridge/explorer';
 import { phaseOf, settlementPatch } from '@/lib/bridge/settlement';
@@ -30,8 +29,8 @@ import {
   useReleaseAttestation,
 } from '@/lib/bridge/use-bridge-state';
 import { wagmiConfig } from '@/lib/bridge/wagmi';
+import { ImportTransfer } from './import-transfer';
 import {
-  bridgeOutNonceFromReceipt,
   buildVerifiedClaim,
   buildVerifiedRelease,
   readTransferLive,
@@ -62,30 +61,7 @@ async function enrichTransfers(list: BridgeTransfer[]): Promise<BridgeTransfer[]
       next.push(transfer);
       continue;
     }
-    let enriched = transfer;
-    if (needsLogIndex && transfer.vault) {
-      try {
-        const events = parseEventLogs({
-          abi: paxeerXVaultAbi,
-          logs: receipt.logs.filter((l) => l.address.toLowerCase() === transfer.vault!.toLowerCase()),
-          eventName: 'BridgeDeposit',
-        });
-        const hit = events.find(
-          (e) =>
-            (e.args.amount as bigint) === BigInt(transfer.amount) &&
-            (e.args.sender as string).toLowerCase() === transfer.account.toLowerCase(),
-        );
-        if (hit && hit.logIndex !== undefined) {
-          enriched = { ...enriched, logIndex: String(hit.logIndex), nonce: String(hit.args.nonce as bigint) };
-        }
-      } catch {
-        // Not a vault deposit log — leave unenriched; tracking still works.
-      }
-    }
-    if (needsNonce) {
-      const nonce = bridgeOutNonceFromReceipt(receipt.logs);
-      if (nonce !== undefined) enriched = { ...enriched, bridgeOutNonce: String(nonce) };
-    }
+    const enriched = enrichRecord(transfer, receipt);
     if (enriched !== transfer) {
       updateTransfer(enriched.id, {
         logIndex: enriched.logIndex,
@@ -210,7 +186,7 @@ function TransferRow({
 
   return (
     <div className="flex flex-col gap-2">
-      <DepositStatus items={[ statusItem ]} explorerUrl={() => sourceUrl} defaultOpen={phase === 'ready'} />
+      <DepositStatus items={[ statusItem ]} explorerUrl={() => sourceUrl} defaultOpen={phase === 'ready'}/>
       {phase === 'attesting' && !attestationApiConfigured ? (
         <p className="px-1 text-[11px] text-muted-foreground">
           Finality reached. The signature bundle comes from the bridge backend, which is not configured in this
@@ -219,13 +195,13 @@ function TransferRow({
       ) : null}
       {phase === 'attesting' && attestationApiConfigured ? (
         <p className="flex items-center gap-1.5 px-1 text-[11px] text-muted-foreground">
-          <Spinner className="size-3" /> Waiting for the attestor threshold…
+          <Spinner className="size-3"/> Waiting for the attestor threshold…
         </p>
       ) : null}
       {phase === 'ready' ? (
         onSettleChain ? (
           <Button size="sm" className="self-start" disabled={settle.isPending} onClick={() => void runSettle()}>
-            {settle.isPending ? <Spinner /> : null}
+            {settle.isPending ? <Spinner/> : null}
             {transfer.direction === 'in' ? 'Claim on Paxeer' : `Release on ${ chain?.label ?? 'destination' }`}
           </Button>
         ) : (
@@ -301,10 +277,11 @@ export function TransfersPanel({ refreshKey }: { refreshKey: number }) {
         </Alert>
       ) : (
         <>
+          <ImportTransfer onImported={onChanged}/>
           {pending.length > 0 ? (
             <div className="flex flex-col gap-3">
               {pending.map((transfer) => (
-                <TransferRow key={transfer.id} transfer={transfer} onChanged={onChanged} />
+                <TransferRow key={transfer.id} transfer={transfer} onChanged={onChanged}/>
               ))}
             </div>
           ) : null}
