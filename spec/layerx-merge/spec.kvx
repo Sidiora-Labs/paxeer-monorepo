@@ -149590,7 +149590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.34.3]
 title = "Broadcast metered draws as receiver-signed 0x101A transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["11.34.2", "11.32.3"]
