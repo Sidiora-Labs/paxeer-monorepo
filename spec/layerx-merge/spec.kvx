@@ -101930,7 +101930,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.2]
 title = "Freeze the 0x1015 order and market view outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -101992,7 +101992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.7.4]
 title = "Freeze the 0x1015 quote outputs in a golden"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -102084,7 +102084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.8.2]
 title = "Rehearse the v6.12.0 perps seed after governance changes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -105328,7 +105328,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.52.3]
 title = "Badge paused tokens in the spot watchlist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.52.1", "3.0.3"]
@@ -110359,7 +110359,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.43.5]
 title = "Decode UnexecutableQuote into a typed optical rejection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["4.43.4", "4.43.2"]
