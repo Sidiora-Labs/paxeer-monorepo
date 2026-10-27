@@ -504,7 +504,7 @@ impl AgentEnvelopeTransport {
         key: Key,
         request: &layerx_agent_api::identity::NativePrepareRequestV1,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         use sha2::{Digest, Sha256};
         let body = encode_native_prepare(request)?;
@@ -527,28 +527,26 @@ impl AgentEnvelopeTransport {
         };
         let value = decode_native_preparation(&response.value).ok_or_else(unknown)?;
         let canonical_digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-        let activity = layerx_wire::activity::decode_unsigned(&value.canonical_bytes, registry)
-            .map_err(|_| unknown())?;
-        let preimage = layerx_wire::sign::preimage(&activity).map_err(|_| unknown())?;
+        let (call, sender) = decode_raw_call(&value.canonical_bytes).map_err(|_| unknown())?;
         if value.preparation_id != purpose.preparation_id
             || canonical_digest != purpose.canonical_digest
             || value.preparation_id != canonical_digest
             || value.activity != request.activity
-            || activity.activity_type().value()
-                != request
-                    .activity
-                    .activity_type()
-                    .map_err(|_| unknown())?
-                    .value()
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence
-            || activity.timestamp_bound().not_before != request.not_before
-            || activity.timestamp_bound().not_after != request.not_after
-            || activity.idempotency_key() != request.idempotency_key
-            || activity.fee_limit() != request.fee_limit
-            || activity.payload() != request.payload.as_slice()
-            || activity.payload_hash() != request.payload_hash
-            || preimage.as_bytes() != &value.signing_preimage
+            || !raw_call_matches_request(
+                &call,
+                sender,
+                request.activity,
+                &request.authority,
+                request.account_sequence,
+                request.not_before,
+                request.not_after,
+                request.idempotency_key,
+                request.fee_limit,
+                &request.payload,
+                request.payload_hash,
+                &value.canonical_bytes,
+            )
+            || call.signing_hash() != value.signing_preimage
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -638,7 +636,7 @@ impl AgentEnvelopeTransport {
         request: &layerx_agent_api::identity::NativeEffectPrepareRequestV1,
         body: &Value,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         use sha2::{Digest, Sha256};
         let purpose = &request.purpose.purpose;
@@ -655,28 +653,26 @@ impl AgentEnvelopeTransport {
         };
         let value = decode_native_preparation(&response.value).ok_or_else(unknown)?;
         let canonical_digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-        let activity = layerx_wire::activity::decode_unsigned(&value.canonical_bytes, registry)
-            .map_err(|_| unknown())?;
-        let preimage = layerx_wire::sign::preimage(&activity).map_err(|_| unknown())?;
+        let (call, sender) = decode_raw_call(&value.canonical_bytes).map_err(|_| unknown())?;
         if value.preparation_id != purpose.preparation_id
             || canonical_digest != purpose.canonical_digest
             || value.preparation_id != canonical_digest
             || value.activity != request.activity
-            || activity.activity_type().value()
-                != request
-                    .activity
-                    .activity_type()
-                    .map_err(|_| unknown())?
-                    .value()
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence
-            || activity.timestamp_bound().not_before != request.not_before
-            || activity.timestamp_bound().not_after != request.not_after
-            || activity.idempotency_key() != request.idempotency_key
-            || activity.fee_limit() != request.fee_limit
-            || activity.payload() != request.payload.as_slice()
-            || activity.payload_hash() != request.payload_hash
-            || preimage.as_bytes() != &value.signing_preimage
+            || !raw_call_matches_request(
+                &call,
+                sender,
+                request.activity,
+                &request.authority,
+                request.account_sequence,
+                request.not_before,
+                request.not_after,
+                request.idempotency_key,
+                request.fee_limit,
+                &request.payload,
+                request.payload_hash,
+                &value.canonical_bytes,
+            )
+            || call.signing_hash() != value.signing_preimage
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -714,7 +710,7 @@ impl AgentEnvelopeTransport {
         key: Key,
         request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
         mcp: bool,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         use sha2::{Digest, Sha256};
@@ -737,33 +733,27 @@ impl AgentEnvelopeTransport {
         };
         let value = decode_native_preparation(&response.value).ok_or_else(unknown)?;
         let canonical_digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-        let activity = layerx_wire::activity::decode_unsigned(&value.canonical_bytes, registry)
-            .map_err(|_| unknown())?;
-        let preimage = layerx_wire::sign::preimage(&activity).map_err(|_| unknown())?;
-        let reencoded = layerx_wire::activity::encode_unsigned(&activity).map_err(|_| unknown())?;
+        let (call, sender) = decode_raw_call(&value.canonical_bytes).map_err(|_| unknown())?;
         if value.preparation_id != purpose.preparation_id
             || canonical_digest != purpose.canonical_digest
             || value.preparation_id != canonical_digest
             || value.activity != request.activity
-            || activity.protocol_version() != purpose.protocol_version
-            || activity.network_id() != purpose.network_id
-            || activity.authority() != request.authority.as_bytes()
-            || reencoded != value.canonical_bytes
-            || activity.activity_type().value()
-                != request
-                    .activity
-                    .activity_type()
-                    .map_err(|_| unknown())?
-                    .value()
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence
-            || activity.timestamp_bound().not_before != request.not_before
-            || activity.timestamp_bound().not_after != request.not_after
-            || activity.idempotency_key() != request.idempotency_key
-            || activity.fee_limit() != request.fee_limit
-            || activity.payload() != request.payload.as_slice()
-            || activity.payload_hash() != request.payload_hash
-            || preimage.as_bytes() != &value.signing_preimage
+            || !raw_call_matches_request(
+                &call,
+                sender,
+                request.activity,
+                &request.authority,
+                request.account_sequence,
+                request.not_before,
+                request.not_after,
+                request.idempotency_key,
+                request.fee_limit,
+                &request.payload,
+                request.payload_hash,
+                &value.canonical_bytes,
+            )
+            || call.signing_hash() != value.signing_preimage
+            || call.chain_id != u64::from(purpose.network_id)
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -1271,6 +1261,77 @@ pub fn decode_native_disclosure(
         payload_expires_at: number("payload_expires_at")?,
         idempotency_key: native_id(value.get("idempotency_key")?)?,
     })
+}
+
+fn decode_raw_call(
+    raw: &[u8],
+) -> Result<(layerx_crypto::evm_transaction::Eip1559Call, [u8; 20]), EnvelopeError> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let (call, signature) = decode_signed(raw).map_err(|_| EnvelopeError::InvalidRequest)?;
+    let sender = recover_sender(&call, &signature).map_err(|_| EnvelopeError::InvalidRequest)?;
+    Ok((call, sender))
+}
+
+/// Decodes the signed transaction carried by an envelope and binds its sender.
+///
+/// # Errors
+/// Refuses malformed transaction bytes or a signature from another sender.
+pub fn decode_signed_envelope_call(
+    value: &Value,
+    expected_sender: [u8; 20],
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, EnvelopeError> {
+    let raw = native_hex(
+        value
+            .get("canonical_bytes")
+            .ok_or(EnvelopeError::InvalidRequest)?,
+        MAX_ENVELOPE_BYTES,
+    )
+    .ok_or(EnvelopeError::InvalidRequest)?;
+    let (call, sender) = decode_raw_call(&raw)?;
+    if sender != expected_sender {
+        return Err(EnvelopeError::InvalidCredential);
+    }
+    Ok(call)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn raw_call_matches_request(
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    sender: [u8; 20],
+    activity: layerx_agent_api::identity::NativeActivity,
+    authority: &str,
+    nonce: u64,
+    not_before: u64,
+    not_after: u64,
+    idempotency_key: [u8; 32],
+    fee_limit: u128,
+    payload: &[u8],
+    payload_hash: [u8; 32],
+    raw: &[u8],
+) -> bool {
+    use layerx_types::payload::ModuleId;
+    use sha2::{Digest, Sha256};
+    let target = match activity.activity_type().map(|kind| kind.module()) {
+        Ok(ModuleId::Programs) => [0x10, 0x1d],
+        Ok(ModuleId::Asset) => [0x10, 0x1a],
+        Ok(ModuleId::Budget | ModuleId::Escrow | ModuleId::Stream) => [0x10, 0x1b],
+        _ => return false,
+    };
+    let expected_hash: [u8; 32] = Sha256::new()
+        .chain_update(layerx_wire::hash::Domain::PayloadHash.tag())
+        .chain_update(payload)
+        .finalize()
+        .into();
+    call.to[..18] == [0; 18]
+        && call.to[18..] == target
+        && authority.strip_prefix("0x").unwrap_or(authority) == hex(&sender)
+        && call.nonce == nonce
+        && not_before == 0
+        && not_after == u64::MAX
+        && layerx_crypto::evm_transaction::transaction_hash(raw) == idempotency_key
+        && u128::from(call.gas_limit).checked_mul(call.max_fee_per_gas) == Some(fee_limit)
+        && call.data == payload
+        && payload_hash == expected_hash
 }
 
 pub fn decode_native_preparation(
