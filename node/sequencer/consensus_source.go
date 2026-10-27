@@ -17,6 +17,7 @@ import (
 
 // ErrNotSequenced refuses a seal of a block that is not sequenced.
 var ErrNotSequenced = errors.New("sequencer: height is not sequenced")
+var ErrPromotionSeq = errors.New("sequencer: promotion sequence is below the stored sequence")
 
 var _ tmtypes.SequencerSource = (*ConsensusSource)(nil)
 
@@ -57,6 +58,18 @@ func NewConsensusSource(a *app.App, exec Executor, key *ReceiptKey, opts ...Cons
 		}
 	}
 	return s, nil
+}
+
+func NewPromotedConsensusSource(a *app.App, host Host, opts Options, lastSeq uint64, key *ReceiptKey) (*ConsensusSource, error) {
+	if lastSeq < opts.LastSeq {
+		return nil, fmt.Errorf("%w: got %d, want at least %d", ErrPromotionSeq, lastSeq, opts.LastSeq)
+	}
+	opts.LastSeq = lastSeq
+	exec, err := NewExecutor(host, opts)
+	if err != nil {
+		return nil, err
+	}
+	return NewConsensusSource(a, exec, key)
 }
 
 // Sequenced reports whether the block at height is sequenced, read from the committed state
@@ -137,6 +150,12 @@ func (s *ConsensusSource) Seal(ctx context.Context, height int64) (tmtypes.Seale
 			ToSeq:       fields.ToSeq,
 			LastSeqHash: fields.LastSeqHash,
 		}); err != nil {
+			if errors.Is(err, ErrFenced) {
+				if fenceErr := s.exec.Fence(); fenceErr != nil {
+					return tmtypes.SealedBlock{}, errors.Join(ErrLeaseFenced, fenceErr)
+				}
+				return tmtypes.SealedBlock{}, ErrLeaseFenced
+			}
 			return tmtypes.SealedBlock{}, err
 		}
 	}

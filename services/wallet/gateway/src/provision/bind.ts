@@ -278,9 +278,13 @@ export interface ChainReceipt {
 }
 
 export async function readReceipt(rpc: RpcPool, hash: Hex): Promise<ChainReceipt | null> {
-  const r = await rpc.request<{ status: Hex; gasUsed: Hex; blockNumber: Hex } | null>('eth_getTransactionReceipt', [hash]);
-  if (!r) return null;
-  return { status: BigInt(r.status) === 1n ? 'success' : 'reverted', gasUsed: BigInt(r.gasUsed), blockNumber: BigInt(r.blockNumber) };
+  const r = await rpc.sequencerReceipt(hash);
+  if (!r || r.rung === 'submitted') return null;
+  return {
+    status: BigInt(r.status) === 1n ? 'success' : 'reverted',
+    gasUsed: BigInt(r.gasUsed),
+    blockNumber: BigInt(r.rung === 'committed' ? r.blockNumber : r.height),
+  };
 }
 
 export async function broadcastOnce(rpc: RpcPool, raw: Hex): Promise<Hex> {
@@ -302,7 +306,7 @@ export async function waitForReceipt(rpc: RpcPool, hash: Hex, timeoutMs: number,
     const r = await readReceipt(rpc, hash);
     if (r) return r;
     if (Date.now() >= deadline) throw new Error(`transaction ${hash} has no receipt after ${timeoutMs} ms`);
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))));
   }
 }
 

@@ -17,13 +17,17 @@
 package evmrpc
 
 import (
+	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -51,9 +55,10 @@ type HTTPConfig struct {
 
 // WsConfig is the JSON-RPC/Websocket configuration
 type WsConfig struct {
-	Origins []string
-	Modules []string
-	prefix  string // path prefix on which to mount ws handler
+	Origins  []string
+	Modules  []string
+	DenyList []string
+	prefix   string // path prefix on which to mount ws handler
 	RPCEndpointConfig
 }
 
@@ -62,11 +67,26 @@ type RPCEndpointConfig struct {
 	batchItemLimit         int
 	batchResponseSizeLimit int
 	readLimit              int64
+	ipRateLimitRPS         float64
+	ipRateLimitBurst       int
 }
 
 type rpcHandler struct {
 	http.Handler
-	server *rpc.Server
+	server  *rpc.Server
+	limiter *ipRateLimiter
+}
+
+func (l *ipRateLimiter) wrap(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !l.allow(r) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusTooManyRequests)
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":null,"error":{"code":-32005,"message":"rate limit exceeded"}}`)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 type HTTPServer struct {
@@ -270,6 +290,8 @@ func (h *HTTPServer) Stop() {
 func (h *HTTPServer) doStop() {
 	defer func() { h.onStop = nil }()
 	if h.listener == nil {
+		h.disableRPC()
+		h.disableWS()
 		for _, hook := range h.onStop {
 			hook()
 		}
@@ -285,11 +307,13 @@ func (h *HTTPServer) doStop() {
 	if httpHandler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		httpHandler.server.Stop()
+		httpHandler.limiter.stop()
 		h.apis = nil
 	}
 	if wsHandler != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		wsHandler.server.Stop()
+		wsHandler.limiter.stop()
 		h.wsAPIs = nil
 	}
 	for _, hook := range h.onStop {
@@ -339,9 +363,11 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	h.HTTPConfig = config
 	h.apis = registeredAPIs(apis, config.Modules)
 	base := NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
+	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.httpHandler.Store(&rpcHandler{
-		Handler: wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist),
+		Handler: limiter.wrap(wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist)),
 		server:  srv,
+		limiter: limiter,
 	})
 	return nil
 }
@@ -352,6 +378,7 @@ func (h *HTTPServer) disableRPC() bool {
 	if handler != nil {
 		h.httpHandler.Store((*rpcHandler)(nil))
 		handler.server.Stop()
+		handler.limiter.stop()
 		h.apis = nil
 	}
 	return handler != nil
@@ -373,13 +400,186 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 	if err := RegisterApis(apis, config.Modules, srv); err != nil {
 		return err
 	}
+	logger.Info("Registering deny list for evm websocket", "deny-list", config.DenyList)
+	for _, method := range config.DenyList {
+		srv.RegisterDenyList(method)
+	}
 	h.WsConfig = config
 	h.wsAPIs = registeredAPIs(apis, config.Modules)
+	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.wsHandler.Store(&rpcHandler{
-		Handler: NewWSHandlerStack(srv.WebsocketHandler(config.Origins), config.JwtSecret),
+		Handler: limiter.wrap(NewWSHandlerStack(newDenyListWSHandler(srv, config), config.JwtSecret)),
 		server:  srv,
+		limiter: limiter,
 	})
 	return nil
+}
+
+type denyListWSConn struct {
+	*websocket.Conn
+	mu sync.Mutex
+}
+
+func (c *denyListWSConn) SetWriteDeadline(deadline time.Time) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.Conn.SetWriteDeadline(deadline)
+}
+
+func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.Conn.WriteJSON(value)
+}
+
+func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
+	if len(config.DenyList) == 0 {
+		return srv.WebsocketHandler(config.Origins)
+	}
+	denied := make(map[string]struct{}, len(config.DenyList))
+	for _, method := range config.DenyList {
+		denied[method] = struct{}{}
+	}
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  1024,
+		WriteBufferSize: 1024,
+		CheckOrigin: func(r *http.Request) bool {
+			return wsOriginAllowed(r, config.Origins)
+		},
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			return
+		}
+		conn.SetReadLimit(config.readLimit)
+		c := &denyListWSConn{Conn: conn}
+		stopped := make(chan struct{})
+		defer close(stopped)
+		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Time{}) })
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-stopped:
+					return
+				case <-ticker.C:
+					_ = conn.SetReadDeadline(time.Now().Add(30 * time.Second))
+					if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+						_ = conn.Close()
+						return
+					}
+				}
+			}
+		}()
+		decode := func(value interface{}) error {
+			for {
+				var raw json.RawMessage
+				if err := conn.ReadJSON(&raw); err != nil {
+					return err
+				}
+				var requests []json.RawMessage
+				batch := bytes.HasPrefix(bytes.TrimSpace(raw), []byte("["))
+				if batch {
+					if err := json.Unmarshal(raw, &requests); err != nil {
+						return err
+					}
+				} else {
+					requests = []json.RawMessage{raw}
+				}
+				var blocked *jsonrpcMessage
+				for _, request := range requests {
+					var message jsonrpcMessage
+					if json.Unmarshal(request, &message) == nil {
+						if _, found := denied[message.Method]; found {
+							blocked = &message
+							break
+						}
+					}
+				}
+				if blocked == nil {
+					return json.Unmarshal(raw, value)
+				}
+				response := struct {
+					Version string          `json:"jsonrpc"`
+					ID      json.RawMessage `json:"id"`
+					Error   struct {
+						Code    int    `json:"code"`
+						Message string `json:"message"`
+					} `json:"error"`
+				}{Version: "2.0", ID: orNullID(blocked.ID)}
+				response.Error.Code = -32601
+				response.Error.Message = fmt.Sprintf("the method %s does not exist/is not available", blocked.Method)
+				var reply interface{} = response
+				if batch {
+					responses := make([]interface{}, 0, len(requests))
+					for _, request := range requests {
+						var message jsonrpcMessage
+						if json.Unmarshal(request, &message) == nil && message.hasValidID() {
+							response.ID = message.ID
+							responses = append(responses, response)
+						}
+					}
+					if len(responses) == 0 {
+						continue
+					}
+					reply = responses
+				} else if blocked.ID == nil {
+					continue
+				}
+				if err := c.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
+					return err
+				}
+				if err := c.writeJSON(reply, true); err != nil {
+					return err
+				}
+			}
+		}
+		srv.ServeCodec(rpc.NewFuncCodec(c, c.writeJSON, decode), 0)
+	})
+}
+
+func wsOriginAllowed(r *http.Request, origins []string) bool {
+	if _, present := r.Header["Origin"]; !present {
+		return true
+	}
+	allowed := make([]string, 0, len(origins))
+	for _, origin := range origins {
+		if origin != "" {
+			allowed = append(allowed, origin)
+		}
+	}
+	if len(allowed) == 0 {
+		allowed = append(allowed, "http://localhost")
+		if hostname, err := os.Hostname(); err == nil {
+			allowed = append(allowed, "http://"+hostname)
+		}
+	}
+	origin, err := url.Parse(strings.ToLower(r.Header.Get("Origin")))
+	if err != nil {
+		return false
+	}
+	for _, rule := range allowed {
+		if rule == "*" {
+			return true
+		}
+		parsed, err := url.Parse(rule)
+		if err != nil {
+			continue
+		}
+		scheme, host, port := parsed.Scheme, parsed.Hostname(), parsed.Port()
+		if !strings.Contains(rule, "://") {
+			scheme, host, port = "", parsed.Scheme, parsed.Opaque
+			if host == "" {
+				host = rule
+			}
+		}
+		if (scheme == "" || scheme == origin.Scheme) && (host == "" || host == origin.Hostname()) && (port == "" || port == origin.Port()) {
+			return true
+		}
+	}
+	return false
 }
 
 // disableWS disables the WebSocket handler. This is internal, the caller must hold h.mu.
@@ -388,6 +588,7 @@ func (h *HTTPServer) disableWS() bool {
 	if ws != nil {
 		h.wsHandler.Store((*rpcHandler)(nil))
 		ws.server.Stop()
+		ws.limiter.stop()
 		h.wsAPIs = nil
 	}
 	return ws != nil

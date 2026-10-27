@@ -18,6 +18,7 @@ import {
 } from "./account-derivation.js";
 import {
   decodeEventFrom,
+  encodeAbiCall,
   precompileWriteCall,
   type AbiArgument,
   type DecodedPrecompileEvent,
@@ -176,11 +177,6 @@ export type PerpsActivity =
       readonly marketId: TradingId;
       readonly positionIds: readonly TradingId[];
     };
-
-export interface EncodedActivity {
-  readonly activityType: number;
-  readonly payload: Uint8Array;
-}
 
 function tradingHex(value: Uint8Array): string {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join(
@@ -718,13 +714,13 @@ export function perpsCall(method: PerpsWrite, args: readonly AbiArgument[]): Pre
   return precompileWriteCall(PERPS_PRECOMPILE, method, PERPS_WRITES[method], args);
 }
 
-/** A market order opening a position: USDL collateral pulled by transferFrom, so the caller approves 0x1015 first. */
+/** A market order opening a position for an account through exchange v2. */
 export interface PerpsOpenPosition {
-  readonly marketId: bigint;
-  readonly collateralToken: string;
-  readonly collateralAmount: bigint;
+  readonly marketId: string;
+  readonly accountId: string;
+  readonly side: TradeSide;
+  readonly size: bigint;
   readonly leverage: bigint;
-  readonly isLong: boolean;
 }
 
 /** `deposit(address token,uint256 amount)`: moves USDL from the caller's wallet into its cross account. */
@@ -737,20 +733,26 @@ export function perpsWithdrawCall(token: string, amount: bigint): PrecompileCall
   return perpsCall("withdraw(address,uint256)", [token, amount]);
 }
 
-/** `openPosition(uint256,address,uint256,uint256,bool)`. */
+/** `openPosition(bytes32,bytes32,uint8,uint256,uint256)`. */
 export function perpsOpenPositionCall(order: PerpsOpenPosition): PrecompileCall {
-  return perpsCall("openPosition(uint256,address,uint256,uint256,bool)", [
-    order.marketId,
-    order.collateralToken,
-    order.collateralAmount,
-    order.leverage,
-    order.isLong,
-  ]);
+  return {
+    to: PERPS_PRECOMPILE,
+    data: encodeAbiCall(
+      "openPosition",
+      ["bytes32", "bytes32", "uint8", "uint256", "uint256"],
+      [order.marketId, order.accountId, BigInt(order.side), order.size, order.leverage],
+    ),
+    value: 0n,
+  };
 }
 
-/** `cancelOrder(uint256 orderId)`. */
-export function perpsCancelOrderCall(orderId: bigint): PrecompileCall {
-  return perpsCall("cancelOrder(uint256)", [orderId]);
+/** `cancelOrder(bytes32 orderId,bytes32 accountId)`. */
+export function perpsCancelOrderCall(orderId: string, accountId: string): PrecompileCall {
+  return {
+    to: PERPS_PRECOMPILE,
+    data: encodeAbiCall("cancelOrder", ["bytes32", "bytes32"], [orderId, accountId]),
+    value: 0n,
+  };
 }
 
 /** `closePosition(uint256 positionId)`. */
