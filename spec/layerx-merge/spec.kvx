@@ -97788,7 +97788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.13.1]
 title = "Prove a signed EVM transaction to 0x101C returns a receipt with its logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["2.0.3"]
@@ -117163,6 +117163,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Recording the fixture is implementation work, not a qualification gate: build the daemon once with go build -o <tmpdir>/paxd ./daemon/paxd, run go run ./daemon/committed-fixture record --paxd <tmpdir>/paxd --out daemon/committed-fixture/vectors, then restore vector-v2-receipted-revert.json and vector-v3-receipt-refusals.json, which record rewrites for every registered vector and which belong to tasks 5.55.3 and 5.55.4, so that only the V1 file is new. The conformance cases in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json hold no contract creation with two logs, so V1 cannot be derived from them."
 do_5 = "The recorder's primary sequencer config (daemon/committed-fixture/main.go:277-282) carries no standby-address, so paxd exits at node/sequencer/node.go:62 with 'invalid standby-address: missing port in address', and a primary needs a reachable standby because every Release (node/sequencer/node_start.go:111, node/sequencer/driver.go:81) returns the replication error. Fix the recorder here: start a second paxd home in role standby listening at a free loopback address (the pattern of node/sequencer/tcp_ack_test.go:70-90: listen, read the address, close, hand it to both configs) with its own wal-dir and receipt-key-file, write that address as the primary's standby-address and replication-timeout, and stop both processes after recording. The V2 and V3 vectors are not re-recorded by this task."
+do_6 = "Attempt three at 9eb233dec started a second paxd as the standby and it panicked at consensus/internal/consensus/state.go:2622 'validator ... not in committee': the standby home was initialised with --mode validator and its own priv_validator_key, which no gentx placed in the validator set. Initialise the standby home with --mode full (config.toml mode = \"full\"), copy the primary's config/genesis.json into it, give it its own rpc, p2p and evm listeners, set sequencer.role = standby and sequencer.standby-address to its own listener, point the primary's sequencer.standby-address at that listener, and start the standby before the primary; the primary keeps the gentx validator of main.go:178-180."
 
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
@@ -121077,8 +121078,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve 0x0903 oracle aggregator from the merge plan height through the activation list"
 status = "pending"
 mode = "BUILD"
-wave = 17
-requires = ["6.0.2", "6.6.5", "2.0.3", "5.94.2"]
+wave = 29
+requires = ["6.0.2", "6.6.5", "2.0.3", "5.94.2", "5.94.4"]
 reqs = ["6052.1"]
 capabilities = ["6.12.7"]
 interfaces = ["interface.6.cfg-merge-table-0x0903", "interface.6.cfg-serve-merge"]
@@ -121105,10 +121106,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt one failed in constructor_registered_by_node: node/precompiles.go imports the agent oracle (0x0903), scheduler (0x0905) and streams (0x0906) packages only through task 5.94.4, so until it is done MissingMergeConstructors still lists this address and the keeper serves no precompile at the plan height; this task now requires 5.94.4 and changes nothing else."
 
 [task.6.12.8]
 title = "Serve 0x0904 pofq from the merge plan height through the activation list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["6.0.2", "6.6.5", "2.0.3", "5.19.4"]
@@ -121143,8 +121145,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve 0x0905 scheduler from the merge plan height through the activation list"
 status = "pending"
 mode = "BUILD"
-wave = 17
-requires = ["6.0.2", "6.6.5", "2.0.3", "5.94.2"]
+wave = 29
+requires = ["6.0.2", "6.6.5", "2.0.3", "5.94.2", "5.94.4"]
 reqs = ["6054.1"]
 capabilities = ["6.12.9"]
 interfaces = ["interface.6.cfg-merge-table-0x0905", "interface.6.cfg-serve-merge"]
@@ -121171,13 +121173,14 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt one failed in constructor_registered_by_node: node/precompiles.go imports the agent oracle (0x0903), scheduler (0x0905) and streams (0x0906) packages only through task 5.94.4, so until it is done MissingMergeConstructors still lists this address and the keeper serves no precompile at the plan height; this task now requires 5.94.4 and changes nothing else."
 
 [task.6.12.10]
 title = "Serve 0x0906 streams from the merge plan height through the activation list"
 status = "pending"
 mode = "BUILD"
-wave = 17
-requires = ["6.0.2", "6.6.5", "2.0.3", "5.94.2"]
+wave = 29
+requires = ["6.0.2", "6.6.5", "2.0.3", "5.94.2", "5.94.4"]
 reqs = ["6044.1"]
 capabilities = ["6.12.10"]
 interfaces = ["interface.6.cfg-merge-table-0x0906", "interface.6.cfg-serve-merge"]
@@ -121204,6 +121207,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt one failed in constructor_registered_by_node: node/precompiles.go imports the agent oracle (0x0903), scheduler (0x0905) and streams (0x0906) packages only through task 5.94.4, so until it is done MissingMergeConstructors still lists this address and the keeper serves no precompile at the plan height; this task now requires 5.94.4 and changes nothing else."
 
 [task.6.12.11]
 title = "Serve 0x0907 tee attestor from the merge plan height through the activation list"
@@ -121684,7 +121688,7 @@ do_1 = "Create modules/tokenfactory/keeper/ledger_issuer_bind_test.go (planned) 
 do_2 = "Assert IssuerDid (modules/tokenfactory/keeper/admins.go:73) equals the registering DID and the denom metadata exists (modules/tokenfactory/keeper/admins.go:55)."
 do_3 = "Assert a ledger pause leaves IsDenomPaused (modules/tokenfactory/keeper/pause.go:12) true and a MsgSend refused with ErrSendDisabled."
 symbols = ["TestLedgerRegisterBindsIssuerDid"]
-touches = ["modules/tokenfactory/keeper/ledger_issuer_bind_test.go"]
+touches = ["modules/tokenfactory/keeper/ledger_issuer_bind_test.go", "modules/layerxledger/keeper/issuer_binding.go"]
 tests = ["modules/tokenfactory/keeper/ledger_issuer_bind_test.go::TestLedgerRegisterBindsIssuerDid"]
 planned_paths = ["modules/tokenfactory/keeper/ledger_issuer_bind_test.go"]
 build_cmd = "go build ./modules/tokenfactory/..."
@@ -121700,6 +121704,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt one at 9402007ea failed inside bindIssuerDenom (modules/layerxledger/keeper/issuer_binding.go:47): hex.EncodeToString(assetID[:]) is 64 characters and GetTokenDenom (modules/tokenfactory/types/denoms.go:26-27) refuses subdenoms over 44, as the basis of decision.204 records, while sdk.ValidateDenom (sdk/types/coin.go:780) limits the alphabet to [a-zA-Z0-9/-], which rules out base64. Encode the asset id as the base-62 text of its big-endian integer zero-padded on the left to 43 digits (fmt.Sprintf(\"%043s\", new(big.Int).SetBytes(assetID[:]).Text(62))), pass that as the subdenom, leave the layerx/<hex> bank denom of decision.204 unchanged, and drive the test through the real tokenfactory keeper rather than a recording IssuerKeeper."
 
 [task.6.23.1]
 title = "Add the DenomPaused query rpc and REST route to tokenfactory query.proto"
@@ -126846,7 +126851,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.0.3]
 title = "Prove the sequencer options serve one feed over HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.12.2", "7.0.2", "7.10.4", "5.0.3"]
@@ -133758,7 +133763,7 @@ do_9 = "services/platform/ramps/toolkit/src/clients.rs:1150-1263 resolve_with_ev
 do_10 = "services/platform/ramps/toolkit/src/clients.rs:965-1001 LayerxSubmission and PreparedLayerx carry activity_id and canonical_activity; carry tx_hash and raw_transaction."
 do_11 = "Create services/platform/ramps/toolkit/tests/evm_submit.rs (planned) with the three evm_submit tests below against a loopback JSON-RPC listener on std::net::TcpListener started in the test, signing with layerx_crypto sign (services/agent/crates/layerx-crypto/src/evm_transaction.rs:207)."
 symbols = ["LayerxConfig", "LayerxConfig::build", "LayerxClient", "ReceiptKeyConfig", "LayerxClient::prepare_payment", "LayerxClient::submit_prepared", "LayerxClient::resolve", "LayerxSubmission", "PreparedLayerx"]
-touches = ["services/platform/ramps/toolkit/src/clients.rs", "services/platform/ramps/toolkit/tests/evm_config.rs", "services/platform/ramps/toolkit/tests/evm_submit.rs"]
+touches = ["services/platform/ramps/toolkit/src/clients.rs", "services/platform/ramps/toolkit/tests/evm_config.rs", "services/platform/ramps/toolkit/tests/evm_submit.rs", "services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs", "services/platform/ramps/reference/src/main.rs"]
 tests = ["services/platform/ramps/toolkit/tests/evm_config.rs::layerx_config_refuses_zero_chain_id", "services/platform/ramps/toolkit/tests/evm_config.rs::layerx_config_refuses_inverted_receipt_key_range", "services/platform/ramps/toolkit/tests/evm_config.rs::layerx_config_rejects_retired_gateway_field", "services/platform/ramps/toolkit/tests/evm_submit.rs::signature_from_other_key_is_refused_before_submission", "services/platform/ramps/toolkit/tests/evm_submit.rs::submit_prepared_sends_raw_transaction_once", "services/platform/ramps/toolkit/tests/evm_submit.rs::resolve_reports_submitted_receipt_as_pending"]
 planned_paths = ["services/platform/ramps/toolkit/tests/evm_config.rs", "services/platform/ramps/toolkit/tests/evm_submit.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit"
@@ -133775,6 +133780,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_12 = "Five attempts failed to build because the rewrite of services/platform/ramps/toolkit/src/clients.rs removed what services/platform/ramps/toolkit/src/engine.rs:217-311 uses: LayerxClient::prepare_native_receive, the activity_id() and canonical_activity() accessors of the prepared value, and the activity_id, canonical_activity, tx_hash and raw_transaction fields of LayerxSubmission::Unknown, Pending and Refused. engine.rs is not in this task's touches, so its call sites are the contract: keep every one of them compiling and add the sequencer endpoint, chain id and pinned receipt-key configuration and the prepare, sign, submit and resolve methods for ramp legs beside the existing API rather than in place of it."
+do_13 = "Attempt six at 25a547c27 built the toolkit library but not the crate's ramp-verify-receipt binary (services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs:78 reads config.layerx.network_id), and the dependent reference ramp (services/platform/ramps/reference/src/main.rs:272-273, 347-349, 761-762, 1044-1052) still reads network_id, protocol_version, fee_limit and the removed activity of LayerxClient, so cargo cannot compile it. Both files join this task's touches: read chain_id where network_id was read (the binary's zero check at :78, the status JSON at :272, the config check at :348, the readiness body at :761 through the pub chain_id of LayerxClient), drop the protocol_version comparison at :347 and the wire_version fields at :273 and :762, check max_fee_per_gas == 0 instead of fee_limit at :349, and remove the native_payer_grant_authorization_required branch at :1044-1052, which compares the retired kernel protocol_version with STATE_COMMITMENT_PROTOCOL_VERSION (3) while the config check only ever admitted PROTOCOL_VERSION (2), so it never fired. Make no other change to the reference ramp; tasks 8.28.5 and 8.30.1 finish its port and its tests."
 
 [task.8.28.4]
 title = "Prepare, sign, submit and resolve ramp legs through the sequencer endpoint"
@@ -147110,7 +147116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.7.4]
 title = "Move the AP2 mandate tests off AuthorizedBatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.7.2", "9.1.7"]
@@ -147386,7 +147392,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.10.2]
 title = "Add a version 2 example document to PORTABILITY.md taken from the AP2 export"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["11.7.2", "9.1.7"]
@@ -147785,7 +147791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.5]
 title = "Stop forwarding LAYERX-PAYER-DID through the search front"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["11.16.4"]
@@ -148306,7 +148312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.18.1]
 title = "Retire the hosted activity path, receipt authority and readiness receipt CLI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.16.4", "11.12.2", "11.0.3", "9.1.7"]
@@ -148727,7 +148733,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.24.3]
 title = "Check the gas station decoder against the shared receipt vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.24.2", "11.0.4"]
@@ -149018,7 +149024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.26.4]
 title = "Delete batch-era archive types and the checkpoint vector test from the mirror"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.2", "11.26.3", "11.30.1", "11.34.3", "9.1.6"]

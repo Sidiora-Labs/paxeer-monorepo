@@ -57,7 +57,7 @@ At startup the service compares the receipt keys file with the sequencer's
 published `px_getReceiptKeys` list at `LAYERX_INTEROP_SEQUENCER_URL` and
 refuses to start if a pinned key is absent or differs.
 
-On Railway the same image runs as the `interop` service with the variables in
+On Railway, deploy the gateway image directly as the `interop` service using
 `railway.env.example`: each file the service reads is a base64 variable that
 `layerx-env-files` writes to its `/run/layerx` path from
 `docker/interop-gateway/files.tsv` before the gateway starts.
