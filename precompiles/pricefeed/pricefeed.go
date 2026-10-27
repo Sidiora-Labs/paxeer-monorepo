@@ -39,6 +39,13 @@ const (
 	GetParamsMethod                        = "getParams"
 )
 
+const (
+	LXP_PRICEFEED_DELEGATECALL    = "LXP_PRICEFEED_DELEGATECALL"
+	LXP_PRICEFEED_STATICCALL      = "LXP_PRICEFEED_STATICCALL"
+	LXP_PRICEFEED_KEEPER_MISSING  = "LXP_PRICEFEED_KEEPER_MISSING"
+	LXP_PRICEFEED_BATCH_TOO_LARGE = "LXP_PRICEFEED_BATCH_TOO_LARGE"
+)
+
 type PriceFeedKeepers interface {
 	PriceFeedK() *pricefeedkeeper.Keeper
 }
@@ -154,13 +161,13 @@ func lxpError(err error) error {
 
 func (p PrecompileExecutor) guard(delegate bool, method string, readOnly bool) error {
 	if delegate {
-		return errors.New("LXP_PRICEFEED_DELEGATECALL: cannot delegatecall pricefeed")
+		return errors.New(LXP_PRICEFEED_DELEGATECALL + ": cannot delegatecall pricefeed")
 	}
 	if readOnly && isTransaction(method) {
-		return fmt.Errorf("LXP_PRICEFEED_STATICCALL: cannot call pricefeed %s from staticcall", method)
+		return fmt.Errorf(LXP_PRICEFEED_STATICCALL+": cannot call pricefeed %s from staticcall", method)
 	}
 	if p.keeper == nil || (isTransaction(method) && p.evmKeeper == nil) {
-		return errors.New("LXP_PRICEFEED_KEEPER_MISSING: pricefeed: the pricefeed keeper is not wired into this application")
+		return errors.New(LXP_PRICEFEED_KEEPER_MISSING + ": pricefeed: the pricefeed keeper is not wired into this application")
 	}
 	return nil
 }

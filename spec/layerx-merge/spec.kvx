@@ -11603,7 +11603,7 @@ ac_2 = "Execute refuses a state-changing method under staticcall, delegatecall, 
 [req.2056]
 title = "0x101C grants sessions and capabilities for the bound caller"
 ac_1 = "grantSession(bytes,uint64,bytes32) emits SessionGranted and GrantBody and sessionKey returns the granted key."
-ac_2 = "grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) replaces a live session; a wrong expected commitment reverts with the kernel reason."
+ac_2 = "grantSessionSuccessor(bytes,uint64,bytes32,bytes32,bytes32) succeeds a fee-bearing session the owner revoked at an earlier sequence, carrying its fee counters; a wrong expected commitment reverts with LXP_AUTH_SCOPE."
 ac_3 = "grantCapability(bytes) emits CapabilityGranted and capabilityScope returns the scope."
 
 [req.2057]
@@ -19946,7 +19946,7 @@ ac_2 = "No file under apps/web/src reads HUMAN_SETTLEMENT_CHECKPOINT_INTERVAL_SE
 [req.14052]
 title = "Stop the settings screen reading the retired wallet binding and exit routes"
 ac_1 = "loadSettingsSnapshot (planned) calls profileGet, notificationPreferencesGet, securityPasskeyList and sessionList on the client and never bindingStatus."
-ac_2 = "loadSettingsSnapshot (planned) resolves when bindingStatus would reject with an HTTP 410 operation-retired HumanApiError (apps/web/src/api/generated/index.ts:5373 at HEAD)."
+ac_2 = "loadSettingsSnapshot (planned) resolves to the four reads while GET /v1/wallet-binding answers HTTP 410 operation-retired (the binding.status golden failure) and never requests it; the generated client's binding operations are removed by 14.0.3 (generated_client_has_no_binding_operations)."
 
 [req.14053]
 title = "Remove the wallet payout binding from settings and keep the fee preference"
@@ -51191,7 +51191,7 @@ qualification = "UNRUN"
 [acceptance.2.56.2]
 feature = "2"
 req = "2056.2"
-scenario = "Given a live session, when the owner grants a successor with the right and then a wrong commitment, then the first succeeds and the second reverts"
+scenario = "Given a fee-bearing session revoked by the owner, when the owner grants a successor with the right and then a wrong commitment, then the first succeeds and the second reverts"
 contract = "contracts/ledger-auth.md#layerxauth-0x101c"
 test = "precompiles/layerxauth/grants_test.go::TestPrecompileGrantSessionSuccessor (planned)"
 qualification = "UNRUN"
@@ -91045,7 +91045,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.1]
 title = "Stop kernel execution reading and recording idempotency entries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1", "16.94.1"]
@@ -91078,7 +91078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.2.2]
 title = "Drop idempotency from the state root, state proof and snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.2.1", "16.2.1"]
@@ -91113,8 +91113,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Delete the kernel idempotency table and its journal staging"
 status = "pending"
 mode = "BUILD"
-wave = 26
-requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1"]
+wave = 32
+requires = ["1.2.2", "1.25.1", "1.25.2", "1.0.4", "16.2.1", "1.2.4"]
 reqs = ["1012.1", "1012.2"]
 capabilities = ["1.2.3"]
 interfaces = ["interface.1.c-lxp-idempotency-key-state", "interface.1.c-lxp-state-journal", "interface.1.c-lxp-idempotency-reserve", "interface.1.c-lxp-idempotency-prune", "interface.1.c-lxp-idempotency-append", "interface.1.c-lxp-idempotency-live-count", "interface.1.c-lxp-idempotency-can-commit", "interface.1.c-lxp-idempotency-commit-staged", "interface.1.c-lxp-state-store-init", "interface.1.c-lxp-state-journal-commit", "interface.1.c-lxp-state-store"]
@@ -91124,8 +91124,11 @@ do_2 = "Remove the reserve calls and staging at src/state/lxp_journal.c:26-27, :
 do_3 = "Remove the remaining reserve calls at src/state/lxp_snapshot.c:902 and :1132 left after task 1.2.2."
 do_4 = "J22 tasks 1.25.1 and 1.25.2 stop the host loading and writing the rows before this task; the kernel entry points in src/protocol/lxp_kernel.c are removed by task 1.2.4 in tests/codec/lxp_test_idempotency_absent.c (planned)."
 do_5 = "Write tests/codec/lxp_test_idempotency_absent.c (planned) with idempotency_symbols_absent and journal_commit_without_idempotency."
+do_6 = "Remove the remaining lxp_idempotency_reserve call at src/protocol/lxp_module_ctx.c:1463, left in the preview-state copy after task 1.2.1 deleted the preview, so no kept member references the deleted module."
+do_7 = "Remove the lxp_idempotency_append use at tests/codec/lxp_test_snapshot_idempotency.c:39 (the 1.2.2 test, built by the kernel pattern rule) so root_ignores_idempotency and snapshot_count_word_zero build without the deleted module; both cases stay."
+do_8 = "With src/state/lxp_idempotency.c deleted, move \"lxp_idempotency\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean from the non-library-line check back to the whole make -n stdout check, and give it no LIB_SOURCES filter-out entry."
 symbols = ["lxp_idempotency_reserve", "lxp_state_journal_commit", "lxp_state_store_init", "idempotency_symbols_absent", "journal_commit_without_idempotency"]
-touches = ["include/layerx/lxp_state.h", "src/state/lxp_idempotency.c", "src/state/lxp_journal.c", "src/state/lxp_snapshot.c", "tests/codec/lxp_test_idempotency_absent.c"]
+touches = ["include/layerx/lxp_state.h", "src/state/lxp_idempotency.c", "src/state/lxp_journal.c", "src/state/lxp_snapshot.c", "tests/codec/lxp_test_idempotency_absent.c", "src/protocol/lxp_module_ctx.c", "tests/codec/lxp_test_snapshot_idempotency.c", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["tests/codec/lxp_test_idempotency_absent.c::idempotency_symbols_absent", "tests/codec/lxp_test_idempotency_absent.c::journal_commit_without_idempotency"]
 planned_paths = ["tests/codec/lxp_test_idempotency_absent.c"]
 build_cmd = "make -C . build/liblayerx.a"
@@ -91342,7 +91345,7 @@ title = "Prove parallel batch preparation equals serial preparation"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["1.0.1", "16.2.1", "9.23.7"]
+requires = ["1.0.1", "16.2.1", "9.23.7", "1.4.6"]
 reqs = ["1019.1"]
 capabilities = ["1.4.3"]
 interfaces = []
@@ -91426,6 +91429,41 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
 rollback = "Revert the deletion; the guard and golden replay return unchanged and tests/replay keeps building."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.4.6]
+title = "Relink the kernel archive members whose call sites still exist and prune stale archive members"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["16.0.2", "16.2.2"]
+reqs = ["16011.1", "16012.1"]
+capabilities = ["1.4.6"]
+interfaces = []
+wiring = []
+do_1 = "Replace the LIB_SOURCES filter-out list at Makefile:41-50 with exactly src/storage/lxp_projection.c src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c; this links src/state/lxp_idempotency.c, src/paxeer/lxp_checkpoint_cert.c, src/sequencer/lxp_batch_seal.c, src/replica/lxp_replica_ingest.c, src/network/lxp_da_service.c, src/network/lxp_da_kernel.c, src/network/lxp_da_bundle.c, src/storage/lxp_da_verified.c, src/guarantor/lxp_da_possession.c, src/guarantor/lxp_guarantor.c, src/network/lx_web_adapter.c and src/sequencer/lx_web_root.c again, whose symbols are still called from src/protocol/lxp_kernel.c:7872, src/state/lxp_journal.c:186-1076, src/protocol/lxp_module_ctx.c:1463, src/replica/lxp_replay.c:188-348, src/protocol/lxp_handover.c:948-954, src/protocol/lxp_receipt_verify.c:141-145, src/guarantor/lxp_attestation.c:165, src/paxeer/lxp_finalisation.c:31,162, src/paxeer/lxp_paxeer_client.c:107, src/modules/web/lx_web_intake.c:143, cmd/layerxd, cmd/layerx-guarantor, cmd/layerx-verify and tests/test_web_program_path.c:711-858."
+do_2 = "In the archive rules make every archive a fresh build: insert `rm -f $@` as the line before `$(AR) rcsD $@ $(LIB_OBJECTS)` at Makefile:203 and before `$(AR) rcsD $@ $(TEST_LIB_OBJECTS)` at Makefile:211, after the `@mkdir -p $(@D)` lines at :202 and :210, so a member whose source left LIB_SOURCES (lxp_batch_seal.o, GOTCHA gotcha.1898) is never kept; the `rcsD build/liblayerx.a` line that tools/release/tests/build.test.sh:58 looks for stays."
+do_3 = "Restore the checkpoint settlement header that src/paxeer/lxp_checkpoint_cert.c:4 includes, exactly as 75765cd1f removed it: after HPX_ORIGIN at Makefile:26 add `CHECKPOINT_SETTLEMENT_HEADER := $(BUILD_DIR)/generated/lxp_checkpoint_settlement.h` and `CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS := 3600`; after the test-obj pattern rule at Makefile:213-215 add the `$(CHECKPOINT_SETTLEMENT_HEADER): Makefile` rule (`@mkdir -p $(@D)` and the printf of LXP_CHECKPOINT_SETTLEMENT_H with `#define LXP_CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS UINT64_C(%s)`) and the prerequisite line `$(BUILD_DIR)/obj/src/paxeer/lxp_checkpoint_cert.o $(BUILD_DIR)/test-obj/src/paxeer/lxp_checkpoint_cert.o: $(CHECKPOINT_SETTLEMENT_HEADER)`."
+do_4 = "Leave lxp_batch_verify_signature as it is: the one live definition is src/sequencer/lxp_batch_header.c:154 (moved verbatim by 465829782, task 14.29.2) and src/sequencer/lxp_batch_seal.c defines only lxp_batch_seal (:19) and lxp_batch_sign (:62); the multiple definition at Makefile:1187 came from a stale lxp_batch_seal.o that do_2 prunes, so no definition is deleted."
+do_5 = "In tools/ci/tests/test_makefile_wave1.py add `import re` and a module constant LIBRARY_LINE = re.compile(r\"^\\S+ .* -c src/\\S+\\.c -o build/(?:obj|test-obj)/src/\\S+\\.o$|^\\S+ rcsD build/liblayerx(?:-testing)?\\.a |^rm -f build/liblayerx(?:-testing)?\\.a$\"); in test_aggregates_dry_run_clean keep the retired-substring loop over result.stdout for lx_oracle_adapter, lx_oracle_root and replay-golden, and check lx_web_adapter, lx_web_root, lxp_idempotency and lxp_checkpoint_cert with assertNotIn against the stdout lines that do not match LIBRARY_LINE, so a retired test rule still fails the test while the relinked archive members are allowed."
+do_6 = "In tools/ci/tests/test_makefile_wave1.py add MakefileWaveOneTest.test_library_exclusions_exact running make -s --no-print-directory with --eval 'lx-excluded: ; @printf \"%s\\n\" $(sort $(filter-out $(LIB_SOURCES),$(shell find src -type f -name \"*.c\" -print)))' lx-excluded and asserting returncode 0 and that the printed set intersected with the seven 16.2.2 files equals {src/storage/lxp_projection.c, src/network/lx_oracle_adapter.c, src/sequencer/lx_oracle_root.c}."
+do_7 = "In tools/ci/tests/test_makefile_wave2.py make the same split: add `import re` and the same LIBRARY_LINE; in test_aggregates_dry_run_clean keep the loop over result.stdout for test_batch_publish, test_gateway_receive and cmd/layerx-module-registry/node.c, and check lxp_da_, lxp_replica, lxp_batch_seal and lxp_guarantor with assertNotIn against the stdout lines that do not match LIBRARY_LINE; add MakefileWaveTwoTest.test_library_exclusions_exact with the same make --eval call asserting the printed set equals exactly {src/storage/lxp_projection.c, src/network/lx_oracle_adapter.c, src/sequencer/lx_oracle_root.c, src/paxeer/lxp_da_challenge_record.c, src/guarantor/lxp_da_challenge.c}."
+symbols = ["LIB_SOURCES", "CHECKPOINT_SETTLEMENT_HEADER", "LIBRARY_LINE", "MakefileWaveOneTest.test_library_exclusions_exact", "MakefileWaveTwoTest.test_library_exclusions_exact"]
+touches = ["Makefile", "tools/ci/tests/test_makefile_wave1.py", "tools/ci/tests/test_makefile_wave2.py"]
+tests = ["tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_retired_targets_have_no_rule", "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_aggregates_dry_run_clean", "tools/ci/tests/test_makefile_wave1.py::MakefileWaveOneTest.test_library_exclusions_exact", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_retired_targets_have_no_rule", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_aggregates_dry_run_clean", "tools/ci/tests/test_makefile_wave2.py::MakefileWaveTwoTest.test_library_exclusions_exact"]
+planned_paths = []
+build_cmd = "rm -rf build && make -C . build/liblayerx.a"
+verify_cmd = "make -C . layerxd layerx-guarantor && python3 -m unittest tools.ci.tests.test_makefile_wave1 tools.ci.tests.test_makefile_wave2"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert Makefile and the two Makefile tests to the parent revision; the excluded members leave build/liblayerx.a again and no source file is touched."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -91564,7 +91602,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Pin the kernel snapshot format with a conformance golden"
 status = "pending"
 mode = "BUILD"
-wave = 27
+wave = 32
 requires = ["1.2.3", "1.4.5", "16.2.1"]
 reqs = ["1026.1", "1026.2"]
 capabilities = ["1.6.1"]
@@ -91999,7 +92037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.9.1]
 title = "Fuzz snapshot loading against mutated snapshots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.1.2", "1.2.2", "16.2.1"]
@@ -92224,8 +92262,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Initialise binding_authority in every positional asset runtime and send environment literal"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = ["1.11.1"]
+wave = 2
+requires = ["1.11.1", "1.4.6"]
 reqs = ["1044.1"]
 capabilities = []
 interfaces = ["interface.1.c-lx-asset-runtime", "interface.1.c-lxp-send-environment"]
@@ -92484,7 +92522,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.4]
 title = "Raise the sandbox expiry sweep bound to 128 leases per batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.16.3", "1.14.2", "16.2.1"]
@@ -92844,7 +92882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.18.1]
 title = "Unregister the web and bridge modules from genesis and kernel binding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "1.17.1", "16.2.1"]
@@ -92941,7 +92979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.19.1]
 title = "Retire guarantor-certified withdrawal and exit claims from lxp_bridge.h"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.0.2", "16.2.1", "16.94.1"]
@@ -93361,7 +93399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.3]
 title = "Carry authority kind, scope and grant in KernelAuthority and register budget and escrow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.23.1", "1.23.2"]
@@ -93382,6 +93420,43 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
 rollback = "Revert host.go; Kind 0 callers see the HEAD behaviour."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.23.4]
+title = "Let the Programs signer binding accept host binding authority for an unsigned protocol-3 activity"
+status = "pending"
+mode = "BUILD"
+wave = 5
+requires = ["1.23.1"]
+reqs = ["13253.1", "13253.2"]
+capabilities = ["1.23.4"]
+interfaces = []
+wiring = []
+do_1 = "Add `bool binding_authority;` as the last member of lxp_kernel_execution, after replay_metadata_proof_out at include/layerx/lxp_kernel.h:423 (struct :389-424, beside signature_valid at :400); every zero-initialised execution keeps it false, so the daemon and guarantor sites that set signature_valid = true unconditionally (cmd/layerxd/lxp_daemon_process.c:1563, :1610, :3405, :3455, :3929, :4347, cmd/layerxd/lxp_daemon_lni.c:3752, cmd/layerx-guarantor/runtime.c:453) still have every Programs signature verified."
+do_2 = "In kernel_program_signer_binding (src/protocol/lxp_kernel.c:201-219) replace `return lxp_activity_verify_signature(activity);` at :218 with `if (activity->signature.length == 0U && execution->binding_authority && execution->signature_valid) return LXP_OK;` followed by `return lxp_activity_verify_signature(activity);`, after the actor, principal and verified_key == activity->authority checks at :209-213 and the owner key-validity check at :214-217, so binding authority substitutes only the ed25519 check; a signed activity is verified whatever the flag and an unsigned one without the flag is still refused with LXP_ERR_BAD_SIGNATURE by src/protocol/lxp_activity_signature.c:9-11, which stays unchanged."
+do_3 = "Leave both callers as they are (lxp_kernel_prepare_activity at src/protocol/lxp_kernel.c:3324 and lxp_kernel_execute_activity at :6802); the prepare path's private copy `*private_execution = *execution` at :1010 carries the new member."
+do_4 = "In kernel_execution_binding (src/protocol/lxp_kernel.c:1076) add `BIND_U64(execution->binding_authority ? 1U : 0U);` immediately after `BIND_U64(execution->signature_valid ? 1U : 0U);` at :1102, so a transition prepared under binding authority (:3463) does not match an apply-time execution without it (:4243)."
+do_5 = "In lxphost_execute (modules/lxphost/host.go:510-542) add `execution->binding_authority = node->envelope.activity.signature.length == 0U && binding_authority;` after the signature_valid assignment at :533-535, using the flag HostExecute derives at modules/lxphost/host.go:923 through binding_authority (:717: Bound, empty signature, VerifiedKey == AuthorityKey)."
+do_6 = "Create tests/codec/lxp_test_program_signer_binding.c (planned) over tests/codec/lxp_kernel_case.h with a fixture built as tests/codec/lxp_test_fee_meter_refused.c:56-241 and :316-345 build theirs (protocol-3 kernel, programs_module_registration, fee and metering genesis, principal = actor = did_id, LX_PROGRAMS_CALL with a one-byte payload, signature_valid = true), compiled by the pattern rule at Makefile:1430-1434."
+do_7 = "Case bound_unsigned_program_passes_signer_binding: with signature = {NULL, 0} and binding_authority = true, lxp_kernel_prepare_activity returns LXP_OK and lxp_kernel_snapshot_apply_prepared yields receipt.result_code LXP_ERR_TRUNCATED, as the signed twin does at tests/codec/lxp_test_fee_meter_refused.c:376-380; lxp_kernel_execute_activity on a fresh fixture returns the same status and receipt.result_code as the signed twin and neither is LXP_ERR_BAD_SIGNATURE."
+do_8 = "Case unbound_unsigned_program_refused: the unsigned activity with binding_authority = false (signature_valid = true), and with binding_authority = true but signature_valid = false, is refused with LXP_ERR_BAD_SIGNATURE by lxp_kernel_execute_activity and by lxp_kernel_prepare_activity (prepared stays NULL), and with binding_authority = true but authority.verified_key differing from activity->authority it is refused with LXP_ERR_AUTH_SCOPE; each refusal leaves the state root, journal and identity sequence unchanged as fee_state_unchanged (tests/codec/lxp_test_fee_meter_refused.c:253) checks."
+do_9 = "Case bound_signed_program_still_verified: a signed activity whose signature has one byte flipped is refused with LXP_ERR_BAD_SIGNATURE by lxp_kernel_execute_activity with binding_authority = true and with it false, and the correctly signed activity with binding_authority = true produces the same result as with it false."
+symbols = ["kernel_program_signer_binding", "kernel_execution_binding", "lxp_kernel_execution", "lxphost_execute", "bound_unsigned_program_passes_signer_binding", "unbound_unsigned_program_refused", "bound_signed_program_still_verified"]
+touches = ["include/layerx/lxp_kernel.h", "src/protocol/lxp_kernel.c", "modules/lxphost/host.go", "tests/codec/lxp_test_program_signer_binding.c"]
+tests = ["tests/codec/lxp_test_program_signer_binding.c::bound_unsigned_program_passes_signer_binding", "tests/codec/lxp_test_program_signer_binding.c::unbound_unsigned_program_refused", "tests/codec/lxp_test_program_signer_binding.c::bound_signed_program_still_verified"]
+planned_paths = ["tests/codec/lxp_test_program_signer_binding.c"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_program_signer_binding && ./build/tests/kernel/codec/lxp_test_program_signer_binding bound_unsigned_program_passes_signer_binding unbound_unsigned_program_refused bound_signed_program_still_verified"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the touched files; kernel_program_signer_binding verifies every protocol-3 Programs signature again and no execution sets binding_authority."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -93819,8 +93894,9 @@ do_1 = "Delete src/network/lx_web_adapter.c (src/network/lx_web_adapter.c:1-405)
 do_2 = "Callers outside the deleted code at HEAD: domain 6 at modules/xweb/types/observation_test.go:50 (wiring request); domain 16 at tests/modules/test_web_intake.c:231, tests/network/test_web_adapter.c:174, tests/protocol/lxp_test_dispatch.c:228, tests/sequencer/test_web_root.c:222 and 1 more files (wiring request); kernel callers src/modules/web/lx_web_intake.c:143 removed with the web module retirement before anchor 1.0.3."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lx_web.h:204, include/layerx/lx_web.h:207, include/layerx/lx_web.h:216 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_web_adapter_test.go (planned) with TestRetiredWebAdapterSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lx_web_observation_encode, lx_web_activity_encode, lx_web_adapter_run, lx_web_submission_prepare, lx_web_submission_check, lx_web_submission_recover, lx_web_adapter_run_durable and contains lxp_kernel_create (src/protocol/lxp_kernel.c:1729)."
+do_5 = "With src/network/lx_web_adapter.c deleted, move \"lx_web_adapter\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lx_web_observation_encode", "lx_web_activity_encode", "lx_web_adapter_run", "lx_web_submission_prepare", "lx_web_submission_check", "lx_web_submission_recover", "lx_web_adapter_run_durable", "TestRetiredWebAdapterSymbolsAbsent"]
-touches = ["src/network/lx_web_adapter.c", "modules/lxphost/retired_web_adapter_test.go"]
+touches = ["src/network/lx_web_adapter.c", "modules/lxphost/retired_web_adapter_test.go", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["modules/lxphost/retired_web_adapter_test.go::TestRetiredWebAdapterSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_web_adapter_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -93851,8 +93927,9 @@ do_1 = "Delete src/sequencer/lx_web_root.c (src/sequencer/lx_web_root.c:1-135), 
 do_2 = "Callers outside the deleted code at HEAD: domain 16 at tests/protocol/lxp_test_dispatch.c:301, tests/sequencer/test_web_root.c:302, tests/test_web_program_path.c:793 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lx_batch.h:44, include/layerx/lx_web.h:298, include/layerx/lx_web.h:301 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_web_root_test.go (planned) with TestRetiredWebRootSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lx_web_leaf_encode, lx_web_availability_bundle_build, lx_web_root_from_availability, lx_web_root, lx_batch_header_set_web_root and contains lxp_kernel_create (src/protocol/lxp_kernel.c:1729)."
+do_5 = "With src/sequencer/lx_web_root.c deleted, move \"lx_web_root\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lx_web_leaf_encode", "lx_web_availability_bundle_build", "lx_web_root_from_availability", "lx_web_root", "lx_batch_header_set_web_root", "TestRetiredWebRootSymbolsAbsent"]
-touches = ["src/sequencer/lx_web_root.c", "modules/lxphost/retired_web_root_test.go"]
+touches = ["src/sequencer/lx_web_root.c", "modules/lxphost/retired_web_root_test.go", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["modules/lxphost/retired_web_root_test.go::TestRetiredWebRootSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_web_root_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -93871,7 +93948,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.30.1]
 title = "Retire the gateway receive claim and grant bounds of the kernel RECEIVE/GRANT path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["1.21.1", "1.0.2", "16.31.1"]
@@ -93979,8 +94056,9 @@ do_1 = "Delete src/guarantor/lxp_guarantor.c (src/guarantor/lxp_guarantor.c:1-19
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/producer.c:190, tests/daemon/guarantor-runtime.c:298 (wiring request); domain 16 at tests/support/lxp_pay1_replay.h:135, tests/test_guarantor_duties.c:233 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_guarantor.h:290, include/layerx/lxp_guarantor.h:293, include/layerx/lxp_guarantor.h:296 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_guarantor_process_test.go (planned) with TestRetiredGuarantorProcessSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_guarantor_verify_signatures, lxp_guarantor_recompute_roots, lxp_guarantor_process_batch and contains lxp_batch_header_decode (src/sequencer/lxp_batch_header.c:84)."
+do_5 = "With src/guarantor/lxp_guarantor.c deleted, move \"lxp_guarantor\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_guarantor_verify_signatures", "lxp_guarantor_recompute_roots", "lxp_guarantor_process_batch", "TestRetiredGuarantorProcessSymbolsAbsent"]
-touches = ["src/guarantor/lxp_guarantor.c", "modules/lxphost/retired_guarantor_process_test.go"]
+touches = ["src/guarantor/lxp_guarantor.c", "modules/lxphost/retired_guarantor_process_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_guarantor_process_test.go::TestRetiredGuarantorProcessSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_guarantor_process_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94107,8 +94185,9 @@ do_1 = "Delete src/guarantor/lxp_da_possession.c (src/guarantor/lxp_da_possessio
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/main.c:755, cmd/layerx-guarantor/producer.c:239, cmd/layerxd/lxp_daemon_process.c:5895, tests/daemon/guarantor-core.c:112 (wiring request); domain 16 at tests/storage/lxp_test_batch_wal_recovery.c:561, tests/storage/lxp_test_da_verified.c:55, tests/test_da_challenge.c:102, tests/test_da_possession.c:63 and 2 more files (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:129, include/layerx/lxp_da.h:130, include/layerx/lxp_da.h:133 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_possession_test.go (planned) with TestRetiredDaPossessionSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_store_init, lxp_da_store_bundle, lxp_da_store_read_bundle, lxp_da_possession_verify, lxp_da_possession_attest and contains lxp_log_read (src/storage/lxp_log.c:445)."
+do_5 = "With src/guarantor/lxp_da_possession.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_store_init", "lxp_da_store_bundle", "lxp_da_store_read_bundle", "lxp_da_possession_verify", "lxp_da_possession_attest", "TestRetiredDaPossessionSymbolsAbsent"]
-touches = ["src/guarantor/lxp_da_possession.c", "modules/lxphost/retired_da_possession_test.go"]
+touches = ["src/guarantor/lxp_da_possession.c", "modules/lxphost/retired_da_possession_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_possession_test.go::TestRetiredDaPossessionSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_possession_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94139,8 +94218,9 @@ do_1 = "Delete src/paxeer/lxp_checkpoint_cert.c (src/paxeer/lxp_checkpoint_cert.
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/main.c:855, cmd/layerx-guarantor/producer.c:260, cmd/layerx-guarantor/settlement.c:508, cmd/layerx-verify/lxp_verify_main.c:45 and 5 more files (wiring request); domain 16 at tests/protocol/lxp_test_protocol.c:367, tests/storage/lxp_test_finality_evidence.c:664, tests/test_bridge_withdraw.c:421, tests/test_da_challenge.c:123 and 8 more files (wiring request); kernel callers src/modules/bridge/lxp_bridge_exit.c:102, src/modules/bridge/lxp_bridge_withdraw.c:194, src/protocol/lxp_receipt_verify.c:145 retargeted before anchor 1.0.3."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_guarantor.h:300, include/layerx/lxp_guarantor.h:308, include/layerx/lxp_guarantor.h:311 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_checkpoint_cert_test.go (planned) with TestRetiredCheckpointCertSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_checkpoint_maximum_attestation_delay_ms, lxp_guarantor_attestation_verify, lxp_checkpoint_certificate_hash, lxp_guarantor_cert_assemble, lxp_guarantor_cert_verify, lxp_receipt_augment and contains lxp_batch_header_decode (src/sequencer/lxp_batch_header.c:84), lxp_receipt_decode (src/protocol/lxp_receipt.c:729)."
+do_5 = "With src/paxeer/lxp_checkpoint_cert.c deleted, delete CHECKPOINT_SETTLEMENT_HEADER, CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS, the header rule and the lxp_checkpoint_cert.o prerequisite line restored by task 1.4.6, and move \"lxp_checkpoint_cert\" in tools/ci/tests/test_makefile_wave1.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_checkpoint_maximum_attestation_delay_ms", "lxp_guarantor_attestation_verify", "lxp_checkpoint_certificate_hash", "lxp_guarantor_cert_assemble", "lxp_guarantor_cert_verify", "lxp_receipt_augment", "TestRetiredCheckpointCertSymbolsAbsent"]
-touches = ["src/paxeer/lxp_checkpoint_cert.c", "modules/lxphost/retired_checkpoint_cert_test.go"]
+touches = ["src/paxeer/lxp_checkpoint_cert.c", "modules/lxphost/retired_checkpoint_cert_test.go", "Makefile", "tools/ci/tests/test_makefile_wave1.py"]
 tests = ["modules/lxphost/retired_checkpoint_cert_test.go::TestRetiredCheckpointCertSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_checkpoint_cert_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94301,8 +94381,9 @@ do_1 = "Delete src/replica/lxp_replica_ingest.c (src/replica/lxp_replica_ingest.
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-guarantor/runtime.c:927, cmd/layerxd/lxp_daemon_replica.c:270 (wiring request); domain 16 at tests/qualification/lxp_qual_faults.c:457, tests/test_replica_ingest.c:92 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_replica.h:124, include/layerx/lxp_replica.h:125, include/layerx/lxp_replica.h:130 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_replica_ingest_test.go (planned) with TestRetiredReplicaIngestSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_replica_init, lxp_replica_bind_execution, lxp_replica_bind_eligibility, lxp_replica_batch_eligible, lxp_replica_validate_header, lxp_replica_chain_link, lxp_replica_ingest_batch and contains lxp_log_read (src/storage/lxp_log.c:445)."
+do_5 = "With src/replica/lxp_replica_ingest.c deleted, move \"lxp_replica\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_replica_init", "lxp_replica_bind_execution", "lxp_replica_bind_eligibility", "lxp_replica_batch_eligible", "lxp_replica_validate_header", "lxp_replica_chain_link", "lxp_replica_ingest_batch", "TestRetiredReplicaIngestSymbolsAbsent"]
-touches = ["src/replica/lxp_replica_ingest.c", "modules/lxphost/retired_replica_ingest_test.go"]
+touches = ["src/replica/lxp_replica_ingest.c", "modules/lxphost/retired_replica_ingest_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_replica_ingest_test.go::TestRetiredReplicaIngestSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_replica_ingest_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94496,8 +94577,9 @@ do_1 = "Delete src/network/lxp_da_bundle.c (src/network/lxp_da_bundle.c:1-435), 
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-archive-codec/main.c:533, cmd/layerx-guarantor/lni.c:316, cmd/layerx-guarantor/main.c:814, cmd/layerx-guarantor/producer.c:184 and 9 more files (wiring request); domain 16 at tests/programs/test_occupancy_batch.c:246, tests/state/lxp_test_state_diff.c:129, tests/storage/lxp_test_batch_wal_recovery.c:308, tests/storage/lxp_test_da_verified.c:62 and 8 more files (wiring request); kernel callers src/protocol/lxp_handover.c:948 retargeted before anchor 1.0.3."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:103, include/layerx/lxp_da.h:116, include/layerx/lxp_da.h:119 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_bundle_test.go (planned) with TestRetiredDaBundleSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_chunk_hash, lxp_da_recovery_metadata_encode, lxp_da_bundle_build, lxp_da_bundle_root, lxp_batch_availability_root, lxp_da_receipt_section_encode, lxp_da_receipt_section_decode, lxp_da_bundle_body and contains lxp_log_append (src/storage/lxp_log.c:405)."
+do_5 = "With src/network/lxp_da_bundle.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_chunk_hash", "lxp_da_recovery_metadata_encode", "lxp_da_bundle_build", "lxp_da_bundle_root", "lxp_batch_availability_root", "lxp_da_receipt_section_encode", "lxp_da_receipt_section_decode", "lxp_da_bundle_body", "TestRetiredDaBundleSymbolsAbsent"]
-touches = ["src/network/lxp_da_bundle.c", "modules/lxphost/retired_da_bundle_test.go"]
+touches = ["src/network/lxp_da_bundle.c", "modules/lxphost/retired_da_bundle_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_bundle_test.go::TestRetiredDaBundleSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_bundle_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94528,8 +94610,9 @@ do_1 = "Delete src/network/lxp_da_kernel.c (src/network/lxp_da_kernel.c:1-117), 
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerxd/lxp_daemon_process.c:4557, tests/daemon/lxp_test_arbiter_admission.c:754, tests/daemon/lxp_test_arbiter_prestate.c:660, tests/daemon/lxp_test_arbiter_prestate_transport.c:750 and 3 more files (wiring request); domain 13 at programs/tests/differential/parallel.c:798 (wiring request); domain 16 at tests/programs/test_occupancy_batch.c:118, tests/protocol/lxp_test_terminal_rejection.c:337, tests/state/lxp_test_state_diff.c:162, tests/storage/lxp_test_batch_wal_recovery.c:293 and 2 more files (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:107, include/layerx/lxp_da.h:93, include/layerx/lxp_da.h:96 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_kernel_test.go (planned) with TestRetiredDaKernelSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_recovery_from_kernel, lxp_da_recovery_verify_kernel, lxp_da_body_from_kernels and contains lxp_log_append (src/storage/lxp_log.c:405)."
+do_5 = "With src/network/lxp_da_kernel.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_recovery_from_kernel", "lxp_da_recovery_verify_kernel", "lxp_da_body_from_kernels", "TestRetiredDaKernelSymbolsAbsent"]
-touches = ["src/network/lxp_da_kernel.c", "modules/lxphost/retired_da_kernel_test.go"]
+touches = ["src/network/lxp_da_kernel.c", "modules/lxphost/retired_da_kernel_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_kernel_test.go::TestRetiredDaKernelSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_kernel_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94560,8 +94643,9 @@ do_1 = "Delete src/network/lxp_da_service.c (src/network/lxp_da_service.c:1-148)
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerxd/lxp_daemon_lni.c:2044, tests/daemon/guarantor-core.c:118 (wiring request); domain 16 at tests/storage/lxp_test_da_verified.c:115, tests/test_da_retrieval.c:53 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:147, include/layerx/lxp_da.h:163 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_service_test.go (planned) with TestRetiredDaServiceSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_serve_chunk, lxp_da_serve_chunk_proof and contains lxp_log_append (src/storage/lxp_log.c:405)."
+do_5 = "With src/network/lxp_da_service.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_serve_chunk", "lxp_da_serve_chunk_proof", "TestRetiredDaServiceSymbolsAbsent"]
-touches = ["src/network/lxp_da_service.c", "modules/lxphost/retired_da_service_test.go"]
+touches = ["src/network/lxp_da_service.c", "modules/lxphost/retired_da_service_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_service_test.go::TestRetiredDaServiceSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_service_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94592,8 +94676,9 @@ do_1 = "Delete src/storage/lxp_da_verified.c (src/storage/lxp_da_verified.c:1-11
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerx-archive-codec/main.c:360, cmd/layerxd/lxp_daemon_evidence.c:4323, cmd/layerxd/lxp_daemon_handover_history.c:37, cmd/layerxd/lxp_daemon_lni.c:2037 and 3 more files (wiring request); domain 16 at tests/storage/lxp_test_batch_wal_recovery.c:564, tests/storage/lxp_test_da_verified.c:67, tests/storage/lxp_test_finality_evidence.c:1220 (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_da.h:138, include/layerx/lxp_da.h:143, include/layerx/lxp_da.h:145 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_da_verified_test.go (planned) with TestRetiredDaVerifiedSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_da_store_read_verified, lxp_da_log_read_body, lxp_da_log_store_body and contains lxp_log_append (src/storage/lxp_log.c:405), lxp_log_read (src/storage/lxp_log.c:445)."
+do_5 = "With src/storage/lxp_da_verified.c deleted, if no src/**/lxp_da_*.c remains outside the LIB_SOURCES filter-out list, move \"lxp_da_\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check; otherwise leave it on the non-library-line check."
 symbols = ["lxp_da_store_read_verified", "lxp_da_log_read_body", "lxp_da_log_store_body", "TestRetiredDaVerifiedSymbolsAbsent"]
-touches = ["src/storage/lxp_da_verified.c", "modules/lxphost/retired_da_verified_test.go"]
+touches = ["src/storage/lxp_da_verified.c", "modules/lxphost/retired_da_verified_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_da_verified_test.go::TestRetiredDaVerifiedSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_da_verified_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -94624,8 +94709,9 @@ do_1 = "Delete src/sequencer/lxp_batch_seal.c (src/sequencer/lxp_batch_seal.c:1-
 do_2 = "Callers outside the deleted code at HEAD: domain 5 at cmd/layerxd/lxp_daemon_process.c:2650, tests/daemon/guarantor-core.c:109, tests/daemon/guarantor-runtime.c:153, tests/daemon/lxp_test_arbiter_admission.c:761 and 8 more files (wiring request); domain 8 at tools/platform/emulator/core/emulator_core.c:452 (wiring request); domain 13 at programs/tests/differential/parallel.c:806 (wiring request); domain 14 at tests/explorer_fixture.c:197 (wiring request); domain 16 at tests/programs/test_call_activity.c:1152, tests/programs/test_interface_protocol.c:315, tests/protocol/lxp_test_terminal_rejection.c:345, tests/storage/lxp_test_batch_wal_recovery.c:316 and 8 more files (wiring request)."
 do_3 = "Makefile:44 collects LIB_SOURCES with find over src, so build/liblayerx.a loses the object without a Makefile edit; the declarations at include/layerx/lxp_batch.h:136, include/layerx/lxp_batch.h:140 are removed by task 1.38.1."
 do_4 = "Create modules/lxphost/retired_batch_seal_test.go (planned) with TestRetiredBatchSealSymbolsAbsent: kernelArchiveSymbols from modules/lxphost/archive_symbols_test.go (planned) contains none of lxp_batch_seal, lxp_batch_sign and contains lxp_batch_header_decode (src/sequencer/lxp_batch_header.c:84), lxp_batch_verify_signature (src/sequencer/lxp_batch_header.c (planned))."
+do_5 = "With src/sequencer/lxp_batch_seal.c deleted, move \"lxp_batch_seal\" in tools/ci/tests/test_makefile_wave2.py test_aggregates_dry_run_clean back to the whole make -n stdout check."
 symbols = ["lxp_batch_seal", "lxp_batch_sign", "TestRetiredBatchSealSymbolsAbsent"]
-touches = ["src/sequencer/lxp_batch_seal.c", "modules/lxphost/retired_batch_seal_test.go"]
+touches = ["src/sequencer/lxp_batch_seal.c", "modules/lxphost/retired_batch_seal_test.go", "tools/ci/tests/test_makefile_wave2.py"]
 tests = ["modules/lxphost/retired_batch_seal_test.go::TestRetiredBatchSealSymbolsAbsent"]
 planned_paths = ["modules/lxphost/retired_batch_seal_test.go"]
 build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
@@ -95221,8 +95307,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Add Host.Simulate over the kernel activity simulation in a new host file"
 status = "pending"
 mode = "BUILD"
-wave = 6
-requires = ["1.0.1", "1.23.1"]
+wave = 7
+requires = ["1.0.1", "1.23.1", "1.23.3"]
 reqs = ["1965.1", "1965.2"]
 capabilities = []
 interfaces = []
@@ -95232,6 +95318,7 @@ do_2 = "Call lxp_kernel_simulate_activity (src/protocol/lxp_kernel.c:6193) on a 
 do_3 = "Keep modules/lxphost/simulate.go (planned) free of host.go edits: host.go is owned in every wave by other domain-1 tasks, and the Programs transfer runtime that lxp_kernel_simulate_activity needs is bound there by task 1.23.1 do_6, which this task requires."
 do_4 = "Write modules/lxphost/simulate_test.go (planned) with the two tests below, each simulating an LX_PROGRAMS_CALL activity, the only type lxp_kernel_simulate_activity accepts (src/protocol/lxp_kernel.c:6129), instead of an identity registration."
 do_5 = "modules/lxphost/simulate_test.go submits every activity with FeeLimit zero as modules/lxphost/execute_test.go does: lxphost_execute (modules/lxphost/host.go:496) zeroes the execution and carries no payer balance, so the kernel refuses any non-zero fee limit with LXP_ERR_FEE_UNPAYABLE (src/protocol/lxp_kernel.c:7036, asserted by modules/lxphost/activity_fields_test.go:36)."
+do_6 = "modules/lxphost/simulate_test.go passes to both Execute and Simulate a KernelAuthority built from actor.authority() with a non-zero AuthorityHash (modules/lxphost/host.go:785, copied into the resolved authority at modules/lxphost/host.go:283), since lxp_programs_call_validate refuses a zero authority_hash with LXP_ERR_NON_CANONICAL (src/modules/programs/call.c:2441-2444); the -207 and -7 expectations of the two tests stay as written."
 symbols = ["TestSimulateMatchesExecuteReceipt", "TestSimulateLeavesStoreUnchanged"]
 touches = ["modules/lxphost/simulate.go", "modules/lxphost/simulate_test.go"]
 tests = ["modules/lxphost/simulate_test.go::TestSimulateMatchesExecuteReceipt", "modules/lxphost/simulate_test.go::TestSimulateLeavesStoreUnchanged"]
@@ -96095,7 +96182,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.3.6]
 title = "Decode ledger receipts into the 0x101A event set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["2.3.4", "1.21.3"]
@@ -96128,7 +96215,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.4.1]
 title = "Register, pause and unpause kernel assets from the ledger keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["2.3.3", "2.3.5"]
@@ -97124,6 +97211,7 @@ do_2 = "Call the keeper functions GrantSession, GrantSessionSuccessor, GrantCapa
 do_3 = "Emit the logs SessionGranted, GrantBody, CapabilityGranted from the keeper events with the log helper pattern of precompiles/layerxexchange/layerxexchange.go:313."
 do_4 = "Turn keeper errors into reverts with RevertError (precompiles/layerxauth/errors.go (planned))."
 do_5 = "Write TestPrecompileGrantSession, TestPrecompileGrantSessionSuccessor, TestPrecompileGrantCapability in precompiles/layerxauth/grants_test.go (planned)."
+do_6 = "TestPrecompileGrantSessionSuccessor in precompiles/layerxauth/grants_test.go grants version-2 session bodies with a fee block, revokes the predecessor through the keeper's RevokeGrant before granting the successor, sets the successor body's grantor revocation sequence to the sequence that revoke wrote (src/modules/governance/lxp_governance.c:631) and takes the expected commitment from the revoked grant as src/state/lxp_authority.c:969-987 computes it, because lxp_governance.c:328-341 refuses a successor for a live predecessor with LXP_ERR_AUTH_SCOPE; the wrong-commitment case keeps that same reason."
 symbols = ["grantSession", "grantSessionSuccessor", "grantCapability", "SessionGranted", "GrantBody", "CapabilityGranted", "TestPrecompileGrantSession", "TestPrecompileGrantSessionSuccessor", "TestPrecompileGrantCapability"]
 touches = ["precompiles/layerxauth/grants.go", "precompiles/layerxauth/grants_test.go"]
 tests = ["precompiles/layerxauth/grants_test.go::TestPrecompileGrantSession", "precompiles/layerxauth/grants_test.go::TestPrecompileGrantSessionSuccessor", "precompiles/layerxauth/grants_test.go::TestPrecompileGrantCapability"]
@@ -97176,7 +97264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.4]
 title = "Serve the 0x101C views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.11.1", "2.7.4"]
@@ -98182,6 +98270,7 @@ do_1 = "Write GetBudget and BudgetRemaining in modules/layerxpay/keeper/budget_v
 do_2 = "Build the 39-byte key with the layout of the kernel budget state key function (include/layerx/lx_budget.h:224)."
 do_3 = "Decode with DecodeBudgetRecord in modules/layerxpay/types/records_budget.go (planned) and return found=false with a zero record for an unknown id."
 do_4 = "Write TestBudgetViewsReadKernelRecord in modules/layerxpay/keeper/budget_views_test.go (planned)."
+do_5 = "In BudgetRemaining (modules/layerxpay/keeper/budget_views.go:40) return sdk.ZeroInt() when the allowance is zero, so an exhausted budget compares equal to sdk.ZeroInt() at budget_views_test.go:143; keep every assertion in budget_views_test.go as written."
 symbols = ["GetBudget", "BudgetRemaining", "TestBudgetViewsReadKernelRecord"]
 touches = ["modules/layerxpay/keeper/budget_views.go", "modules/layerxpay/keeper/budget_views_test.go"]
 tests = ["modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord"]
@@ -102081,7 +102170,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.13.2]
 title = "Name the 0x1020 site refusals as constants and register every pricefeed code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.13.1", "6.92.1", "6.2.1"]
@@ -105951,8 +106040,9 @@ do_1 = "Add func (q Querier) PriceHistory(goCtx context.Context, req *types.Quer
 do_2 = "Call k.PriceHistory of modules/launchpad/keeper/price_history.go (planned) with the request fields."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryPriceHistoryServes and TestQueryPriceHistoryRefusals in modules/launchpad/keeper/grpc_query_price_history_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "In modules/launchpad/keeper/price_history.go:13 replace `return nil, fmt.Errorf(\"%w: %s\", types.ErrUnknownMarket, denom)` with `return nil, sdkerrors.Wrap(types.ErrUnknownMarket, denom)` (import sdkerrors \"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors\", drop fmt), so sdkerrors.ABCIInfo of the relayed error yields the launchpad codespace and ErrUnknownMarket.ABCICode() for the unknown-market and empty-denom refusals of TestQueryPriceHistoryRefusals (grpc_query_price_history_test.go:120) while errors.Is in modules/launchpad/keeper/price_history_test.go:75 keeps passing."
 symbols = ["Querier.PriceHistory", "TestQueryPriceHistoryServes", "TestQueryPriceHistoryRefusals"]
-touches = ["modules/launchpad/keeper/grpc_query_price_history.go", "modules/launchpad/keeper/grpc_query_price_history_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
+touches = ["modules/launchpad/keeper/grpc_query_price_history.go", "modules/launchpad/keeper/grpc_query_price_history_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go", "modules/launchpad/keeper/price_history.go"]
 tests = ["modules/launchpad/keeper/grpc_query_price_history_test.go::TestQueryPriceHistoryServes", "modules/launchpad/keeper/grpc_query_price_history_test.go::TestQueryPriceHistoryRefusals"]
 planned_paths = ["modules/launchpad/keeper/grpc_query_price_history.go", "modules/launchpad/keeper/grpc_query_price_history_test.go"]
 build_cmd = "go build ./modules/launchpad/..."
@@ -105982,6 +106072,7 @@ do_1 = "Add func (q Querier) Quote(goCtx context.Context, req *types.QueryQuoteR
 do_2 = "Parse amount_in with sdk.NewIntFromString, call QuoteBuy (modules/launchpad/keeper/swap.go:213) or QuoteSell (modules/launchpad/keeper/swap.go:218) on a CacheContext and convert SwapResult (modules/launchpad/keeper/swap.go:45-52) into SwapQuote in the handler file."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryQuoteServes and TestQueryQuoteRefusals in modules/launchpad/keeper/grpc_query_quote_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) Quote from modules/launchpad/keeper/grpc_query.go (line 38 at 66448a171; it sits right after queryContext once 4.4.6 and its predecessors have removed theirs), remove the \"Quote\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"Quote\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.Quote", "TestQueryQuoteServes", "TestQueryQuoteRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_quote.go", "modules/launchpad/keeper/grpc_query_quote_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_quote_test.go::TestQueryQuoteServes", "modules/launchpad/keeper/grpc_query_quote_test.go::TestQueryQuoteRefusals"]
@@ -106013,6 +106104,7 @@ do_1 = "Add func (q Querier) Treasury(goCtx context.Context, req *types.QueryTre
 do_2 = "Parse token with ParseHexAddress and read TreasuryGetBalance at modules/launchpad/keeper/treasury.go:18 and TreasuryHeld at modules/launchpad/keeper/treasury.go:24."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryTreasuryServes and TestQueryTreasuryRefusals in modules/launchpad/keeper/grpc_query_treasury_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) Treasury from modules/launchpad/keeper/grpc_query.go (line 46 at 66448a171; it sits right after queryContext once 4.4.7 and its predecessors have removed theirs), remove the \"Treasury\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"Treasury\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.Treasury", "TestQueryTreasuryServes", "TestQueryTreasuryRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_treasury.go", "modules/launchpad/keeper/grpc_query_treasury_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_treasury_test.go::TestQueryTreasuryServes", "modules/launchpad/keeper/grpc_query_treasury_test.go::TestQueryTreasuryRefusals"]
@@ -106044,6 +106136,7 @@ do_1 = "Add func (q Querier) Surface(goCtx context.Context, req *types.QuerySurf
 do_2 = "Parse address with ParseHexAddress, read GetSurface at modules/launchpad/keeper/surfaces.go:73 and convert keeper.Surface (modules/launchpad/keeper/surfaces.go:31) into SurfaceInfo in the handler file."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQuerySurfaceServes and TestQuerySurfaceRefusals in modules/launchpad/keeper/grpc_query_surface_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) Surface from modules/launchpad/keeper/grpc_query.go (line 54 at 66448a171; it sits right after queryContext once 4.4.8 and its predecessors have removed theirs), remove the \"Surface\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"Surface\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.Surface", "TestQuerySurfaceServes", "TestQuerySurfaceRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_surface.go", "modules/launchpad/keeper/grpc_query_surface_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_surface_test.go::TestQuerySurfaceServes", "modules/launchpad/keeper/grpc_query_surface_test.go::TestQuerySurfaceRefusals"]
@@ -106075,6 +106168,7 @@ do_1 = "Add func (q Querier) Retired(goCtx context.Context, req *types.QueryReti
 do_2 = "Parse address with ParseHexAddress, read GetRetired at modules/launchpad/keeper/migration_record.go:300 and convert with RetiredInfoOf of modules/launchpad/types/query_registry.go (planned)."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryRetiredServes and TestQueryRetiredRefusals in modules/launchpad/keeper/grpc_query_retired_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) Retired from modules/launchpad/keeper/grpc_query.go (line 62 at 66448a171; it sits right after queryContext once 4.4.9 and its predecessors have removed theirs), remove the \"Retired\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"Retired\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.Retired", "TestQueryRetiredServes", "TestQueryRetiredRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_retired.go", "modules/launchpad/keeper/grpc_query_retired_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_retired_test.go::TestQueryRetiredServes", "modules/launchpad/keeper/grpc_query_retired_test.go::TestQueryRetiredRefusals"]
@@ -106106,6 +106200,7 @@ do_1 = "Add func (q Querier) FeeRight(goCtx context.Context, req *types.QueryFee
 do_2 = "Parse collection with ParseHexAddress, read GetFeeRight at modules/launchpad/keeper/feerights.go:79 and convert with FeeRightInfoOf of modules/launchpad/types/query_registry.go (planned)."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryFeeRightServes and TestQueryFeeRightRefusals in modules/launchpad/keeper/grpc_query_fee_right_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) FeeRight from modules/launchpad/keeper/grpc_query.go (line 70 at 66448a171; it sits right after queryContext once 4.4.10 and its predecessors have removed theirs), remove the \"FeeRight\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"FeeRight\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.FeeRight", "TestQueryFeeRightServes", "TestQueryFeeRightRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_fee_right.go", "modules/launchpad/keeper/grpc_query_fee_right_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_fee_right_test.go::TestQueryFeeRightServes", "modules/launchpad/keeper/grpc_query_fee_right_test.go::TestQueryFeeRightRefusals"]
@@ -106137,6 +106232,7 @@ do_1 = "Add func (q Querier) AirdropEpoch(goCtx context.Context, req *types.Quer
 do_2 = "Parse pool with ParseHexAddress, refuse epoch 0 with types.ErrInvalidAirdropEpoch, read GetPoolAirdropEpoch at modules/launchpad/keeper/airdrop.go:90 and convert with AirdropEpochInfoOf."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryAirdropEpochServes and TestQueryAirdropEpochRefusals in modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) AirdropEpoch from modules/launchpad/keeper/grpc_query.go (line 78 at 66448a171; it sits right after queryContext once 4.4.11 and its predecessors have removed theirs), remove the \"AirdropEpoch\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"AirdropEpoch\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.AirdropEpoch", "TestQueryAirdropEpochServes", "TestQueryAirdropEpochRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_airdrop_epoch.go", "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go::TestQueryAirdropEpochServes", "modules/launchpad/keeper/grpc_query_airdrop_epoch_test.go::TestQueryAirdropEpochRefusals"]
@@ -106168,6 +106264,7 @@ do_1 = "Add func (q Querier) AirdropClaimed(goCtx context.Context, req *types.Qu
 do_2 = "Parse pool and holder with ParseHexAddress and read HasClaimedPoolAirdrop at modules/launchpad/keeper/airdrop.go:138."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryAirdropClaimedServes and TestQueryAirdropClaimedRefusals in modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) AirdropClaimed from modules/launchpad/keeper/grpc_query.go (line 86 at 66448a171; it sits right after queryContext once 4.4.12 and its predecessors have removed theirs), remove the \"AirdropClaimed\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"AirdropClaimed\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.AirdropClaimed", "TestQueryAirdropClaimedServes", "TestQueryAirdropClaimedRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_airdrop_claimed.go", "modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go::TestQueryAirdropClaimedServes", "modules/launchpad/keeper/grpc_query_airdrop_claimed_test.go::TestQueryAirdropClaimedRefusals"]
@@ -106199,6 +106296,7 @@ do_1 = "Add func (q Querier) HasRole(goCtx context.Context, req *types.QueryHasR
 do_2 = "Parse contract and account with ParseHexAddress, decode role with hexutil.Decode into [32]byte and read HasRole at modules/launchpad/keeper/roles.go:56."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryHasRoleServes and TestQueryHasRoleRefusals in modules/launchpad/keeper/grpc_query_has_role_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) HasRole from modules/launchpad/keeper/grpc_query.go (line 94 at 66448a171; it sits right after queryContext once 4.4.13 and its predecessors have removed theirs), remove the \"HasRole\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"HasRole\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.HasRole", "TestQueryHasRoleServes", "TestQueryHasRoleRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_has_role.go", "modules/launchpad/keeper/grpc_query_has_role_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_has_role_test.go::TestQueryHasRoleServes", "modules/launchpad/keeper/grpc_query_has_role_test.go::TestQueryHasRoleRefusals"]
@@ -106230,6 +106328,7 @@ do_1 = "Add func (q Querier) QuoteLedger(goCtx context.Context, req *types.Query
 do_2 = "Parse kind with ParseQuoteLedgerKind of modules/launchpad/types/query_ledger.go (planned), build the ledger with the constructors at modules/launchpad/keeper/custody.go:63-71 and read GetQuoteLedger at modules/launchpad/keeper/custody.go:91."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryQuoteLedgerServes and TestQueryQuoteLedgerRefusals in modules/launchpad/keeper/grpc_query_quote_ledger_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) QuoteLedger from modules/launchpad/keeper/grpc_query.go (line 102 at 66448a171; it sits right after queryContext once 4.4.14 and its predecessors have removed theirs), remove the \"QuoteLedger\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"QuoteLedger\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.QuoteLedger", "TestQueryQuoteLedgerServes", "TestQueryQuoteLedgerRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_quote_ledger.go", "modules/launchpad/keeper/grpc_query_quote_ledger_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_quote_ledger_test.go::TestQueryQuoteLedgerServes", "modules/launchpad/keeper/grpc_query_quote_ledger_test.go::TestQueryQuoteLedgerRefusals"]
@@ -106261,6 +106360,7 @@ do_1 = "Add func (q Querier) FeeAccounting(goCtx context.Context, req *types.Que
 do_2 = "Read TotalLiabilities at modules/launchpad/keeper/fees.go:56 and convert with FeeAccountingInfoOf of modules/launchpad/types/query_ledger.go (planned) over a FeeAccounting whose PendingProtocolFees is sdk.ZeroInt()."
 do_3 = "Return errors from the keeper unwrapped so the launchpad codespace codes of modules/launchpad/types/errors.go:18-92 reach the gRPC caller."
 do_4 = "Write TestQueryFeeAccountingServes and TestQueryFeeAccountingRefusals in modules/launchpad/keeper/grpc_query_fee_accounting_test.go (planned) on newEnv (modules/launchpad/keeper/keeper_test.go:55) through baseapp.NewQueryServerTestHelper (sdk/baseapp/grpcrouter_helpers.go:31) and types.NewQueryClient."
+do_5 = "Delete the forwarding stub func (q Querier) FeeAccounting from modules/launchpad/keeper/grpc_query.go (line 110 at 66448a171; it sits right after queryContext once 4.4.15 and its predecessors have removed theirs), remove the \"FeeAccounting\" row from the Unimplemented table of TestQuerierRegistersOnGRPCRouter (modules/launchpad/keeper/grpc_query_test.go) or give it its own case before the codes.Unimplemented default (:302), and drop \"FeeAccounting\" from the Unimplemented method list at modules/launchpad/module_services_test.go:46-47 or give it a served case before the default (:101), as 4.4.5 did at 3855070fb; every remaining method keeps its Unimplemented assertion."
 symbols = ["Querier.FeeAccounting", "TestQueryFeeAccountingServes", "TestQueryFeeAccountingRefusals"]
 touches = ["modules/launchpad/keeper/grpc_query_fee_accounting.go", "modules/launchpad/keeper/grpc_query_fee_accounting_test.go", "modules/launchpad/keeper/grpc_query.go", "modules/launchpad/keeper/grpc_query_test.go", "modules/launchpad/module_services_test.go"]
 tests = ["modules/launchpad/keeper/grpc_query_fee_accounting_test.go::TestQueryFeeAccountingServes", "modules/launchpad/keeper/grpc_query_fee_accounting_test.go::TestQueryFeeAccountingRefusals"]
@@ -106378,7 +106478,7 @@ title = "Add the launchpad market query commands"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["4.5.1", "4.4.2", "4.4.3"]
+requires = ["4.5.1", "4.4.2", "4.4.3", "15.0.5"]
 reqs = ["4036.1", "4036.2"]
 capabilities = ["4.5.3"]
 interfaces = ["interface.4.cli-launchpad-query-market-j28", "interface.4.cli-launchpad-query-market-by-address-j28"]
@@ -106409,7 +106509,7 @@ title = "Add the launchpad markets query commands"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["4.5.1", "4.4.4", "4.4.5"]
+requires = ["4.5.1", "4.4.4", "4.4.5", "15.0.5"]
 reqs = ["4037.1", "4037.2"]
 capabilities = ["4.5.4"]
 interfaces = ["interface.4.cli-launchpad-query-markets-j28", "interface.4.cli-launchpad-query-markets-by-creator-j28"]
@@ -110017,13 +110117,13 @@ do_2 = "Change the eleven MobileServices methods at apps/launchpad/mobile/src/ru
 do_3 = "Route modules import only from sdk/launchpad/packages/sdk/src and never from src/platform, so they load without react-native (apps/launchpad/mobile/src/platform/protected-storage.ts:1)."
 do_4 = "Write apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts (planned) test routeModulesPreserveHeadPaths: serve a node:http loopback server, call each route function through a real SdkClient with production false and assert the eleven observed method and path pairs equal the HEAD pairs."
 do_5 = "Close the `{price && <Copyable …/>` JSX expression at apps/launchpad/mobile/src/screens/token.tsx:2 column 1180 with its missing `}` (TS1005, present since 145164d70) and change nothing else in Token."
-do_6 = "Set apps/launchpad/mobile/tsconfig.json compilerOptions \"lib\": [\"ES2022\"], \"types\": [\"react-native\"] and \"include\": [\"src\"], and add apps/launchpad/mobile/tsconfig.test.json extending it with \"types\": [\"node\"] and \"include\": [\"test\"], keeping strict true in both."
+do_6 = "Add \"skipLibCheck\": true to apps/launchpad/mobile/tsconfig.json compilerOptions and keep lib, types, include [\"src\", \"test\"], strict, module NodeNext, allowImportingTsExtensions, noEmit and jsx react-jsx as on main (no tsconfig.test.json): the default lib with DOM is what the launchpad SDK sources the app imports by relative path are typed against (sdk/launchpad/packages/sdk/tsconfig.json), and react-native's src/types/globals.d.ts conflicts with lib.dom.d.ts and @types/node only inside declaration files (46 positions at b6763f366), which skipLibCheck leaves unchecked while every source file stays checked."
 do_7 = "Type WalletProtocolStorage.load (apps/launchpad/mobile/src/platform/protected-storage.ts:15) as Promise<Record<string, unknown>>, assigning the parsed object to a local before storing it in this.values, and write the 204 return of service-client.ts (:48) as `undefined as unknown as ContractTypes[N]`."
 symbols = ["MobileServices", "marketRoutes", "routeModulesPreserveHeadPaths"]
-touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/tsconfig.test.json", "apps/launchpad/mobile/src/platform/protected-storage.ts"]
+touches = ["apps/launchpad/mobile/src/runtime/service-client.ts", "apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/src/screens/token.tsx", "apps/launchpad/mobile/tsconfig.json", "apps/launchpad/mobile/src/platform/protected-storage.ts"]
 tests = ["apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts::routeModulesPreserveHeadPaths"]
-planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts", "apps/launchpad/mobile/tsconfig.test.json"]
-build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.test.json"
+planned_paths = ["apps/launchpad/mobile/src/runtime/routes/market.ts", "apps/launchpad/mobile/src/runtime/routes/account.ts", "apps/launchpad/mobile/src/runtime/routes/notifications.ts", "apps/launchpad/mobile/src/runtime/routes/chat.ts", "apps/launchpad/mobile/src/runtime/routes/activity.ts", "apps/launchpad/mobile/test/vitest/routes-scaffold.test.ts"]
+build_cmd = "pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json"
 verify_cmd = "pnpm --dir apps/launchpad/mobile exec vitest run --config vitest.config.ts test/vitest/routes-scaffold.test.ts -t '(?:^|\\s)(routeModulesPreserveHeadPaths)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -112879,7 +112979,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.13.2]
 title = "Serve the tokenfactory denom pause query and message to wasm contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.13.1", "6.0.1", "6.23.5", "6.24.3"]
@@ -113259,7 +113359,8 @@ do_1 = "Write node/sequencer/seal_giga_test.go (planned) sealing a block of EVM 
 do_2 = "Replay it through ProcessBlock with the giga executor selected at node/app.go:2617."
 do_3 = "Assert identical app hashes and per-tx results of SealBatch (node/sequencer/seal.go:133) and ProcessBlock (node/app.go:2207)."
 do_4 = "engine/executor/lib/libevmone.0.12.0_linux_amd64.so is untracked and produced only by `go generate ./engine/executor/lib` (engine/executor/lib/evmlib.go:11 runs gen/main.go, which downloads the evmone 0.12.0 library and checks its sha256 0fec5d79f4c9a466bb680e8b0b9c770aea38f3dd6d2e4af23535c893d0d18d40); the build step runs it so GigaEvmKeeper.EvmoneVM is set when the test runs."
-symbols = ["TestSealBatchEqualsGigaProcessBlock", "TestSealBatchEqualsGigaProcessBlock"]
+do_5 = "NewGigaTestWrapper apps carry ChainID \"\" because SetupWithSc (node/test_helpers.go:593) runs InitChain without a ChainId and sdk/baseapp/abci.go:39 copies it, so FinalizeBlock refuses the header at sdk/baseapp/abci.go:1077 with `unexpected ChainID, got \"pax-test\", want \"\"`; in newApp of node/sequencer/seal_giga_test.go set w.App.ChainID = testChainID before the FinalizeBlock at committedTip and keep every assertion."
+symbols = ["TestSealBatchEqualsGigaProcessBlock"]
 touches = ["node/sequencer/seal_giga_test.go"]
 tests = ["node/sequencer/seal_giga_test.go::TestSealBatchEqualsGigaProcessBlock"]
 planned_paths = ["node/sequencer/seal_giga_test.go"]
@@ -115335,7 +115436,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.46.7]
 title = "Start the sequencer node from the parsed config in newApp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["5.46.6", "5.0.2", "5.5.12", "5.5.19", "5.5.17"]
@@ -115346,6 +115447,7 @@ do_1 = "Replace the discarded result at daemon/paxd/cmd/root.go:249-251 with seq
 do_2 = "After app.New in newApp (daemon/paxd/cmd/root.go:273) call sequencer.NewNode(seqCfg, a) (node/sequencer/node.go, planned) and, for a non-nil Node, Node.Start (node/sequencer/node_start.go, planned), panicking on either error; no AppOption carries the config because package app cannot import node/sequencer (decision.519)."
 do_3 = "Return from newApp, in place of the bare App at daemon/paxd/cmd/root.go:308, a sequencedApp that embeds *app.App, exposes the Node through SequencerNode() and whose Close calls Node.Stop (node/sequencer/node_stop.go, planned) before App.Close (node/app.go:1321)."
 do_4 = "Create daemon/paxd/cmd/new_app_test.go (planned) with the two tests."
+do_5 = "In daemon/paxd/cmd/new_app_test.go:68 encode the sequencer genesis in the module's tagged JSON shape read by modules/sequencer/module.go:39-45 (keys leaders, receipt_keys with entries key_id/public_key/first_height/last_height, activation_height), as moduleGenesisJSON in modules/sequencer/module_test.go:62-68 does, instead of json.Marshal(seqtypes.GenesisState{...}) whose untagged fields the module does not read; modules/sequencer is not changed."
 symbols = ["newApp", "ReadConfig", "sequencedApp", "SequencerNode", "TestNewAppPassesSequencerConfigToNode", "TestNewAppRefusesSequencerWithoutWALDir"]
 touches = ["daemon/paxd/cmd/root.go", "daemon/paxd/cmd/new_app_test.go"]
 tests = ["daemon/paxd/cmd/new_app_test.go::TestNewAppPassesSequencerConfigToNode", "daemon/paxd/cmd/new_app_test.go::TestNewAppRefusesSequencerWithoutWALDir"]
@@ -115615,7 +115717,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.49.2]
 title = "Stop writing the handover trust artefact from layerx-genesis-build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.49.1", "5.0.2", "1.17.3"]
@@ -116552,7 +116654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.1]
 title = "Committed-fixture recorder that starts a single-node sequencer home"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["5.46.6", "5.46.7", "5.0.2"]
@@ -126319,7 +126421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.1.1]
 title = "Assert the registered pax and pax2 set equals the legacy gate list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.9.2", "7.3.1", "7.2.1", "7.2.3"]
@@ -127321,7 +127423,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.13.4]
 title = "Enforce the per-IP rate limit and the batch limits on HTTP and WebSocket"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.13.3", "7.10.5", "7.12.2", "7.9.1"]
@@ -127608,13 +127710,14 @@ requires = ["7.14.1", "7.14.5", "7.7.1", "7.0.2"]
 reqs = ["7014.6"]
 capabilities = ["7.14.6"]
 interfaces = []
-do_1 = "Write rpc/served_labels_test.go (planned) installing an sdk/metric ManualReader (go.mod:96) as the global meter provider before calling the package setup servers."
-do_2 = "Call every eth_, net_, web3_, txpool_ and debug_ name of HTTPMethods once with empty parameters and collect the endpoint labels of evmrpc_request_latency_seconds (rpc/metrics.go:49)."
+do_1 = "Create rpc/export_metrics_test.go (planned, package evmrpc) exposing SwapRequestLatencyForTest(h metric.Float64Histogram) (restore func()) that replaces metrics.requestLatencySeconds as rpc/info_metric_labels_test.go:22-28 does; rpc/served_labels_test.go (planned) builds a ManualReader-backed histogram, swaps it in before calling the package setup servers and restores it in t.Cleanup, because the package instruments at rpc/metrics.go:42-43 are bound before an external test package can install a global meter provider."
+do_2 = "Call every eth_, net_, web3_, txpool_ and debug_ name of HTTPMethods once with the minimal valid arguments its handler accepts (empty parameters are refused by argument decoding before the handler for 50 methods) and collect the endpoint labels of evmrpc_request_latency_seconds (rpc/metrics.go:49)."
 do_3 = "Write TestServedMethodsRecordServedEndpointLabel (planned) failing with each called name that recorded no point under its own name."
-symbols = ["ManualReader", "HTTPMethods", "TestServedMethodsRecordServedEndpointLabel"]
-touches = ["rpc/served_labels_test.go"]
+do_4 = "Record a latency point for web3_clientVersion and web3_sha3 in Web3API (rpc/web3.go:12-19) through recordMetrics with the API's connection type, as rpc/info.go:70 does for eth_chainId, so both names appear under their own endpoint label."
+symbols = ["SwapRequestLatencyForTest", "HTTPMethods", "TestServedMethodsRecordServedEndpointLabel"]
+touches = ["rpc/served_labels_test.go", "rpc/export_metrics_test.go", "rpc/web3.go"]
 tests = ["rpc/served_labels_test.go::TestServedMethodsRecordServedEndpointLabel"]
-planned_paths = ["rpc/served_labels_test.go"]
+planned_paths = ["rpc/served_labels_test.go", "rpc/export_metrics_test.go"]
 build_cmd = "go build ./rpc/..."
 verify_cmd = "go test -count=1 ./rpc/ -run '^(TestServedMethodsRecordServedEndpointLabel)$'"
 gate_kind = "planned"
@@ -127694,8 +127797,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Check no lx_* name is served by the node over HTTP or WebSocket"
 status = "pending"
 mode = "BUILD"
-wave = 7
-requires = ["7.0.2", "7.9.1"]
+wave = 8
+requires = ["7.0.2", "7.9.1", "7.12.2", "7.13.4"]
 reqs = ["7016.1", "7016.2"]
 capabilities = ["7.16.1"]
 interfaces = []
@@ -127703,8 +127806,9 @@ do_1 = "Write rpc/lx_switch_off_test.go (planned) listing the 26 names of spec/l
 do_2 = "Write TestLxMethodsNotServedHTTP (planned): each name answers -32601 over HTTP and is absent from HTTPMethods."
 do_3 = "Write TestLxMethodsNotServedWS (planned): each name answers -32601 over WebSocket through sendWSRequestGood (rpc/setup_test.go:1280) and is absent from WSMethods."
 do_4 = "Record in the file header comment that the gateway switch-off at services/platform/hosted/gateway/src/rpc.rs:237 belongs to domain 8 (decision 701)."
+do_5 = "Refuse lx_unsubscribe before dispatch on both transports: the HTTPConfig at rpc/server.go:336 and the WsConfig at :517 receive DenyList = append(slices.Clone(config.DenyList), \"lx_unsubscribe\"), because the rpc library routes every <namespace>_unsubscribe name to its generic unsubscribe callback and answers -32000 whether or not the namespace is registered, so the name answers -32601 like the other 25; the test assertions stay unchanged."
 symbols = ["HTTPMethods", "WSMethods", "TestLxMethodsNotServedHTTP", "TestLxMethodsNotServedWS"]
-touches = ["rpc/lx_switch_off_test.go"]
+touches = ["rpc/lx_switch_off_test.go", "rpc/server.go"]
 tests = ["rpc/lx_switch_off_test.go::TestLxMethodsNotServedHTTP", "rpc/lx_switch_off_test.go::TestLxMethodsNotServedWS"]
 planned_paths = ["rpc/lx_switch_off_test.go"]
 build_cmd = "go build ./rpc/..."
@@ -127876,7 +127980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.1]
 title = "Check ethclient decodes blocks and headers from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.10.1"]
@@ -127906,7 +128010,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.2]
 title = "Check ethclient decodes transactions from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.5.2"]
@@ -127938,16 +128042,17 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Check ethclient decodes receipts from the node"
 status = "pending"
 mode = "BUILD"
-wave = 7
-requires = ["7.0.2"]
+wave = 8
+requires = ["7.0.2", "7.13.4"]
 reqs = ["7019.5", "7019.6"]
 capabilities = ["7.19.3"]
 interfaces = []
 do_1 = "Write rpc/ethclient_receipts_test.go (planned) dialling the package setup HTTP server."
 do_2 = "Call TransactionReceipt (core/deps/geth/ethclient/ethclient.go:338) for a committed transfer (planned)."
 do_3 = "Call BlockReceipts (core/deps/geth/ethclient/ethclient.go:124) for block 2 (planned)."
+do_4 = "Set Status: 1 (ethtypes.ReceiptStatusSuccessful) on the multiTxBlockTx1 MockReceipt at rpc/setup_test.go:1050 so the committed transfer of block 2 carries the successful status acceptance 7019.5 names (no existing test asserts its 0x0 status); keep the assertion at rpc/ethclient_receipts_test.go:54."
 symbols = ["TestEthclientTransactionReceiptDecodes", "TestEthclientBlockReceiptsDecode"]
-touches = ["rpc/ethclient_receipts_test.go"]
+touches = ["rpc/ethclient_receipts_test.go", "rpc/setup_test.go"]
 tests = ["rpc/ethclient_receipts_test.go::TestEthclientTransactionReceiptDecodes", "rpc/ethclient_receipts_test.go::TestEthclientBlockReceiptsDecode"]
 planned_paths = ["rpc/ethclient_receipts_test.go"]
 build_cmd = "go build ./rpc/..."
@@ -127966,7 +128071,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.4]
 title = "Check ethclient reads balance, nonce, code and storage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2"]
@@ -127996,7 +128101,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.5]
 title = "Check ethclient call and gas estimation against the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.15.2"]
@@ -128056,7 +128161,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.7]
 title = "Check ethclient chain id, network id and sync progress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.4.3"]
@@ -128086,7 +128191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.8]
 title = "Check ethclient filter logs against the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.17.2"]
@@ -128126,6 +128231,7 @@ interfaces = []
 do_1 = "Write rpc/ethclient_newhead_test.go (planned) dialling the WebSocket server on TestWSPort (rpc/setup_test.go:51)."
 do_2 = "Subscribe with SubscribeNewHead (core/deps/geth/ethclient/ethclient.go:368) and wait for one head from the notifier fixture (planned)."
 do_3 = "Compare header.Hash() with the hash of the block at the same height over HTTP (planned)."
+do_4 = "Drive the head only through the commit notifier fixture on TestNotifierWSPort (do_2); the event-bus MockClient headers (rpc/setup_test.go:485-500) are not the blocks served by number. Assert header.Hash() == BlockByNumber(header.Number).Hash() (7019.16) and, through a raw eth_subscribe newHeads on the same port, that the payload's \"hash\" equals eth_getBlockByNumber's \"hash\" at that height; the served hash is the consensus block hash (rpc/block.go:707, rpc/subscribe.go:662) and is never compared with a client-side header.Hash()."
 symbols = ["TestEthclientSubscribeNewHeadHashMatchesBlock"]
 touches = ["rpc/ethclient_newhead_test.go"]
 tests = ["rpc/ethclient_newhead_test.go::TestEthclientSubscribeNewHeadHashMatchesBlock"]
@@ -128146,7 +128252,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.10]
 title = "Check an ethclient send round trip from transaction to receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.8.2"]
@@ -128206,7 +128312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.20.1]
 title = "Freeze the JSON-RPC error code registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["7.13.4", "7.8.2"]
@@ -129809,7 +129915,7 @@ title = "Publish every router method in the OpenRPC document"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["8.0.1", "7.0.2", "8.1.2", "8.1.4"]
+requires = ["8.0.1", "7.0.2", "8.1.2", "8.1.4", "8.1.5"]
 reqs = ["8006.1"]
 capabilities = ["8.1.92"]
 interfaces = []
@@ -129840,7 +129946,7 @@ title = "Exercise every router method against one chain and consensus pair"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["8.0.2", "8.1.3", "8.2.1", "8.2.2", "8.5.1", "7.0.3", "5.0.3"]
+requires = ["8.0.2", "8.1.3", "8.2.1", "8.2.2", "8.5.1", "7.0.3", "5.0.3", "8.1.5"]
 reqs = ["8152.1"]
 capabilities = ["8.15.93"]
 interfaces = []
@@ -129871,7 +129977,7 @@ title = "Prove the hosted chain readers before the kernel switch-off"
 status = "pending"
 mode = "BUILD"
 wave = 26
-requires = ["8.0.3", "8.4.3", "8.5.2", "8.7.1", "8.8.2", "8.10.2", "8.11.2", "8.12.2"]
+requires = ["8.0.3", "8.4.3", "8.5.2", "8.7.1", "8.8.2", "8.10.2", "8.11.2", "8.12.2", "8.1.5"]
 reqs = ["8153.1"]
 capabilities = ["8.15.94"]
 interfaces = []
@@ -129901,7 +130007,7 @@ title = "Gate domain 8 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 41
-requires = ["8.0.1", "8.0.2", "8.0.3", "8.0.4", "8.3.1", "8.7.3", "8.7.4", "8.8.4", "8.9.2", "8.11.3", "8.12.3", "8.13.2", "8.14.2", "8.14.4", "8.16.7", "8.18.1", "8.19.1", "8.19.2", "8.19.3", "8.19.4", "8.19.5", "8.19.6", "8.19.7", "8.19.11", "8.20.2", "8.20.4", "8.22.6", "8.26.2", "8.30.3", "8.31.2", "8.32.1", "8.32.2", "8.32.3", "8.32.4", "8.41.5", "8.41.6", "8.41.8", "8.42.5", "8.42.6", "8.42.8", "8.43.5", "8.43.6", "8.43.8", "8.44.5", "8.44.6", "8.44.8", "8.45.3", "8.45.4", "8.46.2", "8.46.7", "8.46.8", "8.47.4", "8.47.5", "8.47.6", "8.47.7", "8.48.3", "8.49.2", "8.50.4", "8.51.1"]
+requires = ["8.0.1", "8.0.2", "8.0.3", "8.0.4", "8.3.1", "8.7.3", "8.7.4", "8.8.4", "8.9.2", "8.11.3", "8.12.3", "8.13.2", "8.14.2", "8.14.4", "8.16.7", "8.18.1", "8.19.1", "8.19.2", "8.19.3", "8.19.4", "8.19.5", "8.19.6", "8.19.7", "8.19.11", "8.20.2", "8.20.4", "8.22.6", "8.26.2", "8.30.3", "8.31.2", "8.32.1", "8.32.2", "8.32.3", "8.32.4", "8.41.5", "8.41.6", "8.41.8", "8.42.5", "8.42.6", "8.42.8", "8.43.5", "8.43.6", "8.43.8", "8.44.5", "8.44.6", "8.44.8", "8.45.3", "8.45.4", "8.46.2", "8.46.7", "8.46.8", "8.47.4", "8.47.5", "8.47.6", "8.47.7", "8.48.3", "8.49.2", "8.50.4", "8.51.1", "8.1.5"]
 reqs = ["8999.1"]
 capabilities = ["8.0.9"]
 interfaces = []
@@ -129931,7 +130037,7 @@ title = "Load the receipt key list without the kernel backend set"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["8.0.1"]
+requires = ["8.0.1", "8.1.5"]
 reqs = ["8002.1"]
 capabilities = ["8.1.1"]
 interfaces = ["interface.8.env-gateway-layerx-gateway-receipt-keys-file"]
@@ -129962,7 +130068,7 @@ title = "Serve px_getCommit, px_getValidators and px_getReceiptKeys from the rou
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["8.1.1", "8.0.1", "5.93.1"]
+requires = ["8.1.1", "8.0.1", "5.93.1", "8.1.5"]
 reqs = ["8003.1", "8003.2", "8003.3"]
 capabilities = ["8.1.2"]
 interfaces = ["interface.8.rpc-gateway-px-getcommit", "interface.8.rpc-gateway-px-getvalidators", "interface.8.rpc-gateway-px-getreceiptkeys", "interface.8.env-gateway-layerx-gateway-consensus-rpc-url-j40"]
@@ -129995,7 +130101,7 @@ title = "Serve px_getSequenceBatch with the transaction proof of a committed hei
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["8.1.2"]
+requires = ["8.1.2", "8.1.5"]
 reqs = ["8004.1", "8004.2"]
 capabilities = ["8.1.3"]
 interfaces = ["interface.8.rpc-gateway-px-getsequencebatch"]
@@ -130026,7 +130132,7 @@ title = "Relay pax_sequencerReceipt through the EVM relay namespace"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["8.0.1", "9.23.7"]
+requires = ["8.0.1", "9.23.7", "8.1.5"]
 reqs = ["8005.1", "8005.2"]
 capabilities = ["8.1.4"]
 interfaces = ["interface.8.rpc-gateway-pax-sequencerreceipt"]
@@ -130053,12 +130159,46 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.8.1.5]
+title = "Port the indexer AI market and reputation projections to block-commit finality evidence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["13.29.1"]
+reqs = ["13279.1", "13279.2"]
+capabilities = []
+interfaces = ["interface.13.rs-aim-queries-readproof", "interface.13.rs-aim-queries-finalityevidence", "interface.13.rs-aim-queries-snapshotbinding", "interface.13.rs-aim-queries-bind-snapshot"]
+do_1 = "In SnapshotRecord::facts (services/platform/hosted/indexer/src/ai_market.rs:333-350) fill ReadProof.block_hash from the stored batch id (`block_hash: self.batch_id` at :342); the SnapshotRecord.batch_id field (:313), the ai_snapshot batch_id column (:95, :841, :1310, :1321) and the RawRecord mapping (:853, :916) keep their names because SnapshotBinding.batch_id still carries that value."
+do_2 = "In content_identity (services/platform/hosted/indexer/src/ai_market.rs:811-820) build the provisional FinalityEvidence as `{ native_state_root: facts.proof.native_state_root, block_height: facts.proof.execution_height, block_hash: facts.proof.block_hash, app_hash: facts.proof.native_state_root, store_proof_digest: facts.proof.block_hash, rank: 0 }`; snapshot_id excludes the block-commit section (queries.rs:388-392), so the content identity of every capture is unchanged."
+do_3 = "In ProjectionStore::promote (services/platform/hosted/indexer/src/ai_market.rs:1366-1460) replace the FinalityEvidence literal at :1420-1425 with `{ native_state_root: record.native_state_root, block_height: record.execution_height, block_hash: record.batch_id, app_hash: Digest32::new(header.resulting_state_root())?, store_proof_digest: Digest32::new(checkpoint)?, rank: MINIMUM_PUBLICATION_RANK }`; the certificate checks at :1383-1419 (rank below CHECKPOINT_FINALISED, network, header sequence, root and batch id) stay as written, and the checkpoint column written at :1435-1450 keeps holding the checkpoint id."
+do_4 = "In rebind (services/platform/hosted/indexer/src/ai_market.rs:2010-2033) rebuild the same evidence from the record: block_height = record.execution_height, block_hash = record.batch_id, app_hash = record.native_state_root, store_proof_digest = record.checkpoint (still FinalityUnavailable when absent, :2011); the committed-bytes comparison at :2028-2030 stays, so every binding stored by do_3 re-encodes byte for byte without a schema change."
+do_5 = "In ReputationProjector::admit (services/platform/hosted/indexer/src/ai_reputation.rs:402-468) refuse with ReputationError::Refused(F07_FINALITY_UNAVAILABLE) when report.level().wire_rank() is below FINALIZED_RANK before binding, because bind_snapshot no longer rejects a sub-finalized rank, then replace the literal at :431-436 with `{ native_state_root: read.proof.native_state_root, block_height: report.batch_number(), block_hash: read.proof.block_hash, app_hash: Digest32::new(report.resulting_state_root())?, store_proof_digest: Digest32::new(checkpoint_id)?, rank: FINALIZED_RANK }`; the root and height check at :413-417 and FinalizedPoint.checkpoint_id (:464) stay."
+do_6 = "In binding (services/platform/hosted/gateway/src/ai_views.rs:220-240), which layerx-platform-gateway compiles over layerx_indexer::ai_market::SnapshotBinding, replace the checkpoint and settlement keys at :235-236 with block_height (decimal string, as execution_height at :226), block_hash, app_hash and store_proof_digest (hex0x)."
+do_7 = "Port the test fixtures to the same shapes with every assertion kept: ReadProof literals at services/platform/hosted/indexer/tests/ai_reputation_finality.rs:327 and services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:257 name block_hash; expected_binding (services/platform/hosted/indexer/tests/ai_reputation_finality.rs:332-357) builds the evidence of do_5 from read.execution_height, read.block_hash, read.native_state_root and the checkpoint id; in a02_only_a_rank4_checkpoint_for_the_same_root_finalizes (services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs:589-591) assert view.binding.store_proof_digest == Digest32::new(id)?, view.binding.block_hash == record.batch_id, view.binding.app_hash == record.native_state_root and view.binding.block_height == record.execution_height in place of the removed checkpoint and settlement fields, keeping view.binding.rank == 4."
+symbols = ["SnapshotRecord::facts", "content_identity", "ProjectionStore::promote", "rebind", "ReputationProjector::admit", "binding", "proof", "expected_binding", "capture", "a02_only_a_rank4_checkpoint_for_the_same_root_finalizes"]
+touches = ["services/platform/hosted/indexer/src/ai_market.rs", "services/platform/hosted/indexer/src/ai_reputation.rs", "services/platform/hosted/gateway/src/ai_views.rs", "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs", "services/platform/hosted/indexer/tests/ai_reputation_finality.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer -p layerx-platform-gateway"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test ai_snapshot_minimal --test ai_reputation_finality"
+gate_kind = "existing"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the five touched files; layerx-indexer and every layerx-platform-gateway build stop compiling against the 13.29.1 query shapes again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.8.2.1]
 title = "Serve px_requestFunds over the faucet claim path"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.0.2"]
+requires = ["8.0.2", "8.1.5"]
 reqs = ["8007.1"]
 capabilities = ["8.2.1"]
 interfaces = ["interface.8.rpc-gateway-px-requestfunds"]
@@ -130090,7 +130230,7 @@ title = "Read the history asset registry from the indexer"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.0.2"]
+requires = ["8.0.2", "8.1.5"]
 reqs = ["8008.1"]
 capabilities = ["8.2.2"]
 interfaces = []
@@ -130120,7 +130260,7 @@ title = "Answer -32601 for every lx_ JSON-RPC name on HTTP and WebSocket"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.0.4", "8.2.1", "8.2.2", "16.9.3"]
+requires = ["8.0.4", "8.2.1", "8.2.2", "16.9.3", "8.1.5"]
 reqs = ["8009.1", "8009.2", "8009.3"]
 capabilities = ["8.3.1"]
 interfaces = ["interface.8.rpc-gateway-lx-getsequence", "interface.8.rpc-gateway-lx-getproof", "interface.8.rpc-gateway-lx-listassets", "interface.8.rpc-gateway-lx-getnodeinfo", "interface.8.rpc-gateway-lx-getaccount", "interface.8.rpc-gateway-lx-getbatchheader", "interface.8.rpc-gateway-lx-getbalances", "interface.8.rpc-gateway-lx-getbalance", "interface.8.rpc-gateway-lx-requestfunds", "interface.8.rpc-gateway-lx-sendactivity", "interface.8.rpc-gateway-lx-estimatefee", "interface.8.rpc-gateway-lx-getprogramevents", "interface.8.rpc-gateway-lx-getreceipt", "interface.8.rpc-gateway-lx-getactivitystatus", "interface.8.rpc-gateway-lx-getcheckpoint", "interface.8.rpc-gateway-lx-getasset", "interface.8.rpc-gateway-lx-getwalletcaps", "interface.8.rpc-gateway-lx-subscribe", "interface.8.rpc-gateway-lx-unsubscribe", "interface.8.rpc-gateway-lx-subscription"]
@@ -130215,7 +130355,7 @@ title = "Probe the ledger and authority surfaces in px_getCapabilities"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["8.4.2", "6.0.3", "2.92.1"]
+requires = ["8.4.2", "6.0.3", "2.92.1", "8.1.5"]
 reqs = ["8039.1"]
 capabilities = ["8.4.3"]
 interfaces = []
@@ -130247,7 +130387,7 @@ title = "Remove the custody and anchor constructs from the EVM table"
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.5.3", "8.5.2"]
+requires = ["8.5.3", "8.5.2", "8.1.5"]
 reqs = ["8043.1"]
 capabilities = ["8.4.4"]
 interfaces = []
@@ -130278,7 +130418,7 @@ title = "Answer px_getAccount and px_getBalances from chain state alone"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.4.1", "8.0.2"]
+requires = ["8.4.1", "8.0.2", "8.1.5"]
 reqs = ["8040.1", "8040.2"]
 capabilities = ["8.5.1"]
 interfaces = []
@@ -130310,7 +130450,7 @@ title = "Answer px_listAssets from the indexer asset list and chain metadata"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1"]
+requires = ["8.5.1", "8.2.2", "6.0.3", "2.92.1", "8.1.5"]
 reqs = ["8041.1"]
 capabilities = ["8.5.2"]
 interfaces = []
@@ -130343,7 +130483,7 @@ title = "Answer px_getNetwork with the consensus head instead of the anchor chec
 status = "pending"
 mode = "BUILD"
 wave = 26
-requires = ["8.5.2", "8.1.3"]
+requires = ["8.5.2", "8.1.3", "8.1.5"]
 reqs = ["8042.1"]
 capabilities = ["8.5.3"]
 interfaces = []
@@ -130375,7 +130515,7 @@ title = "Stop proxying the live explorer anchor and receipt views; proxy the arc
 status = "pending"
 mode = "BUILD"
 wave = 28
-requires = ["8.4.4"]
+requires = ["8.4.4", "8.1.5"]
 reqs = ["8044.1", "8990.1"]
 capabilities = ["8.6.1"]
 interfaces = ["interface.8.http-gateway-get-api-v2-paxeer-x-anchors-j40", "interface.8.http-gateway-get-api-v2-paxeer-x-archive-receipts-j79", "interface.8.http-gateway-get-api-v2-paxeer-x-archive-receipts-id-j79"]
@@ -130438,7 +130578,7 @@ title = "Report the consensus endpoint in gateway readiness"
 status = "pending"
 mode = "BUILD"
 wave = 4
-requires = ["8.1.3"]
+requires = ["8.1.3", "8.1.5"]
 reqs = ["8073.1"]
 capabilities = ["8.7.1"]
 interfaces = []
@@ -130469,7 +130609,7 @@ title = "Stop proxying the kernel program explorer paths through the gateway"
 status = "pending"
 mode = "BUILD"
 wave = 17
-requires = ["8.7.1", "8.0.3"]
+requires = ["8.7.1", "8.0.3", "8.1.5"]
 reqs = ["8074.1"]
 capabilities = ["8.7.2"]
 interfaces = ["interface.8.http-gateway-any-v1-programs", "interface.8.http-gateway-any-v1-programs-program-id", "interface.8.http-gateway-any-v1-programs-program-id-reads-resolve"]
@@ -130500,7 +130640,7 @@ title = "Retire the kernel activity and program production routes of the gateway
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["8.3.1", "8.7.2"]
+requires = ["8.3.1", "8.7.2", "8.1.5"]
 reqs = ["8075.1"]
 capabilities = ["8.7.3"]
 interfaces = ["interface.8.http-gateway-post-v1-activities", "interface.8.http-gateway-post-v1-programs-simulate", "interface.8.http-gateway-post-v1-programs-read", "interface.8.http-gateway-post-v1-programs-call", "interface.8.http-gateway-post-v1-programs-deploy", "interface.8.http-gateway-post-v1-programs-upgrade", "interface.8.http-gateway-post-v1-programs-wind-down", "interface.8.http-gateway-post-v1-programs-registry", "interface.8.http-gateway-get-v1-programs-activities", "interface.8.http-gateway-get-v1-programs-receipts-by-idempotency", "interface.8.http-gateway-get-v1-programs-registry-2", "interface.8.http-gateway-get-v1-programs-registry"]
@@ -130721,7 +130861,7 @@ title = "Drop the kernel client and program crates from the platform manifests"
 status = "pending"
 mode = "BUILD"
 wave = 31
-requires = ["8.7.3", "8.8.4", "8.11.3", "8.12.3", "8.16.4", "8.16.7"]
+requires = ["8.7.3", "8.8.4", "8.11.3", "8.12.3", "8.16.4", "8.16.7", "8.1.5"]
 reqs = ["8082.1"]
 capabilities = ["8.9.2"]
 interfaces = []
@@ -130818,7 +130958,7 @@ title = "Look up receipts for the authority from pax_sequencerReceipt"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["7.0.2", "7.94.1"]
+requires = ["7.0.2", "7.94.1", "9.1.8"]
 reqs = ["8111.1", "8111.2"]
 capabilities = ["8.11.1"]
 interfaces = ["interface.8.env-authority-layerx-authority-chain-rpc-url-j40", "interface.8.env-authority-layerx-authority-receipt-keys-file-j40"]
@@ -131201,7 +131341,7 @@ title = "Admit the sequencer receipt read at the paxeer chain boundary"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["7.0.2"]
+requires = ["7.0.2", "9.1.7"]
 reqs = ["8151.1"]
 capabilities = ["8.14.5"]
 interfaces = ["interface.8.rpc-paxeer-pax-sequencerreceipt-j40"]
@@ -131294,7 +131434,7 @@ title = "Drop the kernel verify, custody and anchor precompiles from the indexer
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.16.6", "8.0.4", "6.0.3"]
+requires = ["8.16.6", "8.0.4", "6.0.3", "8.1.5"]
 reqs = ["8185.1", "8185.2"]
 capabilities = ["8.16.3"]
 interfaces = ["interface.8.rs-indexer-layerx-indexer-abi-known-precompiles-j40"]
@@ -131326,7 +131466,7 @@ title = "Retire kernel checkpoint settlement verification in the indexer"
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.16.2", "8.0.4"]
+requires = ["8.16.2", "8.0.4", "8.1.5"]
 reqs = ["8186.1"]
 capabilities = ["8.16.4"]
 interfaces = ["interface.8.env-indexer-layerx-indexer-settlement-policy-j40", "interface.8.env-indexer-layerx-indexer-settlement-genesis-trust-j40", "interface.8.env-indexer-layerx-indexer-settlement-initial-sequencer-key-j40", "interface.8.env-indexer-layerx-indexer-settlement-lni-socket-j40"]
@@ -131358,7 +131498,7 @@ title = "Load the perps and price feed ABIs from their nested directories"
 status = "pending"
 mode = "BUILD"
 wave = 14
-requires = ["8.16.1", "6.0.2"]
+requires = ["8.16.1", "6.0.2", "8.1.5"]
 reqs = ["8183.1"]
 capabilities = ["8.16.5"]
 interfaces = ["interface.8.rs-indexer-layerx-indexer-abi-nested-precompiles-j40", "interface.8.rs-indexer-layerx-indexer-abi-known-precompiles-j40"]
@@ -131389,7 +131529,7 @@ title = "Register the spot order book contracts in the indexer"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["8.16.5", "6.0.2"]
+requires = ["8.16.5", "6.0.2", "8.1.5"]
 reqs = ["8184.1"]
 capabilities = ["8.16.6"]
 interfaces = ["interface.8.rs-indexer-layerx-indexer-abi-nested-precompiles-j40"]
@@ -131419,7 +131559,7 @@ title = "Retire the kernel relay source of the indexer"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["8.16.3", "8.16.4", "14.29.3", "16.7.3"]
+requires = ["8.16.3", "8.16.4", "14.29.3", "16.7.3", "8.1.5"]
 reqs = ["8187.1", "8187.2"]
 capabilities = ["8.16.7"]
 interfaces = ["interface.8.env-indexer-layerx-indexer-relay-url-j40", "interface.8.env-indexer-layerx-indexer-relay-ca-der-j40", "interface.8.env-indexer-layerx-indexer-start-batch-j40", "interface.8.env-indexer-layerx-indexer-batch-interval-ms-j40", "interface.8.env-indexer-layerx-indexer-challenge-window-seconds-j40", "interface.8.rs-indexer-layerx-indexer-store-stability-source-j40"]
@@ -131981,7 +132121,7 @@ title = "Drop the paxeer checkpoint verifier from the platform crates"
 status = "pending"
 mode = "BUILD"
 wave = 28
-requires = ["8.0.3", "8.11.2", "8.16.4"]
+requires = ["8.0.3", "8.11.2", "8.16.4", "8.1.5"]
 reqs = ["8230.1"]
 capabilities = ["8.20.3"]
 interfaces = []
@@ -135951,7 +136091,7 @@ title = "Drop custody and anchor from the proxied explorer capabilities answer"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.0.2", "14.0.1"]
+requires = ["8.0.2", "14.0.1", "8.1.5"]
 reqs = ["8965.1"]
 capabilities = []
 interfaces = []
@@ -136044,7 +136184,7 @@ title = "Move the platform authority, core, gateway and CLI uses of the kernel d
 status = "pending"
 mode = "BUILD"
 wave = 13
-requires = ["8.0.2", "9.0.2"]
+requires = ["8.0.2", "9.0.2", "8.1.5"]
 reqs = ["8968.1"]
 capabilities = []
 interfaces = []
@@ -136077,7 +136217,7 @@ title = "Remove the bridge withdrawal compile from the gateway local withdrawal 
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.0.4", "10.0.4"]
+requires = ["8.0.4", "10.0.4", "8.1.5"]
 reqs = ["8962.1"]
 capabilities = []
 interfaces = []
@@ -136108,7 +136248,7 @@ title = "Build AI market finality evidence v2 from the block commit in the index
 status = "pending"
 mode = "BUILD"
 wave = 27
-requires = ["8.0.4", "13.0.4", "13.29.1"]
+requires = ["8.0.4", "13.0.4", "13.29.1", "8.1.5"]
 reqs = ["8963.1"]
 capabilities = []
 interfaces = []
@@ -136499,7 +136639,7 @@ title = "Migrate the indexer callers of wiring.J44.20"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.0.2"]
+requires = ["8.0.2", "8.1.5"]
 reqs = ["8949.1"]
 capabilities = ["8.98.9"]
 interfaces = []
@@ -137015,7 +137155,7 @@ title = "Port the layerx-sdk decoders and envelopes to rungs and heights"
 status = "pending"
 mode = "BUILD"
 wave = 5
-requires = ["9.1.6"]
+requires = ["9.1.6", "11.2.7"]
 reqs = ["9005.1", "9005.2", "9005.3", "9005.4", "9006.1", "9006.2", "9006.3"]
 capabilities = ["9.1.7"]
 interfaces = ["interface.9.http-rpc-project", "interface.9.rs-agent-api-read-relativeto", "interface.9.rs-agent-api-read-freshness", "interface.9.rs-agent-api-read-verifiedread", "interface.9.rs-agent-api-read-readrequest", "interface.9.rs-agent-api-read-modulestateselector", "interface.9.rs-agent-api-read-historyselector", "interface.9.rs-agent-api-read-balancevalue", "interface.9.rs-agent-api-read-historyvalue", "interface.9.rs-agent-api-read-checkpointvalue", "interface.9.rs-agent-api-read-proofbundle", "interface.9.rs-agent-api-read-offlineexport", "interface.9.rs-agent-api-read-feeprojection", "interface.9.proto-agent-api-read-type-verifiedread", "interface.9.proto-agent-api-read-type-freshness", "interface.9.proto-agent-api-read-type-proofbundle", "interface.9.proto-agent-api-read-type-feeprojection", "interface.9.err-rs-layerx-agent-api-error-class-idempotency-conflict", "interface.9.rs-agent-api-identity-protocolbudgetview", "interface.9.rs-agent-api-stream-receiptreference", "interface.9.rs-agent-api-protocolbudgetview-from-proven-j70"]
@@ -137025,8 +137165,9 @@ do_3 = "services/agent/crates/layerx-sdk/src/rpc_export.rs, services/agent/crate
 do_4 = "services/agent/crates/layerx-sdk/tests/sdk.rs: freshness() (:74-84) builds the agent-api Freshness { chain_head: 20, value_height: 17, relative_to: RelativeTo::Block { height: 19, hash: [0x19; 32] } } (services/agent/crates/layerx-agent-api/src/read.rs:98-108) and the BalanceValue literal at :257 gains height: 17 (read.rs:182-188); every assertion of the file stays."
 do_5 = "services/agent/crates/layerx-sdk/tests/offline_export.rs: api() (:190-200) builds layerx_proof::export_codec::EncodedOfflineArtifact { facts: the fact strings, receipts, proofs, certificates: Vec::new(), headers } (export_codec.rs:1105), the tests decode it with decode_historical_offline_export(&export, &trust) (services/agent/crates/layerx-sdk/src/rpc_export.rs), whose CompleteOfflineArtifact is what verify_complete (services/agent/crates/layerx-proof/src/export.rs:937) and encode() take; Rung::Receipted replaces VerificationLevel::BATCH_INCLUDED; the settlement-anchoring case (:293-297) becomes the rung-claim case: verify_complete_historical_offline_export(&decoded, Rung::Committed, Rung::Receipted, &trust) returns Err(OfflineVerificationError::ClaimExceedsVerified { claimed: Rung::Committed, verified: Rung::Receipted }) for the fixture, which carries receipts and headers but no verified commit; the round-trip, misplaced-bucket, certificate and rogue-key refusals stay."
 do_6 = "verify_cmd compiles every integration test target of the crate (--no-run), so tests/offline_export.rs and tests/sdk.rs are part of this task and touches lists them; no test is deleted or skipped."
+do_7 = "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs is ported to the agent-api read types: ProofBundle (services/agent/crates/layerx-agent-api/src/read.rs:214-226) has no record() method and no proofs field, so the checks at :954-960 and :1086-1119 compare the decoded bundle's fields (format, verification_level, raw_transaction, signed_receipt, receipt_digest, receipt_key and the optional block_header, receipt_inclusion, commit, validator_set, account_proof) with the response JSON and build the altered-response cases from Vec<u8> values instead of unsized [u8] frames at :1117, ProofBundleRecord (read.rs:306) is used only where a record is encoded, and :1156 sets requested_rung (read.rs:137-140) to the rung that replaces Level::CheckpointFinalised; every case keeps its intent (a disagreement between outer and inner verification levels and a promotion above the achieved rung are still refused) and no test is deleted or skipped."
 symbols = ["ProtocolBudgetView", "BudgetRecord", "ReadRequest", "VerifiedRead", "ReceiptReference", "OfflineExport", "HistorySelector", "FeeProjection"]
-touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/src/lib.rs", "services/agent/crates/layerx-sdk/src/program_http.rs", "services/agent/crates/layerx-sdk/src/rpc_budget.rs", "services/agent/crates/layerx-sdk/src/rpc_export.rs", "services/agent/crates/layerx-sdk/src/rpc_history.rs", "services/agent/crates/layerx-sdk/src/rpc_projection.rs", "services/agent/crates/layerx-sdk/src/rpc_sign.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/offline_export.rs", "services/agent/crates/layerx-sdk/tests/sdk.rs", "services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk"
@@ -137049,7 +137190,7 @@ title = "Port layerx-agentd to the rung and height mirror types"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.1.7", "9.27.2"]
+requires = ["9.1.7", "9.27.2", "11.2.7"]
 reqs = ["9005.1", "9005.2", "9005.3", "9005.4", "9006.1", "9006.2", "9006.3"]
 capabilities = ["9.1.8"]
 interfaces = ["interface.9.http-rpc-project", "interface.9.rs-agent-api-read-relativeto", "interface.9.rs-agent-api-read-freshness", "interface.9.rs-agent-api-read-verifiedread", "interface.9.rs-agent-api-read-readrequest", "interface.9.rs-agent-api-read-modulestateselector", "interface.9.rs-agent-api-read-historyselector", "interface.9.rs-agent-api-read-balancevalue", "interface.9.rs-agent-api-read-historyvalue", "interface.9.rs-agent-api-read-checkpointvalue", "interface.9.rs-agent-api-read-proofbundle", "interface.9.rs-agent-api-read-offlineexport", "interface.9.rs-agent-api-read-feeprojection", "interface.9.proto-agent-api-read-type-verifiedread", "interface.9.proto-agent-api-read-type-freshness", "interface.9.proto-agent-api-read-type-proofbundle", "interface.9.proto-agent-api-read-type-feeprojection", "interface.9.err-rs-layerx-agent-api-error-class-idempotency-conflict", "interface.9.rs-agent-api-identity-protocolbudgetview", "interface.9.rs-agent-api-stream-receiptreference", "interface.9.rs-agent-api-protocolbudgetview-from-proven-j70"]
@@ -139193,7 +139334,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.22.4]
 title = "Read assets through px_listAssets and fees through eth_estimateGas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.21.7", "9.21.4", "11.2.7"]
@@ -139474,7 +139615,7 @@ title = "Delete the kernel caps and prestate transport tests"
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["9.21.6"]
+requires = ["9.21.6", "1.4.6"]
 reqs = ["9271.1"]
 capabilities = ["9.24.1"]
 interfaces = []
@@ -145891,7 +146032,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.7]
 title = "Refresh the lock entries of layerx-committed-proof for its serde_json dependency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.2.6"]
@@ -147582,7 +147723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.21.2]
 title = "Run PaxeerRpc majority reads over the relayer transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.21.1", "9.1.6", "11.2.7"]
@@ -148131,7 +148272,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.26.1]
 title = "Encode and decode mirror archive v4 for one committed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.25.1", "9.1.6", "11.25.2", "11.2.7"]
@@ -149518,7 +149659,7 @@ do_2 = "Delete the import and start of startLayerxSync (services/wallet/gateway/
 do_3 = "Delete services/wallet/gateway/src/jobs/layerxSync.ts (startLayerxSync at services/wallet/gateway/src/jobs/layerxSync.ts:31), services/wallet/gateway/src/layerx/db.ts, services/wallet/gateway/src/db/layerxMirror.ts and listUncreditedLayerxDeposits (services/wallet/gateway/src/db/actions.ts:288)."
 do_4 = "Delete LAYER_X_DB_URI (services/wallet/gateway/src/env.ts:178) and LAYERX_SYNC_INTERVAL_MS (services/wallet/gateway/src/env.ts:197), and their catalog entries (services/wallet/deploy/env:154-161) with LAYERX_VAULT_ADDRESS and LAYERX_USDL_ADDRESS (services/wallet/deploy/env:200-201)."
 do_5 = "Add gatewayStartsWithoutMirrorSyncWorker and evmApprovalRoutesAreMounted to services/wallet/gateway/test/served-by.test.ts. Both extend services/wallet/gateway/test/served-by.test.ts:1."
-symbols = ["evmApprovalRoutes", "startLayerxSync", "gatewayStartsWithoutMirrorSyncWorker", "evmApprovalRoutesAreMounted"]
+symbols = ["evmApprovalRoutes", "gatewayStartsWithoutMirrorSyncWorker", "evmApprovalRoutesAreMounted"]
 touches = ["services/wallet/gateway/src/index.ts", "services/wallet/gateway/src/jobs/layerxSync.ts", "services/wallet/gateway/src/layerx/db.ts", "services/wallet/gateway/src/db/layerxMirror.ts", "services/wallet/gateway/src/db/actions.ts", "services/wallet/gateway/src/env.ts", "services/wallet/deploy/env", "services/wallet/gateway/test/served-by.test.ts"]
 tests = ["services/wallet/gateway/test/served-by.test.ts::gatewayStartsWithoutMirrorSyncWorker", "services/wallet/gateway/test/served-by.test.ts::evmApprovalRoutesAreMounted"]
 planned_paths = []
@@ -150584,7 +150725,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.10.4]
 title = "POST /v1/wallet/evm/sign signs an approved transaction and answers the receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.10.3", "12.5.3"]
@@ -152449,7 +152590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.2]
 title = "Send module transactions through the receipted send in the surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.33.1", "12.23.5", "12.31.2", "12.33.8"]
@@ -152480,7 +152621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.3]
 title = "Apply the fee token preference through the receipted send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["12.33.2"]
@@ -152510,7 +152651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.4]
 title = "Read the created market from the receipt logs in the launchpad view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.33.3"]
@@ -152551,8 +152692,9 @@ do_1 = "apps/wallet/src/lib/swap/executor.ts:80, apps/wallet/src/lib/swap/execut
 do_2 = "Throw `SwapRevertedError` (planned in apps/wallet/src/lib/swap/executor.ts:199) when the receipt status is 0 and return `{ hash, receipt }` otherwise."
 do_3 = "Keep parseUsdlReceived at apps/wallet/src/lib/swap/executor.ts:142 reading the awaited receipt."
 do_4 = "Create apps/wallet/src/lib/swap/executor.test.ts (planned) with the two tests below."
+do_5 = "In apps/wallet/src/widgets/swap/useSwapExecution.ts:68 destructure `const { hash } = await executeSwap(signer, bestQuote, params);` and keep `setTxHash(hash)` at line 69, since executeSwap now returns `{ hash, receipt }`."
 symbols = ["executeSwap", "SwapRevertedError"]
-touches = ["apps/wallet/src/lib/swap/executor.ts", "apps/wallet/src/lib/swap/executor.test.ts"]
+touches = ["apps/wallet/src/lib/swap/executor.ts", "apps/wallet/src/lib/swap/executor.test.ts", "apps/wallet/src/widgets/swap/useSwapExecution.ts"]
 tests = ["apps/wallet/src/lib/swap/executor.test.ts::execute_swap_returns_after_the_receipt", "apps/wallet/src/lib/swap/executor.test.ts::execute_swap_refuses_a_reverted_swap"]
 planned_paths = ["apps/wallet/src/lib/swap/executor.test.ts"]
 build_cmd = "pnpm --dir apps/wallet run typecheck"
@@ -152601,7 +152743,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.8]
 title = "Move the wallet and web exchange callers to the perps v2 open and cancel shapes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.33.13"]
@@ -152663,7 +152805,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.2]
 title = "Read the transaction ladder from the sequencer receipt before the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.34.1", "12.22.4", "12.33.1", "12.33.8"]
@@ -152785,7 +152927,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.6]
 title = "Page the chain history in the history view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["12.24.1", "12.31.1", "12.33.1", "12.34.1", "12.35.1", "12.33.8"]
@@ -155493,7 +155635,7 @@ title = "Submit kernel activities through the shared host with fee limit and ide
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["13.21.8", "13.21.7", "1.22.1", "1.23.1"]
+requires = ["13.21.8", "13.21.7", "1.22.1", "1.23.1", "1.23.4"]
 reqs = ["13253.1", "13253.2"]
 capabilities = ["13.22.4"]
 interfaces = []
@@ -157963,7 +158105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.6]
 title = "Percent-encode the denom and creator path segments of the sdk/js tokenfactory REST client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -158220,7 +158362,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.1]
 title = "Drop the anchor, batch and checkpoint explorer link targets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
@@ -158285,7 +158427,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.3]
 title = "Read explorer records from the PAXEER_X_EXPLORER_BASE_URL origin only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.5.2"]
@@ -158317,7 +158459,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.4]
 title = "Read program records from the explorer base URL without the program bearer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.3"]
@@ -158638,7 +158780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.5]
 title = "Send the home add and withdraw actions to the bridge page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.0.1", "12.33.8"]
@@ -158713,7 +158855,7 @@ do_1 = "Move the parallel load at apps/web/src/settings/settings-screen.tsx:185-
 do_2 = "Delete the binding field at apps/web/src/settings/settings-screen.tsx:36, bindingValue at apps/web/src/settings/settings-screen.tsx:71-76 and the WalletBinding import at apps/web/src/settings/settings-screen.tsx:15."
 do_3 = "Give the wallet row at apps/web/src/settings/settings-screen.tsx:379-381 the gas.sidiora.title subtitle in place of bindingValue, since the page now holds only the fee preference."
 do_4 = "Delete the exit row at apps/web/src/settings/settings-screen.tsx:432-437 that opens /app/settings/exit, a route retired by decision.1406."
-do_5 = "Create apps/web/e2e/settings-without-binding.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39 with settings_snapshot_loads_without_binding_status and settings_snapshot_survives_operation_retired."
+do_5 = "Create apps/web/e2e/settings-without-binding.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39 with settings_snapshot_loads_without_binding_status and settings_snapshot_survives_operation_retired; the second case serves the binding.status golden failure (services/human/schema/human-api/golden/binding.status.failure.json: HTTP 410, code operation-retired) on GET /v1/wallet-binding, asserts that a raw fetch of /v1/wallet-binding answers status 410 with error.code \"operation-retired\", then asserts loadSettingsSnapshot resolves to the four-read snapshot without requesting /v1/wallet-binding."
 symbols = ["loadSettingsSnapshot", "SettingsScreen", "settings_snapshot_loads_without_binding_status", "settings_snapshot_survives_operation_retired"]
 touches = ["apps/web/src/settings/settings-screen.tsx", "apps/web/e2e/settings-without-binding.test.ts"]
 tests = ["apps/web/e2e/settings-without-binding.test.ts::settings_snapshot_loads_without_binding_status", "apps/web/e2e/settings-without-binding.test.ts::settings_snapshot_survives_operation_retired"]
@@ -159088,7 +159230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.21.1]
 title = "Stop probing the retired custody and anchor precompiles in Capabilities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -159305,7 +159447,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.22.5]
 title = "Serve the verified sequencer signature at /transactions/:hash/signature"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.22.4", "14.22.2", "16.93.1"]
@@ -159612,7 +159754,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.1]
 title = "Stop parsing custody, deposit-root, anchor and guarantor logs in PaxeerXLogs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -159767,7 +159909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.26.1]
 title = "Delete the dead Finality.Anchor struct"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -159828,7 +159970,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.27.1]
 title = "Align the unified account OpenAPI schemas with the answer the controller sends"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.0.1"]
@@ -161744,7 +161886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.5]
 title = "Add a --check mode that reports app env vaults differing from the deployment records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.53.3"]
@@ -162291,6 +162433,38 @@ sandbox_profile = "node"
 owner_role = "fm-cosmos-fork"
 rollback = "Revert sdk/integrations/express/src/index.ts; the package keeps reading LAYERX_AUTHORIZED_BATCH_JSON until the seller middleware drops it."
 do_5 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: loadConfigReadsReceiptKeysJson in sdk/integrations/express/test/receipt-keys.test.mjs (planned); integrationSettlesSignedSequencerReceipt in sdk/integrations/express/test/receipt-keys.test.mjs (planned)."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.15.0.5]
+title = "Keep a registered module error's codespace and code through the gRPC query handler of BaseApp"
+status = "pending"
+mode = "BUILD"
+wave = 4
+requires = ["15.0.3"]
+reqs = ["4036.2", "4037.2"]
+capabilities = ["15.0.5"]
+interfaces = []
+wiring = []
+do_1 = "In gRPCErrorToSDKError (sdk/baseapp/abci.go:646) insert, before `status, ok := grpcstatus.FromError(err)` at sdk/baseapp/abci.go:647, the three lines `if codespace, _, _ := sdkerrors.ABCIInfo(err, false); codespace != sdkerrors.UndefinedCodespace {` / `return err` / `}`, so an error that already carries a registered codespace (a *sdkerrors.Error from sdkerrors.Register, bare or under sdkerrors.Wrap) reaches sdkerrors.QueryResultWithDebug in handleQueryGRPC (sdk/baseapp/abci.go:638) with its own codespace and code; sdkerrors is already imported at sdk/baseapp/abci.go:24."
+do_2 = "Keep today's mapping for every other error unchanged: a gRPC status error keeps the switch of sdk/baseapp/abci.go:652-663 (codes.NotFound to ErrKeyNotFound, codes.InvalidArgument and codes.FailedPrecondition to ErrInvalidRequest, codes.Unauthenticated to ErrUnauthorized, default ErrUnknownRequest) and a plain error keeps `sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())` at sdk/baseapp/abci.go:648-650; errors in UndefinedCodespace (errInternal, ErrPanic, sdk/types/errors/errors.go:18,167) take that same path."
+do_3 = "Write sdk/baseapp/query_grpc_error_test.go (planned) in package baseapp with TestHandleQueryGRPCKeepsModuleCodespace: a package-level var registered with sdkerrors.Register(\"baseapptest\", 12, \"unknown market\"), a NewBaseApp over dbm.NewMemDB with &testutil.TestAppOpts{} committed at height 1 as TestBaseAppCreateQueryContext does (sdk/baseapp/abci_test.go:133-146), and app.handleQueryGRPC called with a GRPCQueryHandler (sdk/baseapp/grpcrouter.go:44) that returns each case's error for abci.RequestQuery{Height: 1}."
+do_4 = "The test asserts Codespace and Code of the returned abci.ResponseQuery for four cases: the bare registered error gives \"baseapptest\" and 12, sdkerrors.Wrap of it gives \"baseapptest\" and 12, errors.New(\"plain\") gives sdkerrors.ErrInvalidRequest.Codespace() and ErrInvalidRequest.ABCICode(), and grpcstatus.Error(codes.NotFound, \"missing\") gives sdkerrors.ErrKeyNotFound.Codespace() and ErrKeyNotFound.ABCICode()."
+symbols = ["gRPCErrorToSDKError", "TestHandleQueryGRPCKeepsModuleCodespace"]
+touches = ["sdk/baseapp/abci.go", "sdk/baseapp/query_grpc_error_test.go"]
+tests = ["sdk/baseapp/query_grpc_error_test.go::TestHandleQueryGRPCKeepsModuleCodespace"]
+planned_paths = ["sdk/baseapp/query_grpc_error_test.go"]
+build_cmd = "go build ./sdk/baseapp/..."
+verify_cmd = "go test -count=1 ./sdk/baseapp/ -run '^TestHandleQueryGRPCKeepsModuleCodespace$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-cosmos-fork"
+rollback = "Revert sdk/baseapp/abci.go and delete sdk/baseapp/query_grpc_error_test.go; node query responses carry codespace sdk for every handler error again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -163443,11 +163617,11 @@ title = "Delete the legacy telemetry calls of baseapp ABCI"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["15.2.15", "15.0.4"]
+requires = ["15.2.15", "15.0.4", "15.0.5"]
 reqs = ["15052.1"]
 capabilities = ["15.3.15"]
 interfaces = ["interface.15.met-legacy-baseapp-abci-111-j56", "interface.15.met-legacy-baseapp-abci-128-j56", "interface.15.met-legacy-baseapp-abci-188-j56", "interface.15.met-legacy-baseapp-abci-191-j56", "interface.15.met-legacy-baseapp-abci-194-j56", "interface.15.met-legacy-baseapp-abci-197-j56", "interface.15.met-legacy-baseapp-abci-200-j56", "interface.15.met-legacy-baseapp-abci-274-j56", "interface.15.met-legacy-baseapp-abci-440-j56", "interface.15.met-legacy-baseapp-abci-991-j56", "interface.15.met-legacy-baseapp-abci-1058-j56", "interface.15.met-legacy-baseapp-abci-1121-j56"]
-do_1 = "Delete the TODO comment and the legacy telemetry call at sdk/baseapp/abci.go:110-111, sdk/baseapp/abci.go:127-128, sdk/baseapp/abci.go:187-188, sdk/baseapp/abci.go:190-191, sdk/baseapp/abci.go:193-194, sdk/baseapp/abci.go:196-197, sdk/baseapp/abci.go:199-200, sdk/baseapp/abci.go:273-274, sdk/baseapp/abci.go:439-440, sdk/baseapp/abci.go:990-991, sdk/baseapp/abci.go:1057-1058, sdk/baseapp/abci.go:1120-1121, keeping the OTel Record or Add call on the line before each."
+do_1 = "Delete the TODO comment and the legacy telemetry call at sdk/baseapp/abci.go:110-111, sdk/baseapp/abci.go:127-128, sdk/baseapp/abci.go:187-188, sdk/baseapp/abci.go:190-191, sdk/baseapp/abci.go:193-194, sdk/baseapp/abci.go:196-197, sdk/baseapp/abci.go:199-200, sdk/baseapp/abci.go:273-274, sdk/baseapp/abci.go:439-440, sdk/baseapp/abci.go:993-994, sdk/baseapp/abci.go:1060-1061, sdk/baseapp/abci.go:1123-1124, keeping the OTel Record or Add call on the line before each."
 do_2 = "Drop the telemetry import at sdk/baseapp/abci.go:21 and the go-metrics import of sdk/baseapp/abci.go when no other use remains."
 do_3 = "Write TestBaseappAbciEmitsNoLegacyTelemetry in sdk/baseapp/legacy_abci_metrics_test.go (planned) using oteltest.InstallLegacySink from task 15.0.1 and the fixtures of the task 15.2.15 tests."
 symbols = ["TestBaseappAbciEmitsNoLegacyTelemetry", "baseapp_abci_query_duration", "baseapp_commit_duration", "baseapp_deliver_tx_duration", "baseapp_end_block_duration", "baseapp_finalize_block_duration", "baseapp_get_tx_priority_hint_duration", "baseapp_mid_block_duration", "baseapp_process_proposal_duration", "baseapp_tx_count", "baseapp_tx_gas_used", "baseapp_tx_gas_wanted", "baseapp_tx_result"]
@@ -166300,7 +166474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.23.1]
 title = "Drop the handover registration check from the genesis module-table suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["16.21.1", "16.2.3", "5.49.2"]
@@ -169845,7 +170019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 2
 requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
@@ -169876,7 +170050,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
-wave = 1
+wave = 2
 requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]
