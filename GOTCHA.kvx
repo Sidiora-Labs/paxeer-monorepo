@@ -9345,3 +9345,9 @@ area = "spec verify_cmd"
 symptom = "a verify_cmd fails before running anything: the shell reports a path such as /work/repo/\"\"\"\" or the first word is export CARGO_TARGET_DIR=\\\"..."
 cause = "cg hands the kvx string to the shell as written, so an escaped double quote in verify_cmd reaches the shell as a literal backslash and quote"
 do = "write verify_cmd without double quotes: single quotes for test patterns, bare $(...) and ${VAR:-default} expansions, and paths without spaces"
+
+[gotcha.1937]
+area = "spec wave order"
+symptom = "Adding a later-wave task to one task's requires and bumping only that task's wave left a dependent task in an earlier wave than its requirement; the plan check reported a later-wave reference after the commit was already pushed."
+cause = "A wave bump cascades: every task that requires the moved task must move with it, and the chain that committed did not stop on the check's result."
+do = "After any requires or wave edit, recompute waves over the whole task graph until no task sits before a requirement, and gate the commit on the plan check's empty bad_refs and cycles."

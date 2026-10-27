@@ -113525,6 +113525,7 @@ do_2 = "Insert layerxauthante.NewRevocationDecorator (modules/layerxauth/ante/re
 do_3 = "Keep the order of every other decorator of the chain at node/ante.go:78-126."
 do_4 = "Write node/ante_revocation_test.go (planned) in package app_test with TestAnteChainRunsRevocationDecoratorAfterAuthzNested."
 do_5 = "Pass app.LayerXAuthKeeper (created by task 5.19.2) as LayerXAuthKeeper in the HandlerOptions literal New builds at node/app.go:1182-1202 so New (node/app.go:1205) no longer refuses a nil keeper; insert the decorator by calling layerxauthante.NewRevocationDecorator(options.LayerXAuthKeeper, options.EVMKeeper) directly where do_2 places it, without adding a HandlerOptions method."
+do_6 = "If node/app.go still defines a local const LayerXHostStoreKey (the wiring task 5.19.2 landed it as layerxhost at node/app.go:630), delete it and reference keys.LayerXHostStoreKey from storage/common/keys/store_keys.go in kvStoreKeyNames, in the NewHost call and in the pay keeper construction, so the store the node mounts carries the name lxphost that the ledger and auth keepers look it up by."
 symbols = ["NewAnteHandler", "NewRevocationDecorator", "TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
 touches = ["node/ante.go", "node/ante_revocation_test.go", "node/app.go"]
 tests = ["node/ante_revocation_test.go::TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
