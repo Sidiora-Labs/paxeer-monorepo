@@ -3645,3 +3645,11 @@ symbol = "ValidateGenesis"
 observed = "At revision 9372974fd the verifier `cg spec done 5.98.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (logs-verify-2.log): paxd validate-genesis on the genesis derived from node/testdata/v6120-halt-export.json failed with `failed to unmarshal pricefeed genesis state: unexpected end of JSON input`, because BasicManager.ValidateGenesis hands every wired module its app_state entry and the export carries none for pricefeed, perps and spot, while spot initGenesis (modules/spot/keeper/genesis.go:97) writes ParamsKey so a default spot entry would make InitV6120 refuse the v6.12.0 plan in the first block; the first cycle (da7d54c0c) failed the same step on timeout.ProposeDelta because the export carries zero consensus timeouts."
 assumption = "do_1 validates a copy of the genesis that carries the three default states and copies the consensus timeouts from the paxd init genesis, while the node starts from the genesis without those entries; do_3 submits prices through paxd tx sign and paxd tx broadcast because the pricefeed module has no tx command."
 severity = "blocker"
+
+[finding.5.19.2]
+task = "5.19.2"
+file = "modules/layerxledger/keeper/execute.go:18"
+symbol = "LayerXHostStoreKey"
+observed = "Reading the wave-12 failures of 2.12.3 (6cafe3ecb), 2.12.5 (e5afc85ed) and 5.14.3 (bda2921a7) at main f4a94b518: the ledger and auth keepers locate the shared host store by key.Name() == \"lxphost\" (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), while task 5.41.2 do_1 names LayerXHostStoreKey \"layerxhost\" (storage/common/keys/store_keys.go:44) and task 5.19.2 do_3 builds the lxphost.Host over that key, as req 916 and decision.557 state."
+assumption = "The spec name layerxhost is authoritative; the keepers' lxphost literal is reconciled by the owner of the keeper files when 5.19.2 wires the host, and tests take the key name from the App rather than a literal. Recorded once; not re-investigated."
+severity = "blocker"
