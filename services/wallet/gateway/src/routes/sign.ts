@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createHash, randomUUID } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { z } from 'zod';
-import { hashMessage, keccak256, recoverAddress, recoverMessageAddress, serializeSignature, serializeTransaction, type Hex, type TransactionSerializableEIP1559, type TypedDataDefinition } from 'viem';
+import { keccak256, recoverAddress, serializeSignature, type Hex, type TransactionSerializableEIP1559, type TypedDataDefinition } from 'viem';
 import { requireAuth } from '../middleware/auth.js';
 import { CustodyAuthorityError, requireInventoryKey } from '../agent/authority.js';
 import { didFromPublicKey, mainAccountId, verifyEd25519 as verifyLxSignature } from '../provision/bind.js';
@@ -20,7 +20,7 @@ import { getPool } from '../db/pool.js';
 import { evaluate } from '../policy/index.js';
 import { env } from '../env.js';
 import {
-  AttestorError, AttestorSessionError, AttestorQuorumError, constructionDigest, decodeCustody, splitSignature, unsignedTransactionBytes, type SignPayload,
+  AttestorError, AttestorSessionError, AttestorQuorumError, constructionDigest, splitSignature, type SignPayload,
   attestorErrorBody,
   attestorErrorStatus,
   type AttestorClient,
@@ -41,8 +41,9 @@ import {
   type AuditKind,
   type AuditPath,
 } from '../audit.js';
-import { SignTxBody, SendTxBody, SignMessageBody, type TxRequest } from '../schemas/tx.js';
-import { readCustodyAuthorization, retainCustodyAuthorization, completeCustodyAuthorization, CustodyAuthorizationError, type CustodyAuthorizationIdentity, type CustodyAuthorizationRecord } from '../custody/authorization.js';
+import { SignTxBody, SendTxBody as SendTxSchema, SignMessageBody, type TxRequest } from '../schemas/tx.js';
+
+const SendTxBody = SendTxSchema;
 
 export interface SignRoutesOptions {
   pool?: Pool;
@@ -190,78 +191,6 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
     if(result.signedBytes.toLowerCase()!==digest.toLowerCase()||(await recoverAddress({hash:digest,signature})).toLowerCase()!==sw.row.address.toLowerCase()) throw new AttestorSessionError('signer_mismatch','quorum evidence differs from original owned wallet or construction');
     return {result,signature};
   }
-  function readConsent(bytes:Hex,address:string,chainId:number,allowExpired=false){
-    try{return decodeCustody(bytes,address,chainId,allowExpired);}catch(error){
-      const code=error instanceof AttestorSessionError?error.code:'custody_malformed';
-      throw new RouteRefusal(code==='custody_mismatch'?403:400,code,{error:code});
-    }
-  }
-  async function custodyBeneficiary(client:PoolClient,sw:SigningWallet,beneficiary:Hex){
-    const found=await client.query<{main_account_id:string|null;binding_state:string}>('select main_account_id,binding_state from wallets where id=$1',[sw.row.id]);
-    if(found.rows[0]?.binding_state!=='bound'||found.rows[0]?.main_account_id?.toLowerCase()!==beneficiary.slice(2).toLowerCase()) throw new RouteRefusal(403,'custody_account_mismatch',{error:'custody_account_mismatch'});
-  }
-  async function custodyStatus(row:CustodySubmission,client?:PoolClient):Promise<Record<string,unknown>>{
-    let receipt:Record<string,unknown>|null=null;
-    if(row.tx_hash){
-      try{
-        const answer=await rpc.request<Record<string,unknown>|null>('eth_getTransactionReceipt',[row.tx_hash]);
-        if(answer&&typeof answer.transactionHash==='string'&&answer.transactionHash.toLowerCase()===row.tx_hash&&typeof answer.blockHash==='string'&&/^0x[0-9a-fA-F]{64}$/.test(answer.blockHash)&&typeof answer.blockNumber==='string'&&/^0x[0-9a-fA-F]+$/.test(answer.blockNumber)&&(answer.status==='0x1'||answer.status==='0x0')){
-          const block=await rpc.request<{hash?:string}|null>('eth_getBlockByNumber',[answer.blockNumber,false]);
-          if(block?.hash?.toLowerCase()===answer.blockHash.toLowerCase()){
-            const actual=await rpc.request<{from?:string;to?:string;nonce?:string}|null>('eth_getTransactionByHash',[row.tx_hash]);
-            if(actual?.from?.toLowerCase()===row.address&&actual.to?.toLowerCase()===decodeCustody(row.custody as Hex,row.address,Number(row.chain_id),true).transaction.to.toLowerCase()&&actual.nonce&&BigInt(actual.nonce)===BigInt(row.nonce)){
-              receipt=answer;row.state=answer.status==='0x1'?'confirmed':'reverted';
-              await (client??pool).query('update wallet_custody_submissions set state=$2,updated_at=now() where id=$1',[row.id,row.state]);
-            }
-          }
-        }
-      }catch{receipt=null;}
-    }
-    return {custody_id:row.id,tx_hash:row.tx_hash,status:receipt?row.state:'pending',receipt};
-  }
-  async function custodySend(req:FastifyRequest,stage:WalletStage,tx:TxRequest,proof:{bytes:string;signature:string}):Promise<Completed>{
-    const {client,sw}=stage;requireQuorumWallet(sw);
-    if(sw.row.chain_id!==env.HYPERPAXEER_CHAIN_ID) throw new RouteRefusal(403,'chain_mismatch',{error:'chain_mismatch'});
-    const bytes=proof.bytes.toLowerCase() as Hex;const signature=proof.signature.toLowerCase() as Hex;
-    const id=keccak256(bytes);
-    const consent=readConsent(bytes,sw.row.address,sw.row.chain_id,true);
-    const actual=consent.transaction;
-    if(tx.chainId!==actual.chainId||tx.nonce!==actual.nonce||tx.to?.toLowerCase()!==actual.to.toLowerCase()||BigInt(tx.value??'0')!==actual.value||(tx.data??'0x').toLowerCase()!==actual.data.toLowerCase()||tx.gas!==actual.gas.toString()||tx.maxFeePerGas!==actual.maxFeePerGas.toString()||tx.maxPriorityFeePerGas!==actual.maxPriorityFeePerGas.toString()) throw new RouteRefusal(403,'custody_construction_changed',{error:'custody_construction_changed'});
-    let recovered:string;
-    try{recovered=await recoverMessageAddress({message:{raw:bytes},signature});}catch{throw new RouteRefusal(403,'custody_signature_mismatch',{error:'custody_signature_mismatch'});}
-    if(recovered.toLowerCase()!==sw.row.address.toLowerCase()) throw new RouteRefusal(403,'custody_signature_mismatch',{error:'custody_signature_mismatch'});
-    await custodyBeneficiary(client,sw,consent.beneficiary);
-    await client.query('insert into nonce_allocations(address,chain_id,next_nonce,needs_reconcile) values($1,$2,0,true) on conflict(address) do nothing',[sw.row.address.toLowerCase(),sw.row.chain_id]);
-    await client.query('select address from nonce_allocations where address=$1 for update',[sw.row.address.toLowerCase()]);
-    const reservation=await client.query('select action_id from custody_signing_reservations where address=$1 and chain_id=$2',[sw.row.address.toLowerCase(),sw.row.chain_id]);
-    if(reservation.rowCount) throw new RouteRefusal(409,'nonce_reserved',{error:'nonce_reserved'});
-    const pending=await client.query<{id:string}>("select id from wallet_custody_submissions where address=$1 and chain_id=$2 and state='pending' and id<>$3",[sw.row.address.toLowerCase(),sw.row.chain_id,id]);
-    if(pending.rowCount) throw new RouteRefusal(409,'nonce_reserved',{error:'nonce_reserved'});
-    const saved=await client.query<CustodySubmission>('select * from wallet_custody_submissions where id=$1 for update',[id]);
-    let row=saved.rows[0];let result:SignResult|null=null;
-    if(row&&(row.user_id!==req.user!.id||row.wallet_id!==sw.row.id||row.custody!==bytes||row.signature!==signature)) throw new RouteRefusal(409,'custody_identity_conflict',{error:'custody_identity_conflict'});
-    if(!row){
-      readConsent(bytes,sw.row.address,sw.row.chain_id);
-      if(await rpc.getTransactionCount(sw.row.address as Hex,'latest')!==actual.nonce) throw new RouteRefusal(409,'custody_nonce_changed',{error:'custody_nonce_changed'});
-      await rpc.simulate({from:sw.row.address as Hex,to:actual.to,data:actual.data,value:actual.value});
-      const unsigned=unsignedTransactionBytes(actual);
-      const signed=await signConstruction(sw,req,{kind:'evm_tx',transaction:unsigned,custody:{bytes,signature}},keccak256(serializeTransaction(actual)));
-      result=signed.result;
-      const raw=serializeTransaction(actual,splitSignature(result));const hash=keccak256(raw);
-      const inserted=await client.query<CustodySubmission>(`insert into wallet_custody_submissions(id,user_id,wallet_id,address,chain_id,nonce,custody,signature,unsigned_tx,raw_tx,tx_hash) values($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) returning *`,[id,req.user!.id,sw.row.id,sw.row.address.toLowerCase(),sw.row.chain_id,actual.nonce,bytes,signature,unsigned,raw,hash]);
-      row=inserted.rows[0]!;
-      await client.query('update nonce_allocations set next_nonce=greatest(next_nonce,$2),needs_reconcile=true,updated_at=now() where address=$1',[row.address,actual.nonce+1]);
-    }
-    await client.query('COMMIT');
-    await client.query('BEGIN');
-    let broadcastUnknown=false;
-    if(row.state==='pending'&&row.raw_tx&&row.tx_hash){
-      try{const hashReply=await rpc.sendRawTransaction(row.raw_tx);if(hashReply.toLowerCase()!==row.tx_hash) throw new Error('broadcast hash differs from retained raw transaction');}catch{broadcastUnknown=true;}
-    }
-    const body=await custodyStatus(row,client);
-    return {status:200,body,decision:broadcastUnknown&&body.status==='pending'?'broadcast_failed':'broadcast',path:'attestor',account:sw.row.address,walletId:sw.row.id,attestor:result,txHash:row.tx_hash,nonce:actual.nonce,reasonCode:broadcastUnknown&&body.status==='pending'?'broadcast_outcome_unknown':null};
-  }
-
   async function run(
     req: FastifyRequest,
     reply: FastifyReply,
@@ -356,7 +285,6 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
       await client.query('ROLLBACK').catch(() => undefined);
       client.release();
       if (err instanceof RouteRefusal) return refuse(err.status, err.code, err.body, err.headers);
-      if (err instanceof CustodyAuthorizationError) return refuse(409,err.code,{error:err.code});
       if(err instanceof CustodyAuthorityError) return refuse(503,err.code,{error:err.code,replication_pending:true});
       if (err instanceof NonceUnresolvedError) {
         return refuse(503, 'nonce_unresolved', { error: 'nonce_unresolved', nonce: err.nonce, unreachable: err.unreachable, members: err.memberCount });
@@ -441,63 +369,6 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
 
   const ipOf = (req: FastifyRequest): string | null => req.ip;
 
-  app.get('/v1/wallet/custody/:id',{preHandler:requireAuth},async(req,reply)=>{
-    const id=(req.params as {id:string}).id;
-    if(!/^0x[0-9a-f]{64}$/.test(id)) return reply.code(400).send({error:'invalid_custody_id'});
-    const row=await pool.query<CustodySubmission>('select * from wallet_custody_submissions where id=$1 and user_id=$2',[id,req.user!.id]);
-    if(!row.rows[0]) return reply.code(404).send({error:'custody_not_found'});
-    return reply.send(await custodyStatus(row.rows[0]));
-  });
-  function custodyIdentity(sw:SigningWallet,subject:string,custody:Hex):CustodyAuthorizationIdentity {
-    requireQuorumWallet(sw);
-    if(sw.row.chain_id!==env.HYPERPAXEER_CHAIN_ID)throw new RouteRefusal(403,'chain_mismatch',{error:'chain_mismatch'});
-    readConsent(custody,sw.row.address,sw.row.chain_id,true);
-    return {id:keccak256(custody),userId:subject,walletId:sw.row.id,address:sw.row.address.toLowerCase() as Hex,chainId:sw.row.chain_id,keyId:sw.attestorKeyId,custody};
-  }
-  function custodyCompleted(sw:SigningWallet,record:CustodyAuthorizationRecord):Completed {
-    if(record.state!=='signed'||!record.signature||!record.evidence)throw new RouteRefusal(409,'custody_authorization_unknown',{error:'custody_authorization_unknown',custody_id:record.id,state:'signing_unknown'});
-    return {status:200,body:{signature:record.signature,address:sw.row.address},decision:'signed',path:'attestor',account:sw.row.address,walletId:sw.row.id,attestor:record.evidence,txHash:null,nonce:null,reasonCode:null};
-  }
-  app.get('/v1/wallet/custody-authorization/:id',{preHandler:requireAuth},async(req,reply)=>{
-    const id=(req.params as {id:string}).id;
-    if(!/^0x[0-9a-f]{64}$/.test(id))return reply.code(400).send({error:'invalid_custody_id'});
-    return run(req,reply,{requestId:randomUUID(),subject:req.user!.id,route:'/v1/wallet/custody-authorization',kind:'message',requestHash:hashRequest({id}),attestorOnly:true},0n,async({client,sw})=>{
-      const selected=await client.query<{custody:Hex}>('select custody from wallet_custody_authorizations where id=$1 and user_id=$2',[id,req.user!.id]);
-      const custody=selected.rows[0]?.custody;if(!custody)throw new RouteRefusal(404,'custody_authorization_not_found',{error:'custody_authorization_not_found'});
-      const identity=custodyIdentity(sw,req.user!.id,custody);
-      if(identity.id!==id)throw new RouteRefusal(409,'custody_authorization_mismatch',{error:'custody_authorization_mismatch'});
-      const consent=readConsent(custody,sw.row.address,sw.row.chain_id,true);await custodyBeneficiary(client,sw,consent.beneficiary);
-      const record=await readCustodyAuthorization(client,identity);
-      if(!record)throw new RouteRefusal(404,'custody_authorization_not_found',{error:'custody_authorization_not_found'});
-      const done=custodyCompleted(sw,record);
-      return {...done,body:{...done.body,custody_id:id,custody,state:'signed'}};
-    });
-  });
-  app.post('/v1/wallet/sign-custody',{preHandler:requireAuth},async(req,reply)=>{
-    const parsed=SignCustodyBody.safeParse(req.body);if(!parsed.success) return reply.code(400).send({error:'invalid_body',issues:parsed.error.issues});
-    return run(req,reply,{requestId:randomUUID(),subject:req.user!.id,route:'/v1/wallet/sign-custody',kind:'message',requestHash:hashRequest(parsed.data),attestorOnly:true},0n,async({client,sw})=>{
-      const bytes=parsed.data.custody.toLowerCase() as Hex;const identity=custodyIdentity(sw,req.user!.id,bytes);
-      const consent=readConsent(bytes,sw.row.address,sw.row.chain_id,true);await custodyBeneficiary(client,sw,consent.beneficiary);
-      const prior=await readCustodyAuthorization(client,identity);if(prior)return custodyCompleted(sw,prior);
-      readConsent(bytes,sw.row.address,sw.row.chain_id);
-      if(await rpc.getTransactionCount(sw.row.address as Hex,'latest')!==consent.transaction.nonce) throw new RouteRefusal(409,'custody_nonce_changed',{error:'custody_nonce_changed'});
-      const retained=await retainCustodyAuthorization(client,identity);if(!retained.attempt)return custodyCompleted(sw,retained.record);
-      await client.query('COMMIT');
-      await client.query('BEGIN');
-      const current=await loadWalletForSigning(client,req.user!.id);
-      if(!current||current.row.is_disabled)throw new RouteRefusal(403,'wallet_disabled',{error:'wallet_disabled'});
-      const revalidated=custodyIdentity(current,req.user!.id,bytes);
-      if(revalidated.walletId!==identity.walletId||revalidated.address!==identity.address||revalidated.chainId!==identity.chainId||revalidated.keyId!==identity.keyId)throw new RouteRefusal(409,'custody_authorization_mismatch',{error:'custody_authorization_mismatch'});
-      const pending=await readCustodyAuthorization(client,revalidated);
-      if(!pending||pending.state!=='signing_unknown')throw new RouteRefusal(409,'custody_authorization_state_changed',{error:'custody_authorization_state_changed'});
-      readConsent(bytes,current.row.address,current.row.chain_id);
-      await custodyBeneficiary(client,current,consent.beneficiary);
-      if(await rpc.getTransactionCount(current.row.address as Hex,'latest')!==consent.transaction.nonce)throw new RouteRefusal(409,'custody_nonce_changed',{error:'custody_nonce_changed'});
-      const signed=await signConstruction(current,req,{kind:'custody',message:bytes},hashMessage({raw:bytes}));
-      const complete=await completeCustodyAuthorization(client,revalidated,signed.signature,signed.result);
-      return custodyCompleted(current,complete);
-    });
-  });
   app.post('/v1/wallet/sign-digest',{preHandler:requireAuth},async(req,reply)=>{
     const parsed=SignDigestBody.safeParse(req.body);if(!parsed.success) return reply.code(400).send({error:'invalid_body',issues:parsed.error.issues});
     const c=parsed.data.construction;
@@ -573,7 +444,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
   });
 
   app.post('/v1/wallet/send', { preHandler: requireAuth }, async (req, reply) => {
-    const parsed = SendCustodyBody.safeParse(req.body);
+    const parsed = SendTxBody.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
     }
@@ -585,11 +456,9 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
     return run(
       req,
       reply,
-      { requestId: randomUUID(), subject: userId, route: '/v1/wallet/send', kind: 'transaction', requestHash, to: tx.to,attestorOnly:parsed.data.custody!==undefined },
+      { requestId: randomUUID(), subject: userId, route: '/v1/wallet/send', kind: 'transaction', requestHash, to: tx.to },
       valueWei,
-      async (stage) => {
-        if(parsed.data.custody) return custodySend(req,stage,tx,parsed.data.custody);
-        const {sw,signer}=stage;
+      async ({ sw, signer }) => {
         const prepared = await prepareTx(signer, tx);
         const outcome = await nonces.withLock(sw.row.address, async (lease) => {
           if (tx.nonce !== undefined) {
@@ -808,10 +677,6 @@ const WireBytes=z.string().max(65_538).regex(/^0x(?:[0-9a-fA-F]{2})*$/);
 export const SponsoredConstruction=z.object({kind:z.literal('sponsored_batch'),chainId:CanonicalUint,account:WireAddress,nonce:CanonicalUint,calls:z.array(z.object({to:WireAddress,value:CanonicalUint,data:WireBytes}).strict()).min(1).max(128),quote:z.object({sponsor:WireAddress,token:WireAddress,maxTokenAmount:CanonicalUint,tokenAmount:CanonicalUint,deadline:CanonicalU64,quoteNonce:CanonicalUint,gasCost:CanonicalUint}).strict()}).strict();
 export const DigestConstructionBody=z.discriminatedUnion('kind',[SponsoredConstruction,z.object({kind:z.literal('eip7702_authorization'),chainId:CanonicalUint,address:WireAddress,nonce:CanonicalU64}).strict()]);
 export const SignDigestBody=z.object({construction:DigestConstructionBody}).strict();
-export const SignCustodyBody=z.object({custody:WireBytes.min(4)}).strict();
-const CustodyProof=z.object({bytes:WireBytes.min(4),signature:z.string().regex(/^0x[0-9a-fA-F]{130}$/)}).strict();
-const SendCustodyBody=SendTxBody.extend({custody:CustodyProof.optional()}).strict();
-interface CustodySubmission { id:string;user_id:string;wallet_id:string;address:string;chain_id:string|number;nonce:string|number;custody:string;signature:string;unsigned_tx:string;raw_tx:Hex|null;tx_hash:Hex|null;state:'pending'|'confirmed'|'reverted' }
 
 interface OriginalLxWallet {
   id: string; address: string; chain_id: number; did: string; main_account_id: string;
