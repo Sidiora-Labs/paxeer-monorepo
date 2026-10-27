@@ -951,6 +951,9 @@ export const Asset = {
         if (message.contract_address !== "") {
             writer.uint32(18).string(message.contract_address);
         }
+        if (message.denom !== "") {
+            writer.uint32(26).string(message.denom);
+        }
         return writer;
     },
     decode(input, length) {
@@ -972,6 +975,12 @@ export const Asset = {
                     }
                     message.contract_address = reader.string();
                     continue;
+                case 3:
+                    if (tag !== 26) {
+                        break;
+                    }
+                    message.denom = reader.string();
+                    continue;
             }
             if ((tag & 7) === 4 || tag === 0) {
                 break;
@@ -983,7 +992,8 @@ export const Asset = {
     fromJSON(object) {
         return {
             asset_type: isSet(object.asset_type) ? assetTypeFromJSON(object.asset_type) : 0,
-            contract_address: isSet(object.contract_address) ? globalThis.String(object.contract_address) : ""
+            contract_address: isSet(object.contract_address) ? globalThis.String(object.contract_address) : "",
+            denom: isSet(object.denom) ? globalThis.String(object.denom) : ""
         };
     },
     toJSON(message) {
@@ -994,6 +1004,9 @@ export const Asset = {
         if (message.contract_address !== "") {
             obj.contract_address = message.contract_address;
         }
+        if (message.denom !== "") {
+            obj.denom = message.denom;
+        }
         return obj;
     },
     create(base) {
@@ -1003,6 +1016,7 @@ export const Asset = {
         const message = createBaseAsset();
         message.asset_type = object.asset_type ?? 0;
         message.contract_address = object.contract_address ?? "";
+        message.denom = object.denom ?? "";
         return message;
     }
 };
@@ -1130,7 +1144,7 @@ function createBaseMsgClaim() {
     return { sender: "", claimer: "" };
 }
 function createBaseAsset() {
-    return { asset_type: 0, contract_address: "" };
+    return { asset_type: 0, contract_address: "", denom: "" };
 }
 function createBaseMsgClaimSpecific() {
     return { sender: "", claimer: "", assets: [] };
