@@ -12,6 +12,7 @@ const IDEMPOTENCY_DOMAIN: &[u8] = b"layerx-faucet-claim-v1";
 const CLAIMS_PER_MINUTE: u32 = 30;
 const STARTER_IDEMPOTENCY_SCOPE: &str = "starter-credit";
 const MAX_FAUCET_AMOUNT: u64 = (1 << 53) - 1;
+pub(super) const px_requestFunds: &str = "px_requestFunds";
 
 static FAUCET_WINDOW: Mutex<(u64, u32)> = Mutex::new((0, 0));
 
@@ -370,7 +371,8 @@ pub(super) fn dispatch(
     id: &Value,
     params: Option<&Value>,
 ) -> Option<Value> {
-    (method == "lx_requestFunds").then(|| request_funds(config, request, id, params))
+    (method == px_requestFunds || method == "lx_requestFunds")
+        .then(|| request_funds(config, request, id, params))
 }
 
 pub(super) fn configured() -> Result<Option<Faucet>, String> {
@@ -388,6 +390,97 @@ pub(super) fn configured() -> Result<Option<Faucet>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn px_request_funds_uses_the_claim_path() {
+        let ca = native_tls::Certificate::from_pem(include_bytes!(
+            "../../../../../consensus/rpc/jsonrpc/server/test.crt"
+        ))
+        .unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
+        let config = Config {
+            wallet_caps: None,
+            routes: crate::routes::Registry::configured("layerx-testnet", "1")
+                .unwrap_or_else(|error| panic!("test routes must configure: {error}")),
+            listen: "127.0.0.1:0"
+                .parse()
+                .unwrap_or_else(|error| panic!("test address must parse: {error}")),
+            listener: crate::Listener::Plain,
+            client: crate::Client::without_identity(ca.clone()),
+            client_identity: false,
+            kernel: None,
+            receipt_keys: None,
+            paxeer: None,
+            capabilities: crate::capabilities::Cache::new(std::time::Duration::from_secs(1)),
+            indexer: None,
+            registration_token: None,
+            trusted_proxies: Vec::new(),
+            faucet: None,
+            store: std::sync::Arc::new(crate::RedisStore::new(
+                crate::RedisEndpoint::parse("rediss://localhost:6379")
+                    .unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}")),
+                ca,
+                Zeroizing::new("gateway".to_owned()),
+                Zeroizing::new(String::new()),
+            )),
+            event_producer: false,
+            network_id: "layerx-testnet".to_owned(),
+            wire_version: "1".to_owned(),
+            protocol_version: 1,
+            protocol_network_id: 1,
+            idempotency_seconds: 3600,
+        };
+        let request = IncomingRequest {
+            method: "POST".to_owned(),
+            path: "/rpc".to_owned(),
+            headers: Default::default(),
+            body: Vec::new(),
+        };
+        let id = json!("claim-1");
+        for method in ["px_requestFunds", "lx_requestFunds"] {
+            for params in [
+                None,
+                Some(json!([])),
+                Some(json!(["did:layerx:alice"])),
+                Some(json!(["did:layerx:alice", "AB".repeat(32)])),
+                Some(json!(["did:layerx:alice", "00".repeat(32)])),
+                Some(json!(["invalid", "ab".repeat(32)])),
+                Some(json!(["did:layerx:alice", "ab".repeat(32), "extra"])),
+                Some(json!({"did": "did:layerx:alice"})),
+            ] {
+                assert_eq!(claim_params(params.as_ref()), Err(-32602));
+                assert_eq!(
+                    dispatch(&config, &request, method, &id, params.as_ref()),
+                    Some(error(&id, -32602, "Invalid params")),
+                    "{method}: {params:?}"
+                );
+            }
+            let params = json!(["did:layerx:alice", "ab".repeat(32)]);
+            assert_eq!(
+                dispatch(&config, &request, method, &id, Some(&params)),
+                Some(refusal(
+                    &id,
+                    -32001,
+                    "Faucet claim unavailable",
+                    "faucet_not_configured"
+                ))
+            );
+            assert_eq!(
+                crate::rpc::dispatch(
+                    &config,
+                    &request,
+                    &json!({"jsonrpc": "2.0", "id": id, "method": method, "params": params})
+                ),
+                Some(
+                    crate::KernelUnavailable::not_configured(crate::KernelBackend::Identity)
+                        .rpc(&id)
+                )
+            );
+        }
+        assert_eq!(
+            dispatch(&config, &request, "px_unknown", &id, Some(&json!([]))),
+            None
+        );
+    }
 
     fn funded(funding: &str) -> Value {
         json!({
