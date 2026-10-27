@@ -9201,3 +9201,21 @@ area = "kernel C structs"
 symptom = "-Werror=missing-field-initializers refuses the lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor after the struct gained a member"
 cause = "positional compound literals stop at the old last member; the task that appended the member built only its own test"
 do = "a task that appends a struct member updates every positional literal of that struct in the same change (grep for `(type){`) or names the task that will"
+
+[gotcha.1913]
+area = "launchpad gRPC queries"
+symptom = "a Query handler test panics `invalid Go type types.Int for field ...Response.<field>` although the handler returns the right value"
+cause = "sdk/baseapp/grpcrouter.go:100 marshals query responses with the grpc default proto codec, which cannot reflect a top-level non-pointer gogoproto customtype Int field; nested messages go through the gogo Marshal method and pass"
+do = "declare top-level amounts in query responses as plain decimal strings (wire and JSON unchanged) or nest them in a message"
+
+[gotcha.1914]
+area = "launchpad mobile tests"
+symptom = "vitest fails `Cannot find module './validators-v1.gen.js'` from sdk/launchpad/packages/sdk/src/validate.ts even after the SDK build"
+cause = "compile-validators.mjs emits the generated validator modules only into dist/; the repository tracks only their .d.ts declarations, so importing the SDK from src finds no runtime module"
+do = "alias the three ./validators-*.gen.js specifiers to the built dist files in the consumer's vitest config and build sdk-v2 then sdk before the test"
+
+[gotcha.1915]
+area = "kernel activity envelope"
+symptom = "every HostExecute from a keeper is refused LXP_ERR_MALFORMED_ENVELOPE and the refusal receipt carries code 0"
+cause = "the activity's NotBefore/NotAfter bound was wider than the admission window (src/sequencer/lxp_admission.c:13-15), or AccountSequence was set to identity sequence + 1 although the host already stores the next admitted sequence"
+do = "set NotBefore = block time, NotAfter = block time + TimestampWindowMs and AccountSequence = ReadIdentitySequence unchanged"
