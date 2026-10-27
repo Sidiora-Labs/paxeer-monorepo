@@ -35,16 +35,17 @@ pub use server::{Limits, Request, Response, Route, RouteTable, RunningServer, Se
 use layerx_interop_gateway::adapter::{AdapterError, AdapterId, ConformanceSuite};
 
 /// The conformance suite the sidecar's 402LXP seller is qualified against:
-/// the recorded gateway exchange under `tests/fixtures/gateway`.
+/// the recorded gateway exchange under `tests/fixtures/gateway`, including
+/// the `eth_*` and `pax_sequencerReceipt` settlement recordings.
 pub const CONFORMANCE_SUITE: &str = "x402-v2";
 
 /// The number of recorded gateway answers in the suite.
-pub const CONFORMANCE_VECTOR_COUNT: u64 = 30;
+pub const CONFORMANCE_VECTOR_COUNT: u64 = 58;
 
 /// SHA-256 over the suite's recording files concatenated in file name order.
 pub const CONFORMANCE_SUITE_DIGEST: [u8; 32] = [
-    0xdc, 0xc7, 0x65, 0xb6, 0x7b, 0xfa, 0xab, 0x00, 0xc0, 0x07, 0x39, 0xfb, 0xf4, 0xa2, 0x5b, 0x98,
-    0xc2, 0xa1, 0x4c, 0xb2, 0x40, 0x3a, 0x30, 0xb5, 0xfb, 0x64, 0xd4, 0xa2, 0x73, 0xde, 0x83, 0x79,
+    0xb7, 0x7a, 0x02, 0xd7, 0xd5, 0xb1, 0x9f, 0xb7, 0x28, 0xc9, 0x99, 0x25, 0x67, 0x2d, 0x94, 0x5c,
+    0x0d, 0x11, 0xe1, 0xc7, 0x40, 0xf5, 0xad, 0x5c, 0xeb, 0x3e, 0xe1, 0x76, 0xb6, 0x4c, 0x6f, 0x1a,
 ];
 
 /// The pinned conformance suite the binary registers its x402 adapter with.

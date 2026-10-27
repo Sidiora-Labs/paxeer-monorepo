@@ -98019,7 +98019,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.4]
 title = "Retirement conformance: module stores hold params only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4", "2.14.6"]
@@ -153348,7 +153348,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.3]
 title = "Retire the custody_not_supported unauthorized reason"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["12.28.2"]
