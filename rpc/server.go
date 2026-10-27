@@ -3,6 +3,7 @@ package evmrpc
 import (
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 
@@ -342,7 +343,7 @@ func NewEVMHTTPServer(
 	if err := httpServer.EnableRPC(apis, HTTPConfig{
 		CorsAllowedOrigins: strings.Split(config.CORSOrigins, ","),
 		Vhosts:             []string{"*"},
-		DenyList:           config.DenyList,
+		DenyList:           append(slices.Clone(config.DenyList), "lx_unsubscribe", "eth_lx_unsubscribe"),
 		PaxLegacyAllowlist: paxLegacyAllowlist,
 		RPCEndpointConfig:  newRPCEndpointConfig(config),
 	}); err != nil {
@@ -524,7 +525,7 @@ func NewEVMWebSocketServer(
 
 	wsConfig := WsConfig{
 		Origins:           strings.Split(config.WSOrigins, ","),
-		DenyList:          config.DenyList,
+		DenyList:          append(slices.Clone(config.DenyList), "lx_unsubscribe", "eth_lx_unsubscribe"),
 		RPCEndpointConfig: newRPCEndpointConfig(config),
 	}
 	wsConfig.readLimit = DefaultWebsocketMaxMessageSize
