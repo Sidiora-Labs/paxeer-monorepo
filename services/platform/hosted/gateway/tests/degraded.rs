@@ -13,7 +13,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
-const CHAIN_ID: &str = "0x7d0";
+const CHAIN_ID: &str = "0x7d";
 const LATEST_BLOCK: &str = "0x1a2b";
 const ACCOUNT: &str = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b";
 
@@ -289,11 +289,27 @@ fn precompile_answers() -> Vec<(String, String)> {
         .unwrap_or_else(|| panic!("ABI vector cases missing"))
         .iter()
         .filter_map(|case| {
+            let result = case["result"].as_str()?;
+            let result = if case["name"] == "addr.getUnifiedAccount" {
+                result.replace(&"7c".repeat(32), &main_account())
+            } else {
+                result.to_owned()
+            };
             Some((
                 format!("0x{}", case["calldata"].as_str()?),
-                format!("0x{}", case["result"].as_str()?),
+                format!("0x{result}"),
             ))
         })
+        .collect()
+}
+
+fn main_account() -> String {
+    let name = format!("agent:did:layerx:{}:main", "61".repeat(32));
+    let account = layerx_types::account::AccountId::parse(&name).unwrap();
+    layerx_wire::hash::account_id_for_protocol(&account, 3)
+        .unwrap()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
         .collect()
 }
 
@@ -569,7 +585,7 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
             "evm_address": ACCOUNT,
             "pax_address": "pax1exampleaccount",
             "layerx_did": format!("did:layerx:{}", "61".repeat(32)),
-            "layerx_account": "7c".repeat(32),
+            "layerx_account": main_account(),
             "bound": true
         }),
         "{resolved}"
@@ -579,9 +595,20 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
         &gateway.rpc("lx_getAccount", &json!(["ab".repeat(32)])),
         "public_core",
     );
-    assert_kernel_unavailable(
-        &gateway.rpc("px_getBalances", &json!([ACCOUNT])),
-        "public_core",
+    let balances = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json"))
+        .unwrap_or_else(|error| panic!("ABI vectors: {error}"));
+    let coins = &vectors["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "bank.all_balances")
+        .unwrap()["out"]["response"];
+    assert!(balances.get("error").is_none(), "{balances}");
+    assert_eq!(
+        balances["result"],
+        json!({"account": resolved["result"], "height": 6699, "balances": coins}),
+        "{balances}"
     );
 
     let network = gateway.rpc("px_getNetwork", &json!([]));

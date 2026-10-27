@@ -1327,6 +1327,7 @@ name = "layerx-indexer"
 version = "0.1.0"
 dependencies = [
  "layerx-client",
+ "layerx-committed-proof",
  "layerx-paxeer-verifier",
  "layerx-platform-internal",
  "layerx-programs-ai-market",

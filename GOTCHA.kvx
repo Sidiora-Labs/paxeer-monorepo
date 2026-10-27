@@ -9351,3 +9351,9 @@ area = "spec wave order"
 symptom = "Adding a later-wave task to one task's requires and bumping only that task's wave left a dependent task in an earlier wave than its requirement; the plan check reported a later-wave reference after the commit was already pushed."
 cause = "A wave bump cascades: every task that requires the moved task must move with it, and the chain that committed did not stop on the check's result."
 do = "After any requires or wave edit, recompute waves over the whole task graph until no task sits before a requirement, and gate the commit on the plan check's empty bad_refs and cycles."
+
+[gotcha.1938]
+title = "A Cargo.lock that lacks one dependency line fails every --locked build of its workspace"
+observed = "After a crate manifest gained a workspace dependency without a lock refresh, cargo build --locked refused all 39 pending interop targets with 'the lock file needs to be updated'; the whole difference was one missing line in one dependency list."
+lesson = "When a task adds or removes a dependency in a Cargo.toml, its touches must include the workspace Cargo.lock and its implementation must regenerate it (cargo metadata --offline suffices for path and already-cached crates); check cargo metadata --locked --offline on main whenever a --locked gate fails before any task change."
+

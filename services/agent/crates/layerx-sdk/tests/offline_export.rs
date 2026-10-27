@@ -1,23 +1,27 @@
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_agent_api::export::{FactRef, OfflineExport};
-use layerx_agent_api::prepare::CanonicalBytes;
+use layerx_agent_api::export::FactRef;
 use layerx_proof::checkpoint::{GuarantorKey, SettlementDomain};
 use layerx_proof::export::{
     verify_complete, CompleteExportError, IndependentOfflineTrust, TrustedCheckpointMembership,
 };
-use layerx_proof::export_codec::{CompleteOfflineArtifact, FactSelector};
+use layerx_proof::export_codec::{CompleteOfflineArtifact, EncodedOfflineArtifact, FactSelector};
 use layerx_proof::merkle::{encode_proof, Proof};
 use layerx_proof::signed_authority::SignedAuthorityHistory;
-use layerx_sdk::rpc_export::decode_offline_export;
-use layerx_types::verify::VerificationLevel;
+use layerx_sdk::rpc_export::{
+    decode_historical_offline_export, verify_complete_historical_offline_export,
+    OfflineVerificationError,
+};
+use layerx_types::rung::Rung;
 use layerx_wire::activity::decode_signed;
 use layerx_wire::encode::Encoder;
 use layerx_wire::handover::{decode_genesis_trust, sequencer_id};
 use layerx_wire::hash::{batch_header_digest, receipt_digest};
 use layerx_wire::limits::PROTOCOL_VERSION;
 
-const GENESIS: &[u8] = include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/genesis.bin");
-const HEADERS: &[u8] = include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/headers.bin");
+const GENESIS: &[u8] =
+    include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/genesis.bin");
+const HEADERS: &[u8] =
+    include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/headers.bin");
 const HANDOVER: &[u8] =
     include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/handover.activity");
 const HEADER_RECORD: usize = 418;
@@ -170,7 +174,10 @@ fn buckets(sequencer_key: [u8; 32], activity: [u8; 32]) -> Buckets {
     inclusion.push(2);
     lp(&mut inclusion, reference.as_bytes());
     lp(&mut inclusion, &receipt_bytes);
-    lp(&mut inclusion, &encode_proof(&must(Proof::new(0, 1, Vec::new()))));
+    lp(
+        &mut inclusion,
+        &encode_proof(&must(Proof::new(0, 1, Vec::new()))),
+    );
     inclusion.extend_from_slice(&must(batch_header_digest(header)));
     Buckets {
         facts: vec![reference],
@@ -180,23 +187,13 @@ fn buckets(sequencer_key: [u8; 32], activity: [u8; 32]) -> Buckets {
     }
 }
 
-fn api(buckets: &Buckets) -> OfflineExport {
-    let bytes = |items: &[Vec<u8>]| -> Vec<CanonicalBytes> {
-        items
-            .iter()
-            .map(|item| must(CanonicalBytes::new(item.clone())))
-            .collect()
-    };
-    OfflineExport {
-        facts: buckets
-            .facts
-            .iter()
-            .map(|fact| must(FactRef::new(fact.clone())))
-            .collect(),
-        receipts: bytes(&buckets.receipts),
-        proofs: bytes(&buckets.proofs),
+fn api(buckets: &Buckets) -> EncodedOfflineArtifact {
+    EncodedOfflineArtifact {
+        facts: buckets.facts.clone(),
+        receipts: buckets.receipts.clone(),
+        proofs: buckets.proofs.clone(),
         certificates: Vec::new(),
-        headers: bytes(&buckets.headers),
+        headers: buckets.headers.clone(),
     }
 }
 
@@ -206,7 +203,7 @@ fn api_export_decodes_through_the_one_shared_codec() {
     let activity = id(1);
     let parts = buckets(key, activity);
     let no_certificates: [Vec<u8>; 0] = [];
-    let Ok(decoded) = decode_offline_export(&api(&parts), &trust) else {
+    let Ok(decoded) = decode_historical_offline_export(&api(&parts), &trust) else {
         panic!("canonical api export refused");
     };
     let direct = must(CompleteOfflineArtifact::decode(
@@ -216,7 +213,12 @@ fn api_export_decodes_through_the_one_shared_codec() {
         &no_certificates,
         &parts.headers,
     ));
-    assert_eq!(decoded.facts, vec![FactSelector::Receipt { activity_id: activity }]);
+    assert_eq!(
+        decoded.facts,
+        vec![FactSelector::Receipt {
+            activity_id: activity
+        }]
+    );
     assert_eq!(decoded.facts, direct.facts);
     let encoded = must(decoded.encode());
     assert_eq!(encoded.facts, parts.facts);
@@ -246,18 +248,18 @@ fn api_fact_refs_are_validated_at_the_export_boundary() {
         assert!(FactRef::new(fact.clone()).is_ok());
         parts.facts = vec![fact.clone()];
         assert!(
-            decode_offline_export(&api(&parts), &trust).is_err(),
+            decode_historical_offline_export(&api(&parts), &trust).is_err(),
             "accepted {fact:?}"
         );
     }
     let mut repeated = buckets(key, activity);
     repeated.facts = vec![canonical.facts[0].clone(), canonical.facts[0].clone()];
-    assert!(decode_offline_export(&api(&repeated), &trust).is_err());
+    assert!(decode_historical_offline_export(&api(&repeated), &trust).is_err());
     let mut seventeen = buckets(key, activity);
     seventeen.facts = (1..=17)
         .map(|value| format!("receipt:{}", hex(&id(value))))
         .collect();
-    assert!(decode_offline_export(&api(&seventeen), &trust).is_err());
+    assert!(decode_historical_offline_export(&api(&seventeen), &trust).is_err());
 }
 
 #[test]
@@ -266,41 +268,54 @@ fn api_buckets_refuse_trailing_truncated_or_misplaced_records() {
     let activity = id(1);
     let mut trailing = buckets(key, activity);
     trailing.headers[0].push(0);
-    assert!(decode_offline_export(&api(&trailing), &trust).is_err());
+    assert!(decode_historical_offline_export(&api(&trailing), &trust).is_err());
     let mut truncated = buckets(key, activity);
     truncated.receipts[0].pop();
-    assert!(decode_offline_export(&api(&truncated), &trust).is_err());
+    assert!(decode_historical_offline_export(&api(&truncated), &trust).is_err());
     let mut version = buckets(key, activity);
     version.proofs[0][4] = 2;
-    assert!(decode_offline_export(&api(&version), &trust).is_err());
+    assert!(decode_historical_offline_export(&api(&version), &trust).is_err());
     let mut misplaced = buckets(key, activity);
     std::mem::swap(&mut misplaced.receipts, &mut misplaced.headers);
-    assert!(decode_offline_export(&api(&misplaced), &trust).is_err());
+    assert!(decode_historical_offline_export(&api(&misplaced), &trust).is_err());
     let mut certificate = buckets(key, activity);
     let header = certificate.headers[0].clone();
     let mut export = api(&certificate);
-    export.certificates = vec![must(CanonicalBytes::new(header))];
+    export.certificates = vec![header];
     certificate.headers.clear();
-    assert!(decode_offline_export(&export, &trust).is_err());
+    assert!(decode_historical_offline_export(&export, &trust).is_err());
 }
 
 #[test]
-fn decoded_export_never_claims_settlement_anchoring_or_a_rogue_sequencer() {
+fn decoded_export_never_claims_an_unverified_rung_or_a_rogue_sequencer() {
     let (trust, key) = trust();
     let activity = id(1);
-    let Ok(decoded) = decode_offline_export(&api(&buckets(key, activity)), &trust) else {
+    let Ok(decoded) = decode_historical_offline_export(&api(&buckets(key, activity)), &trust)
+    else {
         panic!("canonical api export refused");
     };
     assert_eq!(
-        verify_complete(&decoded, &trust, VerificationLevel::SETTLEMENT_ANCHORED).err(),
-        Some(CompleteExportError::SettlementAnchoringUnavailable)
+        verify_complete_historical_offline_export(
+            &decoded,
+            Rung::Committed,
+            Rung::Receipted,
+            &trust
+        )
+        .err(),
+        Some(OfflineVerificationError::ClaimExceedsVerified {
+            claimed: Rung::Committed,
+            verified: Rung::Receipted,
+        })
     );
-    let rogue = SigningKey::from_bytes(&[0x77; 32]).verifying_key().to_bytes();
-    let Ok(forged) = decode_offline_export(&api(&buckets(rogue, activity)), &trust) else {
+    let rogue = SigningKey::from_bytes(&[0x77; 32])
+        .verifying_key()
+        .to_bytes();
+    let Ok(forged) = decode_historical_offline_export(&api(&buckets(rogue, activity)), &trust)
+    else {
         panic!("rogue key must be refused by verification, not by the codec");
     };
     assert!(matches!(
-        verify_complete(&forged, &trust, VerificationLevel::BATCH_INCLUDED),
+        verify_complete(&forged, &trust, Rung::Receipted),
         Err(CompleteExportError::Header { fact: 0 })
     ));
 }
