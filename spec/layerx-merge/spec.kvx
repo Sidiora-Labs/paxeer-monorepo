@@ -115132,7 +115132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.35.1]
 title = "Declare a leader pin in the e2e testnet manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.34.1", "5.0.3"]
@@ -118762,7 +118762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.2]
 title = "Add the merge upgrade name to the embedded upgrade tags"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -132398,7 +132398,7 @@ do_3 = "Delete the lifecycle [[test]] entry (services/platform/hosted/gateway/te
 do_4 = "Keep services/platform/hosted/gateway/tests/local/required.rs, services/platform/hosted/gateway/tests/local/verifier.rs and services/platform/hosted/gateway/tests/local/lifecycle_sdk.rs, which services/agent/qualification/pay2/Cargo.toml:46 and services/agent/qualification/pay2/build.rs:1 still compile."
 do_5 = "Add services/platform/hosted/tests/test_retired_gateway_lifecycle.py (planned) with test_gateway_local_harness_has_no_lifecycle_test."
 symbols = ["Required", "test_gateway_local_harness_has_no_lifecycle_test"]
-touches = ["services/platform/hosted/gateway/tests/local/lifecycle.rs", "services/platform/hosted/gateway/tests/local/events.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/build.rs", "services/platform/hosted/gateway/tests/local/Cargo.toml", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/tests/test_retired_gateway_lifecycle.py"]
+touches = ["services/platform/hosted/gateway/tests/local/lifecycle.rs", "services/platform/hosted/gateway/tests/local/events.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/build.rs", "services/platform/hosted/gateway/tests/local/Cargo.toml", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/tests/test_retired_gateway_lifecycle.py", "services/platform/hosted/gateway/tests/retired_client_modules.rs", "services/platform/hosted/gateway/tests/retired_client_modules_w2.rs"]
 tests = ["services/platform/hosted/tests/test_retired_gateway_lifecycle.py::test_gateway_local_harness_has_no_lifecycle_test"]
 planned_paths = ["services/platform/hosted/tests/test_retired_gateway_lifecycle.py"]
 build_cmd = "python3 -m py_compile services/platform/hosted/tests/test_retired_gateway_lifecycle.py"
@@ -132414,7 +132414,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "Delete services/platform/hosted/gateway/tests/retired_client_modules.rs and services/platform/hosted/gateway/tests/retired_client_modules_w2.rs together with the funding and registry_runtime modules they scan."
 [task.8.19.6]
 title = "Delete the kernel node tests of the agent boundary"
 status = "pending"
@@ -137147,18 +137147,18 @@ capabilities = ["8.98.7"]
 interfaces = []
 do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/gateway/tests/local/funding.rs:216, :241, :264, :587 and 2 more with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-gateway-local-qualification (services/platform/hosted/gateway/tests/local/Cargo.toml:1) and every existing test of the crate stay unchanged."
-do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
+do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/gateway/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths_w2"]
-touches = ["services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs"]
-tests = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
-planned_paths = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs"]
-build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --test retired_client_modules_w2 -- --exact no_retired_layerx_client_module_paths_w2"
+touches = ["services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/retired_client_modules_w2.rs"]
+tests = ["services/platform/hosted/gateway/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
+planned_paths = ["services/platform/hosted/gateway/tests/retired_client_modules_w2.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules_w2"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules_w2 -- --exact no_retired_layerx_client_module_paths_w2"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 fulfils = ["wiring.J44.20"]
-rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs."
+rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/retired_client_modules_w2.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -137166,7 +137166,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "The scan test is an integration test of layerx-platform-gateway at services/platform/hosted/gateway/tests/retired_client_modules_w2.rs reading the scanned source with include_str!(\"local/<file>.rs\"), because the local qualification package (services/platform/hosted/gateway/tests/local) has a build.rs that requires a parent-built core binary through LAYERX_TEST_CORE_BIN and whose boundary fixture path contract no longer matches, so it cannot be built on its own."
 [task.8.98.8]
 title = "Migrate the local callers of wiring.J44.20"
 status = "pending"
@@ -137178,18 +137178,18 @@ capabilities = ["8.98.8"]
 interfaces = []
 do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/gateway/tests/local/registry_runtime.rs:160 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-gateway-local-qualification (services/platform/hosted/gateway/tests/local/Cargo.toml:1) and every existing test of the crate stay unchanged."
-do_3 = "Write no_retired_layerx_client_module_paths in services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
+do_3 = "Write no_retired_layerx_client_module_paths in services/platform/hosted/gateway/tests/retired_client_modules.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths"]
-touches = ["services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs"]
-tests = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
-planned_paths = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs"]
-build_cmd = "cargo build --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --tests"
-verify_cmd = "cargo test --locked --manifest-path services/platform/hosted/gateway/tests/local/Cargo.toml --test retired_client_modules -- --exact no_retired_layerx_client_module_paths"
+touches = ["services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/retired_client_modules.rs"]
+tests = ["services/platform/hosted/gateway/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
+planned_paths = ["services/platform/hosted/gateway/tests/retired_client_modules.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules -- --exact no_retired_layerx_client_module_paths"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 fulfils = ["wiring.J44.20"]
-rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs."
+rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/retired_client_modules.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -137197,7 +137197,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "The scan test is an integration test of layerx-platform-gateway at services/platform/hosted/gateway/tests/retired_client_modules.rs reading the scanned source with include_str!(\"local/<file>.rs\"), because the local qualification package (services/platform/hosted/gateway/tests/local) has a build.rs that requires a parent-built core binary through LAYERX_TEST_CORE_BIN and whose boundary fixture path contract no longer matches, so it cannot be built on its own."
 [task.8.98.9]
 title = "Migrate the indexer callers of wiring.J44.20"
 status = "pending"
@@ -141057,7 +141057,7 @@ do_5 = "Remove the layerx_wire::activity import (services/agent/crates/layerx-sd
 do_6 = "Create services/agent/crates/layerx-sdk/tests/wallet_calls.rs (planned) with a loopback JSON-RPC listener and LocalSigner."
 do_7 = "Remove RpcClient::send_activity (services/agent/crates/layerx-sdk/src/rpc.rs:928) and its lx_sendActivity call once Wallet::execute submits through send_raw_transaction."
 symbols = ["Wallet::send", "Wallet::open_account", "Wallet::execute", "send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "open_account_encodes_the_open_account_selector", "submitted_revert_maps_through_the_registry"]
-touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs::send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::open_account_encodes_the_open_account_selector", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::submitted_revert_maps_through_the_registry"]
 planned_paths = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
@@ -141073,7 +141073,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_8 = "decode_method in services/agent/crates/layerx-crypto/src/disclosure/call.rs:81 discloses only send(bytes), issueGrant(bytes), draw and revokeGrant on 0x101A, so bind_call refuses every other call as MalformedPayload: add ConstructMethod variants and decode_method arms for openAccount(bytes32), register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes), mint(bytes32,bytes32,uint128) and burn, with selectors computed from the layerxledger ABI (precompiles/layerxledger), map each to its Payment ordinal and disclose its asset, counterparties and amounts in fields (call.rs:138), and cover each in services/agent/crates/layerx-crypto/tests/disclosure_call.rs; the SDK signs these calls through the same sign_disclosed_call path."
 [task.9.32.3]
 title = "Serve layerx-wallet-rpc over the EVM signer with hashes and rungs"
 status = "pending"
@@ -147495,7 +147495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.11.4]
 title = "Cross-check the committed rung's block number and hash before relaying it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.11.3", "9.1.7", "11.16.2"]
@@ -147617,7 +147617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.12.5]
 title = "Refuse a receipt keys file with overlapping or inverted height ranges"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.12.4", "9.1.7", "11.16.2"]
@@ -158961,7 +158961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Add a reverted case to the switch over outcome.outcome in apps/web/src/app/_markets/send-outcome.tsx:8 that returns an InlineNotice with tone danger naming outcome.transactionHash, so the component stays exhaustive once the reverted arm exists and npm run typecheck passes; task 14.0.4 later replaces that case with the catalog copy and the receipt line."
 [task.14.4.2]
 title = "Carry budget_exhausted and the submit receipt through the web gas-station client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["14.0.2", "14.4.1"]
