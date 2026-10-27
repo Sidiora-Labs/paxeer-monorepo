@@ -604,7 +604,7 @@ export class AttestorClient {
     }
   }
 
-  async reviewLxActivity(input: { keyId: string; sessionId: string; activity: string; kind: 'lx_activity'|'lx_send_authorization'; owner: string; token: string }): Promise<LxReviewResult> {
+  async reviewLxActivity(input: { keyId: string; sessionId: string; activity: string; kind: 'lx_send_authorization'; owner: string; token: string }): Promise<LxReviewResult> {
     const key = requireInventoryKey(input.keyId, 'sign', input.owner);
     if (key.curve !== 'ed25519') throw new AttestorKeyError('key_curve_mismatch', 'LX review requires the original Ed25519 key');
     const sequence = await publishCustodyAuthority(this, 3);
@@ -1173,7 +1173,7 @@ export function constructionDigest(construction:ConstructionWire):Hex {
 }
 
 export interface LxReviewWire {
-  kind: 'lx_activity'|'lx_send_authorization';
+  kind: 'lx_send_authorization';
   node_id: string; key_id: string; public_key: string; activity: string; signing_preimage: string;
   network_id: number; protocol_version: number; disclosure: ActivityDisclosureWire;
   not_after: string; epoch: number; audit_sequence: number;
@@ -1211,7 +1211,7 @@ function parseEvmReview(value: unknown, nodeId: string): EvmReviewWire {
 }
 function parseLxReview(value: unknown, nodeId: string): LxReviewWire {
   const answer = value as LxReviewWire | null;
-  if (!answer || typeof answer !== 'object' || !['lx_activity','lx_send_authorization'].includes(answer.kind) || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
+  if (!answer || typeof answer !== 'object' || answer.kind !== 'lx_send_authorization' || answer.node_id !== nodeId || typeof answer.key_id !== 'string'
     || !/^[0-9a-f]{64}$/.test(answer.public_key) || !/^[0-9a-f]{64}$/.test(answer.signing_preimage)
     || typeof answer.activity !== 'string' || !/^(?:[0-9a-f]{2})+$/.test(answer.activity) || answer.activity.length > 2_097_152
     || !Number.isSafeInteger(answer.network_id) || answer.network_id < 0 || answer.network_id > 0xffffffff
@@ -1228,7 +1228,7 @@ function parseLxReview(value: unknown, nodeId: string): LxReviewWire {
   return answer;
 }
 
-export function lxSigningPreimage(activity:string,kind:'lx_activity'|'lx_send_authorization'):string {
+export function lxSigningPreimage(activity:string,kind:'lx_send_authorization'):string {
   if(!/^(?:[0-9a-f]{2})+$/.test(activity)||activity.length>2_097_152)throw new AttestorSessionError('lx_canonical_invalid','invalid canonical activity bytes');
   const raw=Buffer.from(activity,'hex');let offset=0;
   const take=(count:number):Buffer=>{if(count<0||offset+count>raw.length)throw new AttestorSessionError('lx_canonical_invalid','truncated canonical activity');const bytes=raw.subarray(offset,offset+count);offset+=count;return bytes;};
@@ -1241,8 +1241,7 @@ export function lxSigningPreimage(activity:string,kind:'lx_activity'|'lx_send_au
   tag(6);take(8);tag(7);take(16);tag(8);if(bytes(32).length!==32)throw new AttestorSessionError('lx_canonical_invalid','invalid activity idempotency');
   tag(9);take(16);tag(10);const payloadHash=bytes(32);tag(11);const payload=bytes(524288);
   if(offset!==raw.length||payloadHash.length!==32||!createHash('sha256').update('LXP/v1/payload-hash\0').update(payload).digest().equals(payloadHash))throw new AttestorSessionError('lx_canonical_invalid','canonical payload hash or trailing bytes differ');
-  if(kind==='lx_activity')return createHash('sha256').update('LXP/v1/signature-preimage\0').update(raw).digest('hex');
-  if(operation!==0x10001||payload.length<364||payload.length>512||payload.readUInt16BE(0)!==0x5301||payload.readUInt16BE(2)!==10)throw new AttestorSessionError('lx_send_authorization_invalid','owner send authorization layout required');
+  if(kind!=='lx_send_authorization'||operation!==0x10005||payload.length<364||payload.length>512||payload.readUInt16BE(0)!==0x5301||payload.readUInt16BE(2)!==10)throw new AttestorSessionError('lx_send_authorization_invalid','owner send authorization layout required');
   const count=payload[196]!;const end=197+count*9;
   if(count>8||payload.length!==end+167||payload[end]!==1||payload.subarray(end+65,end+129).some(byte=>byte!==0)
     ||payload.readUInt32BE(end+161)!==network||payload.readUInt16BE(end+165)!==version)throw new AttestorSessionError('lx_send_authorization_invalid','send authorization signature or scope differs');

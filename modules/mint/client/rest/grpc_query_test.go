@@ -5,6 +5,7 @@ package rest_test
 import (
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -26,7 +27,7 @@ type IntegrationTestSuite struct {
 func (s *IntegrationTestSuite) SetupSuite() {
 	s.T().Log("setting up integration test suite")
 
-	cfg := network.DefaultConfig()
+	cfg := network.DefaultConfig(s.T())
 
 	genesisState := cfg.GenesisState
 	cfg.NumValidators = 1
@@ -34,10 +35,15 @@ func (s *IntegrationTestSuite) SetupSuite() {
 	var mintData minttypes.GenesisState
 	s.Require().NoError(cfg.Codec.UnmarshalAsJSON(genesisState[minttypes.ModuleName], &mintData))
 
-	inflation := sdk.MustNewDecFromStr("1.0")
-	mintData.Minter.Inflation = inflation
-	mintData.Params.InflationMin = inflation
-	mintData.Params.InflationMax = inflation
+	now := time.Now().UTC()
+	release := minttypes.ScheduledTokenRelease{
+		StartDate:          now.AddDate(1, 0, 0).Format(minttypes.TokenReleaseDateFormat),
+		EndDate:            now.AddDate(2, 0, 0).Format(minttypes.TokenReleaseDateFormat),
+		TokenReleaseAmount: 500000000,
+	}
+	mintData.Params = minttypes.NewParams(sdk.DefaultBondDenom, []minttypes.ScheduledTokenRelease{release})
+	mintData.Minter = minttypes.NewMinter(release.StartDate, release.EndDate, mintData.Params.MintDenom, release.TokenReleaseAmount)
+	s.Require().NoError(minttypes.ValidateGenesis(mintData))
 
 	mintDataBz, err := cfg.Codec.MarshalAsJSON(&mintData)
 	s.Require().NoError(err)
@@ -59,6 +65,9 @@ func (s *IntegrationTestSuite) TearDownSuite() {
 func (s *IntegrationTestSuite) TestQueryGRPC() {
 	val := s.network.Validators[0]
 	baseURL := val.APIAddress
+	var mintData minttypes.GenesisState
+	s.Require().NoError(s.cfg.Codec.UnmarshalAsJSON(s.cfg.GenesisState[minttypes.ModuleName], &mintData))
+
 	testCases := []struct {
 		name     string
 		url      string
@@ -72,37 +81,34 @@ func (s *IntegrationTestSuite) TestQueryGRPC() {
 			map[string]string{},
 			&minttypes.QueryParamsResponse{},
 			&minttypes.QueryParamsResponse{
-				Params: minttypes.NewParams("uhpx", sdk.NewDecWithPrec(13, 2), sdk.NewDecWithPrec(100, 2),
-					sdk.NewDec(1), sdk.NewDecWithPrec(67, 2), (60 * 60 * 8766 / 5)),
+				Params: mintData.Params,
 			},
 		},
 		{
-			"gRPC request inflation",
-			fmt.Sprintf("%s/paxchain/mint/v1beta1/inflation", baseURL),
-			map[string]string{},
-			&minttypes.QueryInflationResponse{},
-			&minttypes.QueryInflationResponse{
-				Inflation: sdk.NewDec(1),
-			},
-		},
-		{
-			"gRPC request annual provisions",
-			fmt.Sprintf("%s/paxchain/mint/v1beta1/annual_provisions", baseURL),
+			"gRPC request minter",
+			fmt.Sprintf("%s/paxchain/mint/v1beta1/minter", baseURL),
 			map[string]string{
 				grpctypes.GRPCBlockHeightHeader: "1",
 			},
-			&minttypes.QueryAnnualProvisionsResponse{},
-			&minttypes.QueryAnnualProvisionsResponse{
-				AnnualProvisions: sdk.NewDec(500000000),
+			&minttypes.QueryMinterResponse{},
+			&minttypes.QueryMinterResponse{
+				StartDate:           mintData.Minter.StartDate,
+				EndDate:             mintData.Minter.EndDate,
+				Denom:               sdk.DefaultBondDenom,
+				TotalMintAmount:     500000000,
+				RemainingMintAmount: 500000000,
+				LastMintAmount:      0,
+				LastMintDate:        "0001-01-01",
+				LastMintHeight:      0,
 			},
 		},
 	}
 	for _, tc := range testCases {
-		resp, err := testutil.GetRequestWithHeaders(tc.url, tc.headers)
 		s.Run(tc.name, func() {
+			resp, err := testutil.GetRequestWithHeaders(tc.url, tc.headers)
 			s.Require().NoError(err)
-			s.Require().NoError(val.ClientCtx.Codec.UnmarshalJSON(resp, tc.respType))
-			s.Require().Equal(tc.expected.String(), tc.respType.String())
+			s.Require().NoError(val.ClientCtx.Codec.UnmarshalAsJSON(resp, tc.respType))
+			s.Require().Equal(tc.expected, tc.respType)
 		})
 	}
 }

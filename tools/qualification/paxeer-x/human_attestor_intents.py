@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import importlib.util
 import json
 import os
@@ -9,6 +10,9 @@ import sys
 import time
 
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
+from candidate import SERVICE_CATALOGUE, catalogue, load_private, validate
+
 spec = importlib.util.spec_from_file_location('human_boundary', ROOT / 'tools/qualification/paxeer-x/human-api-boundary.py')
 B = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(B)
@@ -67,14 +71,13 @@ await writeFile(output,stable({tests,outputs:[...outputs]}),{mode:0o600});
 
 
 def main():
+    argparse.ArgumentParser(description='Qualify human attestor intents using protected manifests.').parse_args()
     B.require(len(sys.argv) == 1, 'no arguments accepted')
     candidate_path = os.environ.get('PAXEER_X_CANDIDATE_MANIFEST')
     fixture_path = os.environ.get('PAXEER_X_HUMAN_ATTESTOR_INTENTS_MANIFEST')
     B.require(candidate_path and fixture_path, 'genuine protected candidate and attestor signing fixture required')
-    sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-    from candidate import catalogue, load_private, validate
     candidate = load_private(candidate_path)
-    validate(candidate, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'))
+    validate(candidate, catalogue(ROOT / SERVICE_CATALOGUE))
     revision, source = B.identity()
     B.require(candidate['source']['revision'] == revision and not candidate['source']['dirty'], 'genuine clean candidate source')
     fixture = B.load(fixture_path)

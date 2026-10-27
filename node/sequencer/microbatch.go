@@ -269,11 +269,16 @@ func (m *microBatch) deliverBatch(entries []microEntry) (res []abci.ResponseDeli
 	base := len(open.txs) + 1
 	req := sdk.DeliverTxBatchRequest{TxEntries: make([]*sdk.DeliverTxEntry, len(entries))}
 	for j, e := range entries {
+		ctx, err := SetTxPosition(open.ctx, base+j)
+		if err != nil {
+			return nil, nil, err
+		}
 		req.TxEntries[j] = &sdk.DeliverTxEntry{
-			Request:       abci.RequestDeliverTxV2{Tx: e.bytes},
-			SdkTx:         e.tx,
-			Checksum:      e.checksum,
-			AbsoluteIndex: base + j,
+			Request:  abci.RequestDeliverTxV2{Tx: e.bytes},
+			SdkTx:    e.tx,
+			Checksum: e.checksum,
+			// The OCC scheduler places each entry's context at AbsoluteIndex.
+			AbsoluteIndex: ctx.TxIndex(),
 		}
 	}
 	resp := m.batchHost.DeliverTxBatch(open.ctx.WithMultiStore(branch), req)

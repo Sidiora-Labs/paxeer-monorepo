@@ -8,7 +8,9 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/pkg/types"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"io"
 	"net/http"
@@ -342,6 +344,145 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		v, e := store.Visibility(r.Context(), r.URL.Query().Get("targetType"), r.URL.Query().Get("targetId"))
 		result(w, v, e)
 	})
+	router.Post("/v2/voice-rooms", func(w http.ResponseWriter, r *http.Request) {
+		var body v2.VoiceCreateBody
+		if !decodeV2Voice(w, r, "VoiceCreateBody", &body) {
+			return
+		}
+		if body.ScopeType == "squad" || control == nil || control.DB == nil {
+			writeV2VoiceError(w, r, voice.ErrUnavailable)
+			return
+		}
+		p, e := safety.Actor(r.Context(), time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		var hostAccountID string
+		if e = control.DB.QueryRow(r.Context(), `SELECT social_account_for_wallet($1::text)::text`, p.Wallet).Scan(&hostAccountID); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		if _, e = uuid.Parse(hostAccountID); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		room, e := control.Create(r.Context(), body.ScopeId)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		metadata, e := json.Marshal(body)
+		if e == nil {
+			_, e = control.DB.Exec(r.Context(), `INSERT INTO safety_outbox(id,kind,entity_id,revision,payload) VALUES($1,'voice_room_created_v2',$2,$3,$4)`, uuid.NewString(), room.ID, room.Revision, metadata)
+		}
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		raw, e := AdaptV2VoiceCreate(v2VoiceResponseID(w, r), room, hostAccountID, body.Visibility, v2.VoiceCapabilities{ProviderQualified: control.Provider != nil && control.Policy != nil && control.Gates.Ready()}, time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write(raw)
+	})
+	router.Get("/v2/voice-rooms/{roomId}", func(w http.ResponseWriter, r *http.Request) {
+		p, e := safety.Actor(r.Context(), time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		id := chi.URLParam(r, "roomId")
+		if _, e = uuid.Parse(id); e != nil || len(id) != 36 {
+			writeV2VoiceError(w, r, safety.ErrInvalid)
+			return
+		}
+		if control == nil {
+			writeV2VoiceError(w, r, voice.ErrUnavailable)
+			return
+		}
+		room, e := control.Read(r.Context(), id)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		for _, scope := range []struct{ kind, resource string }{{"pool", room.PoolID}, {"voice", room.ID}} {
+			decision := store.Check(r.Context(), p.Wallet, scope.kind, scope.resource)
+			if decision == safety.Unavailable {
+				writeV2VoiceError(w, r, safety.ErrUnavailable)
+				return
+			}
+			if decision != safety.Allow {
+				writeV2VoiceError(w, r, safety.ErrForbidden)
+				return
+			}
+		}
+		var metadata []byte
+		if e = control.DB.QueryRow(r.Context(), `SELECT payload FROM safety_outbox WHERE kind='voice_room_created_v2' AND entity_id=$1 ORDER BY created_at,id LIMIT 1`, room.ID).Scan(&metadata); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		var body v2.VoiceCreateBody
+		if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &body) != nil || body.ScopeType != "pool" || body.ScopeId != room.PoolID {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		rows, e := control.DB.Query(r.Context(), `SELECT wallet,role,muted,revision FROM voice_participants WHERE room_id=$1 AND NOT revoked ORDER BY wallet LIMIT 50`, room.ID)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		defer rows.Close()
+		participant := false
+		for rows.Next() {
+			var wallet, role string
+			var muted bool
+			var revision int64
+			if e = rows.Scan(&wallet, &role, &muted, &revision); e != nil {
+				writeV2VoiceError(w, r, e)
+				return
+			}
+			if wallet == p.Wallet {
+				participant = true
+			}
+		}
+		if e = rows.Err(); e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		rows.Close()
+		if !participant {
+			if e = control.DB.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM voice_participants WHERE room_id=$1 AND wallet=$2 AND NOT revoked)`, room.ID, p.Wallet).Scan(&participant); e != nil {
+				writeV2VoiceError(w, r, e)
+				return
+			}
+		}
+		if body.Visibility == "private" && p.Wallet != room.HostWallet && !participant && !safety.Authorized(p, room.PoolID, false, time.Now()) {
+			writeV2VoiceError(w, r, safety.ErrForbidden)
+			return
+		}
+		var hostAccountID string
+		if e = control.DB.QueryRow(r.Context(), `SELECT social_account_for_wallet($1::text)::text`, room.HostWallet).Scan(&hostAccountID); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		actions := []string{}
+		if participant {
+			actions = append(actions, "leave")
+		}
+		if room.HostWallet == p.Wallet && (room.State == "live" || room.State == "ending") && control.Provider != nil {
+			actions = append(actions, "end")
+		}
+		raw, e := AdaptV2VoiceRead(v2VoiceResponseID(w, r), room, hostAccountID, body.Visibility, actions, time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write(raw)
+	})
 	if control == nil {
 		return
 	}
@@ -545,4 +686,17 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 	router.Post("/v2/voice-rooms/{roomId}/leave", func(w http.ResponseWriter, r *http.Request) {
 		result(w, map[string]bool{"ok": true}, control.Leave(r.Context(), chi.URLParam(r, "roomId")))
 	})
+}
+
+func v2VoiceResponseID(w http.ResponseWriter, r *http.Request) string {
+	id := r.Header.Get("X-Request-ID")
+	if _, e := uuid.Parse(id); e != nil || len(id) != 36 {
+		id = uuid.NewString()
+	}
+	w.Header().Set("X-Request-ID", id)
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Add("Vary", "Cookie")
+	w.Header().Add("Vary", "Authorization")
+	return id
 }

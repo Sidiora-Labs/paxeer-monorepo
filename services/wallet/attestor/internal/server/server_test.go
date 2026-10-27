@@ -160,7 +160,11 @@ func TestParseKVXToleratesPadding(t *testing.T) {
 
 func TestGoldenMessages(t *testing.T) {
 	dir := filepath.Join(schemaDir, "golden")
-	for name, v := range goldenValues(t) {
+	values := goldenValues(t)
+	for name, value := range evmReviewGoldenValues() {
+		values[name] = value
+	}
+	for name, v := range values {
 		got, err := json.MarshalIndent(v, "", "  ")
 		if err != nil {
 			t.Fatal(err)
@@ -183,6 +187,61 @@ func TestGoldenMessages(t *testing.T) {
 		if !bytes.Equal(got, want) {
 			t.Fatalf("%s: golden differs\n got %s\nwant %s", name, got, want)
 		}
+	}
+}
+
+func evmReviewGoldenValues() map[string]any {
+	return map[string]any{
+		"evm.review.request": EVMReviewRequest{
+			SessionID: "session-evm-review", KeyID: "key-evm",
+			Transaction: "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080",
+		},
+		"evm.review.response": EVMReviewResponse{
+			NodeID: "node-1", KeyID: "key-evm", To: "0x3535353535353535353535353535353535353535",
+			Value: "1000000000000000000", Data: "0x", Method: "", Destination: "",
+			SigningHash: "0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
+			ChainID:     1, Decision: "allowed", AuditSequence: 10,
+		},
+	}
+}
+
+func TestGoldenEVMReviewMessages(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		message any
+	}{
+		{"evm.review.request", &EVMReviewRequest{}},
+		{"evm.review.response", &EVMReviewResponse{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join(schemaDir, "golden", tc.name+".json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoder := json.NewDecoder(bytes.NewReader(raw))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(tc.message); err != nil {
+				t.Fatalf("decode golden: %v", err)
+			}
+			if err := decoder.Decode(new(any)); err != io.EOF {
+				t.Fatalf("expected end of golden JSON, got %v", err)
+			}
+			encoded, err := json.MarshalIndent(tc.message, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded = append(encoded, '\n')
+			if !bytes.Equal(encoded, raw) {
+				t.Fatalf("golden round trip differs\n got %s\nwant %s", encoded, raw)
+			}
+			expected, err := json.MarshalIndent(evmReviewGoldenValues()[tc.name], "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(append(expected, '\n'), raw) {
+				t.Fatalf("golden differs from declared message\n got %s\nwant %s", raw, expected)
+			}
+		})
 	}
 }
 
@@ -237,7 +296,9 @@ func TestSchemaDescribesEveryServedRoute(t *testing.T) {
 		{PathSign, http.MethodPost, "client certificate issued by the operator CA; no Authorization header and no agent headers; a gateway certificate is refused with operator_required", KindOperatorVerification},
 		{PathNativeSign, http.MethodPost, "gateway certificate", ""},
 		{PathLXReview, http.MethodPost, "gateway certificate", ""},
+		{PathEVMReview, http.MethodPost, "gateway certificate", ""},
 		{PathHealth, http.MethodGet, "client certificate", ""},
+		{PathMetrics, http.MethodGet, "operator certificate", ""},
 	} {
 		t.Run(route.path+"/"+route.kind, func(t *testing.T) {
 			count := 0

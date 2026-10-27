@@ -1,5 +1,8 @@
 "use client";
 
+import { useQuery } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
 import { useState, useEffect, useCallback } from "react";
 import { ExternalLink, Clock, TrendingUp, TrendingDown } from "lucide-react";
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
@@ -309,8 +312,22 @@ function PositionsTab() {
 
 function PositionCard({ pos, symbol, markPrice }: { pos: any; symbol: string; markPrice: number }) {
   const parsed = parsePositionRow(pos, symbol);
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () => getPublicClient().readContract(buildGetMarginTiers(BigInt(parsed.marketId))),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <div role={tiersError || tiers ? "alert" : "status"}>
+        {tiersError || tiers
+          ? "Market margin tiers unavailable. Please try again."
+          : "Loading market margin tiers…"}
+      </div>
+    );
+  }
   const mark = markPriceWad(markPrice);
-  const pnlData = mark > 0n ? computePositionPnl(parsed, mark) : null;
+  const pnlData = mark > 0n ? computePositionPnl(parsed, mark, tiers) : null;
   const pnlColor = (pnlData?.unrealizedPnl ?? 0n) >= 0n ? "var(--success)" : "var(--danger)";
   const sideColor = pos.isLong ? "var(--success)" : "var(--danger)";
 
