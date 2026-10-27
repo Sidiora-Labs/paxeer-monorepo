@@ -272,6 +272,9 @@ defmodule BlockScoutWeb.Routers.ApiRouter do
     end
 
     scope "/paxeer-x" do
+      get("/archive/anchors", V2.PaxeerX.ArchiveController, :anchors)
+      get("/archive/receipts", V2.PaxeerX.ArchiveController, :receipts)
+      get("/archive/receipts/:id", V2.PaxeerX.ArchiveController, :receipt)
       get("/capabilities", V2.PaxeerX.CapabilitiesController, :capabilities)
       get("/anchors", V2.PaxeerX.AnchorController, :anchors)
       get("/receipts", V2.PaxeerX.ReceiptController, :receipts)
