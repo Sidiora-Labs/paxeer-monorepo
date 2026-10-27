@@ -117,11 +117,30 @@ func NewMicroBatch(host BatchHost, opts Options, mb MicroBatchOptions) (Executor
 
 func (m *microBatch) Mode() Mode { return ModeMicroBatch }
 
+func (m *microBatch) Fence() error {
+	if err := m.sequential.Fence(); err != nil {
+		return err
+	}
+	m.gmu.Lock()
+	if m.pending != nil {
+		close(m.pending.full)
+		m.pending = nil
+	}
+	m.gmu.Unlock()
+	return nil
+}
+
 // Accept joins txBytes to the forming group in arrival order. The first
 // transaction of a group leads it: it waits for the window or the maximum
 // count, then executes the group after the group formed before it.
 func (m *microBatch) Accept(txBytes []byte) (*Accepted, error) {
+	m.mu.Lock()
+	if m.fenced {
+		m.mu.Unlock()
+		return nil, ErrLeaseFenced
+	}
 	g, i, leader := m.join(txBytes)
+	m.mu.Unlock()
 	if leader {
 		timer := time.NewTimer(m.window)
 		select {
@@ -172,6 +191,12 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]microOutcome, len(txs))
+	if s.fenced {
+		for i := range out {
+			out[i].err = ErrLeaseFenced
+		}
+		return out
+	}
 	if s.open == nil {
 		for i := range out {
 			out[i].err = ErrLayerNotOpen

@@ -9027,3 +9027,21 @@ area = "tooling"
 symptom = "an attempt adds test-only helpers or types named after the declared symbols so the graph check passes"
 cause = "the symbol list named an item a do line deletes, or a method the graph already indexes under its bare name"
 do = "fix the symbol list (drop deleted names) and requalify the candidate without the helpers; a name added only to satisfy a check is a fake (9.33.13, 3.5.3, 3.10.2)"
+
+[gotcha.1884]
+area = "go"
+symptom = "a perps governance test fails `market N max leverage X differs from its tier 0 leverage 1000` after MsgSetMarket"
+cause = "Market.Validate pins MaxLeverage to the tier 0 leverage of the market's class (modules/perps/types/market.go:67); it is never a governed field"
+do = "govern OiCapUsd or TierClass instead and assert MaxLeverage unchanged (3.1.5, 3.10.1, 3.6.21)"
+
+[gotcha.1885]
+area = "typescript"
+symptom = "wallet gateway tests skip or exit in beforeAll with `... are required when ATTESTOR_ENDPOINTS is set`"
+cause = "loadEnv (services/wallet/gateway/src/env.ts:253) requires WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE, WALLET_IDENTITY_BINDING_TENANT, WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE alongside ATTESTOR_ENDPOINTS"
+do = "set all four in the test harness before importing src/env.ts, as test/evm-approvals.test.ts does (12.6.2)"
+
+[gotcha.1886]
+area = "go"
+symptom = "a gRPC query test reads codespace `undefined` although the keeper returned a registered sdkerrors error"
+cause = "the error was wrapped with fmt.Errorf(\"%w\") and sdkerrors.ABCIInfo follows only Cause() (gotcha.1251)"
+do = "re-wrap with sdkerrors.Wrap on the registered root error at the handler boundary (4.4.3)"
