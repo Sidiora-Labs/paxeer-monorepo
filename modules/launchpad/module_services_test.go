@@ -84,6 +84,23 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 						Role: surface.Role, Generation: uint32(surface.Generation), Market: surface.Market,
 					},
 				}, result)
+			case "Retired":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				address, err := types.ParseHexAddress("address", "0x0000000000000000000000000000000000001235")
+				require.NoError(t, err)
+				retired := types.RetiredAddress{
+					Address: address.Hex(), Role: types.RoleRouter,
+					Replacement: keeper.Generation2Surfaces[types.RoleRouter].Hex(),
+				}
+				require.NoError(t, k.RecordRetired(ctx, retired))
+				data, err := cdc.Marshal(&types.QueryRetiredRequest{Address: address.Hex()})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryRetiredResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				info := types.RetiredInfoOf(retired)
+				require.Equal(t, types.QueryRetiredResponse{Found: true, Retired: &info}, result)
 			case "Treasury":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})

@@ -537,22 +537,22 @@ fn settle_executed(
     principal: &PrincipalId,
     idempotency_key: [u8; 32],
     requirements: &PaymentRequirements,
-    executed: &SequencerEvidence,
+    evidence: &SequencerEvidence,
     receipt_keys: &[SequencerAuthorization],
     trace: &TraceId,
     now: u64,
 ) -> Result<SettlementResponse, X402Error> {
-    if executed.rung == SettlementRung::Submitted {
+    if evidence.rung == SettlementRung::Submitted {
         return Err(X402Error::EvidenceMissing);
     }
-    let verified = verify_sequencer_signature(&executed.signed_receipt, receipt_keys)
+    let verified = verify_sequencer_signature(&evidence.signed_receipt, receipt_keys)
         .map_err(|_| X402Error::EvidenceMismatch)?;
     let protocol = verified.protocol().ok_or(X402Error::EvidenceMismatch)?;
-    if protocol.activity_id() != executed.transaction_hash || protocol.result_code() != 0 {
+    if protocol.activity_id() != evidence.transaction_hash || protocol.result_code() != 0 {
         return Err(X402Error::EvidenceMismatch);
     }
     let logs =
-        verify_logs(&verified, executed.logs.clone()).map_err(|_| X402Error::EvidenceMismatch)?;
+        verify_logs(&verified, evidence.logs.clone()).map_err(|_| X402Error::EvidenceMismatch)?;
     let mut payments = logs.logs().iter().filter(|log| {
         log.address()
             == [
@@ -581,7 +581,7 @@ fn settle_executed(
         .settle_with_sequencer_evidence(
             principal,
             idempotency_key,
-            executed,
+            evidence,
             receipt_keys,
             trace,
             now,
@@ -600,7 +600,7 @@ fn settle_executed(
     extensions.insert(
         "layerx".to_owned(),
         json!({
-            "receipt": STANDARD.encode(&executed.signed_receipt),
+            "receipt": STANDARD.encode(&evidence.signed_receipt),
             "receiptDigest": digest_text,
             "verificationLevel": "receipted"
         }),
@@ -609,7 +609,7 @@ fn settle_executed(
         success: true,
         error_reason: None,
         payer: Some(hex(&payment.topics()[1])),
-        transaction: format!("0x{}", hex(&executed.transaction_hash)),
+        transaction: format!("0x{}", hex(&evidence.transaction_hash)),
         network: requirements.network.clone(),
         amount: Some(requirements.amount),
         extensions,
