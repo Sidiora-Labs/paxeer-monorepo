@@ -105049,7 +105049,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.8]
 title = "List selector rows, pair header and analytics from the market catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.3", "3.48.7"]
@@ -133772,7 +133772,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_9 = "The reference ramp reports the verified leg in its JSON response (services/platform/ramps/reference/src/main.rs:266-268 reads leg.activity_id and leg.batch_id); change that report to the fields VerifiedLayerxLeg now carries (tx_hash, height, rung) so the dependent binary builds; the wider reference-ramp port stays with task 8.30.1."
 [task.8.28.3]
 title = "Configure the ramp LayerX client for the sequencer endpoint, chain id and pinned receipt keys, and prepare, sign, submit and resolve ramp legs through it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["8.28.1", "8.28.2"]
