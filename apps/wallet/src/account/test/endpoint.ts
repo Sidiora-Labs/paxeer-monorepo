@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import path from 'node:path';
+import type { IntentPlan, PlanIntentRequest, SubmitPlanRequest } from '@paxeer/wallet';
 import type { AccountConfig } from '../config';
 
 type Exchange = {
@@ -14,23 +15,6 @@ type Golden = {
   headers?: Record<string, string>;
   body?: unknown;
   status?: number;
-};
-type Binding = {
-  leg_index: number;
-  action_key: string;
-  actor: string;
-  authority: string;
-  relationship: string;
-  account_sequence: number;
-  not_before: number;
-  not_after: number;
-  fee_limit: { amount: string; currency: string };
-};
-type Leg = { index: number; domain: string; fee: { amount: string; currency: string } };
-type Plan = {
-  plan_digest: string;
-  legs: Leg[];
-  signing_requirements: { leg_index: number; action_key: string; authority: string }[];
 };
 
 const SDK_ENDPOINT_DIR = path.resolve(
@@ -151,11 +135,19 @@ export function explorerStatuses(): Record<string, unknown> {
   };
 }
 
-export function expectedSequence(): number {
-  const read = recordings('available').find((entry) => entry.request.method === 'lx_getSequence');
-  const result = read?.response.result as { next_sequence: string } | undefined;
-  if (!result) throw new Error('the available recording carries no account sequence');
-  return Number(result.next_sequence);
+export function expectedPendingNonce(): number {
+  const read = recordings('merged').find(
+    (entry) =>
+      entry.request.method === 'eth_getTransactionCount' &&
+      normalised(entry.request.params) === normalised([OWNER, 'pending'])
+  );
+  const result = read?.response.result;
+  if (typeof result !== 'string' || !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/.test(result))
+    throw new Error('the merged recording carries no pending EVM nonce');
+  const nonce = Number(BigInt(result));
+  if (!Number.isSafeInteger(nonce))
+    throw new Error('the merged recording pending EVM nonce exceeds the safe integer range');
+  return nonce;
 }
 
 export interface SeenRequest {
@@ -188,27 +180,23 @@ function normalised(value: unknown): string {
 }
 
 function submitRefusal(body: unknown, now: number): string | null {
-  const plan = (golden('intent.plan.response').body as { result: Plan }).result;
-  const constraints = (
-    golden('intent.plan.request').body as {
-      constraints: { deadline: string; max_fee: { amount: string; currency: string } };
-    }
-  ).constraints;
+  const plan = (golden('intent.plan.response').body as { result: IntentPlan }).result;
+  const constraints = (golden('intent.plan.request').body as PlanIntentRequest).constraints;
   const deadline = Math.floor(Date.parse(constraints.deadline) / 1000);
-  const request = body as { plan_digest?: string; signed_digest?: string; bindings?: Binding[] };
+  const request = body as Partial<SubmitPlanRequest>;
   if (request.plan_digest !== plan.plan_digest) return 'plan_digest differs from the plan';
   if (request.signed_digest !== plan.plan_digest)
     return 'signed_digest differs from the plan digest';
   if (!Array.isArray(request.bindings) || request.bindings.length !== plan.legs.length)
     return 'one binding per leg is required';
-  let sequence = expectedSequence();
+  let sequence = expectedPendingNonce();
   for (const leg of plan.legs) {
     const binding = request.bindings.find((entry) => entry.leg_index === leg.index);
     const requirement = plan.signing_requirements.find((entry) => entry.leg_index === leg.index);
     if (!binding || !requirement) return `leg ${leg.index} is not bound`;
     if (binding.action_key !== requirement.action_key) return `leg ${leg.index} action key differs`;
     if (binding.authority !== requirement.authority) return `leg ${leg.index} authority differs`;
-    if (binding.actor !== OWNER_DID) return `leg ${leg.index} actor differs`;
+    if (binding.actor !== OWNER) return `leg ${leg.index} actor differs`;
     if (binding.relationship !== 'self') return `leg ${leg.index} relationship differs`;
     if (binding.fee_limit.currency !== constraints.max_fee.currency)
       return `leg ${leg.index} fee currency differs`;
