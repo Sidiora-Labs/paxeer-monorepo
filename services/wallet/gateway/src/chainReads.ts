@@ -9,6 +9,7 @@ import {
 } from 'viem';
 import { hyperPaxeer } from './chain.js';
 import { env } from './env.js';
+import { sharedRpcPool } from './rpc/pool.js';
 
 /**
  * Read-only chain access for the agent lane.
@@ -100,10 +101,7 @@ export async function getNativeBalance(address: `0x${string}`): Promise<bigint> 
 }
 
 /** ERC-20 token balance (raw units). */
-export async function getErc20Balance(
-  token: `0x${string}`,
-  owner: `0x${string}`,
-): Promise<bigint> {
+export async function getErc20Balance(token: `0x${string}`, owner: `0x${string}`): Promise<bigint> {
   return publicClient().readContract({
     address: token,
     abi: ERC20_ABI,
@@ -299,7 +297,7 @@ export type ReceiptOutcome =
   | { state: 'timeout' }; // gave up waiting; caller parks in `reconciling`
 
 /**
- * Poll for a tx receipt until it either reaches `confirmations` blocks of depth,
+ * Poll for a sequencer receipt until it reaches the requested confirmation depth,
  * reverts, or the deadline elapses. Never throws — every terminal-or-not
  * condition is a returned discriminated state so the orchestrator can persist a
  * precise phase/code instead of interpreting a raw RPC error.
@@ -314,27 +312,36 @@ export async function waitForReceipt(
   const confirmations = Math.max(1, opts?.confirmations ?? env.ACTION_CONFIRMATIONS);
   const timeoutMs = opts?.timeoutMs ?? env.ACTION_RECEIPT_TIMEOUT_MS;
   const pollMs = opts?.pollMs ?? 1_500;
-  const pc = publicClient();
+  const rpc = sharedRpcPool();
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
-    const receipt = await getReceipt(hash);
-    if (receipt) {
-      if (receipt.status === 'reverted') return { state: 'reverted', receipt };
-      // Confirmed: ensure enough depth so a 1-block reorg can't un-mine it.
-      if (confirmations <= 1) return { state: 'confirmed', receipt };
-      const head = await pc.getBlockNumber().catch(() => null);
-      if (head !== null && head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
-        return { state: 'confirmed', receipt };
+    try {
+      const result = await rpc.sequencerReceipt(hash);
+      if (result && result.rung !== 'submitted') {
+        const status = BigInt(result.status);
+        if (status !== 0n && status !== 1n) return { state: 'unknown' };
+        const receipt: TxReceiptSummary = {
+          status: status === 1n ? 'success' : 'reverted',
+          block_number: BigInt(
+            result.rung === 'committed' ? result.blockNumber : result.height,
+          ).toString(),
+          gas_used: BigInt(result.gasUsed).toString(),
+          tx_hash: result.txHash,
+        };
+        if (receipt.status === 'reverted') return { state: 'reverted', receipt };
+        if (confirmations <= 1) return { state: 'confirmed', receipt };
+        if (result.rung === 'committed') {
+          const head = BigInt(await rpc.request<Hex>('eth_blockNumber'));
+          if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
+            return { state: 'confirmed', receipt };
+          }
+        }
       }
+    } catch {
+      return { state: 'unknown' };
     }
     if (Date.now() >= deadline) {
-      // Distinguish "still live in mempool" from "vanished" so a caller can
-      // decide between poll_action and reconcile.
-      if (!receipt) {
-        const live = await isTxKnown(hash);
-        return live ? { state: 'pending' } : { state: 'timeout' };
-      }
       return { state: 'timeout' };
     }
     await sleep(pollMs);

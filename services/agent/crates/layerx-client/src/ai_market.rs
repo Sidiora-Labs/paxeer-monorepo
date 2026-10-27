@@ -1,6 +1,6 @@
 //! AI market client: proof-bound finalized views, operation planning over the existing
 //! `NativeProgramCall`, owner review and signing, and durable exact-byte submission with
-//! receipt and checkpoint resolution.
+//! receipt and block-commit resolution.
 
 use std::fs::{self, File};
 use std::io::{self, Write as _};
@@ -37,7 +37,6 @@ use layerx_programs_ai_market::types::{
     WorkerRosterEntry,
 };
 use layerx_programs_ai_market::{MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_STATE_BYTES, MAX_WORKERS};
-use layerx_proof::checkpoint::{verify_declared_certificate, Certificate, CheckpointError};
 use layerx_types::activity::{
     ActivityBuildError, Authority, EnvelopeBuilder, Signature, TimestampBound, UnsignedEnvelope,
 };
@@ -47,7 +46,6 @@ use layerx_types::intent;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistry, Payload, PayloadError};
 use layerx_types::program_call::{InvalidNativeCall, NativeProgramCall, Resources};
 use layerx_types::result::{KnownResult, Retriability};
-use layerx_types::verify::VerificationLevel;
 use layerx_wire::activity::{
     decode_signed, encode_signed, encode_signed_envelope, encode_unsigned, encode_unsigned_envelope,
 };
@@ -82,7 +80,6 @@ const HEX: &[u8; 16] = b"0123456789abcdef";
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AiClientError {
     Query(QueryError),
-    Checkpoint(CheckpointError),
     StaleAuthority { lag: u64, limit: u64 },
     NativeCall(InvalidNativeCall),
     Activity(ActivityBuildError),
@@ -118,7 +115,6 @@ macro_rules! from_refusal {
 
 from_refusal!(
     QueryError => Query,
-    CheckpointError => Checkpoint,
     InvalidNativeCall => NativeCall,
     ActivityBuildError => Activity,
     LengthError => Actor,
@@ -143,78 +139,53 @@ impl From<io::Error> for AiClientError {
     }
 }
 
-/// Facts of a checkpoint certificate verified at checkpoint-finalised level.
+/// Finalized block facts retained with a market snapshot or journal record.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CheckpointFinality {
-    network_id: u32,
-    checkpoint: Digest32,
-    state_root: Digest32,
-    first_sequence: u64,
-    last_sequence: u64,
-    batch_number: u64,
+pub struct CommitFinality {
+    block_height: u64,
+    block_hash: Digest32,
+    app_hash: Digest32,
+    store_proof_digest: Digest32,
 }
 
-impl CheckpointFinality {
-    /// Verifies a certificate against its declared settlement domain and registered id.
-    ///
+impl CommitFinality {
     /// # Errors
-    /// Checkpoint verifier refusals, and `FinalityUnavailable` below checkpoint-finalised level
-    /// or without a checkpoint identifier.
-    pub fn verify(
-        certificate: &Certificate,
-        domain: &str,
-        checkpoint_id: &[u8; 32],
+    /// `FinalityUnavailable` for a zero block or app hash; digest validation refusals.
+    pub fn new(
+        block_height: u64,
+        block_hash: [u8; 32],
+        app_hash: [u8; 32],
+        store_proof_digest: [u8; 32],
     ) -> Result<Self, AiClientError> {
-        let report = verify_declared_certificate(certificate, domain, checkpoint_id, None)?;
-        if report.level() < VerificationLevel::CHECKPOINT_FINALISED {
+        if block_hash == [0; 32] || app_hash == [0; 32] {
             return Err(QueryError::FinalityUnavailable.into());
         }
-        let checkpoint = report
-            .evidence()
-            .checkpoint_id()
-            .ok_or(QueryError::FinalityUnavailable)?;
         Ok(Self {
-            network_id: report.network_id(),
-            checkpoint: Digest32::new(checkpoint)?,
-            state_root: Digest32::new(report.resulting_state_root())?,
-            first_sequence: report.first_sequence(),
-            last_sequence: report.last_sequence(),
-            batch_number: report.batch_number(),
+            block_height,
+            block_hash: Digest32::new(block_hash)?,
+            app_hash: Digest32::new(app_hash)?,
+            store_proof_digest: Digest32::new(store_proof_digest)?,
         })
     }
 
     #[must_use]
-    pub const fn network_id(&self) -> u32 {
-        self.network_id
+    pub const fn block_height(&self) -> u64 {
+        self.block_height
     }
 
     #[must_use]
-    pub const fn checkpoint(&self) -> Digest32 {
-        self.checkpoint
+    pub const fn block_hash(&self) -> Digest32 {
+        self.block_hash
     }
 
     #[must_use]
-    pub const fn state_root(&self) -> Digest32 {
-        self.state_root
+    pub const fn app_hash(&self) -> Digest32 {
+        self.app_hash
     }
 
     #[must_use]
-    pub const fn first_sequence(&self) -> u64 {
-        self.first_sequence
-    }
-
-    #[must_use]
-    pub const fn last_sequence(&self) -> u64 {
-        self.last_sequence
-    }
-
-    #[must_use]
-    pub const fn batch_number(&self) -> u64 {
-        self.batch_number
-    }
-
-    const fn covers(&self, sequence: u64) -> bool {
-        self.first_sequence <= sequence && sequence <= self.last_sequence
+    pub const fn store_proof_digest(&self) -> Digest32 {
+        self.store_proof_digest
     }
 }
 
@@ -280,26 +251,26 @@ impl ObservedSnapshot {
         &self.facts
     }
 
-    /// Promotes the capture only with checkpoint-finalised evidence for the same root.
+    /// Promotes the capture with a block commit covering its observed height.
     ///
     /// # Errors
-    /// `FinalityUnavailable` without evidence, `BindingMismatch` for evidence over another root
-    /// or a checkpoint that does not cover the observed sequence, and binding refusals.
+    /// `FinalityUnavailable` without evidence, `BindingMismatch` for a commit below the
+    /// observed height, and binding refusals.
     pub fn finalize(
         self,
-        finality: Option<&CheckpointFinality>,
+        finality: Option<&CommitFinality>,
         publication_time_ms: u64,
     ) -> Result<FinalizedSnapshot, AiClientError> {
         let finality = finality.ok_or(QueryError::FinalityUnavailable)?;
-        if finality.state_root != self.facts.proof.native_state_root
-            || !finality.covers(self.facts.proof.observed_sequence)
-        {
+        if finality.block_height < self.facts.proof.execution_height {
             return Err(QueryError::BindingMismatch.into());
         }
         let evidence = FinalityEvidence {
-            native_state_root: finality.state_root,
-            checkpoint: finality.checkpoint,
-            settlement: Presence::Absent,
+            native_state_root: self.facts.proof.native_state_root,
+            block_height: finality.block_height,
+            block_hash: finality.block_hash,
+            app_hash: finality.app_hash,
+            store_proof_digest: finality.store_proof_digest,
             rank: FINALIZED_RANK,
         };
         let binding = bind_snapshot(&self.state, &self.facts, &evidence, publication_time_ms)?;
@@ -311,6 +282,7 @@ impl ObservedSnapshot {
             header,
             binding,
             snapshot_id,
+            commit: *finality,
         })
     }
 }
@@ -329,13 +301,14 @@ pub struct Inspection {
     pub clock: MarketClock,
 }
 
-/// A rank-4 snapshot bound to its exact root, state and checkpoint.
+/// A rank-4 snapshot bound to its exact root, state and block commit.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FinalizedSnapshot {
     state: Vec<u8>,
     header: MarketHeader,
     binding: SnapshotBinding,
     snapshot_id: Digest32,
+    commit: CommitFinality,
 }
 
 /// Exact common request of one F01..F09 mutation.
@@ -395,6 +368,11 @@ pub enum OperationEffect {
 }
 
 impl FinalizedSnapshot {
+    #[must_use]
+    pub const fn commit(&self) -> &CommitFinality {
+        &self.commit
+    }
+
     #[must_use]
     pub const fn binding(&self) -> &SnapshotBinding {
         &self.binding
@@ -1674,24 +1652,24 @@ impl OperationJournal {
         Ok(record.state)
     }
 
-    /// Promotes a successful execution with checkpoint-finalised evidence covering it.
+    /// Promotes a successful execution with a block commit covering its receipt height.
     ///
     /// # Errors
-    /// `InvalidTransition` unless `Executed`; `FinalityMismatch` for another network or a
-    /// checkpoint range that excludes the receipt sequence.
+    /// `InvalidTransition` unless `Executed`; `FinalityMismatch` when the receipt height
+    /// exceeds the committed height or is unavailable.
     pub fn finalize(
         &self,
         record: &mut OperationRecord,
-        finality: &CheckpointFinality,
+        finality: &CommitFinality,
     ) -> Result<OperationState, AiClientError> {
         require(record, &[OperationState::Executed])?;
         let covered = record
             .global_sequence
-            .is_some_and(|sequence| finality.covers(sequence));
-        if finality.network_id != record.network_id || !covered {
+            .is_some_and(|height| height <= finality.block_height);
+        if !covered {
             return Err(AiClientError::FinalityMismatch);
         }
-        record.checkpoint = Some(finality.checkpoint.bytes());
+        record.checkpoint = Some(finality.block_hash.bytes());
         record.state = OperationState::Finalized;
         self.persist(record)?;
         Ok(record.state)

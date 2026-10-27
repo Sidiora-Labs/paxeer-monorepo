@@ -63,7 +63,7 @@ func NewSequencerOption(accepter SequencerAccepter, feed *ReceiptLogFeed) Sequen
 // sendConfig is the SendConfig of a server: the sequencer's when o is set, otherwise the
 // mempool path's.
 func (o *SequencerOption) sendConfig(config evmrpcconfig.Config) *SendConfig {
-	sendConfig := &SendConfig{slow: config.Slow, keyringEnabled: config.EnableUnsafeKeyringRPC}
+	sendConfig := &SendConfig{slow: config.Slow, keyringEnabled: config.EnableUnsafeKeyringRPC, syncTimeout: config.SendRawTxSyncTimeout}
 	if o != nil {
 		sendConfig.Sequencer = o.accepter
 		sendConfig.pendingTxs = o.pendingTxs
@@ -209,6 +209,7 @@ func NewEVMHTTPServer(
 		if seq != nil {
 			api.setReceiptLogFeed(seq.receiptLogs)
 		}
+		httpServer.addStopHook(api.shutdown)
 		return api
 	}
 	apis := []rpc.API{
@@ -231,6 +232,14 @@ func NewEVMHTTPServer(
 		{
 			Namespace: "eth",
 			Service:   txAPI,
+		},
+		{
+			Namespace: "eth",
+			Service:   NewRawTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeHTTP, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC),
+		},
+		{
+			Namespace: "eth",
+			Service:   NewUncleAPI(tmClient, watermarks),
 		},
 		{
 			Namespace: "pax",
@@ -266,7 +275,7 @@ func NewEVMHTTPServer(
 		},
 		{
 			Namespace: "pax",
-			Service:   filterAPI("pax"),
+			Service:   NewPaxFilterAPI(filterAPI("pax")),
 		},
 		{
 			Namespace: "pax",
@@ -372,6 +381,27 @@ func NewEVMWebSocketServer(
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
 	globalLogSlicePool := NewLogSlicePool()
+	filterAPI := func(namespace string) *FilterAPI {
+		api := NewFilterAPI(
+			tmClient,
+			k,
+			ctxProvider,
+			txConfigProvider,
+			&FilterConfig{timeout: config.FilterTimeout, maxLog: config.MaxLogNoBlock, maxBlock: config.MaxBlocksForLog},
+			ConnectionTypeWS,
+			namespace,
+			dbReadSemaphore,
+			globalBlockCache,
+			cacheCreationMutex,
+			globalLogSlicePool,
+			watermarks,
+		)
+		if seq != nil {
+			api.setReceiptLogFeed(seq.receiptLogs)
+		}
+		httpServer.addStopHook(api.shutdown)
+		return api
+	}
 	subscriptionAPI, err := NewSubscriptionAPI(tmClient, k, ctxProvider, &LogFetcher{
 		tmClient:           tmClient,
 		k:                  k,
@@ -404,6 +434,14 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
+			Service:   NewRawTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC),
+		},
+		{
+			Namespace: "eth",
+			Service:   NewUncleAPI(tmClient, watermarks),
+		},
+		{
+			Namespace: "eth",
 			Service:   NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks),
 		},
 		{
@@ -425,6 +463,10 @@ func NewEVMWebSocketServer(
 		{
 			Namespace: "eth",
 			Service:   subscriptionAPI,
+		},
+		{
+			Namespace: "eth",
+			Service:   filterAPI("eth"),
 		},
 		{
 			Namespace: "web3",
