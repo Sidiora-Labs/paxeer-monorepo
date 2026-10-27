@@ -7301,3 +7301,19 @@ symbol = "LayerXHostStoreKey"
 observed = "Reading the wave-12 failures of 2.12.3 (6cafe3ecb), 2.12.5 (e5afc85ed) and 5.14.3 (bda2921a7) at main f4a94b518: the ledger and auth keepers locate the shared host store by key.Name() == \"lxphost\" (modules/layerxledger/keeper/execute.go:18, modules/layerxauth/keeper/execute.go:24), while task 5.41.2 do_1 names LayerXHostStoreKey \"layerxhost\" (storage/common/keys/store_keys.go:44) and task 5.19.2 do_3 builds the lxphost.Host over that key, as req 916 and decision.557 state."
 assumption = "The spec name layerxhost is authoritative; the keepers' lxphost literal is reconciled by the owner of the keeper files when 5.19.2 wires the host, and tests take the key name from the App rather than a literal. Recorded once; not re-investigated."
 severity = "blocker"
+
+[finding.8.98.1]
+task = "8.98.1"
+file = "services/agent/sdk/rust/src/rpc/mod.rs"
+symbol = "wiring.J44.20"
+observed = "Reading the first attempts of 8.98.1 (a10d12fdb), 8.98.2 (b77686733), 8.98.3, 8.98.4 (2e8e8b82c), 8.98.9, 8.98.11 and 8.98.13: wiring.J44.20 describes the layerx_client retirement as a rename of import paths and call names, but the rpc, sequencer and px surfaces have no counterpart for lni, head::Head, evidence::VerifiedCheckpoint, handover::SequencerHistory, availability or read, and rpc::submit::submit_signed takes a SequencerEndpoint; every caller those tasks were to migrate is deleted or stripped by 8.8.2, 8.8.4, 8.11.3, 8.12.3, 8.16.4, 8.19.6, 8.19.7 or 8.20.3 at waves 27-29, and the authority test targets do not compile until 9.1.8 (finding.8.11.1)."
+assumption = "The retirement tests run after those tasks and assert absence without editing callers; two points still need an owner ruling: what replaces AuthorityEvidence.head (head::Head, read as sealed_batch at hosted/paxai-worker/src/discovery.rs:124; px::PxNetworkHead.latest_committed_height is the nearest type) for 8.98.11, and which task retires the VerifiedCheckpoint uses in authority src/human.rs, src/human/budget_state.rs and tests/budget_proof_exports.rs (finding.9.25.1.1). Recorded once; not re-investigated."
+severity = "blocker"
+
+[finding.4.10.5]
+task = "4.10.5"
+file = "modules/launchpad/keeper/grpc_query.go"
+symbol = "req.4058.1"
+observed = "The first attempt (c6000a56e) builds and starts the test network with sdk/testutil/network.New and UnmarshalAsJSON, covers all seven REST routes, and passes the found-false and REST-equals-gRPC comparisons; only the malformed-address subtests fail because AirdropClaimed and HasRole return errors.Unwrap(err) and FeeRight maps its Cause to ErrInvalidAddress, so the gateway answers HTTP 500 with gRPC Unknown, which the qualified CLI tests pin."
+assumption = "req.4058.1 (a malformed address answers a 400-class error body) contradicts the keeper behaviour that qualified tests lock in; the owner either amends the criterion to the gRPC status of the same request or adds a keeper task that returns InvalidArgument and updates the CLI tests. 4.10.3 shares the same stale do_1 and do_2 symbols, now corrected. Held for the ruling; recorded once."
+severity = "blocker"
