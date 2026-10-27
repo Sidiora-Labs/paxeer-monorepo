@@ -23,6 +23,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
 
@@ -261,29 +262,28 @@ func FeeConfig(ctx context.Context, db *sql.DB, client *ethclient.Client) error 
 	return writeFees(ctx, db, f, height)
 }
 
-// Retry runs Refresh until it succeeds, waiting RetryInterval after each
-// failure. failed, when set, receives each refresh error and the wait before
-// the next attempt. Retry returns nil on success and the context error when
-// ctx ends first.
-func Retry(ctx context.Context, db *sql.DB, client *ethclient.Client, failed func(err error, retryIn time.Duration)) error {
-	for {
-		err := Refresh(ctx, db, client)
-		if err == nil {
-			return nil
+func Check(db *sql.DB, maxAge time.Duration) httpx.Check {
+	return func(ctx context.Context) error {
+		if maxAge <= 0 {
+			return errors.New("markets: maximum refresh age must be positive")
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
+		var block sql.NullInt64
+		var refreshedAt sql.NullTime
+		if err := db.QueryRowContext(ctx, `SELECT m.refreshed_block, b.time
+FROM (SELECT MAX(refreshed_block) AS refreshed_block FROM perps.markets WHERE source = 'chain') m
+LEFT JOIN perps.blocks b ON b.number = m.refreshed_block`).Scan(&block, &refreshedAt); err != nil {
+			return fmt.Errorf("markets: read refresh age: %w", err)
 		}
-		if failed != nil {
-			failed(err, RetryInterval)
+		if !block.Valid {
+			return errors.New("markets: no chain refresh")
 		}
-		timer := time.NewTimer(RetryInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		if !refreshedAt.Valid {
+			return fmt.Errorf("markets: refresh block %d has not been indexed", block.Int64)
 		}
+		if age := time.Since(refreshedAt.Time); age > maxAge {
+			return fmt.Errorf("markets: refresh block %d is %s old, maximum %s", block.Int64, age, maxAge)
+		}
+		return nil
 	}
 }
 
