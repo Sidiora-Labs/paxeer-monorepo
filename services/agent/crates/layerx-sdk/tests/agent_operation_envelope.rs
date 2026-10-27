@@ -8,18 +8,19 @@ use std::cell::RefCell;
 use std::collections::BTreeSet;
 use std::io::Write as _;
 use std::net::TcpStream;
-use std::sync::Arc;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
 use layerx_agent_api::idempotency::Key;
-use layerx_agent_api::verify::{ApiSuccess, Level, VerificationStatus};
+use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
+use layerx_agent_api::verify::{ApiSuccess, Level, Rung, VerificationStatus};
 use layerx_sdk::agent_envelope::{
-    canonical_u64, decode_response, decode_native_preparation, decode_native_approval, decode_native_approval_list,
-    decode_proof_bundle_request, decode_proof_bundle_response, encode_proof_bundle_request,
-    AgentEnvelopeTransport, ClientRetriability,
-    EnvelopeCredential, EnvelopeError, AGENT_RPC_ROUTE,
+    canonical_u64, decode_native_approval, decode_native_approval_list, decode_native_preparation,
+    decode_proof_bundle_request, decode_proof_bundle_response, decode_response,
+    encode_proof_bundle_request, AgentEnvelopeTransport, ClientRetriability, EnvelopeCredential,
+    EnvelopeError, AGENT_RPC_ROUTE,
 };
 use layerx_sdk::production::SecretBytes;
 use layerx_sdk::programs::LayerXKeyCredential;
@@ -172,7 +173,10 @@ fn load() -> Result<(Probe, Vec<String>), Failure> {
                 .ok_or_else(|| Failure::from("operation name is not a string"))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let catalogue: Vec<&str> = Operation::ALL.iter().map(|operation| operation.name()).collect();
+    let catalogue: Vec<&str> = Operation::ALL
+        .iter()
+        .map(|operation| operation.name())
+        .collect();
     if operations.len() != catalogue.len()
         || operations
             .iter()
@@ -296,9 +300,8 @@ impl Probe {
 
     fn provisioned_key(&self, case: &str) -> Result<Key, Failure> {
         match field(&self.requests, case)?.get("idempotency_key") {
-            Some(Value::String(text)) => {
-                Key::new(bytes32(text)?).map_err(|_| "provisioned idempotency key is reserved".into())
-            }
+            Some(Value::String(text)) => Key::new(bytes32(text)?)
+                .map_err(|_| "provisioned idempotency key is reserved".into()),
             _ => Err(format!("requests.{case} lacks its idempotency_key").into()),
         }
     }
@@ -398,7 +401,13 @@ impl Probe {
             return Err(format!("requests.{case} request is not an object").into());
         }
         let request_id = self.request_id();
-        let outcome = self.send(operation, request_id, &request, Some(&self.credential), None);
+        let outcome = self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&self.credential),
+            None,
+        );
         self.record(case, operation, &outcome)?;
         Ok((operation, outcome))
     }
@@ -413,9 +422,18 @@ impl Probe {
                 outcome.map_err(|error| format!("approval_list failed: {error:?}"))?;
                 Ok(())
             }
-            (_, "native_prepare" | "native_approval_list" | "native_approval_get" | "native_approval_approve" | "native_approval_reject") => self.native_case(case),
+            (
+                _,
+                "native_prepare"
+                | "native_approval_list"
+                | "native_approval_get"
+                | "native_approval_approve"
+                | "native_approval_reject",
+            ) => self.native_case(case),
             (_, refusal) if refusal.starts_with("native_refusal.") => self.native_case(case),
-            (_, proof_case) if proof_case.starts_with("proof_bundle.") => self.proof_bundle_case(case),
+            (_, proof_case) if proof_case.starts_with("proof_bundle.") => {
+                self.proof_bundle_case(case)
+            }
             (_, "read_decode_failure") => self.read_decode_failure(),
             (_, "mutation_decode_unknown") => self.mutation_decode_unknown(),
             (PRE_RESTART, "allowed_mutation") => self.allowed_mutation(),
@@ -473,7 +491,13 @@ impl Probe {
             other => return Err(format!("missing credential was not refused: {other:?}").into()),
         }
         let mutation = catalogued("session.close")?;
-        match self.send(mutation, RequestId(1), &json!({}), Some(&self.credential), None) {
+        match self.send(
+            mutation,
+            RequestId(1),
+            &json!({}),
+            Some(&self.credential),
+            None,
+        ) {
             Err(EnvelopeError::IdempotencyKeyPresence { .. }) => Ok(()),
             other => Err(format!("mutation without key was not refused: {other:?}").into()),
         }
@@ -521,13 +545,10 @@ impl Probe {
         key: Option<Key>,
     ) -> Result<Outcome, Failure> {
         let transport = self.case_transport(case)?;
-        let (received, outcome) = transport.as_ref().unwrap_or(&self.transport).send_operation_recorded(
-            operation,
-            request_id,
-            request,
-            Some(&self.credential),
-            key,
-        );
+        let (received, outcome) = transport
+            .as_ref()
+            .unwrap_or(&self.transport)
+            .send_operation_recorded(operation, request_id, request, Some(&self.credential), key);
         *self.last.borrow_mut() = received;
         Ok(outcome)
     }
@@ -540,7 +561,8 @@ impl Probe {
         }
         let request = field(entry, "request")?.clone();
         let request_id = self.request_id();
-        let outcome = self.send_case("read_decode_failure", operation, request_id, &request, None)?;
+        let outcome =
+            self.send_case("read_decode_failure", operation, request_id, &request, None)?;
         let received = self.last.borrow().clone();
         self.record("read_decode_failure", operation, &outcome)?;
         match (&received, &outcome) {
@@ -568,8 +590,13 @@ impl Probe {
             None | Some(Value::Null) => self.fresh_key("mutation_decode_unknown", request_id)?,
             Some(_) => return Err("provisioned idempotency key is not a string".into()),
         };
-        let outcome =
-            self.send_case("mutation_decode_unknown", operation, request_id, &request, Some(key))?;
+        let outcome = self.send_case(
+            "mutation_decode_unknown",
+            operation,
+            request_id,
+            &request,
+            Some(key),
+        )?;
         let received = self.last.borrow().clone();
         self.record("mutation_decode_unknown", operation, &outcome)?;
         match (&received, &outcome) {
@@ -580,7 +607,9 @@ impl Probe {
             {
                 Ok(())
             }
-            _ => Err(format!("schema-violating mutation reply was not Unknown: {outcome:?}").into()),
+            _ => {
+                Err(format!("schema-violating mutation reply was not Unknown: {outcome:?}").into())
+            }
         }
     }
 
@@ -594,7 +623,13 @@ impl Probe {
             Some(_) => return Err("provisioned idempotency key is not a string".into()),
             None => return Err("requests.allowed_mutation lacks its idempotency_key".into()),
         };
-        let outcome = self.send(operation, request_id, &request, Some(&self.credential), Some(key));
+        let outcome = self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&self.credential),
+            Some(key),
+        );
         self.record("allowed_mutation", operation, &outcome)?;
         outcome.map_err(|error| format!("allowed_mutation failed: {error:?}"))?;
         Ok(())
@@ -605,9 +640,21 @@ impl Probe {
         let request_id = self.request_id();
         let key = self.fresh_key("mutation_duplicate_same_result", request_id)?;
         let first = self
-            .send(operation, request_id, &request, Some(&self.credential), Some(key))
+            .send(
+                operation,
+                request_id,
+                &request,
+                Some(&self.credential),
+                Some(key),
+            )
             .map_err(|error| format!("duplicate first send failed: {error:?}"))?;
-        let repeated = self.send(operation, request_id, &request, Some(&self.credential), Some(key));
+        let repeated = self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&self.credential),
+            Some(key),
+        );
         self.record("mutation_duplicate_same_result", operation, &repeated)?;
         let repeated = repeated.map_err(|error| format!("duplicate repeat failed: {error:?}"))?;
         if repeated != first {
@@ -620,14 +667,28 @@ impl Probe {
         let (operation, request) = self.mutation("allowed_mutation")?;
         let (changed_operation, changed) = self.mutation("changed_body")?;
         if changed_operation != operation || changed == request {
-            return Err("requests.changed_body must be the same operation with a changed body".into());
+            return Err(
+                "requests.changed_body must be the same operation with a changed body".into(),
+            );
         }
         let request_id = self.request_id();
         let key = self.fresh_key("changed_body_same_key", request_id)?;
-        self.send(operation, request_id, &request, Some(&self.credential), Some(key))
-            .map_err(|error| format!("changed_body first send failed: {error:?}"))?;
+        self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&self.credential),
+            Some(key),
+        )
+        .map_err(|error| format!("changed_body first send failed: {error:?}"))?;
         let second_id = self.request_id();
-        let outcome = self.send(operation, second_id, &changed, Some(&self.credential), Some(key));
+        let outcome = self.send(
+            operation,
+            second_id,
+            &changed,
+            Some(&self.credential),
+            Some(key),
+        );
         self.record("changed_body_same_key", operation, &outcome)?;
         match outcome {
             Err(EnvelopeError::Refused(error))
@@ -636,7 +697,9 @@ impl Probe {
             {
                 Ok(())
             }
-            other => Err(format!("changed body under the same key was not refused: {other:?}").into()),
+            other => {
+                Err(format!("changed body under the same key was not refused: {other:?}").into())
+            }
         }
     }
 
@@ -670,7 +733,9 @@ impl Probe {
             {
                 Ok(())
             }
-            other => Err(format!("mutation without key was not refused by the daemon: {other:?}").into()),
+            other => {
+                Err(format!("mutation without key was not refused by the daemon: {other:?}").into())
+            }
         }
     }
 
@@ -678,12 +743,16 @@ impl Probe {
         let (operation, request) = self.mutation("wrong_scope")?;
         let request_id = self.request_id();
         let key = self.provisioned_key("wrong_scope")?;
-        let outcome = self.send(operation, request_id, &request, Some(&self.credential), Some(key));
+        let outcome = self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&self.credential),
+            Some(key),
+        );
         self.record("wrong_scope", operation, &outcome)?;
         match outcome {
-            Err(EnvelopeError::Refused(error))
-                if error.class == ErrorClass::PolicyRefusal =>
-            {
+            Err(EnvelopeError::Refused(error)) if error.class == ErrorClass::PolicyRefusal => {
                 Ok(())
             }
             other => Err(format!("out-of-scope mutation was not refused: {other:?}").into()),
@@ -695,10 +764,18 @@ impl Probe {
         let (operation, request) = self.mutation("allowed_mutation")?;
         let request_id = self.request_id();
         let key = self.fresh_key(case, request_id)?;
-        let outcome = self.send(operation, request_id, &request, Some(&credential), Some(key));
+        let outcome = self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&credential),
+            Some(key),
+        );
         self.record(case, operation, &outcome)?;
         match outcome {
-            Err(EnvelopeError::Refused(error)) if error.class == ErrorClass::PolicyRefusal => Ok(()),
+            Err(EnvelopeError::Refused(error)) if error.class == ErrorClass::PolicyRefusal => {
+                Ok(())
+            }
             other => Err(format!("{case} credential was not refused: {other:?}").into()),
         }
     }
@@ -775,7 +852,9 @@ impl Probe {
         let mut roots = rustls::RootCertStore::empty();
         for item in ureq::tls::parse_pem(&pem) {
             if let ureq::tls::PemItem::Certificate(certificate) = item? {
-                roots.add(rustls::pki_types::CertificateDer::from(certificate.der().to_vec()))?;
+                roots.add(rustls::pki_types::CertificateDer::from(
+                    certificate.der().to_vec(),
+                ))?;
             }
         }
         if roots.is_empty() {
@@ -813,12 +892,19 @@ impl Probe {
         let state: Value = serde_json::from_slice(&std::fs::read(&self.state_file)?)?;
         let operation = catalogued(text(&state, "operation")?)?;
         let request_id = RequestId(
-            canonical_u64(text(&state, "request_id")?).ok_or("recorded request_id is not canonical")?,
+            canonical_u64(text(&state, "request_id")?)
+                .ok_or("recorded request_id is not canonical")?,
         );
         let key = Key::new(bytes32(text(&state, "idempotency_key")?)?)
             .map_err(|_| "recorded idempotency key is reserved")?;
         let request = field(&state, "request")?.clone();
-        let outcome = self.send(operation, request_id, &request, Some(&self.credential), Some(key));
+        let outcome = self.send(
+            operation,
+            request_id,
+            &request,
+            Some(&self.credential),
+            Some(key),
+        );
         self.record("restart_unknown_reconcile", operation, &outcome)?;
         match outcome {
             Ok(_) => Ok(()),
@@ -849,19 +935,35 @@ impl Probe {
             _ => None,
         };
         if expected.is_some_and(|expected| expected != operation)
-            || !matches!(operation, Operation::Prepare | Operation::ApprovalList | Operation::ApprovalGet | Operation::ApprovalApprove | Operation::ApprovalReject) {
+            || !matches!(
+                operation,
+                Operation::Prepare
+                    | Operation::ApprovalList
+                    | Operation::ApprovalGet
+                    | Operation::ApprovalApprove
+                    | Operation::ApprovalReject
+            )
+        {
             return Err("native case operation mismatch".into());
         }
         let request_id = self.request_id();
-        let key = if operation.mutating() { Some(self.provisioned_key(case)?) } else { None };
+        let key = if operation.mutating() {
+            Some(self.provisioned_key(case)?)
+        } else {
+            None
+        };
         let outcome = self.send(operation, request_id, &request, Some(&self.credential), key);
         self.record(case, operation, &outcome)?;
         if case.starts_with("native_refusal.") {
             return match outcome {
                 Err(EnvelopeError::Refused(error))
-                    if error.class != ErrorClass::InternalFault && error.class != ErrorClass::UnavailableCapability
+                    if error.class != ErrorClass::InternalFault
+                        && error.class != ErrorClass::UnavailableCapability
                         && format!("{:?}", error.class) == text(&entry, "expected_class")?
-                        && error.reason.as_str() == text(&entry, "expected_reason")? => Ok(()),
+                        && error.reason.as_str() == text(&entry, "expected_reason")? =>
+                {
+                    Ok(())
+                }
                 other => Err(format!("native refusal mismatch: {other:?}").into()),
             };
         }
@@ -871,44 +973,75 @@ impl Probe {
         let response = outcome.map_err(|error| format!("native operation failed: {error:?}"))?;
         match operation {
             Operation::Prepare => {
-                let value = decode_native_preparation(&response.value).ok_or("native preparation decoder refused")?;
+                let value = decode_native_preparation(&response.value)
+                    .ok_or("native preparation decoder refused")?;
                 let purpose = field(field(&request, "purpose")?, "purpose")?;
                 let activity = field(&request, "activity")?;
                 let digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-                let signing: [u8; 32] = Sha256::new().chain_update(b"LXP/v1/signature-preimage\0")
-                    .chain_update(&value.canonical_bytes).finalize().into();
-                if value.preparation_id != digest || digest != bytes32(text(purpose, "canonical_digest")?)?
+                let signing: [u8; 32] = Sha256::new()
+                    .chain_update(b"LXP/v1/signature-preimage\0")
+                    .chain_update(&value.canonical_bytes)
+                    .finalize()
+                    .into();
+                if value.preparation_id != digest
+                    || digest != bytes32(text(purpose, "canonical_digest")?)?
                     || value.preparation_id != bytes32(text(purpose, "preparation_id")?)?
                     || value.signing_preimage != signing
-                    || u64::from(value.activity.module) != canonical_u64(text(activity, "module")?).ok_or("native module")?
-                    || u64::from(value.activity.ordinal) != canonical_u64(text(activity, "ordinal")?).ok_or("native ordinal")?
+                    || u64::from(value.activity.module)
+                        != canonical_u64(text(activity, "module")?).ok_or("native module")?
+                    || u64::from(value.activity.ordinal)
+                        != canonical_u64(text(activity, "ordinal")?).ok_or("native ordinal")?
                     || text(purpose, "tenant")? != self.coordinates.tenant
                     || bytes32(text(purpose, "session_id")?)? != self.coordinates.session_id
-                    || canonical_u64(text(purpose, "generation")?) != Some(self.coordinates.generation)
-                    || value.approval_required != field(&entry, "expected_approval_required")?.as_bool().ok_or("expected approval flag")?
-                    || value.approval_id.is_some_and(|id| id != value.preparation_id) {
-                    return Err("native preparation lost signed purpose or full identity binding".into());
+                    || canonical_u64(text(purpose, "generation")?)
+                        != Some(self.coordinates.generation)
+                    || value.approval_required
+                        != field(&entry, "expected_approval_required")?
+                            .as_bool()
+                            .ok_or("expected approval flag")?
+                    || value
+                        .approval_id
+                        .is_some_and(|id| id != value.preparation_id)
+                {
+                    return Err(
+                        "native preparation lost signed purpose or full identity binding".into(),
+                    );
                 }
                 let mut extra = response.value.clone();
-                extra.as_object_mut().ok_or("native response object")?.insert("legacy_activity_type".into(), json!(value.activity.ordinal));
-                if decode_native_preparation(&extra).is_some() { return Err("native decoder accepted unknown field".into()); }
+                extra
+                    .as_object_mut()
+                    .ok_or("native response object")?
+                    .insert("legacy_activity_type".into(), json!(value.activity.ordinal));
+                if decode_native_preparation(&extra).is_some() {
+                    return Err("native decoder accepted unknown field".into());
+                }
                 let mut truncated = response.value.clone();
                 truncated["activity"]["module"] = json!(value.activity.module);
-                if decode_native_preparation(&truncated).is_some() { return Err("native decoder accepted numeric module".into()); }
+                if decode_native_preparation(&truncated).is_some() {
+                    return Err("native decoder accepted numeric module".into());
+                }
             }
             Operation::ApprovalList => {
-                let value = decode_native_approval_list(&response.value).ok_or("native approval list decoder refused")?;
+                let value = decode_native_approval_list(&response.value)
+                    .ok_or("native approval list decoder refused")?;
                 let expected_id = bytes32(text(&entry, "expected_approval_id")?)?;
-                if !value.approvals.iter().any(|approval| approval.approval_id == expected_id) {
+                if !value
+                    .approvals
+                    .iter()
+                    .any(|approval| approval.approval_id == expected_id)
+                {
                     return Err("native approval list omitted the durable preparation".into());
                 }
             }
             Operation::ApprovalGet | Operation::ApprovalApprove | Operation::ApprovalReject => {
-                let value = decode_native_approval(&response.value).ok_or("native approval decoder refused")?;
+                let value = decode_native_approval(&response.value)
+                    .ok_or("native approval decoder refused")?;
                 if value.approval_id != bytes32(text(&request, "approval_id")?)?
                     || value.state != text(&entry, "expected_state")?
                     || value.held_digest != bytes32(text(&entry, "expected_held_digest")?)?
-                    || operation.mutating() && value.held_digest != bytes32(text(&request, "held_digest")?)? {
+                    || operation.mutating()
+                        && value.held_digest != bytes32(text(&request, "held_digest")?)?
+                {
                     return Err("native approval lost exact held consent or durable state".into());
                 }
             }
@@ -930,7 +1063,9 @@ impl Probe {
         self.record(case, operation, &outcome)?;
         if case.starts_with("proof_bundle.refusal.") {
             let expected_status = match entry.get("expected_status") {
-                Some(value) => u16::try_from(value.as_u64().ok_or("expected_status is not an integer")?)?,
+                Some(value) => {
+                    u16::try_from(value.as_u64().ok_or("expected_status is not an integer")?)?
+                }
                 None => 403,
             };
             if received_status != Some(expected_status) {
@@ -939,26 +1074,43 @@ impl Probe {
             return match outcome {
                 Err(EnvelopeError::Refused(error))
                     if format!("{:?}", error.class) == text(&entry, "expected_class")?
-                        && error.reason.as_str() == text(&entry, "expected_reason")? => Ok(()),
+                        && error.reason.as_str() == text(&entry, "expected_reason")? =>
+                {
+                    Ok(())
+                }
                 other => Err(format!("proof bundle refusal mismatch: {other:?}").into()),
             };
         }
         let response = outcome.map_err(|error| format!("proof bundle failed: {error:?}"))?;
         let typed_request = decode_proof_bundle_request(&request)
             .ok_or("proof bundle request decoder refused real request")?;
-        if encode_proof_bundle_request(&typed_request).map_err(|error| format!("proof bundle encoder refused: {error:?}"))? != request {
+        if encode_proof_bundle_request(&typed_request)
+            .map_err(|error| format!("proof bundle encoder refused: {error:?}"))?
+            != request
+        {
             return Err("proof bundle request changed in SDK round trip".into());
         }
         let read = decode_proof_bundle_response(&typed_request, &response)
             .ok_or("proof bundle response decoder refused real owner response")?;
-        let record = read.value.record().map_err(|error| format!("proof bundle record refused: {error:?}"))?;
-        let expected_variant = field(&entry, "expected_variant")?.as_u64()
+        let expected_variant = field(&entry, "expected_variant")?
+            .as_u64()
             .ok_or("proof bundle expected_variant is not an integer")?;
-        if u64::from(record.variant as u8) != expected_variant {
+        let target = ProofBundleTarget::decode(typed_request.selector.as_bytes())
+            .map_err(|error| format!("proof target refused: {error:?}"))?;
+        if !matches!(
+            (target, expected_variant),
+            (ProofBundleTarget::Activity(_), 1)
+                | (ProofBundleTarget::Receipt(_), 3)
+                | (ProofBundleTarget::AccountState { .. }, 2 | 4)
+        ) || matches!(target, ProofBundleTarget::AccountState { .. })
+            && read.value.account_proof.is_none()
+        {
             return Err("proof bundle returned another native variant".into());
         }
-        if record.encode().map_err(|error| format!("proof bundle encoding refused: {error:?}"))? != read.value.proofs[0] {
-            return Err("SDK altered native proof, canonical value, or maintenance fields".into());
+        if proof_bundle_json(&read.value) != *field(&response.value, "value")? {
+            return Err(
+                "SDK altered receipt evidence, canonical value, or committed fields".into(),
+            );
         }
         layerx_sdk::Client::accept_proof_bundle(&typed_request, read.clone())
             .map_err(|error| format!("typed SDK refused proof bundle: {error:?}"))?;
@@ -992,7 +1144,9 @@ impl Probe {
             (true, Some(key)) => Some(key),
             (true, None) => Some(self.fresh_key(case, request_id)?),
             (false, None) => None,
-            (false, Some(_)) => return Err(format!("{case} is not mutating but carries a key").into()),
+            (false, Some(_)) => {
+                return Err(format!("{case} is not mutating but carries a key").into())
+            }
         };
         let bootstrap = matches!(operation, Operation::AgentRegister | Operation::SessionOpen);
         let credential = (!bootstrap).then_some(&self.credential);
@@ -1034,9 +1188,43 @@ impl Probe {
     }
 }
 
-fn proof_bundle_decoder_negatives(request: &Value, response: &ApiSuccess<Value>) -> Result<(), Failure> {
-    let typed_request = decode_proof_bundle_request(request).ok_or("valid proof request missing")?;
-    let read = decode_proof_bundle_response(&typed_request, response).ok_or("valid proof response missing")?;
+fn proof_bundle_json(bundle: &ProofBundle) -> Value {
+    let prefixed = |bytes: &[u8]| format!("0x{}", hex(bytes));
+    let mut value = json!({
+        "format": bundle.format,
+        "verificationLevel": bundle.verification_level.name(),
+        "rawTransaction": prefixed(bundle.raw_transaction.as_bytes()),
+        "signedReceipt": prefixed(bundle.signed_receipt.as_bytes()),
+        "receiptDigest": prefixed(&bundle.receipt_digest),
+        "receiptKey": {
+            "keyId": prefixed(&bundle.receipt_key.key_id),
+            "publicKey": prefixed(&bundle.receipt_key.public_key),
+            "firstHeight": bundle.receipt_key.first_height.to_string(),
+            "lastHeight": bundle.receipt_key.last_height.to_string(),
+        },
+    });
+    for (name, bytes) in [
+        ("blockHeader", &bundle.block_header),
+        ("receiptInclusion", &bundle.receipt_inclusion),
+        ("commit", &bundle.commit),
+        ("validatorSet", &bundle.validator_set),
+        ("accountProof", &bundle.account_proof),
+    ] {
+        if let Some(bytes) = bytes {
+            value[name] = json!(prefixed(bytes.as_bytes()));
+        }
+    }
+    value
+}
+
+fn proof_bundle_decoder_negatives(
+    request: &Value,
+    response: &ApiSuccess<Value>,
+) -> Result<(), Failure> {
+    let typed_request =
+        decode_proof_bundle_request(request).ok_or("valid proof request missing")?;
+    let read = decode_proof_bundle_response(&typed_request, response)
+        .ok_or("valid proof response missing")?;
     let mut request_cases = Vec::new();
     for target in [String::new(), "00".to_owned(), "00".repeat(68)] {
         let mut changed = request.clone();
@@ -1067,7 +1255,7 @@ fn proof_bundle_decoder_negatives(request: &Value, response: &ApiSuccess<Value>)
     changed["target"] = json!(format!("{}A", hex(target)));
     request_cases.push(changed);
     let mut changed = request.clone();
-    changed["requested_verification_level"] = json!("Finalised");
+    changed["requested_rung"] = json!("Finalised");
     request_cases.push(changed);
     let mut changed = request.clone();
     changed["sequencer_key"] = json!("00".repeat(32));
@@ -1083,56 +1271,88 @@ fn proof_bundle_decoder_negatives(request: &Value, response: &ApiSuccess<Value>)
     wrong_target[34] ^= 1;
     changed["value"]["target"] = json!(hex(&wrong_target));
     response_cases.push(changed);
-    for proofs in [json!([]), json!([hex(read.value.proofs[0].as_bytes()), hex(read.value.proofs[0].as_bytes())]),
-        json!(["00".repeat(layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES + 1)])] {
+    for proofs in [
+        json!([]),
+        json!([
+            proof_bundle_json(&read.value),
+            proof_bundle_json(&read.value)
+        ]),
+        json!(["00".repeat(layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES + 1)]),
+    ] {
         let mut changed = response.value.clone();
         changed["value"]["proofs"] = proofs;
         response_cases.push(changed);
     }
-    let original = read.value.proofs[0].as_bytes();
-    let mut frames = Vec::new();
-    let mut changed = original.to_vec();
+    for (name, value) in [
+        ("format", json!("LXPB1")),
+        ("verificationLevel", json!("submitted")),
+        ("rawTransaction", json!("0x")),
+        (
+            "rawTransaction",
+            json!(format!(
+                "0x{}",
+                "00".repeat(layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES + 1)
+            )),
+        ),
+        ("signedReceipt", json!("0x0")),
+        ("receiptDigest", json!("0x00")),
+        ("receiptKey", json!({})),
+    ] {
+        let mut changed = response.value.clone();
+        changed["value"][name] = value;
+        response_cases.push(changed);
+    }
+    let original = read.value.signed_receipt.as_bytes().to_vec();
+    let mut frames: Vec<Vec<u8>> = Vec::new();
+    let mut changed = original.clone();
     changed[0] ^= 1;
     frames.push(changed);
-    let mut changed = original.to_vec();
-    changed[5] = 0;
+    let mut changed = original.clone();
+    changed[1] = 0;
     frames.push(changed);
-    let mut changed = original.to_vec();
-    changed[6..10].fill(0);
+    let mut changed = original.clone();
+    changed[2..4].fill(0);
     frames.push(changed);
-    let mut changed = original.to_vec();
+    let mut changed = original.clone();
     changed.pop();
     frames.push(changed);
-    let mut changed = original.to_vec();
+    let mut changed = original.clone();
     changed.push(0);
     frames.push(changed);
-    if read.value.record().map_err(|error| format!("native record refused: {error:?}"))?.activity_receipt.is_some() {
-        let mut offset = 6_usize;
-        for _ in 0..2 {
-            let length = u32::from_be_bytes(original[offset..offset + 4].try_into()?) as usize;
-            offset += 4 + length;
-        }
-        frames.push(original[..offset].to_vec());
+    if read.value.account_proof.is_some() {
+        let mut changed = response.value.clone();
+        changed["value"]
+            .as_object_mut()
+            .ok_or("bundle not object")?
+            .remove("accountProof");
+        response_cases.push(changed);
     }
     for bytes in frames {
         let mut changed = response.value.clone();
-        changed["value"]["proofs"] = json!([hex(&bytes)]);
+        changed["value"]["signedReceipt"] = json!(format!("0x{}", hex(&bytes)));
         response_cases.push(changed);
     }
-    for level in ["Unverified", "CheckpointFinalised", "SettlementAnchored"] {
+    for rung in ["submitted", "CheckpointFinalised", "SettlementAnchored"] {
         let mut changed = response.value.clone();
-        changed["achieved_verification_level"] = json!(level);
+        changed["achieved_rung"] = json!(rung);
         response_cases.push(changed);
     }
-    for (field, value) in [("chain_head", json!("01")), ("value_sequence", json!("18446744073709551616")),
-        ("latest_sealed_batch", json!(1)), ("latest_finalised_checkpoint", json!("00")),
-        ("relative_to", json!({"checkpoint":"00".repeat(32)}))] {
+    for (field, value) in [
+        ("chain_head", json!("01")),
+        ("value_height", json!("18446744073709551616")),
+        ("latest_sealed_batch", json!(1)),
+        ("latest_finalised_checkpoint", json!("00")),
+        ("relative_to", json!({"checkpoint":"00".repeat(32)})),
+    ] {
         let mut changed = response.value.clone();
         changed["freshness"][field] = value;
         response_cases.push(changed);
     }
     let mut changed = response.value.clone();
-    changed["freshness"].as_object_mut().ok_or("freshness not object")?.remove("chain_head");
+    changed["freshness"]
+        .as_object_mut()
+        .ok_or("freshness not object")?
+        .remove("chain_head");
     response_cases.push(changed);
     for value in response_cases {
         let changed = ApiSuccess {
@@ -1153,8 +1373,33 @@ fn proof_bundle_decoder_negatives(request: &Value, response: &ApiSuccess<Value>)
         return Err("SDK accepted disagreement between outer and inner verification levels".into());
     }
     let mut higher_request = typed_request;
-    higher_request.requested_verification_level = Level::CheckpointFinalised;
-    if decode_proof_bundle_response(&higher_request, response).is_some() {
+    let target = ProofBundleTarget::decode(higher_request.selector.as_bytes())
+        .map_err(|error| format!("proof target refused: {error:?}"))?;
+    higher_request.selector = ProofBundleTarget::Receipt(target.activity_id())
+        .encode()
+        .map_err(|error| format!("receipt target refused: {error:?}"))?;
+    higher_request.requested_rung = Rung::Receipted;
+    let mut receipt_response = response.clone();
+    receipt_response.value["achieved_rung"] = json!("receipted");
+    receipt_response.value["value"]["verificationLevel"] = json!("receipted");
+    for name in [
+        "blockHeader",
+        "receiptInclusion",
+        "commit",
+        "validatorSet",
+        "accountProof",
+    ] {
+        receipt_response.value["value"]
+            .as_object_mut()
+            .ok_or("bundle not object")?
+            .remove(name);
+    }
+    receipt_response.verification_status = VerificationStatus::Achieved(Level::BatchIncluded);
+    if decode_proof_bundle_response(&higher_request, &receipt_response).is_none() {
+        return Err("SDK refused the receipted evidence before the promotion check".into());
+    }
+    higher_request.requested_rung = Rung::Committed;
+    if decode_proof_bundle_response(&higher_request, &receipt_response).is_some() {
         return Err("SDK promoted a native proof above its achieved verification level".into());
     }
     Ok(())

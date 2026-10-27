@@ -100729,7 +100729,7 @@ title = "Gate domain 3 completion on its retired surfaces and planned paths"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.3.2", "3.7.1", "3.7.2", "3.7.3", "3.7.4", "3.7.5", "3.8.1", "3.8.2", "3.21.4", "3.22.8", "3.23.6", "3.42.6", "3.43.1", "3.43.3", "3.45.4", "3.45.5", "3.45.6", "3.46.4", "3.47.1", "3.47.2", "3.54.2", "3.54.3", "3.54.4", "3.54.5", "3.54.6", "3.55.1", "3.56.1", "3.59.1", "3.97.1"]
+requires = ["3.0.1", "3.0.2", "3.0.3", "3.0.4", "3.3.2", "3.7.1", "3.7.2", "3.7.3", "3.7.4", "3.7.5", "3.8.1", "3.8.2", "3.21.4", "3.22.8", "3.23.6", "3.42.6", "3.43.1", "3.43.3", "3.45.4", "3.45.5", "3.45.6", "3.46.4", "3.47.1", "3.47.2", "3.54.2", "3.54.3", "3.54.4", "3.54.5", "3.54.6", "3.55.1", "3.56.1", "3.59.1", "3.97.1", "3.9.5"]
 reqs = ["3999.1"]
 capabilities = ["3.0.9"]
 interfaces = []
@@ -102250,7 +102250,7 @@ do_2 = "Submit observations with a 10 percent index jump, in modules/pricefeed/g
 do_3 = "Run MidBlocker (modules/pricefeed/abci.go:10) and compare the mark of GetPrice (modules/pricefeed/keeper/price.go:22) with the default-tau mark, expecting the governed mark nearer the observed mark median (1050e18 for tau 1000 ms against 1099.3377e18 for tau 150000 ms with index 1100e18, mark observations 1000e18, dt 1000 ms)."
 do_4 = "Write TestGovernedMarkEmaTauChangesMark in modules/pricefeed/gov_mark_ema_test.go (planned)."
 symbols = ["MarkEmaTauMs", "TestGovernedMarkEmaTauChangesMark"]
-touches = ["modules/pricefeed/gov_mark_ema_test.go"]
+touches = ["modules/pricefeed/gov_mark_ema_test.go", "modules/pricefeed/gov_disabled_market_test.go"]
 tests = ["modules/pricefeed/gov_mark_ema_test.go::TestGovernedMarkEmaTauChangesMark"]
 planned_paths = ["modules/pricefeed/gov_mark_ema_test.go"]
 build_cmd = "go build ./modules/pricefeed/..."
@@ -102266,7 +102266,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_5 = "Replace the func Aggregate helper at modules/pricefeed/gov_disabled_market_test.go:25 and its calls at :93 and :160 with the MidBlocker helper that modules/pricefeed/gov_appended_market_test.go:28 already provides, because Aggregate is also the type alias at gov_appended_market_test.go:26 and the package test build fails at the base until one of them goes."
 [task.3.9.6]
 title = "Show proposal-governed pricefeed params in the 0x1020 views"
 status = "done"
@@ -113512,7 +113512,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.14.3]
 title = "Run the layerxauth revocation decorator in the ante chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.14.1", "2.0.2", "5.19.2", "5.41.2"]
@@ -114111,7 +114111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.4]
 title = "Import the merge precompile packages and expose the ledger and auth keepers to precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.19.2", "2.0.2", "6.0.2", "5.94.2"]
@@ -118862,7 +118862,7 @@ requires = []
 reqs = ["3533.2"]
 capabilities = []
 interfaces = []
-do_1 = "Write tools/qualification/localnode/v6120-node.sh: build paxd with make -f chain.mk install (needs paxd-native-libs), derive the genesis from node/testdata/v6120-halt-export.json with chain_id hyperpax_125-1, keep the first validator and jail/unbond the rest with the jq rewrite of services/platform/hosted/paxeer/fork-rehearsal.sh step 2 (signing info and supply recomputed), fund a deployer and a test key with uhpx, take consensus_params.timeout and consensus_params.synchrony from the paxd init genesis (the export carries zero timeouts and fails validate-genesis on timeout.ProposeDelta), and run paxd validate-genesis on a copy of the genesis whose app_state also carries the pricefeed, perps and spot default states of the paxd init genesis: BasicManager.ValidateGenesis (sdk/types/module/module.go:112) rejects an absent module, while the node must start from the genesis without those three entries because spot initGenesis writes ParamsKey (modules/spot/keeper/genesis.go:97) and InitV6120 then refuses the v6.12.0 plan in the first block; Manager.InitGenesis skips absent modules, as node/v6120_seed_helpers_test.go and TestV6120AppliesThePlanOnTheHaltExport rely on. Resolve the binary as ${PAXD:-$(go env GOBIN)/paxd}, falling back to the first GOPATH entry plus /bin, which is where make -f chain.mk install places it."
+do_1 = "Write tools/qualification/localnode/v6120-node.sh: build paxd with make -f chain.mk install (needs paxd-native-libs), derive the genesis from node/testdata/v6120-halt-export.json with chain_id hyperpax_125-1, keep the first validator and jail/unbond the rest with the jq rewrite of services/platform/hosted/paxeer/fork-rehearsal.sh step 2 (signing info and supply recomputed), fund a deployer and a test key with uhpx, take consensus_params.timeout and consensus_params.synchrony from the paxd init genesis (the export carries zero timeouts and fails validate-genesis on timeout.ProposeDelta), and run paxd validate-genesis on a copy of the genesis whose app_state also carries the pricefeed, perps and spot default states of the paxd init genesis: BasicManager.ValidateGenesis (sdk/types/module/module.go:112) rejects an absent module, while the node must start from the genesis without those three entries because spot initGenesis writes ParamsKey (modules/spot/keeper/genesis.go:97) and InitV6120 then refuses the v6.12.0 plan in the first block; Manager.InitGenesis skips absent modules, as node/v6120_seed_helpers_test.go and TestV6120AppliesThePlanOnTheHaltExport rely on. Resolve the binary as ${PAXD:-$(go env GOBIN)/paxd}, falling back to the first GOPATH entry plus /bin, which is where make -f chain.mk install places it; before validate-genesis, add to app_state every module key that the paxd init genesis (init-genesis.json) carries and the halt export lacks, copying that module's default state (layerxledger among them), because validate-genesis unmarshals the state of every registered module and reports EOF for a missing key."
 do_2 = "Configure loopback ports and the EVM HTTP listener as services/platform/hosted/paxeer/init-chain.sh does, write data/upgrade-info.json naming v6.12.0 at initial_height so App.applyNamedUpgrade (node/upgrades.go) applies the plan in the first block, start paxd start --home <dir> in the background and wait until eth_chainId == 0x7d and the v6.12.0 done height is reported."
 do_3 = "After start: mint USDL to the test key from the deployer, register the validator's feed account and submit one fixed BTC observation per block as a signed /paxprotocol.paxchain.pricefeed.MsgSubmitPrices built as a JSON tx and sent with paxd tx sign and paxd tx broadcast (daemon/paxd/cmd/root.go:212, :217), because the pricefeed module has no tx command (modules/pricefeed/module.go:77 returns nil, asserted by modules/pricefeed/client/cli/query_test.go:51); a registered, bonded feeder submits gasless (modules/pricefeed/ante.go SubmissionIsGasless), so PlaceOrder sees a fresh price."
 do_4 = "Print LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (the latter from --gateway-url, default http://127.0.0.1:0) as KEY=VALUE lines to the file named by --env-out; --stop <dir> stops the node. The node home and env file live under ${TMPDIR:-/tmp}/lx-localnode, never in the repository. On any failure before the env file is written, the EXIT trap prints the failing command and the last 40 lines of init.log, validate-genesis.log, node.log and feeder.log to stderr, so the verify output alone names the failing step."
@@ -119217,7 +119217,7 @@ verify_cmd = "go test -count=1 ./precompiles/common/ -run '^(TestLXPRevertTable)
 gate_kind = "existing"
 sandbox_profile = "go"
 owner_role = "fm-chain-modules"
-rollback = "Revert precompiles/common/lxp_errors.go:151-153 to code-only rows."
+rollback = "Revert precompiles/common/lxp_errors.go:151-153 to code-only rows; the Rust-side rewrite of lxpRustResultsForTest is reverted with the test file."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -119226,6 +119226,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Add to section (b) of spec/layerx-merge/contracts/address-table.md, in lxpRevertTable order, the 110 rows precompiles/common/lxp_errors.go registers without a table row (LXP_LAUNCHPAD_*, LXP_PERPS_*, LXP_PRICEFEED_* from 6.92.1, LXP_PAY_UNBOUND_CALLER, LXP_PAY_KERNEL_GATE_MISMATCH, LXP_AGENT_SCHEDULER_CALLDATA_TOO_LARGE), each with the five registry columns and its Go or site origin, so TestLXPRevertTable finds every registered code in the table."
+do_6 = "lxpRustResultsForTest (precompiles/common/lxp_errors_test.go:78) reads services/agent/crates/layerx-types/src/result.rs for a protocol_result_codes! invocation that has not lived there since the layerx-types build script began generating it: services/agent/crates/layerx-types/build.rs:229-236 writes the invocation to OUT_DIR/result_codes.rs from include/layerx/lxp_result.h and the Retryable column of address-table.md, result.rs:85 includes it, and build.rs:529 checks header parity at every build. Rewrite the Rust half of TestLXPRevertTable for that design: read build.rs, assert it names include/layerx/lxp_result.h as the header input (build.rs:515) and emits one name = value, class; entry per declared code (build.rs:214-216), and remove the row comparison against the hand-written mirror that no longer exists; keep every Go-side assertion of the test as it is."
 [task.6.2.3]
 title = "Check the Python SDK retryable map against the LXP registry"
 status = "pending"
@@ -119572,7 +119573,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.5]
 title = "Add MissingMergeConstructors for the node start check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["6.0.2", "6.6.4", "6.7.3", "5.45.1"]
@@ -130103,7 +130104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.26.4]
 title = "Prove the tokenfactory paused flag of a factory denom over REST"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["7.21.1", "6.0.2", "6.92.3"]
@@ -130976,7 +130977,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.5.1]
 title = "Answer px_getAccount and px_getBalances from chain state alone"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.4.1", "8.0.2", "8.1.5"]
@@ -137715,7 +137716,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.1.7]
 title = "Port the layerx-sdk decoders and envelopes to rungs and heights"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["9.1.6", "11.2.7", "9.32.1", "1.18.4"]
@@ -141107,7 +141108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.32.4]
 title = "Verify SDK receipts against pinned ReceiptKeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.27.1", "9.1.7"]
@@ -149388,7 +149389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.1]
 title = "Decode XWebProgramRequested logs of 0x1019 in the request watcher"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["11.33.1", "6.0.2", "6.94.3"]
@@ -158927,7 +158928,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.4.1]
 title = "Report the verified receipt with every wallet precompile send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["14.0.2"]
@@ -158939,7 +158940,7 @@ do_2 = "After the wallet returns a hash in sendWalletPrecompileCall (apps/web/sr
 do_3 = "Export new constants RECEIPT_POLL_LIMIT and RECEIPT_POLL_INTERVAL_MS from apps/web/src/api/wallet.ts beside PrecompileSendOutcome at apps/web/src/api/wallet.ts:12 and accept an optional sleep argument so tests drive the poll without timers."
 do_4 = "Create apps/web/e2e/wallet-receipt.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39, a window.ethereum stub answering eth_sendTransaction and a loopback gateway, with wallet_send_reports_receipt_and_logs and wallet_send_reports_reverted_receipt."
 symbols = ["PrecompileSendOutcome", "sendWalletPrecompileCall", "RECEIPT_POLL_LIMIT", "wallet_send_reports_receipt_and_logs", "wallet_send_reports_reverted_receipt"]
-touches = ["apps/web/src/api/wallet.ts", "apps/web/e2e/wallet-receipt.test.ts"]
+touches = ["apps/web/src/api/wallet.ts", "apps/web/e2e/wallet-receipt.test.ts", "apps/web/src/app/_markets/send-outcome.tsx"]
 tests = ["apps/web/e2e/wallet-receipt.test.ts::wallet_send_reports_receipt_and_logs", "apps/web/e2e/wallet-receipt.test.ts::wallet_send_reports_reverted_receipt"]
 planned_paths = ["apps/web/e2e/wallet-receipt.test.ts"]
 build_cmd = "npm --prefix apps/web run typecheck"
@@ -158947,7 +158948,7 @@ verify_cmd = "node --test --test-name-pattern '^(wallet_send_reports_receipt_and
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
-rollback = "Revert apps/web/src/api/wallet.ts; the receipt field is optional for every renderer."
+rollback = "Revert apps/web/src/api/wallet.ts; the receipt field is optional for every renderer; apps/web/src/app/_markets/send-outcome.tsx returns to its previous text."
 do_5 = "Register every test named in tests as a node:test case whose name is exactly that name, because node --test --test-name-pattern exits 0 when no case matches; the gate counts only when the run reports one passing case per name. Cases: wallet_send_reports_receipt_and_logs in apps/web/e2e/wallet-receipt.test.ts (planned); wallet_send_reports_reverted_receipt in apps/web/e2e/wallet-receipt.test.ts (planned)."
 max_builds = 1
 max_verify_runs = 1
@@ -158956,7 +158957,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "Add a reverted case to the switch over outcome.outcome in apps/web/src/app/_markets/send-outcome.tsx:8 that returns an InlineNotice with tone danger naming outcome.transactionHash, so the component stays exhaustive once the reverted arm exists and npm run typecheck passes; task 14.0.4 later replaces that case with the catalog copy and the receipt line."
 [task.14.4.2]
 title = "Carry budget_exhausted and the submit receipt through the web gas-station client"
 status = "pending"

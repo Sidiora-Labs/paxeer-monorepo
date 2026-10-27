@@ -17,7 +17,7 @@ import (
 func TestTokenfactoryAuthorityMetadataFactoryDenomOverREST(t *testing.T) {
 	app, ctx, queryHelper := appQueryHelper(t)
 	creator := sdk.AccAddress([]byte("tokenfactory-creator")).String()
-	denom := CreateDenom(t, app.TokenFactoryKeeper, ctx, creator, "meta")
+	denom := createTokenfactoryDenom(t, app.TokenFactoryKeeper, ctx, creator, "meta")
 
 	tokenfactorytypes.RegisterQueryServer(queryHelper, app.TokenFactoryKeeper)
 	server := serveGateway(t, func(ctx context.Context, mux *runtime.ServeMux) error {
@@ -45,7 +45,7 @@ func TestTokenfactoryAuthorityMetadataFactoryDenomOverREST(t *testing.T) {
 	}
 }
 
-func CreateDenom(t *testing.T, tokenFactoryKeeper keeper.Keeper, ctx sdk.Context, creator, subdenom string) string {
+func createTokenfactoryDenom(t *testing.T, tokenFactoryKeeper keeper.Keeper, ctx sdk.Context, creator, subdenom string) string {
 	t.Helper()
 	denom, err := tokenFactoryKeeper.CreateDenom(ctx, creator, subdenom)
 	if err != nil {

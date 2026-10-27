@@ -14,25 +14,35 @@ use layerx_agent_api::identity::{
 };
 use layerx_agent_api::prepare::PrepareWithCapability;
 use layerx_agent_api::prepare::{PrepareRequest, Prepared};
-use layerx_agent_api::read::FeeProjectionRequest;
-use layerx_agent_api::read::{
-    BalanceSelector, BatchRef, CheckpointRef, CoreProduced, HistorySelector, ModuleStateSelector,
-    ReadRequest, VerifiedRead,
+pub use layerx_agent_api::proof::ProofBundleTarget;
+pub use layerx_agent_api::read::FeeProjectionRequest;
+pub use layerx_agent_api::read::{
+    BalanceSelector, BatchRef, CheckpointRef, CoreProduced, Freshness, HistoryCursor,
+    ModuleStateSelector, RelativeTo,
 };
+pub type ProtocolBudgetView = layerx_agent_api::budget::ProtocolBudgetView;
+pub type BudgetRecord = layerx_agent_api::budget::BudgetRecord;
+pub type ReadRequest<S> = layerx_agent_api::read::ReadRequest<S>;
+pub type VerifiedRead<T> = layerx_agent_api::read::VerifiedRead<T>;
+pub type ReceiptReference = layerx_agent_api::subscription::ReceiptReference;
+pub type OfflineExport = layerx_agent_api::export::OfflineExport;
+pub type HistorySelector = layerx_agent_api::read::HistorySelector;
+pub type FeeProjection = layerx_agent_api::read::FeeProjection;
 use layerx_agent_api::submit::{SignRequest, SubmitRequest};
 use layerx_agent_api::subscription::{
     CursorAcknowledgement, SubscriptionCreate, SubscriptionList, SubscriptionTarget,
 };
 use layerx_agent_api::track::{TrackRequest, TrackedSubmission, WaitRequest};
-use layerx_agent_api::verify::Level;
+
 use layerx_agent_api::{agent_api_schema_v1, ContractVersion, SubmissionState};
 use layerx_client::client::{Client as NodeClient, ClientConfig, ConnectionError};
 pub use layerx_proof::checkpoint::SettlementDomain;
 use layerx_proof::export::{
-    verify as verify_offline_export, ExportVerificationError, OfflineExport, VerificationReport,
+    verify as verify_offline_export, ExportVerificationError,
+    OfflineExport as HistoricalOfflineExport, VerificationReport,
 };
 use layerx_types::result::ResultCode;
-use layerx_types::rung::Rung;
+pub use layerx_types::rung::Rung;
 
 pub mod agent_envelope;
 pub mod approval;
@@ -219,7 +229,7 @@ pub enum SdkError {
     DirectConnection(ConnectionError),
     UnverifiedRead,
     InvalidProofBundle,
-    VerificationBelowRequested { requested: Level, achieved: Level },
+    VerificationBelowRequested { requested: Rung, achieved: Rung },
     ExecutedWithoutEvidence,
 }
 
@@ -356,16 +366,16 @@ impl Client {
     ///
     /// Refuses unverified and below-requested values instead of presenting them as results.
     pub fn accept_verified_read<T: CoreProduced>(
-        requested: Level,
+        requested: Rung,
         read: VerifiedRead<T>,
     ) -> Result<VerifiedRead<T>, SdkError> {
-        if read.achieved_verification_level == Level::Unverified {
+        if read.achieved_rung == Rung::Submitted {
             return Err(SdkError::UnverifiedRead);
         }
-        if read.achieved_verification_level < requested {
+        if read.achieved_rung < requested {
             return Err(SdkError::VerificationBelowRequested {
                 requested,
-                achieved: read.achieved_verification_level,
+                achieved: read.achieved_rung,
             });
         }
         Ok(read)
@@ -375,8 +385,15 @@ impl Client {
         request: &ReadRequest<layerx_agent_api::prepare::CanonicalBytes>,
         read: VerifiedRead<layerx_agent_api::proof::ProofBundle>,
     ) -> Result<VerifiedRead<layerx_agent_api::proof::ProofBundle>, SdkError> {
-        layerx_agent_api::proof::ProofBundle::check_response(request, &read)
-            .map_err(|_| SdkError::InvalidProofBundle)?;
+        layerx_agent_api::proof::ProofBundle::check_response(
+            &ReadRequest {
+                selector: ProofBundleTarget::decode(request.selector.as_bytes())
+                    .map_err(|_| SdkError::InvalidProofBundle)?,
+                requested_rung: request.requested_rung,
+            },
+            &read,
+        )
+        .map_err(|_| SdkError::InvalidProofBundle)?;
         Ok(read)
     }
 
@@ -411,7 +428,7 @@ impl Client {
     ///
     /// Returns the exact proof verification failure.
     pub fn verify_offline(
-        export: &OfflineExport,
+        export: &HistoricalOfflineExport,
         expected_settlement_domain: SettlementDomain,
     ) -> Result<VerificationReport, ExportVerificationError> {
         verify_offline_export(export, expected_settlement_domain)
