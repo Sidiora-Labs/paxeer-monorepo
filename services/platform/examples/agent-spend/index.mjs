@@ -1,7 +1,4 @@
 import { fileURLToPath } from "node:url";
-import { AgentMiddleware } from "@sidiora/layerx-agent-middleware";
-import { ProductionClient, isSelectableProtocolVersion } from "@sidiora/layerx-sdk";
-import { LayerXAgentTransport, authenticatedAgentTransport, loadAgentServiceProviders } from "@sidiora/layerx-agent-integrations";
 
 const required = (name) => {
   const value = process.env[name];
@@ -10,18 +7,21 @@ const required = (name) => {
 };
 const action = process.argv[2] ?? "spend";
 if (!["spend", "wallet-review", "wallet-approve", "wallet-status"].includes(action)) throw new Error("invalid_agent_spend_action");
+const agentRpcUrl = required("LAYERX_AGENT_RPC_URL");
+const tenant = required("LAYERX_TENANT");
+const AgentMiddleware = (await import("@sidiora/layerx-agent-middleware")).AgentMiddleware;
+const { ProductionClient } = await import("@sidiora/layerx-sdk");
+const { LayerXAgentTransport, authenticatedAgentTransport, loadAgentServiceProviders } = await import("@sidiora/layerx-agent-integrations");
 const bundledServices = fileURLToPath(new URL("./services.mjs", import.meta.url));
 const servicesEnvironment = process.env.LAYERX_AGENT_SERVICES_MODULE === undefined
   ? { ...process.env, LAYERX_AGENT_SERVICES_MODULE: bundledServices } : process.env;
 if (action !== "spend" && servicesEnvironment.LAYERX_AGENT_SERVICES_MODULE !== bundledServices) throw new Error("original_wallet_composition_required");
-const protocolVersion = Number(required("LAYERX_PROTOCOL_VERSION"));
-if (!isSelectableProtocolVersion(protocolVersion)) throw new Error("invalid_layerx_protocol_version");
 const providers = await loadAgentServiceProviders(servicesEnvironment);
 let authenticated;
 try {
   authenticated = authenticatedAgentTransport(process.env, {
-  agentRpcUrl: required("LAYERX_AGENT_RPC_URL"),
-  tenant: required("LAYERX_TENANT"),
+  agentRpcUrl,
+  tenant,
   requestTimeoutMs: 30000,
 });
   if (action === "wallet-approve" || action === "wallet-status") {
@@ -41,7 +41,13 @@ try {
   }
   const middleware = new AgentMiddleware({
     client: new ProductionClient(new LayerXAgentTransport(authenticated.transport)),
-    protocolVersion,
+    receiptKeys: JSON.parse(required("LAYERX_RECEIPT_KEYS_JSON")).map((key) => {
+      if (!/^[0-9a-f]{64}$/u.test(key.keyId) || !/^[0-9a-f]{64}$/u.test(key.publicKey)
+        || typeof key.first_height !== "string" || !/^[0-9]+$/u.test(key.first_height)
+        || typeof key.last_height !== "string" || !/^[0-9]+$/u.test(key.last_height)) throw new Error("invalid_receipt_key");
+      return { keyId: Buffer.from(key.keyId, "hex"), publicKey: Buffer.from(key.publicKey, "hex"),
+        first_height: BigInt(key.first_height), last_height: BigInt(key.last_height) };
+    }),
     ...(providers.budgets === undefined ? {} : { budgets: providers.budgets }),
     ...(providers.preparationBudgets === undefined ? {} : { preparationBudgets: providers.preparationBudgets }),
     signer: providers.signer,
@@ -56,9 +62,12 @@ try {
   } else {
   process.stdout.write(JSON.stringify({
     kind: result.kind,
-    ...(result.kind === "owner-budget" ? { ...(result.prepared === undefined ? {} : { prepared: result.prepared }), preparationId: result.preparationId, admissionObserved: result.admissionObserved, ownerState: result.state,
-      ...(result.verification === undefined ? {} : { receiptDigest: Buffer.from(result.verification.receiptDigest).toString("hex") }) } : {}),
-    ...(result.kind === "verified" ? { receiptDigest: Buffer.from(result.verification.receiptDigest).toString("hex") } : {}),
+    ...(result.kind === "owner-budget" ? { ...(result.prepared === undefined ? {} : { prepared: result.prepared }), preparationId: result.preparationId, admissionObserved: result.admissionObserved, ownerState: result.state } : {}),
+    ...("verification" in result && result.verification !== undefined ? {
+      transactionHash: result.verification.txHash,
+      receiptDigest: Buffer.from(result.verification.receiptDigest).toString("hex"),
+      rung: result.verification.rung,
+    } : {}),
     ...(result.kind === "approval-hold" ? { approvalId: result.approval.approvalId } : {}),
     ...(result.kind === "refused" || result.kind === "budget-refused" ? { code: result.code, retry: result.retry,
       ...(result.retryAfterMs === undefined ? {} : { retryAfterMs: result.retryAfterMs }) } : {}),
