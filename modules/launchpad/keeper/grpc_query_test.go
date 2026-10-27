@@ -293,6 +293,9 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "Quote":
+				require.Equal(t, codes.InvalidArgument, status.Code(err))
+				require.Equal(t, "amount_in must be a positive base-10 integer", status.Convert(err).Message())
 			case "PriceHistory":
 				require.ErrorIs(t, err, types.ErrUnknownMarket)
 				require.Equal(t, ": "+types.ErrUnknownMarket.Error(), err.Error())
