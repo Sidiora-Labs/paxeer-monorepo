@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"path/filepath"
@@ -33,6 +34,8 @@ type Application struct {
 	cfg             *Config
 	restoreSnapshot *abci.Snapshot
 	restoreChunks   [][]byte
+	leaderPin       [][32]byte
+	leaderPinHeight int64
 }
 
 // Config allows for the setting of high level parameters for running the e2e Application
@@ -74,6 +77,8 @@ type Config struct {
 	//
 	// height <-> pubkey <-> voting power
 	ValidatorUpdates map[string]map[string]uint8 `toml:"validator_update"`
+	LeaderPin        []string                    `toml:"leader_pin"`
+	LeaderPinHeight  int64                       `toml:"leader_pin_height"`
 
 	// Add artificial delays to each of the main ABCI calls to mimic computation time
 	// of the application
@@ -93,6 +98,23 @@ func DefaultConfig(dir string) *Config {
 
 // NewApplication creates the application.
 func NewApplication(cfg *Config) (*Application, error) {
+	var leaderPin [][32]byte
+	var leaderPinHeight int64
+	if len(cfg.LeaderPin) > 0 {
+		leaderPin = make([][32]byte, len(cfg.LeaderPin))
+		leaderPinHeight = cfg.LeaderPinHeight
+		for i, keyString := range cfg.LeaderPin {
+			keyBytes, err := hex.DecodeString(keyString)
+			if err != nil {
+				return nil, fmt.Errorf("invalid hex leader_pin key %d: %w", i, err)
+			}
+			if len(keyBytes) != len(leaderPin[i]) {
+				return nil, fmt.Errorf("invalid ed25519 leader_pin key %d: got %d bytes, want %d", i, len(keyBytes), len(leaderPin[i]))
+			}
+			copy(leaderPin[i][:], keyBytes)
+		}
+	}
+
 	state, err := NewState(cfg.Dir, cfg.PersistInterval)
 	if err != nil {
 		return nil, err
@@ -103,9 +125,11 @@ func NewApplication(cfg *Config) (*Application, error) {
 	}
 
 	return &Application{
-		state:     state,
-		snapshots: snapshots,
-		cfg:       cfg,
+		state:           state,
+		snapshots:       snapshots,
+		cfg:             cfg,
+		leaderPin:       leaderPin,
+		leaderPinHeight: leaderPinHeight,
 	}, nil
 }
 
