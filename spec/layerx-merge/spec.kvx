@@ -117155,7 +117155,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "Recording the fixture is implementation work, not a qualification gate: build the daemon once with go build -o <tmpdir>/paxd ./daemon/paxd, run go run ./daemon/committed-fixture record --paxd <tmpdir>/paxd --out daemon/committed-fixture/vectors, then restore vector-v2-receipted-revert.json and vector-v3-receipt-refusals.json, which record rewrites for every registered vector and which belong to tasks 5.55.3 and 5.55.4, so that only the V1 file is new. The conformance cases in sdk/platform/conformance/fixtures/sequencer-receipt-v1.json hold no contract creation with two logs, so V1 cannot be derived from them."
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
 status = "done"
