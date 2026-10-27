@@ -1496,10 +1496,10 @@ severity = "blocker"
 
 [finding.16.23.1]
 task = "16.23.1"
-file = "services/agent/crates/layerx-client/Cargo.toml:19"
-symbol = "tungstenite"
-observed = "At 55fd6365c the build `make -C . build/tests/test_genesis_module_table` exited 2 (log /out/logs/build-1.log) because its prerequisite programs-build (Makefile:1324, Makefile:3203) runs cargo offline against programs/vendor, which lacks tungstenite 0.29.0, the dependency services/agent/crates/layerx-client/Cargo.toml:19 gained at a120e267b and layerx-programs-arbiter pulls in through layerx-client; the same command fails on an unchanged b59b5e362 before tests/test_genesis_module_table.c is compiled."
-assumption = "programs/vendor was refreshed at e713b182a (tungstenite 0.29.0 and its tree are vendored) before any Makefile test target that depends on programs-build is qualified; 16.23.1 is re-qualified from 55fd6365c once 16.2.3 (in requires) is also on main."
+file = "cmd/layerx-genesis/lxp_genesis_build_cli.c:450"
+symbol = "lxp_genesis_handover_trust_build"
+observed = "The second and third attempts' build `make -C . build/tests/test_genesis_module_table` (848f22b9a, 908699a9e) exited 2 (logs-build-1.log) on -Werror implicit declarations in cmd/layerx-genesis/lxp_genesis_build_cli.c, which the test rule links: 5.49.1 (817eafdef) removed the custody calls, but the lxp_genesis_handover_trust_build call whose declaration 1.17.3 (8307f8518) deleted is removed only by 5.49.2, which itself required 16.23.1."
+assumption = "5.49.2 no longer requires 16.23.1 and 16.23.1 requires 5.49.2, so the CLI drops the handover trust call first and 908699a9e is requalified unchanged once 5.49.2 is on main."
 severity = "blocker"
 
 [finding.16.33.2]
@@ -2532,4 +2532,140 @@ file = "services/agent/crates/layerx-client/tests/committed_caps.rs:9"
 symbol = "native_budget_versions_fields_and_extremes"
 observed = "The fifth attempt's verifier `cg spec done 9.24.1` (de9ce3a82 on 4ed02cfb5) exited 1 (logs-verify-1.log) because the kept gate test reads the file named by LAYERX_CAPS_VECTORS, the output of the native producer tests/qualification/lxp_wallet_caps_vectors.c, and nothing in the declared build or verify commands produced it; the third attempt passed the same test after compiling that producer against build/liblayerx.a and programs/target/release/liblayerx_programs_sandbox.a by hand."
 assumption = "build_cmd builds the producer and writes build/native-vectors.json, verify_cmd exports LAYERX_CAPS_VECTORS to it, the test and the decoder stay unchanged (do_3), and de9ce3a82 is requalified."
+severity = "blocker"
+
+[finding.9.1.7]
+task = "9.1.7"
+file = "services/agent/crates/layerx-sdk/tests/offline_export.rs:196"
+symbol = "OfflineExport"
+observed = "The first attempt's verifier `cg spec done 9.1.7` (9c1856592) exited 1 (logs-verify-1.log) after the build passed: `cargo test -p layerx-sdk --no-run` could not compile the test targets sdk (14 errors) and offline_export (22 errors), which still build Freshness with latest_sealed_batch and value_sequence, RelativeTo::Batch, BalanceValue without height, the receipts/proofs/certificates/headers OfflineExport and VerificationLevel, the shapes the task replaces; neither file was in touches."
+assumption = "The task owns the two integration tests and ports them as do_4 and do_5 describe, the fixture's achieved rung being Receipted; 9c1856592 is continued."
+severity = "blocker"
+
+[finding.17.5.1]
+task = "17.5.1"
+file = "cmd/layerxd/lxp_daemon_process.c:5850"
+symbol = "open_process"
+observed = "The first and second attempts' verifier ran scripts/gates/wave-0.sh (911ad22b1), which exited 2 because `make workspace-build` stopped at lxp_daemon_process.c:5850 with -Werror=missing-field-initializers: the lx_asset_runtime literal lacks the binding_authority member 1.11.1 (66e8f097c) added at include/layerx/lx_asset.h:130; cmd/layerx-guarantor/runtime.c:1131 and 43 positional literals under tests/ lack it too, and no open task owned the files."
+assumption = "Task 1.11.4 appends the false initializer everywhere, 17.5.1 requires it, and 911ad22b1 is requalified once it is on main; make stops at the first error, so later workspace-build or workspace-lint failures are recorded then."
+severity = "blocker"
+
+[finding.17.5.2]
+task = "17.5.2"
+file = "cmd/layerxd/lxp_daemon_process.c:5850"
+symbol = "open_process"
+observed = "The first and second attempts' verifier ran scripts/gates/wave-1.sh (2f1b3aee5), which exited 2 at the same lxp_daemon_process.c:5850 missing-field-initializers error as finding.17.5.1."
+assumption = "17.5.2 requires 1.11.4 and 2f1b3aee5 is requalified once it is on main."
+severity = "blocker"
+
+[finding.12.33.2]
+task = "12.33.2"
+file = "sdk/wallet/src/modules/exchange.ts:54"
+symbol = "perpsCancelOrderCall"
+observed = "The first attempt's build `pnpm --dir apps/wallet run typecheck` (879690b65) exited 2 (logs-build-2.log) only in the exchange module and ExchangeView, which still call the v1 perpsOpenPositionCall and one-argument perpsCancelOrderCall that 9.33.13 (ccec3dfd1) replaced with the exchange v2 shapes; the task's own isLog error is repaired in that commit."
+assumption = "Task 12.33.8 moves the exchange module, ExchangeView and the web exchange client to the v2 calls; 12.33.2 requires it and 879690b65 is requalified unchanged once it is on main."
+severity = "blocker"
+
+[finding.12.34.6.1]
+task = "12.34.6"
+file = "apps/wallet/src/surfaces/ExchangeView.tsx:61"
+symbol = "ExchangeView"
+observed = "The second attempt's build `pnpm --dir apps/wallet run typecheck` (d40a6f63d) exited 2 (logs-build-1.log) only on the exchange module and ExchangeView on the v1 perps shapes 9.33.13 replaced; the status-ladder and surface errors of finding.12.34.6 are gone."
+assumption = "12.34.6 requires 12.33.8 and d40a6f63d is requalified unchanged once it is on main."
+severity = "blocker"
+
+[finding.14.5.1]
+task = "14.5.1"
+file = "apps/web/src/app/exchange/exchange-client.tsx:170"
+symbol = "perpsOpenPositionCall"
+observed = "The first attempt's build `npm --prefix apps/web run typecheck` (730f20047) exited 2 (logs-build-1.log) with TS2554/TS2345/TS2322 at sdk/wallet/src/modules/exchange.ts:54, apps/web/src/app/exchange/exchange-client.tsx:170 and :235 and apps/web/e2e/exchange-perps.test.ts:198 and :241, because 9.33.13 (ccec3dfd1) gave PerpsOpenPosition accountId, side and size and perpsCancelOrderCall an accountId argument without updating these callers; none of the errors is in the task's files."
+assumption = "12.33.8 owns the caller files and lands first; 14.5.1 requires it and 730f20047 is requalified unchanged."
+severity = "blocker"
+
+[finding.14.8.2]
+task = "14.8.2"
+file = "apps/web/src/app/exchange/exchange-client.tsx:170"
+symbol = "perpsOpenPositionCall"
+observed = "The first attempt's build `npm --prefix apps/web run typecheck` (15a7fe487) exited 2 (logs-build-1.log) on the same five exchange caller errors as finding.14.5.1; the task's two files report no errors."
+assumption = "14.8.2 requires 12.33.8 and 15a7fe487 is requalified unchanged."
+severity = "blocker"
+
+[finding.5.16.4]
+task = "5.16.4"
+file = "node/sequencer/seal_giga_test.go:47"
+symbol = "TestSealBatchEqualsGigaProcessBlock"
+observed = "The first two attempts' verifier `cg spec done 5.16.4` (464538ec0, ae0e47a80) exited 1 (logs-verify-1.log) at seal_giga_test.go:47 because GigaEvmKeeper.EvmoneVM is nil: engine/executor/lib/libevmone.0.12.0_linux_amd64.so is untracked and only `go generate ./engine/executor/lib` downloads it; neither the build nor the verify command ran it."
+assumption = "build_cmd runs go generate first and ae0e47a80 is requalified unchanged."
+severity = "blocker"
+
+[finding.14.30.1]
+task = "14.30.1"
+file = "services/explorer/services/sig-provider/sig-provider-proto/build.rs:15"
+symbol = "compile"
+observed = "The first attempt's build `cargo build --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider` (7850f1e5d) exited 101 (logs-build-1.log) because the sig-provider-proto build script needs protoc (prost-build 0.11.9) and the protoc-gen-openapiv2 plugin (--openapiv2_out at build.rs:15-17), and the cargo output under services/explorer/services/sig-provider/target/ was not ignored by any .gitignore, so 1368 build products were reported as files changed outside the task's scope."
+assumption = "The qualification environment provides protoc and protoc-gen-openapiv2 on PATH, the root .gitignore ignores services/explorer/services/sig-provider/target/, and 7850f1e5d is requalified unchanged; the regenerated swagger/sig-provider.swagger.yaml must stay byte-identical."
+severity = "blocker"
+
+[finding.2.11.4]
+task = "2.11.4"
+file = "precompiles/layerxauth/layerxauth.go:79"
+symbol = "Execute"
+observed = "The verifier `cg spec done 2.11.4` (bd8a197ed) exited 1 (logs-verify-2.log) because Execute resolves the caller's Actor before dispatch and reverts LXP_AUTH_SCOPE for an unbound caller, while req 2058.1 requires getGrant, sessionKey and capabilityScope to answer any caller under staticcall; the only remaining difference in views_test.go:183-187 is decoded zero big.Int values compared by pointer."
+assumption = "Execute skips Actor resolution for constant methods only, the test compares packed bytes, and bd8a197ed is continued."
+severity = "blocker"
+
+[finding.4.46.2.1]
+task = "4.46.2"
+file = "apps/launchpad/mobile/tsconfig.json:1"
+symbol = "compilerOptions"
+observed = "After the token.tsx repair the build `pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json` (b6763f366) exited 2 (logs-build-1.log) on pre-existing errors: DOM, react-native and Node global declarations conflict because tsconfig.json sets no lib or types, protected-storage.ts:16-18 reads a possibly-undefined record, and service-client.ts casts undefined to ContractTypes[N]."
+assumption = "4.46.2 is widened to the mobile tsconfig files and protected-storage.ts and repairs them without changing runtime behaviour or the strict setting; b6763f366 is continued."
+severity = "blocker"
+
+[finding.1.2.1]
+task = "1.2.1"
+file = "include/layerx/lxp_result.h:73"
+symbol = "LXP_ERR_SEQUENCE_REUSED"
+observed = "The verifier `cg spec done 1.2.1` (a78463049) exited 1 (logs-verify-1.log) after the verify_cmd passed, because the X-macro result code LXP_ERR_SEQUENCE_REUSED is not an indexed graph symbol."
+assumption = "The symbols list drops it; the test still asserts the refusal code and a78463049 is requalified unchanged."
+severity = "note"
+
+[finding.1.18.1]
+task = "1.18.1"
+file = "include/layerx/lxp_module.h:25"
+symbol = "LXP_MODULE_WEB"
+observed = "The verifier `cg spec done 1.18.1` (77afd219f) exited 1 (logs-verify-1.log) after the verify_cmd passed, because the enumerators LXP_MODULE_WEB and LXP_MODULE_BRIDGE are not indexed graph symbols."
+assumption = "The symbols list drops the two enumerators, the ids stay reserved in the enum, and 77afd219f is requalified unchanged."
+severity = "note"
+
+[finding.1.19.1]
+task = "1.19.1"
+file = "include/layerx/lxp_bridge.h:34"
+symbol = "lxp_withdrawal_claim"
+observed = "The verifier `cg spec done 1.19.1` (90dcfd5cf) exited 1 (logs-verify-1.log) after the verify_cmd passed, because the symbols list names the lxp_withdrawal_claim and lxp_exit_claim types that do_1 deletes."
+assumption = "The symbols list drops the two deleted types, bridge_claim_symbols_absent asserts their absence, and 90dcfd5cf is requalified unchanged."
+severity = "note"
+
+[finding.1.30.1]
+task = "1.30.1"
+file = "src/network/lxp_gateway_receive.c:472"
+symbol = "lxp_gateway_receive_claim"
+observed = "The verifier `cg spec done 1.30.1` (810ca25f8) exited 1 (logs-verify-1.log) after the verify_cmd passed, because the symbols list names the three functions the task deletes."
+assumption = "The symbols list keeps only TestRetiredGatewayGrantSymbolsAbsent, which asserts the deleted names are absent from the kernel archive, and 810ca25f8 is requalified unchanged."
+severity = "note"
+
+[finding.14.3.6]
+task = "14.3.6"
+file = "sdk/js/dist/esm/rest/tokenfactory/query.js:2"
+symbol = "Query"
+observed = "The first attempt (9b46e017b) passed both declared tests but the verifier `cg spec done 14.3.6` exited 1 (logs-verify-1.log) because the class Query lives in a generated dist module the code graph does not index."
+assumption = "symbols drops Query, the touched dist files are still checked as touches, and 9b46e017b is requalified unchanged."
+severity = "note"
+
+[finding.12.10.4.2]
+task = "12.10.4"
+file = "services/wallet/gateway/test/evm-sign.test.ts:219"
+symbol = "evmSignSendsThroughSequencerWithReceipt"
+observed = "The ninth attempt (7b001300c) passed evmSignRequiresApprovedRow and failed the verifier `cg spec done 12.10.4` with exit 1 (logs-verify-2.log) at evm-sign.test.ts:219, where toMatchObject({ ...tx, value: undefined }) demands a value key that viem's parseTransaction leaves out for a zero value."
+assumption = "do_6 compares every field but value with toMatchObject and asserts the zero value explicitly; 7b001300c is continued."
 severity = "blocker"

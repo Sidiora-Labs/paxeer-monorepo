@@ -9081,3 +9081,27 @@ area = "spec / task dependencies"
 symptom = "every build of a package fails after a landed deletion task removed types it still imports (9.34.2 removed SDK types still imported by seller/src/checkpoint.ts), and the task that deletes the importer never becomes eligible"
 cause = "the importer is deleted only by a late task (8.22.6 at wave 29) that requires the very package tasks whose builds fail on it, so a requires edge to it deadlocks"
 do = "split the deletion into a dependency-free early task (8.22.7) and make the package tasks require it"
+
+[gotcha.1893]
+area = "Rust gate tests"
+symptom = "a Rust task whose library builds clean fails its verify_cmd `cargo test -p <crate> --no-run` on integration tests outside touches (9.1.7: tests/sdk.rs and tests/offline_export.rs)"
+cause = "`cargo test -p <crate> --no-run` compiles every integration test target of the crate, and those tests/ files still build the public shapes the task renamed"
+do = "a task that renames a crate's public shapes owns and ports the tests/ files that build them and lists them in touches (9.1.7)"
+
+[gotcha.1894]
+area = "kernel / C structs"
+symptom = "binaries and test fixtures stop compiling under -Werror=missing-field-initializers after a trailing struct member is added (1.11.1: lx_asset_runtime.binding_authority, lxp_send_environment.binding_authority)"
+cause = "every positional compound literal of the struct, in the binaries and in 44 test fixtures, lacks an initializer for the new member"
+do = "the task that adds the member greps `(<struct>){` across cmd/, src/ and tests/ and lists every file in touches, or a repair task follows (1.11.4)"
+
+[gotcha.1895]
+area = "Go tests / go generate"
+symptom = "a Go test that depends on a shared object fetched by `go generate` (engine/executor/lib) fails with a nil engine (GigaEvmKeeper.EvmoneVM)"
+cause = "the shared object is untracked and absent, and neither the build_cmd nor the verify_cmd ran the go generate step that downloads it"
+do = "put the go generate step in build_cmd so the gate produces its own input (5.16.4)"
+
+[gotcha.1896]
+area = "spec / task dependencies"
+symptom = "a removal task and the test task whose build links the removed call site both stay ineligible (5.49.2 required 16.23.1)"
+cause = "a requires edge from the task that removes a call site to the test task whose build links that call site deadlocks when the test task also waits on the removal"
+do = "the removal task comes first and the test task requires it (5.49.2 before 16.23.1)"
