@@ -45,6 +45,22 @@ func (b *BigDecimal) UnmarshalGraphQL(input any) error {
 	return nil
 }
 
+type BigInt string
+
+func (BigInt) ImplementsGraphQLType(name string) bool { return name == "BigInt" }
+
+func (b *BigInt) UnmarshalGraphQL(input any) error {
+	s, ok := input.(string)
+	if !ok {
+		return fmt.Errorf("BigInt: want a string, got %T", input)
+	}
+	if err := bigint.ValidateRaw(s); err != nil {
+		return fmt.Errorf("BigInt: %w", err)
+	}
+	*b = BigInt(s)
+	return nil
+}
+
 // DateTime is a UTC instant serialized as RFC 3339.
 type DateTime struct{ time.Time }
 
@@ -105,13 +121,63 @@ func (p *Position) Market(ctx context.Context) (*Market, error) {
 }
 
 type Market struct {
-	MarketID    int32
-	Name        string
-	Symbol      string
-	MaxLeverage BigDecimal
-	Enabled     bool
-	CreatedAt   *DateTime
-	states      *marketStateLoader
+	MarketID     int32
+	Name         string
+	Symbol       string
+	OracleSymbol string
+	SzDecimals   *int32
+	PxDecimals   *int32
+	TickSize     *BigInt
+	LotSize      *BigInt
+	TierClass    *int32
+	OiCapUsd     *BigInt
+	MaxLeverage  BigDecimal
+	Enabled      bool
+	CreatedAt    *DateTime
+	states       *marketStateLoader
+}
+
+type marketSubscriptions struct{ *Resolver }
+
+func (r *Resolver) Subscription() *marketSubscriptions {
+	return &marketSubscriptions{Resolver: r}
+}
+
+type marketSubscriptionPosition struct{ subPosition }
+
+func (p *marketSubscriptionPosition) Market(ctx context.Context) (*Market, error) {
+	return (&Resolver{DB: p.db}).Market(ctx, struct{ MarketID int32 }{p.MarketID})
+}
+
+func (r *marketSubscriptions) PositionChanged(ctx context.Context, args struct{ UserAddress string }) (<-chan []*marketSubscriptionPosition, error) {
+	positions, err := r.Resolver.PositionChanged(ctx, args)
+	if err != nil {
+		return nil, err
+	}
+	out := make(chan []*marketSubscriptionPosition)
+	go func() {
+		defer close(out)
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case snapshot, ok := <-positions:
+				if !ok {
+					return
+				}
+				list := make([]*marketSubscriptionPosition, len(snapshot))
+				for i, position := range snapshot {
+					list[i] = &marketSubscriptionPosition{subPosition: *position}
+				}
+				select {
+				case <-ctx.Done():
+					return
+				case out <- list:
+				}
+			}
+		}
+	}()
+	return out, nil
 }
 
 // LatestPrice resolves through the loader shared by every market of the
@@ -890,10 +956,12 @@ ORDER BY l.block DESC, l.tx_index DESC, l.log_index DESC, l.sub DESC LIMIT $3 OF
 		})
 }
 
-const marketSQL = `SELECT market_id, name, symbol, max_leverage::text, enabled, NULL::timestamptz FROM perps.markets `
+const marketSQL = `SELECT market_id, name, symbol, oracle_symbol, sz_decimals, px_decimals,
+tick_size::text, lot_size::text, tier_class, oi_cap_usd::text, max_leverage::text, enabled, listed_at FROM perps.markets `
 
 func marketDest(m *Market) []any {
-	return []any{&m.MarketID, &m.Name, &m.Symbol, &m.MaxLeverage, &m.Enabled, &m.CreatedAt}
+	return []any{&m.MarketID, &m.Name, &m.Symbol, &m.OracleSymbol, &m.SzDecimals, &m.PxDecimals,
+		&m.TickSize, &m.LotSize, &m.TierClass, &m.OiCapUsd, &m.MaxLeverage, &m.Enabled, &m.CreatedAt}
 }
 
 // withStates attaches one market state loader to every market of list.
