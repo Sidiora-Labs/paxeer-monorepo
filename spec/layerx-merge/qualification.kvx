@@ -2381,3 +2381,51 @@ symbol = "lxphost_reset"
 observed = "The first attempt (ccb4b1943 on 1b20d42f3) passed `go build ./modules/layerxexchange/...` and the verifier exited 1 (logs-verify-1.log) on LXP_ERR_MODULE_DISABLED at oracle_test.go:128, because do_3 routes the observation through the hosted kernel, which registers only governance, Programs and asset (host.go:150-157) until 1.24.1 registers perps; host.go is in the touches of 1.23.1, 1.23.3, 1.25.1, 1.26.1 and 2.22.4, so widening would collide."
 assumption = "3.93.1 requires 1.24.1 and is continued from ccb4b1943 once perps is registered, with the observation backed by the host's committed read."
 severity = "blocker"
+
+[finding.6.6.3]
+task = "6.6.3"
+file = "precompiles/names_markets_test.go:41"
+symbol = "TestPrecompileNamesIncludeMarkets"
+observed = "The first and second attempts (1fa86cc00 on 1b20d42f3, 3be20bacb on 7f5fc9cea) passed `go build ./precompiles/` and the verifier exited 1 (logs-verify-1.log) at names_markets_test.go:41 on `merge precompile orob at 0x...0901: LXP_PRECOMPILE_NO_CONTEXT: evm keeper is unavailable`, because do_4 prescribed a dry run with utils.EmptyKeepers while c802cb331 (task 2.37.1) made the orob merge constructor, registered from init, require the EVM keeper; the asserted names and 0x1015/0x1020-0x1025 addresses were never reached."
+assumption = "The dry run uses testkeeper.EVMTestApp.GetPrecompileKeepers() as precompiles/setup_test.go:56 does, and 3be20bacb is continued with only the fixture changed."
+severity = "blocker"
+
+[finding.11.23.3.1]
+task = "11.23.3"
+file = "services/interop/crates/layerx-gas-station/src/service.rs:655"
+symbol = "Service::report"
+observed = "At f6a196c3e (second attempt, base 5ea311121) the build passed, status_reports_the_did_gas_budget passed, all three touched paths were evidenced and `cg spec done` exited 1 (logs-verify-1.log) only on `symbol Service::report` and `symbol QuotePolicy::did_budget — not defined in the graph`; report is a method of the generic impl<S, R, P, C> Service (service.rs:235) and did_budget (policy.rs:153) pre-exists the task and shares its name with a QuotePolicy field."
+assumption = "The symbol list names the task's declared test function; touches keep service.rs, station.rs and tests/service.rs under the change check, and f6a196c3e is requalified unchanged."
+severity = "note"
+
+[finding.7.0.2]
+task = "7.0.2"
+file = "rpc/export_info_test.go:10"
+symbol = "TestServedMethodsHTTPGolden"
+observed = "At 78d3e4759 (first attempt, base 38aceaf40) `go build ./rpc/...` passed and both golden tests failed (exit 1, logs-verify-1.log) with `should have 104 item(s), but has 106` and `58 ... but has 60`: the only served names absent from the goldens are eth_gasPriceHelperForTest and eth_calculateGasUsedRatioForTest, the test-only InfoAPI methods 7.2.2 (e7d4dc318) added in rpc/export_info_test.go, which the eth service registration publishes under `go test`."
+assumption = "The goldens freeze the production method set; the shims become package-level functions taking *InfoAPI as rpc/export_filter_test.go:3 does, and 78d3e4759 is continued with the goldens unchanged."
+severity = "blocker"
+
+[finding.17.9.1]
+task = "17.9.1"
+file = "spec/layerx-merge/spec.kvx:21705"
+symbol = "test_every_service_has_domain_and_tasks"
+observed = "At 9f45947aa (first attempt, base 5ea311121) the build passed, test_catalogue_matches_spec_service_blocks passed and the verify_cmd exited 1 (logs-verify-1.log) at test_service_catalogue.py:32 `merge-tools: domain 16 is outside 3..14`, because req.17027 ac_1 bounds every catalogue domain to 3..14 while ac_2 requires every [service.*] slug and [service.merge-tools] and [service.rollout-controller] carry domain 16 with completion_task 16.0.9."
+assumption = "The service blocks are authoritative, ac_1 reads 3..16, the task's own test bound follows it and 9f45947aa is continued."
+severity = "blocker"
+
+[finding.11.2.6]
+task = "11.2.6"
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs:90"
+symbol = "verify_receipted"
+observed = "Three attempts (e12b2e829, 523547eec, e487a78eb on 7f5fc9cea) built and failed the verify_cmd with exit 101 (logs-verify-1.log) on V3-key-not-pinned (R3) and V3-tampered-log (R5): the specified signature takes keys as (public key, first height, last height) without the key id the R3 case changes, and takes no receipt JSON view, while V3-tampered-log's byte inputs equal those of the accepted V1-erc20-approve case."
+assumption = "verify_receipted takes the pinned keys as (key id, public key, first height, last height) and the receipt JSON view, compares the receipt's keyId (R3) and the view against the decoded bytes (R5), and e487a78eb is continued."
+severity = "blocker"
+
+[finding.12.18.2]
+task = "12.18.2"
+file = "services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/src/main.rs:449"
+symbol = "generated_vectors_match_pinned_file"
+observed = "Both attempts (e25622030 on 4f54a0819, 92154945b on 5ea311121) built and failed the verify_cmd with exit 101 (logs-verify-1.log) at the generator's existing `budget-fund: binder acceptance` check: the 0x4202 budget-fund payload that kernel_activities.json pins as accepted is refused by layerx_crypto::disclosure::bind, which since ecc481845 sends (Budget, 2) to the native codec that needs a BudgetStateContext and a version-1/2 payload (disclosure.rs:942, native.rs:375)."
+assumption = "The pinned vector, the Go attestor (lx.go:64) and layerx-intents (compile.rs:503) still define the 0x4202 layout, so the task holds until the owner rules whether the pinned vector or the layerx-crypto binder is authoritative; 92154945b is the continue point."
+severity = "blocker"

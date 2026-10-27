@@ -9045,3 +9045,15 @@ area = "go"
 symptom = "a gRPC query test reads codespace `undefined` although the keeper returned a registered sdkerrors error"
 cause = "the error was wrapped with fmt.Errorf(\"%w\") and sdkerrors.ABCIInfo follows only Cause() (gotcha.1251)"
 do = "re-wrap with sdkerrors.Wrap on the registered root error at the handler boundary (4.4.3)"
+
+[gotcha.1887]
+area = "go"
+symptom = "a served-method golden test of rpc/ counts eth_gasPriceHelperForTest and eth_calculateGasUsedRatioForTest that production does not serve"
+cause = "every exported method of a registered service is served by go-ethereum's rpc reflection, so a *_test.go shim written as a method of InfoAPI (rpc/export_info_test.go) becomes an eth_* method of the test binary"
+do = "write test shims as package-level functions (rpc/export_filter_test.go:3) so served-method goldens hold (7.0.2)"
+
+[gotcha.1888]
+area = "spec"
+symptom = "`cg spec done` refuses a task symbol as not defined in the graph although the method exists (layerx-gas-station Service::report)"
+cause = "symbols of a task list declarations the graph indexes; a method of a generic `impl<...>` block was refused while methods of concrete impls in the same crate pass"
+do = "name the task's test function or a concrete declaration instead (11.23.3)"

@@ -16,6 +16,9 @@ import (
 func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return nil, ErrLeaseFenced
+	}
 	if s.open == nil {
 		return nil, ErrLayerNotOpen
 	}

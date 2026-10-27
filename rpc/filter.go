@@ -1668,18 +1668,12 @@ func (f *LogFetcher) fetchBlocksByCrit(ctx context.Context, crit filters.FilterC
 		// Check for invalid zero hash
 		zeroHash := common.Hash{}
 		if *crit.BlockHash == zeroHash {
-			// For invalid hash, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 
 		block, err := blockByHashRespectingWatermarks(ctx, f.tmClient, f.watermarks, crit.BlockHash[:], 1)
 		if err != nil {
-			// For non-existent blocks, return empty channel instead of error
-			res := make(chan *coretypes.ResultBlock)
-			close(res)
-			return res, 0, false, nil
+			return nil, 0, false, errors.New("unknown block")
 		}
 		res := make(chan *coretypes.ResultBlock, 1)
 		res <- block
