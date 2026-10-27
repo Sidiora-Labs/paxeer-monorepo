@@ -1,7 +1,7 @@
 [schema]
 name = "LayerX Human API"
 major = 1
-minor = 9
+minor = 10
 source_of_truth = "This schema and the schema files it includes define the human-api contract between layerx-human-service and the web application. Generated client output is never authoritative."
 compatibility = "Additive only within a major version: a release may only add sections, keys, list entries or optional fields. Removing or changing an existing declaration requires a new major version."
 includes = ["journeys.kvx","errors.kvx","stream.kvx","identity.kvx","movement.kvx","agents.kvx","activity.kvx","support.kvx","home.kvx","intent.kvx","program-approvals.kvx"]
@@ -126,11 +126,13 @@ typescript = "bigint"
 
 [type.NativeSendAccessRequest]
 required = ["access_id:string","counterparty:string","asset:string","maximum_amount:Amount","not_before:NativeSendUnixSeconds","expires_at:NativeSendUnixSeconds","rate_window_ms:Milliseconds","maximum_uses:NativeSendCount","commitment:string"]
-optional = ["native_fee_budget:NativeFeeBudget"]
+optional = ["native_fee_budget:NativeFeeBudget","nonce:EvmNonce"]
+nonce = "The pending-tag sender nonce disclosed for this exact native send access request."
 
 [type.NativeSendAccessConfirmation]
 required = ["access_id:string","counterparty:string","asset:string","maximum_amount:Amount","not_before:NativeSendUnixSeconds","expires_at:NativeSendUnixSeconds","rate_window_ms:Milliseconds","maximum_uses:NativeSendCount","commitment:string","step_up:StepUpEvidence"]
-optional = ["native_fee_budget:NativeFeeBudget"]
+optional = ["native_fee_budget:NativeFeeBudget","nonce:EvmNonce"]
+nonce = "When disclosed by begin, the confirmation preserves the exact pending-tag sender nonce covered by step-up."
 
 [type.NativeSendAccessDisclosure]
 required = ["access_id:string","confirms:OperationDigest"]

@@ -140,13 +140,15 @@ type Metrics struct {
 	sessionsStarted   *prometheus.CounterVec
 	sessionsCompleted *prometheus.CounterVec
 	refusals          *prometheus.CounterVec
+	refusalCodes      map[string]struct{}
 	signingLatency    *prometheus.HistogramVec
 	peerRTT           *prometheus.HistogramVec
 }
 
-func NewMetrics(registry *prometheus.Registry) (*Metrics, error) {
+func NewMetrics(registry *prometheus.Registry, refusalCodes []string) (*Metrics, error) {
 	m := &Metrics{
-		registry: registry,
+		registry:     registry,
+		refusalCodes: make(map[string]struct{}, len(refusalCodes)),
 		sessionsStarted: prometheus.NewCounterVec(prometheus.CounterOpts{
 			Namespace: "attestor",
 			Name:      "sessions_started_total",
@@ -175,6 +177,9 @@ func NewMetrics(registry *prometheus.Registry) (*Metrics, error) {
 			Buckets:   prometheus.ExponentialBuckets(0.001, 2, 12),
 		}, []string{"peer"}),
 	}
+	for _, code := range refusalCodes {
+		m.refusalCodes[code] = struct{}{}
+	}
 	for _, c := range []prometheus.Collector{m.sessionsStarted, m.sessionsCompleted, m.refusals, m.signingLatency, m.peerRTT} {
 		if err := registry.Register(c); err != nil {
 			return nil, err
@@ -192,6 +197,9 @@ func (m *Metrics) SessionCompleted(protocol string) {
 }
 
 func (m *Metrics) Refused(reason string) {
+	if _, ok := m.refusalCodes[reason]; !ok {
+		reason = "other"
+	}
 	m.refusals.WithLabelValues(reason).Inc()
 }
 

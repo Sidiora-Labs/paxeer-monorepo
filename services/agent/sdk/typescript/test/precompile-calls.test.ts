@@ -130,9 +130,9 @@ const text = (value: string): string => {
 };
 
 const writes: readonly (readonly [string, string, PrecompileCall, string, string])[] = [
-  ["layerxexchange", "placeOrder(bytes32,uint8,uint256,uint256,uint8)",
-    exchangePlaceOrderCall({ marketId: id("11"), side: 2, price: 18446744073709551618n, quantity: 5000n, timeInForce: 0 }),
-    LAYERX_EXCHANGE_PRECOMPILE, "11".repeat(32) + word(2) + word(18446744073709551618n) + word(5000) + word(0)],
+  ["layerxexchange", "placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)",
+    exchangePlaceOrderCall({ marketId: id("11"), accountId: id("22"), side: 2, price: 18446744073709551618n, quantity: 5000n, timeInForce: 0 }),
+    LAYERX_EXCHANGE_PRECOMPILE, "11".repeat(32) + "22".repeat(32) + word(2) + word(18446744073709551618n) + word(5000) + word(0)],
   ["layerxexchange", "cancelOrder(bytes32)", exchangeCancelOrderCall(id("31")), LAYERX_EXCHANGE_PRECOMPILE, "31".repeat(32)],
   ["layerxexchange", "requestSettlement(bytes32)", exchangeRequestSettlementCall(id("41")), LAYERX_EXCHANGE_PRECOMPILE, "41".repeat(32)],
   ["layerxexchange", "depositMargin(bytes32)", exchangeDepositMarginCall(id("51"), 7n), LAYERX_EXCHANGE_PRECOMPILE, "51".repeat(32)],
@@ -226,18 +226,18 @@ const wallet: Eip1193Requester = {
 assert.equal(await sendExchangeDepositMargin(wallet, from, id("51"), 255n), id("fe"));
 assert.equal(await sendLaunchpadNftWrite(wallet, from, "executeBurn", 9n), id("fe"));
 assert.deepEqual(sent, [
-  { method: "eth_sendTransaction", params: [{ from, to: LAYERX_EXCHANGE_PRECOMPILE, data: abiSelector("depositMargin(bytes32)") + "51".repeat(32), value: "0xff" }] },
-  { method: "eth_sendTransaction", params: [{ from, to: LAUNCHPAD_PRECOMPILE, data: abiSelector("executeBurn(uint256)") + word(9), value: "0x0" }] },
+  { method: "eth_sendTransaction", params: [{ from, to: LAYERX_EXCHANGE_PRECOMPILE, data: abiSelector("depositMargin(bytes32)") + "51".repeat(32), value: "0xff", type: "0x2", chainId: "0x7d" }] },
+  { method: "eth_sendTransaction", params: [{ from, to: LAUNCHPAD_PRECOMPILE, data: abiSelector("executeBurn(uint256)") + word(9), value: "0x0", type: "0x2", chainId: "0x7d" }] },
 ]);
 assert.deepEqual(precompileTransactionRequest(from, exchangeCancelOrderCall(id("31"))).params, [
-  { from, to: LAYERX_EXCHANGE_PRECOMPILE, data: abiSelector("cancelOrder(bytes32)") + "31".repeat(32), value: "0x0" },
+  { from, to: LAYERX_EXCHANGE_PRECOMPILE, data: abiSelector("cancelOrder(bytes32)") + "31".repeat(32), value: "0x0", type: "0x2", chainId: "0x7d" },
 ]);
 await assert.rejects(
   sendExchangeDepositMargin({ request: async () => null }, from, id("51"), 1n),
   (error: unknown) => error instanceof PrecompileAbiError && error.code === "malformed_wallet_answer",
 );
 assert.throws(() => exchangeDepositMarginCall(id("51"), 0n), PrecompileAbiError);
-assert.throws(() => exchangePlaceOrderCall({ marketId: id("11"), side: 256, price: 1n, quantity: 1n, timeInForce: 0 }), PrecompileAbiError);
+assert.throws(() => exchangePlaceOrderCall({ marketId: id("11"), accountId: id("22"), side: 256, price: 1n, quantity: 1n, timeInForce: 0 }), PrecompileAbiError);
 
 const topic = (name: string): string => `0x${TOPICS[name] ?? ""}`;
 const order: PrecompileLog = {

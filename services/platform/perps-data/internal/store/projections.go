@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/lib/pq"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/bigint"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
@@ -57,25 +58,119 @@ const (
 // with only the rows that write inserted, so a block written twice folds once.
 // positions_current, orders and spot_orders follow their events in row order;
 // account_margin, user_stats, user_pnl_daily and market_stats_rolling are
-// recomputed from the stored facts for every key the rows touch, and
+// recomputed from the stored facts for every key the rows touch. Market stats
+// are also refreshed when their previous window is more than 24 hours old, and
 // keeper_cycles and spot_token_seen are written from the rows of the block,
-// and perps.leaderboard is rebuilt as of the block time when the block holds a
-// PositionOpened, PositionClosed or TradeSettled (contracts/data-services.md
-// section 18).
+// and perps.leaderboard refolds the accounts of PositionOpened, PositionClosed
+// or TradeSettled rows and ranks each window as of the block time
+// (contracts/data-services.md section 18).
 func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
 	board, err := project(ctx, tx, rows)
-	if err != nil || !board {
+	if err != nil {
 		return err
 	}
-	return rebuildLeaderboard(ctx, tx, rows[0].Common().BlockTime)
+	if err := FoldSpotBoard(ctx, tx, rows); err != nil {
+		return err
+	}
+	if !board {
+		return nil
+	}
+	var accounts set[common.Address]
+	for _, row := range rows {
+		switch row.(type) {
+		case decode.PositionOpenedRow, decode.PositionClosedRow, decode.TradeSettledRow:
+			accounts.add(row.Common().Account)
+		}
+	}
+	return rebuildLeaderboard(ctx, tx, rows[0].Common().BlockTime, accounts.list...)
 }
 
-// rebuildLeaderboard rebuilds every window of perps.leaderboard as of at.
-// ponytail: full recompute over the closes and settlements of the venue per
-// call; fold per account if the fact tables outgrow it.
-func rebuildLeaderboard(ctx context.Context, tx *sql.Tx, at time.Time) error {
-	if err := (pnl.Leaderboard{}).Rebuild(ctx, tx, at); err != nil {
-		return fmt.Errorf("store: project leaderboard: %w", err)
+const leaderboardUpsertSQL = `WITH closes AS (
+    SELECT c.account, c.realized_pnl, c.is_full_close, c.block_time,
+        (SELECT o.block_time FROM perps.position_events o
+         WHERE o.kind = 'opened' AND o.position_id = c.position_id
+           AND (o.block, o.tx_index, o.log_index, o.sub) < (c.block, c.tx_index, c.log_index, c.sub)
+         ORDER BY o.block DESC, o.tx_index DESC, o.log_index DESC, o.sub DESC LIMIT 1) AS opened_time
+    FROM perps.position_events c
+    WHERE c.account = ANY($4::bytea[]) AND c.kind = 'closed' AND c.block_time <= $3 AND ($2::timestamptz IS NULL OR c.block_time > $2)
+), close_stats AS (
+    SELECT account, sum(realized_pnl) AS realized_pnl,
+        count(*) FILTER (WHERE realized_pnl > 0) AS wins,
+        count(*) FILTER (WHERE realized_pnl < 0) AS losses,
+        coalesce(floor(avg(extract(epoch FROM block_time - opened_time))
+            FILTER (WHERE is_full_close AND opened_time IS NOT NULL)), 0)::bigint AS avg_hold
+    FROM closes GROUP BY account
+), settle_stats AS (
+    SELECT account, sum(size_usd) AS volume, count(*) AS trades
+    FROM perps.trade_settlements
+    WHERE account = ANY($4::bytea[]) AND block_time <= $3 AND ($2::timestamptz IS NULL OR block_time > $2)
+    GROUP BY account
+), accounts AS (
+    SELECT account FROM close_stats UNION SELECT account FROM settle_stats
+), open_positions AS (
+    SELECT account, count(*) AS open_count FROM perps.positions_current WHERE account = ANY($4::bytea[]) AND status = 'open' GROUP BY account
+), ranked AS (
+    SELECT a.account, coalesce(c.realized_pnl, 0) AS realized_pnl, coalesce(s.volume, 0) AS volume,
+        coalesce(s.trades, 0) AS trades,
+        CASE WHEN coalesce(c.wins, 0) + coalesce(c.losses, 0) = 0 THEN 0
+             ELSE round(c.wins * 100::numeric / (c.wins + c.losses), 4) END AS win_rate,
+        coalesce(c.avg_hold, 0) AS avg_hold, coalesce(p.open_count, 0) AS open_count
+    FROM accounts a
+    LEFT JOIN close_stats c ON c.account = a.account
+    LEFT JOIN settle_stats s ON s.account = a.account
+    LEFT JOIN open_positions p ON p.account = a.account
+), removed AS (
+    DELETE FROM perps.leaderboard b
+    WHERE b."window" = $1 AND b.account = ANY($4::bytea[])
+        AND NOT EXISTS (SELECT 1 FROM ranked r WHERE r.account = b.account)
+)
+INSERT INTO perps.leaderboard ("window", rank, account, realized_pnl, volume_usd, trades_count, win_rate, avg_hold_time_seconds, open_positions)
+SELECT $1, coalesce((SELECT max(rank) FROM perps.leaderboard WHERE "window" = $1), 0)
+    + row_number() OVER (ORDER BY realized_pnl DESC, account), account, realized_pnl, volume, trades, win_rate, avg_hold, open_count
+FROM ranked
+ON CONFLICT ("window", account) DO UPDATE SET
+    realized_pnl = EXCLUDED.realized_pnl, volume_usd = EXCLUDED.volume_usd,
+    trades_count = EXCLUDED.trades_count, win_rate = EXCLUDED.win_rate,
+    avg_hold_time_seconds = EXCLUDED.avg_hold_time_seconds, open_positions = EXCLUDED.open_positions`
+
+const leaderboardRanksSQL = `WITH ranked AS (
+    SELECT account, row_number() OVER (ORDER BY realized_pnl DESC, account) AS rank
+    FROM perps.leaderboard WHERE "window" = $1
+)
+UPDATE perps.leaderboard b SET rank = %s
+FROM ranked r WHERE b."window" = $1 AND b.account = r.account AND b.rank <> r.rank`
+
+// rebuildLeaderboard refolds the supplied accounts and ranks each window as of
+// at. With no accounts, Rebuild uses the full venue rebuild after replay.
+func rebuildLeaderboard(ctx context.Context, tx *sql.Tx, at time.Time, accounts ...common.Address) error {
+	if len(accounts) == 0 {
+		if err := (pnl.Leaderboard{}).Rebuild(ctx, tx, at); err != nil {
+			return fmt.Errorf("store: project leaderboard: %w", err)
+		}
+		return nil
+	}
+	keys := make(pq.ByteaArray, len(accounts))
+	for i, account := range accounts {
+		keys[i] = account.Bytes()
+	}
+	for _, w := range []struct {
+		name pnl.Window
+		span time.Duration
+	}{{pnl.WindowAll, 0}, {pnl.Window30d, 30 * 24 * time.Hour}, {pnl.Window7d, 7 * 24 * time.Hour}} {
+		var since sql.NullTime
+		if w.span > 0 {
+			since = sql.NullTime{Time: at.Add(-w.span), Valid: true}
+		}
+		if _, err := tx.ExecContext(ctx, leaderboardUpsertSQL, string(w.name), since, at, keys); err != nil {
+			return fmt.Errorf("store: project leaderboard %s: %w", w.name, err)
+		}
+		// Move changing ranks above the occupied range before assigning their
+		// final values: (window, rank) is an immediate unique primary key.
+		for _, rank := range []string{`b.rank + (SELECT max(rank) FROM perps.leaderboard WHERE "window" = $1)`, "r.rank"} {
+			if _, err := tx.ExecContext(ctx, fmt.Sprintf(leaderboardRanksSQL, rank), string(w.name)); err != nil {
+				return fmt.Errorf("store: rank leaderboard %s: %w", w.name, err)
+			}
+		}
 	}
 	return nil
 }
@@ -83,10 +178,18 @@ func rebuildLeaderboard(ctx context.Context, tx *sql.Tx, at time.Time) error {
 // project folds the rows of one block into every projection but
 // perps.leaderboard and reports whether the block changes the leaderboard.
 func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
-	if len(rows) == 0 {
-		return false, nil
+	var first decode.Fact
+	if len(rows) != 0 {
+		first = rows[0].Common()
+	} else {
+		err := tx.QueryRowContext(ctx, `SELECT number, time FROM perps.blocks ORDER BY number DESC LIMIT 1`).Scan(&first.Block, &first.BlockTime)
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, nil
+		}
+		if err != nil {
+			return false, fmt.Errorf("store: project empty block: %w", err)
+		}
 	}
-	first := rows[0].Common()
 	board := false
 	var (
 		margin  set[common.Address]
@@ -173,6 +276,24 @@ func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
 		if _, err := pnl.RebuildDaily(ctx, tx, d.account, d.day); err != nil {
 			return false, fmt.Errorf("store: project daily %s %s: %w", d.account.Hex(), d.day.Format(time.DateOnly), err)
 		}
+	}
+	expired, err := tx.QueryContext(ctx, staleMarketStatsSQL, first.BlockTime.UTC())
+	if err != nil {
+		return false, fmt.Errorf("store: select stale market stats: %w", err)
+	}
+	defer expired.Close()
+	for expired.Next() {
+		var market string
+		if err := expired.Scan(&market); err != nil {
+			return false, fmt.Errorf("store: scan stale market stats: %w", err)
+		}
+		markets.add(market)
+	}
+	if err := expired.Err(); err != nil {
+		return false, fmt.Errorf("store: read stale market stats: %w", err)
+	}
+	if err := expired.Close(); err != nil {
+		return false, fmt.Errorf("store: close stale market stats: %w", err)
 	}
 	for _, m := range markets.list {
 		if err := projectMarketStats(ctx, tx, m, first.Block, first.BlockTime); err != nil {
@@ -586,6 +707,13 @@ func projectStats(ctx context.Context, tx *sql.Tx, account common.Address, block
 	return exec1(ctx, tx, "stats "+account.Hex(), statsSQL, account.Bytes(), b)
 }
 
+const staleMarketStatsSQL = `SELECT s.market_id
+FROM perps.market_stats_rolling s
+JOIN perps.markets m ON m.market_id = s.market_id
+JOIN perps.blocks b ON b.number = s.updated_block
+WHERE b.time < $1::timestamptz - interval '24 hours'
+ORDER BY s.market_id`
+
 const marketStatsSQL = `INSERT INTO perps.market_stats_rolling (market_id, volume_24h, volume_7d, volume_30d, trades_count,
     open_interest_long, open_interest_short, high_24h, low_24h, open_24h, last_price, updated_block)
 SELECT $1,
@@ -611,9 +739,6 @@ ON CONFLICT (market_id) DO UPDATE SET volume_24h = EXCLUDED.volume_24h, volume_7
 // projectMarketStats recomputes the perps.market_stats_rolling row of market
 // from its fills, each Fill counted once per match, over the windows ending at
 // the block time, and its latest OpenInterestChanged.
-// ponytail: recomputed per touched market from the fills table, so a market
-// without fills keeps its windows until its next fill; move to hourly buckets
-// refreshed by the Snapshotter if the per-block scan or the staleness matters.
 func projectMarketStats(ctx context.Context, tx *sql.Tx, market string, block uint64, blockTime time.Time) error {
 	b, err := blockArg(block)
 	if err != nil {

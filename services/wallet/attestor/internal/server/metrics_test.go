@@ -49,7 +49,12 @@ func metricOptions(t *testing.T, registries map[string]*prometheus.Registry) fun
 	t.Helper()
 	return func(opts *Options) {
 		registry := prometheus.NewRegistry()
-		metrics, err := health.NewMetrics(registry)
+		codes := ErrorCodes()
+		refusalCodes := make([]string, 0, len(codes))
+		for code := range codes {
+			refusalCodes = append(refusalCodes, code)
+		}
+		metrics, err := health.NewMetrics(registry, refusalCodes)
 		if err != nil {
 			t.Fatal(err)
 		}

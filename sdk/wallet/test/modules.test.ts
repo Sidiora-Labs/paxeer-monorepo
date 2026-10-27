@@ -41,7 +41,7 @@ import {
   type SponsoredBatch,
   type SponsoredConsent,
 } from '@sidiora/layerx-sdk';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 
 import * as walletSdk from '../src/index.js';
 import {
@@ -49,6 +49,7 @@ import {
   FEE_TOKEN_PRECOMPILE,
   GasStationError,
   HOLDER_RECORDS_PAGE,
+  JsonRpcClient,
   LEDGER_PRECOMPILE_LOG_FLOOR,
   LEDGER_PRECOMPILE,
   PAYER_GRANT_BYTES,
@@ -68,6 +69,7 @@ import {
   gasStation,
   launchpad,
   ledgerLogFloor,
+  sendModuleTransactionReceipted,
   toWireConstruction,
   webData,
   type ModuleProvider,
@@ -381,6 +383,23 @@ const signer: ModuleProvider & { readonly isPaxeer: true } = {
 const submissions: SponsoredAdapterRequest[] = [];
 const answers: SponsoredSubmissionEvidence[] = [];
 const rpcCalls: { authorization: string | undefined; body: Json }[] = [];
+const moduleReceiptFixtures = JSON.parse(
+  readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8'),
+) as Record<'submitted' | 'receipted' | 'committed', Json>;
+const bridgeReceiptVector = eventVectors.bridge!.find((vector) => vector.event === 'BridgeOut')!;
+const bridgeReceiptEvent = abi('layerxbridge').find((entry) => entry.type === 'event' && entry.name === bridgeReceiptVector.event)!;
+const moduleReceipted = {
+  ...moduleReceiptFixtures.receipted,
+  blockNumber: moduleReceiptFixtures.committed.blockNumber,
+  blockHash: moduleReceiptFixtures.committed.blockHash,
+  logs: [
+    {
+      ...encodeLog(bridge(signer).address, bridgeReceiptEvent, bridgeReceiptVector.fields),
+      logIndex: '0x0',
+    },
+  ],
+};
+const moduleReceiptRequests: { scenario: string; method: string; params: unknown[] }[] = [];
 let server: Server;
 let gatewayUrl: string;
 let holderAnswer: ((params: unknown[]) => unknown) | null = null;
@@ -389,6 +408,30 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
   const chunks: Buffer[] = [];
   req.on('data', (chunk: Buffer) => chunks.push(chunk));
   req.on('end', () => {
+    if (req.method === 'POST' && req.url?.startsWith('/module-receipts/')) {
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
+      const scenario = req.url.slice('/module-receipts/'.length);
+      moduleReceiptRequests.push({ scenario, method: body.method, params: body.params });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (body.method === 'paxeer_sendTransactionReceipted') {
+        const code = scenario === 'injected' ? 4200 : scenario === 'rejected' ? 4001 : scenario === 'unavailable' ? -32010 : null;
+        res.end(JSON.stringify({
+          jsonrpc: '2.0',
+          id: body.id,
+          ...(code === null
+            ? { result: scenario === 'submitted' ? moduleReceiptFixtures.submitted : moduleReceipted }
+            : { error: { code, message: scenario } }),
+        }));
+      } else if (scenario === 'injected' && body.method === 'eth_sendTransaction') {
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: moduleReceiptFixtures.submitted.txHash }));
+      } else if (scenario === 'injected' && body.method === 'pax_sequencerReceipt') {
+        const polls = moduleReceiptRequests.filter((request) => request.scenario === scenario && request.method === body.method).length;
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: polls === 1 ? moduleReceiptFixtures.submitted : moduleReceipted }));
+      } else {
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
+      }
+      return;
+    }
     if (req.method === 'POST' && req.url === '/rpc') {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Json;
       rpcCalls.push({ authorization: req.headers.authorization, body });
@@ -1024,3 +1067,68 @@ describe('modules', () => {
     expect(() => helper.denominate('pax_gas', -1n)).toThrow(ModuleError);
   });
 });
+
+function moduleReceiptProvider(scenario: string): ModuleProvider {
+  const client = new JsonRpcClient({ url: `${gatewayUrl}/module-receipts/${scenario}` });
+  return { request: ({ method, params }) => client.call(method, params ?? []) };
+}
+
+function bridgeOutTransaction(provider: ModuleProvider): PrecompileCall {
+  const outbound = section('bridge').bridgeOut as Json;
+  return bridge(provider).bridgeOut(big(outbound.chain), text(outbound.asset), big(outbound.amount), text(outbound.recipient));
+}
+
+async function send_module_transaction_receipted_answers_the_receipt_with_logs() {
+  const provider = moduleReceiptProvider('direct');
+  const tx = bridgeOutTransaction(provider);
+  const from = `0x${account.slice(2).toUpperCase()}`;
+  const before = moduleReceiptRequests.length;
+  const answer = await sendModuleTransactionReceipted(provider, from, tx);
+  expect(answer).toEqual(moduleReceipted);
+  expect(answer.rung).toBe('receipted');
+  expect(answer.logs).toHaveLength(1);
+  expect(answer.logs).toEqual(moduleReceipted.logs);
+  expect(bridge(provider).decodeEvent(answer.logs![0]!)).toMatchObject({
+    event: bridgeReceiptVector.event,
+    fields: expected(bridgeReceiptEvent, bridgeReceiptVector.fields),
+  });
+  expect(moduleReceiptRequests.slice(before)).toEqual([
+    {
+      scenario: 'direct',
+      method: 'paxeer_sendTransactionReceipted',
+      params: [{ from: account, to: tx.to, data: tx.data, value: `0x${tx.value.toString(16)}` }],
+    },
+  ]);
+  for (const [scenario, code] of [['rejected', 4001], ['unavailable', -32010]] as const) {
+    const start = moduleReceiptRequests.length;
+    await expect(sendModuleTransactionReceipted(moduleReceiptProvider(scenario), from, tx)).rejects.toMatchObject({ code });
+    expect(moduleReceiptRequests.slice(start).map((request) => request.method)).toEqual(['paxeer_sendTransactionReceipted']);
+  }
+  const start = moduleReceiptRequests.length;
+  await expect(sendModuleTransactionReceipted(moduleReceiptProvider('submitted'), from, tx)).rejects.toMatchObject({
+    code: 'invalid_answer',
+    field: 'paxeer_sendTransactionReceipted',
+  });
+  expect(moduleReceiptRequests.slice(start).map((request) => request.method)).toEqual(['paxeer_sendTransactionReceipted']);
+}
+
+async function send_module_transaction_receipted_falls_back_for_an_injected_provider() {
+  const provider = moduleReceiptProvider('injected');
+  const tx = bridgeOutTransaction(provider);
+  const before = moduleReceiptRequests.length;
+  const answer = await sendModuleTransactionReceipted(provider, account, tx);
+  expect(answer).toEqual(moduleReceipted);
+  expect(answer.rung).toBe('receipted');
+  expect(answer.txHash).toBe(moduleReceiptFixtures.submitted.txHash);
+  expect(answer.logs).toEqual(moduleReceipted.logs);
+  const params = [{ from: account, to: tx.to, data: tx.data, value: `0x${tx.value.toString(16)}` }];
+  expect(moduleReceiptRequests.slice(before)).toEqual([
+    { scenario: 'injected', method: 'paxeer_sendTransactionReceipted', params },
+    { scenario: 'injected', method: 'eth_sendTransaction', params },
+    { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
+    { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
+  ]);
+}
+
+test(send_module_transaction_receipted_answers_the_receipt_with_logs);
+test(send_module_transaction_receipted_falls_back_for_an_injected_provider);

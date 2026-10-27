@@ -371,7 +371,7 @@ export function precompileTransactionRequest(from: string, call: PrecompileCall)
   }
   return {
     method: "eth_sendTransaction",
-    params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}` }],
+    params: [{ from, to: call.to, data: call.data, value: `0x${call.value.toString(16)}`, type: "0x2", chainId: "0x7d" }],
   };
 }
 
@@ -565,9 +565,10 @@ function exchangeCall(name: string, types: readonly PrecompileAbiType[], values:
   return { to: LAYERX_EXCHANGE_PRECOMPILE, data: encodeAbiCall(name, types, values), value };
 }
 
-/** `placeOrder(bytes32,uint8,uint256,uint256,uint8)`. */
+/** `placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)`. */
 export function exchangePlaceOrderCall(order: {
   readonly marketId: string;
+  readonly accountId: string;
   readonly side: number;
   readonly price: bigint;
   readonly quantity: bigint;
@@ -575,8 +576,8 @@ export function exchangePlaceOrderCall(order: {
 }): PrecompileCall {
   return exchangeCall(
     "placeOrder",
-    ["bytes32", "uint8", "uint256", "uint256", "uint8"],
-    [order.marketId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)],
+    ["bytes32", "bytes32", "uint8", "uint256", "uint256", "uint8"],
+    [order.marketId, order.accountId, BigInt(order.side), order.price, order.quantity, BigInt(order.timeInForce)],
   );
 }
 

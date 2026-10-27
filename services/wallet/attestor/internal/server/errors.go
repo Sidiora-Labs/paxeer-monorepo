@@ -3,6 +3,7 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 )
 
@@ -85,11 +86,7 @@ var errorStatus = map[string]int{
 }
 
 func ErrorCodes() map[string]string {
-	out := make(map[string]string, len(errorCategories))
-	for code, category := range errorCategories {
-		out[code] = category
-	}
-	return out
+	return maps.Clone(errorCategories)
 }
 
 type Error struct {

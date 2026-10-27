@@ -17,8 +17,30 @@ type LoadConfig struct {
 	Scenarios  []Scenario     `json:"scenarios,omitempty"`
 	MockDeploy bool           `json:"mockDeploy,omitempty"`
 	Settings   *Settings      `json:"settings,omitempty"`
+	Bounds     *BoundsConfig  `json:"bounds,omitempty"`
 	// Path to write a JSON report of the load test.
 	ReportPath string `json:"reportPath,omitempty"`
+}
+
+type BoundsConfig struct {
+	MinAverageTPS   float64 `json:"minAverageTps,omitempty"`
+	MaxP99LatencyMs int64   `json:"maxP99LatencyMs,omitempty"`
+	MinTotalTxs     uint64  `json:"minTotalTxs,omitempty"`
+}
+
+func MergeBounds(cfg *LoadConfig, s *Settings) {
+	if cfg.Bounds == nil {
+		return
+	}
+	if s.MinTPS == 0 && cfg.Bounds.MinAverageTPS != 0 {
+		s.MinTPS = cfg.Bounds.MinAverageTPS
+	}
+	if s.MaxP99Latency == 0 && cfg.Bounds.MaxP99LatencyMs != 0 {
+		s.MaxP99Latency = Duration(time.Duration(cfg.Bounds.MaxP99LatencyMs) * time.Millisecond)
+	}
+	if s.MinTotalTxs == 0 && cfg.Bounds.MinTotalTxs != 0 {
+		s.MinTotalTxs = cfg.Bounds.MinTotalTxs
+	}
 }
 
 // Duration wraps time.Duration to provide JSON unmarshaling support

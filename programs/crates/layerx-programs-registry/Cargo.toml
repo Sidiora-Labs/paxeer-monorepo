@@ -9,11 +9,14 @@ license.workspace = true
 name = "layerx_programs"
 
 [dependencies]
+curve25519-dalek = { version = "=4.1.3", default-features = false }
+ed25519-dalek = { version = "=2.2.0", default-features = false }
 layerx-program-sdk = { path = "../../sdk/rust" }
 layerx-proof = { path = "../../../services/agent/crates/layerx-proof" }
 layerx-programs-runtime = { path = "../layerx-programs-runtime" }
 layerx-types = { path = "../../../services/agent/crates/layerx-types" }
 layerx-wire = { path = "../../../services/agent/crates/layerx-wire" }
+sha2 = { workspace = true }
 
 [dev-dependencies]
 ed25519-dalek = { version = "=2.2.0", default-features = false, features = ["digest"] }
