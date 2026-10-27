@@ -33,12 +33,11 @@ use layerx_platform_gateway::store::{
     TapNonceConsumption,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, gateway_audit_event, gateway_digest, verify_activity_operation,
-    verify_submission, AccessError, AuthorityFacts, ModuleRegistry, VerifiedSubmission,
-    VerifiedTransfer,
+    authenticate_gateway_key, gateway_audit_event, gateway_digest, verify_submission, AccessError,
+    ModuleRegistry, VerifiedSubmission, VerifiedTransfer,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch};
+use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_ucp::{
     Capability, CheckoutStatus, CheckoutSubmission, ExecutedUcpPayment, NegotiatedCapabilities,
     OrderMetadata, PaymentHandler, PlatformProfile, UcpAdapter, UcpError, UcpIdempotencyKey,
@@ -2842,286 +2841,6 @@ impl ProviderVerifier for FiatEvidenceVerifier<'_> {
     }
 }
 
-struct Execution<'a> {
-    config: &'a Config,
-    authorization: &'a str,
-    activity: Vec<u8>,
-    idempotency: &'a str,
-    expected_signer: &'a str,
-    submitted_activity_id: Option<[u8; 32]>,
-    trace: &'a TraceId,
-}
-
-enum PlaneOutcome {
-    Pending,
-    Refused,
-    Executed(Box<ExecutionEvidence>),
-}
-
-struct ExecutionEvidence {
-    receipt: Vec<u8>,
-    authorized: AuthorizedBatch,
-    verified: layerx_platform_gateway::VerifiedOperation,
-}
-
-impl ExecutionEvidence {
-    fn sequencer_evidence(
-        &self,
-        config: &Config,
-    ) -> Result<layerx_interop_gateway::evidence::SequencerEvidence, String> {
-        use layerx_client::sequencer::SequencerReceipt;
-        use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
-        use layerx_proof::receipt::verify_sequencer_signature;
-        use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
-
-        let transaction_hash = self.verified.activity_id();
-        let answer = config
-            .sequencer
-            .sequencer_receipt(&transaction_hash)
-            .map_err(|_| "sequencer receipt unavailable".to_owned())?;
-        let (executed, rung) = match answer {
-            Some(SequencerReceipt::Receipted(receipt)) => (receipt, SettlementRung::Receipted),
-            Some(SequencerReceipt::Committed {
-                receipt,
-                block_number,
-                block_hash,
-            }) => (
-                receipt,
-                SettlementRung::Committed {
-                    block_number,
-                    block_hash,
-                },
-            ),
-            _ => return Err("executed sequencer receipt required".to_owned()),
-        };
-        if executed.tx_hash != transaction_hash || executed.receipt != self.receipt {
-            return Err("sequencer receipt conflicts with executed payment".to_owned());
-        }
-        let verified =
-            verify_sequencer_signature(&executed.receipt, config.receipt_keys.as_slice())
-                .map_err(|_| "sequencer signature refused".to_owned())?;
-        let logs = executed
-            .logs
-            .into_iter()
-            .map(|log| SequencerLog::new(log.address, log.topics, log.data, log.log_index))
-            .collect();
-        let logs = verify_logs(&verified, logs)
-            .map_err(|_| "sequencer logs refused".to_owned())?
-            .into_logs();
-        Ok(SequencerEvidence {
-            transaction_hash,
-            signed_receipt: executed.receipt,
-            logs,
-            rung,
-        })
-    }
-}
-
-impl Execution<'_> {
-    fn submit(&self) -> Result<PlaneOutcome, String> {
-        if parse_hex32(self.expected_signer).is_err() {
-            return Err("authenticated signer binding is invalid".to_owned());
-        }
-        let upstream = self.config.client.request_authorized_traced(
-            &self.config.hosted_gateway,
-            self.authorization,
-            &OutboundRequest {
-                method: "POST",
-                path: "/v1/activities",
-                idempotency: Some(self.idempotency),
-                content_type: "application/octet-stream",
-                body: &self.activity,
-            },
-            Some(self.trace.as_str()),
-        )?;
-        if upstream.status == 202 {
-            return Ok(PlaneOutcome::Pending);
-        }
-        if (400..500).contains(&upstream.status) {
-            return Ok(PlaneOutcome::Refused);
-        }
-        if upstream.status != 200 || upstream.content_type != "application/json" {
-            return Err("hosted gateway is unavailable".to_owned());
-        }
-        let response: HostedActivity = serde_json::from_slice(&upstream.body)
-            .map_err(|_| "hosted gateway response is invalid".to_owned())?;
-        if !response.ok || response.result.receipt.is_empty() {
-            return Err("hosted gateway response lacks receipt evidence".to_owned());
-        }
-        let receipt = decode_hex(&response.result.receipt, MAX_BODY)?;
-        let authority = authority(
-            self.config,
-            &response.result.activity_id,
-            &receipt,
-            self.trace,
-        )?;
-        let authorized = AuthorizedBatch::new(
-            authority.batch_id,
-            authority.asset,
-            authority.previous_state_root,
-            authority.resulting_state_root,
-            authority.sequencer_public_key,
-        );
-        let facts = AuthorityFacts::new(
-            authority.batch_id,
-            authority.asset,
-            authority.previous_state_root,
-            authority.resulting_state_root,
-            authority.sequencer_public_key,
-        );
-        let expected = parse_hex32(&response.result.activity_id)?;
-        let verified = verify_activity_operation(
-            &receipt,
-            facts,
-            &self.config.trusted_sequencer_key,
-            Some(expected),
-        )
-        .map_err(|_| "independent receipt verification failed".to_owned())?;
-        if let Some(submitted) = self.submitted_activity_id {
-            require_receipt_activity(submitted, verified.activity_id())?;
-        }
-        let independently_verified = verify(&receipt, &authorized)
-            .map_err(|_| "independent receipt verification failed".to_owned())?;
-        let protocol = independently_verified
-            .receipt()
-            .protocol()
-            .ok_or_else(|| "independent receipt verification failed".to_owned())?;
-        if !response
-            .result
-            .batch_id
-            .eq_ignore_ascii_case(&hex(&protocol.batch_id()))
-            || response.result.global_sequence != protocol.global_sequence()
-            || response.result.result_code != protocol.result_code()
-            || !response
-                .result
-                .state_root
-                .eq_ignore_ascii_case(&hex(&protocol.resulting_state_root()))
-        {
-            return Err("hosted gateway response conflicts with verified receipt".to_owned());
-        }
-        Ok(PlaneOutcome::Executed(Box::new(ExecutionEvidence {
-            receipt,
-            authorized,
-            verified,
-        })))
-    }
-}
-
-fn require_receipt_activity(
-    submitted_activity_id: [u8; 32],
-    receipt_activity_id: [u8; 32],
-) -> Result<(), String> {
-    if submitted_activity_id == receipt_activity_id {
-        Ok(())
-    } else {
-        Err("verified receipt does not match the submitted activity".to_owned())
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct HostedActivity {
-    ok: bool,
-    result: HostedResult,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct HostedResult {
-    activity_id: String,
-    batch_id: String,
-    global_sequence: u64,
-    result_code: i32,
-    state_root: String,
-    receipt: String,
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct AuthorityResponse {
-    activity_id: String,
-    receipt: String,
-    batch_id: String,
-    asset: String,
-    previous_state_root: String,
-    resulting_state_root: String,
-    sequencer_public_key: String,
-    network_id: String,
-    protocol_network_id: u32,
-    wire_version: String,
-    #[serde(
-        default,
-        deserialize_with = "layerx_platform_gateway::authority_evidence::present_maintained"
-    )]
-    batch_evidence: Option<layerx_platform_gateway::authority_evidence::MaintainedBatchDocument>,
-}
-
-struct AuthorizedFacts {
-    batch_id: [u8; 32],
-    asset: [u8; 32],
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    sequencer_public_key: [u8; 32],
-}
-
-fn authority(
-    config: &Config,
-    activity_id: &str,
-    receipt: &[u8],
-    trace: &TraceId,
-) -> Result<AuthorizedFacts, String> {
-    let authorization = format!("Bearer {}", config.receipt_authority_token.as_str());
-    let response = config.client.request_authorized_traced(
-        &config.receipt_authority,
-        &authorization,
-        &OutboundRequest {
-            method: "GET",
-            path: &format!("/v1/authorized-batches/by-activity/{activity_id}"),
-            idempotency: None,
-            content_type: "application/json",
-            body: &[],
-        },
-        Some(trace.as_str()),
-    )?;
-    if response.status != 200 || response.content_type != "application/json" {
-        return Err("receipt authority is unavailable".to_owned());
-    }
-    let facts: AuthorityResponse = serde_json::from_slice(&response.body)
-        .map_err(|_| "receipt authority response is invalid".to_owned())?;
-    if !facts.activity_id.eq_ignore_ascii_case(activity_id)
-        || facts.network_id != config.network_id
-        || facts.protocol_network_id != config.protocol_network_id
-        || facts.wire_version != config.wire_version
-    {
-        return Err("receipt authority scope mismatch".to_owned());
-    }
-    let authority_receipt = decode_hex(&facts.receipt, MAX_BODY)?;
-    if authority_receipt.len() != receipt.len() || authority_receipt.ct_eq(receipt).unwrap_u8() != 1
-    {
-        return Err("receipt authority scope mismatch".to_owned());
-    }
-    let authorized = AuthorizedBatch::new(
-        parse_hex32(&facts.batch_id)?,
-        parse_hex32(&facts.asset)?,
-        parse_hex32(&facts.previous_state_root)?,
-        parse_hex32(&facts.resulting_state_root)?,
-        parse_hex32(&facts.sequencer_public_key)?,
-    );
-    let authorized = match facts.batch_evidence {
-        None => authorized,
-        Some(maintained) => maintained
-            .authorize(receipt, &authorized, &config.sequencer_authorization)
-            .map_err(|_| "receipt authority maintained evidence is invalid".to_owned())?,
-    };
-    Ok(AuthorizedFacts {
-        batch_id: authorized.batch_id(),
-        asset: authorized.asset(),
-        previous_state_root: authorized.previous_state_root(),
-        resulting_state_root: authorized.resulting_state_root(),
-        sequencer_public_key: authorized.sequencer_public_key(),
-    })
-}
-
 fn direct_body<T: DeserializeOwned>(request: &IncomingRequest) -> Result<T, ()> {
     if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
         return Err(());
@@ -3438,6 +3157,20 @@ mod tests {
     use std::time::{Duration, Instant};
 
     #[test]
+    fn no_route_posts_hosted_activities() {
+        let source = include_str!("server.rs")
+            .split("\n#[cfg(test)]\nmod tests {")
+            .next()
+            .expect("server implementation");
+        for retired_path in ["/v1/activities", "/v1/authorized-batches"] {
+            assert!(
+                !source.contains(retired_path),
+                "server still names retired outbound path {retired_path}"
+            );
+        }
+    }
+
+    #[test]
     fn readyz_reports_the_sequencer_component() -> X402TestResult {
         let public_key = SigningKey::from_bytes(&[0x73; 32])
             .verifying_key()
@@ -3665,9 +3398,24 @@ mod tests {
     }
 
     #[test]
-    fn receipt_must_match_the_exact_submitted_activity() {
-        assert!(require_receipt_activity([0x51; 32], [0x51; 32]).is_ok());
-        assert!(require_receipt_activity([0x51; 32], [0x52; 32]).is_err());
+    fn receipt_must_match_the_exact_submitted_activity() -> X402TestResult {
+        let (raw, answer, keys) = relay_fixture([0x51; 32])?;
+        let (_, _, submitted) = decode_pay_exact(&raw)?;
+        let receipt = decode_hex(
+            answer["receipt"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .ok_or("signed receipt")?,
+            MAX_BODY,
+        )?;
+        let verified = verify_sequencer_signature(&receipt, keys.as_slice())
+            .map_err(|error| format!("sequencer receipt verification: {error:?}"))?;
+        let receipted = verified.protocol().ok_or("protocol receipt")?.activity_id();
+        assert_eq!(submitted, receipted);
+        let (replacement, _, _) = relay_fixture([0x52; 32])?;
+        let (_, _, replacement_id) = decode_pay_exact(&replacement)?;
+        assert_ne!(replacement_id, receipted);
+        Ok(())
     }
 
     #[test]
@@ -5136,150 +4884,4 @@ mod tests {
                 .remove(field);
         }
     }
-}
-
-#[cfg(test)]
-mod receipt_authority_shape_tests {
-    use super::{AuthorityResponse, MAX_BODY};
-    use crate::config::decode_hex;
-
-    fn captured_authority_document() -> serde_json::Value {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../../../platform/hosted/gateway/tests/fixtures/maintained-authority.json");
-        let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{error}"));
-        let capture: serde_json::Value =
-            serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
-        let mut document = capture["authority"].clone();
-        document["receipt"] = capture["receipt_hex"].clone();
-        let header = decode_hex(
-            capture["authority"]["batch_evidence"]["header_hex"]
-                .as_str()
-                .unwrap_or_else(|| panic!("captured maintained header")),
-            MAX_BODY,
-        )
-        .unwrap_or_else(|error| panic!("{error}"));
-        document["protocol_network_id"] =
-            serde_json::json!(layerx_wire::receipt::decode_batch_header(&header)
-                .unwrap_or_else(|error| panic!("{error:?}"))
-                .network_id());
-        document
-    }
-
-    fn decodes(document: &serde_json::Value) -> bool {
-        let bytes = serde_json::to_vec(document).unwrap_or_else(|error| panic!("{error}"));
-        serde_json::from_slice::<AuthorityResponse>(&bytes).is_ok()
-    }
-
-    #[test]
-    fn real_receipt_authority_response_decodes_with_its_receipt_scope_and_attachment() {
-        let document = captured_authority_document();
-        assert!(decodes(&document));
-        let mut historical = document.clone();
-        historical
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("authority response is an object"))
-            .remove("batch_evidence");
-        assert!(decodes(&historical));
-        let mut null = document.clone();
-        null["batch_evidence"] = serde_json::Value::Null;
-        assert!(!decodes(&null));
-        let mut unknown = document.clone();
-        unknown["unexpected"] = serde_json::json!(true);
-        assert!(!decodes(&unknown));
-        for field in ["receipt", "protocol_network_id", "batch_id", "network_id"] {
-            let mut missing = document.clone();
-            missing
-                .as_object_mut()
-                .unwrap_or_else(|| panic!("authority response is an object"))
-                .remove(field);
-            assert!(!decodes(&missing));
-        }
-    }
-}
-
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ReadinessReceiptInput {
-    activity_hex: String,
-    receipt_hex: String,
-    activity_id: String,
-    batch_id: String,
-    expected_signer: String,
-}
-
-pub fn verify_readiness_receipt(config: &Config, path: &str) -> Result<Value, String> {
-    use std::os::unix::fs::PermissionsExt;
-    let metadata =
-        std::fs::symlink_metadata(path).map_err(|_| "receipt input is unavailable".to_owned())?;
-    if !metadata.is_file()
-        || metadata.file_type().is_symlink()
-        || metadata.permissions().mode() & 0o077 != 0
-        || metadata.len() == 0
-        || metadata.len() > (4 * MAX_BODY) as u64
-    {
-        return Err("receipt input must be a protected bounded regular file".to_owned());
-    }
-    let input: ReadinessReceiptInput = serde_json::from_slice(
-        &std::fs::read(path).map_err(|_| "receipt input is unavailable".to_owned())?,
-    )
-    .map_err(|_| "receipt input shape is invalid".to_owned())?;
-    let activity = decode_hex(&input.activity_hex, MAX_BODY)?;
-    let receipt = decode_hex(&input.receipt_hex, MAX_BODY)?;
-    let signer = parse_hex32(&input.expected_signer)?;
-    let activity_id = parse_hex32(&input.activity_id)?;
-    let batch_id = parse_hex32(&input.batch_id)?;
-    let submission = verify_submission(
-        &activity,
-        &config.modules,
-        config.protocol_version,
-        config.protocol_network_id,
-        &signer,
-    )
-    .map_err(|_| "receipt activity signature or domain is invalid".to_owned())?;
-    require_receipt_activity(activity_id, submission.activity_id())?;
-    let trace = TraceId::mint(
-        activity_id[..16]
-            .try_into()
-            .map_err(|_| "receipt trace is invalid".to_owned())?,
-    );
-    let facts = authority(config, &input.activity_id, &receipt, &trace)?;
-    if facts.batch_id != batch_id {
-        return Err("receipt batch identity mismatch".to_owned());
-    }
-    let authorized = AuthorizedBatch::new(
-        facts.batch_id,
-        facts.asset,
-        facts.previous_state_root,
-        facts.resulting_state_root,
-        facts.sequencer_public_key,
-    );
-    let operation = verify_activity_operation(
-        &receipt,
-        AuthorityFacts::new(
-            facts.batch_id,
-            facts.asset,
-            facts.previous_state_root,
-            facts.resulting_state_root,
-            facts.sequencer_public_key,
-        ),
-        &config.trusted_sequencer_key,
-        Some(activity_id),
-    )
-    .map_err(|_| "independent activity receipt verification failed".to_owned())?;
-    require_receipt_activity(submission.activity_id(), operation.activity_id())?;
-    let verified = verify(&receipt, &authorized)
-        .map_err(|_| "independent batch receipt verification failed".to_owned())?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or_else(|| "protocol receipt is required".to_owned())?;
-    if protocol.batch_id() != batch_id || protocol.result_code() != 0 {
-        return Err("settlement receipt did not execute successfully".to_owned());
-    }
-    Ok(
-        json!({ "verified": true, "activity_id": hex(&activity_id), "batch_id": hex(&batch_id),
-        "receipt_sha256": hex(&Sha256::digest(&receipt)),
-        "receipt_digest": hex(&operation.receipt_digest()), "network_id": config.network_id,
-        "protocol_network_id": config.protocol_network_id, "wire_version": config.wire_version }),
-    )
 }
