@@ -149291,7 +149291,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.30.1]
 title = "Delete the layerx-intent-ingester crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.0.1", "9.1.7"]
