@@ -95791,7 +95791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.0.4]
 title = "Prove a signed EVM transaction to 0x101A returns a receipt with its logs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["2.0.3", "2.13.1"]
@@ -105143,7 +105143,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.11]
 title = "List mobile trade header and layout markets from the catalog"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.7"]
@@ -105205,7 +105205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.14]
 title = "Label positions, alerts and settlements with catalog symbols"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.10", "3.48.7"]
