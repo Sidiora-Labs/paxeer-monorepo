@@ -147756,7 +147756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.3]
 title = "Retire the intent-ingester deploy template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["11.18.1"]
@@ -147878,7 +147878,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.13.7]
 title = "Retire the single sequencer key argument from the gateway deploy renderer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["11.13.2", "11.18.1"]
