@@ -7933,3 +7933,11 @@ symbol = "MirrorVerifier::admit_committed"
 observed = "Attempts two and three (02802b7cb, f4dc2da15) failed the build with E0624: the test calls the private MirrorVerifier::admit_committed because ObservedArchive has no public constructor and the only public route, MirrorSources::read, needs a live source."
 assumption = "Making admit_committed pub is the smallest public route for a fixture-driven test (do_4)."
 severity = "major"
+
+[finding.5.41.4]
+task = "5.41.4"
+file = "node/store_delete_test.go"
+symbol = "TestBankKeepersCarryNoLaunchpadBalanceHook"
+observed = "Attempt one (b6a5caf62) completed do_1 and do_2 but go test ./node/ failed to compile: store_delete_test.go registers a.LaunchpadKeeper.BeforeBalanceChange, which 27b1faa06 (task 4.8.4) retired, so package node had a second dead reference besides the anchor store key."
+assumption = "Registering a test-local hook value keeps the duplicate-registration assertions meaningful without the retired method (do_4)."
+severity = "major"

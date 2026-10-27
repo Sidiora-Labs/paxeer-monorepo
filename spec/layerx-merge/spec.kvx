@@ -115334,7 +115334,7 @@ status = "pending"
 wave = 17
 requires = ["5.7.1", "5.41.3"]
 reqs = ["5483.1", "5064.1"]
-symbols = ["retiredAnchorStoreName", "TestAnchorStoreDeletedAtStep"]
+symbols = ["retiredAnchorStoreName", "TestAnchorStoreDeletedAtStep", "TestBankKeepersCarryNoLaunchpadBalanceHook"]
 touches = ["node/app.go", "node/store_delete_test.go", "storage/state_db/sc/composite/pending_store_test.go"]
 tests = ["node/store_delete_test.go::TestAnchorStoreDeletedAtStep", "node/store_delete_test.go::TestAnchorPrecompileStaysRegisteredWithoutModule"]
 build_cmd = "go build ./node/... && go vet ./storage/state_db/sc/composite/"
@@ -115342,7 +115342,7 @@ verify_cmd = "go vet ./storage/state_db/sc/composite/ && go test -count=1 ./node
 rollback = "Revert the three files; main returns to the pair of 5.7.1 and 5.41.3 that does not compile together."
 do_1 = "Task 5.41.3 deleted storekeys.LayerXAnchorStoreKey (storage/common/keys/store_keys.go:35, value \"layerxanchor\") while node/app.go:1553 (the AnchorStoreDeleteUpgrade store upgrades) and node/store_delete_test.go:25, :31 and :36 from task 5.7.1 still read it, so package node does not compile and every Go test that imports it fails at build. Declare `const retiredAnchorStoreName = \"layerxanchor\"` in node/app.go next to the store upgrade switch and read it at :1553 and in the three test lines; a deletion upgrade must keep naming the store by its historical name after the constant is gone."
 do_2 = "storage/state_db/sc/composite/pending_store_test.go:19 lists keys.LayerXAnchorStoreKey in forkStoreKeys; remove that entry and keep the other five, so legacyStoreKeys still excludes exactly the fork stores the key list carries."
-do_3 = "Change nothing else; the published 5.7.1 and 5.41.3 stay as they are."
+do_3 = "Change nothing else beyond do_1, do_2 and do_4."
 mode = "BUILD"
 gate_kind = "planned"
 sandbox_profile = "go"
@@ -115354,6 +115354,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "TestBankKeepersCarryNoLaunchpadBalanceHook at node/store_delete_test.go:84-101 registers a.LaunchpadKeeper.BeforeBalanceChange at :94 and :97, a method 27b1faa06 (task 4.8.4) retired; the package test binary no longer compiles. Declare a test-local value `var launchpadHook bankkeeper.BalanceChangeHook = func(sdk.Context, sdk.AccAddress, string, func() sdk.Int) error { return nil }` inside that test and register it at both call sites in place of the retired method, keeping the two assertions (the first registration under launchpadtypes.ModuleName does not panic because the app registers no launchpad hook; the second panics with the duplicate message). The value is a registration token for the hook bookkeeping under test, not a double for any product code path."
 
 [task.5.42.1]
 title = "Serve the merge stores from the composite commit store in migration write modes"
