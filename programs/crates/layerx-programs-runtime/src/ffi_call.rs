@@ -3868,6 +3868,88 @@ mod sandbox_source_cases {
 }
 
 #[cfg(test)]
+mod arbiter_authority_cases {
+    use super::*;
+
+    const HEIGHT: u64 = 0x0102_0304_0506_0708;
+    const BATCH: u64 = 7;
+    const DIGEST_WORDS: [u64; 4] = [
+        0x1122_3344_5566_7788,
+        0x99aa_bbcc_ddee_ff01,
+        0x2345_6789_abcd_ef01,
+        0xfedc_ba98_7654_3210,
+    ];
+
+    fn authority_bytes(version: u16) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&version.to_be_bytes());
+        bytes.extend_from_slice(&125_u32.to_be_bytes());
+        bytes.extend_from_slice(&PROTOCOL_STATE_COMMITMENT.to_be_bytes());
+        bytes.extend_from_slice(&0x1234_u16.to_be_bytes());
+        bytes.push(7);
+        bytes.extend_from_slice(&(-400_i32).to_be_bytes());
+        bytes.extend_from_slice(&(if version == 2 { HEIGHT } else { BATCH }).to_be_bytes());
+        if version == 1 {
+            for value in [9_u64, 10, BATCH - 1, BATCH + 1] {
+                bytes.extend_from_slice(&value.to_be_bytes());
+            }
+        }
+        for word in DIGEST_WORDS {
+            bytes.extend_from_slice(&word.to_be_bytes());
+        }
+        for hash in [[0x32; 32], [0x43; 32], [0x54; 32]] {
+            bytes.extend_from_slice(&hash);
+        }
+        if version == 1 {
+            bytes.extend_from_slice(&[0x65; 32]);
+            bytes.extend_from_slice(&[0x76; 32]);
+        }
+        bytes
+    }
+
+    fn check(bytes: &[u8], digest_words: [u64; 4], expected_height: u64) -> i32 {
+        arbiter_authority_check(digest_words, expected_height, |digest, height| {
+            decode_native_receipt_authority(bytes, digest, height)
+        })
+    }
+
+    #[test]
+    fn arbiter_check_matches_v2_height_and_refuses_batch_number() {
+        let v2 = authority_bytes(2);
+        assert_eq!(v2.len(), RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES);
+        assert_ne!(HEIGHT, BATCH);
+        assert_eq!(check(&v2, DIGEST_WORDS, HEIGHT), OK);
+        assert_eq!(check(&v2, DIGEST_WORDS, HEIGHT + 1), -801);
+        assert_eq!(check(&v2, DIGEST_WORDS, BATCH), -801);
+
+        let v1 = authority_bytes(1);
+        assert_eq!(v1.len(), RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES);
+        assert_eq!(check(&v1, DIGEST_WORDS, BATCH), OK);
+        assert_eq!(check(&v1, DIGEST_WORDS, HEIGHT), -801);
+        for (bytes, height) in [(&v2, HEIGHT), (&v1, BATCH)] {
+            for index in 0..4 {
+                let mut mismatched_digest = DIGEST_WORDS;
+                mismatched_digest[index] ^= 1;
+                assert_eq!(check(bytes, mismatched_digest, height), -801);
+            }
+            assert_eq!(
+                check(&bytes[..bytes.len() - 1], DIGEST_WORDS, height),
+                NON_CANONICAL
+            );
+        }
+
+        let mut unsupported = v1.clone();
+        unsupported[6..8].copy_from_slice(&u16::MAX.to_be_bytes());
+        assert_eq!(check(&unsupported, DIGEST_WORDS, BATCH), -101);
+        for (offset, bound) in [(39, BATCH + 1), (47, BATCH - 1)] {
+            let mut unauthorized = v1.clone();
+            unauthorized[offset..offset + 8].copy_from_slice(&bound.to_be_bytes());
+            assert_eq!(check(&unauthorized, DIGEST_WORDS, BATCH), -204);
+        }
+    }
+}
+
+#[cfg(test)]
 mod native_authority_cases {
     use super::*;
 
@@ -4269,7 +4351,7 @@ extern "C" {
         d1: u64,
         d2: u64,
         d3: u64,
-        expected_batch: u64,
+        expected_height: u64,
     ) -> i32;
     fn layerx_programs_call_arbiter_authority_byte(token: u64, offset: u32) -> i32;
 }
@@ -4281,14 +4363,14 @@ extern "C" {
 pub unsafe fn read_native_receipt_authority(
     token: u64,
     digest: [u8; 32],
-    expected_batch: u64,
+    expected_height: u64,
 ) -> Result<NativeReceiptAuthority, i32> {
-    if token == 0 || digest == [0; 32] || expected_batch == 0 {
+    if token == 0 || digest == [0; 32] || expected_height == 0 {
         return Err(NON_CANONICAL);
     }
     let [d0, d1, d2, d3] = words(digest);
     let status = unsafe {
-        layerx_programs_call_arbiter_authority_begin(token, d0, d1, d2, d3, expected_batch)
+        layerx_programs_call_arbiter_authority_begin(token, d0, d1, d2, d3, expected_height)
     };
     match status {
         OK => {}
@@ -4311,7 +4393,22 @@ pub unsafe fn read_native_receipt_authority(
         status if status < 0 => return Err(status),
         _ => return Err(NON_CANONICAL),
     }
-    decode_native_receipt_authority(&bytes[..length], digest, expected_batch)
+    decode_native_receipt_authority(&bytes[..length], digest, expected_height)
+}
+
+fn arbiter_authority_check(
+    digest_words: [u64; 4],
+    expected_height: u64,
+    read_authority: impl FnOnce([u8; 32], u64) -> Result<NativeReceiptAuthority, i32>,
+) -> i32 {
+    let mut digest = [0; 32];
+    for (target, word) in digest.chunks_exact_mut(8).zip(digest_words) {
+        target.copy_from_slice(&word.to_be_bytes());
+    }
+    match read_authority(digest, expected_height) {
+        Ok(_) => OK,
+        Err(status) => status,
+    }
 }
 
 /// # Safety
@@ -4323,14 +4420,9 @@ pub unsafe extern "C" fn layerx_programs_call_arbiter_authority_check(
     d1: u64,
     d2: u64,
     d3: u64,
-    expected_batch: u64,
+    expected_height: u64,
 ) -> i32 {
-    let mut digest = [0; 32];
-    for (target, word) in digest.chunks_exact_mut(8).zip([d0, d1, d2, d3]) {
-        target.copy_from_slice(&word.to_be_bytes());
-    }
-    match unsafe { read_native_receipt_authority(token, digest, expected_batch) } {
-        Ok(_) => OK,
-        Err(status) => status,
-    }
+    arbiter_authority_check([d0, d1, d2, d3], expected_height, |digest, height| unsafe {
+        read_native_receipt_authority(token, digest, height)
+    })
 }
