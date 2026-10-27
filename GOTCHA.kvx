@@ -8951,3 +8951,9 @@ area = "spec"
 symptom = "every open task of one package parks on the same build failure although none of them touches the files the errors name"
 cause = "the tasks share a package-wide typecheck as their per-task build gate, so pre-existing errors elsewhere in the package fail each task's build before its own files are compiled"
 do = "make the per-task build the test runner's list of the task's own spec file (vitest list <spec>) and keep the package typecheck as a wave-level gate"
+
+[gotcha.1871]
+area = "spec"
+symptom = "a Go test keeps failing with <MODULE>_TEST_POSTGRES_URL or <MODULE>_TEST_REDIS_URL unset although the gate provisions database fixtures for tests that name them"
+cause = "Go test fixtures often read their database and cache URLs in a module-level test-support package (internal/internaltest) rather than in the package under test, so a gate that provisions fixtures by scanning only the task's own paths never sees the variable names"
+do = "scan the enclosing Go module (the directory of the nearest go.mod, including its internal test-support packages) for fixture variable names before deciding what to provision"
