@@ -98080,7 +98080,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.6]
 title = "Break the layerxauth keeper test import cycle by moving the testutil-backed tests to package keeper_test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["5.19.2"]
