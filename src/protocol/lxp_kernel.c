@@ -20,6 +20,15 @@
 #include <stdlib.h>
 #include <string.h>
 
+static bool fee_meter_is_zero(const lxp_fee_meter *meter)
+{
+    return meter->canonical_encoded_bytes == 0U &&
+           meter->execution_units == 0U && meter->storage_units == 0U &&
+           !meter->exact_program_fee_present &&
+           meter->program_fee_schedule_version == 0U &&
+           lxp_u128_is_zero(meter->exact_program_fee_units);
+}
+
 struct lxp_kernel_batch_snapshot {
     lxp_state_snapshot *state;
     lxp_identity_store identities;
@@ -3471,6 +3480,8 @@ lxp_result lxp_kernel_prepare_activity(
           activity->payload.length < 2U || activity->payload.bytes[1] != 1U)))
         return LXP_ERR_NON_CANONICAL;
     *prepared_out = NULL;
+    if (!fee_meter_is_zero(&execution->fee_meter))
+        return LXP_ERR_CONTEXT_MISMATCH;
     sandbox_call = lxp_activity_type_ordinal(activity->activity_type) == 9U;
     status = lxp_kernel_batch_snapshot_clone(snapshot, &work);
     if (status != LXP_OK) return status;
@@ -6918,6 +6929,8 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
         execution->authority == NULL || execution->fee_parameters == NULL ||
         execution->arena == NULL || execution->batch_number == 0U)
         return LXP_ERR_NON_CANONICAL;
+    if (!fee_meter_is_zero(&execution->fee_meter))
+        return LXP_ERR_CONTEXT_MISMATCH;
     bool enforced = false;
     lxp_kernel_execution policy_execution;
     status = lxp_authority_allowance_policy(kernel, &enforced);

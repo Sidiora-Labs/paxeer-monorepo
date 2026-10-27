@@ -20,7 +20,7 @@ use crate::{
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -626,6 +626,7 @@ fn abi_payload(value: &AbiError) -> Vec<u8> {
         AbiError::AccessDeclaration => vec![15],
         AbiError::OracleUnknownMarket => vec![16],
         AbiError::OracleMarketHalted => vec![17],
+        AbiError::EffectLimit => vec![18],
         AbiError::InvalidEncoding => vec![10],
         AbiError::Storage(error) => vec![11, storage_tag(*error)],
         AbiError::Meter(error) => {
@@ -2056,6 +2057,70 @@ impl KernelTransferPrimitive for CKernel {
     }
 }
 
+static CALL_EVENT_LOGS: Mutex<BTreeMap<u64, Vec<crate::abi::ProgramEventLog>>> =
+    Mutex::new(BTreeMap::new());
+
+fn clear_call_event_logs(token: u64) -> Result<(), i32> {
+    CALL_EVENT_LOGS
+        .lock()
+        .map_err(|_| FATAL_INVARIANT)?
+        .remove(&token);
+    Ok(())
+}
+
+fn record_call_event_logs(
+    token: u64,
+    program: ProgramId,
+    effects: &crate::AbiEffects,
+) -> Result<(), i32> {
+    let logs = effects
+        .program_event_logs(program)
+        .map_err(|_| NON_CANONICAL)?;
+    let mut calls = CALL_EVENT_LOGS.lock().map_err(|_| FATAL_INVARIANT)?;
+    if logs.is_empty() {
+        calls.remove(&token);
+    } else {
+        calls.insert(token, logs);
+    }
+    Ok(())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn layerx_programs_event_log_encode(
+    call_token: u64,
+    index: u32,
+    out: *mut u8,
+    out_len: u32,
+) -> i32 {
+    let Ok(calls) = CALL_EVENT_LOGS.lock() else {
+        return FATAL_INVARIANT;
+    };
+    let Some(log) = calls.get(&call_token).and_then(|logs| {
+        usize::try_from(index)
+            .ok()
+            .and_then(|index| logs.get(index))
+    }) else {
+        return -1;
+    };
+    let Some(length) = log.data.len().checked_add(64) else {
+        return LENGTH_LIMIT;
+    };
+    let Ok(written) = i32::try_from(length) else {
+        return LENGTH_LIMIT;
+    };
+    if u64::from(out_len) < length as u64 {
+        return -2;
+    }
+    if out.is_null() {
+        return NON_CANONICAL;
+    }
+    let output = unsafe { core::slice::from_raw_parts_mut(out, length) };
+    output[..32].copy_from_slice(&log.topics[0]);
+    output[32..64].copy_from_slice(&log.topics[1]);
+    output[64..].copy_from_slice(&log.data);
+    written
+}
+
 fn emit_events(token: u64, events: &[ProgramEvent]) -> Result<(), i32> {
     for (index, event) in events.iter().enumerate() {
         let program = words(event.program.bytes());
@@ -2703,6 +2768,7 @@ pub extern "C" fn layerx_programs_call_begin(
     table_elements: u64,
 ) -> i32 {
     let run = || -> Result<i32, i32> {
+        clear_call_event_logs(token)?;
         let access_declaration_length =
             usize::try_from(access_declaration_length).map_err(|_| LENGTH_LIMIT)?;
         if token == 0
@@ -3415,6 +3481,7 @@ pub extern "C" fn layerx_programs_call_begin(
                             settlement.transfer_root,
                         )?;
                     }
+                    record_call_event_logs(token, program, &effects)?;
                     return terminal(TerminalPublication {
                         token,
                         kind: SUCCESS,
@@ -3721,6 +3788,7 @@ pub extern "C" fn layerx_programs_call_begin(
                         events: b"LXP/programs/events/v1\0\0\0\0\0",
                     });
                 }
+                record_call_event_logs(token, program, &record.effects)?;
                 terminal(TerminalPublication {
                     token,
                     kind: SUCCESS,
@@ -3784,9 +3852,15 @@ pub extern "C" fn layerx_programs_call_begin(
             }
         }
     };
-    match run() {
+    let status = match run() {
         Ok(status) | Err(status) => status,
+    };
+    if status != OK {
+        if let Err(error) = clear_call_event_logs(token) {
+            return error;
+        }
     }
+    status
 }
 
 #[no_mangle]
@@ -3842,6 +3916,158 @@ pub extern "C" fn layerx_programs_occupancy_finalize_rust(
     };
     match run() {
         Ok(status) | Err(status) => status,
+    }
+}
+
+#[cfg(test)]
+mod event_log_cases {
+    use super::*;
+    use sha3::{Digest, Keccak256};
+
+    fn event_effects() -> crate::AbiEffects {
+        let program =
+            ProgramId::new([0x31; 32]).unwrap_or_else(|error| panic!("event program: {error}"));
+        let principal =
+            PrincipalId::new([0x42; 32]).unwrap_or_else(|error| panic!("event principal: {error}"));
+        crate::AbiEffects {
+            events: vec![
+                ProgramEvent {
+                    program,
+                    principal,
+                    frame: crate::CallFrameId::root(),
+                    topic: b"first".to_vec(),
+                    data: vec![0x53; 33],
+                },
+                ProgramEvent {
+                    program,
+                    principal,
+                    frame: crate::CallFrameId::root(),
+                    topic: b"second".to_vec(),
+                    data: Vec::new(),
+                },
+            ],
+            ..crate::AbiEffects::default()
+        }
+    }
+
+    #[test]
+    fn event_log_encode_writes_topics_and_data() {
+        let token = 0x1374_0001;
+        let other_token = 0x1374_0002;
+        let program =
+            ProgramId::new([0x64; 32]).unwrap_or_else(|error| panic!("call program: {error}"));
+        let other_program =
+            ProgramId::new([0x75; 32]).unwrap_or_else(|error| panic!("other program: {error}"));
+        let effects = event_effects();
+        record_call_event_logs(token, program, &effects)
+            .unwrap_or_else(|status| panic!("record logs: {status}"));
+        record_call_event_logs(other_token, other_program, &effects)
+            .unwrap_or_else(|status| panic!("record other logs: {status}"));
+
+        for (call_token, call_program) in [(token, program), (other_token, other_program)] {
+            for (index, event) in effects.events.iter().enumerate() {
+                let length = 64 + 96 + event.data.len().div_ceil(32) * 32;
+                let mut output = vec![0xa5; length + 2];
+                let written = unsafe {
+                    layerx_programs_event_log_encode(
+                        call_token,
+                        u32::try_from(index).unwrap_or_else(|error| panic!("index: {error}")),
+                        output.as_mut_ptr().add(1),
+                        u32::try_from(length + 1)
+                            .unwrap_or_else(|error| panic!("capacity: {error}")),
+                    )
+                };
+                assert_eq!(usize::try_from(written), Ok(length));
+                assert_eq!(output[0], 0xa5);
+                assert_eq!(output[length + 1], 0xa5);
+                let encoded = &output[1..=length];
+                assert_eq!(
+                    &encoded[..32],
+                    Keccak256::digest(b"ProgramGuestEvent(bytes32,bytes32,bytes)").as_slice()
+                );
+                assert_eq!(&encoded[32..64], &call_program.bytes());
+                assert_eq!(&encoded[64..96], Keccak256::digest(&event.topic).as_slice());
+                assert_eq!(&encoded[96..127], &[0; 31]);
+                assert_eq!(encoded[127], 64);
+                assert_eq!(&encoded[128..152], &[0; 24]);
+                assert_eq!(
+                    &encoded[152..160],
+                    &u64::try_from(event.data.len())
+                        .unwrap_or_else(|error| panic!("data length: {error}"))
+                        .to_be_bytes()
+                );
+                assert_eq!(&encoded[160..160 + event.data.len()], event.data.as_slice());
+                assert!(encoded[160 + event.data.len()..]
+                    .iter()
+                    .all(|byte| *byte == 0));
+            }
+        }
+        clear_call_event_logs(token).unwrap_or_else(|status| panic!("clear logs: {status}"));
+        clear_call_event_logs(other_token)
+            .unwrap_or_else(|status| panic!("clear other logs: {status}"));
+    }
+
+    #[test]
+    fn event_log_encode_refuses_index_and_short_buffer() {
+        let token = 0x1374_0003;
+        let program =
+            ProgramId::new([0x86; 32]).unwrap_or_else(|error| panic!("call program: {error}"));
+        let effects = event_effects();
+        record_call_event_logs(token, program, &effects)
+            .unwrap_or_else(|status| panic!("record logs: {status}"));
+        let mut output = [0xa5; 226];
+        for index in [2, 3, u32::MAX] {
+            assert_eq!(
+                unsafe { layerx_programs_event_log_encode(token, index, output.as_mut_ptr(), 226) },
+                -1
+            );
+            assert_eq!(output, [0xa5; 226]);
+        }
+        for (index, required) in [(0, 224), (1, 160)] {
+            for capacity in [0, 63, required - 1] {
+                assert_eq!(
+                    unsafe {
+                        layerx_programs_event_log_encode(
+                            token,
+                            index,
+                            output.as_mut_ptr().add(1),
+                            capacity,
+                        )
+                    },
+                    -2
+                );
+                assert_eq!(output, [0xa5; 226]);
+            }
+            assert_eq!(
+                unsafe {
+                    layerx_programs_event_log_encode(
+                        token,
+                        index,
+                        output.as_mut_ptr().add(1),
+                        required,
+                    )
+                },
+                i32::try_from(required).unwrap_or_else(|error| panic!("length: {error}"))
+            );
+            assert_eq!(output[0], 0xa5);
+            assert!(output[usize::try_from(required)
+                .unwrap_or_else(|error| panic!("length: {error}"))
+                + 1..]
+                .iter()
+                .all(|byte| *byte == 0xa5));
+            output.fill(0xa5);
+        }
+        assert_eq!(
+            unsafe { layerx_programs_event_log_encode(token, 0, core::ptr::null_mut(), 224) },
+            NON_CANONICAL
+        );
+        record_call_event_logs(token, program, &crate::AbiEffects::default())
+            .unwrap_or_else(|status| panic!("replace logs: {status}"));
+        assert_eq!(
+            unsafe { layerx_programs_event_log_encode(token, 0, output.as_mut_ptr(), 226) },
+            -1
+        );
+        assert_eq!(output, [0xa5; 226]);
     }
 }
 
