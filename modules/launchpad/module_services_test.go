@@ -16,6 +16,7 @@ import (
 	cdctypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/module"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/stretchr/testify/require"
@@ -65,6 +66,11 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
 				require.Equal(t, "empty denom", status.Convert(err).Message())
+			case "MarketByAddress":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
 			default:
 				require.Equal(t, codes.Unimplemented, status.Code(err))
 				require.Equal(t, "method "+method+" not implemented", status.Convert(err).Message())

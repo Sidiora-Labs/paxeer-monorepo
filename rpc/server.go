@@ -33,8 +33,9 @@ type EVMServer interface {
 	Stop()
 }
 
-// ServerOption configures NewEVMHTTPServer (a TraceContextProvider, a SequencerReceiptOption or a
-// SequencerOption) and NewEVMWebSocketServer (a SequencerOption).
+// ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
+// SequencerOption, PendingOption or SequencerForwardOption) and NewEVMWebSocketServer
+// (a SequencerOption, PendingOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
 
 func (TraceContextProvider) serverOption()   {}
@@ -60,16 +61,24 @@ func NewSequencerOption(accepter SequencerAccepter, feed *ReceiptLogFeed) Sequen
 	}
 }
 
-// sendConfig is the SendConfig of a server: the sequencer's when o is set, otherwise the
-// mempool path's.
-func (o *SequencerOption) sendConfig(config evmrpcconfig.Config) *SendConfig {
+// sendConfig configures the sequencer, forwarding or mempool send path of a server.
+func (o *SequencerOption) sendConfig(config evmrpcconfig.Config, forward *SequencerForwardOption) (*SendConfig, error) {
+	if o != nil && forward != nil {
+		return nil, errors.New("sequencer and sequencer forwarding options are mutually exclusive")
+	}
 	sendConfig := &SendConfig{slow: config.Slow, keyringEnabled: config.EnableUnsafeKeyringRPC, syncTimeout: config.SendRawTxSyncTimeout}
 	if o != nil {
 		sendConfig.Sequencer = o.accepter
 		sendConfig.pendingTxs = o.pendingTxs
 		sendConfig.receiptLogs = o.receiptLogs
 	}
-	return sendConfig
+	if forward != nil {
+		if forward.url == nil {
+			return nil, errors.New("sequencer forwarding option needs a URL; build it with NewSequencerForwardOption")
+		}
+		sendConfig.SequencerURL = forward.url
+	}
+	return sendConfig, nil
 }
 
 // sequencerOption takes opt as a server's SequencerOption; current is the one already taken, if
@@ -146,6 +155,7 @@ func NewEVMHTTPServer(
 	traceCtxProvider := defaultTraceContextProvider(ctxProvider)
 	var sequencerReceipts SequencerReceiptOption
 	var seq *SequencerOption
+	var forward *SequencerForwardOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
 		case TraceContextProvider:
@@ -154,6 +164,13 @@ func NewEVMHTTPServer(
 			}
 		case SequencerReceiptOption:
 			sequencerReceipts = o
+		case PendingOption:
+			if o.source == nil {
+				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
+			}
+			watermarks.SetPendingSnapshot(o.source)
+		case SequencerForwardOption:
+			forward = &o
 		case SequencerOption:
 			var err error
 			if seq, err = sequencerOption(o, seq); err != nil {
@@ -161,10 +178,14 @@ func NewEVMHTTPServer(
 			}
 		}
 	}
+	sendCfg, err := seq.sendConfig(config, forward)
+	if err != nil {
+		return nil, err
+	}
 
 	globalBlockCache := NewBlockCache(3000)
 	cacheCreationMutex := &sync.Mutex{}
-	sendAPI := NewSendAPI(tmClient, txConfigProvider, seq.sendConfig(config), k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeHTTP, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks)
+	sendAPI := NewSendAPI(tmClient, txConfigProvider, sendCfg, k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeHTTP, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks)
 	sequencerReceiptAPI, err := newSequencerReceiptAPI(tmClient, ctxProvider, sequencerReceipts, ConnectionTypeHTTP)
 	if err != nil {
 		return nil, err
@@ -339,15 +360,29 @@ func NewEVMWebSocketServer(
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
 	var seq *SequencerOption
+	var forward *SequencerForwardOption
+	var pending PendingSnapshot
 	for _, opt := range opts {
-		o, ok := opt.(SequencerOption)
-		if !ok {
+		switch o := opt.(type) {
+		case PendingOption:
+			if o.source == nil {
+				return nil, errors.New("pending option needs a snapshot source; build it with NewPendingOption")
+			}
+			pending = o.source
+		case SequencerForwardOption:
+			forward = &o
+		case SequencerOption:
+			var err error
+			if seq, err = sequencerOption(o, seq); err != nil {
+				return nil, err
+			}
+		default:
 			return nil, fmt.Errorf("EVM WebSocket server takes no %T option", opt)
 		}
-		var err error
-		if seq, err = sequencerOption(o, seq); err != nil {
-			return nil, err
-		}
+	}
+	sendCfg, err := seq.sendConfig(config, forward)
+	if err != nil {
+		return nil, err
 	}
 	ctx := ctxProvider(LatestCtxHeight)
 	if config.EnableUnsafeKeyringRPC && evmCfg.IsLiveChainID(ctx) {
@@ -376,6 +411,9 @@ func NewEVMWebSocketServer(
 		MaxConcurrentSimulationCalls: config.MaxConcurrentSimulationCalls,
 	}
 	watermarks := NewWatermarkManager(tmClient, ctxProvider, stateStore, k.ReceiptStore())
+	if pending != nil {
+		watermarks.SetPendingSnapshot(pending)
+	}
 	// DB semaphore aligned with worker count
 	dbReadSemaphore := make(chan struct{}, GetGlobalWorkerPool().WorkerCount())
 	globalBlockCache := NewBlockCache(3000)
@@ -450,7 +488,7 @@ func NewEVMWebSocketServer(
 		},
 		{
 			Namespace: "eth",
-			Service:   NewSendAPI(tmClient, txConfigProvider, seq.sendConfig(config), k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeWS, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks),
+			Service:   NewSendAPI(tmClient, txConfigProvider, sendCfg, k, beginBlockKeepers, ctxProvider, homeDir, simulateConfig, app, antehandler, ConnectionTypeWS, methodTimeout, globalBlockCache, cacheCreationMutex, watermarks),
 		},
 		{
 			Namespace: "eth",

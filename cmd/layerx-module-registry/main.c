@@ -1,15 +1,10 @@
 #define _POSIX_C_SOURCE 200809L
-#include "layerx/lxp_bridge_credit.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_genesis.h"
 #include "layerx/lxp_kernel.h"
-#include <errno.h>
-#include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/stat.h>
-#include <unistd.h>
 
 static int number(const char *text, uint32_t maximum, uint32_t *out)
 {
@@ -46,27 +41,6 @@ static int asset_valid(const char *text)
         if (text[i] != '0') nonzero = true;
     }
     return nonzero ? 0 : 1;
-}
-
-static int profile_read(const char *path, lxp_bridge_profile *profile)
-{
-    struct stat info;
-    size_t offset = 0U;
-    int fd = open(path, O_RDONLY | O_NOFOLLOW | O_NONBLOCK);
-    if (fd < 0) return 1;
-    if (fstat(fd, &info) != 0 || !S_ISREG(info.st_mode) ||
-        info.st_size != LXP_BRIDGE_PROFILE_BYTES) { (void)close(fd); return 1; }
-    while (offset < sizeof(profile->bytes)) {
-        ssize_t n = read(fd, profile->bytes + offset, sizeof(profile->bytes) - offset);
-        if (n < 0 && errno == EINTR) continue;
-        if (n <= 0) { (void)close(fd); return 1; }
-        offset += (size_t)n;
-    }
-    uint8_t extra;
-    int result = read(fd, &extra, 1U) == 0 &&
-        lxp_bridge_profile_validate(profile) == LXP_OK ? 0 : 1;
-    if (close(fd) != 0) result = 1;
-    return result;
 }
 
 static int module_valid(const lxp_module_iface *module)
@@ -119,7 +93,7 @@ static int plan_enable(lxp_genesis_module_plan *plan,
 
 int main(int argc, char **argv)
 {
-    const char *asset = NULL, *symbol = NULL, *currency = NULL, *profile_path = NULL;
+    const char *asset = NULL, *symbol = NULL, *currency = NULL;
     uint32_t decimals = 39U, network = 0U, protocol = 0U;
     unsigned seen = 0U;
     bool enabled[LXP_MODULE_RESERVED_COUNT + 1U] = {false};
@@ -138,31 +112,16 @@ int main(int argc, char **argv)
         else if (strcmp(key, "--decimals") == 0) { bit = 8U; if (number(value, 38U, &decimals)) goto refused; }
         else if (strcmp(key, "--network-id") == 0) { bit = 16U; if (number(value, UINT32_MAX, &network) || network == 0U) goto refused; }
         else if (strcmp(key, "--protocol-version") == 0) { bit = 32U; if (number(value, 3U, &protocol) || protocol != 3U) goto refused; }
-        else if (strcmp(key, "--custody-profile") == 0) { bit = 64U; profile_path = value; }
         else goto refused;
         if (seen & bit) goto refused;
         seen |= bit;
     }
-    if ((seen != 63U && seen != 127U) || asset_valid(asset) ||
+    if (seen != 63U || asset_valid(asset) ||
         metadata(symbol) || metadata(currency)) goto refused;
-    lxp_bridge_profile profile;
-    if (profile_path != NULL) {
-        if (profile_read(profile_path, &profile)) goto refused;
-        uint32_t bound = ((uint32_t)profile.bytes[201] << 24U) |
-            ((uint32_t)profile.bytes[202] << 16U) |
-            ((uint32_t)profile.bytes[203] << 8U) | profile.bytes[204];
-        if (bound != network) goto refused;
-        for (size_t i = 0U; i < 32U; ++i) {
-            char hex[3];
-            (void)snprintf(hex, sizeof(hex), "%02x", profile.bytes[97U + i]);
-            if (memcmp(hex, asset + i * 2U, 2U) != 0) goto refused;
-        }
-    }
     lxp_genesis_module_plan plan;
     const lxp_module_iface *modules[LXP_GENESIS_MODULE_TABLE_MAX];
     size_t count;
-    if (lxp_genesis_module_plan_default((uint16_t)protocol,
-                                        profile_path != NULL, &plan) != LXP_OK)
+    if (lxp_genesis_module_plan_default((uint16_t)protocol, false, &plan) != LXP_OK)
         goto refused;
     if (plan_enable(&plan, enabled)) goto refused;
     count = plan.count;
