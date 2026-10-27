@@ -7829,3 +7829,11 @@ symbol = "test_template_names_every_variable_the_service_reads"
 observed = "At aeddaac1d the graph check refused symbol railway.env.example, a file name rather than a declared symbol."
 assumption = "The task's symbols now name the test function; no other undone task declares a file name as a symbol."
 severity = "minor"
+
+[finding.11.26.4]
+task = "11.26.4"
+file = "services/interop/crates/layerx-mirror/src/ethereum.rs"
+symbol = "ArchivedCommittedBlock"
+observed = "At 5accfdd42 the build failed: ethereum.rs:865, runtime.rs:295 and solana.rs:960 call as_ref() on ArchiveData.committed, which do_2 turns from an Option into the struct."
+assumption = "The three publisher-side readers are part of the same change and join the task's touches (do_8); no behaviour outside the batch-era paths changes."
+severity = "minor"
