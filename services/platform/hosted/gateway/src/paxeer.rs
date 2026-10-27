@@ -53,11 +53,11 @@ fn parse_endpoints(value: &str) -> Result<Vec<super::Endpoint>, String> {
 
 /// The request path appended to an endpoint's base path: a configured base
 /// path such as `/rpc` is posted to exactly, a bare root is posted to `/`.
-fn rpc_path(endpoint: &super::Endpoint) -> &'static str {
+fn rpc_path(endpoint: &super::Endpoint) -> &str {
     if endpoint.base_path.is_empty() {
         "/"
     } else {
-        ""
+        &endpoint.base_path
     }
 }
 
@@ -90,13 +90,16 @@ pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static s
     let mut failure = "paxeer_unreachable";
     let mut answered = None;
     for endpoint in endpoints {
+        let path = rpc_path(endpoint);
+        let mut target = endpoint.clone();
+        target.base_path.clear();
         let identity_body =
             br#"{"jsonrpc":"2.0","id":"route-network","method":"eth_chainId","params":[]}"#;
         let identity = config.client.request_unauthenticated(
-            endpoint,
+            &target,
             &OutboundRequest {
                 method: "POST",
-                path: rpc_path(endpoint),
+                path,
                 idempotency: None,
                 content_type: "application/json",
                 body: identity_body,
@@ -121,10 +124,10 @@ pub(super) fn node(config: &Config, request: &Value) -> Result<Value, &'static s
             continue;
         }
         match config.client.request_unauthenticated(
-            endpoint,
+            &target,
             &OutboundRequest {
                 method: "POST",
-                path: rpc_path(endpoint),
+                path,
                 idempotency: None,
                 content_type: "application/json",
                 body: &body,
@@ -448,22 +451,32 @@ fn validate_native_listing(resolution: &Resolution, listing: &Value) -> Result<(
     if listing.get("did").and_then(Value::as_str) != Some(did.as_str()) {
         return Err("conflicting_identity_binding");
     }
-    let accounts = listing.get("accounts").and_then(Value::as_array)
+    let accounts = listing
+        .get("accounts")
+        .and_then(Value::as_array)
         .ok_or("conflicting_identity_binding")?;
     let prefix = format!("agent:{did}:");
     let mut seen = std::collections::BTreeSet::new();
     for record in accounts {
-        let name = record.get("name").and_then(Value::as_str)
+        let name = record
+            .get("name")
+            .and_then(Value::as_str)
             .filter(|name| name.starts_with(&prefix))
             .ok_or("conflicting_identity_binding")?;
-        let suffix = name.strip_prefix(&prefix).ok_or("conflicting_identity_binding")?;
-        let owned = suffix == "main" || suffix.split_once(':').is_some_and(|(kind, tail)| {
-            matches!(kind, "asset" | "budget" | "escrow" | "stream" | "margin")
-                && !tail.is_empty() && !tail.contains(':')
-        });
-        if !owned || name.len() > layerx_types::limits::MAX_ACCOUNT_NAME_BYTES
-            || !name.bytes().all(|byte| byte.is_ascii_lowercase()
-                || byte.is_ascii_digit() || b"._-:".contains(&byte))
+        let suffix = name
+            .strip_prefix(&prefix)
+            .ok_or("conflicting_identity_binding")?;
+        let owned = suffix == "main"
+            || suffix.split_once(':').is_some_and(|(kind, tail)| {
+                matches!(kind, "asset" | "budget" | "escrow" | "stream" | "margin")
+                    && !tail.is_empty()
+                    && !tail.contains(':')
+            });
+        if !owned
+            || name.len() > layerx_types::limits::MAX_ACCOUNT_NAME_BYTES
+            || !name.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || b"._-:".contains(&byte)
+            })
         {
             return Err("conflicting_identity_binding");
         }
@@ -473,7 +486,9 @@ fn validate_native_listing(resolution: &Resolution, listing: &Value) -> Result<(
         hash.update(length.to_be_bytes());
         hash.update(name.as_bytes());
         let expected: [u8; 32] = hash.finalize().into();
-        let actual = record.get("account_id").and_then(Value::as_str)
+        let actual = record
+            .get("account_id")
+            .and_then(Value::as_str)
             .and_then(|id| super::parse_hex32(id).ok())
             .ok_or("conflicting_identity_binding")?;
         if actual != expected || !seen.insert(actual) {
@@ -811,6 +826,7 @@ pub(super) fn dispatch(
         "px_listAssets" => list_assets(config, id, params),
         "px_getNetwork" => get_network(config, id, params),
         "px_getCapabilities" => super::capabilities::get(config, id, params),
+        _ if evm::SEQUENCER_METHODS.contains(&method) => relay(config, id, method, params),
         _ if evm::is_evm_namespace(method) => {
             match super::capabilities::gate(config, id, method, params) {
                 Some(refusal) => refusal,
@@ -971,31 +987,51 @@ mod identity_ownership_contract {
 
     #[test]
     fn canonical_main_account_is_bound_to_the_exact_did() {
-        let did = ed25519_dalek::SigningKey::from_bytes(&[71; 32]).verifying_key().to_bytes();
+        let did = ed25519_dalek::SigningKey::from_bytes(&[71; 32])
+            .verifying_key()
+            .to_bytes();
         let address = [9; 20];
         let (_, account) = canonical(did, "main");
         let mut unified = evm::UnifiedAccount {
-            evm: address, pax_address: String::new(), did_public_key: did,
+            evm: address,
+            pax_address: String::new(),
+            did_public_key: did,
             layerx_main_account_id: account,
         };
-        assert_eq!(validate_resolution(&Selector::Did(did), &address, &unified), Ok(()));
-        assert_eq!(validate_resolution(&Selector::Evm(address), &address, &unified), Ok(()));
+        assert_eq!(
+            validate_resolution(&Selector::Did(did), &address, &unified),
+            Ok(())
+        );
+        assert_eq!(
+            validate_resolution(&Selector::Evm(address), &address, &unified),
+            Ok(())
+        );
         unified.layerx_main_account_id[0] ^= 1;
-        assert_eq!(validate_resolution(&Selector::Did(did), &address, &unified),
-            Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_resolution(&Selector::Did(did), &address, &unified),
+            Err("conflicting_identity_binding")
+        );
         unified.layerx_main_account_id = account;
-        assert_eq!(validate_resolution(&Selector::Did([3; 32]), &address, &unified),
-            Err("conflicting_identity_binding"));
-        assert_eq!(validate_resolution(&Selector::Evm([8; 20]), &[8; 20], &unified),
-            Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_resolution(&Selector::Did([3; 32]), &address, &unified),
+            Err("conflicting_identity_binding")
+        );
+        assert_eq!(
+            validate_resolution(&Selector::Evm([8; 20]), &[8; 20], &unified),
+            Err("conflicting_identity_binding")
+        );
     }
 
     #[test]
     fn native_listing_refuses_another_owner_or_noncanonical_account() {
-        let did = ed25519_dalek::SigningKey::from_bytes(&[72; 32]).verifying_key().to_bytes();
+        let did = ed25519_dalek::SigningKey::from_bytes(&[72; 32])
+            .verifying_key()
+            .to_bytes();
         let (name, account) = canonical(did, "main");
         let resolution = Resolution {
-            evm: Some([9; 20]), pax_address: None, did_public_key: Some(did),
+            evm: Some([9; 20]),
+            pax_address: None,
+            did_public_key: Some(did),
             layerx_account: Some(account),
         };
         let listing = json!({"did": resolution.did(), "accounts": [{
@@ -1004,14 +1040,23 @@ mod identity_ownership_contract {
         assert_eq!(validate_native_listing(&resolution, &listing), Ok(()));
         let mut other = listing.clone();
         other["did"] = json!(format!("did:layerx:{}", "11".repeat(32)));
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         other = listing.clone();
         other["accounts"][0]["account_id"] = json!(hex32(&did));
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         other = listing.clone();
         let (foreign_name, foreign_account) = canonical([3; 32], "main");
         other["accounts"][0] = json!({"name":foreign_name,"account_id":hex32(&foreign_account)});
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         other = listing.clone();
         let prefixed_owner = format!("agent:did:layerx:{}:other:main", hex32(&did));
         let foreign = layerx_types::account::AccountId::parse(&prefixed_owner)
@@ -1019,7 +1064,10 @@ mod identity_ownership_contract {
         let foreign_id = layerx_wire::hash::account_id_for_protocol(&foreign, 3)
             .unwrap_or_else(|error| panic!("extended owner account: {error:?}"));
         other["accounts"][0] = json!({"name":prefixed_owner,"account_id":hex32(&foreign_id)});
-        assert_eq!(validate_native_listing(&resolution, &other), Err("conflicting_identity_binding"));
+        assert_eq!(
+            validate_native_listing(&resolution, &other),
+            Err("conflicting_identity_binding")
+        );
         assert_eq!(validate_native_listing(&resolution, &listing), Ok(()));
     }
 }
