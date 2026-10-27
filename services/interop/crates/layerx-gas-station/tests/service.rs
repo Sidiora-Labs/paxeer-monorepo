@@ -180,8 +180,8 @@ fn sequencer_endpoint_rules() -> Value {
             "timestamp": "0x3e8", "status": status, "returnData": "0x", "logs": [],
             "gasUsed": "0x186a0", "cumulativeGasUsed": "0x186a0",
             "effectiveGasPrice": "0x48c27395000", "feeDenom": "ahpx", "feeAmount": "0x0",
-            "sponsor": sponsor, "from": "$sponsor", "to": "$account", "contractAddress": null,
-            "nonce": "0x5", "vmError": "", "keyId": "0x1", "receipt": "0x"})
+            "sponsor": sponsor, "from": "$sponsor", "to": "$account", "contractAddress": hex(&[0; 20]),
+            "nonce": "0x5", "vmError": "", "keyId": hex(&word(1)), "receipt": "0x"})
     };
     let sent = json!({"method": "eth_sendRawTransaction", "params": ["$raw"], "result": "$hash"});
     let receipt = |result: Value| json!({"method": "pax_sequencerReceipt", "params": ["$hash"], "result": result});
@@ -231,6 +231,25 @@ fn with_sequencer_endpoint_rules(mut fixture: Value) -> Result<Value, Box<dyn st
             }
             phases.insert(phase, Value::Array(merged));
         }
+    }
+    let receipts: Value = serde_json::from_str(include_str!("fixtures/sequencer_receipts.json"))?;
+    for (phase, rung) in [
+        ("full_committed", "committed"),
+        ("full_receipted", "receipted"),
+    ] {
+        let mut receipt = receipts[rung].clone();
+        receipt["txHash"] = json!("$hash");
+        receipt["nonce"] = json!("0x5");
+        receipt["sponsor"] = json!("$sponsor");
+        receipt["from"] = json!("$sponsor");
+        receipt["to"] = json!("$account");
+        phases.insert(
+            phase.into(),
+            json!([
+                {"method": "eth_sendRawTransaction", "params": ["$raw"], "result": "$hash"},
+                {"method": "pax_sequencerReceipt", "params": ["$hash"], "result": receipt},
+            ]),
+        );
     }
     Ok(fixture)
 }
@@ -669,7 +688,9 @@ fn quote_and_sponsored_submission_over_a_socket() -> TestResult {
     let hash = hex(&keccak(&sent[0]));
     assert_eq!(
         submitted,
-        json!({"transactionHash": hash, "rung": "receipted", "seq": "42"})
+        json!({"transactionHash": hash, "rung": "receipted", "seq": "42",
+            "height": "17", "status": "1", "logs": [],
+            "keyId": hex(&word(1)), "receipt": "0x"})
     );
     let submitted = submitted.to_string();
     assert!(!submitted.contains(hex(&sent[0]).trim_start_matches("0x")));
@@ -1068,6 +1089,53 @@ fn sequencer_receipt_is_requested_by_transaction_hash() -> TestResult {
     );
     harness.recorded.phase("refused");
     assert_eq!(rpc.sequencer_receipt(&hash)?, None);
+    harness.assert_log_clean(&["/quote 200", "/submit 200"]);
+    harness.finish()
+}
+
+#[test]
+fn a_committed_submission_answers_the_full_sequencer_receipt() -> TestResult {
+    let (harness, _, answer) = sequencer_endpoint_submission("FULL_COMMITTED", "full_committed")?;
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/sequencer_receipts.json"))?;
+    let receipt = &fixture["committed"];
+    let mut logs = receipt["logs"].clone();
+    logs[0]["logIndex"] = json!("0");
+    assert_eq!(
+        answer,
+        (
+            200,
+            json!({
+                "transactionHash": hex(&keccak(&harness.recorded.sent()[0])),
+                "rung": "committed", "seq": "2", "height": "1000", "status": "1",
+                "logs": logs, "keyId": receipt["keyId"], "receipt": receipt["receipt"],
+                "blockNumber": "1000", "blockHash": receipt["blockHash"],
+            })
+        )
+    );
+    harness.assert_log_clean(&["/quote 200", "/submit 200"]);
+    harness.finish()
+}
+
+#[test]
+fn a_receipted_submission_answers_without_block_fields() -> TestResult {
+    let (harness, _, answer) = sequencer_endpoint_submission("FULL_RECEIPTED", "full_receipted")?;
+    let fixture: Value = serde_json::from_str(include_str!("fixtures/sequencer_receipts.json"))?;
+    let receipt = &fixture["receipted"];
+    let mut logs = receipt["logs"].clone();
+    logs[0]["logIndex"] = json!("0");
+    assert_eq!(
+        answer,
+        (
+            200,
+            json!({
+                "transactionHash": hex(&keccak(&harness.recorded.sent()[0])),
+                "rung": "receipted", "seq": "2", "height": "1000", "status": "1",
+                "logs": logs, "keyId": receipt["keyId"], "receipt": receipt["receipt"],
+            })
+        )
+    );
+    assert!(answer.1.get("blockNumber").is_none());
+    assert!(answer.1.get("blockHash").is_none());
     harness.assert_log_clean(&["/quote 200", "/submit 200"]);
     harness.finish()
 }

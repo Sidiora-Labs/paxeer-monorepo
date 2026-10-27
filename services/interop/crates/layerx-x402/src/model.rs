@@ -475,6 +475,9 @@ impl SettlementResponse {
                 return Err(X402Error::InvalidPayload);
             }
         }
+        if !self.transaction.is_empty() {
+            crate::seller::validate_transaction(&self.transaction)?;
+        }
         Ok(())
     }
 }
