@@ -1,10 +1,16 @@
-use ed25519_dalek::SigningKey;
-use k256::ecdsa::{Signature, SigningKey as GuarantorSigningKey};
-use layerx_crypto::secp256k1;
+use ed25519_dalek::{Signer, SigningKey};
+use layerx_committed_proof::{
+    commit::{BlockIdFlag, Commit, CommitSig},
+    header::{
+        validators_hash, BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator,
+    },
+    proto::{encode_length_delimited, encode_varint, encode_varint_field},
+};
+use layerx_indexer::ai_market::{BlockCommitProof, FinalityAuthority};
 use layerx_platform_webhooks::ai_market::{
-    market_event_id, Admission, CapturedEvent, CheckpointProof, Consumed, CursorKeys, Evidence,
-    FinalityPolicy, MarketConsumer, MarketEventError, MarketOutbox, OperatorAlert, ProducerGrant,
-    QuarantineCause, ResumePage, SignedDelivery, UpstreamManifest,
+    market_event_id, Admission, CapturedEvent, Consumed, CursorKeys, Evidence, FinalityPolicy,
+    MarketConsumer, MarketEventError, MarketOutbox, OperatorAlert, ProducerGrant, QuarantineCause,
+    ResumePage, SignedDelivery, UpstreamManifest,
 };
 use layerx_platform_webhooks::encoding::hex_encode;
 use layerx_platform_webhooks::trusted::{OPERATOR_ROLE, PRODUCER_ROLE};
@@ -17,12 +23,6 @@ use layerx_programs_ai_market::queries::SnapshotBinding;
 use layerx_programs_ai_market::{
     ChainDomain, Digest32, MarketId, PolicyDigest, Presence, ProgramId, RosterDigest, Version,
 };
-use layerx_proof::checkpoint::{
-    checkpoint_id, Attestation, Certificate, Checkpoint, GuarantorKey, SettlementDomain,
-};
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{checkpoint_attestation_digest, program_execution_batch_id};
-use layerx_wire::limits::PROTOCOL_VERSION;
 use sha2::{Digest, Sha256};
 use std::collections::BTreeMap;
 use std::fmt::Debug;
@@ -38,17 +38,9 @@ const CHILD: &str = "PAXAI_CONSUMER_CHILD";
 const CHAIN: [u8; 32] = [0x11; 32];
 const PROGRAM: [u8; 32] = [0x22; 32];
 const MARKET: [u8; 32] = [0x33; 32];
-const NETWORK: u32 = 42;
-const SETTLEMENT_CHAIN: u64 = 31_337;
-const SETTLEMENT_CONTRACT: [u8; 20] = [0x55; 20];
-const CHECKPOINT_EPOCH: u64 = 7;
-const BATCH_NUMBER: u64 = 8;
-const PREVIOUS_ROOT: [u8; 32] = [0x44; 32];
-const ACTIVITY_ROOT: [u8; 32] = [0x45; 32];
-const AVAILABILITY_ROOT: [u8; 32] = [0x48; 32];
-const BONDED: [u8; 3] = [1, 2, 3];
-const SIGNED: [(u8, u8); 2] = [(1, 1), (2, 2)];
-const THRESHOLD: usize = 2;
+const CHAIN_ID: &str = "ai-market-finality";
+const FOREIGN_CHAIN_ID: &str = "foreign-ai-market-finality";
+const SIGNED: [(u8, u8); 3] = [(1, 1), (2, 2), (3, 3)];
 const TAG: u16 = 0x0401;
 const KEY_ID: &str = "whk_paxai";
 const LOCATOR: &str = "locator:private/result/7f3a";
@@ -103,129 +95,100 @@ fn now() -> u64 {
         .map_or(0, |duration| duration.as_secs())
 }
 
-fn header(network: u32, root: [u8; 32], last_sequence: u64) -> Vec<u8> {
-    let mut encoder = Encoder::new(354);
-    ok(
-        encoder.structure_header_version(0x1701, PROTOCOL_VERSION),
-        "header version",
-    );
-    ok(encoder.u8(15), "header fields");
-    ok(encoder.tag(1, 15), "tag");
-    ok(encoder.u16(PROTOCOL_VERSION), "protocol version");
-    ok(encoder.tag(2, 15), "tag");
-    ok(encoder.u32(network), "network");
-    for (field, value) in [
-        (3_u8, CHECKPOINT_EPOCH),
-        (4, BATCH_NUMBER),
-        (5, last_sequence),
-        (6, last_sequence),
-    ] {
-        ok(encoder.tag(field, 15), "tag");
-        ok(encoder.u64(value), "scalar");
-    }
-    for (field, value) in [
-        (7_u8, PREVIOUS_ROOT),
-        (8, root),
-        (9, ACTIVITY_ROOT),
-        (10, [0x46; 32]),
-        (11, [0x47; 32]),
-        (12, AVAILABILITY_ROOT),
-        (13, [0x49; 32]),
-    ] {
-        ok(encoder.tag(field, 15), "tag");
-        ok(encoder.bytes(&value, 32), "root");
-    }
-    ok(encoder.tag(14, 15), "tag");
-    ok(encoder.u64(1_000), "timestamp");
-    ok(encoder.tag(15, 15), "tag");
-    ok(encoder.bytes(&[0x4a; 32], 32), "sequencer");
-    encoder.finish()
-}
-
-fn guarantor(value: u8) -> (GuarantorSigningKey, GuarantorKey) {
-    let mut scalar = [0_u8; 32];
-    scalar[31] = value;
-    let signing = ok(
-        GuarantorSigningKey::from_bytes((&scalar).into()),
-        "guarantor key",
-    );
-    let public_key: [u8; 33] = signing
-        .verifying_key()
-        .to_encoded_point(true)
-        .as_bytes()
-        .try_into()
-        .unwrap_or_else(|_| panic!("compressed key width"));
-    let mut identifier = [0_u8; 32];
-    identifier[0] = value;
-    (signing, GuarantorKey::new(identifier, public_key, true))
-}
-
-fn attestation(
-    network: u32,
-    checkpoint: [u8; 32],
-    guarantor_value: u8,
-    key_value: u8,
-) -> Attestation {
-    let (_, record) = guarantor(guarantor_value);
-    let (key, _) = guarantor(key_value);
-    let signer = ok(
-        secp256k1::evm_address(key.verifying_key().to_encoded_point(true).as_bytes()),
-        "signer address",
-    );
-    let build = |signature: [u8; 64], signature_v: u8| {
-        Attestation::new(
-            PROTOCOL_VERSION,
-            network,
-            SETTLEMENT_CHAIN,
-            SETTLEMENT_CONTRACT,
-            CHECKPOINT_EPOCH,
-            checkpoint,
-            checkpoint,
-            record.guarantor_id(),
-            BATCH_NUMBER,
-            AVAILABILITY_ROOT,
-            true,
-            true,
-            0x1f,
-            1_000 + u64::from(guarantor_value),
-            signer,
-            signature,
-            signature_v,
-        )
-    };
-    let digest = ok(
-        checkpoint_attestation_digest(&build([0; 64], 27).canonical_statement()),
-        "attestation digest",
-    );
-    let (signature, recovery): (Signature, _) = ok(
-        key.sign_prehash_recoverable(&digest),
-        "attestation signature",
-    );
-    build(signature.to_bytes().into(), 27 + u8::from(recovery))
-}
-
-/// A certificate over one batch, attested by `(guarantor, signing key)` pairs.
-fn certificate(
-    network: u32,
-    root: [u8; 32],
-    last_sequence: u64,
-    signers: &[(u8, u8)],
-) -> (Certificate, [u8; 32]) {
-    let checkpoint = Checkpoint::new(
-        header(network, root, last_sequence),
-        b"validity-proof".to_vec(),
-    );
-    let identifier = ok(checkpoint_id(&checkpoint), "checkpoint id");
-    let attestations = signers
-        .iter()
-        .map(|(guarantor_value, key_value)| {
-            attestation(network, identifier, *guarantor_value, *key_value)
+fn validators() -> Vec<Validator> {
+    (1..=4)
+        .map(|value| Validator {
+            pub_key: SigningKey::from_bytes(&[value; 32])
+                .verifying_key()
+                .to_bytes(),
+            voting_power: 10,
         })
-        .collect();
-    (
-        Certificate::new(checkpoint, attestations, THRESHOLD, None),
-        identifier,
-    )
+        .collect()
+}
+
+fn commit_header(chain_id: &str, observed: u64, app_hash: [u8; 32]) -> Header {
+    Header {
+        chain_id: chain_id.to_owned(),
+        height: (observed + 100) as i64,
+        app_hash: app_hash.to_vec(),
+        version: ConsensusVersion { block: 11, app: 1 },
+        time: Timestamp {
+            seconds: 1_000,
+            nanos: 0,
+        },
+        last_block_id: BlockId::default(),
+        last_commit_hash: vec![1; 32],
+        data_hash: vec![2; 32],
+        validators_hash: validators_hash(&validators()),
+        next_validators_hash: validators_hash(&validators()).to_vec(),
+        consensus_hash: vec![3; 32],
+        last_results_hash: vec![4; 32],
+        evidence_hash: vec![5; 32],
+        proposer_address: vec![6; 20],
+    }
+}
+
+fn store_proof(observed: u64) -> Vec<u8> {
+    observed.to_be_bytes().to_vec()
+}
+
+/// A block commit with `(validator position, signing key)` slots, numbered from 1.
+fn signed(header: &Header, slots: &[(u8, u8)]) -> Commit {
+    let mut commit = Commit {
+        height: header.height as u64,
+        round: 0,
+        block_id: BlockId {
+            hash: header.hash().to_vec(),
+            part_set_header: PartSetHeader {
+                total: 1,
+                hash: vec![0xa5; 32],
+            },
+        },
+        signatures: Vec::new(),
+    };
+    for position in 1..=4 {
+        let Some((_, key_value)) = slots.iter().find(|(slot, _)| *slot == position) else {
+            commit.signatures.push(CommitSig::absent());
+            continue;
+        };
+        let key = SigningKey::from_bytes(&[*key_value; 32]);
+        let validator_key = SigningKey::from_bytes(&[position; 32]);
+        let timestamp = Timestamp {
+            seconds: 1_000,
+            nanos: 123,
+        };
+        let mut vote = Vec::new();
+        encode_varint_field(1, 2, &mut vote);
+        vote.push(0x11);
+        vote.extend_from_slice(&commit.height.to_le_bytes());
+        let mut parts = Vec::new();
+        encode_varint_field(
+            1,
+            u64::from(commit.block_id.part_set_header.total),
+            &mut parts,
+        );
+        encode_length_delimited(2, &commit.block_id.part_set_header.hash, &mut parts);
+        let mut block = Vec::new();
+        encode_length_delimited(1, &commit.block_id.hash, &mut block);
+        encode_length_delimited(2, &parts, &mut block);
+        encode_length_delimited(4, &block, &mut vote);
+        let mut time = Vec::new();
+        encode_varint_field(1, timestamp.seconds as u64, &mut time);
+        encode_varint_field(2, u64::from(timestamp.nanos), &mut time);
+        encode_length_delimited(5, &time, &mut vote);
+        encode_length_delimited(6, header.chain_id.as_bytes(), &mut vote);
+        let mut sign_bytes = Vec::new();
+        encode_varint(vote.len() as u64, &mut sign_bytes);
+        sign_bytes.extend_from_slice(&vote);
+        commit.signatures.push(CommitSig {
+            block_id_flag: BlockIdFlag::Commit,
+            validator_address: Sha256::digest(validator_key.verifying_key().as_bytes())[..20]
+                .to_vec(),
+            timestamp,
+            signature: Some(key.sign(&sign_bytes).to_bytes()),
+        });
+    }
+    commit
 }
 
 fn market_state(revision: u64, section: &[u8]) -> Vec<u8> {
@@ -251,7 +214,9 @@ type Change = fn(&mut Fixture);
 struct Fixture {
     row: CapturedEvent,
     state: Vec<u8>,
-    certificate: Certificate,
+    header: Header,
+    commit: Commit,
+    store_proof: Vec<u8>,
     registered: [u8; 32],
 }
 
@@ -259,10 +224,10 @@ impl Fixture {
     fn evidence(&self) -> Evidence<'_> {
         Evidence {
             state: &self.state,
-            proof: Some(CheckpointProof {
-                certificate: &self.certificate,
-                registered_checkpoint_id: self.registered,
-                registered_settlement_reference: None,
+            proof: Some(BlockCommitProof {
+                header: &self.header,
+                commit: &self.commit,
+                store_proof: &self.store_proof,
             }),
         }
     }
@@ -271,17 +236,12 @@ impl Fixture {
         self.row.snapshot_id = snapshot(&self.row.binding);
     }
 
-    fn recertify(
-        &mut self,
-        network: u32,
-        root: [u8; 32],
-        last_sequence: u64,
-        signers: &[(u8, u8)],
-    ) {
-        let (certificate, identifier) = certificate(network, root, last_sequence, signers);
-        self.certificate = certificate;
-        self.registered = identifier;
-        self.row.binding.store_proof_digest = digest(identifier);
+    fn recertify(&mut self, chain_id: &str, root: [u8; 32], observed: u64, slots: &[(u8, u8)]) {
+        self.header = commit_header(chain_id, observed, root);
+        self.commit = signed(&self.header, slots);
+        self.store_proof = store_proof(observed);
+        self.registered = Sha256::digest(&self.store_proof).into();
+        self.row.binding.store_proof_digest = digest(self.registered);
     }
 }
 
@@ -292,16 +252,7 @@ fn root(observed: u64) -> [u8; 32] {
 }
 
 fn batch(observed: u64) -> [u8; 32] {
-    ok(
-        program_execution_batch_id(
-            PREVIOUS_ROOT,
-            ACTIVITY_ROOT,
-            observed,
-            observed,
-            BATCH_NUMBER,
-        ),
-        "batch id",
-    )
+    commit_header(CHAIN_ID, observed, root(observed)).hash()
 }
 
 fn binding(observed: u64, state: &[u8], checkpoint: [u8; 32], rank: u8) -> SnapshotBinding {
@@ -330,7 +281,10 @@ fn binding(observed: u64, state: &[u8], checkpoint: [u8; 32], rank: u8) -> Snaps
 
 fn fixture(observed: u64, ordinal: u16, rank: u8) -> Fixture {
     let state = market_state(observed, format!("market-state-{observed}").as_bytes());
-    let (certificate, registered) = certificate(NETWORK, root(observed), observed, &SIGNED);
+    let header = commit_header(CHAIN_ID, observed, root(observed));
+    let commit = signed(&header, &SIGNED);
+    let store_proof = store_proof(observed);
+    let registered = Sha256::digest(&store_proof).into();
     let binding = binding(observed, &state, registered, rank);
     let mut activity = [0x5c; 32];
     activity[24..].copy_from_slice(&observed.to_be_bytes());
@@ -355,7 +309,9 @@ fn fixture(observed: u64, ordinal: u16, rank: u8) -> Fixture {
             },
         },
         state,
-        certificate,
+        header,
+        commit,
+        store_proof,
         registered,
     }
 }
@@ -378,9 +334,10 @@ fn subject() -> SubjectId {
 fn policy() -> FinalityPolicy {
     FinalityPolicy {
         chain_domain: CHAIN,
-        network_id: NETWORK,
-        settlement: SettlementDomain::new(SETTLEMENT_CHAIN, SETTLEMENT_CONTRACT),
-        guarantors: BONDED.iter().map(|value| guarantor(*value).1).collect(),
+        authority: FinalityAuthority {
+            chain_id: CHAIN_ID.to_owned(),
+            validators: validators(),
+        },
     }
 }
 
@@ -602,15 +559,10 @@ fn missing_finality_delays_publication_and_retries_are_idempotent() {
     assert_eq!(ok(outbox.pending(&MARKET), "pending"), vec![event, second]);
 }
 
-fn refused_certificate(
-    outbox: &MarketOutbox,
-    grant: &ProducerGrant,
-    label: &str,
-    sample: &Fixture,
-) {
+fn refused_commit(outbox: &MarketOutbox, grant: &ProducerGrant, label: &str, sample: &Fixture) {
     let refusal = outbox.admit(grant, &sample.row, &sample.evidence());
     assert!(
-        matches!(refusal, Err(MarketEventError::CertificateRejected)),
+        matches!(refusal, Err(MarketEventError::CommitRejected)),
         "{label}: {refusal:?}"
     );
 }
@@ -621,41 +573,47 @@ fn bonded_guarantor_signatures_gate_finalized_publication() {
     let grant = producer(&scratch.0);
     let outbox = granted(&scratch.0.join("outbox"));
     let mut unsigned = fixture(30, 0, 4);
-    unsigned.recertify(NETWORK, root(30), 30, &[]);
-    refused_certificate(&outbox, &grant, "unsigned", &unsigned);
+    unsigned.recertify(CHAIN_ID, root(30), 30, &[]);
+    refused_commit(&outbox, &grant, "unsigned", &unsigned);
     let mut forged = fixture(30, 0, 4);
-    forged.recertify(NETWORK, root(30), 30, &[(1, 1), (2, 9)]);
-    refused_certificate(&outbox, &grant, "wrong key", &forged);
+    forged.recertify(CHAIN_ID, root(30), 30, &[(1, 1), (2, 9), (3, 3)]);
+    refused_commit(&outbox, &grant, "wrong key", &forged);
     let mut unbonded = fixture(30, 0, 4);
-    unbonded.recertify(NETWORK, root(30), 30, &[(1, 1), (4, 4)]);
-    refused_certificate(
+    let mut unpinned = validators();
+    unpinned[3].pub_key = SigningKey::from_bytes(&[5; 32]).verifying_key().to_bytes();
+    unbonded.header.validators_hash = validators_hash(&unpinned);
+    unbonded.commit = signed(&unbonded.header, &SIGNED);
+    refused_commit(
         &outbox,
         &grant,
-        "guarantor outside the bonded set",
+        "validator outside the pinned set",
         &unbonded,
     );
     let mut short = fixture(30, 0, 4);
-    short.recertify(NETWORK, root(30), 30, &[(1, 1)]);
-    refused_certificate(&outbox, &grant, "below threshold", &short);
+    short.recertify(CHAIN_ID, root(30), 30, &[(1, 1), (2, 2)]);
+    refused_commit(&outbox, &grant, "below threshold", &short);
     let mut unregistered = fixture(30, 0, 4);
-    unregistered.registered = [0x5a; 32];
-    refused_certificate(&outbox, &grant, "unregistered checkpoint", &unregistered);
+    unregistered.store_proof = b"unregistered-store-proof".to_vec();
+    refused_commit(&outbox, &grant, "unregistered store proof", &unregistered);
     let mut other_batch = fixture(30, 0, 4);
-    other_batch.recertify(NETWORK, root(30), 31, &SIGNED);
-    refused_certificate(&outbox, &grant, "another batch", &other_batch);
+    other_batch.recertify(CHAIN_ID, root(30), 31, &SIGNED);
+    refused_commit(&outbox, &grant, "another batch", &other_batch);
     let mut malformed = fixture(30, 0, 4);
-    malformed.certificate = Certificate::new(
-        Checkpoint::new(vec![1, 2, 3], b"validity-proof".to_vec()),
-        Vec::new(),
-        THRESHOLD,
-        None,
-    );
-    refused_certificate(&outbox, &grant, "malformed header", &malformed);
+    malformed.header.time.nanos = 1_000_000_000;
+    refused_commit(&outbox, &grant, "malformed header", &malformed);
     assert!(ok(outbox.pending(&MARKET), "nothing admitted").is_empty());
     assert_eq!(ok(outbox.quarantine(&MARKET), "quarantine"), None);
     assert!(ok(outbox.alerts(), "alerts").is_empty());
     let signed = fixture(30, 0, 4);
-    assert_eq!(signed.certificate.attestations().len(), 2);
+    assert_eq!(
+        signed
+            .commit
+            .signatures
+            .iter()
+            .filter(|vote| vote.block_id_flag == BlockIdFlag::Commit)
+            .count(),
+        3
+    );
     let event = admit(&outbox, &grant, &signed);
     assert_eq!(event.subject_sequence(), 1);
     assert_eq!(event.verification(), Verification::CheckpointFinalised);
@@ -885,14 +843,14 @@ fn conflicting_artifacts_quarantine_with_identifier_only_alerts() {
         root_directory,
         &leaf,
         "network",
-        |fixture| fixture.recertify(99, root(70), 70, &SIGNED),
-        QuarantineCause::CheckpointNetwork,
+        |fixture| fixture.recertify(FOREIGN_CHAIN_ID, root(70), 70, &SIGNED),
+        QuarantineCause::CommitChain,
     );
     quarantine_case(
         root_directory,
         &leaf,
         "root",
-        |fixture| fixture.recertify(NETWORK, [0x01; 32], 70, &SIGNED),
+        |fixture| fixture.recertify(CHAIN_ID, [0x01; 32], 70, &SIGNED),
         QuarantineCause::FinalityConflict,
     );
     quarantine_case(
@@ -1279,21 +1237,18 @@ fn bounds_refuse_before_any_quarantine_or_cryptographic_work() {
     let scratch = scratch("bounds");
     let grant = producer(&scratch.0);
     let outbox = granted(&scratch.0.join("outbox"));
-    let cases: [(&str, Change); 7] = [
+    let cases: [(&str, Change); 9] = [
         ("state", |fixture| {
             fixture.state = vec![7; 262_145];
             fixture.reseal();
         }),
         ("evidence", |fixture| {
-            fixture.certificate = Certificate::new(
-                Checkpoint::new(
-                    fixture.certificate.checkpoint().header_bytes().to_vec(),
-                    vec![0; 1_048_577],
-                ),
-                Vec::new(),
-                THRESHOLD,
-                None,
-            );
+            fixture.store_proof = vec![0; 1_048_577];
+        }),
+        ("empty evidence", |fixture| fixture.store_proof.clear()),
+        ("validators", |fixture| {
+            fixture.commit.signatures = vec![CommitSig::absent(); 257];
+            fixture.header.time.nanos = 1_000_000_000;
         }),
         ("action", |fixture| fixture.row.action = "commit".to_owned()),
         ("settlement rank", |fixture| fixture.row.binding.rank = 5),
