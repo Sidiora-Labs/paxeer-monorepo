@@ -115446,7 +115446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.42.5]
 title = "Export and import the merge stores through state sync"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["5.42.1"]
