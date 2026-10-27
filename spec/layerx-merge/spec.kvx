@@ -97958,7 +97958,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.2]
 title = "Auth parity: 0x101C grants match the native-session fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4"]
@@ -154020,7 +154020,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.10]
 title = "Delete the paxeer_prepareCustody call path from the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["12.34.9"]
