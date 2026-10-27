@@ -2236,10 +2236,10 @@ text = "Requirement references can identify numbered clauses under a parent sect
 text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
 
 [gotcha.376]
-text = "modules/layerxgov NewLayerXProposal only checks that each message type is in the accepted table; the authority check happens in the proposal's ValidateBasic, so a test for a forged authority must assert at validation (or at the message service / handler), not at construction."
+text = "Requirement references can identify numbered clauses under a parent section; read-only scheduling helpers must not assume every reference names a standalone req section. Preserve unresolved references rather than dropping them."
 
 [gotcha.377]
-text = "Reading keeper state from a freshly reopened node application before a block has begun dereferences a nil context and panics; open the app, begin a normal block, then read."
+text = "Operational filename globs such as *publish* may also match entire generated specification snapshots; search explicit helper files when locating guard or publication code to avoid unrelated truncated output."
 
 [gotcha.378]
 text = "A Go test that re-executes its own binary as a child process (os/exec with an environment flag) needs a helper test that t.Skip()s when the flag is absent; keep that helper out of every gate's required-name list so the gate's skipped count stays a real zero while the parent still drives it."
@@ -2248,7 +2248,7 @@ text = "A Go test that re-executes its own binary as a child process (os/exec wi
 text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
 
 [gotcha.379]
-text = "Never chain a git push after a grep in one && chain: grep returns 1 when nothing matches and the push is silently skipped. Run the push as its own statement and confirm with git ls-remote."
+text = "bash -n accepts one script path; later path arguments are positional parameters, not additional scripts to parse. Record syntax coverage per actual invocation and use an explicit loop when checking multiple files."
 
 [gotcha.380]
 text = "Evidence build.command must be the literal executed invocation copied from the shell history, never a paraphrase with pseudo-redirections like '-> dir'; integrators reject paraphrased commands and require metadata recovery."
@@ -2260,9 +2260,7 @@ text = "Verify commit-message claims by reading the test body, not by grepping t
 text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
 
 [gotcha.382]
-symptom = "cargo build from the worktree root exits 101 'could not find Cargo.toml' for interop crates"
-cause = "the interop workspace manifest is interop/Cargo.toml and the human workspace is human/Cargo.toml; the repository root has no Cargo workspace"
-fix = "cd into the workspace directory (or pass --manifest-path interop/Cargo.toml) in every build invocation; the dispatch text must carry the cwd"
+text = "Intake scope checks must honor declared directory paths and preserve owner bytes exactly, including missing trailing newlines. Legacy cg rendering can overwrite newly qualified workflow adapters; compare source blobs before publication and retain canonical generated pointers."
 
 [gotcha.383]
 symptom = "forge build exits 0 but <out>/BatchCallAndSponsor.sol/BatchCallAndSponsor.json is absent while sibling artifacts exist"
@@ -2326,7 +2324,7 @@ text = "layerx-agentd authority clients accept https only and need a CA DER plus
 summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
 
 [gotcha.401]
-text = "Bootstrap guarantor attestation files are named %020d-*.attestation (zero-padded id prefix, singular suffix), not <id>.attestations; fixtures must glob both forms when listing them."
+summary = "Normalize appended spec EOF before staged whitespace checks; do not launch dependent publication after a failed check."
 
 [gotcha.402]
 text = "git treats platform/Cargo.lock as binary in this repo (prints 'Binary files differ'); read lock hunks with git diff --text."
@@ -2790,7 +2788,7 @@ text = "A brief that forbids every default can forbid the crate's own encoded co
 text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
 
 [gotcha.546]
-text = "A worker whose context compacts mid-window loses its sense of elapsed time and runs far past a 30-minute cap. Put the cap check in the brief as a clock command to run after any compaction, and treat an overrun as implemented-not-qualified with staged partials, not as a failure to retry."
+text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
 
 [gotcha.547]
 text = "A pre-dispatch owner gate cannot use facts that only exist after the subject is bound. Before proposing where to fetch an owner witness, locate where binding runs relative to the gate; here bind_rpc_subject and subject::for_did run after authorized(), so upgrade and wind-down owner checks belong after bind, not before the guard."
@@ -8792,15 +8790,16 @@ summary = "The gateway binary cannot answer JSON-RPC in a test without a reachab
 detail = "Config construction requires LAYERX_GATEWAY_REDIS_URL with username and password files, so integration tests that post JSON-RPC to the real binary start a redis-server with tls-port and an openssl localhost certificate, as tests/paxeer_failover.rs and tests/unified_service_paths.rs do."
 
 [gotcha.1844]
-area = "spec/layerx-merge/contracts"
-summary = "Regenerating a specification document can overwrite a file that code parses at build time"
-detail = "services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests read contracts/address-table.md sections (a), (a2), (b) and (c) by heading text and column count; a generated inventory written under the same name made cargo build exit 101 for every crate depending on layerx-types and every cgo-linked Go package. Before replacing a contract file, grep the code for its path and keep generated inventories under their own names."
+area = "test"
+symptom = "A programme gate passes with ok and no test output even though no test ran"
+cause = "The go test -run selector matches no test, and Go still returns a successful exit status"
+do = "Run go test -json and count the run actions, as the zero-test detector of task 17.4.3 does"
 
 [gotcha.1845]
-area = "spec"
-symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
-cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
-do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
+area = "build"
+symptom = "go test of any package importing precompiles/setup.go (precompiles/setup.go:117) fails at link time"
+cause = "A clean checkout lacks build/liblayerx.a, which the kernel cgo link requires"
+do = "Use the go-cgo sandbox prebuild of task 17.6.1 to create build/liblayerx.a before running go test"
 
 [gotcha.1846]
 area = "tooling"
@@ -8969,3 +8968,62 @@ area = "build"
 symptom = "programs-build fails its vendored checksum step (`failed to calculate checksum of: programs/vendor/cc-1.4.4/src/target/apple.rs`) after a vendor refresh that built cleanly in the tree where it was made"
 cause = "a broad ignore pattern such as programs/.gitignore `/**/target/` also hides vendored crate sources (cc src/target/*.rs) and test fixtures (*.pem, *.key), so the refresh commit silently omits files the crates' .cargo-checksum.json lists"
 do = "a vendor refresh must `git add -f` those paths or carry negation patterns, and must be verified with `cargo build --offline` from a fresh clone, not from the tree that still holds the ignored files"
+
+[gotcha.1874]
+area = "spec"
+symptom = "two tasks that edit one crate both stay blocked: one cannot build because the crate does not compile, and the task that must repair the compile break waits on it (9.23.5/9.23.7 after 13.29.1 removed the FinalityEvidence checkpoint and settlement fields)"
+cause = "the requires edge pointed from the repairer to the other task, while the other task's build compiles the broken crate"
+do = "when two tasks edit one crate and one of them must repair that crate's compile break, point the requires edge from the other task to the repairer; the opposite direction deadlocks both"
+
+[gotcha.1875]
+area = "spec/layerx-merge/contracts"
+summary = "Regenerating a specification document can overwrite a file that code parses at build time"
+detail = "services/agent/crates/layerx-types/build.rs, scripts/ci/result-codes-gen.py and the Go, Rust and TypeScript registry tests read contracts/address-table.md sections (a), (a2), (b) and (c) by heading text and column count; a generated inventory written under the same name made cargo build exit 101 for every crate depending on layerx-types and every cgo-linked Go package. Before replacing a contract file, grep the code for its path and keep generated inventories under their own names."
+
+[gotcha.1876]
+area = "spec"
+symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
+cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
+do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
+
+[gotcha.1877]
+area = "spec"
+symptom = "Retiring or re-signing a public item (a constant, a function parameter, a struct) builds in the task's crate and fails `cargo build --all-targets` on integration tests or sibling crates outside touches"
+cause = "--all-targets compiles every tests/*.rs of the crate and the dependents check compiles consumer crates, none of which the task owns"
+do = "Before retiring an item, `git grep` its name under the workspace and put every consumer file in touches, or add a requires edge to the task that owns it (11.29.4: PORTABLE_RECEIPT_FORMAT_V2 / trusted_batch)"
+
+[gotcha.1878]
+area = "rust"
+symptom = "adding an enum variant builds and tests clean, then the next task that builds the crate with a cargo feature fails E0004 on a match over that enum in a cfg(feature) file"
+cause = "the task's build_cmd ran without the feature, so rustc never compiled the gated match"
+do = "when adding a variant, grep the enum's match sites under every cfg feature and build once with each feature that compiles them, or put the arm in the task that owns the gated file (13.7.4: AbiError::EffectLimit in abi_payload)"
+
+[gotcha.1879]
+area = "go"
+symptom = "a requalified candidate's own tests fail on a refusal from a check that landed in the package after the candidate was written (`gas wanted N exceeds Block.MaxGasWanted 0`)"
+cause = "a requalify replays the result unchanged, so a fixture written before the check cannot set what the check now needs"
+do = "when the package gained an admission or validation check since the candidate's base, reseed as a continue with a do line naming the fixture call (5.17.2: resolutionBlockGas in the newSourceHarness setup)"
+
+[gotcha.1880]
+area = "tooling"
+symptom = "a do line moves a call site to a helper whose input type (Eip1559Call) does not exist on that path yet, and the implementer reports the mismatch instead of inventing the input"
+cause = "the migration was assigned to the task that touches the file rather than the task that produces the new input"
+do = "assign a signing or encoding migration to the task that changes the transport (9.23.7 -> 9.23.6) and give the task that deletes the old helper (9.35.1) a requires edge to it"
+
+[gotcha.1881]
+area = "go"
+symptom = "a precompile test fixture that embeds the utils.Keepers interface panics in GetCustomPrecompiles with `keepers do not provide the <module> keeper` after a new registry entry lands"
+cause = "newer entries type-assert concrete keeper accessors (LaunchpadV610Keepers) that the interface embedding hides"
+do = "embed *node.PrecompileKeepers from testApp.GetPrecompileKeepers() in the fixture, as precompiles/layerxledger/harness_test.go does (2.11.1)"
+
+[gotcha.1882]
+area = "go"
+symptom = "a keeper test asserting Host.Execute's receipt bytes equal the stored idempotency record fails with the stored value 68 bytes longer (0x01, 0x00000040, 64 zero bytes)"
+cause = "Host.Execute returns the receipt without the sequencer signature while the kernel stores the signed canonical form"
+do = "assert the signed-form relation explicitly or compare decoded fields; never equate the two encodings (2.6.4)"
+
+[gotcha.1883]
+area = "tooling"
+symptom = "an attempt adds test-only helpers or types named after the declared symbols so the graph check passes"
+cause = "the symbol list named an item a do line deletes, or a method the graph already indexes under its bare name"
+do = "fix the symbol list (drop deleted names) and requalify the candidate without the helpers; a name added only to satisfy a check is a fake (9.33.13, 3.5.3, 3.10.2)"

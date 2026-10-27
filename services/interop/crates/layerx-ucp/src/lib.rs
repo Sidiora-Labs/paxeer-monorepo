@@ -4,7 +4,9 @@ use std::fmt::{Display, Formatter};
 
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
 use layerx_interop_gateway::error::GatewayError;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::{
     SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
 };
@@ -29,7 +31,6 @@ const VALUE_LIMIT: usize = 256;
 const REQUEST_DOMAIN: &[u8] = b"LayerX/interop/ucp/checkout/v1\0";
 const IDEMPOTENCY_DOMAIN: &[u8] = b"LayerX/interop/ucp/idempotency/v1\0";
 const SEQUENCE_DOMAIN: &[u8] = b"PAXEER/v1/sequence\0";
-const RECEIPT_DOMAIN: &[u8] = b"LXP/v1/receipt\0";
 const PAYMENT_EXACT_TOPIC: [u8; 32] = [
     0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e, 0x56,
     0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
@@ -635,8 +636,10 @@ impl UcpAdapter {
                     };
                 }
                 metadata.validate().map_err(fail)?;
+                verify_order_evidence(&evidence, receipt_keys).map_err(fail)?;
                 let receipt_digest =
-                    verify_order_evidence(submission, &evidence, receipt_keys).map_err(fail)?;
+                    verify_sequencer_receipt(submission, &evidence.signed_receipt, receipt_keys)
+                        .map_err(fail)?;
                 let status = gateway
                     .settle_with_sequencer_evidence(
                         principal,
@@ -692,16 +695,17 @@ impl UcpAdapter {
             logs: stored.logs.clone(),
             rung: stored.rung,
         };
-        let receipt_digest = verify_order_evidence(&stored.submission, &evidence, receipt_keys)?;
+        verify_order_evidence(&evidence, receipt_keys)?;
+        let receipt_digest =
+            verify_sequencer_receipt(&stored.submission, &stored.signed_receipt, receipt_keys)?;
         Ok(order(stored, receipt_digest))
     }
 }
 
 fn verify_order_evidence(
-    submission: &CheckoutSubmission,
     evidence: &SequencerEvidence,
     receipt_keys: &[SequencerAuthorization],
-) -> Result<[u8; 32], UcpError> {
+) -> Result<(), UcpError> {
     if evidence.rung == SettlementRung::Submitted {
         return Err(UcpError::ReceiptRequired);
     }
@@ -712,7 +716,7 @@ fn verify_order_evidence(
         return Err(UcpError::ReceiptMismatch);
     }
     verify_logs(&verified, evidence.logs.clone()).map_err(|_| UcpError::ReceiptMismatch)?;
-    verify_sequencer_receipt(submission, &evidence.signed_receipt, receipt_keys)
+    Ok(())
 }
 
 pub fn verify_sequencer_receipt(
@@ -790,7 +794,7 @@ pub fn verify_sequencer_receipt(
     if !matched {
         return Err(UcpError::ReceiptMismatch);
     }
-    sequencer_receipt_digest(canonical_receipt)
+    canonical_receipt_digest(canonical_receipt).map_err(|_| UcpError::ReceiptMismatch)
 }
 
 fn verify_sequencer_summary(
@@ -843,21 +847,6 @@ fn matches_payment_exact(
         return Err(UcpError::ReceiptMismatch);
     }
     Ok(true)
-}
-
-fn sequencer_receipt_digest(canonical_receipt: &[u8]) -> Result<[u8; 32], UcpError> {
-    let unsigned_end = canonical_receipt
-        .len()
-        .checked_sub(69)
-        .ok_or(UcpError::ReceiptMismatch)?;
-    if canonical_receipt.get(unsigned_end..unsigned_end + 5) != Some(&[1, 0, 0, 0, 64]) {
-        return Err(UcpError::ReceiptMismatch);
-    }
-    let mut digest = Sha256::new();
-    digest.update(RECEIPT_DOMAIN);
-    digest.update(&canonical_receipt[..unsigned_end]);
-    digest.update([0]);
-    Ok(digest.finalize().into())
 }
 
 fn completed_outcome(stored: StoredOrder, receipt_digest: [u8; 32]) -> CheckoutOutcome {

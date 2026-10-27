@@ -82,6 +82,7 @@ source = "Each reference resolves through authenticated evidence.get to the exac
 
 [type.ProgramApprovalBudget]
 required = ["approval_id:ApprovalId","held_digest:string","budget_id:string","asset_id:string","source_account:string","remaining:Amount","observed_head_sequence:Amount","age_sequences:Amount","maximum_age_sequences:Amount","within_bound:boolean","terminal:boolean","verification:VerificationLevel","proof_digest:string","receipt_digest:string","checkpoint_digest:string","evidence:EvidenceRef[]"]
+optional = ["rung:Rung"]
 source = "The actual daemon reservation and terminal accounting bind a managed child's independently verified native budget proof. Remaining, source account, asset, observation head and all proof digests retain their exact identity and achieved level; no currency is guessed."
 freshness = "age_sequences is measured against the authenticated current head and never exceeds maximum_age_sequences for an admitted proof. Missing, stale, altered or cross-owner proof material refuses; within_bound never conceals a missing proof."
 
@@ -102,8 +103,9 @@ binding = "Both approve and reject disclose the exact immutable held digest, dec
 
 [type.ProgramApprovalDecision]
 required = ["approval_id:ApprovalId","held_digest:string","state:ProgramApprovalState","state_copy_key:CopyKey","money_moved:boolean","moved_copy_key:CopyKey","evidence:EvidenceRef[]"]
-optional = ["release_ref:string"]
+optional = ["release_ref:string","rung:Rung"]
 honesty = "money_moved is always false for this decision. Granted release authorization and a release_ref never imply submission or verified execution. Durable identical retries return the original outcome; opposite or expired decisions refuse."
+rung = "Present only for the achieved evidence rung. Approval alone authorizes release and never implies submitted, receipted or committed execution."
 
 [operation.approval.program.list]
 authorization_class = "read"

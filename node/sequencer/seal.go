@@ -22,43 +22,7 @@ var (
 	ErrBatchFieldsMismatch = errors.New("sequencer: sequence batch fields differ from the sealed batch")
 )
 
-// Seal runs MidBlock, WriteDeferredBalances, EndBlock and RouteCollectedFeeTokens on L_open in
-// the order ProcessBlock runs them, then makes L_open the sealed layer L_N and advances the
-// seqHash chain to its last seq. On any failure L_open is discarded and the chain is unchanged.
-func Seal(l *Layers, height int64) (*SealedLayer, error) {
-	o := l.open
-	if o == nil {
-		return nil, ErrNoOpenLayer
-	}
-	if o.height != height {
-		return nil, fmt.Errorf("%w: seal height %d, open height %d", ErrHeightMismatch, height, o.height)
-	}
-	if l.sealed != nil {
-		return nil, fmt.Errorf("%w: sealed height %d", ErrSealedPending, l.sealed.Height)
-	}
-	l.open = nil
-
-	events, endBlock, err := endOfBlock(o)
-	if err != nil {
-		return nil, err
-	}
-	sealed := &SealedLayer{
-		Height:   o.height,
-		Txs:      o.txs,
-		Results:  o.results,
-		Events:   events,
-		EndBlock: endBlock,
-		Batch:    o.batchFields(),
-		ctx:      o.ctx,
-		ms:       o.ms,
-	}
-	l.sealed = sealed
-	l.lastSeq = sealed.Batch.ToSeq
-	l.lastSeqHash = sealed.Batch.LastSeqHash
-	return sealed, nil
-}
-
-func endOfBlock(o *OpenLayer) (events []abci.Event, endBlock abci.ResponseEndBlock, err error) {
+func endOfBlock(a *app.App, ctx sdk.Context, b *Batch, results []*abci.ExecTxResult, evmMsgs []*evmtypes.MsgEVMTransaction) (events []abci.Event, endBlock abci.ResponseEndBlock, err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			events = nil
@@ -66,29 +30,26 @@ func endOfBlock(o *OpenLayer) (events []abci.Event, endBlock abci.ResponseEndBlo
 			err = fmt.Errorf("%w: %v", ErrSealPanicked, r)
 		}
 	}()
-	a := o.app
-	ctx := o.ctx
-
-	events = append(events, o.beginEvents...)
-	events = append(events, a.MidBlock(ctx, o.height)...)
+	events = append(events, b.BeginBlockEvents...)
+	events = append(events, a.MidBlock(ctx, b.Height)...)
 
 	if a.GigaExecutorEnabled {
 		ctx.GigaMultiStore().WriteGiga()
 	}
 
-	a.EvmKeeper.SetTxResults(o.results)
-	a.EvmKeeper.SetMsgs(o.evmMsgs)
+	a.EvmKeeper.SetTxResults(results)
+	a.EvmKeeper.SetMsgs(evmMsgs)
 
 	events = append(events, a.BankKeeper.WriteDeferredBalances(ctx)...)
 
 	var evmTotalGasUsed int64
-	for _, result := range o.results {
+	for _, result := range results {
 		if result.EvmTxInfo != nil {
 			evmTotalGasUsed += result.GasUsed
 		}
 	}
 
-	endBlock = a.EndBlock(ctx, o.height, evmTotalGasUsed)
+	endBlock = a.EndBlock(ctx, b.Height, evmTotalGasUsed)
 
 	feeCtx := ctx.WithEventManager(sdk.NewEventManager())
 	if err := a.EvmKeeper.RouteCollectedFeeTokens(feeCtx); err != nil {
@@ -163,15 +124,9 @@ func SealBatch(a *app.App, b *Batch, msg seqtypes.MsgSequenceBatch) (*SealedLaye
 	if err := deliverBatch(a, ctx.WithTxIndex(0), msg); err != nil {
 		return nil, nil, err
 	}
-	o := &OpenLayer{
-		app:         a,
-		height:      b.Height,
-		ctx:         ctx,
-		beginEvents: b.BeginBlockEvents,
-		results:     append([]*abci.ExecTxResult{{}}, b.Results...),
-		evmMsgs:     append([]*evmtypes.MsgEVMTransaction{nil}, b.EVMMsgs...),
-	}
-	events, endBlock, err := endOfBlock(o)
+	results := append([]*abci.ExecTxResult{{}}, b.Results...)
+	evmMsgs := append([]*evmtypes.MsgEVMTransaction{nil}, b.EVMMsgs...)
+	events, endBlock, err := endOfBlock(a, ctx, b, results, evmMsgs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -180,7 +135,7 @@ func SealBatch(a *app.App, b *Batch, msg seqtypes.MsgSequenceBatch) (*SealedLaye
 	return &SealedLayer{
 		Height:   b.Height,
 		Txs:      append([][]byte{tx0}, b.Txs...),
-		Results:  o.results,
+		Results:  results,
 		Events:   events,
 		EndBlock: endBlock,
 		Batch:    fields,
