@@ -21741,7 +21741,7 @@ ac_2 = "check_spec returns a non-zero task count for each wave 0..7."
 
 [req.17031]
 title = "Bind the activation plan to the shared merge plan constant"
-ac_1 = "constant_sites returns precompiles/common/precompiles.go and precompiles/setup.go and no file under node/ after task 5.6.1 (precompiles/common/precompiles.go:30, precompiles/setup.go:50 and node/upgrades.go:112 declare the literal today)."
+ac_1 = "constant_sites returns exactly precompiles/common/precompiles.go, modules/layerxanchor/types/retire.go, modules/layerxcustody/types/retire.go and modules/xweb/keeper/activation.go, and no file under node/ and not precompiles/setup.go: task 5.6.1 derived both node/upgrades.go and precompiles/setup.go:55 from pcommon.MergeUpgrade, while the three module files restate the literal as their own constants (MergeUpgrade, MergePlanUpgrade, ProgramOriginPlan)."
 
 [req.17032]
 title = "Check the qualification ledger header against the v2 task ids and entry keys"
@@ -100475,8 +100475,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Rehearse layerxpay genesis export and import with kernel state intact"
 status = "pending"
 mode = "BUILD"
-wave = 15
-requires = ["2.22.5", "2.38.6"]
+wave = 23
+requires = ["2.22.5", "2.38.6", "1.24.1"]
 reqs = ["2319.1"]
 capabilities = ["2.40.9"]
 interfaces = []
@@ -149596,7 +149596,7 @@ do_4 = "In Plane::draw (services/interop/crates/x-websearch/src/payment.rs:1948-
 do_5 = "Delete DrawRequest, SignedDraw, DrawError, receive_authorization and sign_draw at services/interop/crates/x-websearch/src/payment.rs:197-352, receiver_did and asset_account at :149-161, the RECEIVE_OPERATION and SEND_OPERATION constants at :84-85 and Plane::sequence at :2010-2024."
 do_6 = "Change PaymentGate::receiver_did at services/interop/crates/x-websearch/src/payment.rs:1180 to receiver_address returning the 20-byte address."
 do_7 = "Update the receiver_key helpers at services/interop/crates/x-websearch/tests/binary.rs:180 and services/interop/crates/x-websearch/tests/payment.rs:279 to write secp256k1 keys, and write the three tests in services/interop/crates/x-websearch/tests/payment.rs:1696 and services/interop/crates/x-websearch/tests/keys.rs:121."
-symbols = ["Keys::receiver", "PaymentGate::new", "PaymentGate::receiver_address", "PaymentRecord", "Plane::draw", "Plane::submit"]
+symbols = ["PaymentGate::new", "PaymentGate::receiver_address", "PaymentRecord", "a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction", "draw_nonces_are_sequential_for_one_receiver", "the_receiver_key_file_holds_a_secp256k1_key"]
 touches = ["services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/src/keys.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/tests/keys.rs"]
 tests = ["services/interop/crates/x-websearch/tests/payment.rs::a_metered_draw_is_broadcast_as_a_receiver_signed_ledger_transaction", "services/interop/crates/x-websearch/tests/payment.rs::draw_nonces_are_sequential_for_one_receiver", "services/interop/crates/x-websearch/tests/keys.rs::the_receiver_key_file_holds_a_secp256k1_key"]
 planned_paths = []
@@ -170052,7 +170052,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "On the merged tree precompiles/setup.go:55 reads const MergeUpgrade = pcommon.MergeUpgrade and no longer declares the literal, while modules/layerxanchor/types/retire.go:4, modules/layerxcustody/types/retire.go:3 and modules/xweb/keeper/activation.go:9 declare it as module constants; the test asserts the list of ac_1 as amended, that no site is under node/, and that precompiles/setup.go is absent."
 [task.17.1.6]
 title = "Write the activation runbook from the plan data"
 status = "pending"
