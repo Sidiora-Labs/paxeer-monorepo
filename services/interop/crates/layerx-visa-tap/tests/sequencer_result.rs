@@ -124,6 +124,18 @@ fn from_receipt_reads_the_pay_exact_log() {
 }
 
 #[test]
+fn visa_result_digest_is_the_recorded_receipt_digest() {
+    let (evidence, keys, recorded_digest) = recorded_payment();
+    let reference = evidence.logs[0].topics()[3];
+    let result = MerchantOperationResult::from_receipt(&evidence, &keys, reference)
+        .expect("recorded payment must verify");
+    let MerchantOperationResult::ReceiptVerified { receipt_digest, .. } = result else {
+        panic!("recorded payment must produce a receipt-verified result");
+    };
+    assert_eq!(receipt_digest, recorded_digest);
+}
+
+#[test]
 fn from_receipt_refuses_another_reference() {
     let (evidence, keys, _) = recorded_payment();
     let reference = evidence.logs[0].topics()[3];

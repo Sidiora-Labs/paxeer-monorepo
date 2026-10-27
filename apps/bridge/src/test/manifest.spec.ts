@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { isBuiltin } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -79,6 +79,17 @@ function declaresTestAndTypecheckScripts(): void {
   expect(manifest.scripts.typecheck).toBe('tsc --noEmit -p tsconfig.json');
 }
 
+function declaresNoTelemetryPackages(): void {
+  for (const [ section, declarations ] of Object.entries(manifest)) {
+    if ([ 'dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies' ].includes(section)) {
+      expect(Object.keys(declarations).filter((name) => name.startsWith('@opentelemetry/'))).toEqual([]);
+    }
+  }
+  expect(existsSync(path.join(appRoot, 'instrumentation.node.ts'))).toBe(false);
+  expect(existsSync(path.join(appRoot, 'tsconfig.jest.json'))).toBe(false);
+}
+
 test(everyImportedPackageIsDeclared);
 test(noDeclaredRuntimeDependencyIsUnused);
 test(declaresTestAndTypecheckScripts);
+test(declaresNoTelemetryPackages);
