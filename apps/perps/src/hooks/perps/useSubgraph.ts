@@ -451,83 +451,11 @@ export const SPOT_ORDER_FILLS_QUERY = /* GraphQL */ `
   }
 `;
 
-export const SPOT_BATCH_CLEARINGS_QUERY = /* GraphQL */ `
-  query GetSpotBatchClearings($marketId: String, $limit: Int, $offset: Int) {
-    spotBatchClearings(marketId: $marketId, limit: $limit, offset: $offset) {
-      id marketId clearingOffsetBps clearingPrice matchedVolume
-      numBuysFilled numSellsFilled blockNumber txHash logIndex blockTimestamp
-    }
-  }
-`;
-
-export const SPOT_EPOCH_SETTLEMENTS_QUERY = /* GraphQL */ `
-  query GetSpotEpochSettlements($limit: Int, $offset: Int) {
-    spotEpochSettlements(limit: $limit, offset: $offset) {
-      epochNumber usersProcessed onchainBlock
-      blockNumber txHash logIndex blockTimestamp
-    }
-  }
-`;
-
-export const SPOT_FAST_SETTLEMENTS_QUERY = /* GraphQL */ `
-  query GetSpotFastSettlements($userAddress: String, $tokenAddress: String, $limit: Int, $offset: Int) {
-    spotFastSettlements(userAddress: $userAddress, tokenAddress: $tokenAddress, limit: $limit, offset: $offset) {
-      id userAddress tokenAddress amount fee
-      blockNumber txHash logIndex blockTimestamp
-    }
-  }
-`;
-
 export const SPOT_COLLATERAL_MOVEMENTS_QUERY = /* GraphQL */ `
   query GetSpotCollateralMovements($userAddress: String, $tokenAddress: String, $eventType: String, $limit: Int, $offset: Int) {
     spotCollateralMovements(userAddress: $userAddress, tokenAddress: $tokenAddress, eventType: $eventType, limit: $limit, offset: $offset) {
       id eventType userAddress tokenAddress amount
       blockNumber txHash logIndex blockTimestamp
-    }
-  }
-`;
-
-export const SPOT_MARKET_MODE_CHANGES_QUERY = /* GraphQL */ `
-  query GetSpotMarketModeChanges($marketId: String, $limit: Int, $offset: Int) {
-    spotMarketModeChanges(marketId: $marketId, limit: $limit, offset: $offset) {
-      id marketId oldMode newMode batchModeUntilBlock
-      blockNumber txHash logIndex blockTimestamp
-    }
-  }
-`;
-
-export const SPOT_POFQ_UPDATES_QUERY = /* GraphQL */ `
-  query GetSpotPofqUpdates($entityAddress: String, $isVault: Boolean, $limit: Int, $offset: Int) {
-    spotPofqUpdates(entityAddress: $entityAddress, isVault: $isVault, limit: $limit, offset: $offset) {
-      id entityAddress newScore newWeight isVault
-      blockNumber txHash logIndex blockTimestamp
-    }
-  }
-`;
-
-export const SPOT_PLVS_QUERY = /* GraphQL */ `
-  query GetSpotPLVs($isRegistered: Boolean, $limit: Int, $offset: Int) {
-    spotPLVs(isRegistered: $isRegistered, limit: $limit, offset: $offset) {
-      vaultAddress isRegistered
-      registeredAt registeredBlock registeredTxHash
-      deregisteredAt deregisteredBlock deregisteredTxHash
-    }
-  }
-`;
-
-export const SPOT_KEEPER_CYCLES_QUERY = /* GraphQL */ `
-  query GetSpotKeeperCycles($limit: Int, $offset: Int) {
-    spotKeeperCycles(limit: $limit, offset: $offset) {
-      id onchainTimestamp marketsEvaluated batchesCleared epochSettled
-      blockNumber txHash blockTimestamp
-    }
-  }
-`;
-
-export const SPOT_BATCH_CLEAR_FAILURES_QUERY = /* GraphQL */ `
-  query GetSpotBatchClearFailures($marketId: String, $limit: Int, $offset: Int) {
-    spotBatchClearFailures(marketId: $marketId, limit: $limit, offset: $offset) {
-      id marketId reason blockNumber txHash logIndex blockTimestamp
     }
   }
 `;

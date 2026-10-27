@@ -2,7 +2,8 @@ use layerx_portable::{
     verify_portable_json, PortableReceiptError, PortableReceiptV2, PortableVerified,
     ReceiptKeyEntry,
 };
-use serde::Deserialize;
+use layerx_proof::receipt::{ReceiptCheck, VerificationFailure};
+use serde::{Deserialize, Serialize};
 use sha3::{Digest as _, Keccak256};
 
 #[derive(Deserialize)]
@@ -14,6 +15,7 @@ struct Fixture {
 #[serde(rename_all = "camelCase")]
 struct Vector {
     id: String,
+    vector: String,
     raw_transaction: String,
     signed_receipt: String,
     receipt_digest: String,
@@ -21,11 +23,13 @@ struct Vector {
     pinned_key: PinnedKey,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 struct ReceiptJson {
     tx_hash: String,
     height: String,
+    #[serde(flatten)]
+    fields: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Deserialize)]
@@ -37,12 +41,15 @@ struct PinnedKey {
     last_height: u64,
 }
 
-fn vector(id: &str) -> Vector {
-    let fixture: Fixture = serde_json::from_str(include_str!(
+fn fixture() -> Fixture {
+    serde_json::from_str(include_str!(
         "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
     ))
-    .unwrap_or_else(|error| panic!("shared sequencer fixture parses: {error:?}"));
-    fixture
+    .unwrap_or_else(|error| panic!("shared sequencer fixture parses: {error:?}"))
+}
+
+fn vector(id: &str) -> Vector {
+    fixture()
         .cases
         .into_iter()
         .find(|case| case.id == id)
@@ -186,4 +193,189 @@ fn a_raw_transaction_that_does_not_hash_to_the_activity_id_is_refused() {
         verify_portable_json(&json, None, &keys),
         Err(PortableReceiptError::RawTransactionMismatch)
     );
+}
+
+#[test]
+fn every_valid_shared_case_exports_from_its_receipt_answer() {
+    let mut exported_cases = 0;
+    for case in fixture()
+        .cases
+        .into_iter()
+        .filter(|case| matches!(case.vector.as_str(), "V1" | "V2"))
+    {
+        let key = case.key();
+        let unrelated = ReceiptKeyEntry::new([0x99; 32], key.public_key(), 0, u64::MAX);
+        let keys = [unrelated, key];
+        let raw = hex_bytes(&case.raw_transaction);
+        let signed = hex_bytes(&case.signed_receipt);
+        let original = serde_json::to_value(&case.receipt_json).expect("receipt answer");
+        for rung in ["receipted", "committed"] {
+            let mut answer = original.clone();
+            answer["rung"] = rung.into();
+            let inclusion_height = if rung == "committed" {
+                let block_number = key.last_batch_number() + 1;
+                answer["blockNumber"] = format!("{block_number:#x}").into();
+                answer["blockHash"] = format!("0x{}", "ab".repeat(32)).into();
+                block_number
+            } else {
+                case.height()
+            };
+            for transaction in [None, Some(raw.as_slice())] {
+                let exported =
+                    PortableReceiptV2::from_sequencer_receipt(&answer, &keys, transaction)
+                        .unwrap_or_else(|error| panic!("{} at {rung}: {error:?}", case.id));
+                let json = exported.to_json().expect("exported JSON");
+                let wire: serde_json::Value = serde_json::from_slice(&json).unwrap();
+                assert_eq!(wire["signedReceipt"], case.signed_receipt);
+                assert_eq!(wire["receiptDigest"], case.receipt_digest);
+                assert_eq!(wire["receiptKey"]["keyId"], case.pinned_key.key_id);
+                assert_eq!(wire["inclusionHeight"], format!("{inclusion_height:#x}"));
+                if transaction.is_some() {
+                    assert_eq!(wire["rawTransaction"], case.raw_transaction);
+                } else {
+                    assert!(wire.get("rawTransaction").is_none());
+                }
+                let verified = PortableReceiptV2::verify_json(&json, &keys)
+                    .expect("exported shared case verifies offline");
+                assert_eq!(verified.signed_receipt(), signed.as_slice());
+                assert_eq!(verified.raw_transaction(), transaction);
+                assert_eq!(verified.receipt_key(), &key);
+                assert_eq!(verified.height(), case.height());
+                assert_eq!(verified.inclusion_height(), inclusion_height);
+                assert_eq!(
+                    verified.activity_id().as_slice(),
+                    hex_bytes(&case.receipt_json.tx_hash)
+                );
+                assert_eq!(
+                    verified.result_code(),
+                    if case.vector == "V2" { 1 } else { 0 }
+                );
+            }
+        }
+        exported_cases += 1;
+    }
+    assert_eq!(exported_cases, 5, "all valid shared cases executed");
+}
+
+#[test]
+fn the_shared_refusal_cases_are_refused_at_export() {
+    for (id, error) in [
+        (
+            "V3-key-not-pinned",
+            PortableReceiptError::ReceiptKeyMismatch,
+        ),
+        (
+            "V3-height-outside-key-range",
+            PortableReceiptError::Receipt(VerificationFailure {
+                check: ReceiptCheck::SequencerSignature,
+            }),
+        ),
+        (
+            "V3-activity-id-not-raw-hash",
+            PortableReceiptError::RawTransactionMismatch,
+        ),
+        (
+            "V3-non-canonical-bytes",
+            PortableReceiptError::Receipt(VerificationFailure {
+                check: ReceiptCheck::Decode,
+            }),
+        ),
+    ] {
+        let case = vector(id);
+        let answer = serde_json::to_value(&case.receipt_json).unwrap();
+        let raw = hex_bytes(&case.raw_transaction);
+        assert_eq!(
+            PortableReceiptV2::from_sequencer_receipt(&answer, &[case.key()], Some(&raw)),
+            Err(error),
+            "{id}"
+        );
+    }
+
+    let case = vector("V1-pax-transfer");
+    let keys = [case.key()];
+    let answer = serde_json::to_value(&case.receipt_json).unwrap();
+    let submitted = serde_json::json!({
+        "rung": "submitted",
+        "txHash": case.receipt_json.tx_hash,
+        "nonce": "0x0"
+    });
+    for transaction in [None, Some(&[][..])] {
+        assert_eq!(
+            PortableReceiptV2::from_sequencer_receipt(&submitted, &[], transaction),
+            Err(PortableReceiptError::NotReceipted)
+        );
+    }
+    assert_eq!(
+        PortableReceiptError::NotReceipted.to_string(),
+        "transaction has not been receipted"
+    );
+    assert_eq!(
+        PortableReceiptV2::from_sequencer_receipt(&answer, &[], None),
+        Err(PortableReceiptError::ReceiptKeyMismatch)
+    );
+
+    let mut tampered = answer.clone();
+    let mut signed = hex_bytes(&case.signed_receipt);
+    *signed.last_mut().unwrap() ^= 1;
+    tampered["receipt"] = format!(
+        "0x{}",
+        signed
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    )
+    .into();
+    assert_eq!(
+        PortableReceiptV2::from_sequencer_receipt(&tampered, &keys, None),
+        Err(PortableReceiptError::Receipt(VerificationFailure {
+            check: ReceiptCheck::SequencerSignature,
+        }))
+    );
+
+    let mut committed = answer.clone();
+    committed["rung"] = "committed".into();
+    assert_eq!(
+        PortableReceiptV2::from_sequencer_receipt(&committed, &keys, None),
+        Err(PortableReceiptError::JsonShape)
+    );
+    committed["blockNumber"] = format!("{:#x}", case.height() - 1).into();
+    assert_eq!(
+        PortableReceiptV2::from_sequencer_receipt(&committed, &keys, None),
+        Err(PortableReceiptError::InclusionHeight)
+    );
+    for (field, value, error) in [
+        ("rung", "unknown", PortableReceiptError::JsonShape),
+        (
+            "receipt",
+            "0xAB",
+            PortableReceiptError::InvalidHex("receipt"),
+        ),
+        (
+            "keyId",
+            "0x00",
+            PortableReceiptError::InvalidLength("keyId"),
+        ),
+        (
+            "height",
+            "0x00",
+            PortableReceiptError::InvalidQuantity("height"),
+        ),
+    ] {
+        let mut malformed = answer.clone();
+        malformed[field] = value.into();
+        assert_eq!(
+            PortableReceiptV2::from_sequencer_receipt(&malformed, &keys, None),
+            Err(error),
+            "{field}"
+        );
+    }
+    for field in ["rung", "receipt", "keyId", "height"] {
+        let mut malformed = answer.clone();
+        malformed.as_object_mut().unwrap().remove(field);
+        assert_eq!(
+            PortableReceiptV2::from_sequencer_receipt(&malformed, &keys, None),
+            Err(PortableReceiptError::JsonShape),
+            "missing {field}"
+        );
+    }
 }

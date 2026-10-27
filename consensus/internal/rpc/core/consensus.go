@@ -57,7 +57,7 @@ func (env *Environment) Validators(ctx context.Context, req *coretypes.RequestVa
 	}
 
 	// The latest validator that we know is the NextValidator of the last block.
-	height, err := env.getHeight(env.latestUncommittedHeight(), (*int64)(req.Height))
+	height, err := env.getHeight(env.latestUncommittedHeight(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}
@@ -182,7 +182,7 @@ func (env *Environment) ConsensusParams(ctx context.Context, req *coretypes.Requ
 
 	// The latest consensus params that we know is the consensus params after
 	// the last block.
-	height, err := env.getHeight(env.latestUncommittedHeight(), (*int64)(req.Height))
+	height, err := env.getHeight(env.latestUncommittedHeight(), env.BlockStore.Base(), (*int64)(req.Height))
 	if err != nil {
 		return nil, err
 	}

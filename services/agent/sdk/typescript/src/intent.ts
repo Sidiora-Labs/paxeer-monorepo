@@ -28,6 +28,7 @@ const JOURNEY_ID = /^jrn_[0-9a-z]{1,64}$/u;
 const LOWER_TOKEN = /^[a-z][a-z0-9-]{0,63}$/u;
 const HEADER_VALUE = /^[\x21-\x7e]{1,255}$/u;
 const MAX_U64 = 18446744073709551615n;
+const MAX_U256 = (1n << 256n) - 1n;
 
 export const INTENT_ENDPOINT_KINDS = ["paxeer-wallet", "human", "agent", "agent-budget"] as const;
 export type IntentEndpointKind = (typeof INTENT_ENDPOINT_KINDS)[number];
@@ -155,6 +156,8 @@ export interface IntentLeg {
   readonly destination: IntentEndpointRef;
   readonly money: IntentMoney;
   readonly fee: IntentMoney;
+  readonly call: { readonly to: string; readonly data: string; readonly value: bigint };
+  readonly nonce: bigint | null;
 }
 
 export interface IntentSigningRequirement {
@@ -168,6 +171,7 @@ export interface IntentPlan {
   readonly planDigest: string;
   readonly journeyKind: string;
   readonly totalFee: IntentMoney;
+  readonly sponsored: boolean;
   readonly legs: readonly IntentLeg[];
   readonly signingRequirements: readonly IntentSigningRequirement[];
 }
@@ -418,9 +422,20 @@ export function decodeHumanError(status: number, value: unknown, trace: string):
 
 export function decodeIntentPlan(value: unknown): IntentPlan {
   const plan = record(value);
-  exactKeys(plan, ["plan_digest", "journey_kind", "total_fee", "legs", "signing_requirements"]);
+  exactKeys(plan, ["plan_digest", "journey_kind", "total_fee", "sponsored", "legs", "signing_requirements"]);
+  const sponsored = plan.sponsored;
+  if (typeof sponsored !== "boolean") throw decodeFailure();
   if (!Array.isArray(plan.legs) || plan.legs.length === 0 || plan.legs.length > MAX_LEGS) throw decodeFailure();
-  const legs = plan.legs.map((leg, position) => decodeIntentLeg(leg, position));
+  const legs = plan.legs.map((leg, position) => decodeIntentLeg(leg, position, sponsored));
+  if (!sponsored) {
+    let previous: bigint | null = null;
+    for (const leg of legs) {
+      if (leg.nonce === null || (previous !== null && leg.nonce !== previous + 1n)) {
+        throw nonceFailure(leg.index);
+      }
+      previous = leg.nonce;
+    }
+  }
   if (!Array.isArray(plan.signing_requirements) || plan.signing_requirements.length > MAX_LEGS) throw decodeFailure();
   const seen = new Set<number>();
   const signingRequirements = plan.signing_requirements.map((requirement) => {
@@ -433,6 +448,7 @@ export function decodeIntentPlan(value: unknown): IntentPlan {
     planDigest: decodedHex32(plan.plan_digest),
     journeyKind: decodedToken(plan.journey_kind),
     totalFee: decodeMoney(plan.total_fee),
+    sponsored,
     legs: Object.freeze(legs),
     signingRequirements: Object.freeze(signingRequirements),
   });
@@ -457,9 +473,10 @@ export function decodeIntentSubmission(value: unknown): IntentSubmission {
   });
 }
 
-function decodeIntentLeg(value: unknown, position: number): IntentLeg {
+function decodeIntentLeg(value: unknown, position: number, sponsored: boolean): IntentLeg {
   const leg = record(value);
-  exactKeys(leg, ["index", "mechanism", "domain", "source", "destination", "money", "fee"]);
+  if (!sponsored && (leg.nonce === undefined || leg.nonce === null)) throw nonceFailure(position);
+  exactKeys(leg, ["index", "mechanism", "domain", "source", "destination", "money", "fee", "call", "nonce"]);
   if (leg.index !== position) throw decodeFailure();
   const domain = leg.domain;
   if (typeof domain !== "string" || !(INTENT_DOMAINS as readonly string[]).includes(domain)) throw decodeFailure();
@@ -471,6 +488,39 @@ function decodeIntentLeg(value: unknown, position: number): IntentLeg {
     destination: decodeEndpoint(leg.destination),
     money: decodeMoney(leg.money),
     fee: decodeMoney(leg.fee),
+    call: decodeIntentCall(leg.call),
+    nonce: leg.nonce === null ? null : decodedUnsigned(leg.nonce, MAX_U64),
+  });
+}
+
+function decodeIntentCall(value: unknown): IntentLeg["call"] {
+  const call = record(value);
+  exactKeys(call, ["to", "data", "value"]);
+  const to = call.to;
+  const data = call.data;
+  if (typeof to !== "string" || !/^0x[0-9a-fA-F]{40}$/u.test(to)
+    || typeof data !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/u.test(data)) {
+    throw decodeFailure();
+  }
+  return Object.freeze({ to, data, value: decodedUnsigned(call.value, MAX_U256) });
+}
+
+function decodedUnsigned(value: unknown, maximum: bigint): bigint {
+  if (typeof value !== "string" || value.length > 78 || !/^(0|[1-9][0-9]*)$/u.test(value)) throw decodeFailure();
+  const decoded = BigInt(value);
+  if (decoded > maximum) throw decodeFailure();
+  return decoded;
+}
+
+function nonceFailure(position: number): HumanIntentError {
+  return new HumanIntentError({
+    status: 502,
+    humanCode: "refused-by-protocol",
+    copyKey: "error.intent.invalid-nonce",
+    retriability: "final",
+    trace: "",
+    field: `legs[${position}].nonce`,
+    retryAfterMs: null,
   });
 }
 

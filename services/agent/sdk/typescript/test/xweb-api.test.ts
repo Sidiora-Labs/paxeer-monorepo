@@ -542,6 +542,7 @@ test("calldata_unchanged", () => {
     [
       exchangePlaceOrderCall({
         marketId: `0x${"11".repeat(32)}`,
+        accountId: `0x${"22".repeat(32)}`,
         side: 2,
         price: 18446744073709551618n,
         quantity: 5000n,
@@ -550,8 +551,9 @@ test("calldata_unchanged", () => {
       {
         to: "0x0000000000000000000000000000000000001015",
         data:
-          selector("placeOrder(bytes32,uint8,uint256,uint256,uint8)") +
+          selector("placeOrder(bytes32,bytes32,uint8,uint256,uint256,uint8)") +
           "11".repeat(32) +
+          "22".repeat(32) +
           word(2n) +
           word(18446744073709551618n) +
           word(5000n) +

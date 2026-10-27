@@ -1,5 +1,8 @@
 "use client";
 
+import { useQueries } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
 import { useMemo } from "react";
 import { cn } from "@/ui/utils/cn";
 import { fmtUsdCompact as fmtUsd, weiToNumber } from "@/ui/utils/format";
@@ -45,16 +48,24 @@ export function PortfolioPositionsPanel({
   onConnect,
 }: PortfolioPositionsPanelProps) {
   const { tickers } = useRealtimePrices();
+  const tierQueries = useQueries({
+    queries: positions.map((pos) => ({
+      queryKey: ["perps", "marginTiers", Number(pos.marketId)],
+      queryFn: () => getPublicClient().readContract(buildGetMarginTiers(BigInt(pos.marketId))),
+      staleTime: 60_000,
+    })),
+  });
 
   const rows = useMemo<PositionRow[]>(() => {
-    return positions.map((pos) => {
+    return positions.map((pos, index) => {
       const sym =
         PERPS_MARKETS.find((m) => m.marketId === Number(pos.marketId))?.symbol ??
         `MKT-${pos.marketId}`;
       const parsed = parsePositionRow(pos, sym);
       const markPrice = tickers[sym]?.mark_price ?? 0;
       const mark = markPriceWad(markPrice);
-      const pnlData = mark > 0n ? computePositionPnl(parsed, mark) : null;
+      const tiers = tierQueries[index].data;
+      const pnlData = mark > 0n && tiers?.length ? computePositionPnl(parsed, mark, tiers) : null;
       return {
         id: String(pos.positionId),
         symbol: sym,
@@ -67,7 +78,7 @@ export function PortfolioPositionsPanel({
         pnlPct: pnlData ? pctWad(pnlData.unrealizedPnl, parsed.collateralUsd) : 0n,
       };
     });
-  }, [positions, tickers]);
+  }, [positions, tickers, tierQueries]);
 
   if (!isConnected) {
     return (
@@ -93,6 +104,21 @@ export function PortfolioPositionsPanel({
           title="No open positions"
           description="Your open positions will appear here once you place a trade."
         />
+      </SectionCard>
+    );
+  }
+
+  if (tierQueries.some((query) => query.isError || query.data?.length === 0)) {
+    return (
+      <SectionCard title="Open positions">
+        <div role="alert">Market margin tiers unavailable. Please try again.</div>
+      </SectionCard>
+    );
+  }
+  if (tierQueries.some((query) => !query.data)) {
+    return (
+      <SectionCard title="Open positions">
+        <div role="status">Loading market margin tiers…</div>
       </SectionCard>
     );
   }
