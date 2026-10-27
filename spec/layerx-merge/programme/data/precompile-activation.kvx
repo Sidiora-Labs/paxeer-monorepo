@@ -1,0 +1,96 @@
+# Gates declared by activationPrecompileGate and mergePrecompileGate in node/upgrades.go.
+# MergeAddressTable is an address inventory, not a constructor registry.
+# newMergePrecompiles in precompiles/setup.go skips unregistered constructors;
+# the registrar packages have no production imports at HEAD (including teeattestor).
+
+[address.0x1012]
+plan = "v6.9"
+modules = ["layerxanchor"]
+
+[address.0x1013]
+plan = "v6.9"
+modules = ["layerxcustody"]
+
+[address.0x1014]
+plan = "v6.9"
+modules = ["layerxanchor"]
+
+[address.0x1015]
+plan = "v6.9"
+modules = ["layerxexchange"]
+
+[address.0x1016]
+plan = "v6.9"
+modules = ["layerxbridge"]
+
+[address.0x1017]
+plan = "v6.9"
+modules = ["launchpad"]
+
+[address.0x1018]
+plan = "v6.9"
+modules = ["layerxbridge"]
+
+[address.0x1019]
+plan = "v6.9"
+modules = ["xweb"]
+
+[address.0x101A]
+plan = "v7.0"
+modules = ["layerxledger"]
+served_at_head = false
+
+[address.0x101B]
+plan = "v7.0"
+modules = ["layerxpay"]
+served_at_head = false
+
+[address.0x101C]
+plan = "v7.0"
+modules = ["layerxauth"]
+served_at_head = false
+
+[address.0x101D]
+plan = "v7.0"
+modules = ["layerxprograms"]
+served_at_head = false
+
+[address.0x0901]
+plan = "v7.0"
+modules = ["layerxagent"]
+served_at_head = false
+
+[address.0x0902]
+plan = "v7.0"
+modules = ["layerxagent"]
+served_at_head = false
+
+[address.0x0903]
+plan = "v7.0"
+modules = ["layerxagent", "layerxexchange"]
+served_at_head = false
+
+[address.0x0904]
+plan = "v7.0"
+modules = ["layerxagent"]
+served_at_head = false
+
+[address.0x0905]
+plan = "v7.0"
+modules = ["layerxagent"]
+served_at_head = false
+
+[address.0x0906]
+plan = "v7.0"
+modules = ["layerxpay"]
+served_at_head = false
+
+[address.0x0907]
+plan = "v7.0"
+modules = ["layerxagent"]
+served_at_head = false
+
+[address.0x0908]
+plan = "v7.0"
+modules = ["layerxagent"]
+served_at_head = false

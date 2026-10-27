@@ -1,3 +1,6 @@
+[meta]
+format_version = 1
+
 [component.verify]
 req = "11001"
 symbols = ["layerxverify", "ILayerXVerify", "layerxVerify"]
@@ -378,3 +381,13 @@ owner_domain = 11
 refusal = "kernel checkpoint input removed; mirror retained with committed headers"
 deleted_trees = []
 replacement = "the mirror is kept and re-pointed: it publishes the committed header and app hash read from a full node at the mirrored height, and finality is block height and commit"
+
+[component.requires-sei-wasm]
+req = "17029"
+symbols = ["saturn.wasm", "venus.wasm"]
+owner_domain = 16
+refusal = "not deployable after the merge"
+deleted_trees = []
+replacement = "replace the requires_sei contracts with the in-tree cw20_base.wasm fixture, following the same ruling task 16.38.1 applies to mars.wasm; request the caller changes through wiring.J60.10"
+callers = ["tests/integration/contracts/deploy_wasm_contracts.sh:36", "tests/integration/contracts/deploy_wasm_contracts.sh:50", "tools/benchmark/loadtest/contracts/deploy_ten_contracts.sh:34-35"]
+wiring = ["wiring.J60.10"]

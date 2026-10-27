@@ -127,7 +127,7 @@ func (m *Markets) serveHealth(w http.ResponseWriter, r *http.Request) {
 // MarkPriceUpdated, the settled hourly rate and eight times it of the latest
 // FundingSettled as exact decimal strings, the 24 hour contract and liquidation volumes from the
 // fills since $2, and the open interest in contracts from the open positions.
-const marketRecordsSQL = `SELECT m.symbol, m.name,
+const marketRecordsSQL = `SELECT m.market_id::text, m.symbol, m.name,
 	(s.last_price - s.open_24h) / NULLIF(s.open_24h, 0),
 	COALESCE(s.volume_24h, 0) / $1::numeric, COALESCE(s.volume_7d, 0) / $1::numeric, COALESCE(s.volume_30d, 0) / $1::numeric,
 	COALESCE(s.trades_count, 0),
@@ -184,7 +184,7 @@ func (m *Markets) records(ctx context.Context, symbol *string) ([]MarketRecord, 
 			oiContracts                               sql.NullString
 			markAt                                    sql.NullTime
 		)
-		if err := rows.Scan(&rec.Symbol, &rec.SymbolFull, &change, &vol24, &vol7, &vol30, &rec.TradesCount,
+		if err := rows.Scan(&rec.MarketID, &rec.Symbol, &rec.SymbolFull, &change, &vol24, &vol7, &vol30, &rec.TradesCount,
 			&longOI, &shortOI, &mark, &index, &basis, &markAt, &hourly, &eight,
 			&fillVolume, &fillContracts, &liqVolume, &oiContracts); err != nil {
 			return nil, err

@@ -10,7 +10,6 @@ func TestValidateMessageTypesRejectsUnknownType(t *testing.T) {
 		Bank, EVM, ERC20, ERC721, CollectRewards, DistributeRewards,
 		FailureBankMalformed, FailureBankInvalid, FailureDexMalformed, FailureDexInvalid,
 		Dex, Staking, Tokenfactory, Limit, Market, WasmMintNft, Vortex, WasmInstantiate,
-		WasmOccIteratorWrite, WasmOccIteratorRange, WasmOccParallelWrite,
 	}
 	for _, messageTypes := range [][]string{nil, {}, valid} {
 		if err := (Config{MessageTypes: messageTypes}).ValidateMessageTypes(); err != nil {
