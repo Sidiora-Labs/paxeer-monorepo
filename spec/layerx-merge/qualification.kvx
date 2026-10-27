@@ -2181,3 +2181,35 @@ symbol = "App.LastBlockID"
 observed = "The fourth attempt's App.LastBlockID (10d32cff2) returns the check-context header's LastBlockId, which after Commit of height H is the id of block H-1, not of the committed block H, and TestOpenHeaderCarriesLastBlockID passes only because it finalizes a block whose LastBlockID is set to that block's own id."
 assumption = "do_1/do_4 \"the committed header's block id\" is read as the committed header's LastBlockId field; if the Open header of H+1 must carry the id of block H, a source for the committed block id is needed and the test must stop self-referencing."
 severity = "suspect"
+
+[finding.9.23.7.1]
+task = "9.23.7"
+file = "services/agent/crates/layerx-client/tests/ai_market_client.rs:16"
+symbol = "CheckpointFinality"
+observed = "At c7e26937d (first attempt, base 4acd0e5d4) the library compiles again and the build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests` exited 101 (logs-build-1.log) only in tests/ai_market_client.rs: the CheckpointFinality import (:16) and record.checkpoint()/finality.checkpoint() (:1144) follow this task's do_2, while ReadProof.batch_id (:325) and SnapshotBinding.checkpoint/settlement (:659-660) were removed by 13.29.1, whose gate never compiled the test because the library itself did not compile; the file is outside the task's touches and is otherwise owned by 9.23.6 (wave 10), which deletes it."
+assumption = "9.23.7 widens to the test and updates it; 9.23.6 deletes it later."
+severity = "blocker"
+
+[finding.9.23.7.2]
+task = "9.23.7"
+file = "services/agent/crates/layerx-client/src/ai_market.rs:1069"
+symbol = "sign_disclosed"
+observed = "do_5 asked the operation signing path to call sign_disclosed_call (9.31.3, services/agent/crates/layerx-crypto/src/signer.rs:276), which takes an Eip1559Call, its Disclosure and a from address and signs the EIP-1559 preimage, while the operation sign method at ai_market.rs:1069 signs canonical activity bytes with ed25519 and the journal still submits them over LNI frames until 9.23.6 moves submission to rpc::submit::submit_signed; the first attempt left sign_disclosed in place and reported the mismatch."
+assumption = "The signing migration belongs to 9.23.6 (its new do_4) and 9.35.1, which deletes sign_disclosed, requires 9.23.6."
+severity = "suspect"
+
+[finding.13.7.4]
+task = "13.7.4"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs:614"
+symbol = "abi_payload"
+observed = "On unchanged main 1b20d42f3 the build `cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --features host-ffi --tests` cannot pass: f29813a20 (13.7.1) added AbiError::EffectLimit (abi/mod.rs:710) and mapped it in abi/host_state.rs:71 and host/mod.rs:1269 but not in abi_payload, which compiles only under the host-ffi feature (lib.rs:46-48) that 13.7.1's build did not enable; both attempts of 13.7.4 (second at b3b92fef4, logs-build-1.log) exited 101 on that single E0004 with the export and both tests already written."
+assumption = "13.7.4 owns ffi_call.rs and adds the arm with tag 18; 13.0.3 and 13.7.5 inherit it through their existing requires."
+severity = "blocker"
+
+[finding.5.17.2.1]
+task = "5.17.2"
+file = "node/sequencer/limits.go:43"
+symbol = "admit"
+observed = "The fifth attempt (2fa906880, base 4acd0e5d4) built and both SealBatch tests failed at Accept with \"gas wanted 200000 (resp. 21000) exceeds Block.MaxGasWanted 0\" (logs-verify-1.log): the admission check of 5.4.3 (f3ef8c257) refuses gas above Block.MaxGasWanted, the tests build their chain with newSourceHarness whose app.DefaultConsensusParams (node/test_helpers.go:664) leave it at 0, and the test file was written on 6c0eca168 before 5.4.3 landed; the candidate's three files are unchanged since its second attempt and touch neither accept.go nor limits.go."
+assumption = "Both tests store a non-zero block gas bound in their setup as resolutionBlockGas and admissionParams already do in the package; limits.go stays unchanged."
+severity = "note"

@@ -96402,7 +96402,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.5.3]
 title = "Add the layerxledger AppModule with genesis and Msg service registration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["2.5.2", "1.22.3"]
@@ -99042,7 +99042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.32.7]
 title = "Serve layerxagent MsgUpdateParams and the Params, Job and Pending queries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.32.3", "2.32.5", "2.0.1"]
@@ -100121,7 +100121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.0.2]
 title = "Register the perps Msg service and codec on the app module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.0.1", "3.1.2", "3.1.4", "3.1.5", "3.1.6", "1.22.3"]
@@ -100493,7 +100493,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.2.3]
 title = "Price a governance-listed perps market at the next end block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["3.1.5", "3.0.2"]
@@ -101016,7 +101016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.10]
 title = "Refuse opens and allow closes on a governance-disabled market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5", "1.22.3"]
@@ -101047,7 +101047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.11]
 title = "Admit larger opens after governance raises a market OI cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -101109,7 +101109,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.13]
 title = "Hold all nine invariants after every governance Msg"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.4", "3.1.5", "3.1.6"]
@@ -101140,7 +101140,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.14]
 title = "Skip premium samples and marks for a governance-disabled market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.5"]
@@ -101202,7 +101202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.6.16]
 title = "Apply governed class E open-interest caps by listing age"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.1.4", "3.1.5"]
@@ -103610,7 +103610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.1]
 title = "Add the chain market-config columns to perps.markets in migration 0012"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["3.45.1", "3.42.8"]
@@ -103885,7 +103885,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.43.1]
 title = "Retire the eight spot GraphQL roots that resolve to no facts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -104097,7 +104097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.45.6]
 title = "Copy only the range-keyed projection rows in the replay snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -105126,7 +105126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.56.1]
 title = "Load-test the symbols the gateway serves instead of a fixed list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.0.2"]
@@ -109929,7 +109929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.1]
 title = "Add a vitest harness and tsconfig to the mobile app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 0
 requires = []
@@ -111474,7 +111474,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.4.5]
 title = "Carry the committed app hash and last block id in the executor Open header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.4.2", "5.19.1"]
@@ -112242,7 +112242,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.6.4]
 title = "Judge the merge plan stores and retire the upgrade-height leader gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.6.2", "5.18.1", "1.22.3"]
@@ -113331,7 +113331,7 @@ fulfils = ["wiring.J32.9"]
 do_1 = "Delete Layers (node/sequencer/layers.go:63), OpenLayer (node/sequencer/layers.go:73), NewLayers (node/sequencer/layers.go:112), their methods at node/sequencer/layers.go:117-276, SequencedTx (node/sequencer/layers.go:53) and sequenceHash (node/sequencer/layers.go:351), so no second seqHash copy remains."
 do_2 = "Keep the error block at node/sequencer/layers.go:28-39, SealedLayer (node/sequencer/layers.go:94) and SequenceBatchFields (node/sequencer/layers.go:43), which SealBatch and the executor use."
 do_3 = "Delete Seal of the Layers path (node/sequencer/seal.go:28-59) and keep endOfBlock (node/sequencer/seal.go:61-101), which SealBatch calls at node/sequencer/seal.go:174, and SealBatch (node/sequencer/seal.go:133)."
-do_4 = "Delete the Layers tests of node/sequencer/seal_test.go:219-416 and add the two SealBatch tests below to node/sequencer/seal_test.go."
+do_4 = "Delete the Layers tests of node/sequencer/seal_test.go:219-416 and add the two SealBatch tests below to node/sequencer/seal_test.go; in both tests' newSourceHarness setup call resolutionBlockGas(ctx, a) (node/sequencer/resolution_test.go:91) first, so Block.MaxGasWanted is non-zero under the admission check of 5.4.3 (node/sequencer/limits.go:43)."
 symbols = ["SealBatch", "TestSealBatchAppliesDeferredBalances", "TestSealBatchRoutesCollectedFeeTokens"]
 touches = ["node/sequencer/layers.go", "node/sequencer/seal.go", "node/sequencer/seal_test.go"]
 tests = ["node/sequencer/seal_test.go::TestSealBatchAppliesDeferredBalances", "node/sequencer/seal_test.go::TestSealBatchRoutesCollectedFeeTokens"]
@@ -117788,7 +117788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.69.1]
 title = "Sweep the consensus RPC routes under Autobahn for a defined answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["5.64.6", "5.64.7", "5.64.9", "5.64.10", "5.64.14", "5.67.4", "5.64.16"]
@@ -120879,7 +120879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.22.4]
 title = "Add MintByIssuer and BurnByIssuer keeper entry points"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.22.2", "6.22.3", "6.0.1"]
@@ -120973,7 +120973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.22.7]
 title = "Freeze the IssuerKeeper interface that layerxledger consumes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.22.3", "6.22.4"]
@@ -121465,7 +121465,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.26.4]
 title = "Register the tokenfactory PausedDenomsInvariant"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.21.3"]
@@ -122509,7 +122509,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.47.2]
 title = "Prove custody genesis round-trips after the retired release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["6.46.1"]
@@ -124762,7 +124762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.65.3]
 title = "Revert the origin-2 methods of 0x1019 with LXP_MODULE_DISABLED below the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["6.65.2", "6.61.1", "1.22.3"]
@@ -125145,7 +125145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.72.1]
 title = "Refuse a CosmWasm gov message without a plain vote instead of panicking"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["6.0.1"]
@@ -125636,7 +125636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.82.1]
 title = "Remove sendFromCaller and sendFromOrigin from the IBank consumer interface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.0.1"]
@@ -126298,7 +126298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.2.1]
 title = "Stop serving eth_cleanup and cancel filters when the HTTP server stops"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["7.0.1", "1.22.3"]
@@ -139329,6 +139329,7 @@ interfaces = ["interface.9.rs-client-ai-market-checkpointfinality-j44", "interfa
 do_1 = "OperationJournal (services/agent/crates/layerx-client/src/ai_market.rs:1474) submit (services/agent/crates/layerx-client/src/ai_market.rs:1546), resend_exact (services/agent/crates/layerx-client/src/ai_market.rs:1568) and resolve (services/agent/crates/layerx-client/src/ai_market.rs:1649) take `&mut dyn FrameTransport` and call submit::submit_signed and the receipt lookups."
 do_2 = "Change the three methods to take `endpoint: &SequencerEndpoint` and call rpc::submit::submit_signed (task 9.23.1) and rpc::receipt::lookup_authenticated (task 9.23.2); the journal still syncs each lifecycle change before the next side effect, and the layerx_wire::activity use (services/agent/crates/layerx-client/src/ai_market.rs:51) is removed."
 do_3 = "Delete the FrameTransport and InterfaceVersion imports (services/agent/crates/layerx-client/src/ai_market.rs:58), create services/agent/crates/layerx-client/tests/ai_market_rpc.rs (planned) and delete services/agent/crates/layerx-client/tests/ai_market_client.rs, which drives the journal over LNI frames and decodes kernel activities and checkpoint certificates (services/agent/crates/layerx-client/tests/ai_market_client.rs:63)."
+do_4 = "Replace the sign_disclosed import (services/agent/crates/layerx-client/src/ai_market.rs:10) with sign_disclosed_call (task 9.31.3): sign each operation as the Eip1559Call that rpc::submit::submit_signed sends, binding its disclosure with bind_call, so sign_disclosed has no caller left in layerx-client (task 9.35.1 deletes it)."
 symbols = ["OperationJournal", "submit", "resend_exact", "resolve", "operation_journal_submit_sends_the_exact_raw_bytes_once", "operation_journal_resolve_records_the_receipted_rung"]
 touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/tests/ai_market_client.rs", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs"]
 tests = ["services/agent/crates/layerx-client/tests/ai_market_rpc.rs::operation_journal_submit_sends_the_exact_raw_bytes_once", "services/agent/crates/layerx-client/tests/ai_market_rpc.rs::operation_journal_resolve_records_the_receipted_rung"]
@@ -139360,10 +139361,11 @@ do_1 = "CheckpointFinality (services/agent/crates/layerx-client/src/ai_market.rs
 do_2 = "Replace CheckpointFinality with `pub struct CommitFinality` built by `CommitFinality::new(block_height, block_hash, app_hash, store_proof_digest)`, refusing a zero block_hash or app_hash with QueryError::FinalityUnavailable; the four facts are the fields of FinalityEvidence as task 13.29.1 left them (services/agent/crates/layerx-client/src/evidence.rs: block_height, block_hash, app_hash, store_proof_digest); task 9.23.5 later reads them through rpc::evidence."
 do_3 = "Change ObservedSnapshot::finalize to take `Option<&CommitFinality>`, refuse a commit whose block_height is below the observed height with QueryError::BindingMismatch, and keep the commit on FinalizedSnapshot through `pub fn commit(&self) -> &CommitFinality` in place of the checkpoint evidence beside settlement (services/agent/crates/layerx-client/src/ai_market.rs:302), which task 9.96.2 encodes."
 do_4 = "Change OperationJournal::finalize (services/agent/crates/layerx-client/src/ai_market.rs:1685) to take `&CommitFinality`, require the record's receipt height to be at or below block_height and store the block hash where the checkpoint id was stored."
-do_5 = "Replace the sign_disclosed import (services/agent/crates/layerx-client/src/ai_market.rs:10) with sign_disclosed_call (task 9.31.3) for the operation signing path and drop the layerx_proof::checkpoint import."
+do_5 = "Drop the layerx_proof::checkpoint import (services/agent/crates/layerx-client/src/ai_market.rs:40); the operation signing path keeps sign_disclosed over the canonical activity bytes until task 9.23.6 submits operations through rpc::submit::submit_signed and signs them with sign_disclosed_call."
 do_6 = "Create services/agent/crates/layerx-client/tests/ai_market_commit.rs (planned)."
+do_7 = "Update services/agent/crates/layerx-client/tests/ai_market_client.rs, which the build compiles with --tests, to the shapes on main and in this task: import CommitFinality in place of CheckpointFinality (:16), drop the batch_id field from the ReadProof literal (:325; removed by 13.29.1), replace the binding.checkpoint and binding.settlement assertions (:659-660; fields removed by 13.29.1) with assertions on the block commit facts SnapshotBinding now carries, and assert the stored block hash where record.checkpoint() was compared with finality.checkpoint() (:1144); keep every other case as written."
 symbols = ["CommitFinality", "ObservedSnapshot::finalize", "OperationJournal::finalize", "finalize_keeps_the_block_commit", "finalize_refuses_a_zero_app_hash_or_an_older_commit", "journal_finalize_records_the_block_hash"]
-touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/tests/ai_market_commit.rs"]
+touches = ["services/agent/crates/layerx-client/src/ai_market.rs", "services/agent/crates/layerx-client/tests/ai_market_commit.rs", "services/agent/crates/layerx-client/tests/ai_market_client.rs"]
 tests = ["services/agent/crates/layerx-client/tests/ai_market_commit.rs::finalize_keeps_the_block_commit", "services/agent/crates/layerx-client/tests/ai_market_commit.rs::finalize_refuses_a_zero_app_hash_or_an_older_commit", "services/agent/crates/layerx-client/tests/ai_market_commit.rs::journal_finalize_records_the_block_hash"]
 planned_paths = ["services/agent/crates/layerx-client/tests/ai_market_commit.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
@@ -140643,7 +140645,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.34.2]
 title = "Delete the TypeScript batch inclusion and checkpoint verifiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.92.1", "9.34.3", "9.34.5", "9.33.4"]
@@ -140780,7 +140782,7 @@ title = "Remove the kernel activity codec from layerx-crypto"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14"]
+requires = ["9.35.3", "9.31.2", "9.31.3", "9.2.2", "9.23.7", "8.94.3", "11.34.5", "12.95.1", "10.0.3", "10.98.7", "10.98.8", "10.98.9", "10.98.10", "10.98.11", "10.98.12", "10.98.13", "10.98.14", "9.23.6"]
 reqs = ["9341.1"]
 capabilities = ["9.35.1"]
 interfaces = ["interface.9.rs-crypto-onboarding-onboardingconsent", "interface.9.rs-crypto-onboarding-sponsoredregistration", "interface.9.rs-crypto-rotation-ownerrotationstate", "interface.9.rs-crypto-rotation-ownerrotationconsent", "interface.9.rs-crypto-rotation-ownerrotationcommit", "interface.9.rs-crypto-rotation-ownerrotation", "interface.9.rs-crypto-disclosure-bind", "interface.9.rs-crypto-disclosure-bind-budget-mutation", "interface.9.rs-crypto-send-encode-send-envelope", "interface.9.rs-crypto-send-envelopeoptions", "interface.9.rs-crypto-signer-sign-disclosed", "interface.9.rs-crypto-send-encode-payment-envelope", "interface.9.rs-crypto-disclosure-disclosure", "interface.9.rs-crypto-signer-keystoresigner", "interface.9.rs-crypto-signaturemessage-new-j70", "interface.9.rs-crypto-signaturemessage-digest-j70", "interface.9.rs-crypto-verifyerror-result-code-j70", "interface.9.rs-crypto-onboardingconsent-payload-j70", "interface.9.rs-crypto-onboardingconsent-decode-payload-j70", "interface.9.rs-crypto-sponsoredregistration-from-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-decode-j70", "interface.9.rs-crypto-sponsoredregistration-payload-j70", "interface.9.rs-crypto-sponsoredregistration-signed-consent-j70", "interface.9.rs-crypto-sponsoredregistration-validate-outer-j70", "interface.9.rs-crypto-ownerrotationstate-decode-j70", "interface.9.rs-crypto-ownerrotationconsent-payload-j70", "interface.9.rs-crypto-ownerrotationconsent-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-from-signed-consent-j70", "interface.9.rs-crypto-ownerrotationcommit-decode-j70", "interface.9.rs-crypto-ownerrotationcommit-payload-j70", "interface.9.rs-crypto-ownerrotation-owner-j70", "interface.9.rs-crypto-ownerrotation-payload-j70", "interface.9.rs-crypto-ownerrotation-decode-j70", "interface.9.rs-crypto-ownerrotation-from-activity-j70"]
@@ -143102,7 +143104,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.15.5]
 title = "Answer the retired movement operations' golden failure vectors with operation-retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["10.15.2"]
@@ -145894,7 +145896,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.4.1]
 title = "Settle the x402 facilitator plane on SequencerEvidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["11.1.1", "11.6.1"]
@@ -146355,7 +146357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.9.2]
 title = "Use the gateway canonical receipt digest in UCP instead of the private copy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["11.9.1", "11.0.1"]
@@ -146415,7 +146417,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.9.4]
 title = "Re-verify the stored receipt when a UCP order is read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["11.9.2"]
@@ -147058,7 +147060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.14.5]
 title = "Publish fiat sequenced journey vectors and replay them against the adapter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["11.14.1", "11.8.1"]
@@ -148528,7 +148530,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.2]
 title = "Encode and submit fulfilProgram calldata from the EVM submitter"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["11.33.1"]
@@ -149693,7 +149695,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.3.3]
 title = "Remove the lx_activity policy kind and its evaluator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["12.11.3"]
@@ -152782,7 +152784,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.35.1]
 title = "Complete a transfer at the committed rung in the transfer result"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["12.22.1"]
@@ -153343,7 +153345,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.1.10]
 title = "Verify state membership and absence at the app hash of the next height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.1.2", "13.1.3", "13.1.4", "13.1.9"]
@@ -154629,6 +154631,7 @@ do_1 = "Add #[no_mangle] pub unsafe extern \"C\" fn layerx_programs_event_log_en
 do_2 = "Source the logs from AbiEffects::program_event_logs of the call recorded by layerx_programs_call_begin (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2641) and refuse an index at or above the log count with -1 and a short buffer with -2 without writing."
 do_3 = "Keep the kernel feed externs layerx_programs_event_begin, event_byte and event_emit at programs/crates/layerx-programs-runtime/src/ffi_call.rs:1146-1163 untouched; the host stops using the feed once wiring.J51.6 lands."
 do_4 = "Add mod event_log_cases to programs/crates/layerx-programs-runtime/src/ffi_call.rs:3849 with event_log_encode_writes_topics_and_data and event_log_encode_refuses_index_and_short_buffer."
+do_5 = "Add the arm AbiError::EffectLimit => vec![18] to abi_payload at programs/crates/layerx-programs-runtime/src/ffi_call.rs:614 (13.7.1 added the variant without it, so the host-ffi build fails E0004 on unchanged main); 18 is the next unused abi_payload tag and no other arm changes."
 symbols = ["layerx_programs_event_log_encode", "event_log_encode_writes_topics_and_data", "event_log_encode_refuses_index_and_short_buffer"]
 touches = ["programs/crates/layerx-programs-runtime/src/ffi_call.rs"]
 tests = ["programs/crates/layerx-programs-runtime/src/ffi_call.rs::event_log_encode_writes_topics_and_data", "programs/crates/layerx-programs-runtime/src/ffi_call.rs::event_log_encode_refuses_index_and_short_buffer"]
@@ -158095,7 +158098,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.2]
 title = "Decode explorer verification levels onto the three rungs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.9.1", "14.5.5"]
@@ -159913,7 +159916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.29.2]
 title = "Sign the explorer fixture batch header through EVP instead of lxp_batch_sign"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["14.29.1"]
@@ -161710,7 +161713,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.54.3]
 title = "Block a Solana withdrawal until the destination's recipient record is registered"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.54.2", "14.47.4"]
@@ -161771,7 +161774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.55.1]
 title = "Pin the app's bridge and vault ABIs to the precompile ABI and the vault source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.47.4", "14.48.4"]
@@ -161863,7 +161866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.55.4]
 title = "Pin the client vault event topics to the relayer parity constants"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.48.4"]
@@ -161986,7 +161989,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.59.1]
 title = "Show attesting and ready steps and failed history rows in the transfers panel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.48.4", "14.46.2"]
@@ -165172,7 +165175,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.8.5]
 title = "Remove the exchange, custody and anchor governance templates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["16.0.2", "1.22.3"]
@@ -167284,7 +167287,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.16.32.8]
 title = "Delete the data-availability bundle and possession suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["16.37.1", "16.0.2", "16.37.2"]
@@ -169174,7 +169177,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.2.2]
 title = "Resolve every retired component to its in-repo callers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.2.1"]
@@ -169415,7 +169418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.3.2]
 title = "Add the rehearsal step runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.3.1"]
@@ -169535,7 +169538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.4.2]
 title = "Map parity rows to verify commands that run exactly their selectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.4.1"]
@@ -169565,7 +169568,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.4.3]
 title = "Detect verify commands that run zero tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["17.4.2"]
@@ -169963,7 +169966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.6.2]
 title = "Check every task profile against the sandbox manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.6.1"]
@@ -169993,7 +169996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.6.3]
 title = "Record the sandbox resource needs the phase-2 jobs found"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.6.1"]
@@ -170053,7 +170056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.2]
 title = "Write the run cards of feature managers for domains 1 to 8"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.7.1"]
@@ -170083,7 +170086,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.7.3]
 title = "Write the run cards of feature managers for domains 9 to 17"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["17.7.1"]
