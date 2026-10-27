@@ -63,15 +63,76 @@ by independent implementations without LayerX infrastructure:
 
 ### LayerX Receipt Portability
 
-An external verifier needs only:
-1. The `layerx-receipt-proof-v1` JSON format (documented above)
-2. An independently trusted `AuthorizedBatch` (from a certificate, snapshot, or vector manifest)
-3. The layerx-proof verification library (or an independent implementation)
+The current portable sequencer proof is `layerx-receipt-proof-v2`. An external
+verifier needs this format and an independently pinned `ReceiptKeys` list; no
+LayerX SDK, batch authorization, gateway, node, database, clock or network is
+required. Python implementations can use `cryptography` for Ed25519 and
+`pycryptodome` for Keccak-256.
 
-No gateway, node, daemon, database, clock, or network connection is required.
-The portable receipt carries every byte needed for cryptographic verification.
-Golden test vectors in `tests/receipt_vectors.rs` and `tests/independent_verifier.rs`
-prove that a standalone verifier can process exported receipts.
+A v2 proof is a UTF-8 JSON object with exactly these members (plus the optional
+`rawTransaction`). Reject duplicate or unknown members at either object level.
+
+| Member | Value |
+|---|---|
+| `format` | Literal `layerx-receipt-proof-v2` |
+| `verificationLevel` | Literal `receipted`, including exports of committed answers |
+| `signedReceipt` | Complete canonical signed ProtocolReceipt v2 bytes |
+| `receiptDigest` | 32-byte receipt-signature digest |
+| `receiptKey` | Object with exactly `keyId`, `publicKey`, `firstHeight`, `lastHeight` |
+| `inclusionHeight` | Height no lower than the signed receipt height |
+| `rawTransaction` | Optional raw signed transaction, bound to the activity id |
+
+All byte strings use lowercase, even-length `0x` hex. `keyId` and `publicKey`
+are exactly 32 bytes. Heights are unsigned 64-bit lowercase `0x` quantities,
+without leading zeroes except `0x0`. Receipt and raw transaction bytes must each
+be nonempty and at most 1,048,576 bytes; the JSON input is at most 1,500,000 bytes.
+
+For the sequencer layout, decode the following fields in order. All integers
+are fixed-width big-endian; `bytes32` means a u32 length equal to 32 followed
+by exactly 32 bytes. Reject truncation, invalid lengths and trailing bytes.
+
+| Fields in wire order | Encoding |
+|---|---|
+| Envelope version, tag, protocol version | u16 = 2, u16 = 0x5201, u16 = 2 |
+| Activity id, global sequence | bytes32 (nonzero), u64 |
+| Previous state root, resulting state root, activity root | three bytes32 |
+| Result code, effect count | i32, u32 |
+| Each effect | u16 module, u16 ordinal, u16 event type, u8 kind, u8 monetary, bytes32 transfer root, u32 body length, body |
+| Fee charged, batch id | u128, bytes32 |
+| Module id, module version, parameter version, operation | u16 > 11, u32 = 1, u32, u8 |
+| Asset, amount, from | bytes32, u128, bytes32 |
+| From balance before, after, sequence | u128, u128, u64 |
+| To, to balance before, after | bytes32, u128, u128 |
+| Transfer set root, authorization hash, context hash | three bytes32 |
+| Timestamp, signature | u64, u8 = 1, u32 = 64, 64 signature bytes |
+
+Effect kind is 1, 2 or 3; monetary is 0 or 1 and may be 1 only for kind 2.
+Each effect body is at most 256 bytes and the effect count is at most
+floor(1,048,576 / 48). This sequencer layout has no supply or program-outcome
+extension. The first 24 bytes of batch id must be zero; its final eight bytes
+are the signed height. Context hash is the signed key id.
+
+Select exactly one entry from the verifier's pinned list by that signed key
+id; reject missing or duplicate identities. Its inclusive `firstHeight` to
+`lastHeight` window must cover the **signed height**, and the carried
+`receiptKey` must equal that entire pinned entry. Never trust a key supplied
+only by the proof, or select its window using `inclusionHeight`.
+The signed height may equal either window endpoint; a later inclusion height
+may be outside that window.
+
+Replace the final 69 bytes (`01 00000040` and the 64-byte signature) with a
+single zero signature-presence byte to obtain the unsigned preimage. Compute
+`sha256("LXP/v1/receipt\0" || unsigned_preimage)` (the domain ends with a NUL),
+require equality with `receiptDigest`, and verify the Ed25519 signature over
+that 32-byte digest using the selected pinned public key. If `rawTransaction`
+is present, require `keccak256(rawTransaction)` to equal the signed activity
+id; Keccak-256 is distinct from SHA3-256.
+
+Require `inclusionHeight` to be at least the signed height. This carried height
+does not prove inclusion or finality: a v2 proof establishes a sequencer-signed
+receipt only. A signed nonzero result code remains a rejected transaction.
+The shared `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json` vectors
+exercise successful and reverted receipts in both independent harnesses.
 
 ### External Evidence Portability
 

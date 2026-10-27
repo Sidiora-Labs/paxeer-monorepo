@@ -135,15 +135,21 @@ export function attestationPollInterval(
   return data?.status === 'ready' && data.signatures.length > 0 ? false : periodMs;
 }
 
+export function depositAttestationPath(args: {
+  chainId: bigint;
+  txHash: Hex;
+  logIndex: bigint;
+}): string {
+  return `/v1/deposit/${ args.chainId }/${ args.txHash.toLowerCase() }/${ args.logIndex }`;
+}
+
 /** GET /v1/deposit/{chainId}/{txHash}/{logIndex} — null while unobserved. */
 export async function fetchDepositAttestation(args: {
   chainId: bigint;
   txHash: Hex;
   logIndex: bigint;
 }): Promise<DepositAttestation | null> {
-  const raw = await fetchJson(
-    `/v1/deposit/${ args.chainId }/${ args.txHash.toLowerCase() }/${ args.logIndex }`,
-  );
+  const raw = await fetchJson(depositAttestationPath(args));
   if (raw === null) return null;
   return parseDepositAttestation(args, raw);
 }
@@ -179,15 +185,21 @@ export function parseDepositAttestation(
   };
 }
 
+export function releaseAttestationPath(args: {
+  chainId: bigint;
+  paxeerTxHash: Hex;
+  paxeerNonce: bigint;
+}): string {
+  return `/v1/release/${ args.chainId }/${ args.paxeerTxHash.toLowerCase() }/${ args.paxeerNonce }`;
+}
+
 /** GET /v1/release/{chainId}/{paxeerTxHash}/{nonce} — null while unobserved. */
 export async function fetchReleaseAttestation(args: {
   chainId: bigint;
   paxeerTxHash: Hex;
   paxeerNonce: bigint;
 }): Promise<ReleaseAttestation | null> {
-  const raw = await fetchJson(
-    `/v1/release/${ args.chainId }/${ args.paxeerTxHash.toLowerCase() }/${ args.paxeerNonce }`,
-  );
+  const raw = await fetchJson(releaseAttestationPath(args));
   if (raw === null) return null;
   return parseReleaseAttestation(args, raw);
 }

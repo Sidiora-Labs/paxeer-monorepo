@@ -1,0 +1,591 @@
+[meta]
+format_version = 1
+source = "spec/layerx-merge/docs/parity-inventory.md"
+selector_policy = "Exact declared tests at HEAD or in a phase-2 task; fixtures and whole-suite filters are not executable selectors."
+mapping_policy = "Source paths retain the narrative inventory. Selectors name the current chain target; custody release follows decision.642, bond return follows task 6.33.1."
+
+[construct.existing-sequencer-execution-and-block-parity]
+title = "Sequencer execution and block parity"
+source_section = 2
+source_paths = ["tests/occ/occ_test.go", "node/optimistic_processing_test.go", "node/receipt_test.go", "node/receipt_translation_test.go", "node/check_total_block_gas_test.go", "node/app_test.go", "node/ante_test.go", "node/app_feetoken_test.go", "rpc/state_test.go", "rpc/tx_test.go", "rpc/simulate_test.go", "rpc/subscribe_test.go", "consensus/internal/consensus/wal_test.go", "consensus/test/e2e"]
+wave = 0
+owner_domain = 5
+selectors = ["node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock", "node/sequencer/seal_giga_test.go::TestSealBatchEqualsGigaProcessBlock"]
+planned_by = ["5.16.2", "5.16.4"]
+
+[construct.existing-receipts-and-admission]
+title = "Receipts and admission"
+source_section = 2
+source_paths = ["tests/sequencer/lxp_test_admission.c", "tests/protocol/lxp_test_receipts.c", "tests/ledger/test_receipt.c", "tests/fixtures/receipt-supply-v2.bin", "tests/protocol/lxp_test_fee_gate.c", "tests/protocol/paxeer_x_rejection_policy.py", "tests/protocol/lxp_test_terminal_rejection.c", "tests/test_receipt_offline.c"]
+wave = 0
+owner_domain = 5
+selectors = ["node/sequencer/receipt_equality_test.go::TestReceiptEqualsCommittedReceipt", "node/sequencer/receipt_equality_test.go::TestReceiptLogEffects"]
+planned_by = []
+
+[construct.existing-fees-fee-token-and-sponsored-gas]
+title = "Fees, fee token and sponsored gas"
+source_section = 2
+source_paths = ["tests/test_fees.c", "tests/test_fee_replay.c", "tests/fixtures/fee-params-v3.bin", "tests/fixtures/fee-params-v4.bin", "agent/sdk/typescript/test/gas-station.test.ts", "interop/crates/layerx-gas-station/tests/station.rs", "interop/crates/layerx-gas-station/tests/service.rs", "interop/crates/layerx-gas-station/tests/rate.rs", "interop/crates/layerx-gas-station/tests/fixtures/paymaster_rate.json", "contracts/test/BatchCallAndSponsorTest.t.sol", "human/apps/web/e2e/gas-station.test.ts", "precompiles/feetoken/feetoken_test.go", "modules/evm/keeper/feetoken_test.go", "interop/crates/layerx-gas-station/tests", "tests/test_fees_v4.c"]
+wave = 0
+owner_domain = 6
+selectors = ["precompiles/feetoken/feetoken_test.go::TestFeeDenomRoundTripAndCallerIsolation", "precompiles/feetoken/feetoken_test.go::TestFeeDenomRefusalsPreservePreference", "precompiles/feetoken/feetoken_test.go::TestFeeDenomRefusalsCarryRegistryCodesAtMergeHeight", "precompiles/feetoken/feetoken_test.go::TestFeeDenomClearAfterGovernanceChanges", "precompiles/feetoken/feetoken_test.go::TestFeeDenomClearWithdrawnPreference", "precompiles/feetoken/feetoken_test.go::TestFeeDenomViewDoesNotWriteOrChargeAnteGas", "precompiles/feetoken/feetoken_test.go::TestFeeDenomGasAndTransactions", "precompiles/feetoken/feetoken_test.go::TestFeeDenomStaticClearAndRollback", "precompiles/feetoken/feetoken_test.go::TestFeeDenomStoreOutOfGasPropagates", "precompiles/feetoken/feetoken_test.go::TestFeeDenomMissingKeeper"]
+planned_by = []
+
+[dropped.existing-operations]
+title = "Operations"
+source_section = 2
+source_paths = ["tools/ops/monitoring/rules_test.yml", "tools/rollout/tests/rollout.test.sh"]
+wave = 0
+owner_domain = 16
+dropped = ["tools/ops/monitoring/rules_test.yml", "tools/rollout/tests/rollout.test.sh"]
+reason = "The monitoring YAML and rollout shell suite expose no individually named test; no phase-2 task supplies an exact replacement selector."
+
+[construct.existing-kernel-replay-corpus]
+title = "Kernel replay corpus"
+source_section = 2
+source_paths = ["tests/qualification/lxp_qual_replay.c", "tests/test_replay_crossarch.c", "tests/vectors/replay_corpus.lxb", "tests/vectors/qualification_replay_10m.digest"]
+wave = 2
+owner_domain = 1
+selectors = ["tests/test_replay_crossarch.c::main"]
+planned_by = []
+
+[construct.existing-asset-ledger]
+title = "Asset ledger"
+source_section = 2
+source_paths = ["tests/ledger/test_send.c", "tests/ledger/test_receive.c", "tests/ledger/test_send_allowance.c", "tests/ledger/test_transfer_set.c", "tests/ledger/test_apply_transfer.c", "tests/modules/test_asset_registry.c", "tests/modules/test_asset_state.c", "tests/modules/test_asset_transfer.c", "tests/modules/test_asset_withdraw.c", "tests/modules/test_asset_withdraw_activity.c", "tests/fixtures/asset/supply-pause.receipt", "tests/fixtures/asset/supply-unpause.receipt", "tests/fixtures/asset/bound-native-withdrawal", "tests/fixtures/asset/unbound-native-withdrawal", "tests/modules/test_asset_payloads.h", "tests/test_genesis_manifest.c", "tests/test_state_commitment_transition.c", "tests/test_gateway_receive.c", "tests/daemon/lxp_test_asset_inventory.c", "tests/ledger/test_account_id.c"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxledger/keeper/assets_test.go::TestRegisterAsset", "modules/layerxledger/keeper/assets_test.go::TestRegisterAssetTwiceRefused", "modules/layerxledger/keeper/assets_test.go::TestPauseUnpauseAsset", "modules/layerxledger/keeper/supply_test.go::TestMintWithinCap", "modules/layerxledger/keeper/supply_test.go::TestBurnReducesBalance", "modules/layerxledger/keeper/accounts_test.go::TestOpenAccount", "modules/layerxledger/keeper/accounts_test.go::TestOpenAccountPausedAsset", "modules/layerxledger/keeper/send_test.go::TestSendMovesBalance", "modules/layerxledger/keeper/send_test.go::TestSendRefusals", "modules/layerxledger/keeper/payexact_test.go::TestPayExact", "modules/layerxledger/keeper/payexact_test.go::TestPayExactExpired", "modules/layerxledger/keeper/grants_test.go::TestIssuePayerGrant", "modules/layerxledger/keeper/grants_test.go::TestRevokePayerGrant", "modules/layerxledger/keeper/draw_test.go::TestDrawWithinGrant", "modules/layerxledger/keeper/draw_test.go::TestDrawWithoutGrant", "modules/layerxledger/keeper/views_test.go::TestLedgerViews", "modules/layerxledger/keeper/views_test.go::TestNextSequence"]
+planned_by = ["2.4.1", "2.4.2", "2.4.3", "2.4.4", "2.4.5", "2.4.6", "2.4.7", "2.4.8"]
+
+[construct.existing-authority-sessions-and-idempotency]
+title = "Authority, sessions and idempotency"
+source_section = 2
+source_paths = ["tests/state/lxp_test_grants.c", "tests/state/lxp_test_revocation.c", "tests/state/lxp_test_rotation.c", "tests/state/lxp_test_authority_resolve.c", "tests/state/lxp_test_identity.c", "tests/state/lxp_test_idempotency.c", "tests/state/lxp_test_state_proof.c", "tests/protocol/lxp_test_owner_rotation.c", "tests/fixtures/authority/native-sessions", "tests/fixtures/authority/native-fee-grants", "tests/qualification/paxeer_x_idempotency_lifecycle.py", "tests/daemon/lxp_test_grant_issuance.c", "human/crates/layerx-intents/tests/native_session.rs", "agent/crates/layerx-crypto/tests/native_fee_grant.rs", "tests/daemon/lxp_test_metered_allowance.c", "tests/test_authority_multisig.c", "tests/state/lxp_test_allowance.c", "tests/daemon/lxp_test_daemon_allowance.c"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxauth/keeper/execute_test.go::TestAuthExecuteIdempotentReplay", "modules/layerxauth/keeper/execute_test.go::TestAuthExecuteSequenceReused", "modules/layerxauth/keeper/sessions_test.go::TestGrantSession", "modules/layerxauth/keeper/sessions_test.go::TestGrantSessionSuccessor", "modules/layerxauth/keeper/capability_test.go::TestGrantCapability", "modules/layerxauth/keeper/capability_test.go::TestGrantCapabilityRefusesOwnKey", "modules/layerxauth/keeper/revoke_test.go::TestRevokeGrantAdvancesRevocation", "modules/layerxauth/keeper/revoke_test.go::TestRevokeGrantRefusesOtherGrantor", "modules/layerxauth/keeper/views_test.go::TestAuthGrantViews", "modules/layerxauth/keeper/views_test.go::TestAuthIsLive", "modules/layerxauth/keeper/views_test.go::TestAuthCheckActivity", "modules/layerxauth/keeper/views_test.go::TestAuthResultByIdempotency"]
+planned_by = ["2.6.4", "2.7.1", "2.7.2", "2.7.3", "2.7.4"]
+
+[construct.existing-escrow]
+title = "Escrow"
+source_section = 2
+source_paths = ["tests/modules/test_escrow_open.c", "tests/modules/test_escrow_capture.c", "tests/modules/test_escrow_timeout.c", "tests/modules/test_escrow_dispute.c", "tests/modules/test_escrow_invariants.c", "tests/modules/paxeer_x_escrow_replay_binding.py", "tests/daemon/lxp_test_epoch_escrow_timeout.c", "tests/daemon/lxp_test_escrow_replay_client.c"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxpay/keeper/escrow_open_test.go::TestEscrowOpenLocksFunds", "modules/layerxpay/keeper/escrow_open_test.go::TestEscrowCaptureAndPartialCapture", "modules/layerxpay/keeper/escrow_settle_test.go::TestEscrowReleaseAndTimeout", "modules/layerxpay/keeper/escrow_settle_test.go::TestEscrowDisputeResolveSplit", "modules/layerxpay/keeper/escrow_views_test.go::TestEscrowViewsReadKernelRecord", "modules/layerxpay/keeper/escrow_views_test.go::TestEscrowViewsUnknownIDEmpty"]
+planned_by = ["2.23.1", "2.23.2", "2.23.3"]
+
+[construct.existing-budget]
+title = "Budget"
+source_section = 2
+source_paths = ["tests/modules/test_budget_create.c", "tests/modules/test_budget_close.c", "tests/modules/test_budget_delegate.c", "tests/modules/test_budget_period.c", "tests/modules/test_budget_spend.c", "tests/modules/paxeer_x_budget_lifecycle.py", "tests/daemon/lxp_test_budget_lifecycle.c", "tests/daemon/lxp_test_epoch_budget_rollback.c"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxpay/keeper/budget_create_test.go::TestBudgetCreateAndFund", "modules/layerxpay/keeper/budget_create_test.go::TestBudgetNativeVariantsAndAmend", "modules/layerxpay/keeper/budget_spend_test.go::TestBudgetSpendWithinPeriodLimit", "modules/layerxpay/keeper/budget_spend_test.go::TestBudgetDelegateSpendDerivedKey", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant", "modules/layerxpay/keeper/budget_close_test.go::TestBudgetCloseDrainsToOwner", "modules/layerxpay/keeper/budget_close_test.go::TestBudgetDefundAndRevoke", "modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord"]
+planned_by = ["2.24.1", "2.24.2", "2.24.3", "2.24.4", "2.24.5"]
+
+[construct.existing-stream]
+title = "Stream"
+source_section = 2
+source_paths = ["tests/modules/test_stream_open.c", "tests/modules/test_stream_accrue.c", "tests/modules/test_stream_lifecycle.c", "tests/modules/test_stream_meter.c", "tests/modules/test_stream_settle.c", "tests/modules/paxeer_x_metered_end_boundary.py"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxpay/keeper/stream_open_test.go::TestStreamOpenFundsFromPayer", "modules/layerxpay/keeper/stream_open_test.go::TestStreamTopUpAddsFunding", "modules/layerxpay/keeper/stream_settle_test.go::TestStreamSettlePaysAccrued", "modules/layerxpay/keeper/stream_settle_test.go::TestStreamMeterThenClose", "modules/layerxpay/keeper/stream_lifecycle_test.go::TestStreamPauseResumeStopsAccrual", "modules/layerxpay/keeper/stream_lifecycle_test.go::TestStreamRateChangeSettlesAtOldRate", "modules/layerxpay/keeper/stream_views_test.go::TestStreamAccruedAtBlockOpen", "modules/layerxpay/keeper/stream_views_test.go::TestStreamRecordAndResultViews", "modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamOpenMapsTokenAndUnits", "modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamSettleCloseRateAndView", "modules/layerxpay/keeper/stream_agent_test.go::TestAgentStreamUnknownTokenRefused"]
+planned_by = ["2.25.1", "2.25.2", "2.25.3", "2.25.4", "2.25.5"]
+
+[construct.existing-service]
+title = "Service"
+source_section = 2
+source_paths = ["tests/modules/test_service_offer.c", "tests/modules/test_service_acceptance.c", "tests/modules/test_service_attest.c", "tests/modules/test_service_commit.c", "tests/modules/test_service_deliver.c", "tests/modules/test_service_dispute.c", "tests/daemon/lxp_test_epoch_service_acceptance.c"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxpay/keeper/service_offer_test.go::TestServiceOfferPublishWithdraw", "modules/layerxpay/keeper/service_agreement_test.go::TestServiceAgreementProposeAccept", "modules/layerxpay/keeper/service_agreement_test.go::TestServiceCommitAndAbandon", "modules/layerxpay/keeper/service_delivery_test.go::TestServiceDeliverAcceptFlow", "modules/layerxpay/keeper/service_delivery_test.go::TestServiceRejectAndToolAttest", "modules/layerxpay/keeper/service_dispute_test.go::TestServiceDisputeResolvedByEscrowArbiter", "modules/layerxpay/keeper/service_dispute_test.go::TestServiceDisputeArbiterRefusals", "modules/layerxpay/keeper/service_views_test.go::TestServiceViewsReadKernelRecords", "modules/layerxpay/keeper/service_views_test.go::TestServiceViewsUnknownEmpty"]
+planned_by = ["2.26.1", "2.26.2", "2.26.3", "2.26.4", "2.26.5"]
+
+[construct.existing-native-perps-spot-and-oracle-intake]
+title = "Native perps, spot and oracle intake"
+source_section = 2
+source_paths = ["tests/modules/test_perps_book.c", "tests/modules/test_perps_funding.c", "tests/modules/test_perps_insurance.c", "tests/modules/test_perps_liquidate.c", "tests/modules/test_perps_market.c", "tests/modules/test_perps_position.c", "tests/fixtures/trading-payloads/vectors.json", "tests/modules/dump_trading_vectors.c", "tests/qualification/paxeer_x_exchange_tif.py", "tests/modules/test_oracle_checks.c", "tests/modules/test_oracle_halt.c", "tests/modules/test_oracle_intake.c", "tests/modules/test_oracle_transport.c", "tests/qualification/paxeer_x_oracle_transport.py", "tests/modules/test_spot_book.c", "tests/daemon/lxp_test_oracle_transport_client.c", "tests/daemon/lxp_test_exchange_tif_client.c", "modules/layerxexchange/keeper/keeper_test.go", "precompiles/layerxexchange/layerxexchange_test.go", "modules/oracle", "tests/agent/sdk/python/test_trading_payload.py", "tests/agent/sdk/python/test_precompile_calls.py", "agent/sdk/typescript/test/trading-payload.test.ts", "agent/sdk/typescript/test/precompile-calls.test.ts", "human/wallet/sdk/test/modules.test.ts", "tests/daemon/lxp_test_module_maintenance.c", "tests/test_genesis_module_table.c", "tests/network/test_oracle_adapter.c", "tests/sequencer/test_oracle_root.c", "tests/test_programs_oracle_read.c"]
+wave = 3
+owner_domain = 3
+selectors = ["modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketListsNewMarket", "modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesUnlistedPricefeedMarket", "modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesIdentityChange", "modules/perps/keeper/funding_test.go::TestFundingPremiumSample", "modules/perps/keeper/funding_test.go::TestFundingRateFormula", "modules/perps/keeper/funding_test.go::TestFundingSettlementIndex", "modules/perps/keeper/funding_test.go::TestFundingRoundingTowardVenue", "modules/perps/keeper/funding_test.go::TestFundingBeforeLiquidation", "modules/perps/keeper/liquidation_test.go::TestLiquidationAccountLevel", "modules/perps/keeper/liquidation_test.go::TestLiquidationSlices", "modules/perps/keeper/liquidation_test.go::TestLiquidationPerBlockBound", "modules/perps/keeper/liquidation_test.go::TestLiquidationPriceFormula", "modules/perps/keeper/liquidation_test.go::TestLiquidationHealthyRefused"]
+planned_by = []
+
+[construct.existing-launchpad]
+title = "Launchpad"
+source_section = 2
+source_paths = ["modules/launchpad/keeper/keeper_test.go", "modules/launchpad/keeper/history_test.go", "modules/launchpad/keeper/invariants.go", "precompiles/launchpad/launchpad_test.go"]
+wave = 3
+owner_domain = 4
+selectors = ["modules/launchpad/keeper/keeper_test.go::TestCreateMarketChargesFeeAndEscrowsSupply", "modules/launchpad/keeper/keeper_test.go::TestSwapVectors", "modules/launchpad/keeper/keeper_test.go::TestBuyMovesUsdlIntoCustody", "modules/launchpad/keeper/keeper_test.go::TestSnapshotRingWraps", "modules/launchpad/keeper/keeper_test.go::TestQuoteConservation", "modules/launchpad/keeper/keeper_test.go::TestSwapRejections", "modules/launchpad/keeper/keeper_test.go::TestFeeSplitMatchesFeeAccumulator", "modules/launchpad/keeper/keeper_test.go::TestFeeStrategies", "modules/launchpad/keeper/keeper_test.go::TestAirdropSharesByHolding", "modules/launchpad/keeper/keeper_test.go::TestGuardianPause", "modules/launchpad/keeper/keeper_test.go::TestParamsChangeOnlyThroughGovernance", "modules/launchpad/keeper/keeper_test.go::TestGenesisRoundTrip", "modules/launchpad/keeper/keeper_test.go::TestMsgUpdateParamsGovernanceRoute", "modules/launchpad/keeper/keeper_test.go::TestMsgUpdateParamsCodecAndSigners", "modules/launchpad/keeper/keeper_test.go::TestMsgUpdateParamsRefusals", "modules/launchpad/keeper/keeper_test.go::TestAirdropEntitlements", "modules/launchpad/keeper/history_test.go::TestAirdropHoldingHistory"]
+planned_by = []
+
+[construct.existing-web-requests-origin-1-and-origin-2]
+title = "Web requests, origin 1 and origin 2"
+source_section = 2
+source_paths = ["tests/modules/test_web_intake.c", "tests/fixtures/web/observation-activity.hex", "programs/crates/layerx-programs-runtime/tests/web_read.rs", "tests/test_web_program_path.c", "tests/test_programs_web_read.c", "modules/xweb/keeper/request_test.go", "modules/xweb/keeper/fulfil_test.go", "modules/xweb/keeper/msg_server_test.go", "modules/xweb/keeper/refund_test.go", "precompiles/xweb/xweb_test.go", "modules/xweb/types/testdata/preimage-vectors.json", "programs/sdk/rust/examples/web-reader", "modules/xweb/types/msgs_test.go", "modules/xweb/types/attestation_test.go", "tests/protocol/lxp_test_dispatch.c", "tests/protocol/lxp_test_kernel.c", "tests/network/test_web_adapter.c", "tests/sequencer/test_web_root.c"]
+wave = 3
+owner_domain = 6
+selectors = ["modules/xweb/keeper/request_test.go::TestRequestStoresUnderTheNextNonceAndTakesTheFee", "modules/xweb/keeper/request_test.go::TestRequestEventCarriesWhatAnAttestorNeeds", "modules/xweb/keeper/request_test.go::TestRequestRefusals", "modules/xweb/keeper/request_test.go::TestApiRequestStoresTheLevelAndTheNamedAttestor", "modules/xweb/keeper/request_test.go::TestApiRequestRefusals", "modules/xweb/keeper/fulfil_test.go::TestFulfilAtThresholdStoresTheResultAndSplitsTheFee", "modules/xweb/keeper/fulfil_test.go::TestFulfilByEveryAttestorSplitsThreeWays", "modules/xweb/keeper/fulfil_test.go::TestFulfilKeeperAttestationMatchesTheIndependentPreimage", "modules/xweb/keeper/fulfil_test.go::TestFulfilSignatureRefusals", "modules/xweb/keeper/fulfil_test.go::TestFulfilSizeRefusals", "modules/xweb/keeper/fulfil_test.go::TestFulfilStateRefusals", "modules/xweb/keeper/fulfil_test.go::TestRecordCallback", "modules/xweb/keeper/fulfil_test.go::TestFulfilSingleLevelTakesTheNamedAttestorAlone", "modules/xweb/keeper/fulfil_test.go::TestFulfilSingleLevelRefusals", "modules/xweb/keeper/fulfil_test.go::TestFulfilMajorityApiRequestKeepsTheThreshold", "modules/xweb/keeper/refund_test.go::TestRefundAfterTimeoutReturnsTheFeeOnce", "modules/xweb/keeper/refund_test.go::TestRefundRefusals", "modules/xweb/keeper/refund_test.go::TestRefundKeepsTheStoredTimeoutAndWorksWhilePaused"]
+planned_by = []
+
+[construct.existing-programs]
+title = "Programs"
+source_section = 2
+source_paths = ["tests/programs/test_fee_governance.c", "tests/programs/test_registration.c", "tests/programs/test_call_activity.c", "tests/programs/test_lifecycle.c", "tests/programs/test_metering_schedule.c", "tests/programs/test_winddown.c", "tests/programs/test_monetary_law.c", "tests/fixtures/programs/account-bound-call", "tests/programs/test_metered_call.c", "tests/programs/test_execution_context.c", "tests/programs/test_balance_read.c", "tests/programs/test_accounts.c", "tests/programs/test_spend_capability_composition.c", "tests/programs/test_occupancy_batch.c", "tests/programs/test_blob_admission.c", "tests/programs/test_blob_lifecycle.c", "tests/programs/test_paxai_native_gaps.c", "tests/programs/test_interface_protocol.c", "tests/programs/test_market_attestation.c", "tests/programs/test_language_abi.c", "tests/programs/test_ai_host_boundary.c", "tests/programs/test_programs_abi5_admission.c", "tests/programs/test_terminal_v5.c", "tests/programs/test_reference_custody.c", "tests/programs/check-abi-drift.sh", "tests/programs/runtime-module-boundaries.sh", "programs/tests/vectors/abi-v1.hex", "programs/tests/vectors/abi-v5.hex", "programs/abi-frozen.sha256", "programs/tests/differential/parallel.c", "programs/tests/conservation/run.sh", "programs/fixtures/pay5", "programs/fixtures/pay5/account-authorization-vectors.json", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs", "programs/crates/layerx-programs-runtime/tests/validation.rs", "programs/crates/layerx-programs-runtime/tests/execution.rs", "programs/crates/layerx-programs-runtime/tests/execution_abi5.rs", "programs/crates/layerx-programs-runtime/tests/determinism.rs", "programs/crates/layerx-programs-runtime/tests/calldata_golden_vectors.rs", "programs/crates/layerx-programs-runtime/tests/composition.rs", "programs/crates/layerx-programs-runtime/tests/storage_scan.rs", "programs/crates/layerx-programs-runtime/tests/shared_storage.rs", "programs/crates/layerx-programs-runtime/tests/signature_vectors.rs", "programs/crates/layerx-programs-runtime/tests/hash_determinism.rs", "programs/crates/layerx-programs-runtime/tests/monetary_law.rs", "programs/crates/layerx-programs-runtime/tests/isolation.rs", "programs/crates/layerx-programs-runtime/tests/fee_governance.rs", "programs/crates/layerx-programs-runtime/tests/activity_budget.rs", "programs/crates/layerx-programs-runtime/tests/program_account_derivation.rs", "programs/crates/layerx-programs-runtime/tests/namespace_drop.rs", "programs/crates/layerx-programs-runtime/tests/replay.rs", "programs/crates/layerx-programs-runtime/tests/program_replay.rs", "programs/crates/layerx-programs-runtime/tests/program_spend_composition.rs", "programs/crates/layerx-programs-runtime/tests/dynamic_spend.rs", "programs/crates/layerx-programs-runtime/tests/interpreter_program.rs", "programs/crates/layerx-programs-runtime/tests/step_conformance.rs", "tests/replay/lxp_test_golden_replay.c", "tests/replay/golden/history.lxl", "programs/crates/layerx-programs-sandbox/tests/lease.rs", "programs/tests/vectors/abi-v2.hex", "programs/tests/vectors/abi-v3.hex", "programs/tests/vectors/abi-v4.hex"]
+wave = 3
+owner_domain = 13
+selectors = ["programs/crates/layerx-programs-runtime/tests/lifecycle.rs::deploy_returns_an_opaque_receipt_without_a_runtime_trust_bypass", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::immutable_is_default_and_upgrade_records_hash_history", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::deploy_and_upgrade_record_exact_hashes_and_migration_outcome", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::deploy_refuses_a_mismatched_code_hash_without_installing_the_program", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::upgrade_refuses_a_mismatched_code_hash_without_advancing_history", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::zero_upgrade_authorities_are_never_admitted", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::failed_validation_is_preserved_but_never_executable", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::unknown_program_and_incompatible_abi_are_typed", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::abi_upgrades_are_monotonic_and_historical_versions_remain_admitted", "programs/crates/layerx-programs-runtime/tests/lifecycle.rs::every_supported_abi_transition_preserves_lifecycle_history"]
+planned_by = []
+
+[construct.existing-ai-and-market-guests]
+title = "AI and market guests"
+source_section = 2
+source_paths = ["programs/crates/layerx-programs-runtime/src/market_tests.rs", "programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs", "programs/crates/layerx-programs-arbiter/tests/verified_step.rs", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs", "programs/crates/layerx-programs-ai-market/tests/f04_canonical.rs", "programs/tests/ai-market/run-aggregation-runtime.sh", "services/platform/hosted/paxai-worker/tests/real_workload.rs", "services/platform/hosted/ai-artifacts/tests/artifact_service.rs", "services/platform/hosted/indexer/tests/ai_snapshot_minimal.rs", "services/platform/hosted/indexer/tests/ai_health_privacy.rs", "services/platform/hosted/webhooks/tests/ai_finalized_delivery.rs", "agent/sdk/typescript/test/ai-market.test.ts", "agent/crates/layerx-client/tests/ai_market_client.rs", "tests/agent/sdk/python/test_ai_market.py"]
+wave = 4
+owner_domain = 13
+selectors = ["programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a01_create_registers_once_at_committed_origin", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a03_policy_staging_activation_boundary_cancellation_and_history", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a05_suspend_preserves_admitted_work_and_clears_schedule", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a06_concurrent_stage_stale_revision_replay_and_domain_binding", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a10_operator_grant_replacement_revocation_and_metadata_isolation", "programs/crates/layerx-programs-ai-market/tests/market_lifecycle.rs::a19_treasury_binding_presence_rules_and_section_worksheet"]
+planned_by = []
+
+[construct.existing-web-search-sidecar-and-402lxp-payment]
+title = "Web search sidecar and 402LXP payment"
+source_section = 2
+source_paths = ["interop/crates/x-websearch/tests/kernel.rs", "interop/crates/x-websearch/tests/submit.rs", "interop/crates/x-websearch/tests/binary.rs", "interop/crates/x-websearch/tests/payment.rs", "interop/crates/x-websearch/tests/attest.rs", "interop/crates/x-websearch/tests/api.rs", "interop/crates/x-websearch/tests/canonical.rs", "interop/crates/x-websearch/tests/fetch.rs", "interop/crates/x-websearch/tests/server.rs", "interop/crates/x-websearch/tests/crawl.rs", "interop/crates/x-websearch/tests/search.rs", "interop/crates/x-websearch/tests/content.rs", "interop/crates/layerx-x402/tests/seller.rs", "interop/crates/layerx-x402/tests/e2e.rs", "interop/crates/layerx-x402/tests/pinned_spec.rs", "tests/agent/sdk/python/test_web_search.py", "agent/sdk/typescript/test/web-search.test.ts", "tools/bringup/check-live.test.sh", "agent/crates/layerx-mcp/tests/web.rs", "tools/qualification/paxeer-x/mcp_web_payer.py", "tools/qualification/paxeer-x/wallet-402-caps.py"]
+wave = 4
+owner_domain = 11
+selectors = ["services/interop/crates/x-websearch/tests/kernel.rs::a_request_record_decodes_only_in_its_canonical_form", "services/interop/crates/x-websearch/tests/kernel.rs::a_program_attestation_matches_the_shared_origin_two_vector", "services/interop/crates/x-websearch/tests/kernel.rs::the_observation_activity_equals_the_kernel_adapter_fixture", "services/interop/crates/x-websearch/tests/kernel.rs::the_watcher_follows_request_records_through_the_recorded_gateway", "services/interop/crates/x-websearch/tests/kernel.rs::the_watcher_reads_only_request_topics", "services/interop/crates/x-websearch/tests/kernel.rs::the_program_exchange_route_serves_records_by_program_and_request", "services/interop/crates/x-websearch/tests/kernel.rs::two_programs_with_the_same_request_id_are_both_answered_through_the_exchange", "services/interop/crates/x-websearch/tests/kernel.rs::the_relay_answers_a_program_request_and_posts_its_observation"]
+planned_by = []
+
+[construct.existing-bridge]
+title = "Bridge"
+source_section = 2
+source_paths = ["interop/crates/layerx-bridge-relayer/tests", "precompiles/layerxbridge/layerxbridge_test.go", "modules/layerxbridge/keeper/keeper_test.go", "modules/layerxbridge/keeper/attestation_test.go", "modules/layerxbridge/keeper/genesis_test.go", "modules/layerxbridge/keeper/sidiora_test.go", "interop/crates/layerx-bridge-relayer/tests/loops.rs", "interop/crates/layerx-bridge-relayer/tests/solana_release.rs", "bridge/evm/test/RelayerAbiParity.t.sol", "bridge/evm/test/PaxeerXVault.t.sol", "bridge/solana/tests/core.rs", "bridge/solana/tests/release.rs", "bridge/vectors/solana_test.go", "bridge/deploy/tests"]
+wave = 5
+owner_domain = 6
+selectors = ["modules/layerxbridge/keeper/keeper_test.go::TestDefaultGenesisIsDormant", "modules/layerxbridge/keeper/keeper_test.go::TestGovernanceMessagesRequireTheAuthority", "modules/layerxbridge/keeper/keeper_test.go::TestMsgServiceRoutesEveryGovernanceMessageToTheKeeper", "modules/layerxbridge/keeper/keeper_test.go::TestMsgServiceRefusesAWrongAuthority", "modules/layerxbridge/keeper/keeper_test.go::TestBridgeInMintsAtThreshold", "modules/layerxbridge/keeper/keeper_test.go::TestBridgeInRefusals", "modules/layerxbridge/keeper/keeper_test.go::TestBridgeOutBurnsAndEmits", "modules/layerxbridge/keeper/keeper_test.go::TestGenesisRoundTrip", "modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerExecutesEveryCarriedMessage", "modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerRefusesAWrongAuthority", "modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerRefusesAMalformedProposal", "modules/layerxbridge/keeper/keeper_test.go::TestSidioraHomeChainIDIsSolana", "modules/layerxbridge/keeper/keeper_test.go::TestMsgServiceRegistersTheSidioraPair", "modules/layerxbridge/keeper/keeper_test.go::TestSidioraPairIsRefusedOnceACapBoundItElsewhere", "modules/layerxbridge/keeper/keeper_test.go::TestProposalHandlerRegistersTheSidioraPairAheadOfItsCap", "modules/layerxbridge/keeper/keeper_test.go::TestBridgeOutReleaseCapBoundary", "modules/layerxbridge/keeper/attestation_test.go::TestDigestVectorsFromAttestationDoc"]
+planned_by = []
+
+[construct.existing-agent-daemon-sdks-mcp-and-cli]
+title = "Agent daemon, SDKs, MCP and CLI"
+source_section = 2
+source_paths = ["agent/crates/layerx-sdk/tests/native_programs.rs", "agent/tests/boundary/cases.rs", "agent/crates/layerx-agentd/tests/prepare.rs", "agent/crates/layerx-agentd/tests/prepare_expiry.rs", "agent/crates/layerx-agentd/tests/disclosure.rs", "agent/crates/layerx-agentd/tests/signing.rs", "agent/crates/layerx-agentd/tests/signature_binding.rs", "agent/crates/layerx-agentd/tests/session_seed.rs", "agent/crates/layerx-agentd/tests/outbox.rs", "agent/crates/layerx-agentd/tests/delivery.rs", "agent/crates/layerx-agentd/tests/receipts.rs", "agent/crates/layerx-agentd/tests/outbox_recover.rs", "agent/crates/layerx-agentd/tests/recovery.rs", "agent/crates/layerx-agentd/tests/protocol2_restart.rs", "agent/crates/layerx-agentd/tests/unknown.rs", "agent/crates/layerx-agentd/tests/budget_unknown.rs", "agent/crates/layerx-agentd/tests/idempotency.rs", "agent/crates/layerx-agentd/tests/finality.rs", "agent/crates/layerx-agentd/tests/native_owner_receipts.rs", "agent/crates/layerx-agentd/tests/fee_projection_program_state.rs", "agent/crates/layerx-agentd/tests/balance.rs", "agent/crates/layerx-agentd/tests/history.rs", "agent/crates/layerx-agentd/tests/checkpoint.rs", "agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "agent/crates/layerx-agentd/tests/availability.rs", "agent/crates/layerx-agentd/tests/export.rs", "agent/crates/layerx-agentd/tests/export_offline_bounds.rs", "agent/crates/layerx-agentd/tests/budget_create.rs", "agent/crates/layerx-agentd/tests/budget_reserve.rs", "agent/crates/layerx-agentd/tests/budget_schema.rs", "agent/crates/layerx-agentd/tests/budget_reconcile.rs", "agent/crates/layerx-agentd/tests/budget_divergence.rs", "agent/crates/layerx-agentd/tests/budget_proof_intake.rs", "agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "agent/crates/layerx-agentd/tests/capability.rs", "agent/crates/layerx-agentd/tests/attenuation.rs", "agent/crates/layerx-agentd/tests/w8_capability.rs", "agent/crates/layerx-agentd/tests/narrowing.rs", "agent/crates/layerx-agentd/tests/session.rs", "agent/crates/layerx-agentd/tests/revocation.rs", "agent/crates/layerx-agentd/tests/w7_owner_binding.rs", "agent/crates/layerx-agentd/tests/subscription.rs", "agent/crates/layerx-agentd/tests/degraded.rs", "agent/crates/layerx-client/tests/submit.rs", "agent/crates/layerx-client/tests/module_reads.rs", "agent/crates/layerx-client/tests/batch.rs", "agent/crates/layerx-client/tests/reads.rs", "agent/crates/layerx-client/tests/finality_evidence.rs", "agent/crates/layerx-client/tests/program_read.rs", "agent/crates/layerx-sdk/tests/account_reads.rs", "agent/crates/layerx-sdk/tests/offline_export.rs", "agent/crates/layerx-sdk/tests/sdk.rs", "agent/crates/layerx-sdk/tests/receipt_fixture.rs", "agent/crates/layerx-mcp/tests/write.rs", "agent/crates/layerx-mcp/tests/daemon_bound.rs", "agent/crates/layerx-mcp/tests/scope.rs", "agent/crates/layerx-mcp/tests/read.rs", "agent/crates/layerx-mcp/tests/readonly.rs", "agent/crates/layerx-mcp/tests/approval.rs", "agent/crates/layerx-mcp/tests/faucet.rs", "agent/qualification/pay2/pay2e_test.rs", "sdk/platform/conformance/fixtures/native-program-call-v3.json", "sdk/platform/conformance/fixtures/native-program-call-v4.json", "sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json", "sdk/platform/conformance/fixtures/native-program-deploy-v3.json", "sdk/platform/conformance/fixtures/native-program-deploy-v4.json", "sdk/platform/conformance/fixtures/native-program-upgrade-v3.json", "sdk/platform/conformance/fixtures/native-program-upgrade-v4.json", "sdk/platform/conformance/fixtures/receipt-positive-v1.json", "sdk/platform/conformance/fixtures/receipt-positive-v2.json", "sdk/platform/conformance/fixtures/receipt-refusals-v1.json", "sdk/platform/conformance/fixtures/receipt-refusals-v2.json", "sdk/platform/conformance/fixtures/receipt-refusals-v3.json", "sdk/platform/conformance/fixtures/account-derivation-v1.json", "sdk/platform/conformance/fixtures/intent-plan-v1.json", "sdk/platform/conformance/streaming-resumability.test.ts", "sdk/platform/conformance/streaming-resumability.test.py", "sdk/platform/conformance/streaming-resumability.test.rs", "sdk/platform/conformance/terminal-v4.test.py", "agent/schema/agent-api/golden/version-request.hex", "agent/schema/agent-api/golden/version-response.hex", "agent/sdk/typescript/test/px.test.ts", "agent/sdk/typescript/test/native-batch-header.test.ts", "agent/sdk/typescript/test/program-executed-v3.test.ts", "agent/sdk/typescript/test/program-lifecycle.test.ts", "agent/sdk/typescript/test/integration.test.ts", "agent/sdk/typescript/test/agent-operation-envelope.test.ts", "agent/sdk/typescript/test/rpc.test.ts", "agent/sdk/typescript/test/intent.test.ts", "agent/sdk/typescript/test/xweb-api.test.ts", "agent/sdk/typescript/test/account-derivation.test.ts", "tests/agent/sdk/python/test_px.py", "tests/agent/sdk/python/test_native_batch_header.py", "tests/agent/sdk/python/test_program_executed_v3.py", "tests/agent/sdk/python/test_agent_operation_envelope.py", "tests/agent/sdk/python/test_x402.py", "tests/agent/sdk/python/test_intent.py", "tests/agent/sdk/python/test_xweb_api.py", "tests/agent/sdk/python/test_account_derivation.py", "sdk/platform/go/native_program_lifecycle_test.go", "sdk/platform/go/agent_operation_envelope_test.go", "platform/cli/tests/rpc_identity.rs", "platform/cli/tests/mcp_daemon_bound.rs", "platform/cli/tests/wallet_send.rs", "platform/cli/tests/wallet_derive.rs", "platform/cli/tests/wallet_commands.rs", "platform/cli/tests/commands.rs", "platform/cli/tests/emulator.rs", "cmd/layerxctl/tests/files.rs"]
+wave = 5
+owner_domain = 9
+selectors = ["services/agent/crates/layerx-sdk/tests/native_programs.rs::native_request_binds_real_signed_fixture"]
+planned_by = []
+
+[construct.existing-router-gateway-authority-and-indexer]
+title = "Router, gateway, authority and indexer"
+source_section = 2
+source_paths = ["services/platform/hosted/gateway/tests/local/lifecycle.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "services/platform/hosted/gateway/tests/degraded.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs", "services/platform/hosted/gateway/src/rpc.rs", "services/platform/hosted/gateway/src/rpc_faucet.rs", "services/platform/hosted/gateway/src/ws.rs", "services/platform/hosted/gateway/src/evm.rs", "services/platform/hosted/gateway/src/capabilities.rs", "services/platform/hosted/gateway/src/paxeer.rs", "services/platform/hosted/gateway/src/history.rs", "services/platform/hosted/gateway/src/ui_proxy.rs", "services/platform/hosted/gateway/src/ai_views.rs", "services/platform/hosted/gateway/src/settlement.rs", "services/platform/hosted/authority/tests/real_node.rs", "services/platform/hosted/authority/tests/budget_proof_exports.rs", "services/platform/hosted/registry/tests/journal.rs", "services/platform/hosted/core/tests", "services/platform/hosted/indexer/src/paxeer.rs", "interop/crates/layerx-interop-service/tests", "interop/crates/layerx-migrate/src/mapping_v2.rs"]
+wave = 5
+owner_domain = 8
+selectors = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_balances_reads_bank_all_balances_at_one_height", "services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_account_reads_no_kernel_backend", "services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata", "services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_network_reports_the_consensus_head"]
+planned_by = ["8.5.1", "8.5.2", "8.5.3"]
+
+[construct.existing-wallet-human-service-and-explorer]
+title = "Wallet, human service and explorer"
+source_section = 2
+source_paths = ["human/apps/wallet/e2e/send.spec.ts", "human/wallet/gateway/test/e2e/gateway.e2e.test.ts", "human/apps/wallet/src/surfaces/ExchangeView.test.tsx", "human/apps/wallet/src/surfaces/BridgeView.test.tsx", "human/apps/wallet/src/surfaces/FeeChoice.test.tsx", "human/wallet/sdk/test/endpoint.test.ts", "human/wallet/sdk/test/client.test.ts", "human/wallet/sdk/test/ladder.test.ts", "human/wallet/sdk/test/eip6963.test.ts", "human/wallet/sdk/test/agent.test.ts", "human/apps/wallet/src/account/HistoryView.test.tsx", "human/apps/wallet/src/account/StatusLadder.test.tsx", "human/crates/layerx-human-service/tests/intent_submit.rs", "human/crates/layerx-human-service/tests/wallet_identity_e2e.rs", "human/crates/layerx-human-service/tests/detail.rs", "human/crates/layerx-human-service/tests/render.rs", "human/crates/layerx-human-service/tests/move_money.rs", "human/crates/layerx-human-service/tests/agent_create.rs", "human/crates/layerx-human-service/tests/agent_controls.rs", "human/crates/layerx-human-service/tests/agent_recovery.rs", "human/crates/layerx-human-service/tests/reclaim.rs", "human/crates/layerx-human-service/tests/approvals.rs", "human/crates/layerx-human-service/tests/native_journey_approval.rs", "human/crates/layerx-human-service/tests/activity.rs", "human/crates/layerx-human-service/tests/export.rs", "human/crates/layerx-human-service/tests/notify.rs", "human/crates/layerx-human-service/tests/onboarding.rs", "human/crates/layerx-human-service/tests/auth.rs", "human/crates/layerx-human-service/tests/session_keys.rs", "human/crates/layerx-human-service/tests/native_send_producer.rs", "human/crates/layerx-human-service/tests/native_send_purpose.rs", "explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs", "explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs", "explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_test.exs", "explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/capabilities_boot_test.exs", "explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs", "explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/account_binding_test.exs", "explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/identity_test.exs", "explorer/backend/apps/block_scout_web/test/block_scout_web/schemas/api/v2/paxeer_x/unified_account_test.exs", "explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_test.exs", "human/apps/web/e2e/native-fee-budget.test.ts", "human/apps/web/e2e/explorer.spec.ts", "human/apps/web/e2e/explorer-account.test.ts", "human/wallet/gateway/test/provisioning.test.ts", "human/wallet/gateway/test/agent.test.ts"]
+wave = 5
+owner_domain = 12
+selectors = ["apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload", "apps/wallet/src/surfaces/BridgeView.test.tsx::bridge_view_shows_the_receipted_rung_and_events_from_the_sequencer_receipt", "apps/wallet/src/account/StatusLadder.test.tsx::status_ladder_labels_submitted_receipted_and_committed", "apps/wallet/src/account/StatusLadder.test.tsx::transaction_ladder_reaches_receipted_from_the_sequencer_before_the_explorer"]
+planned_by = ["12.35.2", "12.33.2", "12.34.1", "12.34.2"]
+
+[construct.existing-cut-over-balances-and-genesis-import]
+title = "Cut-over balances and genesis import"
+source_section = 2
+source_paths = ["tests/fixtures/custody/daemon-credit-receipt", "tests/fixtures/custody/native-credit-receipt", "tests/fixtures/custody/daemon-light-credit-receipt", "tests/fixtures/public-testnet-genesis", "tests/fixtures/public-testnet-genesis-v3", "tests/fixtures/public-testnet-modules"]
+wave = 6
+owner_domain = 6
+selectors = ["modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority", "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims", "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight"]
+planned_by = ["6.46.1"]
+
+[construct.existing-retired-two-domain-surfaces]
+title = "Retired two-domain surfaces"
+source_section = 2
+source_paths = ["precompiles/layerxcustody/layerxcustody_test.go", "precompiles/layerxverify/layerxverify_test.go"]
+wave = 7
+owner_domain = 6
+selectors = ["precompiles/layerxcustody/retire_test.go::TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight", "precompiles/layerxcustody/retire_test.go::TestCustodyRetiredGateRunsBeforeTheCallShapeChecks", "precompiles/layerxcustody/retire_test.go::TestCustodyViewsRevertModuleDisabledUnderStaticcall"]
+planned_by = ["6.45.1"]
+
+[construct.existing-mirror]
+title = "Mirror"
+source_section = 2
+source_paths = ["sdk/platform/conformance/mirror-v2.json", "interop/crates/layerx-mirror/tests/checkpoint_vectors.rs", "interop/crates/layerx-mirror/tests/publish.rs", "interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol", "scripts/qualify-mirror-live.sh", "interop/crates/layerx-mirror-signer/tests/bridge.rs", "interop/crates/layerx-mirror-signer/tests/round_trip.rs"]
+wave = 7
+owner_domain = 11
+selectors = ["services/interop/crates/layerx-mirror/tests/checkpoint_vectors.rs::mirror_checkpoint_identity_and_freshness_follow_the_shared_vectors"]
+planned_by = []
+
+[dropped.new-parity-oracle]
+title = "Parity oracle"
+source_section = 3
+source_paths = ["tests/parity/kernel_chain/"]
+wave = 2
+owner_domain = 17
+dropped = ["tests/parity/kernel_chain/"]
+reason = "The kernel_chain harness does not exist and no phase-2 task declares a test in it."
+
+[construct.new-sequencer]
+title = "Sequencer"
+source_section = 3
+source_paths = ["node/sequencer/sequencer_test.go"]
+wave = 0
+owner_domain = 5
+selectors = ["node/sequencer/executor_test.go::TestExecutorSequentialOrder", "node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock"]
+planned_by = ["5.16.2"]
+dropped = ["node/sequencer/sequencer_test.go::TestSequencerAccept"]
+
+[construct.new-sequencer-receipt]
+title = "Sequencer receipt"
+source_section = 3
+source_paths = ["node/sequencer/receipt_equality_test.go"]
+wave = 0
+owner_domain = 5
+selectors = ["node/sequencer/receipt_equality_test.go::TestReceiptEqualsCommittedReceipt"]
+planned_by = []
+dropped = ["node/sequencer/receipt_equality_test.go::TestAcceptReceiptEquality"]
+
+[construct.new-sequencer-standby]
+title = "Sequencer standby"
+source_section = 3
+source_paths = ["node/sequencer/standby_test.go"]
+wave = 0
+owner_domain = 5
+selectors = ["node/sequencer/standby_test.go::TestStandbyReplayMatchesPrimary"]
+planned_by = []
+dropped = ["node/sequencer/standby_test.go::TestStandbyReplay"]
+
+[construct.new-order-commitment]
+title = "Order commitment"
+source_section = 3
+source_paths = ["modules/sequencer/keeper/"]
+wave = 0
+owner_domain = 5
+selectors = ["node/process_proposal_order_test.go::TestOrderCheckRefusesSeqGap", "node/process_proposal_order_test.go::TestOrderCheckRefusesPrevSeqHashMismatch"]
+planned_by = []
+dropped = ["modules/sequencer/keeper/::TestOutOfOrderBlockRejected"]
+
+[construct.new-sponsored-gas]
+title = "Sponsored gas"
+source_section = 3
+source_paths = ["interop/crates/layerx-gas-station/tests/did_budget.rs"]
+wave = 0
+owner_domain = 11
+selectors = ["services/interop/crates/layerx-gas-station/tests/did_budget.rs::accounts_sharing_did_share_budget"]
+planned_by = []
+
+[dropped.new-asset-ledger-proofs]
+title = "Asset ledger proofs"
+source_section = 3
+source_paths = ["modules/layerxledger/keeper/proof_test.go"]
+wave = 2
+owner_domain = 2
+dropped = ["modules/layerxledger/keeper/proof_test.go"]
+reason = "No existing or phase-2 ledger test declares the old proof_test.go target."
+
+[construct.new-asset-ledger-idempotency]
+title = "Asset ledger idempotency"
+source_section = 3
+source_paths = ["modules/layerxledger/keeper/idempotent_replay_test.go"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxledger/keeper/execute_test.go::TestExecuteIdempotentReplay"]
+planned_by = []
+
+[dropped.new-authority]
+title = "Authority"
+source_section = 3
+source_paths = ["modules/layerxauth/keeper/session_fee_resolve_test.go"]
+wave = 2
+owner_domain = 2
+dropped = ["modules/layerxauth/keeper/session_fee_resolve_test.go"]
+reason = "The old session_fee_resolve_test.go target has no existing or phase-2 exact selector."
+
+[construct.new-budget]
+title = "Budget"
+source_section = 3
+source_paths = ["modules/layerxpay/keeper/budget_test.go"]
+wave = 2
+owner_domain = 2
+selectors = ["modules/layerxpay/keeper/budget_create_test.go::TestBudgetCreateAndFund", "modules/layerxpay/keeper/budget_create_test.go::TestBudgetNativeVariantsAndAmend", "modules/layerxpay/keeper/budget_spend_test.go::TestBudgetSpendWithinPeriodLimit", "modules/layerxpay/keeper/budget_spend_test.go::TestBudgetDelegateSpendDerivedKey", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullWithPayerGrant", "modules/layerxpay/keeper/budget_pull_test.go::TestBudgetPullRefusesMalformedGrant", "modules/layerxpay/keeper/budget_close_test.go::TestBudgetCloseDrainsToOwner", "modules/layerxpay/keeper/budget_close_test.go::TestBudgetDefundAndRevoke", "modules/layerxpay/keeper/budget_views_test.go::TestBudgetViewsReadKernelRecord"]
+planned_by = ["2.24.1", "2.24.2", "2.24.3", "2.24.4", "2.24.5"]
+
+[construct.new-governance-pause]
+title = "Governance pause"
+source_section = 3
+source_paths = ["modules/layerxgov/keeper/pause_test.go"]
+wave = 2
+owner_domain = 6
+selectors = ["modules/layerxgov/handler_pay_pause_live_test.go::TestLayerXProposalPausesPayLive", "modules/layerxgov/handler_pause_live_test.go::TestLayerXProposalPausesLedgerAndAuthLive"]
+planned_by = ["6.28.3", "6.28.4"]
+dropped = ["modules/layerxgov/keeper/pause_test.go::TestPause"]
+
+[construct.new-programs-registry]
+title = "Programs registry"
+source_section = 3
+source_paths = ["modules/layerxprograms/keeper/registry_query_test.go"]
+wave = 3
+owner_domain = 13
+selectors = ["precompiles/layerxprograms/method_registry_test.go::TestProgramsRegistryReadEmitsEvent", "precompiles/layerxprograms/method_registry_test.go::TestProgramsRegistryReadZeroProgramReverts", "precompiles/layerxprograms/view_registry_test.go::TestProgramsViewGetProgramRecord", "precompiles/layerxprograms/view_registry_test.go::TestProgramsViewGetInterfaceAndAbsent"]
+planned_by = ["13.23.3", "13.28.1"]
+
+[construct.new-programs-deploy]
+title = "Programs deploy"
+source_section = 3
+source_paths = ["modules/layerxprograms/keeper/deploy_test.go"]
+wave = 3
+owner_domain = 13
+selectors = ["precompiles/layerxprograms/method_deploy_test.go::TestProgramsDeployRegistersProgram", "precompiles/layerxprograms/method_deploy_test.go::TestProgramsDeployRefusesCodeHashMismatch", "precompiles/layerxprograms/method_upgrade_test.go::TestProgramsUpgradeReplacesCodeHash", "precompiles/layerxprograms/method_upgrade_test.go::TestProgramsUpgradeRefusesStaleOldHash"]
+planned_by = ["13.23.1", "13.23.2"]
+
+[dropped.new-programs-sandbox]
+title = "Programs sandbox"
+source_section = 3
+source_paths = ["modules/layerxprograms/keeper/abci_test.go"]
+wave = 3
+owner_domain = 13
+dropped = ["modules/layerxprograms/keeper/abci_test.go"]
+reason = "The old keeper EndBlocker expiry target has no existing or phase-2 exact selector; sandbox receipt verification covers a different scenario."
+
+[construct.new-programs-events]
+title = "Programs events"
+source_section = 3
+source_paths = ["modules/layerxprograms/keeper/events_test.go"]
+wave = 3
+owner_domain = 13
+selectors = ["precompiles/layerxprograms/events_test.go::TestProgramsLifecycleEventsFromReceipt", "precompiles/layerxprograms/events_test.go::TestProgramsWindDownAndAccountEventsFromReceipt", "precompiles/layerxprograms/events_call_test.go::TestProgramsGuestEventLogs", "precompiles/layerxprograms/events_call_test.go::TestProgramsCallOutcomeLog", "precompiles/layerxprograms/events_sandbox_test.go::TestProgramsSandboxUsageReceiptLog", "precompiles/layerxprograms/events_sandbox_test.go::TestProgramsSandboxDestroyedAndRetiredLogs"]
+planned_by = ["13.22.5", "13.22.6", "13.22.7"]
+
+[construct.new-programs-archive-proof]
+title = "Programs archive proof"
+source_section = 3
+source_paths = ["modules/layerxprograms/keeper/archive_proof_test.go"]
+wave = 3
+owner_domain = 13
+selectors = ["programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs::chain_deployment_current_and_historical_verify", "programs/crates/layerx-programs-registry/tests/chain_verifier_deployment.rs::chain_deployment_refuses_code_hash_mismatch"]
+planned_by = ["13.4.1"]
+
+[construct.new-web-origin-2]
+title = "Web origin 2"
+source_section = 3
+source_paths = ["modules/xweb/keeper/program_test.go"]
+wave = 3
+owner_domain = 6
+selectors = ["modules/xweb/keeper/program_kernel_parity_test.go::TestFulfilProgramMatchesTheKernelRefusalMatrix", "modules/xweb/keeper/program_kernel_parity_test.go::TestFulfilProgramAcceptsTheKernelFirstObservation", "modules/xweb/keeper/program_record_parity_test.go::TestDecodeProgramRequestMatchesTheKernelRecordRows", "modules/xweb/keeper/program_record_parity_test.go::TestFulfilProgramTwiceMatchesTheKernelReuseRefusal", "modules/xweb/keeper/program_read_parity_test.go::TestGetProgramResultMatchesTheKernelCommittedRead"]
+planned_by = ["6.76.1", "6.76.2", "6.76.3"]
+
+[construct.new-perps-markets]
+title = "Perps markets"
+source_section = 3
+source_paths = ["modules/layerxexchange/keeper/perps_market_test.go"]
+wave = 3
+owner_domain = 3
+selectors = ["modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketListsNewMarket", "modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesUnlistedPricefeedMarket", "modules/perps/keeper/msg_server_market_test.go::TestMsgSetMarketRefusesIdentityChange"]
+planned_by = []
+
+[dropped.new-native-engine-differential]
+title = "Native engine differential"
+source_section = 3
+source_paths = ["modules/layerxexchange/native/differential_test.go"]
+wave = 3
+owner_domain = 3
+dropped = ["modules/layerxexchange/native/differential_test.go"]
+reason = "The native differential harness does not exist and is not planned for the served pure-Go venue."
+
+[dropped.new-funding]
+title = "Funding"
+source_section = 3
+source_paths = ["modules/layerxexchange/keeper/funding_pending_test.go"]
+wave = 3
+owner_domain = 3
+dropped = ["modules/layerxexchange/keeper/funding_pending_test.go"]
+reason = "The pending-branch funding target does not exist and is not declared by a phase-2 task."
+
+[dropped.new-liquidation]
+title = "Liquidation"
+source_section = 3
+source_paths = ["tests/integration/perps_liquidation/"]
+wave = 4
+owner_domain = 3
+dropped = ["tests/integration/perps_liquidation/"]
+reason = "The single-validator receipt-round integration target does not exist and is not planned; keeper unit tests do not cover that scenario."
+
+[construct.new-agent-signing]
+title = "Agent signing"
+source_section = 3
+source_paths = ["agent/crates/layerx-agentd/tests/evm_preimage_golden.rs"]
+wave = 5
+owner_domain = 9
+selectors = ["services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs::prepared_transfer_signing_hash_matches_the_eip1559_golden", "services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs::prepare_refuses_an_expected_nonce_behind_the_pending_nonce", "services/agent/crates/layerx-agentd/tests/evm_preimage_golden.rs::prepare_derives_fee_caps_from_the_head_base_fee"]
+planned_by = ["9.2.1"]
+
+[construct.new-agent-web-payer]
+title = "Agent web payer"
+source_section = 3
+source_paths = ["agent/crates/layerx-agentd-host/tests/payer.rs"]
+wave = 5
+owner_domain = 9
+selectors = ["services/agent/crates/layerx-agentd-host/tests/payer.rs::web_payment_receipt_must_be_signed_by_a_published_key", "services/agent/crates/layerx-agentd-host/tests/payer.rs::web_payment_reports_the_pay_exact_log_amount"]
+planned_by = ["9.16.2"]
+
+[dropped.new-python-sdk-gas-station]
+title = "Python SDK gas station"
+source_section = 3
+source_paths = ["tests/agent/sdk/python/test_gas_station.py"]
+wave = 5
+owner_domain = 9
+dropped = ["tests/agent/sdk/python/test_gas_station.py"]
+reason = "The Python gas-station test file does not exist and is not declared by a phase-2 task."
+
+[dropped.new-sponsored-bind-and-send]
+title = "Sponsored bind and send"
+source_section = 3
+source_paths = ["tests/integration/sponsored_bind_send/"]
+wave = 5
+owner_domain = 12
+dropped = ["tests/integration/sponsored_bind_send/"]
+reason = "The combined sponsored bind-and-send integration suite does not exist and has no phase-2 exact selector."
+
+[dropped.new-router-checkpoint]
+title = "Router checkpoint"
+source_section = 3
+source_paths = ["services/platform/hosted/gateway/tests/header_hash_equality.rs"]
+wave = 5
+owner_domain = 8
+dropped = ["services/platform/hosted/gateway/tests/header_hash_equality.rs"]
+reason = "The header_hash_equality target does not exist and has no phase-2 selector; the current router reports the consensus head."
+
+[construct.new-router-balances]
+title = "Router balances"
+source_section = 3
+source_paths = ["services/platform/hosted/gateway/tests/balances_one_source.rs"]
+wave = 5
+owner_domain = 8
+selectors = ["services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_balances_reads_bank_all_balances_at_one_height", "services/platform/hosted/gateway/tests/one_source_reads.rs::px_get_account_reads_no_kernel_backend"]
+planned_by = ["8.5.1"]
+
+[dropped.new-authority-block-order]
+title = "Authority block order"
+source_section = 3
+source_paths = ["services/platform/hosted/authority/tests/block_order.rs"]
+wave = 5
+owner_domain = 8
+dropped = ["services/platform/hosted/authority/tests/block_order.rs"]
+reason = "The old authority block_order test does not exist and is not planned; the authority now reads chain receipts."
+
+[construct.new-explorer-signature]
+title = "Explorer signature"
+source_section = 3
+source_paths = ["explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs"]
+wave = 5
+owner_domain = 14
+selectors = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs::signature_route_returns_verified_receipt", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs::signature_route_404_when_unverified"]
+planned_by = ["14.22.5"]
+
+[dropped.new-custody-import]
+title = "Custody import"
+source_section = 3
+source_paths = ["modules/layerxcustody/keeper/upgrade_import_test.go"]
+wave = 6
+owner_domain = 6
+dropped = ["modules/layerxcustody/keeper/upgrade_import_test.go::TestUpgradeImport"]
+reason = "TestUpgradeImport is absent and unplanned; the current merge releases balances and cancels pending claims instead of importing them."
+
+[construct.new-custody-balances]
+title = "Custody balances"
+source_section = 3
+source_paths = ["modules/layerxcustody/keeper/migration_test.go"]
+wave = 6
+owner_domain = 6
+selectors = ["modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority", "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims", "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight"]
+planned_by = ["6.46.1"]
+dropped = ["modules/layerxcustody/keeper/migration_test.go::TestCustodyMigration"]
+
+[construct.new-anchor-bonds]
+title = "Anchor bonds"
+source_section = 3
+source_paths = ["modules/layerxanchor/keeper/unbond_migration_test.go"]
+wave = 6
+owner_domain = 6
+selectors = ["modules/layerxanchor/keeper/retire_merge_test.go::TestRetireAtMergeReturnsBondsAndEmits"]
+planned_by = ["6.33.1"]
+dropped = ["modules/layerxanchor/keeper/unbond_migration_test.go::TestUnbondMigration"]
+
+[dropped.new-address-binding-new-case]
+title = "Address binding (new case)"
+source_section = 3
+source_paths = ["platform/cli/tests/rpc_identity.rs"]
+wave = 5
+owner_domain = 16
+dropped = ["platform/cli/tests/rpc_identity.rs"]
+reason = "The relocated CLI identity tests assert the old registration contract; no phase-2 test declares this EIP-7702 binding scenario."
+
+[dropped.new-metamask-pending-read-new-case]
+title = "MetaMask pending read (new case)"
+source_section = 3
+source_paths = ["human/wallet/sdk/test/eip6963.test.ts"]
+wave = 5
+owner_domain = 12
+dropped = ["human/wallet/sdk/test/eip6963.test.ts"]
+reason = "The relocated eip6963 tests cover provider discovery; no existing or phase-2 selector covers the proposed pending-tag read in that file."
+
+[construct.new-signed-receipt-logs-new-case]
+title = "Signed-receipt logs (new case)"
+source_section = 3
+source_paths = ["human/apps/wallet/e2e/send.spec.ts", "human/apps/wallet/src/surfaces/BridgeView.test.tsx", "human/apps/wallet/src/lib/swap/executor.ts"]
+wave = 5
+owner_domain = 12
+selectors = ["apps/wallet/e2e/send.spec.ts::send_shows_receipted_from_the_sequencer_receipt_and_keeps_it_on_reload", "apps/wallet/src/surfaces/BridgeView.test.tsx::bridge_view_shows_the_receipted_rung_and_events_from_the_sequencer_receipt", "apps/wallet/src/lib/swap/executor.test.ts::execute_swap_returns_after_the_receipt", "apps/wallet/src/lib/swap/executor.test.ts::execute_swap_refuses_a_reverted_swap"]
+planned_by = ["12.35.2", "12.33.2", "12.33.5"]
+
+[construct.new-retired-methods-new-case]
+title = "Retired methods (new case)"
+source_section = 3
+source_paths = ["precompiles/layerxcustody/layerxcustody_test.go", "precompiles/layerxverify/layerxverify_test.go", "precompiles/layerxanchor/"]
+wave = 7
+owner_domain = 6
+selectors = ["precompiles/layerxcustody/retire_test.go::TestEveryCustodyMethodRevertsModuleDisabledFromTheMergePlanHeight", "precompiles/layerxcustody/retire_test.go::TestCustodyRetiredGateRunsBeforeTheCallShapeChecks", "precompiles/layerxcustody/retire_test.go::TestCustodyViewsRevertModuleDisabledUnderStaticcall"]
+planned_by = ["6.45.1"]
+
+[construct.new-web-conformance-digest-new-case]
+title = "Web conformance digest (new case)"
+source_section = 3
+source_paths = ["interop/crates/x-websearch/tests/binary.rs"]
+wave = 7
+owner_domain = 11
+selectors = ["services/interop/crates/x-websearch/tests/binary.rs::the_pinned_conformance_suite_is_the_recorded_gateway_exchange", "services/interop/crates/x-websearch/tests/binary.rs::the_conformance_vector_count_is_the_number_of_recorded_answers"]
+planned_by = ["11.36.3"]
+
+[construct.balance-conservation]
+title = "Balance conservation"
+source_section = 5
+source_paths = ["modules/layerxcustody/keeper/migration_test.go", "modules/layerxcustody/keeper/upgrade_import_test.go", "services/platform/hosted/gateway/tests/balances_one_source.rs"]
+wave = 6
+owner_domain = 6
+selectors = ["modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredMovesEveryCustodiedBalanceToTheAuthority", "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredCancelsPendingClaims", "modules/layerxcustody/keeper/release_test.go::TestReleaseRetiredIsRefusedBeforeTheMergePlanHeight"]
+planned_by = ["6.46.1"]
+dropped = ["modules/layerxcustody/keeper/migration_test.go::TestCustodyMigration", "modules/layerxcustody/keeper/upgrade_import_test.go::TestUpgradeImport"]
+
+[construct.bond-return]
+title = "Bond return"
+source_section = 5
+source_paths = ["modules/layerxanchor/keeper/unbond_migration_test.go"]
+wave = 6
+owner_domain = 6
+selectors = ["modules/layerxanchor/keeper/retire_merge_test.go::TestRetireAtMergeReturnsBondsAndEmits"]
+planned_by = ["6.33.1"]
+dropped = ["modules/layerxanchor/keeper/unbond_migration_test.go::TestUnbondMigration"]
+
+[construct.receipt-order-equality]
+title = "Receipt-order equality"
+source_section = 5
+source_paths = ["node/sequencer/sequencer_test.go", "node/sequencer/receipt_equality_test.go", "services/platform/hosted/authority/tests/block_order.rs", "tests/occ/occ_test.go"]
+wave = 6
+owner_domain = 5
+selectors = ["node/sequencer/receipt_equality_test.go::TestReceiptEqualsCommittedReceipt", "node/sequencer/executor_test.go::TestExecutorSequentialOrder", "node/sequencer/mixed_load_test.go::TestMixedLoadSealedEqualsProcessBlock"]
+planned_by = ["5.16.2"]
+dropped = ["node/sequencer/sequencer_test.go::TestSequencerAccept", "node/sequencer/receipt_equality_test.go::TestAcceptReceiptEquality"]

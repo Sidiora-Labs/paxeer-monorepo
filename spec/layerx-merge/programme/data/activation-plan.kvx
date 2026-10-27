@@ -1,0 +1,29 @@
+[meta]
+format_version = 1
+
+[plan.v6.9]
+handler = "runActivationUpgrade"
+precompile_gate = "activationPrecompileGate"
+store_added = ["layerxcustody", "layerxanchor", "layerxexchange", "layerxbridge", "launchpad", "xweb"]
+store_deleted = []
+
+[plan.v6.10]
+handler = "runV610Upgrade"
+store_added = []
+store_deleted = []
+
+[plan.v6.12.0]
+handler = "runV6120Upgrade"
+store_added = ["perps", "spot", "pricefeed"]
+store_deleted = []
+
+[plan.v7.0]
+handler = "mergeUpgradePlan"
+precompile_gate = "mergePrecompileGate"
+store_added = ["sequencer", "layerxledger", "layerxauth", "layerxpay", "layerxprograms", "layerxagent", "layerxhost"]
+store_deleted = []
+
+[plan.v7.0-anchor-store-delete]
+handler = "runAnchorStoreDeleteUpgrade"
+store_added = []
+store_deleted = ["layerxanchor"]

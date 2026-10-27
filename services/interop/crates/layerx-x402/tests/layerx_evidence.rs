@@ -2,16 +2,11 @@ use std::collections::BTreeMap;
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
-use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::trace::{TraceId, Traced};
-use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::AuthorizedBatch;
-use layerx_wire::encode::Encoder;
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_x402::buyer::{BuiltPayment, Buyer, CapturedSettlement};
 use layerx_x402::model::{
-    account_identifiers, AtomicAmount, PaymentPayload, PaymentRequirements, SettlementResponse,
-    X402Error, X402_VERSION,
+    AtomicAmount, PaymentPayload, PaymentRequirements, SettlementResponse, X402Error, X402_VERSION,
 };
 use serde::Serialize;
 use serde_json::{json, Value};
@@ -25,12 +20,12 @@ fn encode_header(value: &impl Serialize) -> Result<String, X402Error> {
 fn capture(
     payment: &BuiltPayment,
     response: &SettlementResponse,
-    batch: &AuthorizedBatch,
+    receipt_keys: &[SequencerAuthorization],
 ) -> Result<CapturedSettlement, X402Error> {
     Buyer::capture_settlement(
         &encode_header(response)?,
         payment,
-        batch,
+        receipt_keys,
         &TraceId::mint([0xab; 16]),
     )
     .map_err(Traced::into_error)
@@ -46,60 +41,58 @@ fn hex(bytes: &[u8; 32]) -> String {
     output
 }
 
-const ACCOUNT: &str = "agent:did:layerx:payee:main";
-const ASSET: [u8; 32] = [0x11; 32];
-const PAYER: [u8; 32] = [0x22; 32];
-const TRANSACTION: [u8; 32] = [0x61; 32];
-
-fn receipt(recipient: &[u8; 32], signature: Option<[u8; 64]>) -> Result<Vec<u8>, X402Error> {
-    let invalid = |_| X402Error::InvalidPayload;
-    let mut encoder = Encoder::new(4096);
-    encoder
-        .structure_header_version(0x5201, PROTOCOL_VERSION)
-        .map_err(invalid)?;
-    encoder.u16(PROTOCOL_VERSION).map_err(invalid)?;
-    encoder.bytes(&TRANSACTION, 32).map_err(invalid)?;
-    encoder.u64(9).map_err(invalid)?;
-    encoder.bytes(&[0x62; 32], 32).map_err(invalid)?;
-    encoder.bytes(&[0x63; 32], 32).map_err(invalid)?;
-    encoder.bytes(&[0x64; 32], 32).map_err(invalid)?;
-    encoder.i32(0).map_err(invalid)?;
-    encoder.sequence_length(0, 512).map_err(invalid)?;
-    encoder.u128(1).map_err(invalid)?;
-    encoder.bytes(&[0x65; 32], 32).map_err(invalid)?;
-    encoder.u16(1).map_err(invalid)?;
-    encoder.u32(1).map_err(invalid)?;
-    encoder.u32(1).map_err(invalid)?;
-    encoder.u8(6).map_err(invalid)?;
-    encoder.bytes(&ASSET, 32).map_err(invalid)?;
-    encoder.u128(1000).map_err(invalid)?;
-    encoder.bytes(&PAYER, 32).map_err(invalid)?;
-    encoder.u128(5000).map_err(invalid)?;
-    encoder.u128(4000).map_err(invalid)?;
-    encoder.u64(1).map_err(invalid)?;
-    encoder.bytes(recipient, 32).map_err(invalid)?;
-    encoder.u128(0).map_err(invalid)?;
-    encoder.u128(1000).map_err(invalid)?;
-    encoder.bytes(&[0x66; 32], 32).map_err(invalid)?;
-    encoder.bytes(&[0x67; 32], 32).map_err(invalid)?;
-    encoder.bytes(&[0x68; 32], 32).map_err(invalid)?;
-    encoder.u64(1000).map_err(invalid)?;
-    encoder.u8(u8::from(signature.is_some())).map_err(invalid)?;
-    if let Some(signature) = signature {
-        encoder.bytes(&signature, 64).map_err(invalid)?;
+fn unhex(value: &str) -> Result<Vec<u8>, X402Error> {
+    let digits = value
+        .strip_prefix("0x")
+        .ok_or(X402Error::EvidenceMismatch)?;
+    if digits.len() % 2 != 0 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(X402Error::EvidenceMismatch);
     }
-    Ok(encoder.finish())
+    digits
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let text = std::str::from_utf8(pair).map_err(|_| X402Error::EvidenceMismatch)?;
+            u8::from_str_radix(text, 16).map_err(|_| X402Error::EvidenceMismatch)
+        })
+        .collect()
 }
 
-fn settlement() -> Result<(BuiltPayment, SettlementResponse, AuthorizedBatch), X402Error> {
-    let recipient = account_identifiers(ACCOUNT)?[0];
-    let key = SigningKey::from_bytes(&[0x51; 32]);
-    let unsigned = receipt(&recipient, None)?;
-    let signature_digest =
-        layerx_wire::hash::receipt_digest(&unsigned).map_err(|_| X402Error::EvidenceMismatch)?;
-    let canonical = receipt(&recipient, Some(key.sign(&signature_digest).to_bytes()))?;
-    let digest = leaf_hash(&canonical).map_err(|_| X402Error::EvidenceMismatch)?;
-    let mut payment = BuiltPayment {
+fn settlement() -> Result<
+    (
+        BuiltPayment,
+        SettlementResponse,
+        Vec<SequencerAuthorization>,
+    ),
+    X402Error,
+> {
+    let document: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .map_err(|_| X402Error::EvidenceMismatch)?;
+    let case = document["cases"]
+        .as_array()
+        .and_then(|cases| {
+            cases
+                .iter()
+                .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        })
+        .ok_or(X402Error::EvidenceMissing)?;
+    let text = |value: &Value| {
+        value
+            .as_str()
+            .map(str::to_owned)
+            .ok_or(X402Error::EvidenceMismatch)
+    };
+    let word = |value: &Value| -> Result<[u8; 32], X402Error> {
+        unhex(&text(value)?)?
+            .try_into()
+            .map_err(|_| X402Error::EvidenceMismatch)
+    };
+    let log = &case["receiptJson"]["logs"][0];
+    let data = unhex(&text(&log["data"])?)?;
+    let amount = AtomicAmount::from_u128(1_000_000);
+    let payment = BuiltPayment {
         header: String::new(),
         payload: PaymentPayload {
             x402_version: X402_VERSION,
@@ -107,42 +100,52 @@ fn settlement() -> Result<(BuiltPayment, SettlementResponse, AuthorizedBatch), X
             accepted: PaymentRequirements {
                 scheme: "exact".to_owned(),
                 network: "eip155:125".to_owned(),
-                amount: AtomicAmount::from_u128(1000),
-                asset: format!("0x{}", hex(&ASSET)),
-                pay_to: format!("0x{}", hex(&recipient)),
+                amount,
+                asset: format!(
+                    "0x{}",
+                    hex(&data[..32]
+                        .try_into()
+                        .map_err(|_| X402Error::EvidenceMismatch)?)
+                ),
+                pay_to: text(&log["topics"][2])?,
                 max_timeout_seconds: 90,
-                extra: Some(json!({"layerx": {"account": ACCOUNT, "currency": "LXP"}})),
+                extra: Some(
+                    json!({"layerx": {"account": "agent:did:layerx:payee:main", "currency": "LXP"}}),
+                ),
             },
             payload: json!({}),
             extensions: BTreeMap::new(),
         },
-        idempotency_key: [0x5c; 32],
+        idempotency_key: word(&log["topics"][3])?,
     };
-    payment.header = encode_header(&payment.payload)?;
     let response = SettlementResponse {
         success: true,
         error_reason: None,
-        payer: Some(hex(&PAYER)),
-        transaction: format!("0x{}", hex(&TRANSACTION)),
-        network: payment.payload.accepted.network.clone(),
-        amount: Some(payment.payload.accepted.amount),
+        payer: Some(hex(&word(&log["topics"][1])?)),
+        transaction: text(&case["receiptJson"]["txHash"])?,
+        network: "eip155:125".to_owned(),
+        amount: Some(amount),
         extensions: BTreeMap::from([(
             "layerx".to_owned(),
             json!({
-                "receipt": STANDARD.encode(&canonical),
-                "receiptDigest": hex(&digest),
-                "verificationLevel": "receipted",
+                "receipt": STANDARD.encode(unhex(&text(&case["signedReceipt"])?)?),
+                "receiptDigest": text(&case["receiptDigest"])?.trim_start_matches("0x"),
+                "verificationLevel": "receipted", "logs": case["receiptJson"]["logs"],
             }),
         )]),
     };
-    let batch = AuthorizedBatch::new(
-        [0x65; 32],
-        ASSET,
-        [0x62; 32],
-        [0x63; 32],
-        key.verifying_key().to_bytes(),
-    );
-    Ok((payment, response, batch))
+    let key = &case["pinnedKey"];
+    let keys = vec![SequencerAuthorization::new(
+        word(&key["keyId"])?,
+        word(&key["publicKey"])?,
+        key["firstHeight"]
+            .as_u64()
+            .ok_or(X402Error::EvidenceMismatch)?,
+        key["lastHeight"]
+            .as_u64()
+            .ok_or(X402Error::EvidenceMismatch)?,
+    )];
+    Ok((payment, response, keys))
 }
 
 #[test]
