@@ -3453,3 +3453,43 @@ symbol = "Querier.FeeRight"
 observed = "At 6a2f851c8 the build `go build ./modules/launchpad/...` exited 0 and the verifier `cg spec done 4.4.11` exited 1 (logs-verify-1.log): TestQueryFeeRightRefusals reads codespace undefined instead of sdk at grpc_query_fee_right_test.go:93 and launchpad at :102, because do_3 returned the refusals unwrapped while ParseHexAddress (modules/launchpad/types/query_validate.go:24) and GetFeeRight (modules/launchpad/keeper/feerights.go:88) wrap with fmt.Errorf and sdkerrors.ABCIInfo follows only Cause() (sdk/types/errors/abci.go:117-160), the cause already recorded as finding.4.4.3.1 for 4.4.3."
 assumption = "FeeRight wraps each refusal in a value with the original Error() text, the original Unwrap chain and a Cause() returning the registered root, as RoleError does, and 6a2f851c8 is continued."
 severity = "blocker"
+
+[finding.8.1.5.2]
+task = "8.1.5"
+file = "services/platform/hosted/indexer/src/ai_reputation.rs:380"
+symbol = "ReputationProjector::open / ProjectionStore::promote"
+observed = "At e4ad4bd07 ReputationProjector::open calls layerx_proof::settlement::declared_domain (ai_reputation.rs:380) and admit and promote call verify_declared_certificate and verify_certificate (ai_reputation.rs:409, ai_market.rs:1383), all parsing contracts/config/checkpoint-settlement.json, which no longer holds a checkpoint settlement schema, so every ai_reputation_finality test fails with Configuration(Json(MissingField(\"schema\"))) and do_3/do_5 keep a verifier decision.928 retires."
+assumption = "8.1.5 continues from e4ad4bd07 with do_10..do_20, replacing the guarantor certificate with a layerx-committed-proof verified Comet commit against a pinned chain id and validator set, and the capture's native state root is the committed header's app_hash at execution_height, as do_4 already assumes (no ICS23 verification of the store proof is performed; store_proof_digest is the SHA-256 of the supplied store proof bytes)."
+severity = "blocker"
+
+[finding.8.1.6]
+task = "8.1.6"
+file = "services/platform/hosted/webhooks/src/ai_market.rs:921"
+symbol = "certify"
+observed = "At 27fe3d99a layerx-platform-webhooks does not compile because ai_market.rs:930, :969 and :1090 and tests/ai_finalized_delivery.rs:322-323 read SnapshotBinding fields that v2 no longer has, and certify's verify_certificate (:921) always parses the retired settlement document, so no finalized row can be admitted."
+assumption = "8.1.5 lands verify_block_commit, BlockCommitProof, FinalityAuthority and VerifiedCommit as pub items with store_proof_digest = SHA-256 of the store proof, and QuarantineCause::CheckpointNetwork / MarketEventError::CertificateRejected are renamed CommitChain / CommitRejected (operator category commit_chain_mismatch); the owner may keep the old names, in which case 8.1.6 do_3 and the renamed test expectations change"
+severity = "blocker"
+
+[finding.14.30.2]
+task = "14.30.2"
+file = "services/explorer/services/sig-provider/sig-provider/src/lib.rs:5"
+symbol = "PrecompileSource"
+observed = "The first attempt (5c7f0821f) failed `cargo build --locked --manifest-path services/explorer/services/sig-provider/Cargo.toml -p sig-provider-server` with exit 101 (logs-build-1.log) on E0432 `unresolved import sig_provider::precompiles` at sig-provider-server/src/run.rs:4, because 14.30.1 added `pub mod precompiles;` only inside the private `mod sources` (sig-provider/src/sources/mod.rs:3) and lib.rs:5 does not re-export it."
+assumption = "14.30.2 adds `precompiles` to the `pub use sources::{...}` line of sig-provider/src/lib.rs:5, and the first candidate is continued unchanged otherwise."
+severity = "blocker"
+
+[finding.1.4.3.5]
+task = "1.4.3"
+file = "src/modules/programs/call.c:2575"
+symbol = "lxp_programs_call_schedule_item_prepare"
+observed = "The ninth attempt (3350f3d39) linked and ran the fuzz binary and failed its own precondition `maximum_level == 0U` at tests/fuzz/lxp_prop_prepare_workers.c:274 (logs-verify-1.log), because under the OCCUPANCY and STATE_COMMITMENT protocol versions every CALL schedule item writes the shared occupancy fee treasury (call.c:2575-2585), so layerx_programs_schedule_plan chains all 16 calls."
+assumption = "do_1 is restated to LXP_PROTOCOL_VERSION_LEGACY activities from distinct actors, principals, payers and programs, which the scheduler places in one level; the kernel is not changed, and the owner may later want a per-payer treasury write so occupancy CALLs can fan out"
+severity = "blocker"
+
+[finding.9.27.7]
+task = "9.27.7"
+file = "scripts/ci/xweb-workflow-check.sh:177"
+symbol = "finality_evidence.rs"
+observed = "scripts/ci/xweb-workflow-check.sh:177 lists services/agent/crates/layerx-client/tests/finality_evidence.rs, which task 9.27.7 deletes; until task 16.5.2 lands the check names a missing file"
+assumption = "16.5.2 (now requiring 9.27.7) removes the entry with the other retired test paths; no gate runs the check between the two tasks"
+severity = "minor"

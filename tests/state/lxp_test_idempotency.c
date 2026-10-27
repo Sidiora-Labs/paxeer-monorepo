@@ -118,7 +118,7 @@ static int fixture_init(fixture *f)
     f->transfer_asset.asset_id[0] = 3U;
     f->transfer_asset.registered = true;
     f->runtime = (lx_asset_runtime){&f->accounts, &f->asset, 1U,
-        &f->transfer_asset, 1U, 7U, LXP_PROTOCOL_VERSION_STATE_COMMITMENT};
+        &f->transfer_asset, 1U, 7U, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, false};
     REQUIRE(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->runtime) == LXP_OK);
     f->fees.version = 1U;
     f->fees.multiplier_basis_points = 10000U;
