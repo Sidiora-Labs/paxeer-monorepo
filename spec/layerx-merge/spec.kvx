@@ -102114,7 +102114,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.1]
 title = "Aggregate a pricefeed market appended by a governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -102176,7 +102176,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.3]
 title = "Skip aggregation when a proposal raises MinSources above the sources"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -104982,7 +104982,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.6]
 title = "Take quoter leverage, margin and market status from the chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.48.1", "3.48.13", "3.0.3"]
@@ -105297,7 +105297,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.52.2]
 title = "Block spot order submit for a paused token"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.52.1", "3.47.3", "3.0.3"]
@@ -159892,7 +159892,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.21.2]
 title = "Drop custody and anchor from the capabilities response and its OpenAPI schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["14.21.1", "8.93.1"]
