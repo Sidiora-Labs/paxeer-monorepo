@@ -9333,3 +9333,9 @@ area = "terminal v5 corpus"
 symptom = "program-terminal-v5.py refuses with `native signed corpus was not emitted` although the native build passed"
 cause = "test_terminal_v5 --dump-corpus exited non-zero on a V5_CHECK; the producer parses its truncated stdout and raises before printing the case names"
 do = "read native-result.json next to the producer output: stderr names the failing fixture line and the receipt codes of the completed cases"
+
+[gotcha.1935]
+area = "lxphost receipts"
+symptom = "a keeper or precompile test reads a write's receipt back with Host.ReadIdempotentReceipt and fails with LXP_ERR_UNKNOWN_FIELD although the write itself succeeded"
+cause = "since task 1.2.1 the kernel records no idempotency entry, so lxphost_read_receipt (modules/lxphost/read.go:164) finds no row for the key"
+do = "assert the write through the receipt the call returns, the stored record and the emitted event; do not read receipts back by key"
