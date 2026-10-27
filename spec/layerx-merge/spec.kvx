@@ -148570,7 +148570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.22.4]
 title = "Check the relayer receipt decoder against the shared receipt vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["11.22.3", "11.0.4", "9.1.6"]
@@ -149090,7 +149090,7 @@ do_8 = "The first build failed because do_2 makes ArchiveData.committed a plain 
 
 [task.11.26.5]
 title = "Refresh the workspace locks that pin the mirror after it dropped its batch-era dependencies"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["11.26.4"]
