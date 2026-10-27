@@ -47,9 +47,13 @@ pub const KNOWN_PRECOMPILES: [(&str, u16); 23] = [
 ];
 
 /// Native precompile ABIs stored below nested paths, with their addresses.
-pub const NESTED_PRECOMPILES: [(&str, &str, u16); 2] = [
+pub const NESTED_PRECOMPILES: [(&str, &str, u16); 6] = [
     ("perps", "perps/abi/abi.json", 0x1015),
     ("pricefeed", "pricefeed/abi/abi.json", 0x1020),
+    ("pecor", "spot/abi/pecor.json", 0x1021),
+    ("orders", "spot/abi/orders.json", 0x1022),
+    ("stoporders", "spot/abi/stoporders.json", 0x1023),
+    ("vault", "spot/abi/vault.json", 0x1025),
 ];
 
 /// The 20-byte address of a native precompile numbered `number`.
@@ -781,6 +785,104 @@ mod tests {
         assert!(!registry.abis().iter().any(|abi| {
             abi.contract == "layerxexchange" && abi.address == Some(precompile_address(0x1015))
         }));
+    }
+
+    #[test]
+    fn spot_contract_events_decode_at_their_addresses() {
+        let registry = repository_precompiles();
+        let abi_word = |value: u64| {
+            let mut word = [0_u8; 32];
+            word[24..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        let user = address_text(precompile_address(0x2001));
+        let stablecoin = address_text(precompile_address(0x2002));
+        let token = address_text(precompile_address(0x2003));
+        for (contract, number, name, signature, indexed, body, expected) in [
+            (
+                "pecor",
+                0x1021,
+                "MarketOrderExecuted",
+                "MarketOrderExecuted(address,address,address,uint256,uint256,bool)",
+                &[0x2001, 0x2002, 0x2003][..],
+                &[100, 200, 1][..],
+                serde_json::json!({
+                    "user": user, "stablecoin": stablecoin, "token": token,
+                    "stablecoinAmount": "100", "tokenAmount": "200", "isBuy": true
+                }),
+            ),
+            (
+                "orders",
+                0x1022,
+                "LimitOrderCreated",
+                "LimitOrderCreated(uint256,address,uint8,uint256,uint256)",
+                &[42, 0x2001][..],
+                &[1, 200, 300][..],
+                serde_json::json!({
+                    "orderId": "42", "user": user, "orderType": "1",
+                    "amount": "200", "targetPrice": "300"
+                }),
+            ),
+            (
+                "stoporders",
+                0x1023,
+                "StopLimitOrderCreated",
+                "StopLimitOrderCreated(uint256,address,uint8,uint256,uint256,uint256)",
+                &[43, 0x2001][..],
+                &[1, 200, 300, 400][..],
+                serde_json::json!({
+                    "orderId": "43", "user": user, "orderType": "1",
+                    "amount": "200", "stopPrice": "300", "limitPrice": "400"
+                }),
+            ),
+            (
+                "vault",
+                0x1025,
+                "Deposit",
+                "Deposit(address,address,uint256,uint256)",
+                &[0x2003, 0x2001][..],
+                &[200, 500][..],
+                serde_json::json!({
+                    "token": token, "depositor": user,
+                    "amount": "200", "newReserve": "500"
+                }),
+            ),
+        ] {
+            let address = precompile_address(number);
+            let abi = registry
+                .abis()
+                .iter()
+                .find(|abi| abi.contract == contract)
+                .unwrap_or_else(|| panic!("{contract} ABI not loaded"));
+            assert_eq!(abi.address, Some(address));
+            let topic = keccak(signature.as_bytes());
+            let mut topics = vec![topic];
+            topics.extend(indexed.iter().copied().map(abi_word));
+            let data: Vec<u8> = body.iter().copied().flat_map(abi_word).collect();
+            let (event, decoded) = registry
+                .decode_log(address, &topics, &data)
+                .unwrap_or_else(|error| panic!("{contract}.{name}: {error}"))
+                .unwrap_or_else(|| panic!("{contract}.{name} not registered at {number:#x}"));
+            assert_eq!(event.contract, contract);
+            assert_eq!(event.name, name);
+            assert_eq!(event.signature, signature);
+            assert_eq!(decoded.contract, contract);
+            assert_eq!(decoded.name, name);
+            assert_eq!(decoded.signature, signature);
+            assert_eq!(Value::Object(decoded.args), expected);
+            for other in [0x1021, 0x1022, 0x1023, 0x1024, 0x1025] {
+                if other != number {
+                    assert!(
+                        registry.lookup(precompile_address(other), topic).is_none(),
+                        "{contract}.{name} resolved at {other:#x}"
+                    );
+                }
+            }
+        }
+        assert!(!registry
+            .abis()
+            .iter()
+            .any(|abi| matches!(abi.contract.as_str(), "quoter" | "share")));
     }
 
     #[test]
