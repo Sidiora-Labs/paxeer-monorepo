@@ -71,9 +71,6 @@ export interface SurfaceWallet {
   readonly address: string | null;
 }
 
-export const RECEIPT_ATTEMPTS = 30;
-export const RECEIPT_INTERVAL_MS = 1_000;
-
 export function useSurfaceWallet(): SurfaceWallet {
   const { status, wallet, address } = useWallet();
   return useMemo(
@@ -114,20 +111,6 @@ export function receiptStatus(receipt: unknown): ReceiptStatus {
   if (receipt.status === '0x1') return 'confirmed';
   if (receipt.status === '0x0') return 'reverted';
   throw new Error('the receipt carries an invalid status');
-}
-
-export async function waitForReceipt(
-  provider: ModuleProvider,
-  hash: string,
-  attempts = RECEIPT_ATTEMPTS,
-  intervalMs = RECEIPT_INTERVAL_MS
-): Promise<unknown> {
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const receipt = await provider.request({ method: 'eth_getTransactionReceipt', params: [hash] });
-    if (receipt !== null && receipt !== undefined) return receipt;
-    await new Promise((resolve) => setTimeout(resolve, intervalMs));
-  }
-  return null;
 }
 
 export function formatField(value: bigint | boolean | string): string {

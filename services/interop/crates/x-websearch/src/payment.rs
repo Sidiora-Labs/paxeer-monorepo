@@ -31,12 +31,14 @@ use layerx_crypto::payments::{Grant, Payment, ReceiverAuthorization};
 use layerx_crypto::send::{encode_payment_envelope, EnvelopeOptions};
 use layerx_crypto::signer::{sign_disclosed, LocalSigner};
 use layerx_interop_gateway::adapter::ConformanceSuite;
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::leaf_hash;
 use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch, ReceiptKeys};
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_types::activity::Signature;
 use layerx_types::payload::ModuleId;
 use layerx_wire::encode::Encoder;
@@ -1358,6 +1360,7 @@ impl PaymentGate {
         let Ok(seller) = Seller::new(required) else {
             return Response::error(503, "payment_unavailable");
         };
+        let seller = seller.with_receipt_keys(self.receipt_keys.clone());
         let Some(header) = request.header(PAYMENT_SIGNATURE) else {
             return Self::challenge(&seller, "payment_required");
         };
@@ -1384,8 +1387,11 @@ impl PaymentGate {
             )
         };
         match outcome {
+            Err(_) if plane.refusal == Some("payment_pending") => {
+                Response::error(503, "payment_pending").with_header("Retry-After", "1")
+            }
             Err(_) => Self::challenge(&seller, plane.refusal.unwrap_or("payment_invalid")),
-            Ok(SellerOutcome::Pending) => {
+            Ok(SellerOutcome::Pending { .. }) => {
                 Response::error(503, "payment_pending").with_header("Retry-After", "1")
             }
             Ok(SellerOutcome::Refused { header, response }) => {
@@ -1889,10 +1895,10 @@ impl PaymentPlane for Plane<'_> {
             Ok(outcome) => Ok(outcome),
             Err(reason) => {
                 self.refusal = Some(reason);
-                if reason == "request_mismatch" {
-                    Err(layerx_x402::model::X402Error::RequirementsMismatch)
-                } else {
-                    Ok(PlanePaymentOutcome::Refused { reason })
+                match reason {
+                    "request_mismatch" => Err(layerx_x402::model::X402Error::RequirementsMismatch),
+                    "payment_pending" => Err(layerx_x402::model::X402Error::EvidenceMissing),
+                    _ => Ok(PlanePaymentOutcome::Refused { reason }),
                 }
             }
         }
@@ -1920,6 +1926,15 @@ struct Expected {
 }
 
 impl Plane<'_> {
+    fn pending(record: &PaymentRecord) -> Settled {
+        let transaction_hash = record
+            .activity_id
+            .as_deref()
+            .and_then(unhex32)
+            .ok_or("payment_pending")?;
+        Ok(PlanePaymentOutcome::Pending { transaction_hash })
+    }
+
     fn run(&self, request: &LayerXPaymentRequest) -> Settled {
         let asset = unhex32(&request.asset)
             .and_then(|id| self.gate.assets.by_id(&id).copied())
@@ -1934,7 +1949,7 @@ impl Plane<'_> {
         let key = request.idempotency_key;
         let store = &self.gate.store;
         let Ok(existing) = store.load(&key) else {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Err("payment_pending");
         };
         if let Some(record) = existing {
             if record.principal != request.principal.as_str()
@@ -2001,12 +2016,12 @@ impl Plane<'_> {
         {
             Ok(true) => {}
             Ok(false) => return Err("idempotency_conflict"),
-            Err(_) => return Ok(PlanePaymentOutcome::Pending),
+            Err(_) => return Err("payment_pending"),
         }
         let identity = self.sequence(&json!([self.gate.receiver.did, "identity"]));
         let account = self.sequence(&json!([hex(&pay_to)]));
         let (Some(identity_sequence), Some(receiver_sequence)) = (identity, account) else {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Err("payment_pending");
         };
         let signed = sign_draw(
             &self.gate.receiver.key,
@@ -2030,7 +2045,7 @@ impl Plane<'_> {
             ..self.fresh_record(request)
         };
         if self.gate.store.save(&key, &record).is_err() {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Self::pending(&record);
         }
         self.submit(&key, record, asset, pay_to)
     }
@@ -2061,7 +2076,7 @@ impl Plane<'_> {
         let activity = record.activity.clone().ok_or("request_mismatch")?;
         record.attempted = true;
         if self.gate.store.save(key, &record).is_err() {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Self::pending(&record);
         }
         let answer = self
             .gate
@@ -2112,10 +2127,10 @@ impl Plane<'_> {
         pay_to: [u8; 32],
     ) -> Settled {
         let Some(answer) = answer else {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Self::pending(&record);
         };
         if answer.pending() {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Self::pending(&record);
         }
         let RpcAnswer::Result(value) = answer else {
             return Err("gateway_refused");
@@ -2130,7 +2145,7 @@ impl Plane<'_> {
             return Err("payment_failed");
         }
         let Some(receipt) = value.get("receipt") else {
-            return Ok(PlanePaymentOutcome::Pending);
+            return Self::pending(&record);
         };
         let bytes = receipt
             .as_str()
@@ -2162,24 +2177,68 @@ impl Plane<'_> {
             asset: asset.asset_id,
             amount: asset.price,
         };
-        let (batch, digest) = self.verify_receipt(&bytes, &expected)?;
+        let (_, digest) = self.verify_receipt(&bytes, &expected)?;
         match self.gate.store.claim(RECEIPTS, &hex(&digest), key) {
             Ok(true) => {}
             Ok(false) => return Err("receipt_consumed"),
-            Err(_) => return Ok(PlanePaymentOutcome::Pending),
+            Err(_) => return Self::pending(&record),
         }
         if record.receipt.is_none() {
             record.receipt = Some(hex(&bytes));
             record.receipt_digest = Some(hex(&digest));
             if self.gate.store.save(key, &record).is_err() {
-                return Ok(PlanePaymentOutcome::Pending);
+                return Self::pending(&record);
             }
         } else if record.receipt_digest.as_deref() != Some(hex(&digest).as_str()) {
             return Err("receipt_mismatch");
         }
+        let transaction_hash = record
+            .activity_id
+            .as_deref()
+            .and_then(unhex32)
+            .ok_or("receipt_mismatch")?;
+        let Some(RpcAnswer::Result(value)) = self.gate.rpc.call(
+            "pax_sequencerReceipt",
+            &json!([format!("0x{}", hex(&transaction_hash))]),
+        ) else {
+            return Self::pending(&record);
+        };
+        let rpc_bytes = |value: &Value| {
+            value
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .and_then(unhex)
+        };
+        if rpc_bytes(&value["txHash"]).as_deref() != Some(transaction_hash.as_slice())
+            || rpc_bytes(&value["receipt"]).as_deref() != Some(bytes.as_slice())
+        {
+            return Err("receipt_mismatch");
+        }
+        let logs = value["logs"]
+            .as_array()
+            .ok_or("receipt_unverified")?
+            .iter()
+            .map(|log| {
+                let address = rpc_bytes(&log["address"])?.try_into().ok()?;
+                let topics = log["topics"]
+                    .as_array()?
+                    .iter()
+                    .map(|topic| rpc_bytes(topic)?.try_into().ok())
+                    .collect::<Option<Vec<[u8; 32]>>>()?;
+                let data = rpc_bytes(&log["data"])?;
+                let index =
+                    u64::from_str_radix(log["logIndex"].as_str()?.strip_prefix("0x")?, 16).ok()?;
+                Some(SequencerLog::new(address, topics, data, index))
+            })
+            .collect::<Option<Vec<_>>>()
+            .ok_or("receipt_unverified")?;
         Ok(PlanePaymentOutcome::Executed(ExecutedPayment {
-            canonical_receipt: bytes,
-            authorised_batch: batch,
+            evidence: SequencerEvidence {
+                transaction_hash,
+                signed_receipt: bytes,
+                logs,
+                rung: SettlementRung::Receipted,
+            },
         }))
     }
 
@@ -2261,7 +2320,7 @@ impl Plane<'_> {
             match self.gate.store.holder(RECEIPTS, &hex(&digest)) {
                 Ok(None) => {}
                 Ok(Some(_)) => return Err("receipt_consumed"),
-                Err(_) => return Ok(PlanePaymentOutcome::Pending),
+                Err(_) => return Err("payment_pending"),
             }
             let facts = verify_sequencer_signature(
                 &bytes,
@@ -2281,7 +2340,7 @@ impl Plane<'_> {
                 ..self.fresh_record(request)
             };
             if self.gate.store.save(&key, &record).is_err() {
-                return Ok(PlanePaymentOutcome::Pending);
+                return Self::pending(&record);
             }
             record
         };

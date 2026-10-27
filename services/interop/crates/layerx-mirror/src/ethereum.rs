@@ -397,11 +397,17 @@ impl EthereumArchiveClient {
     ///
     /// # Errors
     /// Refuses identity, RPC, archive, and canonical-coordinate failures.
-    pub fn retrieve_finalized(&self, commitment: ArchiveCommitment) -> Result<Option<Vec<u8>>, EthereumError> {
+    pub fn retrieve_finalized(
+        &self,
+        commitment: ArchiveCommitment,
+    ) -> Result<Option<Vec<u8>>, EthereumError> {
         let reader = EthereumMirrorReader::open(EthereumMirrorReadConfig {
-            rpc: self.config.rpc.clone(), chain_id: self.config.chain_id,
-            genesis_hash: self.config.genesis_hash, archive_contract: self.config.archive_contract,
-            archive_code_hash: self.config.archive_code_hash, publisher: self.signer_address,
+            rpc: self.config.rpc.clone(),
+            chain_id: self.config.chain_id,
+            genesis_hash: self.config.genesis_hash,
+            archive_contract: self.config.archive_contract,
+            archive_code_hash: self.config.archive_code_hash,
+            publisher: self.signer_address,
         })?;
         match reader.retrieve(commitment)? {
             Some(observed) if reader.is_canonical(&observed)? => Ok(Some(observed.archive)),
@@ -425,11 +431,7 @@ impl EthereumArchiveClient {
             chain: MirrorChain::Ethereum,
             batch_number: archive.data().batch_number,
             commitment: archive.commitment(),
-            checkpoint: archive
-                .data()
-                .checkpoint
-                .as_ref()
-                .map(|value| value.coordinate),
+            committed: archive.data().committed_coordinate(),
             stage: stage.stage,
             phase: PublicationPhase::Prepared,
             stage_payload_digest: digest,
@@ -857,11 +859,12 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StagePayload>, Et
     let chunk_count = archive.bytes().len().div_ceil(chunk_bytes);
     let chunk_count_u32 = u32::try_from(chunk_count).map_err(|_| EthereumError::Transaction)?;
     let length = u64::try_from(archive.bytes().len()).map_err(|_| EthereumError::Transaction)?;
-    let checkpoint = archive
+    let block_hash = archive
         .data()
-        .checkpoint
+        .committed
         .as_ref()
-        .map_or([0; 32], |value| value.coordinate.checkpoint_id);
+        .ok_or(EthereumError::Transaction)?
+        .block_hash;
     let mut output = Vec::with_capacity(chunk_count.saturating_add(2));
     output.push(StagePayload {
         stage: PublicationStage::Manifest,
@@ -871,7 +874,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StagePayload>, Et
                 AbiValue::Fixed(*archive.commitment().as_bytes()),
                 AbiValue::Uint(u128::from(archive.data().network_id)),
                 AbiValue::Uint(u128::from(archive.data().batch_number)),
-                AbiValue::Fixed(checkpoint),
+                AbiValue::Fixed(block_hash),
                 AbiValue::Uint(u128::from(length)),
                 AbiValue::Uint(u128::from(chunk_count_u32)),
                 AbiValue::Fixed(Sha256::digest(archive.bytes()).into()),

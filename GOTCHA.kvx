@@ -9165,3 +9165,117 @@ area = "C build / static archive"
 symptom = "a freshly built build/liblayerx.a lacks link closure (25 undefined references at 1.4.3 a8) while a pre-existing build directory links, then collides with moved definitions (lxp_batch_verify_signature, 1.11.4 a2)"
 cause = "a source filtered out of LIB_SOURCES (Makefile:41-50) is still referenced by kept members, and `ar rcsD` (Makefile:203) never prunes the stale member that masks it"
 do = "keep LIB_SOURCES link-closed when filtering a source and build the archive from an empty build directory"
+
+[gotcha.1907]
+area = "C build / Makefile tests"
+symptom = "a Makefile verify passes while the library it shapes no longer links"
+cause = "a verify that runs only `make -n` (tools/ci/tests/test_makefile_wave1.py, test_makefile_wave2.py) proves that rules exist or are gone, never that the library links"
+do = "a task that removes sources from LIB_SOURCES links layerxd or another consumer in its gate (16.2.2, 16.0.2 vs 1.4.3 a8, 9.24.1 a6)"
+
+[gotcha.1908]
+area = "C build / archive symbol tests"
+symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
+cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
+do = "pair an archive symbol check with a link of a consumer built from an empty build directory"
+
+[gotcha.1909]
+area = "sdk/baseapp"
+symptom = "A module query error reaches the CLI with codespace sdk and code 18 although the keeper returned a registered module error."
+cause = "gRPCErrorToSDKError (sdk/baseapp/abci.go:646) rewraps every handler error that is not a gRPC status as ErrInvalidRequest before QueryResultWithDebug reads the ABCI info."
+do = "Return an error that already carries a registered codespace (sdkerrors.ABCIInfo codespace other than undefined) unchanged, before the gRPC status mapping (task 15.0.5)."
+
+[gotcha.1910]
+area = "apps/launchpad/mobile"
+symptom = "tsc over the mobile app reports dozens of errors inside react-native globals.d.ts, lib.dom.d.ts and @types/node, or, without the DOM lib, in the launchpad SDK sources."
+cause = "react-native's global declarations overlap the DOM lib the DOM-typed SDK sources need; the conflict sits only in declaration files."
+do = "Keep the default lib and set skipLibCheck true in tsconfig.json as @react-native/typescript-config does; never drop DOM or add a second tsconfig for the tests."
+
+[gotcha.1911]
+area = "spec task symbols"
+symptom = "cg spec done reports N graph check(s) failed — symbol X not defined in the graph — although verify_cmd passed"
+cause = "symbols named things the code graph never indexes (Elixir modules and functions, ExUnit test names, env vars, Makefile variables, Python Class.method paths, script or file names, metric strings) or definitions the task itself deletes"
+do = "list in symbols only functions, methods, types, macros and test functions, by bare name, that exist after the change in a language the graph parses (C, Go, Rust, TypeScript, Python, Solidity); Elixir tasks use symbols = []; test names belong in tests; a deletion task lists only what it keeps or rewrites"
+
+[gotcha.1912]
+area = "kernel C structs"
+symptom = "-Werror=missing-field-initializers refuses the lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor after the struct gained a member"
+cause = "positional compound literals stop at the old last member; the task that appended the member built only its own test"
+do = "a task that appends a struct member updates every positional literal of that struct in the same change (grep for `(type){`) or names the task that will"
+
+[gotcha.1913]
+area = "launchpad gRPC queries"
+symptom = "a Query handler test panics `invalid Go type types.Int for field ...Response.<field>` although the handler returns the right value"
+cause = "sdk/baseapp/grpcrouter.go:100 marshals query responses with the grpc default proto codec, which cannot reflect a top-level non-pointer gogoproto customtype Int field; nested messages go through the gogo Marshal method and pass"
+do = "declare top-level amounts in query responses as plain decimal strings (wire and JSON unchanged) or nest them in a message"
+
+[gotcha.1914]
+area = "launchpad mobile tests"
+symptom = "vitest fails `Cannot find module './validators-v1.gen.js'` from sdk/launchpad/packages/sdk/src/validate.ts even after the SDK build"
+cause = "compile-validators.mjs emits the generated validator modules only into dist/; the repository tracks only their .d.ts declarations, so importing the SDK from src finds no runtime module"
+do = "alias the three ./validators-*.gen.js specifiers to the built dist files in the consumer's vitest config and build sdk-v2 then sdk before the test"
+
+[gotcha.1915]
+area = "kernel activity envelope"
+symptom = "every HostExecute from a keeper is refused LXP_ERR_MALFORMED_ENVELOPE and the refusal receipt carries code 0"
+cause = "the activity's NotBefore/NotAfter bound was wider than the admission window (src/sequencer/lxp_admission.c:13-15), or AccountSequence was set to identity sequence + 1 although the host already stores the next admitted sequence"
+do = "set NotBefore = block time, NotAfter = block time + TimestampWindowMs and AccountSequence = ReadIdentitySequence unchanged"
+
+[gotcha.1916]
+area = "kernel module custody"
+symptom = "an unsigned bound escrow, budget or stream activity is refused LXP_ERR_BAD_SIGNATURE at execution although admission accepted it"
+cause = "lxp_ctx_account_stage_module_custody (src/protocol/lxp_module_ctx.c:895) verifies the activity signature unconditionally; only the asset issuance and account staging calls honour the asset runtime's binding_authority"
+do = "read ctx->kernel->module_runtime[LXP_MODULE_ASSET] and skip only the signature check when binding_authority is set (task 1.11.6)"
+
+[gotcha.1917]
+area = "kernel authority grants"
+symptom = "every fee-bearing session or capability grant is refused LXP_ERR_AUTH_SCOPE although its fee asset is the governed occupancy asset"
+cause = "grant_scope_validate (src/modules/governance/lxp_governance.c:480) compares the fee asset with the static runtime->occupancy_asset_id, which no node fills; the charge path resolves the asset through resolve_occupancy_parameters instead"
+do = "resolve the governed asset through the runtime resolver (version 0 is the active record) as src/state/lxp_authority.c:1041-1047 does (task 1.14.6)"
+
+[gotcha.1918]
+area = "kernel budget module"
+symptom = "after a budget defund the per-period limit read back is lower than the limit the budget was created with"
+cause = "lx_budget_defund_limit (src/modules/budget/lx_budget_close.c:62-82) lowers per_period_limit to spent_this_period plus the resulting balance whenever the remaining allowance exceeds the post-defund balance"
+do = "expect limit = spent + balance after a defund that leaves less than the remaining allowance; do not assert the creation limit"
+
+[gotcha.1919]
+area = "Makefile CI tests"
+symptom = "test_aggregates_dry_run_clean reports a retired member in a compile or archive line under build-repro-a/, build-repro-b/ or build/<sanitizer>/"
+cause = "the aggregate dry run recurses into the reproducible (Makefile:220-225) and sanitizer (Makefile:1588-1596) build directories, which relink the same members"
+do = "classify library lines with a pattern that accepts the build, build-repro-[ab] and build/(crypto-)?(a|t|ub)san prefixes before asserting retired substrings"
+
+[gotcha.1920]
+area = "cosmos module errors"
+symptom = "a gRPC query that returns a registered module error reaches the client as code 3 InvalidArgument instead of the module code"
+cause = "sdkerrors.ABCIInfo (sdk/types/errors/abci.go:117-160) unwraps through Cause() only; an fmt.Errorf %w wrap has no Cause(), so gRPCErrorToSDKError (sdk/baseapp/abci.go:645-652) rewraps the error as ErrInvalidRequest"
+do = "wrap registered errors with a type that implements both Unwrap() and Cause(), or return the registered error itself"
+
+[gotcha.1921]
+area = "TypeScript workspace typecheck"
+symptom = "apps/web typecheck fails TS2412 inside sdk/wallet/src/index.ts although sdk/wallet's own typecheck passes"
+cause = "apps/web compiles the wallet SDK source with exactOptionalPropertyTypes (apps/web/tsconfig.json:16), which refuses assigning a possibly undefined value to an optional field, and sdk/wallet's tsconfig does not set it"
+do = "assign optional fields only inside a presence check in SDK sources that apps/web compiles, and typecheck through apps/web before qualifying a wallet SDK change"
+
+[gotcha.1922]
+area = "explorer indexer ABI conformance"
+symptom = "kept_topics_match_precompile_abis reports a launchpad topic absent from precompiles/launchpad/abi.json although the indexer decodes it from chain logs"
+cause = "precompiles/launchpad/abi.json is the v6.12.0 surface; the indexer's launchpad definitions are the v6.10 events of precompiles/launchpad/legacy/v610/abi.json, and precompiles/launchpad/setup.go:11-18 serves both versions at 0x…1017"
+do = "compare launchpad topics against the union of the two served ABI files, and add v6.12.0 definitions in their own task"
+
+[gotcha.1923]
+area = "agent crates settlement document"
+symptom = "a layerx-sdk or layerx-client test that verifies a checkpoint certificate fails Verification although the vector is unchanged"
+cause = "layerx-proof embeds contracts/config/checkpoint-settlement.json via include_str! and b284707f6 replaced that document with an unrelated offline_export map, so every certificate verification returns Configuration; the whole path is retired (req.6496 ac_3, 9.27.4)"
+do = "do not restore the document; retire the certificate callers top-down (client and SDK before layerx-proof) and gate SDK tasks on that retirement"
+
+[gotcha.1924]
+area = "spec retirement ordering"
+symptom = "a module deletion task is scheduled in an earlier wave than the tasks that remove its callers, so the wave would not compile"
+cause = "the deletion task's requires list names the tasks that produced the replacement, not the tasks that remove the remaining consumers"
+do = "before scheduling a deletion, grep every consumer of the deleted symbols and add a requires edge to each consumer's remover; a consumer with no remover is a finding"
+
+[gotcha.1925]
+area = "explorer indexer market events"
+symptom = "adding a launchpad definition to PaxeerXLogs makes market_event_test.exs fail although the new rows parse"
+cause = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs:138-145 asserts that @market_signatures equals the launchpad definitions' signatures exactly"
+do = "extend the @market_signatures launchpad list in the same change as the definitions"
