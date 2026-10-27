@@ -27,14 +27,6 @@ func queryContext[T any](goCtx context.Context, req *T) (sdk.Context, error) {
 	return sdk.UnwrapSDKContext(goCtx), nil
 }
 
-func (q Querier) Treasury(goCtx context.Context, req *types.QueryTreasuryRequest) (*types.QueryTreasuryResponse, error) {
-	ctx, err := queryContext(goCtx, req)
-	if err != nil {
-		return nil, err
-	}
-	return q.UnimplementedQueryServer.Treasury(sdk.WrapSDKContext(ctx), req)
-}
-
 func (q Querier) Surface(goCtx context.Context, req *types.QuerySurfaceRequest) (*types.QuerySurfaceResponse, error) {
 	ctx, err := queryContext(goCtx, req)
 	if err != nil {
