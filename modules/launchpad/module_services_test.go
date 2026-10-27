@@ -172,6 +172,15 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, sdk.ZeroInt(), amount)
 				require.Equal(t, amount.String(), result.Amount)
+			case "FeeAccounting":
+				require.NoError(t, err)
+				var result types.QueryFeeAccountingResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				liabilities, err := k.TotalLiabilities(ctx)
+				require.NoError(t, err)
+				require.Equal(t, sdk.ZeroInt(), liabilities)
+				require.Equal(t, liabilities, result.Accounting.TotalLiabilities)
+				require.Equal(t, sdk.ZeroInt(), result.Accounting.PendingProtocolFees)
 			case "Treasury":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				data, err := cdc.Marshal(&types.QueryTreasuryRequest{Token: params.QuoteToken})
@@ -200,6 +209,22 @@ func TestRegisterServicesServesQuery(t *testing.T) {
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)
 				require.Equal(t, types.ErrUnknownMarket.Codespace(), codespace)
 				require.Equal(t, types.ErrUnknownMarket.ABCICode(), code)
+			case "PoolMetadata":
+				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
+				var addressErr *sdkerrors.Error
+				require.ErrorAs(t, err, &addressErr)
+				codespace, code, _ := sdkerrors.ABCIInfo(addressErr, false)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.Codespace(), codespace)
+				require.Equal(t, sdkerrors.ErrInvalidAddress.ABCICode(), code)
+				data, err := cdc.Marshal(&types.QueryPoolMetadataRequest{
+					Pool: "0x0000000000000000000000000000000000001238",
+				})
+				require.NoError(t, err)
+				response, err = handler(ctx, abci.RequestQuery{Data: data})
+				require.NoError(t, err)
+				var result types.QueryPoolMetadataResponse
+				require.NoError(t, cdc.Unmarshal(response.Value, &result))
+				require.Equal(t, types.QueryPoolMetadataResponse{Found: false}, result)
 			case "MarketByAddress":
 				require.ErrorIs(t, err, sdkerrors.ErrInvalidAddress)
 				codespace, code, _ := sdkerrors.ABCIInfo(err, false)

@@ -69,7 +69,7 @@ defmodule Indexer.Transform.PaxeerXLogs do
     lx_market_events: []
   }
 
-  @party_argument_names ~w(owner trader recipient holder creator payer)
+  @party_argument_names ~w(owner trader recipient holder creator payer sender party to)
 
   @definitions [
     %{
@@ -361,6 +361,227 @@ defmodule Indexer.Transform.PaxeerXLogs do
       arguments: [
         {"token", :address, true},
         {"paused", :bool, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "ConfigUpdated",
+      signature: "ConfigUpdated(bytes32,uint256,uint256,uint256,uint256)",
+      topic: "0x2903b3642d2105b7fbd127326de888ab50e8d975bf819398337fb58407c1b10e",
+      domain: :launchpad,
+      kind: "config_updated",
+      arguments: [
+        {"key", {:bytes, 32}, true},
+        {"oldValue", {:uint, 256}, false},
+        {"newValue", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "FeeDistributed",
+      signature: "FeeDistributed(bytes32,uint256,uint8,uint256,address,uint256,uint256)",
+      topic: "0xf7ab826cedf9d005102eddf95e65f43597aef36a55ff09ee4f452204c83f4afc",
+      domain: :launchpad,
+      kind: "fee_distributed",
+      arguments: [
+        {"poolId", {:bytes, 32}, true},
+        {"nftId", {:uint, 256}, false},
+        {"strategy", {:uint, 8}, false},
+        {"amount", {:uint, 256}, false},
+        {"recipient", :address, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "FeeFlow",
+      signature: "FeeFlow(uint8,address,address,uint256,uint256,uint256,uint256,uint256,uint256)",
+      topic: "0x626e3fd5d9323ca4b7ffa3ca51c21c02766b638d15eb8896a36a4e0e97ae6de4",
+      domain: :launchpad,
+      kind: "fee_flow",
+      arguments: [
+        {"kind", {:uint, 8}, true},
+        {"pool", :address, true},
+        {"party", :address, true},
+        {"amount", {:uint, 256}, false},
+        {"protocolCut", {:uint, 256}, false},
+        {"poolCut", {:uint, 256}, false},
+        {"epoch", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "FeeStrategyChanged",
+      signature: "FeeStrategyChanged(bytes32,uint256,uint8,uint8,uint256,uint256)",
+      topic: "0x337fd9f9304e9da4c04886a5b8bf56e74032b459758212a860bc61d3544353dd",
+      domain: :launchpad,
+      kind: "fee_strategy_changed",
+      arguments: [
+        {"poolId", {:bytes, 32}, true},
+        {"nftId", {:uint, 256}, false},
+        {"oldStrategy", {:uint, 8}, false},
+        {"newStrategy", {:uint, 8}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "MarketCreated",
+      signature: "MarketCreated(bytes32,address,address,address,address,uint256,uint256)",
+      topic: "0xb0a9c7605389f1127c2299d4a3ed85f0b2fc19894ab5411d76b453bb29f9f47b",
+      domain: :launchpad,
+      kind: "market_created",
+      arguments: [
+        {"poolId", {:bytes, 32}, true},
+        {"token", :address, true},
+        {"creator", :address, true},
+        {"pool", :address, false},
+        {"optical", :address, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "NftMint",
+      signature: "NftMint(uint256,address,address,uint8,uint256,uint256)",
+      topic: "0xd2917d37031c0dfe5016665c7a83360cbf2ff32063096b2caf61ba66c06832e5",
+      domain: :launchpad,
+      kind: "nft_mint",
+      arguments: [
+        {"tokenId", {:uint, 256}, true},
+        {"creator", :address, true},
+        {"pool", :address, true},
+        {"strategy", {:uint, 8}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "NftTransfer",
+      signature: "NftTransfer(address,address,address,uint256,uint256,uint256)",
+      topic: "0x021f03e8a1315704c74c03e8c022c12bc80c4a2bd4fec8bd36b217322c340ad3",
+      domain: :launchpad,
+      kind: "nft_transfer",
+      arguments: [
+        {"nft", :address, true},
+        {"from", :address, true},
+        {"to", :address, true},
+        {"tokenId", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "PoolRegistered",
+      signature: "PoolRegistered(address,address,address,address,uint256,uint256,uint256)",
+      topic: "0xda5568642b67660133b1de538c867c58f3037a5722b0e231a959ee8ca11b2ed7",
+      domain: :launchpad,
+      kind: "pool_registered",
+      arguments: [
+        {"pool", :address, true},
+        {"token", :address, true},
+        {"creator", :address, true},
+        {"optical", :address, false},
+        {"nftId", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "PoolStateUpdated",
+      signature: "PoolStateUpdated(bytes32,uint256,uint256,uint256,uint256,uint256,uint256)",
+      topic: "0x8155a4b38a877d212b271811786986f8f7d78074c82fce4526c58defcc6d7ebd",
+      domain: :launchpad,
+      kind: "pool_state_updated",
+      arguments: [
+        {"poolId", {:bytes, 32}, true},
+        {"virtualReserve", {:uint, 256}, false},
+        {"realReserve", {:uint, 256}, false},
+        {"tokenReserve", {:uint, 256}, false},
+        {"price", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "RouterTrade",
+      signature: "RouterTrade(uint8,address,address,address,address,uint256,uint256,uint256,uint256,uint256)",
+      topic: "0x17c1899a3fd431f2b2200b90e738d270bb856a4222040c5650bfa208acb3b650",
+      domain: :launchpad,
+      kind: "router_trade",
+      arguments: [
+        {"kind", {:uint, 8}, true},
+        {"pool", :address, true},
+        {"sender", :address, true},
+        {"tokenIn", :address, false},
+        {"tokenOut", :address, false},
+        {"amountIn", {:uint, 256}, false},
+        {"amountOut", {:uint, 256}, false},
+        {"intermediateUsdl", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "Swap",
+      signature: "Swap(bytes32,address,bool,uint256,uint256,uint256,uint256,uint256,uint256)",
+      topic: "0xa234ab85728295548823d8a26077ecc77aa5815f9ed8f4c5e6fd390ac851d4cc",
+      domain: :launchpad,
+      kind: "swap",
+      arguments: [
+        {"poolId", {:bytes, 32}, true},
+        {"sender", :address, true},
+        {"isBuy", :bool, false},
+        {"amountIn", {:uint, 256}, false},
+        {"amountOut", {:uint, 256}, false},
+        {"fee", {:uint, 256}, false},
+        {"price", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
+      ]
+    },
+    %{
+      table: :lx_market_events,
+      address: @launchpad_precompile,
+      name: "TokenDeployed",
+      signature: "TokenDeployed(address,address,address,bytes32,string,string,uint8,uint256,uint256,uint256)",
+      topic: "0xad187874b793634c55d977f35d4828526eb48170a9531c71d88f8fd10cf9c237",
+      domain: :launchpad,
+      kind: "token_deployed",
+      arguments: [
+        {"token", :address, true},
+        {"pool", :address, true},
+        {"creator", :address, true},
+        {"salt", {:bytes, 32}, false},
+        {"name", :string, false},
+        {"symbol", :string, false},
+        {"decimals", {:uint, 8}, false},
+        {"totalSupply", {:uint, 256}, false},
+        {"timestamp", {:uint, 256}, false},
+        {"blockNumber", {:uint, 256}, false}
       ]
     }
   ]
