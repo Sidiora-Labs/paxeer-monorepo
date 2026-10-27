@@ -153348,7 +153348,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.3]
 title = "Retire the custody_not_supported unauthorized reason"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["12.28.2"]
