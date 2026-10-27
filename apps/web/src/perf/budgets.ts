@@ -23,7 +23,6 @@ export const ROUTE_SCRIPT_BUDGETS = Object.freeze({
   "/explorer/accounts/[accountId]": EXPLORER_ROUTE_SCRIPT_BUDGET_BYTES,
   "/explorer/programs/[programId]": EXPLORER_ROUTE_SCRIPT_BUDGET_BYTES,
   "/explorer/receipts/[receiptId]": EXPLORER_ROUTE_SCRIPT_BUDGET_BYTES,
-  "/explorer/verify": EXPLORER_ROUTE_SCRIPT_BUDGET_BYTES,
   "/launchpad": MARKET_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app": APP_ROUTE_SCRIPT_BUDGET_BYTES,
   "/app/activity": APP_ROUTE_SCRIPT_BUDGET_BYTES,
@@ -74,16 +73,17 @@ export function isPerformanceRoute(value: string): value is PerformanceRoute {
   return PERFORMANCE_ROUTES.some((route) => route === value);
 }
 
-const RETIRED_CUSTODY_ROUTE_PREFIXES = [
+const RETIRED_ROUTE_PREFIXES = [
   "/app/deposit",
   "/app/withdraw",
   "/app/move/withdraw",
   "/app/journeys",
   "/app/settings/exit",
+  "/explorer/verify",
 ] as const;
 
 export function classifyPerformanceRoute(pathname: string): PerformanceRoute | undefined {
-  if (RETIRED_CUSTODY_ROUTE_PREFIXES.some(
+  if (RETIRED_ROUTE_PREFIXES.some(
     (route) => pathname === route || pathname.startsWith(`${route}/`),
   )) {
     return undefined;
