@@ -93201,7 +93201,7 @@ touches = ["tests/programs/test_terminal_v5.c"]
 tests = ["tests/programs/test_terminal_v5.c::v5_case", "tests/programs/test_terminal_v5.c::v5_refusal_detail"]
 planned_paths = []
 build_cmd = "make -C . build/liblayerx.a"
-verify_cmd = "export CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/programs/target}\" && d=\"$(mktemp -d)\" && m=\"$(python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$d\" | tail -n1)\" && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest \"$m\""
+verify_cmd = "d=$(mktemp -d) && git worktree add -q --detach $d/src HEAD && (cd $d/src && export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$d/target} && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output $d/out && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest $d/out/manifest.json); r=$?; git worktree remove --force $d/src > /dev/null 2>&1; exit $r"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-kernel"
@@ -102612,7 +102612,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.14.1]
 title = "Route pricefeed MsgSetParams through a LayerX proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["3.11.1", "6.95.1"]
@@ -107651,7 +107651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.7]
 title = "Prove Query/PriceHistory agrees with the SidioraPool getPriceSnapshots view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -110640,7 +110640,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.5]
 title = "Repoint mobile notifications to the discovery notification routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110670,7 +110670,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.6]
 title = "Repoint mobile chat to the served v2 conversation and room message routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110794,7 +110794,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.47.2]
 title = "Quote mobile trades on chain through Quoter.quoteExactInput"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.1", "4.0.3", "4.46.2"]
@@ -114038,7 +114038,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.2]
 title = "Register the ledger, auth and agent modules and the shared host in the App"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["5.0.2", "5.10.1", "5.41.1", "2.0.2"]
@@ -134623,7 +134623,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.41.2]
 title = "Go SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.41.1", "8.0.2"]
@@ -136617,7 +136617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.93.1]
 title = "Drop custody and anchor from the proxied explorer capabilities answer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "14.0.1", "8.1.5"]
