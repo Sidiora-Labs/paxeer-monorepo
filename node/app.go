@@ -1536,6 +1536,8 @@ func (app *App) SetStoreUpgradeHandlers() {
 	}
 }
 
+const retiredAnchorStoreName = "layerxanchor"
+
 // layerxStoreUpgrades returns the store upgrades of the named LayerX upgrade plan.
 func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 	switch name {
@@ -1550,7 +1552,7 @@ func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 	case MergeUpgrade:
 		return mergeStoreUpgrades(), true
 	case AnchorStoreDeleteUpgrade:
-		return storetypes.StoreUpgrades{Deleted: []string{storekeys.LayerXAnchorStoreKey}}, true
+		return storetypes.StoreUpgrades{Deleted: []string{retiredAnchorStoreName}}, true
 	case V6120Upgrade:
 		return v6120StoreUpgrades(), true
 	}
