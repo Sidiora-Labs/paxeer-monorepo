@@ -9,15 +9,15 @@ const quoterAbi = parseAbi(['function quoteExactInput(address pool,uint256 amoun
 const registryAbi = parseAbi(['function getPoolByToken(address token) view returns(address)','function isRegisteredPool(address pool) view returns(bool)']);
 const poolAbi = parseAbi(['function tokenAddress() view returns(address)','function opticalAddress() view returns(address)']);
 const swapAbi = parseAbi(['event Swap(bytes32 indexed poolId,address indexed sender,bool isBuy,uint256 amountIn,uint256 amountOut,uint256 fee,uint256 price,uint256 timestamp,uint256 blockNumber)']);
-const opticalErrors=parseAbi(['error CooldownActive()','error MaxWalletExceeded()','error ProtectionActive()','error CliffActive()','error VestingExceeded()','error OpticalQuoteUnsupported()']);
+const opticalErrors=parseAbi(['error CooldownActive()','error MaxWalletExceeded()','error ProtectionActive()','error CliffActive()','error VestingExceeded()','error OpticalQuoteUnsupported()','error UnexecutableQuote()']);
 export class OpticalRejection extends Error {
   constructor(readonly reason:string,readonly retryEligibility:string){super(`${reason}; retry: ${retryEligibility}`);this.name='OpticalRejection';}
 }
-function opticalRejection(error:unknown):unknown {
+export function opticalRejection(error:unknown):unknown {
   let current:unknown=error;
   for(let index=0;index<8&&current&&typeof current==='object';index++){
     const record=current as {data?:unknown;cause?:unknown};const data=typeof record.data==='string'?record.data:(record.data&&typeof record.data==='object'&&'data' in record.data?record.data.data:undefined);
-    if(typeof data==='string'&&/^0x[0-9a-f]+$/i.test(data)){try{const decoded=decodeErrorResult({abi:opticalErrors,data:data as Hex});const retry:Record<string,string>={CooldownActive:'after cooldown',MaxWalletExceeded:'reduce amount or recipient balance',ProtectionActive:'after anti-snipe protection',CliffActive:'after vesting cliff',VestingExceeded:'within vested amount',OpticalQuoteUnsupported:'context-aware optical quote provider required'};return new OpticalRejection(decoded.errorName,retry[decoded.errorName]);}catch{}}
+    if(typeof data==='string'&&/^0x[0-9a-f]+$/i.test(data)){try{const decoded=decodeErrorResult({abi:opticalErrors,data:data as Hex});const retry:Record<string,string>={CooldownActive:'after cooldown',MaxWalletExceeded:'reduce amount or recipient balance',ProtectionActive:'after anti-snipe protection',CliffActive:'after vesting cliff',VestingExceeded:'within vested amount',OpticalQuoteUnsupported:'context-aware optical quote provider required',UnexecutableQuote:'request a new quote'};return new OpticalRejection(decoded.errorName,retry[decoded.errorName]);}catch{}}
     current=record.cause;
   }
   return error;

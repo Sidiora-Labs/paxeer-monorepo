@@ -21,7 +21,9 @@
 package xweb
 
 import (
+	"bytes"
 	"embed"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -358,6 +360,58 @@ func (p PrecompileExecutor) request(ctx sdk.Context, method *abi.Method, caller 
 		return nil, err
 	}
 	return method.Outputs.Pack(id)
+}
+
+// RequestFromProgram accepts a hosted program's request on the EVM state branch
+// and publishes its logs. Program requests have no timeout, so deadline is zero.
+func (p Precompile) RequestFromProgram(evm *vm.EVM, call *xwebkeeper.ProgramCall, topic, data []byte, readOnly bool) (err error) {
+	if !bytes.Equal(topic, []byte(xwebkeeper.ProgramRequestTopic)) {
+		return nil
+	}
+	if evm == nil || evm.StateDB == nil {
+		return errors.New("xweb: program request requires EVM state")
+	}
+	db := state.GetDBImpl(evm.StateDB)
+	if db == nil {
+		return errors.New("xweb: program request requires chain state")
+	}
+	x := p.executor
+	if err := x.guard(db.Ctx().EVMPrecompileCalledFromDelegateCall(), RequestMethod, readOnly); err != nil {
+		return err
+	}
+	snapshot := db.Snapshot()
+	var original xwebkeeper.ProgramCall
+	if call != nil {
+		original = *call
+	}
+	defer func() {
+		if err != nil {
+			db.RevertToSnapshot(snapshot)
+			if call != nil {
+				*call = original
+			}
+		}
+	}()
+	ctx := db.Ctx()
+	if err := x.keeper.RequestFromProgram(ctx, call, topic, data); err != nil {
+		return err
+	}
+	id := binary.BigEndian.Uint64(data[:8])
+	request, found, err := x.keeper.GetProgramPendingRecord(ctx, call.ProgramID, id)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("xweb: accepted program request is missing")
+	}
+	input := data[xwebkeeper.ProgramRequestHeaderBytes:]
+	requester := x.evmKeeper.GetEVMAddressOrDefault(ctx, call.Principal)
+	if err := x.log(evm, "XWebRequested", []common.Hash{topicUint64(id), common.BytesToHash(requester.Bytes())},
+		request.Kind, input, uint64(0), wei(request.Amount), uint64(0)); err != nil {
+		return err
+	}
+	return x.log(evm, "XWebProgramRequested", []common.Hash{common.Hash(call.ProgramID), topicUint64(id)},
+		types.OriginProgram, input, uint64(0))
 }
 
 func (p PrecompileExecutor) refund(ctx sdk.Context, method *abi.Method, args []interface{}, evm *vm.EVM) ([]byte, error) {
