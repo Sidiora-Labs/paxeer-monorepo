@@ -253,6 +253,7 @@ typedef struct lxp_receive_environment {
     uint32_t network_id;
     uint16_t protocol_version;
     struct lxp_transfer_allowance *allowance;
+    bool binding_authority;
 } lxp_receive_environment;
 
 typedef struct lx_account_index_entry {
