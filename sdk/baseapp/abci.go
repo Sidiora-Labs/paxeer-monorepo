@@ -644,6 +644,9 @@ func (app *BaseApp) handleQueryGRPC(handler GRPCQueryHandler, req abci.RequestQu
 }
 
 func gRPCErrorToSDKError(err error) error {
+	if codespace, _, _ := sdkerrors.ABCIInfo(err, false); codespace != sdkerrors.UndefinedCodespace {
+		return err
+	}
 	status, ok := grpcstatus.FromError(err)
 	if !ok {
 		return sdkerrors.Wrap(sdkerrors.ErrInvalidRequest, err.Error())
