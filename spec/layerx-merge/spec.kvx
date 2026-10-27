@@ -115132,7 +115132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.35.1]
 title = "Declare a leader pin in the e2e testnet manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.34.1", "5.0.3"]
@@ -118762,7 +118762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.2]
 title = "Add the merge upgrade name to the embedded upgrade tags"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -147495,7 +147495,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.11.4]
 title = "Cross-check the committed rung's block number and hash before relaying it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.11.3", "9.1.7", "11.16.2"]
@@ -147617,7 +147617,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.12.5]
 title = "Refuse a receipt keys file with overlapping or inverted height ranges"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.12.4", "9.1.7", "11.16.2"]
