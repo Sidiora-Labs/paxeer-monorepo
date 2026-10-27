@@ -1,13 +1,15 @@
 import { readFile } from "node:fs/promises";
-import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
-import { decodePxResolvedIdentities } from "@sidiora/layerx-sdk";
+import {
+  decodePxResolvedIdentities,
+  decodeRawEip1559,
+  keccak256,
+} from "@sidiora/layerx-sdk";
 import {
   PaymentRpc,
   PaymentRpcError,
   decodePaymentRequiredHeader,
-  verifyRpcPayment,
-  rpcBatchEvidence,
+  verifyRpcPayment as verifySellerRpcPayment,
   rpcHex,
   rpcObject,
 } from "../seller/dist/index.js";
@@ -87,8 +89,49 @@ class PublicRpc extends PaymentRpc {
         throw new Error("invalid-rpc-nonce");
       return body.result;
     }
+    if (method === "eth_sendRawTransaction") return body.result;
+    if (method === "pax_sequencerReceipt" && body.result === null) return null;
     return rpcObject(body.result);
   }
+}
+
+async function verifyRpcPayment(
+  rpc,
+  rawTransaction,
+  txHash,
+  payer,
+  offer,
+  receiptKeys,
+) {
+  const submittedHash = await rpc.send(
+    rawTransaction,
+    offer.extra?.layerx?.commitment ?? "receipted",
+  );
+  if (submittedHash !== txHash) throw new Error("transaction-hash-mismatch");
+  const receipt = await rpc.receipt(txHash);
+  if (receipt === null) return { kind: "pending" };
+  return verifySellerRpcPayment(
+    receipt,
+    rawTransaction,
+    payer,
+    offer,
+    receiptKeys,
+  );
+}
+
+function receiptHeight(value) {
+  if (
+    !(typeof value === "number" && Number.isSafeInteger(value) && value >= 0) &&
+    !(
+      typeof value === "string" &&
+      /^(?:0|[1-9][0-9]*|0x(?:0|[1-9a-f][0-9a-f]*))$/u.test(value)
+    )
+  )
+    throw new Error("invalid-receipt-key-height");
+  const height = BigInt(value);
+  if (height > 0xffff_ffff_ffff_ffffn)
+    throw new Error("invalid-receipt-key-height");
+  return height;
 }
 
 const { values } = parseArgs({
@@ -101,7 +144,7 @@ const { values } = parseArgs({
     "claim-key": { type: "string" },
     activity: { type: "string" },
     offer: { type: "string" },
-    authority: { type: "string" },
+    "receipt-keys": { type: "string" },
     payer: { type: "string" },
   },
 });
@@ -110,7 +153,7 @@ values.faucet ??= process.env.LAYERX_FAUCET_URL;
 values.did ??= process.env.LAYERX_DID;
 if (values.help) {
   process.stdout.write(
-    "Usage: node public-rpc.mjs --rpc https://HOST/rpc --did DID [--faucet https://HOST/v1/faucet/claims --public-key HEX32 --claim-key KEY] [--activity SIGNED_HEX_FILE --offer PAYMENT_REQUIRED_HEADER_FILE --authority TRUSTED_AUTHORITY_JSON --payer ACCOUNT_HEX32]\nURLs may come from LAYERX_RPC_URL and LAYERX_FAUCET_URL; DID from LAYERX_DID. Use LAYERX_RPC_TOKEN for submission and LAYERX_FAUCET_TOKEN for faucet authentication. The payment example verifies executed or batched commitment selected by the offer.\n",
+    "Usage: node public-rpc.mjs --rpc https://HOST/rpc --did DID [--faucet https://HOST/v1/faucet/claims --public-key HEX32 --claim-key KEY] [--activity RAW_EIP1559_HEX_FILE --offer PAYMENT_REQUIRED_HEADER_FILE --receipt-keys RECEIPT_KEYS_JSON --payer ACCOUNT_HEX32]\nURLs may come from LAYERX_RPC_URL and LAYERX_FAUCET_URL; DID from LAYERX_DID. Use LAYERX_RPC_TOKEN for submission and LAYERX_FAUCET_TOKEN for faucet authentication. The payment example verifies the receipted or committed rung selected by the offer. Receipt keys are a JSON array with keyId, publicKey (32-byte hex), firstHeight and lastHeight for each entry.\n",
   );
 } else {
   if (!values.rpc || !values.did) throw new Error("rpc-and-did-required");
@@ -178,89 +221,70 @@ if (values.help) {
   ]);
   process.stdout.write(JSON.stringify({ sequence }) + "\n");
   if (values.activity) {
-    if (!values.offer || !values.authority || !values.payer)
-      throw new Error("offer-authority-and-payer-required");
+    if (!values.offer || !values["receipt-keys"] || !values.payer)
+      throw new Error("offer-receipt-keys-and-payer-required");
     const required = decodePaymentRequiredHeader(
       (await readFile(values.offer, "utf8")).trim(),
     );
     const offer = required.accepts.find(
       (v) =>
         ["exact", "metered", "subscription"].includes(v.scheme) &&
-        ["executed", "batched"].includes(
-          v.extra?.layerx?.commitment ?? "executed",
+        ["receipted", "committed"].includes(
+          v.extra?.layerx?.commitment ?? "receipted",
         ),
     );
-    if (!offer) throw new Error("executed-or-batched-offer-required");
-    const commitment = offer.extra?.layerx?.commitment ?? "executed";
-    const canonical = (await readFile(values.activity, "utf8")).trim();
-    const activityId = createHash("sha256")
-      .update("LXP/v1/activity-id\0")
-      .update(rpcHex(canonical))
-      .digest("hex");
-    const configured = JSON.parse(await readFile(values.authority, "utf8"));
-    const authority = Object.fromEntries(
-      [
-        "batchId",
-        "asset",
-        "previousStateRoot",
-        "resultingStateRoot",
-        "sequencerPublicKey",
-      ].map((key) => [key, rpcHex(configured[key], 32)]),
+    if (!offer) throw new Error("receipted-or-committed-offer-required");
+    const commitment = offer.extra?.layerx?.commitment ?? "receipted";
+    const rawTransaction = (await readFile(values.activity, "utf8")).trim();
+    if (!/^0x02(?:[0-9a-f]{2})+$/u.test(rawTransaction))
+      throw new Error("raw-eip1559-transaction-required");
+    const raw = rpcHex(rawTransaction);
+    decodeRawEip1559(raw);
+    const txHash = `0x${Buffer.from(keccak256(raw)).toString("hex")}`;
+    const configured = JSON.parse(
+      await readFile(values["receipt-keys"], "utf8"),
     );
-    const result = await rpc.send(canonical, commitment);
-    const commitments =
-      commitment === "executed"
-        ? undefined
-        : {
-            async resolve(receipt, network, requested) {
-              if (
-                network !== offer.network ||
-                requested !== "batched" ||
-                !Number.isSafeInteger(configured.networkId) ||
-                configured.networkId <= 0 ||
-                typeof configured.firstBatchNumber !== "string" ||
-                !/^(0|[1-9][0-9]*)$/u.test(configured.firstBatchNumber) ||
-                typeof configured.lastBatchNumber !== "string" ||
-                !/^(0|[1-9][0-9]*)$/u.test(configured.lastBatchNumber)
-              )
-                throw new Error("invalid-batch-authority");
-              return rpcBatchEvidence(result, activityId, receipt, {
-                networkId: configured.networkId,
-                authorization: {
-                  sequencerId: rpcHex(configured.sequencerId, 32),
-                  publicKey: authority.sequencerPublicKey,
-                  firstBatchNumber: BigInt(configured.firstBatchNumber),
-                  lastBatchNumber: BigInt(configured.lastBatchNumber),
-                },
-              });
-            },
-          };
+    if (!Array.isArray(configured) || configured.length === 0)
+      throw new Error("invalid-receipt-keys");
+    const receiptKeys = configured.map((entry) => {
+      const key = rpcObject(entry);
+      if (
+        !["keyId", "firstHeight", "lastHeight", "publicKey"].every((name) =>
+          Object.hasOwn(key, name),
+        )
+      )
+        throw new Error("receipt-key-id-range-and-public-key-required");
+      const first_height = receiptHeight(key.firstHeight);
+      const last_height = receiptHeight(key.lastHeight);
+      if (first_height > last_height)
+        throw new Error("invalid-receipt-key-range");
+      return {
+        keyId: rpcHex(key.keyId, 32),
+        publicKey: rpcHex(key.publicKey, 32),
+        first_height,
+        last_height,
+      };
+    });
+    rpcHex(values.payer, 32);
     const payment = await verifyRpcPayment(
-      result,
-      activityId,
+      rpc,
+      rawTransaction,
+      txHash,
       values.payer,
       offer,
-      authority,
-      commitments,
+      receiptKeys,
     );
     if (payment.kind === "pending") {
       process.stdout.write(
-        JSON.stringify({ state: "pending", activity_id: activityId }) + "\n",
+        JSON.stringify({ state: "pending", transaction: txHash }) + "\n",
       );
       process.exitCode = 2;
     } else {
-      if (
-        offer.scheme !== "exact" &&
-        (payment.verification.receipt.moduleId !== 1 ||
-          payment.verification.receipt.operation !== 6)
-      )
-        throw new Error("grant-receive-receipt-required");
-      const digest = createHash("sha256")
-        .update("LXP/v1/merkle-leaf\0")
-        .update(payment.canonicalReceipt)
-        .digest("hex");
       process.stdout.write(
-        JSON.stringify({ transaction: `lxp:${digest}`, commitment }) + "\n",
+        JSON.stringify({
+          transaction: payment.verification.txHash,
+          commitment,
+        }) + "\n",
       );
     }
   }
