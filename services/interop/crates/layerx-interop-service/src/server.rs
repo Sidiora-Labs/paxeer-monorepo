@@ -14,6 +14,9 @@ use layerx_fiat::{
     EvidenceClass, ExternalId, FiatAdapter, FiatJourneyState, FiatRail, ProviderEvidence,
     ProviderVerifier, TokenReference, VerifiedProviderFacts,
 };
+use layerx_interop_gateway::adapter::AdapterId;
+use layerx_interop_gateway::evidence::SettlementRung;
+use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::server::{
     interop_gateway_routes, ExternalState, HostedAdapter, IngressTransport, InteropRoute,
@@ -33,7 +36,7 @@ use layerx_platform_gateway::{
     VerifiedTransfer,
 };
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::receipt::{verify, AuthorizedBatch};
+use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch};
 use layerx_ucp::{
     Capability, CheckoutStatus, CheckoutSubmission, ExecutedUcpPayment, NegotiatedCapabilities,
     OrderMetadata, PaymentHandler, PlatformProfile, UcpAdapter, UcpError, UcpIdempotencyKey,
@@ -1272,53 +1275,57 @@ struct X402SettlePlane {
     observed_at: u64,
 }
 
+fn chain_relay(config: &Config) -> Result<ChainRelay, String> {
+    use std::io::Read as _;
+    let read = |name: &str, maximum: usize| -> Result<Zeroizing<Vec<u8>>, String> {
+        let path = std::env::var(name).map_err(|_| format!("{name} is required"))?;
+        let file = std::fs::File::open(path).map_err(|_| format!("{name} unavailable"))?;
+        let mut bytes = Zeroizing::new(Vec::new());
+        file.take((maximum + 1) as u64)
+            .read_to_end(&mut bytes)
+            .map_err(|_| format!("{name} unavailable"))?;
+        if bytes.is_empty() || bytes.len() > maximum {
+            return Err(format!("{name} exceeds its bound"));
+        }
+        Ok(bytes)
+    };
+    let secret = |name: &str| -> Result<Zeroizing<String>, String> {
+        let bytes = read(name, 4096)?;
+        let text = std::str::from_utf8(&bytes)
+            .map_err(|_| format!("{name} is invalid"))?
+            .trim_end_matches(['\r', '\n']);
+        if text.is_empty() {
+            return Err(format!("{name} is empty"));
+        }
+        Ok(Zeroizing::new(text.to_owned()))
+    };
+    let ca_der = read("LAYERX_INTEROP_OUTBOUND_CA_DER", 64 * 1024)?;
+    let ca = native_tls::Certificate::from_der(&ca_der).map_err(|error| error.to_string())?;
+    let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
+        &std::env::var("LAYERX_INTEROP_SEQUENCER_URL")
+            .map_err(|_| "sequencer endpoint unavailable".to_owned())?,
+        &[ca_der.as_slice()],
+    )
+    .map_err(|error| format!("sequencer endpoint: {error:?}"))?;
+    let journal = RelayJournal::new(
+        &std::env::var("LAYERX_INTEROP_REDIS_URL")
+            .map_err(|_| "relay journal endpoint unavailable".to_owned())?,
+        ca,
+        secret("LAYERX_INTEROP_REDIS_USERNAME_FILE")?,
+        secret("LAYERX_INTEROP_REDIS_PASSWORD_FILE")?,
+    )
+    .map_err(|error| error.to_string())?;
+    Ok(ChainRelay {
+        endpoint: std::sync::Arc::new(endpoint),
+        receipt_keys: config.receipt_keys.clone(),
+        journal,
+    })
+}
+
 impl X402SettlePlane {
     fn new(config: &Config, observed_at: u64) -> Result<Self, String> {
-        use std::io::Read as _;
-        let read = |name: &str, maximum: usize| -> Result<Zeroizing<Vec<u8>>, String> {
-            let path = std::env::var(name).map_err(|_| format!("{name} is required"))?;
-            let file = std::fs::File::open(path).map_err(|_| format!("{name} unavailable"))?;
-            let mut bytes = Zeroizing::new(Vec::new());
-            file.take((maximum + 1) as u64)
-                .read_to_end(&mut bytes)
-                .map_err(|_| format!("{name} unavailable"))?;
-            if bytes.is_empty() || bytes.len() > maximum {
-                return Err(format!("{name} exceeds its bound"));
-            }
-            Ok(bytes)
-        };
-        let secret = |name: &str| -> Result<Zeroizing<String>, String> {
-            let bytes = read(name, 4096)?;
-            let text = std::str::from_utf8(&bytes)
-                .map_err(|_| format!("{name} is invalid"))?
-                .trim_end_matches(['\r', '\n']);
-            if text.is_empty() {
-                return Err(format!("{name} is empty"));
-            }
-            Ok(Zeroizing::new(text.to_owned()))
-        };
-        let ca_der = read("LAYERX_INTEROP_OUTBOUND_CA_DER", 64 * 1024)?;
-        let ca = native_tls::Certificate::from_der(&ca_der).map_err(|error| error.to_string())?;
-        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
-            &std::env::var("LAYERX_INTEROP_SEQUENCER_URL")
-                .map_err(|_| "sequencer endpoint unavailable".to_owned())?,
-            &[ca_der.as_slice()],
-        )
-        .map_err(|error| format!("sequencer endpoint: {error:?}"))?;
-        let journal = RelayJournal::new(
-            &std::env::var("LAYERX_INTEROP_REDIS_URL")
-                .map_err(|_| "relay journal endpoint unavailable".to_owned())?,
-            ca,
-            secret("LAYERX_INTEROP_REDIS_USERNAME_FILE")?,
-            secret("LAYERX_INTEROP_REDIS_PASSWORD_FILE")?,
-        )
-        .map_err(|error| error.to_string())?;
         Ok(Self {
-            relay: ChainRelay {
-                endpoint: std::sync::Arc::new(endpoint),
-                receipt_keys: config.receipt_keys.clone(),
-                journal,
-            },
+            relay: chain_relay(config)?,
             receipt_hex: None,
             activity_id: None,
             unavailable: false,
@@ -1482,8 +1489,6 @@ struct Ap2Request {
 
 struct DispatchContext<'a> {
     config: &'a Config,
-    request: &'a IncomingRequest,
-    record: &'a KeyRecord,
     principal: &'a PrincipalId,
     trace: &'a TraceId,
 }
@@ -1563,11 +1568,9 @@ fn ap2(
             }),
         );
     }
-    ap2_execute(
+    ap2_authorize_and_execute(
         &DispatchContext {
             config,
-            request,
-            record,
             principal,
             trace,
         },
@@ -1578,7 +1581,7 @@ fn ap2(
     )
 }
 
-fn ap2_execute(
+fn ap2_authorize_and_execute(
     context: &DispatchContext<'_>,
     body: &Ap2Request,
     binding: &crate::config::Ap2AssetBinding,
@@ -1587,10 +1590,9 @@ fn ap2_execute(
 ) -> Dispatch {
     let DispatchContext {
         config,
-        request,
-        record,
         principal,
         trace,
+        ..
     } = *context;
     if verified.amount().currency().len() != 3 || body.activity.is_empty() {
         return Dispatch::error(400, "refused", "typed_intent_required");
@@ -1641,50 +1643,158 @@ fn ap2_execute(
         }
         Err(_) => return Dispatch::error(400, "refused", "asset_binding_invalid"),
     };
-    let authorization = request
-        .headers
-        .get("authorization")
-        .map_or("", String::as_str);
-    let activity_idempotency_key = hex(&payment.idempotency_key());
-    let execution = Execution {
-        config,
-        authorization,
-        activity,
-        idempotency: &activity_idempotency_key,
-        expected_signer: &record.signer_public_key,
-        submitted_activity_id: None,
-        trace,
+    let Ok(relay) = chain_relay(config) else {
+        return Dispatch::error(503, "pending", "settlement_unavailable");
     };
-    match execution.submit() {
-        Ok(PlaneOutcome::Pending) => Dispatch::result(
-            202,
-            "pending",
-            json!({ "state": ExternalState::Pending.label() }),
-        ),
-        Ok(PlaneOutcome::Refused) => Dispatch::result(
-            200,
-            "refused",
-            json!({ "state": ExternalState::Refused.label() }),
-        ),
-        Ok(PlaneOutcome::Executed(evidence)) => ap2_executed(&payment, &evidence),
-        Err(_) => Dispatch::error(503, "pending", "settlement_unavailable"),
-    }
+    let Ok(mut gateway) = gateway_core(config, trace, server_now) else {
+        return Dispatch::error(503, "pending", "adapter_configuration_invalid");
+    };
+    ap2_execute(&payment, &activity, &relay, &mut gateway, trace, server_now)
 }
 
-fn ap2_executed(payment: &layerx_ap2::AuthorizedPayment, evidence: &ExecutionEvidence) -> Dispatch {
-    let Ok(receipt) = verify(&evidence.receipt, &evidence.authorized) else {
+fn ap2_execute(
+    payment: &layerx_ap2::AuthorizedPayment,
+    transaction: &[u8],
+    relay: &ChainRelay,
+    gateway: &mut GatewayCore,
+    trace: &TraceId,
+    server_now: u64,
+) -> Dispatch {
+    let (transfer, sender, _) = match decode_pay_exact(transaction) {
+        Ok(value) => value,
+        Err(error) => return Dispatch::error(400, "refused", error.code()),
+    };
+    if transfer.from != payment.payer_receipt_account()
+        || transfer.to != payment.payee_receipt_account()
+        || transfer.asset != payment.asset()
+        || transfer.amount != payment.amount()
+        || transfer.reference != payment.idempotency_key()
+    {
+        return Dispatch::error(400, "refused", "mandate_payment_mismatch");
+    }
+    if server_now > transfer.expires_at {
+        return Dispatch::error(400, "refused", "activity_time_window_refused");
+    }
+    let Ok(adapter) = AdapterId::new("ap2") else {
+        return Dispatch::error(503, "pending", "adapter_configuration_invalid");
+    };
+    let translation = TranslationRequest::new(
+        adapter,
+        TranslationKind::StateChanging,
+        payment.idempotency_key(),
+        payment.request_digest(),
+    );
+    let Ok(translation) = translation else {
+        return Dispatch::error(503, "pending", "adapter_configuration_invalid");
+    };
+    match gateway.begin_translation(payment.principal(), &translation, trace, server_now) {
+        Ok(TranslationStatus::Pending | TranslationStatus::ReceiptVerified { .. }) => (),
+        Ok(TranslationStatus::Refused) => {
+            return Dispatch::result(
+                200,
+                "refused",
+                json!({"state": ExternalState::Refused.label()}),
+            )
+        }
+        _ => return Dispatch::error(503, "pending", "settlement_unavailable"),
+    }
+    let executed = match relay.relay(&hex(&payment.idempotency_key()), transaction, sender) {
+        Ok(RelayOutcome::Pending { tx_hash }) => return submitted_payment(tx_hash),
+        Ok(RelayOutcome::Executed(evidence)) => layerx_ap2::ExecutedPayment {
+            evidence,
+            order_id: payment.checkout_id().to_owned(),
+        },
+        Err(RelayError::Transaction(error)) => {
+            return Dispatch::error(400, "refused", error.code())
+        }
+        Err(RelayError::TransactionReplacementRefused) => {
+            return Dispatch::error(409, "refused", "transaction_replacement_refused")
+        }
+        Err(_) => return Dispatch::error(503, "pending", "settlement_unavailable"),
+    };
+    ap2_executed(
+        payment,
+        &executed,
+        &relay.receipt_keys,
+        gateway,
+        trace,
+        server_now,
+    )
+}
+
+fn submitted_payment(tx_hash: [u8; 32]) -> Dispatch {
+    let mut result = Dispatch::result(
+        202,
+        "pending",
+        json!({"state": ExternalState::Submitted.label(), "transaction": format!("0x{}", hex(&tx_hash))}),
+    );
+    result.activity_id = Some(hex(&tx_hash));
+    result
+}
+
+fn ap2_executed(
+    payment: &layerx_ap2::AuthorizedPayment,
+    executed: &layerx_ap2::ExecutedPayment,
+    receipt_keys: &[SequencerAuthorization],
+    gateway: &mut GatewayCore,
+    trace: &TraceId,
+    server_now: u64,
+) -> Dispatch {
+    let evidence = &executed.evidence;
+    if evidence.rung == SettlementRung::Submitted {
+        return submitted_payment(evidence.transaction_hash);
+    }
+    let Ok(receipt) = verify_sequencer_signature(&evidence.signed_receipt, receipt_keys) else {
         return Dispatch::error(503, "pending", "receipt_verification_failed");
     };
-    let Some(protocol) = receipt.receipt().protocol() else {
+    let Some(protocol) = receipt.protocol() else {
         return Dispatch::error(503, "pending", "receipt_verification_failed");
     };
-    if protocol.asset() != payment.asset()
-        || protocol.from() != payment.payer_receipt_account()
-        || protocol.to() != payment.payee_receipt_account()
-        || protocol.amount() != payment.amount()
+    const LEDGER: [u8; 20] = [
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+    ];
+    const PAYMENT_EXACT_TOPIC: [u8; 32] = [
+        0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52, 0x91, 0x7e,
+        0x56, 0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a, 0x1d, 0xf6, 0x64, 0x8e,
+        0xf5, 0xb1,
+    ];
+    let topic = PAYMENT_EXACT_TOPIC;
+    let mut payments = evidence
+        .logs
+        .iter()
+        .filter(|log| log.address() == LEDGER && log.topics().first() == Some(&topic));
+    let Some(log) = payments.next() else {
+        return Dispatch::error(503, "pending", "receipt_intent_mismatch");
+    };
+    if protocol.result_code() != 0
+        || protocol.activity_id() != evidence.transaction_hash
+        || payments.next().is_some()
+        || log.topics()
+            != [
+                topic,
+                payment.payer_receipt_account(),
+                payment.payee_receipt_account(),
+                payment.idempotency_key(),
+            ]
+        || log.data().len() != 64
+        || log.data()[..32] != payment.asset()
+        || log.data()[32..48] != [0; 16]
+        || log.data()[48..] != payment.amount().to_be_bytes()
     {
         return Dispatch::error(503, "pending", "receipt_intent_mismatch");
     }
+    let Ok(TranslationStatus::ReceiptVerified { receipt_digest }) = gateway
+        .settle_with_sequencer_evidence(
+            payment.principal(),
+            payment.idempotency_key(),
+            evidence,
+            receipt_keys,
+            trace,
+            server_now,
+        )
+    else {
+        return Dispatch::error(503, "pending", "receipt_intent_mismatch");
+    };
     let mut result = Dispatch::result(
         200,
         "completed",
@@ -1692,11 +1802,13 @@ fn ap2_executed(payment: &layerx_ap2::AuthorizedPayment, evidence: &ExecutionEvi
             "state": ExternalState::ReceiptVerified.label(),
             "transaction_id": payment.transaction_id(),
             "checkout_id": payment.checkout_id(),
-            "receipt_digest": hex(&evidence.verified.receipt_digest())
+            "receipt_digest": hex(&receipt_digest),
+            "transaction": format!("0x{}", hex(&evidence.transaction_hash)),
+            "verificationLevel": evidence.rung.label(),
         }),
     );
-    result.receipt_hex = Some(hex(&evidence.receipt));
-    result.activity_id = Some(hex(&evidence.verified.activity_id()));
+    result.receipt_hex = Some(hex(&evidence.signed_receipt));
+    result.activity_id = Some(hex(&evidence.transaction_hash));
     result
 }
 
@@ -1800,49 +1912,73 @@ fn ucp_client_profile(body: &UcpRequest) -> Result<PlatformProfile, ()> {
     })
 }
 
-struct UcpServicePlane<'a> {
-    config: &'a Config,
-    authorization: &'a str,
-    expected_signer: &'a str,
-    activity: Vec<u8>,
+struct UcpServicePlane {
+    relay: ChainRelay,
+    transaction: Vec<u8>,
+    observed_at: u64,
     order_id: String,
     permalink_url: String,
     receipt_hex: Option<String>,
     activity_id: Option<String>,
     unavailable: bool,
+    refusal: Option<&'static str>,
+    submitted: Option<[u8; 32]>,
 }
 
-impl UcpPaymentPlane for UcpServicePlane<'_> {
+impl UcpPaymentPlane for UcpServicePlane {
     fn execute(
         &mut self,
         intent: &UcpPaymentIntent,
-        trace: &TraceId,
+        _trace: &TraceId,
     ) -> Result<UcpPlaneResult, UcpError> {
-        let idempotency = hex(&intent.idempotency_key);
-        let execution = Execution {
-            config: self.config,
-            authorization: self.authorization,
-            activity: self.activity.clone(),
-            idempotency: &idempotency,
-            expected_signer: self.expected_signer,
-            submitted_activity_id: None,
-            trace,
+        self.refusal = None;
+        self.submitted = None;
+        self.unavailable = false;
+        let (transfer, sender, _) = match decode_pay_exact(&self.transaction) {
+            Ok(value) => value,
+            Err(error) => {
+                self.refusal = Some(error.code());
+                return Ok(UcpPlaneResult::Refused);
+            }
         };
-        match execution.submit() {
-            Ok(PlaneOutcome::Pending) => Ok(UcpPlaneResult::Pending),
-            Ok(PlaneOutcome::Refused) => Ok(UcpPlaneResult::Refused),
-            Ok(PlaneOutcome::Executed(evidence)) => {
-                self.receipt_hex = Some(hex(&evidence.receipt));
-                self.activity_id = Some(hex(&evidence.verified.activity_id()));
+        if transfer.to != intent.recipient
+            || transfer.asset != intent.asset
+            || transfer.amount != intent.amount
+            || transfer.reference != intent.idempotency_key
+        {
+            self.refusal = Some("checkout_payment_mismatch");
+            return Ok(UcpPlaneResult::Refused);
+        }
+        if self.observed_at > transfer.expires_at {
+            self.refusal = Some("activity_time_window_refused");
+            return Ok(UcpPlaneResult::Refused);
+        }
+        match self
+            .relay
+            .relay(&hex(&intent.idempotency_key), &self.transaction, sender)
+        {
+            Ok(RelayOutcome::Pending { tx_hash }) => {
+                self.submitted = Some(tx_hash);
+                Ok(UcpPlaneResult::Pending)
+            }
+            Ok(RelayOutcome::Executed(evidence)) => {
+                self.receipt_hex = Some(hex(&evidence.signed_receipt));
+                self.activity_id = Some(hex(&evidence.transaction_hash));
                 Ok(UcpPlaneResult::Executed(Box::new(ExecutedUcpPayment {
                     metadata: OrderMetadata {
                         order_id: self.order_id.clone(),
                         permalink_url: self.permalink_url.clone(),
                     },
-                    evidence: evidence
-                        .sequencer_evidence(self.config)
-                        .map_err(|_| UcpError::ReceiptMismatch)?,
+                    evidence,
                 })))
+            }
+            Err(RelayError::Transaction(error)) => {
+                self.refusal = Some(error.code());
+                Ok(UcpPlaneResult::Refused)
+            }
+            Err(RelayError::TransactionReplacementRefused) => {
+                self.refusal = Some("transaction_replacement_refused");
+                Ok(UcpPlaneResult::Refused)
             }
             Err(_) => {
                 self.unavailable = true;
@@ -1855,7 +1991,7 @@ impl UcpPaymentPlane for UcpServicePlane<'_> {
 fn ucp(
     config: &Config,
     request: &IncomingRequest,
-    record: &KeyRecord,
+    _record: &KeyRecord,
     principal: &PrincipalId,
     trace: &TraceId,
     _operation: &str,
@@ -1909,20 +2045,20 @@ fn ucp(
     let Ok(mut gateway) = gateway_core(config, trace, server_now) else {
         return Dispatch::error(503, "pending", "adapter_configuration_invalid");
     };
-    let authorization = request
-        .headers
-        .get("authorization")
-        .map_or("", String::as_str);
+    let Ok(relay) = chain_relay(config) else {
+        return Dispatch::error(503, "pending", "settlement_unavailable");
+    };
     let mut plane = UcpServicePlane {
-        config,
-        authorization,
-        expected_signer: &record.signer_public_key,
-        activity,
+        relay,
+        transaction: activity,
+        observed_at: server_now,
         order_id: body.order_id,
         permalink_url: body.permalink_url,
         receipt_hex: None,
         activity_id: None,
         unavailable: false,
+        refusal: None,
+        submitted: None,
     };
     let completed = UcpAdapter::complete_checkout(
         &mut gateway,
@@ -1933,13 +2069,21 @@ fn ucp(
         trace,
         server_now,
     );
-    ucp_outcome(completed, plane)
+    ucp_outcome(completed, &plane)
 }
 
 fn ucp_outcome(
     completed: Result<layerx_ucp::CheckoutOutcome, layerx_interop_gateway::trace::Traced<UcpError>>,
-    plane: UcpServicePlane<'_>,
+    plane: &UcpServicePlane,
 ) -> Dispatch {
+    if let Some(reason) = plane.refusal {
+        let status = if reason == "transaction_replacement_refused" {
+            409
+        } else {
+            400
+        };
+        return Dispatch::error(status, "refused", reason);
+    }
     match completed {
         Ok(outcome) => match outcome.status {
             CheckoutStatus::Completed => {
@@ -1960,15 +2104,14 @@ fn ucp_outcome(
                         }
                     }),
                 );
-                result.receipt_hex = plane.receipt_hex;
-                result.activity_id = plane.activity_id;
+                result.receipt_hex = plane.receipt_hex.clone();
+                result.activity_id = plane.activity_id.clone();
                 result
             }
-            CheckoutStatus::CompleteInProgress => Dispatch::result(
-                202,
-                "pending",
-                json!({ "state": ExternalState::Pending.label() }),
-            ),
+            CheckoutStatus::CompleteInProgress => match plane.submitted {
+                Some(tx_hash) => submitted_payment(tx_hash),
+                None => Dispatch::error(503, "pending", "settlement_unavailable"),
+            },
             _ => Dispatch::result(
                 200,
                 "refused",
@@ -3626,6 +3769,461 @@ mod tests {
             "activity_idempotency_key": "33".repeat(32)
         });
         assert!(serde_json::from_value::<FiatCallback>(callback).is_err());
+    }
+
+    fn relay_fixture(
+        reference: [u8; 32],
+    ) -> X402TestResult<(Vec<u8>, Value, Vec<SequencerAuthorization>)> {
+        fn replace(bytes: &mut [u8], old: &[u8], new: &[u8]) {
+            assert_eq!(old.len(), new.len());
+            let positions: Vec<_> = bytes
+                .windows(old.len())
+                .enumerate()
+                .filter_map(|(index, value)| (value == old).then_some(index))
+                .collect();
+            assert_eq!(positions.len(), 1);
+            bytes[positions[0]..positions[0] + old.len()].copy_from_slice(new);
+        }
+        let fixture: Value = serde_json::from_str(include_str!(
+            "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))?;
+        let case = fixture["cases"]
+            .as_array()
+            .ok_or("cases")?
+            .iter()
+            .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+            .ok_or("payExact fixture")?;
+        let bytes = |value: &Value| -> X402TestResult<Vec<u8>> {
+            Ok(decode_hex(
+                value
+                    .as_str()
+                    .and_then(|text| text.strip_prefix("0x"))
+                    .ok_or("hex")?,
+                MAX_BODY,
+            )?)
+        };
+        let pin = &case["pinnedKey"];
+        let keys = vec![SequencerAuthorization::new(
+            bytes(&pin["keyId"])?
+                .try_into()
+                .map_err(|_| "key id width")?,
+            bytes(&pin["publicKey"])?
+                .try_into()
+                .map_err(|_| "key width")?,
+            pin["firstHeight"].as_u64().ok_or("first height")?,
+            pin["lastHeight"].as_u64().ok_or("last height")?,
+        )];
+        let raw = bytes(&case["rawTransaction"])?;
+        let (transfer, old_sender, old_hash) = decode_pay_exact(&raw)?;
+        let (mut tx, _) = layerx_crypto::evm_transaction::decode_signed(&raw)?;
+        replace(&mut tx.data, &transfer.reference, &reference);
+        let raw = tx.sign(&[0x3b; 32])?;
+        let (_, sender, hash) = decode_pay_exact(&raw)?;
+        let mut receipt = bytes(&case["signedReceipt"])?;
+        let verified = verify_sequencer_signature(&receipt, keys.as_slice())
+            .map_err(|error| format!("recorded receipt: {error:?}"))?;
+        let protocol = verified.protocol().ok_or("protocol receipt")?;
+        let old_root = protocol.resulting_state_root();
+        let mut sequence = Sha256::new();
+        sequence.update(b"PAXEER/v1/sequence\0");
+        sequence.update(protocol.previous_state_root());
+        sequence.update(protocol.global_sequence().to_be_bytes());
+        sequence.update(hash);
+        let new_root: [u8; 32] = sequence.finalize().into();
+        replace(&mut receipt, &transfer.reference, &reference);
+        replace(&mut receipt, &old_hash, &hash);
+        replace(&mut receipt, &old_root, &new_root);
+        if old_sender != sender {
+            replace(&mut receipt, &old_sender, &sender);
+        }
+        let key = SigningKey::from_bytes(&[0x5e; 32]);
+        assert_eq!(key.verifying_key().to_bytes(), keys[0].public_key());
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        let signature_start = receipt.len() - 64;
+        receipt[signature_start..].copy_from_slice(&key.sign(&digest).to_bytes());
+        let mut answer = case["receiptJson"].clone();
+        answer["txHash"] = json!(format!("0x{}", hex(&hash)));
+        answer["from"] = json!(format!("0x{}", hex(&sender)));
+        answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
+        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&reference)));
+        Ok((raw, answer, keys))
+    }
+
+    fn payment_relay(
+        redis: &X402RedisProcess,
+        raw: &[u8],
+        receipt: &Value,
+        keys: Vec<SequencerAuthorization>,
+    ) -> X402TestResult<(ChainRelay, thread::JoinHandle<Result<(), String>>)> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        listener.set_nonblocking(true)?;
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
+            &format!("http://{}", listener.local_addr()?),
+            &[],
+        )
+        .map_err(|error| format!("sequencer endpoint: {error:?}"))?;
+        let raw = format!("0x{}", hex(raw));
+        let receipt = receipt.clone();
+        let server = thread::spawn(move || -> Result<(), String> {
+            let deadline = Instant::now() + Duration::from_secs(8);
+            for (method, params, result) in [
+                (
+                    "eth_sendRawTransaction",
+                    json!([raw]),
+                    receipt["txHash"].clone(),
+                ),
+                (
+                    "pax_sequencerReceipt",
+                    json!([receipt["txHash"]]),
+                    json!({
+                        "rung": "submitted", "txHash": receipt["txHash"], "nonce": receipt["nonce"],
+                    }),
+                ),
+                (
+                    "pax_sequencerReceipt",
+                    json!([receipt["txHash"]]),
+                    receipt.clone(),
+                ),
+            ] {
+                let mut stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            if Instant::now() >= deadline {
+                                return Err(format!("timed out waiting for {method}"));
+                            }
+                            thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => return Err(error.to_string()),
+                    }
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .map_err(|error| error.to_string())?;
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(5)))
+                    .map_err(|error| error.to_string())?;
+                let request = http::read_request(&mut stream, 64 * 1024)?;
+                let rpc: Value =
+                    serde_json::from_slice(&request.body).map_err(|error| error.to_string())?;
+                assert_eq!(request.method, "POST");
+                assert_eq!(rpc["jsonrpc"], "2.0");
+                assert_eq!(rpc["method"], method);
+                assert_eq!(rpc["params"], params);
+                http::write_response(
+                    &mut stream,
+                    &OutgoingResponse {
+                        content_type: "application/json".to_owned(),
+                        headers: vec![],
+                        status: 200,
+                        body: serde_json::to_vec(
+                            &json!({"jsonrpc": "2.0", "id": rpc["id"], "result": result}),
+                        )
+                        .map_err(|error| error.to_string())?,
+                        retry_after: None,
+                    },
+                )?;
+            }
+            Ok(())
+        });
+        Ok((
+            ChainRelay {
+                endpoint: Arc::new(endpoint),
+                receipt_keys: keys,
+                journal: redis.journal()?,
+            },
+            server,
+        ))
+    }
+
+    fn ap2_relay_payment() -> X402TestResult<layerx_ap2::AuthorizedPayment> {
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use p256::ecdsa::{Signature, SigningKey as P256SigningKey};
+        let issuer = P256SigningKey::from_bytes((&[7; 32]).into())?;
+        let merchant = P256SigningKey::from_bytes((&[11; 32]).into())?;
+        let jws = |header: Value, payload: Value, key: &P256SigningKey| -> X402TestResult<String> {
+            let input = format!(
+                "{}.{}",
+                URL_SAFE_NO_PAD.encode(serde_json::to_vec(&header)?),
+                URL_SAFE_NO_PAD.encode(serde_json::to_vec(&payload)?)
+            );
+            let signature: Signature = key.sign(input.as_bytes());
+            Ok(format!(
+                "{input}.{}",
+                URL_SAFE_NO_PAD.encode(signature.to_bytes())
+            ))
+        };
+        let checkout = jws(
+            json!({"alg":"ES256","typ":"JWT","kid":"merchant"}),
+            json!({
+                "id":"checkout-12345", "merchant":{"id":"merchant-001","name":"Test Merchant"},
+                "line_items":[{"id":"line-001","item":{"id":"sku-001","title":"Node credit","price":1000000},
+                    "quantity":1,"totals":[{"type":"total","amount":1000000}]}],
+                "status":"completed","currency":"USD","totals":[{"type":"total","amount":1000000}],"links":[]
+            }),
+            &merchant,
+        )?;
+        let reference = URL_SAFE_NO_PAD.encode(Sha256::digest(checkout.as_bytes()));
+        let root = |mandate| -> X402TestResult<String> {
+            Ok(format!(
+                "{}~",
+                jws(
+                    json!({"alg":"ES256","typ":"dc+sd-jwt","kid":"issuer"}),
+                    json!({"iat":1699999940_u64,"exp":1700003600_u64,"delegate_payload":[mandate]}),
+                    &issuer
+                )?
+            ))
+        };
+        let checkout = root(json!({"vct":"mandate.checkout.1","checkout_jwt":checkout,
+            "checkout_hash":reference,"iat":1699999970_u64,"exp":1700001800_u64}))?;
+        let payment = root(json!({"vct":"mandate.payment.1","transaction_id":reference,
+            "payee":{"id":"merchant-001","name":"Test Merchant"},
+            "payment_amount":{"amount":1000000,"currency":"USD"},
+            "payment_instrument":{"id":"card-001","type":"card"},"iat":1699999970_u64,"exp":1700001800_u64}))?;
+        let pins = vec![
+            Ap2KeyPin {
+                use_case: "checkout-mandate".into(),
+                key_id: "issuer".into(),
+                public_key_sec1: hex(issuer.verifying_key().to_encoded_point(false).as_bytes()),
+            },
+            Ap2KeyPin {
+                use_case: "payment-mandate".into(),
+                key_id: "issuer".into(),
+                public_key_sec1: hex(issuer.verifying_key().to_encoded_point(false).as_bytes()),
+            },
+            Ap2KeyPin {
+                use_case: "merchant-checkout".into(),
+                key_id: "merchant".into(),
+                public_key_sec1: hex(merchant.verifying_key().to_encoded_point(false).as_bytes()),
+            },
+        ];
+        let resolver = Ap2Resolver { keys: &pins };
+        let context = VerificationContext {
+            now: 1_700_000_000,
+            clock_skew_seconds: 0,
+            expected_audience: "merchant-api",
+            expected_nonce: "nonce",
+            currency_minor_exponent: 2,
+            usage: None,
+        };
+        let verified = MandateVerifier::new(&resolver).verify(&checkout, &payment, &context)?;
+        let (recorded, _) = recorded_x402_request("V1-layerxledger-pay-exact")?;
+        let raw = recorded.payment_payload.payload["layerxTransaction"]
+            .as_str()
+            .ok_or("raw")?;
+        let (transfer, _, _) = decode_pay_exact(&decode_hex(
+            raw.strip_prefix("0x").ok_or("prefix")?,
+            MAX_BODY,
+        )?)?;
+        Ok(authorize_payment(
+            &PrincipalId::new("ap2-relay-principal")?,
+            &verified,
+            &context,
+            &LayerXAssetBinding {
+                currency: "USD".into(),
+                minor_unit_exponent: 2,
+                atomic_units_per_minor_unit: 1,
+                asset: transfer.asset,
+                payer_receipt_account: transfer.from,
+                payee_receipt_account: transfer.to,
+                payee_merchant: Merchant::new("merchant-001", "Test Merchant", None)?,
+            },
+        )?)
+    }
+
+    #[test]
+    fn ap2_execute_relays_the_mandate_transaction() -> X402TestResult {
+        let payment = ap2_relay_payment()?;
+        let (raw, receipt, keys) = relay_fixture(payment.idempotency_key())?;
+        let (_, _, hash) = decode_pay_exact(&raw)?;
+        let redis = X402RedisProcess::start()?;
+        let (relay, server) = payment_relay(&redis, &raw, &receipt, keys)?;
+        let trace = TraceId::mint([0x45; 16]);
+        let suite = ConformanceSuite::new(AdapterId::new("ap2-relay-vectors")?, 1, [0x46; 32])?;
+        let mut gateway = GatewayCore::new();
+        gateway
+            .register_adapter(layerx_ap2::ap2_adapter_descriptor(suite)?, &trace, 1)
+            .map_err(|error| format!("register: {error:?}"))?;
+        let pending = ap2_execute(&payment, &raw, &relay, &mut gateway, &trace, 1_700_000_000);
+        assert_eq!(pending.status, 202);
+        assert_eq!(pending.result["state"], "submitted");
+        assert_eq!(pending.result["transaction"], format!("0x{}", hex(&hash)));
+        assert!(pending.receipt_hex.is_none());
+        let mut replacement = layerx_crypto::evm_transaction::decode_signed(&raw)?.0;
+        replacement.max_fee_per_gas += 1;
+        let refused = ap2_execute(
+            &payment,
+            &replacement.sign(&[0x3b; 32])?,
+            &relay,
+            &mut gateway,
+            &trace,
+            1_700_000_000,
+        );
+        assert_eq!(refused.status, 409);
+        assert_eq!(refused.error, Some("transaction_replacement_refused"));
+        let wrong = relay_fixture([0x64; 32])?.0;
+        let refused = ap2_execute(
+            &payment,
+            &wrong,
+            &relay,
+            &mut gateway,
+            &trace,
+            1_700_000_000,
+        );
+        assert_eq!(refused.status, 400);
+        assert_eq!(refused.error, Some("mandate_payment_mismatch"));
+        let completed = ap2_execute(&payment, &raw, &relay, &mut gateway, &trace, 1_700_000_000);
+        server.join().map_err(|_| "sequencer fixture panicked")??;
+        assert_eq!(completed.status, 200);
+        assert_eq!(completed.durable_state, "completed");
+        assert_eq!(completed.result["state"], "receipt-verified");
+        let receipt = decode_hex(
+            receipt["receipt"]
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .ok_or("receipt")?,
+            MAX_BODY,
+        )?;
+        assert_eq!(completed.receipt_hex, Some(hex(&receipt)));
+        assert_eq!(completed.activity_id, Some(hex(&hash)));
+        assert_eq!(
+            completed.result["receipt_digest"],
+            hex(&layerx_interop_gateway::evidence::canonical_receipt_digest(
+                &receipt
+            )?)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn ucp_complete_relays_the_checkout_transaction() -> X402TestResult {
+        use layerx_interop_gateway::adapter::{PinnedSpec, SpecVersion};
+        let key = UcpIdempotencyKey::parse("123e4567-e89b-12d3-a456-426614174000")?;
+        let (raw, receipt, keys) = relay_fixture(key.gateway_key())?;
+        let (transfer, _, hash) = decode_pay_exact(&raw)?;
+        let handler = PaymentHandler::new(
+            "layerx-402",
+            "2026-04-08",
+            "https://layerx.dev/2026-04-08/specification/402",
+            "https://layerx.dev/2026-04-08/schemas/402.json",
+        )?;
+        let merchant =
+            layerx_ucp::MerchantProfile::layerx("https://merchant.example/ucp", handler.clone())?;
+        let platform = PlatformProfile {
+            profile_url: "https://buyer.example/profile".into(),
+            capabilities: merchant.capabilities().to_vec(),
+            payment_handlers: vec![handler.clone()],
+        };
+        let submission = CheckoutSubmission {
+            checkout_id: "checkout-relay".into(),
+            currency: *b"USD",
+            total_minor: transfer.amount,
+            layerx_asset: transfer.asset,
+            layerx_recipient: transfer.to,
+            idempotency_key: key,
+            negotiated: NegotiatedCapabilities::negotiate(&platform, &handler)?,
+        };
+        let trace = TraceId::mint([0x47; 16]);
+        let principal = PrincipalId::new("ucp-relay-principal")?;
+        let mut gateway = GatewayCore::new();
+        let spec = PinnedSpec::new(
+            AdapterId::new("ucp")?,
+            SpecVersion::parse("20260408")?,
+            layerx_ucp::UCP_CHECKOUT_SPEC_SHA256,
+        )?;
+        let suite = ConformanceSuite::new(AdapterId::new("ucp-relay-vectors")?, 1, [0x48; 32])?;
+        gateway
+            .register_adapter(layerx_ucp::ucp_adapter_descriptor(spec, suite)?, &trace, 1)
+            .map_err(|error| format!("register: {error:?}"))?;
+        let redis = X402RedisProcess::start()?;
+        let (relay, server) = payment_relay(&redis, &raw, &receipt, keys.clone())?;
+        let mut plane = UcpServicePlane {
+            relay,
+            transaction: raw.clone(),
+            observed_at: 1_700_000_000,
+            order_id: "order-relay".into(),
+            permalink_url: "https://merchant.example/orders/relay".into(),
+            receipt_hex: None,
+            activity_id: None,
+            unavailable: false,
+            refusal: None,
+            submitted: None,
+        };
+        let pending = UcpAdapter::complete_checkout(
+            &mut gateway,
+            &principal,
+            &submission,
+            &mut plane,
+            &keys,
+            &trace,
+            1_700_000_000,
+        )
+        .map_err(|error| format!("pending checkout: {error:?}"))?;
+        assert_eq!(pending.status, CheckoutStatus::CompleteInProgress);
+        let pending = ucp_outcome(Ok(pending), &plane);
+        assert_eq!(pending.status, 202);
+        assert_eq!(pending.result["state"], "submitted");
+        assert_eq!(pending.result["transaction"], format!("0x{}", hex(&hash)));
+        assert!(pending.receipt_hex.is_none());
+
+        let intent = UcpPaymentIntent {
+            checkout_id: submission.checkout_id.clone(),
+            currency: submission.currency,
+            amount: transfer.amount + 1,
+            asset: transfer.asset,
+            recipient: transfer.to,
+            idempotency_key: key.gateway_key(),
+        };
+        assert!(matches!(
+            plane.execute(&intent, &trace)?,
+            UcpPlaneResult::Refused
+        ));
+        assert_eq!(plane.refusal, Some("checkout_payment_mismatch"));
+        let mut replacement = layerx_crypto::evm_transaction::decode_signed(&raw)?.0;
+        replacement.max_fee_per_gas += 1;
+        plane.transaction = replacement.sign(&[0x3b; 32])?;
+        let valid_intent = UcpPaymentIntent {
+            amount: transfer.amount,
+            ..intent
+        };
+        assert!(matches!(
+            plane.execute(&valid_intent, &trace)?,
+            UcpPlaneResult::Refused
+        ));
+        assert_eq!(plane.refusal, Some("transaction_replacement_refused"));
+        plane.transaction = raw;
+        let completed = UcpAdapter::complete_checkout(
+            &mut gateway,
+            &principal,
+            &submission,
+            &mut plane,
+            &keys,
+            &trace,
+            1_700_000_000,
+        )
+        .map_err(|error| format!("completed checkout: {error:?}"))?;
+        server.join().map_err(|_| "sequencer fixture panicked")??;
+        assert_eq!(completed.status, CheckoutStatus::Completed);
+        let order = completed.order.as_ref().ok_or("receipt-backed order")?;
+        assert_eq!(order.id, "order-relay");
+        assert_eq!(order.transaction_hash, hash);
+        let signed_receipt = decode_hex(
+            receipt["receipt"]
+                .as_str()
+                .and_then(|text| text.strip_prefix("0x"))
+                .ok_or("receipt")?,
+            MAX_BODY,
+        )?;
+        assert_eq!(
+            order.receipt_digest,
+            layerx_interop_gateway::evidence::canonical_receipt_digest(&signed_receipt)?
+        );
+        let completed = ucp_outcome(Ok(completed), &plane);
+        assert_eq!(completed.status, 200);
+        assert_eq!(completed.result["state"], "receipt-verified");
+        assert_eq!(completed.receipt_hex, Some(hex(&signed_receipt)));
+        assert_eq!(completed.activity_id, Some(hex(&hash)));
+        Ok(())
     }
 
     const X402_FIXTURE_ACCOUNT: &str = "agent:did:layerx:interop-merchant:main";
