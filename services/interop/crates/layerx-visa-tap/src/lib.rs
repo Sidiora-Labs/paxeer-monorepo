@@ -8,10 +8,12 @@ use base64::Engine as _;
 use ed25519_dalek::{Signature, VerifyingKey};
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
 use layerx_interop_gateway::error::GatewayError;
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::verify_logs;
 use openssl::hash::MessageDigest;
 use openssl::pkey::PKey;
 use openssl::rsa::Padding;
@@ -441,7 +443,13 @@ pub trait LayerXIntentAuthority {
 pub enum MerchantOperationResult {
     Pending,
     Refused,
-    ReceiptVerified { receipt_digest: [u8; 32] },
+    ReceiptVerified {
+        receipt_digest: [u8; 32],
+        from: [u8; 32],
+        to: [u8; 32],
+        asset: [u8; 32],
+        amount: u128,
+    },
 }
 
 impl MerchantOperationResult {
@@ -453,45 +461,24 @@ impl MerchantOperationResult {
     /// Returns [`TapError::ReceiptMismatch`] for malformed, unauthorised,
     /// cryptographically invalid, failed or mismatched payments.
     pub fn from_receipt(
-        canonical_receipt: &[u8],
+        evidence: &SequencerEvidence,
         receipt_keys: &[SequencerAuthorization],
         payment_reference: [u8; 32],
-        from: [u8; 32],
-        to: [u8; 32],
-        asset: [u8; 32],
-        amount: u128,
     ) -> Result<Self, TapError> {
-        Ok(Self::ReceiptVerified {
-            receipt_digest: verify_sequencer_receipt(
-                canonical_receipt,
-                receipt_keys,
-                payment_reference,
-                from,
-                to,
-                asset,
-                amount,
-            )?,
-        })
+        verify_sequencer_receipt(evidence, receipt_keys, payment_reference)
     }
 }
 
 fn verify_sequencer_receipt(
-    canonical_receipt: &[u8],
+    evidence: &SequencerEvidence,
     receipt_keys: &[SequencerAuthorization],
     payment_reference: [u8; 32],
-    from: [u8; 32],
-    to: [u8; 32],
-    asset: [u8; 32],
-    amount: u128,
-) -> Result<[u8; 32], TapError> {
+) -> Result<MerchantOperationResult, TapError> {
+    let canonical_receipt = &evidence.signed_receipt;
     if canonical_receipt.is_empty()
         || canonical_receipt.len() > MAX_RECEIPT_BYTES
+        || evidence.rung == SettlementRung::Submitted
         || payment_reference == [0; 32]
-        || from == [0; 32]
-        || to == [0; 32]
-        || from == to
-        || asset == [0; 32]
-        || amount == 0
     {
         return Err(TapError::ReceiptMismatch);
     }
@@ -507,6 +494,7 @@ fn verify_sequencer_receipt(
         || protocol.total_units().is_some()
         || protocol.program_outcome().is_some()
         || protocol.transfer_set_root() != [0; 32]
+        || protocol.activity_id() != evidence.transaction_hash
     {
         return Err(TapError::ReceiptMismatch);
     }
@@ -519,72 +507,40 @@ fn verify_sequencer_receipt(
     if sequence != protocol.resulting_state_root() {
         return Err(TapError::ReceiptMismatch);
     }
-    let (summary, logs) = protocol
-        .effects()
-        .split_first()
-        .ok_or(TapError::ReceiptMismatch)?;
-    if summary.module_id() != protocol.module_id()
-        || summary.ordinal() != 0
-        || summary.event_type() != 0
-        || summary.kind() != 1
-        || summary.monetary()
-        || summary.transfer_set_root() != [0; 32]
+    let verified =
+        verify_logs(&receipt, evidence.logs.clone()).map_err(|_| TapError::ReceiptMismatch)?;
+    let mut payments = verified.logs().iter().filter(|log| {
+        log.address() == LEDGER_ADDRESS && log.topics().first() == Some(&PAYMENT_EXACT_TOPIC)
+    });
+    let payment = payments.next().ok_or(TapError::ReceiptMismatch)?;
+    if payments.next().is_some()
+        || payment.topics().len() != 4
+        || payment.topics()[3] != payment_reference
+        || payment.data().len() != 64
+        || payment.data()[32..48] != [0; 16]
     {
         return Err(TapError::ReceiptMismatch);
     }
-    verify_execution_summary(summary.body(), logs.len())?;
-    let mut payment_data = [0; 64];
-    payment_data[..32].copy_from_slice(&asset);
-    payment_data[48..].copy_from_slice(&amount.to_be_bytes());
-    let payment_digest: [u8; 32] = Sha256::digest(payment_data).into();
-    let mut matches = 0_usize;
-    for (index, log) in logs.iter().enumerate() {
-        if log.module_id() != protocol.module_id()
-            || usize::from(log.ordinal()) != index + 1
-            || log.event_type() != 0
-            || log.kind() != 3
-            || log.monetary()
-            || log.transfer_set_root() != [0; 32]
-        {
-            return Err(TapError::ReceiptMismatch);
-        }
-        let body = log.body();
-        let topic_count = usize::from(*body.get(20).ok_or(TapError::ReceiptMismatch)?);
-        if topic_count > 4 || body.len() != 21 + 32 * topic_count + 32 {
-            return Err(TapError::ReceiptMismatch);
-        }
-        if topic_count == 4
-            && body[..20] == LEDGER_ADDRESS
-            && body[21..53] == PAYMENT_EXACT_TOPIC
-            && body[53..85] == from
-            && body[85..117] == to
-            && body[117..149] == payment_reference
-            && body[149..181] == payment_digest
-        {
-            matches += 1;
-        }
-    }
-    if matches != 1 {
+    let from = payment.topics()[1];
+    let to = payment.topics()[2];
+    let asset = payment.data()[..32]
+        .try_into()
+        .map_err(|_| TapError::ReceiptMismatch)?;
+    let amount = u128::from_be_bytes(
+        payment.data()[48..]
+            .try_into()
+            .map_err(|_| TapError::ReceiptMismatch)?,
+    );
+    if from == [0; 32] || to == [0; 32] || from == to || asset == [0; 32] || amount == 0 {
         return Err(TapError::ReceiptMismatch);
     }
-    signed_receipt_digest(canonical_receipt)
-}
-
-fn verify_execution_summary(body: &[u8], expected_logs: usize) -> Result<(), TapError> {
-    let log_count = body
-        .get(104..108)
-        .and_then(|bytes| <[u8; 4]>::try_from(bytes).ok())
-        .map(u32::from_be_bytes)
-        .ok_or(TapError::ReceiptMismatch)?;
-    let fee_denom_length = usize::from(*body.get(108).ok_or(TapError::ReceiptMismatch)?);
-    if usize::try_from(log_count).ok() != Some(expected_logs)
-        || !(1..=64).contains(&fee_denom_length)
-        || body.len() != 109 + fee_denom_length
-        || std::str::from_utf8(&body[109..]).is_err()
-    {
-        return Err(TapError::ReceiptMismatch);
-    }
-    Ok(())
+    Ok(MerchantOperationResult::ReceiptVerified {
+        receipt_digest: signed_receipt_digest(canonical_receipt)?,
+        from,
+        to,
+        asset,
+        amount,
+    })
 }
 
 fn signed_receipt_digest(canonical_receipt: &[u8]) -> Result<[u8; 32], TapError> {
