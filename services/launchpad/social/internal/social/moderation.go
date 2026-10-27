@@ -483,6 +483,149 @@ func RegisterSafetyRoutes(router chi.Router, store *safety.Store, control *voice
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write(raw)
 	})
+	voiceRoomID := func(w http.ResponseWriter, r *http.Request) (string, bool) {
+		id := chi.URLParam(r, "roomId")
+		if _, e := uuid.Parse(id); e != nil || len(id) != 36 {
+			writeV2VoiceError(w, r, safety.ErrInvalid)
+			return "", false
+		}
+		if control == nil || control.DB == nil {
+			writeV2VoiceError(w, r, voice.ErrUnavailable)
+			return "", false
+		}
+		return id, true
+	}
+	router.Post("/v2/voice-rooms/{roomId}:end", func(w http.ResponseWriter, r *http.Request) {
+		var body v2.VoiceEndBody
+		if !decodeV2Voice(w, r, "VoiceEndBody", &body) {
+			return
+		}
+		expected, e := strconv.ParseInt(string(body.ExpectedRevision), 10, 64)
+		if e != nil {
+			writeV2VoiceError(w, r, safety.ErrInvalid)
+			return
+		}
+		id, ok := voiceRoomID(w, r)
+		if !ok {
+			return
+		}
+		p, e := safety.Actor(r.Context(), time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		room, e := control.Read(r.Context(), id)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		if p.Wallet != room.HostWallet {
+			writeV2VoiceError(w, r, safety.ErrForbidden)
+			return
+		}
+		var metadata []byte
+		if e = control.DB.QueryRow(r.Context(), `SELECT payload FROM safety_outbox WHERE kind='voice_room_created_v2' AND entity_id=$1 ORDER BY created_at,id LIMIT 1`, id).Scan(&metadata); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		var created v2.VoiceCreateBody
+		if v2.ValidateJSON("VoiceCreateBody", metadata) != nil || json.Unmarshal(metadata, &created) != nil || created.ScopeType != "pool" || created.ScopeId != room.PoolID {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		var hostAccountID string
+		if e = control.DB.QueryRow(r.Context(), `SELECT social_account_for_wallet($1::text)::text`, room.HostWallet).Scan(&hostAccountID); e != nil {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		if _, e = uuid.Parse(hostAccountID); e != nil || len(hostAccountID) != 36 {
+			writeV2VoiceError(w, r, safety.ErrUnavailable)
+			return
+		}
+		room, e = control.End(r.Context(), id, expected)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		raw, e := AdaptV2VoiceEnd(v2VoiceResponseID(w, r), room, hostAccountID, created.Visibility, time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		_, _ = w.Write(raw)
+	})
+	router.Post("/v2/voice-rooms/{roomId}:leave", func(w http.ResponseWriter, r *http.Request) {
+		var body v2.VoiceLeaveBody
+		if !decodeV2Voice(w, r, "VoiceLeaveBody", &body) {
+			return
+		}
+		id, ok := voiceRoomID(w, r)
+		if !ok {
+			return
+		}
+		if e := control.Leave(r.Context(), id); e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		p, e := safety.Actor(r.Context(), time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		var grantState string
+		var revision int64
+		if e = control.DB.QueryRow(r.Context(), `SELECT grant_state,revision FROM voice_participants WHERE room_id=$1 AND wallet=$2`, id, p.Wallet).Scan(&grantState, &revision); e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		raw, e := AdaptV2VoiceLeave(v2VoiceResponseID(w, r), grantState, revision, time.Now())
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		_, _ = w.Write(raw)
+	})
+	router.Post("/v2/voice-rooms/{roomId}/tickets", func(w http.ResponseWriter, r *http.Request) {
+		var body v2.VoiceJoinTicketBody
+		if !decodeV2Voice(w, r, "VoiceJoinTicketBody", &body) {
+			return
+		}
+		id, ok := voiceRoomID(w, r)
+		if !ok {
+			return
+		}
+		provider, ok := control.Provider.(*voice.LiveKit)
+		if !ok || provider == nil {
+			writeV2VoiceError(w, r, voice.ErrUnavailable)
+			return
+		}
+		if e := control.JoinWithConsent(r.Context(), id, nil); e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		at := time.Now().UTC()
+		ticket, e := control.Ticket(r.Context(), id)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		raw, e := AdaptV2VoiceJoinTicket(v2VoiceResponseID(w, r), ticket, provider.Endpoint, at.Add(time.Minute), at)
+		if e != nil {
+			writeV2VoiceError(w, r, e)
+			return
+		}
+		_, _ = w.Write(raw)
+	})
+	router.Post("/v2/voice-rooms/{roomId}/moderation-actions", func(w http.ResponseWriter, r *http.Request) {
+		var body v2.VoiceModerateBody
+		if !decodeV2Voice(w, r, "VoiceModerateBody", &body) {
+			return
+		}
+		if _, ok := voiceRoomID(w, r); !ok {
+			return
+		}
+		writeV2VoiceError(w, r, voice.ErrUnavailable)
+	})
 	if control == nil {
 		return
 	}

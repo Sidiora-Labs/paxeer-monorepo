@@ -186,10 +186,10 @@ func TestSendAuthorizationSignedByTheHeldKeyCompletesAnAcceptedSend(t *testing.T
 	placeholderDisclosure, placeholderApproval := approvedSend(t, pending, "send-lx", "authorize-replayed")
 	placeholderApproval.ActivityDigest = lx.ID(placeholderPre)
 	for _, r := range c.callAll(t, c.byID(signers...), PathSign, func(*testNode) any {
-		return SignRequest{SessionID: "authorize-replayed", KeyID: "send-lx", Kind: KindLXActivity, Signers: signers, Activity: hex.EncodeToString(placeholder), Disclosure: placeholderDisclosure, Approval: placeholderApproval}
+		return SignRequest{SessionID: "authorize-replayed", KeyID: "send-lx", Kind: KindLXSendAuth, Signers: signers, Activity: hex.EncodeToString(placeholder), Disclosure: placeholderDisclosure, Approval: placeholderApproval}
 	}, c.idp.mint(t, c.idp.key, testOwner)) {
-		if e := expectError(t, "an unsigned placeholder signed as an activity", r, CodePolicyDenied); e.PolicyCode != policy.CodeDecodeError {
-			t.Fatalf("an unsigned placeholder signed as an activity: %s", e.PolicyCode)
+		if e := expectError(t, "an activity preimage substituted for a send authorization digest", r, CodePolicyDenied); e.PolicyCode != lx.CodeApprovalMismatch {
+			t.Fatalf("an activity preimage substituted for a send authorization digest: %s", e.PolicyCode)
 		}
 	}
 
@@ -203,15 +203,7 @@ func TestSendAuthorizationSignedByTheHeldKeyCompletesAnAcceptedSend(t *testing.T
 	if err != nil || !strict.AuthorizationValid() {
 		t.Fatalf("the completed send does not pass the strict decoder (%v)", err)
 	}
-	decoded, err := lxwire.DecodeUnsignedActivity(completed, c.nodes[0].server.opts.Activities)
-	if err != nil {
-		t.Fatal(err)
-	}
-	preimage, err := lxwire.SignaturePreimage(decoded)
-	if err != nil {
-		t.Fatal(err)
-	}
-	verifyKernel(t, "the completed send signed as an activity", pub, preimage[:], signKernel(t, c, "send-lx", "activity-1", []string{"node-3", "node-4", "node-5"}, completed))
+	acceptKernelSend(t, c, "send-lx", "activity-1", "node-3", completed)
 	for _, n := range c.nodes {
 		if spent, _ := nodeLedger(t, n, account); spent.Cmp(big.NewInt(5_000_000)) != 0 {
 			t.Fatalf("%s: an authorized and signed send counted %s", n.id, spent)
