@@ -2,6 +2,9 @@ package types_test
 
 import (
 	"encoding/json"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 
@@ -127,6 +130,39 @@ func TestGenesisRefusesGenerationOneState(t *testing.T) {
 }
 
 func TestGenesisValidate(t *testing.T) {
+	t.Run("generation one key space remains reserved", func(t *testing.T) {
+		file, err := parser.ParseFile(token.NewFileSet(), "keys.go", nil, 0)
+		require.NoError(t, err)
+		functions := make(map[string]bool)
+		for _, declaration := range file.Decls {
+			if function, ok := declaration.(*ast.FuncDecl); ok {
+				functions[function.Name.Name] = true
+			}
+		}
+		for _, name := range []string{
+			"ProtocolFeesKey", "AirdropEpochKey", "AirdropClaimKey", "ParseAirdropClaimKey",
+			"HoldingHistoryKey", "HoldingCountKey", "HoldingEntryKey", "AirdropBasisKey",
+			"ParseHoldingHistoryKey", "ParseHoldingEntryKey",
+		} {
+			require.NotContains(t, functions, name)
+		}
+		for _, prefix := range []struct {
+			name  string
+			value []byte
+			want  byte
+		}{
+			{"ProtocolFeesPrefix", types.ProtocolFeesPrefix, 0x03},
+			{"AirdropEpochPrefix", types.AirdropEpochPrefix, 0x20},
+			{"AirdropClaimPrefix", types.AirdropClaimPrefix, 0x21},
+			{"HoldingHistoryPrefix", types.HoldingHistoryPrefix, 0x22},
+			{"HoldingCountPrefix", types.HoldingCountPrefix, 0x23},
+			{"HoldingEntryPrefix", types.HoldingEntryPrefix, 0x24},
+			{"AirdropBasisPrefix", types.AirdropBasisPrefix, 0x25},
+		} {
+			require.Equal(t, []byte{prefix.want}, prefix.value, prefix.name)
+		}
+	})
+
 	require.NoError(t, types.DefaultGenesis().Validate())
 
 	valid := contractGenesis()

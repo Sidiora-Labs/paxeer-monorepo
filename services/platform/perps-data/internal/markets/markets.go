@@ -92,6 +92,14 @@ type chainMarket struct {
 	maxOpenInterest      string
 	enabled              bool
 	config               marketConfig
+	tiers                []marginTier
+}
+
+type marginTier struct {
+	LowerBoundUsd  *big.Int
+	MaxLeverage    *big.Int
+	MaintenanceBps *big.Int
+	DeductionUsd   *big.Int
 }
 
 type marketConfig struct {
@@ -125,10 +133,10 @@ type caller struct {
 	at     *big.Int
 }
 
-// Refresh reads totalMarkets(), getMarket(id), getMarketConfig(id) and getFees()
-// from the precompile at the latest height, then writes the chain values,
-// including decimals and market configuration, in one transaction. On any
-// failure the stored rows are left unchanged.
+// Refresh reads totalMarkets(), getMarket(id), getMarketConfig(id),
+// getMarginTiers(id) and getFees() from the precompile at the latest height,
+// then writes the chain values, including market configuration and tiers, in
+// one transaction. On any failure the stored rows are left unchanged.
 func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error {
 	c, height, err := latest(ctx, client)
 	if err != nil {
@@ -157,6 +165,10 @@ func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error {
 		}
 		if m.config.Symbol != m.symbol {
 			return fmt.Errorf("%w: getMarketConfig(%d) symbol %q differs from getMarket symbol %q", ErrChainValue, id, m.config.Symbol, m.symbol)
+		}
+		m.tiers, err = c.getMarginTiers(ctx, id)
+		if err != nil {
+			return err
 		}
 		list = append(list, m)
 	}
@@ -323,6 +335,29 @@ func (c *caller) getMarketConfig(ctx context.Context, id uint64) (marketConfig, 
 	return config, nil
 }
 
+func (c *caller) getMarginTiers(ctx context.Context, id uint64) ([]marginTier, error) {
+	method := fmt.Sprintf("getMarginTiers(%d)", id)
+	out, err := c.call(ctx, "getMarginTiers", new(big.Int).SetUint64(id))
+	if err != nil {
+		return nil, err
+	}
+	var decoded struct{ Tiers []marginTier }
+	if err := c.abi.Methods["getMarginTiers"].Outputs.Copy(&decoded, out); err != nil {
+		return nil, fmt.Errorf("%w: decode %s: %v", ErrChainValue, method, err)
+	}
+	if len(decoded.Tiers) > math.MaxInt16+1 {
+		return nil, fmt.Errorf("%w: %s has %d tiers, above smallint index", ErrChainValue, method, len(decoded.Tiers))
+	}
+	for i, tier := range decoded.Tiers {
+		for _, value := range []*big.Int{tier.LowerBoundUsd, tier.MaxLeverage, tier.MaintenanceBps, tier.DeductionUsd} {
+			if value == nil || value.Sign() < 0 || value.BitLen() > 256 {
+				return nil, fmt.Errorf("%w: %s tier %d has an invalid uint256", ErrChainValue, method, i)
+			}
+		}
+	}
+	return decoded.Tiers, nil
+}
+
 func (c *caller) fees(ctx context.Context) (fees, error) {
 	out, err := c.call(ctx, "getFees")
 	if err != nil {
@@ -353,11 +388,19 @@ func writeMarkets(ctx context.Context, tx *sql.Tx, list []chainMarket, height in
 		if err != nil {
 			return fmt.Errorf("markets: update market %s: %w", m.id, err)
 		}
-		if n == 1 {
-			continue
+		if n == 0 {
+			if _, err := tx.ExecContext(ctx, insertMarketSQL, append(args, m.symbol)...); err != nil {
+				return fmt.Errorf("markets: insert market %s: %w", m.id, err)
+			}
 		}
-		if _, err := tx.ExecContext(ctx, insertMarketSQL, append(args, m.symbol)...); err != nil {
-			return fmt.Errorf("markets: insert market %s: %w", m.id, err)
+		if _, err := tx.ExecContext(ctx, `DELETE FROM perps.market_tiers WHERE market_id = $1`, m.id); err != nil {
+			return fmt.Errorf("markets: delete tiers for market %s: %w", m.id, err)
+		}
+		for i, tier := range m.tiers {
+			if _, err := tx.ExecContext(ctx, `INSERT INTO perps.market_tiers (market_id, tier, lower_bound_usd, max_leverage, maintenance_bps, deduction_usd, refreshed_block) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+				m.id, i, tier.LowerBoundUsd.String(), tier.MaxLeverage.String(), tier.MaintenanceBps.String(), tier.DeductionUsd.String(), height); err != nil {
+				return fmt.Errorf("markets: insert tier %d for market %s: %w", i, m.id, err)
+			}
 		}
 	}
 	return nil
