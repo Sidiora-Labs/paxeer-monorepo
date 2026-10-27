@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/ed25519"
 	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
@@ -40,8 +41,8 @@ import (
 const (
 	testChainID  = 125
 	testSubject  = "loadtest-user-0001"
-	signPolicy   = `{"version":1,"defaults":{"chain_id":125,"kinds":["evm_tx","lx_activity"],"caps":{"native":{"per_transaction":"1000000000000000000","daily":"10000000000000000000"}},"rate_per_minute":100000}}`
-	kernelPolicy = `{"version":1,"defaults":{"modules":{"programs":[5]},"caps":{"native":{"per_operation":"1000","daily":"1000000000"}}}}`
+	signPolicy   = `{"version":1,"defaults":{"chain_id":125,"kinds":["evm_tx","lx_send_authorization"],"caps":{"native":{"per_transaction":"1000000000000000000","daily":"10000000000000000000"}},"rate_per_minute":100000}}`
+	kernelPolicy = `{"version":1,"defaults":{"modules":{"asset":[5]},"caps":{"native":{"per_operation":"1000","daily":"1000000000"}}}}`
 )
 
 type authority struct {
@@ -419,6 +420,105 @@ func TestLoadTestAgainstFiveHardenedDaemons(t *testing.T) {
 		if c := refused.Curves[curve]; c.Refusals[server.CodeTokenInvalid] != c.Sessions || c.ThroughputPerSecond != 0 {
 			t.Fatalf("forged token: curve %s %+v", curve, c)
 		}
+	}
+}
+
+func TestLoadTestDrivesSendAuthorization(t *testing.T) {
+	pub, key, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lt := &loadTester{cfg: &settings{chainID: testChainID, subject: testSubject}, runID: "send-authorization", edKey: "ed25519-loadtest"}
+	copy(lt.edPublic[:], pub)
+	registry, err := lxwire.NewRegistry(lx.OpAssetTransfer)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for seq := uint64(1); seq < 20; seq += 2 {
+		t.Run(fmt.Sprintf("sequence-%d", seq), func(t *testing.T) {
+			req, verify, err := lt.kernelRequest(seq)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if req.Kind != "lx_send_authorization" || req.KeyID != lt.edKey || req.SessionID != lt.sessionID(seq) {
+				t.Fatalf("send authorization request: %+v", req)
+			}
+			raw, err := hex.DecodeString(req.Activity)
+			if err != nil {
+				t.Fatal(err)
+			}
+			a, err := lxwire.DecodeUnsignedActivity(raw, registry)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if a.Type != lx.OpAssetTransfer || a.Signed || len(a.Signature) != 0 || a.AccountSequence != seq || a.NetworkID != testChainID || !a.PayloadHashMatches() {
+				t.Fatalf("unsigned asset send envelope: %+v", a)
+			}
+			send, effect, err := lx.DecodeSendAuthorization(a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			from, err := lxwire.AccountID([]byte(lxwire.MainAccountName(lxwire.DIDFromKey(lt.edPublic))))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if send.Signature != ([64]byte{}) || send.PublicKey != lt.edPublic || send.From != from || send.SourceSequence != seq || send.ExpiresAt != a.NotAfter || send.Amount != (lxwire.Uint128{Lo: 1}) || send.Asset != ([32]byte{}) {
+				t.Fatalf("unsigned owner send: %+v", send)
+			}
+			if err := lx.MatchDisclosure(a, effect, req.Disclosure); err != nil {
+				t.Fatalf("send disclosure: %v", err)
+			}
+			digest, err := send.AuthorizationDigest()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err := req.Approval.Check(testSubject, lt.edKey, req.SessionID, a, digest, time.Now()); err != nil {
+				t.Fatalf("send authorization approval: %v", err)
+			}
+			signature := ed25519.Sign(key, digest[:])
+			response := server.SignResponse{KeyID: req.KeyID, Kind: req.Kind, SignedBytes: hex.EncodeToString(digest[:]), Signature: hex.EncodeToString(signature)}
+			if !verify(response) {
+				t.Fatal("load tester rejected a valid send authorization signature")
+			}
+			copy(send.Signature[:], signature)
+			payload, err := send.Encode()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := lxwire.DecodeSend(payload); err != nil {
+				t.Fatalf("completed send authorization: %v", err)
+			}
+			activityDigest, err := lxwire.SignaturePreimage(a)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if activityDigest == digest {
+				t.Fatal("send authorization and activity digests are equal")
+			}
+			wrong := response
+			wrong.Signature = hex.EncodeToString(ed25519.Sign(key, activityDigest[:]))
+			if verify(wrong) {
+				t.Fatal("load tester accepted an activity signature as a send authorization")
+			}
+			wrong.SignedBytes = hex.EncodeToString(activityDigest[:])
+			if verify(wrong) {
+				t.Fatal("load tester accepted a signed activity digest")
+			}
+			wrong.Signature = response.Signature
+			if verify(wrong) {
+				t.Fatal("load tester accepted the wrong signed bytes with a valid signature")
+			}
+			wrong = response
+			signature[0] ^= 1
+			wrong.Signature = hex.EncodeToString(signature)
+			if verify(wrong) {
+				t.Fatal("load tester accepted an altered authorization signature")
+			}
+			wrong.Signature = "not-hex"
+			if verify(wrong) {
+				t.Fatal("load tester accepted a malformed signature")
+			}
+		})
 	}
 }
 

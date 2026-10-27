@@ -818,7 +818,7 @@ interface OriginalLxWallet {
   layerx_key_id: string; is_disabled: boolean; archived_at: unknown; binding_state: string;
 }
 interface LxArtifact {
-  kind: 'lx_activity'|'lx_send_authorization';
+  kind: 'lx_send_authorization';
   id: string; activity: string; signing_preimage: string; public_key: string; key_id: string;
   principal: string; did: string; account_id: string; epoch: number; participants: string[];
   network_id: number; protocol_version: number; session_id: string;
@@ -837,7 +837,7 @@ function stableLx(value: unknown): string {
 async function lxApprovalRoutes(app:FastifyInstance,pool:Pool,attestors:AttestorClient|null,limiter:RateLimiter):Promise<void> {
   const idSchema=z.string().uuid();
   const bareBytes=z.string().max(2_097_152).regex(/^(?:[0-9a-f]{2})+$/);
-  const reviewSchema=z.object({activity:bareBytes,kind:z.enum(['lx_activity','lx_send_authorization']).default('lx_activity')}).strict();
+  const reviewSchema=z.object({activity:bareBytes,kind:z.literal('lx_send_authorization').default('lx_send_authorization')}).strict();
   const approveSchema=z.object({review_id:idSchema,activity:bareBytes,signing_preimage:z.string().regex(/^[0-9a-f]{64}$/),
     disclosure:z.unknown(),expires_at:z.string().regex(/^(0|[1-9][0-9]{0,19})$/),decision:z.literal('approve')}).strict();
   const signSchema=z.object({approval_id:idSchema}).strict();

@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/pnl"
 )
 
 var (
@@ -716,6 +717,48 @@ FROM perps.leaderboard ORDER BY "window", rank`)
 	return out
 }
 
+func TestMarketStatsWindowExpiry(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	const q = `SELECT volume_24h::text, volume_7d::text, volume_30d::text, trades_count::text,
+    open_interest_long::text, open_interest_short::text, high_24h::text, low_24h::text,
+    open_24h::text, last_price::text, updated_block::text FROM perps.market_stats_rolling WHERE market_id = $1`
+	for _, otherFill := range []bool{false, true} {
+		name := "empty_block"
+		if otherFill {
+			name = "other_market_fill"
+		}
+		t.Run(name, func(t *testing.T) {
+			c := newChain(t, db)
+			c.want(`SELECT symbol FROM perps.markets WHERE market_id = $1`, []string{"BTC"}, "0")
+			c.blockRow(100, t0)
+			c.next(100, t0)
+			c.fill("0", "0", "0", traderA, traderB, "60000", "1000000")
+			c.openInterest("0", "2000000", "3000000")
+			c.project()
+			initial := []string{"1000000", "1000000", "1000000", "1", "2000000", "3000000", "60000", "60000", "60000", "60000", "100"}
+			c.want(q, initial, "0")
+
+			c.blockRow(101, t0.Add(23*time.Hour))
+			c.next(101, t0.Add(23*time.Hour))
+			c.project()
+			c.want(q, initial, "0")
+
+			c.blockRow(102, t0.Add(25*time.Hour))
+			c.next(102, t0.Add(25*time.Hour))
+			if otherFill {
+				c.fill("1", "0", "0", traderA, traderB, "3000", "500000")
+			}
+			c.project()
+			c.want(q, []string{"0", "1000000", "1000000", "1", "2000000", "3000000", "null", "null", "null", "60000", "102"}, "0")
+			if otherFill {
+				c.want(q, []string{"500000", "500000", "500000", "1", "0", "0", "3000", "3000", "3000", "3000", "102"}, "1")
+			}
+		})
+	}
+}
+
 func TestLeaderboardProjection(t *testing.T) {
 	db := testDB(t)
 	migrate(t, db)
@@ -751,4 +794,238 @@ func TestLeaderboardProjection(t *testing.T) {
 	if rebuilt := c.leaderboardRows(); !slices.EqualFunc(rebuilt, incremental, slices.Equal[[]string]) {
 		t.Fatalf("rebuilt leaderboard differs from the incremental projection\n got  %q\n want %q", rebuilt, incremental)
 	}
+}
+
+func TestLeaderboardIncremental(t *testing.T) {
+	db := testDB(t)
+	migrate(t, db)
+	t0 := time.Date(2026, 3, 2, 10, 0, 0, 0, time.UTC)
+	accounts := []common.Address{traderA, traderB, common.HexToAddress("0x03"), common.HexToAddress("0x04"), common.HexToAddress("0x05")}
+	type key struct {
+		window  string
+		account common.Address
+	}
+	setup := func(t *testing.T) *chain {
+		t.Helper()
+		c := newChain(t, db)
+		_, err := c.tx.ExecContext(c.ctx, `CREATE TEMP TABLE leaderboard_writes ("window" text, account bytea, op text);
+CREATE FUNCTION pg_temp.audit_leaderboard_write() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        INSERT INTO leaderboard_writes VALUES (OLD."window", OLD.account, TG_OP);
+    ELSE
+        INSERT INTO leaderboard_writes VALUES (NEW."window", NEW.account, TG_OP);
+    END IF;
+    RETURN NULL;
+END $$;
+CREATE TRIGGER audit_leaderboard_write AFTER INSERT OR DELETE OR UPDATE OF
+    realized_pnl, volume_usd, trades_count, win_rate, avg_hold_time_seconds, open_positions
+ON perps.leaderboard FOR EACH ROW EXECUTE FUNCTION pg_temp.audit_leaderboard_write()`)
+		if err != nil {
+			t.Fatalf("install leaderboard write audit: %v", err)
+		}
+		return c
+	}
+	clearWrites := func(c *chain) {
+		c.t.Helper()
+		if _, err := c.tx.ExecContext(c.ctx, `TRUNCATE leaderboard_writes`); err != nil {
+			c.t.Fatalf("clear leaderboard audit: %v", err)
+		}
+	}
+	wantWrites := func(c *chain, want map[key]int) {
+		c.t.Helper()
+		rows, err := c.tx.QueryContext(c.ctx, `SELECT "window", account, count(*) FROM leaderboard_writes GROUP BY "window", account`)
+		if err != nil {
+			c.t.Fatalf("read leaderboard audit: %v", err)
+		}
+		got := map[key]int{}
+		for rows.Next() {
+			var w string
+			var a []byte
+			var n int
+			if err := rows.Scan(&w, &a, &n); err != nil {
+				c.t.Fatalf("scan leaderboard audit: %v", err)
+			}
+			got[key{w, common.BytesToAddress(a)}] = n
+		}
+		if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+			c.t.Fatalf("close leaderboard audit: %v", err)
+		}
+		if len(got) != len(want) {
+			c.t.Fatalf("block %d leaderboard metric writes = %v, want %v", c.block, got, want)
+		}
+		for k, n := range want {
+			if got[k] != n {
+				c.t.Fatalf("block %d leaderboard metric writes for %v = %d, want %d; all writes %v", c.block, k, got[k], n, got)
+			}
+		}
+	}
+	allWindows := func(as ...common.Address) map[key]int {
+		want := map[key]int{}
+		for _, a := range as {
+			for _, w := range []string{"all", "30d", "7d"} {
+				want[key{w, a}] = 1
+			}
+		}
+		return want
+	}
+	wantFull := func(c *chain) {
+		c.t.Helper()
+		incremental := c.leaderboardRows()
+		if _, err := c.tx.ExecContext(c.ctx, `SAVEPOINT leaderboard_oracle`); err != nil {
+			c.t.Fatalf("save leaderboard: %v", err)
+		}
+		if err := (pnl.Leaderboard{}).Rebuild(c.ctx, c.tx, c.at); err != nil {
+			c.t.Fatalf("full leaderboard rebuild: %v", err)
+		}
+		full := c.leaderboardRows()
+		if !slices.EqualFunc(incremental, full, slices.Equal[[]string]) {
+			c.t.Fatalf("block %d incremental leaderboard differs from full rebuild\n got  %q\n want %q", c.block, incremental, full)
+		}
+		if _, err := c.tx.ExecContext(c.ctx, `ROLLBACK TO SAVEPOINT leaderboard_oracle; RELEASE SAVEPOINT leaderboard_oracle`); err != nil {
+			c.t.Fatalf("restore incremental leaderboard: %v", err)
+		}
+	}
+
+	t.Run("ten_blocks_five_accounts", func(t *testing.T) {
+		c := setup(t)
+		profits := []string{"1000000000000000000000000", "1000000000000000000000000", "-50", "0", "200",
+			"-1000000000000000000000100", "300", "50", "0", "-500"}
+		for i, profit := range profits {
+			clearWrites(c)
+			at := t0.Add(time.Duration(i) * time.Hour)
+			c.blockRow(uint64(100+i), at)
+			c.next(uint64(100+i), at)
+			a := accounts[i%len(accounts)]
+			id := fmt.Sprint(i + 1)
+			c.opened(id, a, "0", "1000", "60000", "100")
+			c.settled(id, a, "1000", "0", "0", "0", "0")
+			c.closed(id, a, "100", profit, i%3 == 0)
+			want := allWindows(a)
+			if i == 8 {
+				c.settled("1", accounts[0], "2000", "0", "0", "0", "0")
+				want = allWindows(a, accounts[0])
+			}
+			c.project()
+			wantWrites(c, want)
+			wantFull(c)
+		}
+		if got := c.leaderboardRows(); len(got) != 15 {
+			t.Fatalf("ten blocks produced %d leaderboard rows, want 15: %q", len(got), got)
+		}
+		incremental := c.leaderboardRows()
+		if err := Rebuild(c.ctx, c.tx, 100, 109); err != nil {
+			t.Fatalf("replay rebuild: %v", err)
+		}
+		if rebuilt := c.leaderboardRows(); !slices.EqualFunc(rebuilt, incremental, slices.Equal[[]string]) {
+			t.Fatalf("replay leaderboard differs\n got  %q\n want %q", rebuilt, incremental)
+		}
+	})
+
+	t.Run("event_kinds", func(t *testing.T) {
+		c := setup(t)
+		c.blockRow(100, t0)
+		c.next(100, t0)
+		c.opened("1", traderA, "0", "1000", "60000", "100")
+		c.project()
+		wantWrites(c, nil)
+		wantFull(c)
+		if got := c.leaderboardRows(); len(got) != 0 {
+			t.Fatalf("opening without a close or settlement enrolled account: %q", got)
+		}
+
+		clearWrites(c)
+		c.blockRow(101, t0.Add(time.Hour))
+		c.next(101, t0.Add(time.Hour))
+		c.settled("1", traderA, "1000", "0", "0", "0", "0")
+		c.settled("1", traderA, "2000", "0", "0", "0", "0")
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+
+		clearWrites(c)
+		c.blockRow(102, t0.Add(2*time.Hour))
+		c.next(102, t0.Add(2*time.Hour))
+		c.opened("2", traderA, "0", "1000", "60000", "100")
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+
+		clearWrites(c)
+		c.blockRow(103, t0.Add(3*time.Hour))
+		c.next(103, t0.Add(3*time.Hour))
+		c.closed("1", traderA, "1000", "100", true)
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+		c.want(`SELECT avg_hold_time_seconds::text, open_positions::text FROM perps.leaderboard WHERE "window" = 'all' AND account = $1`,
+			[]string{"10800", "1"}, traderA.Bytes())
+
+		clearWrites(c)
+		c.blockRow(104, t0.Add(4*time.Hour))
+		c.next(104, t0.Add(4*time.Hour))
+		c.deposited(traderB, "100", "100")
+		c.project()
+		wantWrites(c, nil)
+		wantFull(c)
+
+		clearWrites(c)
+		c.blockRow(105, t0.Add(5*time.Hour))
+		c.next(105, t0.Add(5*time.Hour))
+		c.project()
+		wantWrites(c, nil)
+		wantFull(c)
+
+		clearWrites(c)
+		c.blockRow(106, t0.Add(6*time.Hour))
+		c.next(106, t0.Add(6*time.Hour))
+		c.closed("2", traderA, "100", "100", false)
+		c.closed("2", traderA, "100", "-50", false)
+		c.closed("2", traderA, "800", "0", true)
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+		for _, w := range []string{"all", "30d", "7d"} {
+			c.want(`SELECT realized_pnl::text, win_rate::text, avg_hold_time_seconds::text, open_positions::text
+FROM perps.leaderboard WHERE "window" = $1 AND account = $2`, []string{"150", "66.6667", "12600", "0"}, w, traderA.Bytes())
+		}
+	})
+
+	t.Run("window_boundaries", func(t *testing.T) {
+		c := setup(t)
+		c.blockRow(100, t0)
+		c.next(100, t0)
+		c.opened("1", traderA, "0", "1000", "60000", "100")
+		c.settled("1", traderA, "1000", "0", "0", "0", "0")
+		c.closed("1", traderA, "1000", "100", true)
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+
+		clearWrites(c)
+		c.blockRow(101, t0.Add(7*24*time.Hour))
+		c.next(101, t0.Add(7*24*time.Hour))
+		c.opened("2", traderA, "0", "1000", "60000", "100")
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+		c.want(`SELECT count(*)::text FROM perps.leaderboard WHERE "window" = '7d'`, []string{"0"})
+
+		clearWrites(c)
+		c.blockRow(102, t0.Add(30*24*time.Hour))
+		c.next(102, t0.Add(30*24*time.Hour))
+		c.opened("3", traderA, "0", "1000", "60000", "100")
+		c.project()
+		wantWrites(c, map[key]int{{"all", traderA}: 1, {"30d", traderA}: 1})
+		wantFull(c)
+		c.want(`SELECT count(*)::text FROM perps.leaderboard WHERE "window" <> 'all'`, []string{"0"})
+
+		clearWrites(c)
+		c.blockRow(103, t0.Add(30*24*time.Hour+time.Hour))
+		c.next(103, t0.Add(30*24*time.Hour+time.Hour))
+		c.closed("2", traderA, "1000", "0", true)
+		c.project()
+		wantWrites(c, allWindows(traderA))
+		wantFull(c)
+	})
 }

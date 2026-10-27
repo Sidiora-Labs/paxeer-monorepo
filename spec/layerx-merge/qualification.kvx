@@ -1013,3 +1013,827 @@ symbol = "ProtocolBudgetView"
 observed = "The publication d7ffdc755 built layerx-agent-api alone; the ProtocolBudgetView.achieved_rung and ReceiptReference::Verified.rung renames reach layerx-mirror, layerx-sdk and layerx-agentd, which no longer compile on main b59b5e362."
 assumption = "Tasks 9.1.6, 9.1.7 and 9.1.8 port the dependents crate by crate, and every task that owns a consumer file or whose crate depends on one requires the port of that crate."
 severity = "note"
+
+[finding.1.0.2]
+task = "1.0.2"
+file = "include/layerx/lxp_module.h:19"
+symbol = "LXP_MODULE_RESERVED_COUNT"
+observed = "The first attempt at bbb9574bf passed the build and the verify_cmd, and the verifier `cg spec done 1.0.2` exited 1 on `symbol LXP_MODULE_RESERVED_COUNT — not defined in the graph` alone; the name is an enumerator of the anonymous module-id enum in include/layerx/lxp_module.h, which the graph does not index."
+assumption = "Dropping LXP_MODULE_RESERVED_COUNT from the symbol list lets the verifier judge the task on the two registry functions and the two test names it already accepts; the test still reads the enumerator."
+severity = "suspect"
+
+[finding.1.4.1]
+task = "1.4.1"
+file = "include/layerx/lxp_result.h:72"
+symbol = "LXP_ERR_SEQUENCE_REUSED"
+observed = "The first attempt at 2b2818ed8 passed the build and the verify_cmd, and the verifier `cg spec done 1.4.1` refused only on the symbol LXP_ERR_SEQUENCE_REUSED, which is an X-macro enumerator of LXP_RESULT_CODE_LIST (`X(LXP_ERR_SEQUENCE_REUSED, -301)`) and never a graph symbol, as the repairs of 1.1.1, 1.1.4 and 1.3.2 already recorded."
+assumption = "Dropping LXP_ERR_SEQUENCE_REUSED from symbols leaves the four indexable declarations and the two touches, and the same candidate qualifies unchanged."
+severity = "assumption"
+
+[finding.4.21.3]
+task = "4.21.3"
+file = "services/launchpad/Makefile:34"
+symbol = "test-module"
+observed = "The first attempt at df4c29537 ran the verifier `cg spec done 4.21.3 -f layerx-merge` (exit 1, log /out/logs/verify-1.log): the two pytest cases passed but the graph check failed on `symbol test-module — not defined in the graph`, because a Makefile target is not a declaration the graph indexes."
+assumption = "The task's symbols list drops test-module and keeps the two indexed pytest functions; the Makefile stays covered by the touches check."
+severity = "note"
+
+[finding.5.17.2]
+task = "5.17.2"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "Layers"
+observed = "At 85dff0d73 the second attempt ran `cg spec done 5.17.2 -f layerx-merge --root /work/paxeer-monorepo`, exit 1 (log /out/logs/verify-2.log), after the verify_cmd passed, reporting ✗ symbol Layers and ✗ symbol OpenLayer — not defined in the graph: do_1 deletes both types, and the listed Seal resolved to ConsensusSource.Seal at node/sequencer/consensus_source.go:57 rather than the deleted Layers seal of do_3."
+assumption = "The symbol list names only surviving declarations — SealBatch and the two SealBatch tests — and the deletions of Layers, OpenLayer and the Layers Seal are evidenced by the touched files and the passing verify_cmd."
+severity = "note"
+
+[finding.5.48.1]
+task = "5.48.1"
+file = "spec/layerx-merge/spec.kvx:115376"
+symbol = "registry_read_node"
+observed = "At cba7935f6 the first attempt passed its verify_cmd (`python3 -m pytest cmd/layerx-module-registry/test_registry_cli.py::test_read_node_is_refused cmd/layerx-module-registry/test_registry_cli.py::test_socket_and_actor_flags_are_refused -q`, 2 passed) and `cg spec done 5.48.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) with `registry_read_node — not defined in the graph`, a declaration do_1 deletes together with node.c, and `touched cmd/layerx-module-registry/node.c — no matching change`, the deleted-path refusal of finding.16.22.2 that the later qualification order (HEAD advanced to the tagged commit before the check, as in the 11.30.1 run at d9d06b5e8) no longer produces."
+assumption = "The symbols list names only declarations the finished tree holds (main and the two pytest functions), node.c stays in touches because the task owns its deletion, and the result is re-qualified unchanged under the order that commits before `cg spec done`."
+severity = "note"
+
+[finding.5.49.1]
+task = "5.49.1"
+file = "cmd/layerx-genesis/lxp_genesis_builder.c:311"
+symbol = "lxp_genesis_build_fresh_custody"
+observed = "The first attempt at b89a798c7 passed its verify_cmd (pytest, 2 passed) and `cg spec done 5.49.1` refused the result (log /out/logs/verify-1.log) with `lxp_genesis_build_fresh_custody — not defined in the graph`: do_3 deletes that function together with lxp_genesis_build_fresh_custody_registry and registry_reserve_accounts, and include/layerx/lxp_genesis_builder.h already carries no declaration of either (wiring J33.8), so the finished tree cannot define it."
+assumption = "The deleted name leaves the symbol list; lxp_genesis_builder_cli_main, build_artifacts and test_custody_profile_argument_is_refused stay, and the result is re-qualified unchanged."
+severity = "assumption"
+
+[finding.9.27.2]
+task = "9.27.2"
+file = "services/agent/crates/layerx-types/src/rung.rs:11"
+symbol = "Rung"
+observed = "At 1b16e7844 the verifier `cg spec done 9.27.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-2.log) after both planned tests passed because the graph check found no definition of Rung, which is declared in services/agent/crates/layerx-types/src/rung.rs outside the task's touched directories and only imported by export.rs."
+assumption = "Rung is a consumed type, not one the task defines, so the symbol list drops it and the remaining seven declared symbols, all resolved at 1b16e7844, are what the graph checks."
+severity = "note"
+
+[finding.9.34.5]
+task = "9.34.5"
+file = "services/agent/sdk/typescript/src/x402/activity.ts:3"
+symbol = "bindReceiveActivity"
+observed = "The first attempt at dad652fe1 passed the build and both verify_cmd cases, and the verifier `cg spec done 9.34.5` refused only on bindReceiveActivity, the function do_4 orders deleted from activity.ts, so the finished tree cannot define it; the graph also resolved PreparedGrantDraws to the Python class services/agent/sdk/python/layerx_sdk/x402_draw.py:9 rather than the TypeScript class."
+assumption = "Dropping bindReceiveActivity from symbols (as 4.44.2, 7.15.1 and 6.63.3 dropped names their do_* delete) lets the same candidate qualify; the Python resolution of PreparedGrantDraws is harmless to the gate."
+severity = "assumption"
+
+[finding.11.30.1]
+task = "11.30.1"
+file = "spec/layerx-merge/spec.kvx:148169"
+symbol = "layerx-intent-ingester"
+observed = "At d9d06b5e8 the first attempt passed its verify_cmd (`cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-portable --test retired_crates -- --exact the_interop_workspace_has_no_intent_ingester_package no_interop_crate_depends_on_the_intent_ingester`, 2 passed) and `cg spec done 11.30.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) with `symbol layerx-intent-ingester — not defined in the graph`: the name is the deleted crate, not a declared symbol (as finding.11.15.1)."
+assumption = "The symbols list is emptied so the verifier checks touches alone; the deletion is proven by the touched Cargo.toml, Cargo.lock, the seven removed files and the two cargo-metadata tests, and the result is re-qualified unchanged on b59b5e362 after re-merging the Cargo.lock hunk over 8905cf9fe."
+severity = "note"
+
+[finding.8.51.2]
+task = "8.51.2"
+file = ".github/workflows/platform.yml:1552"
+symbol = "release-verification"
+observed = "Every attempt passed its build and `cg spec done 8.51.2` exited 1 (fourth attempt b98539e93, log /out/logs/verify-1.log) because release_pipeline refuses the committed workflow with `job release-verification has a step conditional on always()`: at 2c40f554a the step `Retain the actual published-package integration line counts` carries `if: always()` (platform.yml:1552, since 78b0e5d78) while tools/platform/release/src/main.rs:1030 admits only the tag condition on verification steps (since 135139346), so committed_pipeline() at tools/platform/release/tests/registries.rs:28 and the four existing tests calling it (:106, :135, :160, :232) fail the same way before this task; the symbols list also names REPLAY_GATE and REPLAY_MACHINES, which do_1 deletes."
+assumption = "The replay-gate removal is complete; the task's test can pass only once the retention step at platform.yml:1552 loses its `always()` condition or the validator admits it, a one-line workflow change no open task owns, and REPLAY_GATE and REPLAY_MACHINES leave the symbol list."
+severity = "blocker"
+
+[finding.2.22.4]
+task = "2.22.4"
+file = "modules/lxphost/host.go:550"
+symbol = "Config.TimestampWindowMs"
+observed = "do_3 says `the timestamp window from the host config TimestampWindowMs (modules/lxphost/host.go:546-553)`, but at 2c40f554a and b59b5e362 that field lives on the unexported `h.cfg` of *lxphost.Host (read only at host.go:845) with no exported reader, so three attempts (e0d03e828, 39b08e2e3, 373ea5b66) each failed the build `go build ./modules/layerxpay/keeper/` with exit 1 on `execute.go:48:19: k.host.Config undefined` and never reached the verify_cmd; wiring.J24.3 requests ReadLastSequence and ReadIdentitySequence for this task but no timestamp-window reader."
+assumption = "The keeper needs a one-method exported reader such as `func (h *Host) TimestampWindowMs() uint64` in modules/lxphost/host.go, so either host.go joins this task's touches or a wiring entry hands the reader to a kernel task that must then precede 2.22.4."
+severity = "blocker"
+
+[finding.3.41.3]
+task = "3.41.3"
+file = "services/platform/perps-data/internal/rest/symbol_test.go:24"
+symbol = "MarketIDs"
+observed = "At 8ba824993 the first attempt ran `cg spec done 3.41.3 -f layerx-merge --root /work/paxeer-monorepo`, exit 1 (log /out/logs/verify-2.log): the rest test package failed to build on symbol_test.go:24:25 undefined: records.MarketIDs after do_3 deleted the map, because 3.41.2's test (dc3ef21cc) re-declares `var marketIDs = records.MarketIDs` and records/marketset_test.go:71-98 still reads it, neither file being in touches."
+assumption = "3.41.3 touches rest/symbol_test.go and records/marketset_test.go to drop their MarketIDs reads once 3.41.2 is done, and the retained portal and rest tests of 8ba824993 stand as written."
+severity = "blocker"
+
+[finding.4.4.17]
+task = "4.4.17"
+file = "modules/launchpad/keeper/grpc_query.go:158"
+symbol = "Querier.PoolMetadata"
+observed = "At f3225621b the second attempt's build `go build ./modules/launchpad/...` exited 1 (log /out/logs/build-1.log) because grpc_query.go:158 still declares the task 4.3.1 forwarder Querier.PoolMetadata to UnimplementedQueryServer, so the planned handler in grpc_query_pool_metadata.go is a duplicate method."
+assumption = "Task 4.4.17 also touches modules/launchpad/keeper/grpc_query.go to delete the PoolMetadata forwarder at :158-164 (the 4.4.x three-file widening); the handler and both planned tests at f3225621b are otherwise complete."
+severity = "blocker"
+
+[finding.5.4.5]
+task = "5.4.5"
+file = "node/sequencer/executor.go:73"
+symbol = "Host.LastBlockID"
+observed = "The first attempt at fe45f349c ran the verifier `cg spec done 5.4.5 -f layerx-merge` (exit 1, log /out/logs/verify-1.log): adding LastBlockID() tmproto.BlockID to the Host interface per do_2 leaves *app.App, the only production Host, without the method, so every node/sequencer test file that passes h.app to NewExecutor, NewReceipter, NewFeeFloor or NewMicroBatch fails to compile, and do_2 names no source on *app.App for the committed block id."
+assumption = "The task is widened to node/app.go (or a new node file) to add `func (app *App) LastBlockID() tmproto.BlockID` reading the committed header's block id, keeping the executor change as written."
+severity = "blocker"
+
+[finding.7.2.1]
+task = "7.2.1"
+file = "rpc/pending_filter_test.go:72"
+symbol = "FilterAPI.Cleanup"
+observed = "At e822ac668 the seventh attempt's verifier `cg spec done 7.2.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because rpc/pending_filter_test.go:72 and :444 and rpc/synthetic_receipts_test.go:142 still register t.Cleanup(api.Cleanup) after the task renamed FilterAPI.Cleanup to the unexported shutdown, so the rpc_test package did not compile and neither planned test ran."
+assumption = "Task 7.2.1 also touches those two tests and rpc/export_filter_test.go, replacing t.Cleanup(api.Cleanup) with a package-evmrpc test export of shutdown in the SetReceiptLogFeedForTest pattern of task 7.2.3."
+severity = "blocker"
+
+[finding.8.22.1]
+task = "8.22.1"
+file = "services/platform/middleware/seller/src/rpc.ts:115"
+symbol = "verifyRpcPayment"
+observed = "Every attempt (the fourth at d77f6c813) replaced LayerXReceiptEvidence with PortableReceiptV2 and changed verifyPaymentReceipt to (PortableReceiptV2, requirements, receiptKeys, commitments?), and the build `npm --prefix services/platform/middleware/seller run build` exited 2 because verifyRpcPayment in rpc.ts, outside touches, still passes { canonicalReceipt, authorizedBatch } with an AuthorizedReceiptBatch and a ProtocolSelection; the done task 8.22.3 moved that call to rpc.ts:115 on b59b5e362 without changing it."
+assumption = "Widening 8.22.1 touches with rpc.ts (build the PortableReceiptV2 from the pax_sequencerReceipt answer and pass the configured receipt keys) and payment-rpc.test.mjs is the minimal repair, since rpc.ts's other owner 8.22.6 lands in wave 6 and only deletes rpcBatchEvidence."
+severity = "blocker"
+
+[finding.8.22.2]
+task = "8.22.2"
+file = "services/platform/middleware/seller/src/index.ts:375"
+symbol = "verifyPaymentCommitment"
+observed = "At 6ca7f069c the third attempt ran `npm --prefix services/platform/middleware/seller run build`, exit 2 (log /out/logs/build-1.log): replacing PaymentCommitmentEvidence and the verifyPaymentCommitment signature per do_1-do_5 breaks three callers outside touches — index.ts:375 (TS2554, five arguments), rpc.ts:81-92 rpcBatchEvidence (TS2344/TS2353 on canonicalHeader) and checkpoint.ts:39-61 (TS2339/TS2353 on canonicalHeader, networkId, checkpoint) — files owned by 8.22.1, 8.22.4 and 8.22.6."
+assumption = "8.22.2 requires 8.22.1 and touches index.ts, rpc.ts and checkpoint.ts to conform the three call sites to the committed evidence shape, leaving their deletion to 8.22.6 and the settlement rewiring to 8.22.4."
+severity = "blocker"
+
+[finding.8.28.2]
+task = "8.28.2"
+file = "services/platform/ramps/toolkit/src/clients.rs:1022"
+symbol = "compile_operator_send"
+observed = "The first attempt at 37fb702ee ran the build `cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit` (exit 101, log /out/logs/build-1.log): replacing the kernel compilers and ReceiptEvidence/VerifiedLayerxLeg fields in lib.rs per do_1-do_5 breaks 12 call sites in clients.rs (26, 1022, 1038, 1230-1250, 1270, 2470) and engine.rs:331, files outside the task's touches whose migration is sequenced after it in 8.28.4, 8.29.1 and 8.28.5, so the library cannot compile between 8.28.2 and 8.28.4."
+assumption = "8.28.2 is widened to clients.rs, engine.rs and bin/ramp-verify-receipt.rs for a compile-only adaptation of the removed call sites, and 8.28.3 gains requires 8.28.2 so the two wave-1 editors of clients.rs serialize; the lockfile failure of attempt 7 is resolved by 8905cf9fe and needs no task change."
+severity = "blocker"
+
+[finding.9.33.10]
+task = "9.33.10"
+file = "services/agent/sdk/typescript/test/precompile-calls.test.ts:134"
+symbol = "exchangePlaceOrderCall"
+observed = "The second attempt at 4747b23f2 added accountId to exchangePlaceOrderCall in src/exchange.ts as the task requires, and the build `npm --prefix services/agent/sdk/typescript run build` exited 2 (/out/logs/build-1.log) because tsconfig.json compiles test/ as well and precompile-calls.test.ts:134 and :240 and xweb-api.test.ts:543 still call the five-field v1 form, with :133-135 asserting the v1 selector placeOrder(bytes32,uint8,uint256,uint256,uint8) and calldata layout."
+assumption = "The two test files are the task's own consumers and must move to the v2 call shape (accountId first, v2 selector and calldata) inside this task, since no other open task touches them."
+severity = "blocker"
+
+[finding.9.36.1]
+task = "9.36.1"
+file = "services/agent/sdk/python/layerx_sdk/__init__.py:157"
+symbol = "PxAnchorHead"
+observed = "At 414e47900 the first attempt ran `cg spec done 9.36.1 -f layerx-merge --root /work/paxeer-monorepo`, exit 1 (log /out/logs/verify-1.log): pytest exited 4 collecting tests/test_px_commit.py with ImportError cannot import name 'PxAnchorHead' from 'layerx_sdk.px', because __init__.py:157/:172/:441/:493, __init__.pyi:131/:146 and px.pyi:81/:97/:180 still export the two names do_2 deletes and none is in touches."
+assumption = "9.36.1 touches __init__.py, __init__.pyi and px.pyi to drop the PxAnchorHead and decode_px_anchor_head exports and the PxNetworkHead.anchor stub, and its symbols list names only the surviving history_cursor, decode_px_network_head and history_params, as the 9.33.5 finding already established for deleted Python names."
+severity = "blocker"
+
+[finding.10.2.2]
+task = "10.2.2"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4063"
+symbol = "VerifiedBudgetAfter"
+observed = "Renaming `VerifiedBudgetAfter.level` to `rung` (approvals/mod.rs:135) breaks two consumers outside the task's touches, agent_runtime.rs:4063 which constructs `level` from the decoded byte and projection.rs:293 which matches `budget.level`, so the build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service` exited 101 identically in all four attempts (log /out/logs/build-1.log); both sites still read `level` at b59b5e362."
+assumption = "The task may update exactly those two call sites (decode the budget byte into `rung` at :4058-4063 and match `budget.rung` at :293-299) so the crate builds; task 10.2.3 then re-maps the rung names and task 10.13.3 tightens the accepted bytes."
+severity = "blocker"
+
+[finding.10.11.1]
+task = "10.11.1"
+file = "services/human/crates/layerx-human-kms/src/server.rs:158"
+symbol = "validate_sign"
+observed = "At 39749919f the fourth attempt's build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms` exited 101 (log /out/logs/build-1.log) with 13 E0609 errors because services/human/crates/layerx-human-kms/src/server.rs (:77, :137, :148, :149, :158, :160, :161, :162, :166) and src/store.rs (:132, :154, :500) still read the Config fields evm_client_pin, network, protocol and registry that do_1 and do_3 remove, exactly as the first three attempts had at f01b4ada9, 4f5b3723c and 9abb13845."
+assumption = "The task owns the consumer edits its interface change forces, so touches gains src/server.rs and src/store.rs: network becomes chain.chain_id, the evm_client_pin check becomes the attestor client certificate pin, and the protocol and registry reads of validate_sign are reduced to the chain snapshot, while 10.11.7 and 10.11.3, which require 10.11.1, rewrite those paths afterwards."
+severity = "blocker"
+
+[finding.11.3.1]
+task = "11.3.1"
+file = "services/interop/crates/layerx-x402/src/facilitator.rs:452"
+symbol = "ExecutedPayment"
+observed = "The first attempt at 40fc94427 ran the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests` (exit 101, log /out/logs/build-2.log): replacing `ExecutedPayment { canonical_receipt, authorised_batch }` with `ExecutedPayment { evidence: SequencerEvidence }` per do_1 breaks settle_executed at facilitator.rs:452, 468, 469 and 482 and the fixture constructor at tests/transports.rs:527, both outside the task's touches, while main at b59b5e362 builds the same command cleanly."
+assumption = "The task is widened to facilitator.rs and tests/transports.rs for the compile-only adaptation of those five reads and one constructor to the evidence payload, and 11.4.1 gains requires 11.3.1 so its facilitator migration builds on the new payload."
+severity = "blocker"
+
+[finding.11.8.1]
+task = "11.8.1"
+file = "services/interop/crates/layerx-fiat/tests/adapter.rs:236"
+symbol = "FiatPlane"
+observed = "At 02d735e8a the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-fiat --tests` exited 101 (log /out/logs/build-1.log) because tests/adapter.rs still implements FiatPlane without receipt_keys and constructs ExecutedFiatOutcome { canonical_receipt, authorised_batch } after the task replaced the struct with { evidence: SequencerEvidence }, and interface.11.rs-fiat-fiat-plane itself lists adapter.rs:236 as the trait's caller."
+assumption = "Task 11.8.1 also touches services/interop/crates/layerx-fiat/tests/adapter.rs for the minimal compile fix (receipt_keys on SandboxPlane and the ExecutedFiatOutcome construction) so the --tests build compiles, while task 11.8.3 keeps the fixture rework on the recorded receipt in wave 6."
+severity = "blocker"
+
+[finding.11.31.2]
+task = "11.31.2"
+file = "services/interop/crates/x-websearch/src/payment.rs:1162"
+symbol = "PaymentGate::open"
+observed = "Every attempt's build `cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets` exited 101 (fourth attempt f9848180d, log /out/logs/build-1.log) with the single error E0308 at payment.rs:1162, where the payment store copies `config.kernel_network_id` into a `u32` field that do_1 turns into `Option<u32>`, and payment.rs is outside the task's touches."
+assumption = "services/interop/crates/x-websearch/src/payment.rs enters the touches so the store receives the network id resolved at startup by do_3 as a `u32` instead of reading the optional config field, and the task resumes from f9848180d."
+severity = "blocker"
+
+[finding.12.33.1]
+task = "12.33.1"
+file = "apps/wallet/src/surfaces/WebDataView.tsx:42"
+symbol = "caps.observation"
+observed = "The fourth attempt at ff7886ec4 built with `pnpm --dir apps/wallet run typecheck` exit 2 (/out/logs/build-1.log): WebDataView.tsx:42-43 still reads observation.verification, sequence, batch and observed_head after useSurface.ts writes the `{ rung, block_number, state_root }` observation the task requires, and StatusLadder.tsx:9,14 and TransferSuccess.tsx:193 fail on the instant/sealed/final and anchor names that 12.22.1 already removed from sdk/wallet at 2c40f554a."
+assumption = "WebDataView.tsx is the task's own consumer and belongs in its touches, while the StatusLadder.tsx and TransferSuccess.tsx errors are the exact repairs of the pending wave-1 tasks 12.34.1 and 12.35.1, so 12.33.1 should require both and continue from ff7886ec4 once they land."
+severity = "blocker"
+
+[finding.2.3.4]
+task = "2.3.4"
+file = "src/modules/asset/lx_asset_execution.h:185"
+symbol = "binding_authority"
+observed = "The second attempt at c4f2a677c builds the Activity without a Signature (the keeper holds no key for an EVM-bound DID) and the kernel asset module still runs lxp_activity_verify_signature because the host never sets lx_asset_runtime.binding_authority; that host-side flag and the stop to forcing signature_valid are the work of task 1.23.1 (and ExecuteActivity of 1.23.2), neither of which 2.3.4 requires."
+assumption = "do_2 and do_4 can only pass once 1.23.1 lands, so 2.3.4 gains requires 1.23.1 (and 1.23.2 if execute should call ExecuteActivity) and moves to a later wave; the keeper code and tests at c4f2a677c otherwise stand."
+severity = "blocker"
+
+[finding.10.13.6]
+task = "10.13.6"
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs:1508"
+symbol = "SignatureBytes::new"
+observed = "The fourth attempt at 7c188b108 passed its build and `cg spec done 10.13.6` exited 1 (log /out/logs/verify-1.log) because archive_waits_for_committed_fund_disposition fails at reclaim transition 3 with `Malformed(\"signature\")` from the contract call: at 2c40f554a the journey engine stores the custody signature as 64 bytes (engine.rs:979, :1224, checked `!= 64` at :1968) and submit_call wraps it in SignatureBytes::new at :1508, while layerx-agent-api sizes SignatureBytes at 65 bytes (services/agent/crates/layerx-agent-api/src/write.rs:78), so any reclaim that reaches a submission through the real contract is refused before the archive rung gate runs."
+assumption = "The 64-to-65-byte custody signature widening belongs to the engine owner (10.13.5 carries signed EIP-1559 transaction bytes in journeys/engine.rs, or a new do_* on 10.2.7); 10.13.6 gains that task as a requires edge and its archive test is re-run unchanged once the engine submits 65-byte signatures."
+severity = "blocker"
+
+[finding.11.26.1]
+task = "11.26.1"
+file = "services/interop/crates/layerx-mirror/src/publisher.rs:16"
+symbol = "CommittedBlock"
+observed = "At 977ccc61d the fourth attempt ran `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets`, exit 101 (log /out/logs/build-1.log), error[E0432] unresolved import `crate::committed::CommittedBlock`: do_3 names CommittedBlock but the only required task 11.25.1 (5a3c8bb8e) defines CommittedCoordinate, CommittedHeader and CommittedRefusal, and CommittedBlock is added by 11.25.2 (43d3aba34), which is not in requires."
+assumption = "11.26.1 requires 11.25.2 and proceeds on main, where publisher.rs:602 and :605 must also be moved to VerifiedRead.achieved_rung and the named CheckpointValue fields of 9.1.1 (71550012a) because the file no longer compiles against layerx-agent-api as merged."
+severity = "blocker"
+
+[finding.12.34.1]
+task = "12.34.1"
+file = "apps/wallet/src/components/TransferSuccess.tsx:193"
+symbol = "SequencerRung"
+observed = "At b59b5e362 the merged task 12.22.1 sets LadderRung = SequencerRung ('submitted' | 'receipted' | 'committed', sdk/wallet/src/ladder.ts:4, types.ts:609) while TransferSuccess.tsx:193 still compares step.rung === 'final', so the build `pnpm --dir apps/wallet run typecheck` exits 2 on that file before 12.34.1 touches anything; the fourth attempt at 22e790a0c reproduced only this error."
+assumption = "Task 12.35.1 (its do_1 rewrites TransferSuccess.tsx:193 to complete at committed) repairs the file, so 12.34.1 gains a requires edge on 12.35.1 and the existing candidate requalifies once it lands."
+severity = "blocker"
+
+[finding.12.35.1]
+task = "12.35.1"
+file = "apps/wallet/src/account/StatusLadder.tsx:9"
+symbol = "RUNG_LABELS"
+observed = "At a98dfb7c0 the third attempt ran `pnpm --dir apps/wallet run typecheck`, exit 2 (log /out/logs/build-1.log), with TS2353 at src/account/StatusLadder.tsx(9,61) for 'instant' and (14,5) for 'anchor': the file is unchanged since 2c40f554a while 12.22.1 (892cf36ff) moved sdk/wallet/src/ladder.ts LadderRung to SequencerRung and dropped 'anchor' from LadderSource, so the app typecheck fails at 2c40f554a before TransferSuccess.tsx is touched."
+assumption = "12.35.1 requires 12.34.1, whose do_1 and do_2 relabel StatusLadder.tsx for the three rungs and drop the anchor label, and its unchanged work at a98dfb7c0 is requalified once that task lands."
+severity = "blocker"
+
+[finding.13.22.4]
+task = "13.22.4"
+file = "modules/lxphost/host.go:664"
+symbol = "KernelAuthority.Bound"
+observed = "The third attempt at fbc7ab779 ran the verifier `cg spec done 13.22.4 -f layerx-merge` (exit 1, log /out/logs/verify-1.log): an unsigned protocol-3 Programs activity submitted through Host.Execute with KernelAuthority{Bound: true, VerifiedKey: key} for an EVM-bound caller is refused with LXP_ERR_BAD_SIGNATURE before fee admission, because the host at b59b5e362 only records authority_bound (host.go:248) and the kernel's authority resolution (src/state/lxp_authority.c:761-777) still demands a signed activity or a known grant for the authority key, a host/kernel interface that task 1.23.1 owns and that no file in this task's touches can change."
+assumption = "13.22.4 gains requires 1.23.1 (moving to wave 3) so the shared host passes bound EVM authority through before these tests run, and do_2's planned principal.go is either added to touches or folded into submit.go as the attempts did."
+severity = "blocker"
+
+[finding.1.4.3]
+task = "1.4.3"
+file = "tests/fuzz/lxp_prop_prepare_workers.c:348"
+symbol = "lxp_kernel_prepare_activity_batch"
+observed = "At 3b4e3667a the fourth attempt ran `cg spec done 1.4.3 -f layerx-merge --root /work/paxeer-monorepo`, exit 1 (log /out/logs/verify-1.log): prepare_one_vs_four_workers_equal received LXP_ERR_UNKNOWN_ACTIVITY from lxp_kernel_prepare_activity_batch for every LX_ASSET_SEND execution with maximum_workers 1 and 4, the same line as the second and third attempts, although tests/daemon/lxp_test_asset_execution_prestate.c:615-645 at 2c40f554a prepares LX_ASSET_SEND executions through the same entry point with lx_asset_module_iface registered."
+assumption = "The refusal comes from the execution record the new test builds (epoch and recorded_module_version checked by lxp_module_version_for_epoch and activity_declared at src/protocol/lxp_kernel.c:7080-7085, or the registration lookup at :2274), not from kernel admission, so the test is rebuilt on the construction of tests/daemon/lxp_test_asset_execution_prestate.c:565-645 with no product change."
+severity = "suspect"
+
+[finding.1.4.4]
+task = "1.4.4"
+file = "src/state/lxp_journal.c:992"
+symbol = "LXP_ERR_SEQUENCE_GAP"
+observed = "The fourth attempt at 513dd9d4c ran the verifier `cg spec done 1.4.4 -f layerx-merge` (exit 1, log /out/logs/verify-1.log): lxp_kernel_execute_activity refuses a global_sequence of next_sequence+2 and a reused sequence through lxp_state_journal_open (src/state/lxp_journal.c:992, `if (global_sequence != store->next_sequence) return LXP_ERR_SEQUENCE_GAP;`) with -300 before the LXP_ERR_CONTEXT_MISMATCH bound of kernel_execution_prestate_capture at src/protocol/lxp_kernel.c:3979 is reachable, so do_2 names a result code the tree at 2c40f554a does not return on this path."
+assumption = "do_2 is rewritten to assert LXP_ERR_SEQUENCE_GAP (-300) as bound at src/state/lxp_journal.c:992 for both the gap and the reuse, keeping the state-root comparison of do_3; the test asserting the kernel's actual refusal code is a spec correction, not a weakened check."
+severity = "blocker"
+
+[finding.4.46.1.1]
+task = "4.46.1"
+file = "sdk/launchpad/packages/sdk/src/validate.ts:3"
+symbol = "contractValidators"
+observed = "Five attempts (a257ca5ca, 5b5c155f5, c48870c62, d57e1eb2d, ace9d6db1) failed the verifier `cg spec done 4.46.1` with exit 1 on the same vitest line `Cannot find module './validators-v1.gen.js' imported from sdk/launchpad/packages/sdk/src/validate.ts`: the repository tracks only the declaration sdk/launchpad/packages/sdk/src/validators-v1.gen.d.ts, and `scripts/compile-validators.mjs` (emit) writes the runtime modules validators-v1.gen.js, validators-v2.gen.js and validators-operations.gen.js into dist/ only, so the `src/index.ts` entry that do_4 tells the harness to import (through validate.ts:3, transport.ts:4 and operations.ts:1) is not loadable from source by any tool, built or not."
+assumption = "The harness must load the SDK through the built package (`@kindle/sdk`, dist/index.js, after `pnpm --dir sdk/launchpad/packages/sdk run build`) or vitest.config.ts must alias the three validators-*.gen.js specifiers to sdk/launchpad/packages/sdk/dist/ with the SDK build added to build_cmd; do_4's `imports SdkClient and Operations from sdk/launchpad/packages/sdk/src/index.ts` cannot pass as written."
+severity = "blocker"
+
+[finding.6.47.2]
+task = "6.47.2"
+file = "modules/layerxcustody/keeper/release.go:16"
+symbol = "ReleaseRetired"
+observed = "Task 6.47.2 do_1 orders the test to run ReleaseRetired after SetDone(\"v7.0\"), but ReleaseRetired as landed by task 6.46.1 (its do_1) returns ErrModuleRetired 'already released' when k.Retired(ctx) is true and 'plan not running' unless GetUpgradePlan returns the merge plan at the current height, so a release attempted after SetDone is refused by design (log /out/logs/verify-1.log, genesis_retire_test.go:51)."
+assumption = "do_1 means the plan-height ordering of release_test.go:17-23: schedule the merge plan, move the context to the plan height, call ReleaseRetired, then SetDone(types.MergePlanUpgrade) and ExportGenesis; the remaining assertions of the test are as specified."
+severity = "blocker"
+
+[finding.10.2.3]
+task = "10.2.3"
+file = "services/human/crates/layerx-human-service/tests/projection_rungs.rs:31"
+symbol = "PAXEER_X_HUMAN_PROJECTION_RUNGS_FIXTURE"
+observed = "At 0ef310c1f and cf61d0de5 the verifier `cg spec done 10.2.3 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because projected_journey_names_rung_vocabulary and projection_never_emits_settlement_anchored read the PAXEER_X_HUMAN_PROJECTION_RUNGS_FIXTURE variable to reach an authenticated live TLS server, and at 735e9013e and 78b3e3bd3 the build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service` exited 101 (log /out/logs/build-1.log) on the services/human/Cargo.lock that 8905cf9fe later refreshed."
+assumption = "The planned test projects journeys through an in-process HumanComponentServer (the tests/bearer_admission.rs pattern) with no environment variable or external endpoint, and the task restarts fresh on b59b5e362 where the lockfile is current."
+severity = "blocker"
+
+[finding.10.3.2]
+task = "10.3.2"
+file = "services/human/crates/layerx-human-service/src/server/stream_journal.rs:217"
+symbol = "StreamJournal::settlement_domain"
+observed = "The first attempt wrote nothing and ran no gate; separately, do_1 and do_2 describe :56, :59 and :62 as settlement-domain fields of a journal record and :217 as a write of a journal record version, while the tree at 2c2adb442 and at b59b5e362 has `pub struct StreamJournal { key: [u8; 32], settlement_domain: SettlementDomain }` at :54-57, a `Serialize`/`Deserialize` `Event` record at :45-52 with no settlement_domain field and no version field, and :217 passing `self.settlement_domain` to `production_reads::journey_json`."
+assumption = "The task is meant to remove the settlement_domain field from StreamJournal and its `new` constructor (:59-64) and the journey_json argument at :217, and `legacy_stream_journal_record_is_read_once` has to be specified against the existing Event record, since no record version exists to bump."
+severity = "suspect"
+
+[finding.11.7.1]
+task = "11.7.1"
+file = "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs:52"
+symbol = "ap2_execute_settles_receipted_evidence"
+observed = "The settling test replays the recorded V1-layerxledger-pay-exact case of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, whose PaymentExact topic[3] is a fixed reference, while `settle_with_sequencer_evidence` (services/interop/crates/layerx-interop-gateway/src/gateway.rs:592, `pays_idempotency_key` at :325) requires exactly one PaymentExact log whose topic[3] equals the translation's idempotency key, which AP2 derives from the principal and the mandate's stable payment reference (services/interop/crates/layerx-ap2/src/adapter.rs:425), so the recorded receipt can never match and both qualifying attempts answered EvidenceMismatch (log /out/logs/verify-1.log)."
+assumption = "The production contract is coherent because the AP2 plane compiles its LxpSend with the payment's idempotency key as the reference; the settling test must sign its own receipt over a PaymentExact log carrying the AP2 key with a test SequencerAuthorization, as services/interop/crates/layerx-interop-gateway/tests/gateway.rs:70 does with SigningKey::from_bytes, instead of replaying the recorded fixture."
+severity = "suspect"
+
+[finding.16.93.2]
+task = "16.93.2"
+file = "tools/containers/check.sh:98"
+symbol = "OUT_OF_SCOPE"
+observed = "wiring.J57.2 says 'task 15.23.2 deletes that file' but no task 15.23.2 exists; consensus/test/docker/Dockerfile is deleted by task 5.63.2 (pending, wave 2), which itself requires 16.93.2, so at every revision where 16.93.2 can land the file is still tracked (it is at 2c40f554a and b59b5e362) and a full `bash tools/containers/check.sh` run necessarily fails on it once the exclusion row is removed."
+assumption = "The planned test asserts the OUT_OF_SCOPE list only (do_1 and do_2) and does not run check.sh end to end; the full container check is a release-level matrix that also needs `docker build --check` (buildx), which the gate environment lacks, and already fails on 26 rows unrelated to this task."
+severity = "blocker"
+
+[finding.16.94.1]
+task = "16.94.1"
+file = "tests/ci/test_claims_and_replay_removed.py:48"
+symbol = "test_replay_expects_sequence_refusal"
+observed = "At 20826a919 the verifier `cg spec done 16.94.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because test_replay_expects_sequence_refusal asserts that no C source under tests/ names LXP_ERR_IDEMPOTENT_REPLAY while 18 untouched suites (tests/ledger/test_send.c, tests/protocol/lxp_test_kernel.c and others) still expect it and src/ledger/lxp_apply.c:323 still returns it on main."
+assumption = "The replay check is scoped to the two files do_3 and do_4 name, tests/state/lxp_test_idempotency.c (no LXP_ERR_IDEMPOTENT_REPLAY expectation left) and tests/test_state_commitment_transition.c:616 (asserts LXP_ERR_SEQUENCE_REUSED); the other suites move when task 1.2.1 retires the result code."
+severity = "suspect"
+
+[finding.8.1.4]
+task = "8.1.4"
+file = "services/platform/hosted/gateway/tests/paxeer_failover.rs:486"
+symbol = "pax_sequencer_receipt_relays_the_node_answer"
+observed = "The second attempt at f7acbd93e added SEQUENCER_METHODS, the relayable_method extension and the paxeer::dispatch arm, and its unit test evm::tests::sequencer_receipt_is_the_only_relayed_pax_name passed, while pax_sequencer_receipt_relays_the_node_answer failed both verify runs at :481 and :486 with the chain fixture counting 0 requests and the relay answering paxeer_wrong_network_or_unavailable, although the identity probe in paxeer.rs:93-121 requires eth_chainId 125 and the attempt had already moved the fixture's CHAIN_ID from 0x7d0 to 0x7d; the third and fourth attempts never reached the test because `cargo build --locked` exited 101 on the stale services/platform/Cargo.lock that 8905cf9fe later refreshed, and the first and fourth attempts also lacked the redis-server binary the fixture spawns at :134."
+assumption = "The remaining work is inside the task's files: make the relayed call reach the chain fixture (the fixture's eth_chainId answer and the probe path in paxeer::node) without breaking a_failing_first_rpc_name_fails_over_and_the_chain_is_down_only_when_both_fail, which asserts against the same CHAIN_ID; the lockfile cause is gone on b59b5e362 and redis-server must be present on PATH for any run."
+severity = "blocker"
+
+[finding.9.24.1]
+task = "9.24.1"
+file = "services/agent/crates/layerx-client/tests/arbiter_admission.rs:1"
+symbol = "native_budget_versions_fields_and_extremes"
+observed = "The third attempt's commit efe63db86 deletes exactly the seven test files of do_1 and the gate test passed, yet the verifier `cg spec done 9.24.1` reported each deleted touched path as 'no matching change in the worktree or in commits tagged [spec:layerx-merge/9.24.1]', treating a deletion as no change to a touched path (log /out/logs/verify-1.log)."
+assumption = "A deleted touched path is a change; the recorded gate result at efe63db86 (verify exit 0) qualifies the task once the verifier recognises deletions or the feature owner accepts the recorded result, and committed_caps.rs is not edited to satisfy the check."
+severity = "blocker"
+
+[finding.16.27.1]
+task = "16.27.1"
+file = "tools/loadtest/.github/workflows/build-and-test.yml:1"
+symbol = "build-and-test.yml"
+observed = "The second attempt at 6dec9f7e7 passed its verify_cmd (pytest, 1 passed) and `cg spec done 16.27.1` exited 1 (log /out/logs/verify-1.log) refusing `touched tools/loadtest/.github/workflows/build-and-test.yml` and `touched tools/loadtest/.github/workflows/containerize.yaml` as `no matching change`, as the first attempt had at 89d63043c, although do_1 and do_2 delete both files and the tagged commit records both deletions: the verifier credits a deleted path only from a snapshot taken while the file existed or from a tagged commit already on the branch, and neither exists when the check runs (finding.14.0.1, finding.16.22.2, finding.4.41.4, finding.4.48.5.1)."
+assumption = "The result is complete and verified; it is re-qualified unchanged once the verifier counts tracked files deleted from the worktree or the tagged commit precedes `cg spec done`, and both deleted paths stay in touches because the task owns their removal."
+severity = "blocker"
+
+[finding.14.5.5]
+task = "14.5.5"
+file = "apps/web/src/app/explorer/programs/[programId]/page.tsx:33"
+symbol = "verificationLabel"
+observed = "At 05b3422ff the third attempt passed its verify_cmd (`node --test --test-name-pattern '^(explorer_label_uses_kit_rung_words|explorer_label_for_retired_level_is_unverified)$' apps/web/e2e/explorer-labels.test.ts`, pass 2) and `cg spec done 14.5.5 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) refusing `touched apps/web/src/app/explorer/programs/[programId]/page.tsx — no matching change` while crediting the modified components.tsx beside it, as the first and second attempts had at b7efbbad9 and 15bc6c8b4, although the result changes that page's line 33; the verifier matches touched paths as a glob, in which the Next.js route segment `[programId]` is a character class that never matches the literal directory name."
+assumption = "The result is complete and verified; the verifier compares touched paths literally (or escapes `[` before its glob match) and the same result is re-qualified unchanged, which also unblocks 14.5.1 and 14.7.1 whose touches carry [receiptId] and [journeyId] segments."
+severity = "blocker"
+
+[finding.11.4.1.1]
+task = "11.4.1"
+file = "services/interop/crates/layerx-x402/tests/transports.rs:565"
+symbol = "FacilitatorPlane"
+observed = "Both attempts (c84b1df97, c6fb8a731) failed the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests` (exit 101, log /out/logs/build-1.log) because the test double FaultInjectingPlane in tests/transports.rs implements FacilitatorPlane without the new receipt_keys method and returns ExecutedPayment where FacilitatorSettlementOutcome::Executed now carries SequencerEvidence, and no task declares that file."
+assumption = "Task 11.4.1 owns tests/transports.rs as well and moves FaultInjectingPlane to receipt_keys and SequencerEvidence, keeping its assertions; the facilitator.rs and facilitator_evidence.rs changes of the second attempt are kept."
+severity = "blocker"
+
+[finding.8.28.3.1]
+task = "8.28.3"
+file = "services/platform/ramps/toolkit/src/clients.rs:952"
+symbol = "LayerxClient"
+observed = "At dc094f8c3 the fourth attempt's build `cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit` exited 101 (log /out/logs/build-1.log) because 8.28.3 do_3/do_4 remove the relay endpoint, authority and kernel activity fields and MaintainedBatchDocument while prepare_payment, submit_prepared, resolve_with_evidence, sign and GatewayReceiptEnvelope::verified in the same file still use them, and those methods are rewritten only by 8.28.4, which itself requires 8.28.3."
+assumption = "The split between 8.28.3 (configuration and client fields) and 8.28.4 (methods that read them) cannot compile at the 8.28.3 boundary, so the two are qualified as one change: 8.28.3 absorbs 8.28.4 do_1-do_5 and its tests, and 8.28.4 is retired or reduced to its verify gate."
+severity = "blocker"
+
+[finding.4.23.3]
+task = "4.23.3"
+file = "services/launchpad/user/internal/account/account_test.go:59"
+symbol = "fixture"
+observed = "At 0601d812d the first attempt's verify `cd services/launchpad/user && go test -count=1 ./internal/account/ -run '^(TestPostgresHTTPV2Watchlist|TestPostgresHTTPV2ProfilePatch)$'` exited 1 (log /out/logs/verify-1.log) because fixture() at account_test.go:59 reads launchpad/spec/production-system/handoffs/L35/schema.sql, a path tracked by no revision of main (2c40f554a and b59b5e362 carry only launchpad/spec/production-system/integration/), so every TestPostgres* test of the package, including the pre-existing TestPostgresHTTPFrozenWatchlist at http_test.go:120, fails before reaching PostgreSQL."
+assumption = "The four v2 routes and both tests are complete; the result is re-qualified unchanged once main tracks the L35 schema at that path (or a task owning account_test.go points fixture() at a tracked copy) and L35_TEST_POSTGRES names a reachable database, which the same gate needs for 4.23.4."
+severity = "blocker"
+
+[finding.4.23.4]
+task = "4.23.4"
+file = "services/launchpad/user/internal/account/account_test.go:30"
+symbol = "L35_TEST_POSTGRES"
+observed = "The first attempt at b162c578b passed its build and `cg spec done 4.23.4` exited 1 (log /out/logs/verify-1.log) because the two PostgreSQL tests stop at the fixture guard `L35_TEST_POSTGRES required: tests must exercise real PostgreSQL` (account_test.go:30-32): the user service's test fixture reads the PostgreSQL DSN from L35_TEST_POSTGRES, a name outside the *_TEST_DATABASE_URL, *_TEST_DSN and L33_POSTGRES_DSN family the qualification environment provides."
+assumption = "The environment exports L35_TEST_POSTGRES with the same PostgreSQL DSN as the other database variables and the b162c578b result is re-qualified unchanged; 4.23.3 needs the same variable."
+severity = "blocker"
+
+[finding.4.27.4]
+task = "4.27.4"
+file = "services/launchpad/notifications/v2_wire.go:38"
+symbol = "AdaptV2Notifications"
+observed = "AdaptV2Notifications validates the frozen NotificationsResponse whose Notification.notificationId pattern requires a version-7 UUID (`-7[0-9a-fA-F]{3}-[89abAB]`) and whose wallet pattern requires `^0x[0-9a-fA-F]{40}$` (sdk/launchpad/packages/production-contracts-v2/src/schemas.gen.json, $defs/Notification), while task 4.27.2 do_2 defines v2_id as `md5(id)::uuid` (arbitrary version nibble) and the notifications handler authenticates a 64-hex account id with no wallet, so every non-empty page fails validation and errorStatus (errors.go:36) maps the error to 503 DEPENDENCY_UNAVAILABLE."
+assumption = "The list route cannot pass as scoped: either 4.27.2's v2_id must be UUIDv7-shaped and the handler must obtain a 0x wallet for the account, or the frozen producer contract must be revisited; the routes, query validation and runtime mounts of 81c62f2f7 are reusable once that ruling lands."
+severity = "blocker"
+
+[finding.5.12.2]
+task = "5.12.2"
+file = "storage/state_db/sc/flatkv/config/config.go:154"
+symbol = "ParseFlatKVConfig"
+observed = "ParseFlatKVConfig of task 5.43.1 ends with `return cfg, cfg.Validate()` (its do_3), and flatkv Config.Validate refuses an empty DataDir with 'data dir is required' (and pebbledb DefaultConfig data dirs likewise) while none of the four [state-commit.flatkv] keys sets one, so with every key absent the parser always errors and 5.12.2 do_2's panic stops every node package test at init (tests/testutil/keeper/evm.go:25), contradicting 5.12.2 do_3 'an absent key keeps its default'."
+assumption = "Either 5.43.1 do_3 validates only the parsed fields (no DataDir requirement at parse time) or 5.12.2 do_1 fills FlatKVConfig.DataDir from the state-commit directory before validation; until one spec is amended the first attempt's code at d241299d6 is correct to the letter of 5.12.2 and cannot pass."
+severity = "blocker"
+
+[finding.8.44.1]
+task = "8.44.1"
+file = "sdk/platform/swift/Package.swift:1"
+symbol = "swift-build"
+observed = "At 030076fd7 the fifth attempt's build `swift build --package-path sdk/platform/swift` exited 127 (log /out/logs/build-1.log) because /opt/swift/usr/bin/swift-build cannot load libxml2.so.2, exactly as the second and third attempts had at db3db25b1 and 7e6e74fc2, so no Swift package in the tree can build or test and the verify_cmd never ran."
+assumption = "The Swift toolchain image needs the libxml2 shared library (package libxml2) beside /opt/swift; the three-file result is complete and is re-qualified unchanged once `swift build` starts."
+severity = "blocker"
+
+[finding.10.92.1]
+task = "10.92.1"
+file = "services/human/crates/layerx-human-service/src/server/production_reads.rs:389"
+symbol = "PortableReceiptV2"
+observed = "Two attempts ended with no change inside the two touched files and no implementation record; the tree at b59b5e362 still answers layerx-receipt evidence from a kernel canonical_receipt plus authorised_batch (src/activity/export.rs:265-266), stores no raw transaction, signed sequencer receipt or receipt key for a journey, and the only Rust PortableReceiptV2 lives in services/interop/crates/layerx-portable/src/receipt.rs:348, a crate layerx-human-service/Cargo.toml does not depend on."
+assumption = "do_1 cannot be met inside production_reads.rs alone: the PortableReceiptV2 bytes need a stored sequencer receipt and a dependency on layerx-portable (or a local encoder), both outside touches, so the task needs a wiring source for the receipt data and a widened Cargo.toml before a third attempt."
+severity = "blocker"
+
+[finding.14.42.1]
+task = "14.42.1"
+file = "apps/bridge/tsconfig.json:3"
+symbol = "parseAmount"
+observed = "At 3002c6c41 the second attempt's build `pnpm --dir apps/bridge exec tsc --noEmit -p tsconfig.json` exited 2 (log /out/logs/build-2.log) with 39 errors in instrumentation.node.ts, src/app/layout.tsx, bridge-card.tsx, chains.ts, digests.ts, errors.ts, use-bridge-state.ts, vitest.config.ts and the pre-existing capPercent literals of amount.ts, the whole-app typecheck already recorded red on an unchanged main in finding.14.41.1, while the parseAmount change and amount.spec.ts report no error."
+assumption = "As finding.14.41.1 rules, the build_cmd of all 31 open apps/bridge tasks (14.42.1 through 14.59.1) is now `pnpm --dir apps/bridge exec vitest list <the task's own spec file>`, the whole-app typecheck stays a wave-level gate of apps/bridge, and the parked results are re-qualified unchanged once 14.41.2 is on main."
+severity = "note"
+
+[finding.16.31.5]
+task = "16.31.5"
+file = "tests/ci/retired_tests.py:20"
+symbol = "assert_symbols_unreferenced"
+observed = "At cfa469ac1 the first attempt's verifier `cg spec done 16.31.5` exited 1 (log /out/logs/verify-1.log) because tests/ci/test_retired_replica.py:12 calls assert_symbols_unreferenced(..., ['tests'], exclude=[...]) exactly as do_5 dictates, while the helper delivered by 16.37.1 at d567c60e6 is declared `assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT)` with no exclude parameter, and 20 other open retirement tasks spell the same exclude= call in their do_*."
+assumption = "Task 16.37.2 adds `exclude=()` (paths under root skipped before the suffix filter) to assert_symbols_unreferenced in tests/ci/retired_tests.py with a test in tests/ci/test_retired_tests.py, every open retirement task that passes exclude= requires it, and the cfa469ac1 result is re-qualified unchanged once 16.37.2 is on main."
+severity = "blocker"
+
+[finding.16.32.7]
+task = "16.32.7"
+file = "tests/ci/retired_tests.py:20"
+symbol = "assert_symbols_unreferenced"
+observed = "At 31602a789 the verifier `cg spec done 16.32.7 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) with `TypeError: assert_symbols_unreferenced() got an unexpected keyword argument 'exclude'` because do_4 calls assert_symbols_unreferenced(symbols, ['tests'], exclude=[...]) while task 16.37.1 do_1 defines, and tests/ci/retired_tests.py:20 delivers, assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT) with no exclude parameter; twenty other retirement tasks' do_* pass the same keyword."
+assumption = "Task 16.37.2, owning tests/ci/retired_tests.py and tests/ci/test_retired_tests.py, adds an exclude=() keyword (root-relative paths skipped before matching) with a test, every retirement task that passes exclude requires it, and 31602a789 is re-qualified unchanged on that base with symbols reduced to test_da_retrieval_retired."
+severity = "blocker"
+
+[finding.16.32.8]
+task = "16.32.8"
+file = "tests/ci/retired_tests.py:20"
+symbol = "assert_symbols_unreferenced"
+observed = "At b0629b208 `cg spec done 16.32.8 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because the verify_cmd `python3 -m pytest tests/ci/test_retired_da_bundle.py::test_da_bundle_retired -q` raised `TypeError: assert_symbols_unreferenced() got an unexpected keyword argument 'exclude'` at tests/ci/test_retired_da_bundle.py:9: 16.37.1 do_1 defines the helper as assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT) and tests/ci/retired_tests.py:20 implements exactly that, while 16.32.8 do_4 and twenty sibling retirement tasks call it with exclude=[...], and the exclusion is load-bearing because lxp_da_chunk is still referenced at tests/daemon/guarantor-core.c:116 and tests/daemon/lxp_test_module_maintenance.c:537 and :582 inside the excluded tests/daemon."
+assumption = "The helper gains an exclude=() keyword (root-relative directories pruned before the suffix filter) through the single owning task 16.37.2 that the twenty-one retirement tasks require, and the first attempt's result at b0629b208 is re-qualified unchanged once it lands."
+severity = "blocker"
+
+[finding.16.33.3]
+task = "16.33.3"
+file = "tests/ci/retired_tests.py:20"
+symbol = "assert_symbols_unreferenced"
+observed = "At 04a0829f3 the verifier `cg spec done 16.33.3 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because `python3 -m pytest tests/ci/test_retired_oracle.py::test_oracle_retired -q` raised TypeError: assert_symbols_unreferenced() got an unexpected keyword argument 'exclude' at tests/ci/test_retired_oracle.py:12, the call do_5 prescribes, while the helper landed by 16.37.1 at d567c60e6 is defined as assert_symbols_unreferenced(symbols, roots, root=REPO_ROOT) and 24 other retirement tasks prescribe the same keyword."
+assumption = "The helper gains a backwards-compatible exclude=() keyword that skips files under the named paths, added once by task 16.37.2, which every exclude= caller requires (16.33.3 is not widened onto tests/ci/retired_tests.py), and the test as written is re-qualified unchanged."
+severity = "blocker"
+
+[finding.1.14.2]
+task = "1.14.2"
+file = "programs/crates/layerx-programs-arbiter/Cargo.toml:13"
+symbol = "programs-build"
+observed = "Four attempts (c81afaab3, ff166dd97, e56ed85cf, ffbde9817) passed the build `make -C . build/liblayerx.a` (exit 0) and failed the verifier `cg spec done 1.14.2 -f layerx-merge --root /work/paxeer-monorepo` (exit 1, log /out/logs/verify-1.log) before either test ran, because the test target's order-only prerequisite programs-build (Makefile:3204) runs `cargo build --locked --workspace` offline against programs/vendor, which holds no tungstenite 0.29.0 although services/agent/crates/layerx-client/Cargo.toml:19 (added at a120e267b by 9.21.3) requires it and layerx-programs-arbiter depends on layerx-client; kernel test targets last passed through programs-build at 261f9858d, before a120e267b, and the same target fails on an unchanged main at b59b5e362."
+assumption = "The lifecycle implementation stands unchanged; programs/vendor was refreshed at e713b182a for the current programs/Cargo.lock with tungstenite 0.29.0 and its dependency closure, so ffbde9817 is re-qualified unchanged."
+severity = "blocker"
+
+[finding.1.17.3]
+task = "1.17.3"
+file = "programs/Cargo.lock:1737"
+symbol = "tungstenite"
+observed = "At d67db98e0 (the fourth attempt, after 722b3fbb9, 38c51d238 and 34251cd3d) `cg spec done 1.17.3 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because the verify_cmd's prerequisite programs-build (Makefile:1429, Makefile:3203) ran `cargo build --locked --workspace --features layerx-programs-sandbox/host-ffi` in programs/ and stopped with `no matching package named tungstenite found` in programs/vendor: a120e267b (task 9.21.3) added tungstenite =0.29.0 to services/agent/crates/layerx-client/Cargo.toml:19, a path dependency of layerx-programs-arbiter, and 8905cf9fe recorded it at programs/Cargo.lock:1737, but programs/vendor was last refreshed at 9020a16a9 (2026-10-12) and programs/.cargo/config.toml replaces crates-io with that directory offline, so every $(BUILD_DIR)/tests/kernel/% target fails on an unchanged main before any C test compiles."
+assumption = "programs/vendor was refreshed at e713b182a for the current programs/Cargo.lock (a maintenance change owned by no task), the fourth attempt's result at d67db98e0 is re-qualified unchanged, and the deleted name lxp_genesis_handover_trust_build leaves the symbol list."
+severity = "blocker"
+
+[finding.16.23.1]
+task = "16.23.1"
+file = "services/agent/crates/layerx-client/Cargo.toml:19"
+symbol = "tungstenite"
+observed = "At 55fd6365c the build `make -C . build/tests/test_genesis_module_table` exited 2 (log /out/logs/build-1.log) because its prerequisite programs-build (Makefile:1324, Makefile:3203) runs cargo offline against programs/vendor, which lacks tungstenite 0.29.0, the dependency services/agent/crates/layerx-client/Cargo.toml:19 gained at a120e267b and layerx-programs-arbiter pulls in through layerx-client; the same command fails on an unchanged b59b5e362 before tests/test_genesis_module_table.c is compiled."
+assumption = "programs/vendor was refreshed at e713b182a (tungstenite 0.29.0 and its tree are vendored) before any Makefile test target that depends on programs-build is qualified; 16.23.1 is re-qualified from 55fd6365c once 16.2.3 (in requires) is also on main."
+severity = "blocker"
+
+[finding.16.33.2]
+task = "16.33.2"
+file = "Makefile:3795"
+symbol = "lxp_test_state_diff"
+observed = "At 61411cfb1 the build `make -C . build/tests/lxp_test_state_diff build/tests/test_bridge_withdraw build/tests/lxp_test_program_artifacts` exited 2 (log /out/logs/build-1.log) with `No rule to make target 'tests/state/lxp_test_state_diff.c'` because do_1 deletes that source while build_cmd still names the binary that Makefile:3795 builds from it."
+assumption = "build_cmd drops build/tests/lxp_test_state_diff and becomes `make -C . build/tests/test_bridge_withdraw build/tests/lxp_test_program_artifacts`, the test-state-diff rule leaves with 16.2.4 as do_1 states, and candidate 61411cfb1 is re-qualified unchanged."
+severity = "blocker"
+
+[finding.2.34.2]
+task = "2.34.2"
+file = "precompiles/setup.go:196"
+symbol = "GetCustomPrecompiles"
+observed = "At efbc88e45 the build `go build ./precompiles/layerxagent/scheduler/` exited 0 and the verifier `cg spec done 2.34.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-2.log) with `panic: merge precompile scheduler at 0x0000000000000000000000000000000000000905: LXP_PRECOMPILE_NO_CONTEXT: layerxagent keeper is unavailable` raised by precompiles.GetCustomPrecompiles while tests/testutil/keeper/evm.go:25 built the test application, because the init-time registration do_3 orders refuses keepers without LayerXAgentK() and node/precompiles.go gains that accessor only in task 5.94.2, which 2.34.2 did not require."
+assumption = "2.34.2 requires 5.94.2, as 13.22.1 does for the 0x101D constructor, so the registered constructor finds LayerXAgentK() on every application's keepers; efbc88e45 is re-qualified unchanged on that base."
+severity = "blocker"
+
+[finding.10.2.7]
+task = "10.2.7"
+file = "services/human/Cargo.toml:34"
+symbol = "layerx-mirror"
+observed = "At e257c1136 the build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service` exited 101 (log /out/logs/build-1.log) on the nine layerx-mirror errors already recorded for 9.5.1 (node.rs:427-441, publisher.rs:602-605), reached through the layerx-mirror dependency at services/human/Cargo.toml:34, so the ReceiptMaterial change was never compiled; at b59b5e362 journeys/deposit.rs:1000 and journeys/withdraw.rs:970 and :987 still read material.authorised_batch, the field do_2 removes, and neither file is in touches."
+assumption = "Task 10.2.7 gains requires 9.1.6 and touches journeys/deposit.rs and journeys/withdraw.rs (10.8.1 and 10.8.2 own those files in a later wave and land after it); once 9.1.6 is on main the e257c1136 candidate is continued, not re-qualified unchanged, because its own crate has not yet been compiled."
+severity = "blocker"
+
+[finding.10.12.1.1]
+task = "10.12.1"
+file = "services/interop/crates/layerx-mirror/src/node.rs:429"
+symbol = "Freshness"
+observed = "At 3f94938cb the third attempt's build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service` exited 101 (log /out/logs/build-1.log) because layerx-mirror node.rs:428-441 and publisher.rs:602-605 still build the pre-9.1.1 Freshness and VerifiedRead shapes that finding.9.1.1 records, while the task's three files compiled past that point untouched."
+assumption = "The result is held unchanged behind the layerx-mirror, layerx-sdk and layerx-agentd ports 9.1.6, 9.1.7 and 9.1.8 (requires gains 9.1.8) and is re-qualified on the revision that carries them; its touches need no widening."
+severity = "blocker"
+
+[finding.12.34.6]
+task = "12.34.6"
+file = "apps/wallet/src/account/StatusLadder.tsx:9"
+symbol = "SequencerRung"
+observed = "At 2a98c2c00 the build `pnpm --dir apps/wallet run typecheck` exited 2 (log /out/logs/build-1.log) with 17 errors in StatusLadder.tsx, TransferSuccess.tsx, WebDataView.tsx, WebDataView.test.tsx and useSurface.ts and none in the task's four files, because sdk/wallet/src/types.ts:609 declares SequencerRung as submitted | receipted | committed and sdk/wallet/src/ladder.ts:5 declares LadderSource without anchor while those app files still use instant, sealed, final, anchor and the checkpoint_finalised observation shape on an unchanged main."
+assumption = "12.34.6 requires 12.33.1, 12.34.1 and 12.35.1, whose do_* items are exactly those repairs, and the candidate 2a98c2c00 (history view, page, test endpoint and test complete, verify never run) is re-qualified unchanged once they are on main."
+severity = "blocker"
+
+[finding.13.1.3]
+task = "13.1.3"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs:3"
+symbol = "ics23"
+observed = "At 09725d9d4 the second attempt's build `cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests` exited 101 (log /out/logs/build-1.log) with unresolved imports of verify_existence, ExistenceProof, InnerOp, LeafOp and ProofSpec because do_1 takes them from ics23.rs of task 13.1.2 while requires names only 13.0.1, whose scaffold leaves `pub mod ics23 {}` empty."
+assumption = "13.1.3 gains requires 13.1.2 and tests/chain_ics23_absent.rs includes ../src/chain_proof/ics23.rs through a #[path] module beside ics23_absent.rs, as chain_ics23.rs does, until 13.1.9 re-points chain_proof.rs at the module files."
+severity = "blocker"
+
+[finding.13.29.2]
+task = "13.29.2"
+file = "services/agent/crates/layerx-client/src/ai_market.rs:299"
+symbol = "FinalityEvidence"
+observed = "At 0d8b4e83d the first attempt's build exited 0 and the dependents check `cargo check --locked --manifest-path programs/Cargo.toml --all-targets -p layerx-client -p layerx-programs-arbiter` exited 101 (log /out/logs/dependents-1.log) because ObservedSnapshot::finalize at services/agent/crates/layerx-client/src/ai_market.rs:299-304 still builds FinalityEvidence with checkpoint and settlement, the fields task 13.29.1 (faad391ea, present in the attempt's base 7a08af29a) replaced with block_height, block_hash, app_hash and store_proof_digest; the 13.29.2 commit itself changes only SnapshotBinding, encode, BINDING_MAX_BYTES and require_finalized in queries.rs (11 lines) and the view_binding tests, and layerx-programs-arbiter reported no error."
+assumption = "The break is 13.29.1's field change, already present at the base, and is repaired by 9.23.7 (CommitFinality in ai_market.rs) and 8.96.2 (the literals at services/platform/hosted/indexer/src/ai_market.rs:812, :1420, :2012 and the webhooks publisher), which both gain requires 13.29.1; 13.29.2 is re-qualified with its verify_cmd on the merged tree and this dependents failure is recorded once as pre-existing."
+severity = "blocker"
+
+[finding.12.4.4]
+task = "12.4.4"
+file = "services/wallet/attestor/internal/server/errors.go:87"
+symbol = "ErrorCodes"
+observed = "At 72240cc0a the build `go -C services/wallet/attestor build ./internal/server/ ./cmd/attestor/` exited 1 (log /out/logs/build-1.log) at cmd/attestor/main.go:138 because do_1 changes the NewMetrics signature while do_2 names run at main.go:135 as the caller to update but touches omits main.go; do_2 also plans a new `ErrorCodes() []string` although errors.go:87 at b59b5e362 already exports `ErrorCodes() map[string]string`, consumed by server_test.go:196."
+assumption = "Task 12.4.4 adds cmd/attestor/main.go and internal/server/metrics_test.go to touches, keeps the existing ErrorCodes map and passes its keys to NewMetrics, and is continued from 72240cc0a once 12.4.2 (in requires) is on main."
+severity = "blocker"
+
+[finding.13.7.1]
+task = "13.7.1"
+file = "programs/crates/layerx-programs-runtime/src/abi/host_state.rs:39"
+symbol = "AbiError::EffectLimit"
+observed = "At be0ce2cb6 the build `cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests` exited 101 (log /out/logs/build-1.log) with error[E0004] because the exhaustive matches over AbiError at abi/host_state.rs:39 and host/mod.rs:1260 lack the EffectLimit variant that do_4 introduces at abi/mod.rs:703, and neither file is in the task's touches."
+assumption = "13.7.1 widens to the two files for one EffectLimit match arm each; program_event_logs stays additive and the envelope bytes do not change."
+severity = "blocker"
+
+[finding.11.5.1]
+task = "11.5.1"
+file = "services/interop/crates/layerx-x402/tests/buyer.rs:422"
+symbol = "Buyer::capture_settlement"
+observed = "At 4cd244973 the fourth attempt's build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests` exited 101 (log /out/logs/build-1.log) with E0308 expected `&[SequencerAuthorization]`, found `&AuthorizedBatch` at tests/buyer.rs:422, :457, :502, :547 and :778, and the first attempt e603ecf8b showed the same at tests/layerx_evidence.rs:33, because do_1 changes the capture_settlement parameter while the two existing test targets that call it lie outside the task's touches; the second and third attempts (a74a64a82, 0c886123a) stopped earlier on the stale services/interop/Cargo.lock that main refreshed at 8905cf9fe."
+assumption = "The task's touches gain tests/buyer.rs and tests/layerx_evidence.rs so the six call sites pass the pinned receipt keys and every test target of the crate compiles; 11.5.3 (a later wave) still replaces the AuthorizedBatch fixtures of tests/buyer.rs."
+severity = "blocker"
+
+[finding.11.17.1]
+task = "11.17.1"
+file = "services/interop/crates/layerx-visa-tap/tests/conformance.rs:120"
+symbol = "MerchantOperationResult::from_receipt"
+observed = "At 2fe15bea0 the build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-visa-tap --tests` exited 101 (log /out/logs/build-1.log) because the crate's own test targets conformance.rs (:120, :469, :551, :608) and middleware.rs (:228) still call the seven-argument from_receipt and the two-field MerchantOperationResult that do_1 and do_3 replace, and neither file is in the task's touches; the two earlier attempts (99f6d4c5c, c05fc9bc2) stopped on `Cargo.lock needs to be updated` before the lockfile refresh 8905cf9fe."
+assumption = "11.17.1 widens to the two test files for the call-site adaptation only (new signature and the four payment fields), while 11.17.3 keeps the middleware.rs fixture rewrite and rebases over it."
+severity = "blocker"
+
+[finding.16.26.3]
+task = "16.26.3"
+file = "tools/benchmark/loadtest/message_types_test.go:13"
+symbol = "TestValidateMessageTypesRejectsUnknownType"
+observed = "At 904e1ee85 the first attempt's verifier `cg spec done 16.26.3` exited 1 (log /out/logs/verify-1.log) because the go test build of tools/benchmark/loadtest reports `message_types_test.go:13:3: undefined: WasmOccIteratorWrite` for the three constants the task deletes from types.go:38-40, which the test added by task 16.26.2 still lists as valid."
+assumption = "message_types_test.go joins 16.26.3's touches and the three retired names leave the `valid` list at line 13, leaving the unknown-type assertions intact; 16.26.2 lands first as requires already states."
+severity = "blocker"
+
+[finding.9.32.4]
+task = "9.32.4"
+file = "services/agent/crates/layerx-sdk/tests/receipt_fixture.rs:132"
+symbol = "verify_receipt"
+observed = "At fa9ca8a6e the third attempt's build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests` exited 101 (log /out/logs/build-1.log) in layerx-mirror before reaching layerx-sdk, whose tests/receipt_fixture.rs:132, :207, :217 and :265 still call the two-argument verify_receipt that do_2 replaces with the pinned-key signature."
+assumption = "receipt_fixture.rs joins the task's touches and its four calls move to the five-argument verify_receipt with ReceiptKeys built from the fixture; the task proceeds once 9.1.7 is on main."
+severity = "blocker"
+
+[finding.16.8.5]
+task = "16.8.5"
+file = "RELEASE.md:12"
+symbol = "sid_docs_name_v6120"
+observed = "At b95d61560 the third attempt's verifier `cg spec done 16.8.5` exited 1 (log /out/logs/verify-1.log) because tools/paxeer-x/gov/test.sh:21 requires RELEASE.md to contain 'v6.12.0 migration' and 'SID holder migration and SID mint-authority move', which the rewrite of RELEASE.md at 725d80ed0 dropped, so the governance suite fails on an unchanged main."
+assumption = "RELEASE.md regains one paragraph naming the v6.12.0 migration, the SID holder migration and SID mint-authority move hooks and node/upgrades_v6120.go, through RELEASE.md joining the task's touches, with tools/paxeer-x/gov/test.sh:21-25 left as written; the candidate b95d61560 is continued afterwards."
+severity = "blocker"
+
+[finding.9.22.4]
+task = "9.22.4"
+file = "services/agent/crates/layerx-client/src/rpc/payments.rs:10"
+symbol = "PxEndpoint"
+observed = "At fb3230a14 the build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests` exited 101 (log /out/logs/build-1.log) with error[E0277] at rpc/payments.rs:10 because do_2 of 9.22.4 takes `endpoint: &SequencerEndpoint` and reads PxEndpoint::list_assets while do_2 of 9.21.4 defines `pub struct PxEndpoint(SequencerEndpoint)` with only a by-value From and no borrowing path, and SequencerEndpoint (sequencer.rs:231) is not Clone; on main b59b5e362 px.rs is still the one-line placeholder because 9.21.4 is pending."
+assumption = "do_2 of 9.22.4 is rewritten so rpc::payments::list_assets and get_asset take `endpoint: &PxEndpoint` (estimate_fee keeps `&SequencerEndpoint` for estimate_gas at sequencer.rs:344), leaving 9.21.4's owning PxEndpoint as built; the fb3230a14 candidate is continued after 9.21.4 lands."
+severity = "blocker"
+
+[finding.2.32.7]
+task = "2.32.7"
+file = "modules/layerxagent/keeper/msg_server.go:30"
+symbol = "ErrInvalidSigner"
+observed = "At 5d60db5f5 the second attempt's build `go build ./modules/layerxagent/keeper/` exited 1 (log /out/logs/build-1.log) on `msg_server.go:30:40: undefined: govtypes.ErrInvalidSigner`, the same single error as the first attempt at f0fac19c8, because the in-tree sdk/x/gov/types/errors.go registers no ErrInvalidSigner (an upstream name) while the authority refusal that do_1 points at, modules/layerxcustody/keeper/msg_server.go:19 through requireAuthority at modules/layerxcustody/keeper/keeper.go:96-99, wraps sdkerrors.ErrUnauthorized, as modules/evm/keeper/msg_server.go:375 and modules/spot/keeper/msg_server.go:115 do."
+assumption = "The repair lies inside the task's own files: UpdateParams refuses a foreign authority with sdkerrors.Wrapf(sdkerrors.ErrUnauthorized, ...) and TestAgentMsgUpdateParamsAuthority (msg_server_test.go:29 and :54) asserts ErrUnauthorized; nothing outside modules/layerxagent/keeper changes."
+severity = "blocker"
+
+[finding.5.6.4]
+task = "5.6.4"
+file = "node/upgrades.go:473"
+symbol = "sequencerPinnedLeader"
+observed = "At c0e738471 the verifier `cg spec done 5.6.4` exited 1 (log /out/logs/verify-1.log) after `go test -count=1 ./node/ -run '^(TestUnmountedPlanStoresJudgesMergePlan|TestUpgradesSequencerSwitchAtActivation)$'` passed, because symbols lists sequencerPinnedLeader, the function do_2 deletes, which no correct result can define in the graph."
+assumption = "symbols drops sequencerPinnedLeader and keeps unmountedPlanStores, TestUnmountedPlanStoresJudgesMergePlan and TestUpgradesSequencerSwitchAtActivation; the result is re-qualified unchanged on a revision that carries 5.18.1's LeaderSchedule."
+severity = "note"
+
+[finding.5.11.2]
+task = "5.11.2"
+file = "node/genesis/genesis.go:17"
+symbol = "WellKnownChainIDs"
+observed = "At 78fd0912e `cg spec done 5.11.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, reporting ✗ symbol WellKnownChainIDs and ✗ symbol IsWellKnown — not defined in the graph: both are the declarations do_2 deletes from node/genesis/genesis.go (:17 and :36), so no index of the result can contain them."
+assumption = "The two deleted names leave the symbol list, symbols = [\"TestEmbeddedGenesisRetiredChains\"], and the result is re-qualified unchanged, as this ledger already records for 3.18.1's deleted name."
+severity = "note"
+
+[finding.10.15.2]
+task = "10.15.2"
+file = "services/human/schema/human-api/errors.kvx:9"
+symbol = "operation-retired"
+observed = "At 6c4e2c2f8 the verifier `cg spec done 10.15.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the three merged_schema_retired tests passed, reporting ✗ symbol operation-retired — not defined in the graph: the name is a variant value of type.ErrorCode in errors.kvx, schema data rather than a code declaration, while retired and retired_variants resolved as fields of the schema-check crate at src/lib.rs:397 and :28."
+assumption = "The symbol list keeps the two indexed field names retired and retired_variants and drops the enum variant string; the verify_cmd keeps asserting the declaration through real_schema_declares_operation_retired_error_code."
+severity = "note"
+
+[finding.10.16.3]
+task = "10.16.3"
+file = "services/human/tools/schema-check/src/lib.rs:2401"
+symbol = "compatibility-row-missing"
+observed = "At ab3155ea7 the verifier `cg spec done 10.16.3 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd `cargo test --locked --manifest-path services/human/tools/schema-check/Cargo.toml -p layerx-human-schema-check --test compatibility_rows` passed both declared tests, because the declared symbols compatibility-row-missing and compatibility-row-order are violation rule-name string literals (src/lib.rs:2384, :2393, :2401) that the graph does not index as declarations."
+assumption = "The task's symbols list keeps only check_compatibility; the two rule names stay covered by the declared tests and the touched-path checks, and the candidate ab3155ea7 is re-qualified unchanged once 10.15.1 is on main."
+severity = "note"
+
+[finding.14.22.2]
+task = "14.22.2"
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/status.ex:36"
+symbol = "Explorer.Chain.PaxeerX.Status"
+observed = "At 866f82832 the verifier `cg spec done 14.22.2` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed with 2 tests, 0 failures, because the four declared symbols are an Elixir module, a function and two test names that the graph does not index."
+assumption = "symbols becomes [] so only the two touched paths are checked, and the result is re-qualified unchanged on a revision that carries 14.22.1's committed_vectors.json."
+severity = "note"
+
+[finding.16.35.1]
+task = "16.35.1"
+file = "tests/fixtures/custody/paxeer-light-v1/README:43"
+symbol = "custody-proof-build"
+observed = "At 5678856a5 the verifier `cg spec done 16.35.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, because the declared symbol custody-proof-build is a Makefile target (Makefile:3665) that the task makes unreferenced from the README, and make targets are not indexed as graph declarations."
+assumption = "The symbols list keeps only test_module_drivers_retired; the custody-proof-build removal remains asserted by assert_symbols_unreferenced inside that test, and the candidate 5678856a5 is re-qualified unchanged."
+severity = "note"
+
+[finding.16.36.3]
+task = "16.36.3"
+file = "tests/ci/websearch-context.py:22"
+symbol = "checkpoint-settlement.json"
+observed = "The first attempt at d5b1131a0 passed the build and the verify_cmd, and the verifier `cg spec done 16.36.3` refused only on the symbol checkpoint-settlement.json, the file-name string removed from EXTRA at tests/ci/websearch-context.py:22, which is never a graph symbol; test_websearch_settlement_retired resolved as a function at tests/ci/test_retired_websearch_settlement.py:4."
+assumption = "Dropping checkpoint-settlement.json from symbols leaves the one indexable declaration and the two touches, and the same candidate qualifies unchanged."
+severity = "assumption"
+
+[finding.11.24.2]
+task = "11.24.2"
+file = "services/interop/crates/layerx-gas-station/src/service.rs:285"
+symbol = "Service::respond"
+observed = "At 2dd94ae09 (the second attempt) `cg spec done 11.24.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, reporting ✗ symbol Service::submission_rung and ✗ symbol Service::respond — not defined in the graph although `pub fn respond` (service.rs:285) and `fn submission_rung` (service.rs:575) are declared in the touched file; the index for that run covered 807 files and 1327 symbols, whereas the third attempt of 11.24.1 resolved `SequencerEndpoint::full_receipt  method` in the same crate's src/rpc.rs from an index of 947 files and 7063 symbols."
+assumption = "The index built for the task did not cover the gas-station service module; the result is re-qualified unchanged at 2dd94ae09 with the index covering services/interop/crates/layerx-gas-station/src, and the symbol list stays as written."
+severity = "suspect"
+
+[finding.6.58.6]
+task = "6.58.6"
+file = ".cgignore:11"
+symbol = "assert_retired"
+observed = "At d3134d7ec the verifier `cg spec done 6.58.6 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because `python3 -m pytest tests/bridge/retired/test_retired_safe_transfer.py::test_safe_transfer_is_retired -q` reported one live reference, .cgignore:11: contracts/libraries/SafeTransfer.sol, a line absent from the tracked .cgignore at b59b5e362 and written into it before the gate by the index-scope step that admits the task's declared paths, while the library itself was untracked and no product file referenced it."
+assumption = "The index-scope step admits the directory contracts/libraries/ rather than the retired file path, or restores .cgignore to HEAD before the verify, and the first attempt's result is re-qualified unchanged; kernel_retirement.py keeps scanning .cgignore."
+severity = "note"
+
+[finding.6.80.3]
+task = "6.80.3"
+file = "tests/bridge/retired/kernel_retirement.py:178"
+symbol = "assert_retired"
+observed = "At 5fa430825 the verifier `cg spec done 6.80.3 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because assert_retired reported `.cgignore:11: contracts/security/LayerXComponent.sol` as a live reference: the index-scope configuration written into the working-tree .cgignore before the verifier ran names the task's own retired path, the committed .cgignore of the candidate is unchanged from main, and kernel_retirement.py:178-180 excludes docs/, spec/, *.md and GOTCHA.kvx from live references but not .cgignore."
+assumption = "The verifier runs against the committed .cgignore (the task-scoped index patterns are written as directory patterns or removed before verify_cmd) and the candidate 5fa430825 is re-qualified unchanged; if the working-tree .cgignore must keep naming task paths, the retirement harness gains .cgignore in its exclusion at kernel_retirement.py:178-180 with a harness case, carried by the first retirement task to land."
+severity = "blocker"
+
+[finding.13.7.3]
+task = "13.7.3"
+file = "services/agent/crates/layerx-proof/Cargo.toml:16"
+symbol = "ed25519-dalek"
+observed = "At feb6eb5f8 the dependents check `cargo check --locked --manifest-path programs/Cargo.toml --all-targets -p layerx-client ... -p layerx-proof` exited 101 (log /out/logs/dependents-1.log) with only two errors, E0432 unresolved import `ed25519_dalek` at services/agent/crates/layerx-proof/tests/maintained_outcome.rs:1:5 and tests/sequencer_logs.rs:3:5: layerx-proof is not a member of programs/Cargo.toml but a path dependency reached through layerx-programs-arbiter, Cargo resolves dev-dependencies only for workspace members, so programs/Cargo.lock:1104 lists layerx-proof without its dev-dependency ed25519-dalek =2.2.0 (Cargo.toml:16) and its integration tests cannot compile from that manifest on an unchanged main; the candidate's change to programs/crates/layerx-programs-runtime/src/ffi_call.rs keeps the extern \"C\" signature and no dependent crate reports an error against it, and the 9.1.1/9.1.2 layerx-agent-api type change touches none of the thirteen crates listed."
+assumption = "The dependents check compiles non-member path dependencies without --all-targets (library and binary targets only) or reads layerx-proof's test-target failures against this entry, and the first attempt's candidate feb6eb5f8 proceeds to its verify_cmd unchanged."
+severity = "suspect"
+
+[finding.11.38.2]
+task = "11.38.2"
+file = "services/interop/crates/layerx-bridge-relayer/src/attestation_api.rs:43"
+symbol = "release_answer"
+observed = "At 79a3f38c8 the second attempt's build `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-bridge-relayer --all-targets` exited 101 (log /out/logs/build-1.log) on the nine layerx-mirror errors of finding.9.1.1 before reaching the relayer, and the candidate's `release_answer` sits beside the `deposit_answer` and the `pub mod attestation_api;` line that only task 11.38.1 publishes."
+assumption = "The result is held unchanged until 11.38.1 and 9.1.6, both already in requires, are on main and is then re-qualified on that revision; touches and requires need no change."
+severity = "blocker"
+
+[finding.9.35.5]
+task = "9.35.5"
+file = "services/interop/crates/layerx-mirror/src/node.rs:428"
+symbol = "Freshness"
+observed = "At 2aec05a6a the third attempt's build `cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests` exited 101 (log /out/logs/build-1.log) with nine errors in the untouched dependency layerx-mirror (node.rs:428-441, publisher.rs:602 and :605) against the layerx-agent-api read types changed at 71550012a, after the second attempt at 73d3ebc72 had exited 101 on the stale services/agent/Cargo.lock refreshed at 8905cf9fe; main 5e0fff0b4 carries the same layerx-mirror lines."
+assumption = "Tasks 9.1.6 and 9.1.7 (in requires) port layerx-mirror and layerx-sdk first; because 9.1.7 also edits services/agent/crates/layerx-sdk/src/program_http.rs, the 2aec05a6a program_http.rs and native_programs.rs changes are carried forward onto the ported file and qualified there rather than re-run unchanged."
+severity = "blocker"
+
+[finding.2.11.1]
+task = "2.11.1"
+file = "precompiles/layerxauth/errors.go:29"
+symbol = "ErrPausedScope"
+observed = "The second attempt (e98398cdb) failed the build `go build ./precompiles/layerxauth/...` with exit 1 (log /out/logs/build-1.log) on `undefined: types.ErrPausedScope` at precompiles/layerxauth/errors.go:29, a file outside the task's touches: task 2.2.4 (6857bfc89) wrote the row against layerxauth code 11, task 2.1.7 (0a5d4de23) later deleted that registration, and no task updated the row or the errors_test.go:49 case, so the package has not compiled at main since 2.1.7 landed."
+assumption = "The task's touches now hold precompiles/layerxauth/errors.go and precompiles/layerxauth/errors_test.go with a do_7 that replaces the row with layerxgov ErrPausedScope (modules/layerxgov/types/proposal.go:26, code 735) and moves the errors_test.go:49 case out of the layerxauth-codespace table; the work at e98398cdb continues unchanged."
+severity = "blocker"
+
+[finding.1.7.2.1]
+task = "1.7.2"
+file = "src/modules/stream/lx_stream_record.c:115"
+symbol = "lx_stream_record_decode"
+observed = "do_3 of 1.7.2 expects an extended lx_stream_record to be refused with LXP_ERR_TRAILING_BYTES (src/modules/stream/lx_stream_record.c:159) or LXP_ERR_LENGTH_LIMIT, yet lx_stream_record_decode returns LXP_ERR_NON_CANONICAL at :115-116 for any `length != LX_STREAM_RECORD_BYTES` before :159 is reached, so the seventh attempt's test (b408330ce, whose record branch expects LXP_ERR_TRAILING_BYTES or LXP_ERR_LENGTH_LIMIT and whose payload branches now expect LXP_ERR_NON_CANONICAL) cannot pass once the gate reaches it; attempts 1, 2, 3 and 5 failed the verifier `cg spec done 1.7.2` (exit 1, log /out/logs/verify-1.log) on the same code mismatch for the five payload codecs, and the seventh stopped earlier because programs/vendor lacked tungstenite at 5e0fff0b4 (vendored at e713b182a)."
+assumption = "Every stream codec refuses a one-byte extension with LXP_ERR_NON_CANONICAL (the record at lx_stream_record.c:115-116, the fixed-length payloads at lx_stream_payload.c:33 and :98-99); do_3 is now corrected to expect LXP_ERR_NON_CANONICAL for the record too, dropping the LXP_ERR_TRAILING_BYTES or LXP_ERR_LENGTH_LIMIT alternative, and the seventh attempt's test is continued with its record branch changed to that code on a revision at or after e713b182a."
+severity = "blocker"
+
+[finding.17.0.1.2]
+task = "17.0.1"
+file = "spec/layerx-merge/qualification.kvx:73"
+symbol = "test_refuses_duplicate_section"
+observed = "The ninth and eleventh attempts of 17.0.1 (d70d5a03e, e2bdbc397) passed test_loads_workflow_sections, test_evidence_line_shape and test_run_records_nonzero_exit and failed the verifier `cg spec done 17.0.1` (exit 1, log /out/logs/verify-2.log) only on test_refuses_duplicate_section, whose fixture appends `[finding.1.0.1]` twice to a copy of spec/layerx-merge/qualification.kvx and expects the error at the second appended header (`:633`, `:1025`) while load reports the first appended header (`:625`, `:1017`) because the ledger already holds [finding.1.0.1] at :73; the sixth and seventh attempts failed the same way (`:81` against `:89`), and the ninth and eleventh each also spent their first repair on the backslash-backslash-quote text of [finding.17.0.1.1] at qualification.kvx:493."
+assumption = "The reader of e2bdbc397 is right and the fixture is wrong: do_5 now states that test_refuses_duplicate_section appends a section name no ledger entry uses ([finding.0.0.0]) twice and expects the second appended header's line, and the eleventh attempt's tree is continued with that single fixture change."
+severity = "blocker"
+
+[finding.12.6.2]
+task = "12.6.2"
+file = "services/wallet/attestor/internal/auth/agent/authority.go:115"
+symbol = "NewSignedVerifier"
+observed = "The harness of services/wallet/gateway/test/provisioning.test.ts spawns five attestor binaries without ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, ATTESTOR_AUTHORITY_ISSUER or ATTESTOR_AUTHORITY_TENANT, so NewSignedVerifier returns ErrAuthority, every node exits with `attestor: pinned custody producer authority: custody authority unavailable or refused`, beforeAll throws `attestors did not become ready` at line 173, and `cg spec done 12.6.2` exited 1 on four consecutive attempts (2b2f2af3a, 220c31f02, cb083b984, f2caa096e) with all seven tests skipped and the task's two tests never executed."
+assumption = "The harness predates the authority pin introduced at b7962041c and is red at every base since; 12.6.2 repairs it inside its own touches by writing a PKIX `PUBLIC KEY` PEM in beforeAll and passing the three ATTESTOR_AUTHORITY_* variables to each node (NewAuthority tolerates a missing stored snapshot), after which bindReadsSequencerReceipt and bindBroadcastIsIdempotent can run."
+severity = "blocker"
+
+[finding.10.25.3.1]
+task = "10.25.3"
+file = "services/human/crates/layerx-human-test-support/Cargo.toml:13"
+symbol = "layerx-client"
+observed = "The fifth attempt (b969d28b2, base 5e0fff0b4) continued the third attempt's candidate unchanged, so it still removed `layerx-client.workspace = true` at Cargo.toml:13 (the deleted do_4) and still imported the envelope and node-info codec from `layerx_human_service::frame`, which exports only `read_frame`, `write_frame`, `Limits`, `ConnectionGate`, `FrameTransport`, `Uds` and `Tls`; the build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests` exited 101 on `the lock file ... needs to be updated but --locked was passed` (log /out/logs/build-1.log) and the result was refused for changing Cargo.toml, which the task no longer touches, while req.10252 ac_1 still asks for `no layerx_client::lni import left in the crate`."
+assumption = "The b969d28b2 candidate, whose commit carries only the three touched files, is continued; do_1 now says that `layerx_client::lni::handshake` and `layerx_client::lni::schema` stay imported, `connect_evidence_node` keeps returning `layerx_client::lni::transport::Uds` for `handshake_gate` (boot.rs:156), the `layerx-client` dependency stays, and only `read_frame`/`write_frame` move to `layerx_human_service::frame`; req.10252 ac_1 drops the clause `with no layerx_client::lni import left in the crate`, which wiring.J44.21 (task 10.98.6, a later wave) delivers."
+severity = "blocker"
+
+[finding.6.23.2]
+task = "6.23.2"
+file = "modules/tokenfactory/keeper/admins.go:11"
+symbol = "Keeper.GetAuthorityMetadata"
+observed = "At 89d0c8e2e the verifier `cg spec done 6.23.2 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) because TestQueryDenomPausedReportsState/unknown_denom (grpc_denom_paused_test.go:67) received codes.OK instead of codes.NotFound: Keeper.DenomPaused, written by 6.23.1 at ea9995ca1 in the shape its do_5 prescribes, maps only a GetAuthorityMetadata error to NotFound, and GetAuthorityMetadata (admins.go:11-20) unmarshals an absent DenomAuthorityMetadataKey into an empty message with a nil error, so do_1 of 6.23.2 ('this task adds no production code') cannot satisfy req 6255.2."
+assumption = "6.23.2 now also touches modules/tokenfactory/keeper/grpc_query.go and its do_1 makes Keeper.DenomPaused answer status.Errorf(codes.NotFound, ...) when k.GetDenomPrefixStore(ctx, req.Denom).Has([]byte(types.DenomAuthorityMetadataKey)) is false, before reading the metadata; GetAuthorityMetadata and DenomAuthorityMetadata keep their behaviour and the two tests at 89d0c8e2e stay as written."
+severity = "blocker"
+
+[finding.6.1.3]
+task = "6.1.3"
+file = "precompiles/common/precompiles.go:186"
+symbol = "WithRetirement"
+observed = "The second attempt (4fd30be75) built but the verifier `cg spec done 6.1.3` exited 1 (log /out/logs/verify-1.log): do_2 reads the plan through UpgradeReaderOf(evmKeeper) inside Precompile.Run, yet Run has no keeper to pass, since Precompile (precompiles/common/precompiles.go:44-52) holds none, PrecompileExecutor (:39-42) declares no EVMKeeper() and state.DBImpl keeps its keeper in the unexported field k (modules/evm/state/statedb.go:45), so the asserted StateEVMKeeperGetter failed on the real DBImpl and every gated call reverted with LXP_UNKNOWN \"cannot get EVM keeper from EVM for retirement\" above and below the plan height."
+assumption = "do_2 now resolves the reader from the executor as mergePlanActive does (precompiles/common/precompiles.go:313-319, DynamicGasPrecompileExecutor.EVMKeeper at :270): when p.executor satisfies interface{ EVMKeeper() putils.EVMKeeper } it passes UpgradeReaderOf(getter.EVMKeeper()), otherwise nothing is retired (precompiles/common/retire.go:31-32); do_4 now builds the tests on an executor declared in the test file that returns &testkeeper.EVMTestApp.EvmKeeper (the shape of precompiles/common/precompiles_test.go:95-110), since layerxverify's executor exposes no EVMKeeper()."
+severity = "blocker"
+
+[finding.3.42.1.1]
+task = "3.42.1"
+file = "services/platform/perps-data/internal/store/migrate_test.go:293"
+symbol = "TestMigrate"
+observed = "Since 27719562b (3.46.1) the embedded migrations are 0001-0011 and 0015, so TestMigrate/applies_all fails on main at migrate_test.go:293 (`want prefix 0012_`) before 3.42.1 touches anything, and the ninth, tenth and eleventh attempts (3f5e80874, 96a856378, b6a45a2ee) with PERPS_DATA_TEST_DATABASE_URL provided passed `go build ./services/platform/perps-data/...` and TestSchemaFiles and failed the verifier `cg spec done 3.42.1` (exit 1, log /out/logs/verify-1.log) only on `embedded file 12 is 0015_spot_leaderboard.sql, want prefix 0013_`."
+assumption = "The 0012 migration, schema_test.go and migrate_test.go changes of 75420a6fc are complete and unchanged; 3.42.1 now requires 3.45.1 (0013) and 3.42.8 (0014) and is re-qualified unchanged on a tree holding 0012 through 0015, where the sequence is contiguous, and loadSchema skips CREATE FUNCTION and CREATE TRIGGER statements so 0013 does not disturb TestSchemaFiles."
+severity = "blocker"
+
+[finding.5.13.2]
+task = "5.13.2"
+file = "node/wasmbinding/queries.go:127"
+symbol = "GetDenomPaused"
+observed = "The second attempt (ca2ea1e0c) failed the build `go build ./node/wasmbinding/...` with exit 1 (log /out/logs/build-1.log): PaxTokenFactoryQuery.DenomPaused, TokenFactoryWasmQueryHandler.GetDenomPaused and EncodeTokenFactorySetDenomPaused are undefined at main because tasks 6.23.5 and 6.24.3 create them, yet both list 5.13.2 in their requires while 5.13.2 requires neither, so the dispatch task is scheduled before the symbols it dispatches to exist."
+assumption = "The edges were reversed: 5.13.2 now requires 6.23.5 and 6.24.3 with its wave above theirs, and 5.13.2 has left their requires since `go build ./modules/tokenfactory/...` does not import node/wasmbinding; the work at ca2ea1e0c then continues unchanged on a base that carries both providers."
+severity = "blocker"
+
+[finding.11.4.1.2]
+task = "11.4.1"
+file = "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:150"
+symbol = "facilitator_settles_receipted_evidence"
+observed = "The fourth attempt at 6afb84bcb built `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests` at exit 0 with tests/transports.rs moved to receipt_keys and SequencerEvidence, and the verifier `cg spec done 11.4.1` on 03ed62ef2 exited 1 (log /out/logs/verify-1.log) with facilitator_pending_reports_the_relayed_hash passing and facilitator_settles_receipted_evidence refused as `settlement evidence does not match` because the request's asset literal carried one extra hex digit against the signed payment log; the literal is 64 hex digits at 6afb84bcb but the second repair cycle left no verify run for it, and the candidate predates the ordering 11.3.1 -> 11.4.1 settled at 625b4e264."
+assumption = "The 6afb84bcb candidate is complete for do_1 to do_5 and needs one build plus one run of its verify_cmd unchanged; since it removes every ExecutedPayment use from facilitator.rs and tests/transports.rs, 11.3.1 is now ordered after 11.4.1 (11.3.1 requires 11.4.1 and 11.4.1 is back to requires 11.1.1 and 11.6.1) so the near-qualified candidate is not re-merged under a task that has no building candidate."
+severity = "suspect"
+
+[finding.6.72.1]
+task = "6.72.1"
+file = "wasm-runtime/types/msg.go:139"
+symbol = "GovMsg.VoteWeighted"
+observed = "At 3ebec9a03 the verifier `cg spec done 6.72.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (log /out/logs/verify-1.log) after the verify_cmd passed, reporting ✗ symbol GovMsg.VoteWeighted — not defined in the graph: the name is the pointer field VoteWeighted of the struct GovMsg declared at wasm-runtime/types/msg.go:135-139, a type the task reads but does not define and whose directory the task does not touch, while EncodeGovMsg and ErrUnknownMsg resolved."
+assumption = "The symbol list now names only the declarations the task defines or changes, EncodeGovMsg and ErrUnknownMsg; the result at 3ebec9a03 is re-qualified unchanged."
+severity = "note"
+
+[finding.16.12.1]
+task = "16.12.1"
+file = "contracts/CheckpointRegistry.sol:4"
+symbol = "NativePublicationVerifier"
+observed = "The 6.58.3 candidate d22b1f102 (verifier `cg spec done 6.58.3 -f layerx-merge --root /work/paxeer-monorepo`, exit 1, log /out/logs/verify-1.log, refused only on the .cgignore line) deletes contracts/libraries/NativePublicationVerifier.sol while contracts/CheckpointRegistry.sol:4 still imports ./libraries/NativePublicationVerifier.sol and the root Foundry profile (foundry.toml src = contracts, skip naming only contracts/src, test, lib, node_modules, bridge and launchpad) compiles every source under contracts/, so the 16.12.1 build_cmd `forge build --offline` cannot pass between 6.58.3 landing and 6.52.1 retiring CheckpointRegistry.sol."
+assumption = "16.12.1 now requires 6.52.1 and its wave rises above it, so the root profile is built only once CheckpointRegistry.sol is gone; the root Foundry profile is not changed to skip retired sources."
+severity = "blocker"
+
+[finding.13.1.9]
+task = "13.1.9"
+file = "programs/crates/layerx-programs-registry/src/chain_proof.rs:13"
+symbol = "tx"
+observed = "At 3ae510177, 672d8ba44 and 0e09c793b the builds `cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-registry --tests` of 13.1.11, 13.1.12 and 13.1.13 exited 0 (logs /out/logs/build-1.log, /out/logs/build-1.log and /out/logs/build-2.log) only because tests/chain_tx.rs, tests/chain_results.rs and tests/chain_trust.rs include src/chain_proof/tx.rs, results.rs, trust.rs and merkle.rs as #[path] modules: programs/crates/layerx-programs-registry/src/chain_proof.rs as left by 13.1.9 (ca2306195) still declares `pub mod merkle {}`, `pub mod tx {}`, `pub mod results {}` and `pub mod trust {}` as empty inline modules, so the library exports no verify_tx, verify_tx_result or ChainProofVerifier::advance and no open task after 13.1.9 listed chain_proof.rs in its touches."
+assumption = "The three verify_cmds qualify through the #[path] includes, and 13.0.2 (the first later task whose do_* names verify_tx_result) now owns chain_proof.rs with a do item replacing each empty inline module whose file exists under src/chain_proof/ with `pub mod <name>;` before any caller outside the crate uses them."
+severity = "suspect"

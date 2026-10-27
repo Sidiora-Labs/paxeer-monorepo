@@ -4,6 +4,14 @@ import subprocess
 from pathlib import Path
 
 
+WIND_DOWN_MODES = {
+    "wind-down-route": 1,
+    "wind-down-deprecate": 2,
+    "wind-down-tombstone": 3,
+    "wind-down-exit": 4,
+}
+
+
 def _word(value):
     return value.to_bytes(32, "big")
 
@@ -72,6 +80,41 @@ def upgrade(payload, fee_limit):
     )
 
 
+def wind_down(payload):
+    if len(payload) < 33:
+        raise ValueError("truncated native wind-down header")
+    program = payload[:32]
+    mode = payload[32]
+    if mode == 1:
+        if len(payload) < 131:
+            raise ValueError("truncated native wind-down route")
+        seed_length = int.from_bytes(payload[129:131], "big")
+        if seed_length > 128 or len(payload) != 131 + seed_length:
+            raise ValueError("invalid native wind-down route seed length")
+        return _calldata(
+            "23330dd5",
+            [program, payload[33:65], payload[65:97], payload[97:129], b""],
+            [(4, payload[131:])],
+        )
+    if mode == 2:
+        if len(payload) != 73:
+            raise ValueError("invalid native wind-down deprecate length")
+        return _calldata(
+            "86ba1a99",
+            [program, payload[33:65], _word(int.from_bytes(payload[65:73], "big"))],
+            [],
+        )
+    if mode == 3:
+        if len(payload) != 33:
+            raise ValueError("invalid native wind-down tombstone length")
+        return _calldata("a512f1a9", [program], [])
+    if mode == 4:
+        if len(payload) != 65:
+            raise ValueError("invalid native wind-down exit length")
+        return _calldata("4dc50730", [program, payload[33:65]], [])
+    raise ValueError("unknown native wind-down mode")
+
+
 def evm(document):
     payload = bytes.fromhex(document["payload_hex"])
     if not payload or payload.hex() != document["payload_hex"]:
@@ -83,20 +126,25 @@ def evm(document):
     elif document["ordinal"] == 2:
         # dump_lifecycle_payload in the native encoder fixes the fee limit at 1000.
         calldata = upgrade(payload, 1000)
+    elif document["ordinal"] == 7:
+        calldata = wind_down(payload)
     else:
-        raise ValueError("expected native deploy or upgrade vector")
+        raise ValueError("expected native deploy, upgrade or wind-down vector")
     return {"to": "0x101D", "chainId": 125, "calldata": calldata}
 
 
-def write_evm_fixtures(check):
-    for operation in ("deploy", "upgrade"):
+def write_evm_fixtures(check, wind_down_only=False):
+    operations = WIND_DOWN_MODES if wind_down_only else {"deploy": 0, "upgrade": 0}
+    for operation, mode in operations.items():
         for version in (3, 4):
             name = f"native-program-{operation}-v{version}"
             destination = Path(__file__).with_name(name + ".json")
             document = json.loads(destination.read_text())
+            ordinal = 7 if mode else (1 if operation == "deploy" else 2)
             if (
                 document["name"] != name
-                or document["ordinal"] != (1 if operation == "deploy" else 2)
+                or document["ordinal"] != ordinal
+                or (mode and document["payload_hex"][64:66] != f"{mode:02x}")
             ):
                 raise ValueError(f"invalid native lifecycle operation binding: {destination}")
             document["evm"] = evm(document)
@@ -115,14 +163,24 @@ def main():
     parser.add_argument(
         "--evm-only",
         action="store_true",
-        help="regenerate or check EVM wrappers from retained native lifecycle payloads",
+        help="regenerate or check EVM wrappers from retained deploy and upgrade payloads",
+    )
+    parser.add_argument(
+        "--wind-down-only",
+        action="store_true",
+        help="regenerate or check EVM wrappers from retained wind-down payloads",
     )
     arguments = parser.parse_args()
+    if arguments.evm_only and arguments.wind_down_only:
+        parser.error("--evm-only and --wind-down-only are mutually exclusive")
+    if arguments.wind_down_only:
+        write_evm_fixtures(arguments.check, wind_down_only=True)
+        return
     if arguments.evm_only:
         write_evm_fixtures(arguments.check)
         return
     if arguments.encoder is None:
-        parser.error("--encoder is required unless --evm-only is selected")
+        parser.error("--encoder is required unless --evm-only or --wind-down-only is selected")
     encoded = subprocess.run(
         [str(arguments.encoder.resolve()), "--dump-native-lifecycle"],
         check=True,
@@ -162,7 +220,7 @@ def main():
         payload = bytes.fromhex(document["payload_hex"])
         if not payload or payload.hex() != document["payload_hex"]:
             raise ValueError("native encoder returned non-canonical hexadecimal")
-        if document["ordinal"] in (1, 2):
+        if document["ordinal"] in (1, 2, 7):
             document["evm"] = evm(document)
         document["name"] = name.removesuffix("-v3") + "-v4"
         documents[name] = json.dumps(document, indent=2) + "\n"
@@ -177,6 +235,7 @@ def main():
             destination.write_text(contents)
 
     write_evm_fixtures(arguments.check)
+    write_evm_fixtures(arguments.check, wind_down_only=True)
 
     from generate_executed_program_v4_fixture import main as executed_v4
     executed_v4()

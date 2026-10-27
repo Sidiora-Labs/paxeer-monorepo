@@ -1,7 +1,5 @@
-import { keccak256, toBytes, type Hex } from 'viem';
-import { encodeErc20Approve, encodeCall, getErc20Metadata } from '../../chainReads.js';
-import { env } from '../../env.js';
-import { parseUnits } from 'viem';
+import type { Hex } from 'viem';
+import { encodeErc20Approve, encodeCall } from '../../chainReads.js';
 import type { ActionLeg } from '../../db/actions.js';
 import {
   ERC20_APPROVE_SELECTOR,
@@ -27,7 +25,7 @@ const ERC20_MOVER_SELECTORS = new Set([
  */
 
 export interface ActionPlan {
-  /** ERC-20 to approve + spend (always set for both current kinds). */
+  /** ERC-20 to approve + spend. */
   token: `0x${string}`;
   decimals: number;
   /** Address that must be approved to pull `amountWei`. */
@@ -38,12 +36,12 @@ export interface ActionPlan {
   amountWei: string;
   /** Encoded primary-call calldata. */
   callData: Hex;
-  /** Native value sent with the call (0 for both current kinds). */
+  /** Native value sent with the call (0 for allowance-and-call). */
   callValueWei: string;
   /** 4-byte selector of the primary call (audit + policy). */
   selector: string;
   /** Postcondition verification strategy. */
-  verify: { type: 'layerx_credit' } | { type: 'none' };
+  verify: { type: 'none' };
   label: string;
 }
 
@@ -54,61 +52,6 @@ export class PlanError extends Error {
   ) {
     super(message);
   }
-}
-
-/** The canonical on-chain DID claim: lowercase 0x + 64-hex keccak256(did). */
-export function didClaimFor(did: string): Hex {
-  return keccak256(toBytes(did));
-}
-
-/**
- * LayerX deposit: approve(USDL → vault, amount) then depositUSDL(amount, did).
- * `amount` is a HUMAN decimal string (e.g. "250" / "250.5") converted with the
- * resolved USDL decimals. `didClaim` is the bytes32 the agent obtained from
- * LayerX GET /v1/deposit (which registered it for credit attribution).
- */
-export async function buildLayerxDepositPlan(args: {
-  amount: string;
-  didClaim: string;
-}): Promise<ActionPlan> {
-  const vault = env.LAYERX_VAULT_ADDRESS;
-  if (!vault) throw new PlanError('INVALID_REQUEST', 'LayerX vault not configured');
-  const usdl = env.LAYERX_USDL_ADDRESS as `0x${string}`;
-
-  // Cheap, pure validations FIRST so a malformed request never round-trips the
-  // RPC for token metadata.
-  if (!/^0x[0-9a-fA-F]{64}$/.test(args.didClaim)) {
-    throw new PlanError('INVALID_REQUEST', 'did_claim must be a 0x 32-byte hex value');
-  }
-
-  const meta = await getErc20Metadata(usdl).catch(() => ({ decimals: null, symbol: null }));
-  const decimals = meta.decimals ?? env.LAYERX_USDL_DECIMALS;
-
-  let amountWei: bigint;
-  try {
-    amountWei = parseUnits(args.amount, decimals);
-  } catch {
-    throw new PlanError('INVALID_AMOUNT', `amount "${args.amount}" is not a valid decimal`);
-  }
-  if (amountWei <= 0n) throw new PlanError('INVALID_AMOUNT', 'amount must be positive');
-
-  const { data, selector } = encodeCall('depositUSDL(uint256,bytes32)', [
-    amountWei.toString(),
-    args.didClaim,
-  ]);
-
-  return {
-    token: usdl,
-    decimals,
-    spender: vault as `0x${string}`,
-    contract: vault as `0x${string}`,
-    amountWei: amountWei.toString(),
-    callData: data,
-    callValueWei: '0',
-    selector,
-    verify: { type: 'layerx_credit' },
-    label: 'layerx.deposit',
-  };
 }
 
 /**

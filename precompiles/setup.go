@@ -162,6 +162,21 @@ func GetCustomPrecompiles(
 	latestUpgrade string,
 	keepers utils.Keepers,
 ) map[ecommon.Address]utils.VersionedPrecompiles {
+	custom, err := GetCustomPrecompilesE(latestUpgrade, keepers)
+	if err != nil {
+		panic(err)
+	}
+	return custom
+}
+
+func GetCustomPrecompilesE(
+	latestUpgrade string,
+	keepers utils.Keepers,
+) (map[ecommon.Address]utils.VersionedPrecompiles, error) {
+	merge, err := newMergePrecompiles(keepers)
+	if err != nil {
+		return nil, err
+	}
 	custom := map[ecommon.Address]utils.VersionedPrecompiles{
 		ecommon.HexToAddress(bank.BankAddress):                   bank.GetVersioned(latestUpgrade, keepers),
 		ecommon.HexToAddress(wasmd.WasmdAddress):                 wasmd.GetVersioned(latestUpgrade, keepers),
@@ -191,14 +206,10 @@ func GetCustomPrecompiles(
 	if semver.Compare(latestUpgrade, XWebUpgrade) >= 0 {
 		custom[ecommon.HexToAddress(xweb.XWebAddress)] = xweb.GetVersioned(latestUpgrade, keepers)
 	}
-	merge, err := newMergePrecompiles(keepers)
-	if err != nil {
-		panic(err)
-	}
 	for _, p := range merge {
 		custom[p.Address()] = utils.VersionedPrecompiles{latestUpgrade: p, MergeUpgrade: p}
 	}
-	return custom
+	return custom, nil
 }
 
 func InitializePrecompiles(
