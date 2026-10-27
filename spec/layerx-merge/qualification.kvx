@@ -7717,3 +7717,67 @@ symbol = "TestSequencedGaslessOracleVoteChargesNoFee"
 observed = "At 3de7a2c9c ValidateFeeder refused the vote ('validator does not exist') and after the repair ProcessBlock panicked 'secp256k1 consensus keys are not supported' (sdk/crypto/codec/tm.go:35)."
 assumption = "The test derives an ed25519 consensus key as node/sequencer/failover_rehearsal_test.go:47-49 does (do_4)."
 severity = "minor"
+
+[finding.5.46.8]
+task = "5.46.8"
+file = "daemon/paxd/cmd/genreceiptkey.go"
+symbol = "add-genesis-receipt-key"
+observed = "At 6df96e60b and 962266182 validate-genesis failed with 'receipt key list is empty': the command re-marshals the untagged GenesisState (ReceiptKeys) while the module decodes the wire object of modules/sequencer/module.go:41 (receipt_keys)."
+assumption = "The defect belongs to the done task that wrote the command; 5.46.8 fixes it (do_4) because its test cannot pass otherwise."
+severity = "major"
+
+[finding.9.1.8.2]
+task = "9.1.8"
+file = "services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs"
+symbol = "estimate_fee"
+observed = "At aa6e5f7e9 the build passed and the verify_cmd failed compiling the fee_projection_program_state test target: lines 89 and 93 pass a byte slice where estimate_fee now takes &Eip1559Call."
+assumption = "The test file is part of the task's own diff; do_N records the two calls to update."
+severity = "minor"
+
+[finding.8.28.3.2]
+task = "8.28.3"
+file = "services/platform/ramps/toolkit/src/engine.rs"
+symbol = "prepare_native_receive"
+observed = "At 67785641f the fifth build failed: clients.rs no longer offers prepare_native_receive, the activity accessors or the activity_id, canonical_activity, tx_hash and raw_transaction submission fields that engine.rs:217-311 uses."
+assumption = "engine.rs is not in the task's touches, so its call sites are the contract the client must keep; recorded once for attempts 4 and 5."
+severity = "major"
+
+[finding.5.6.9]
+task = "5.6.9"
+file = "node/upgrades_merge_activation_test.go"
+symbol = "TestMergePlanActivatesGatedPrecompiles"
+observed = "At 666996bb3 ApplyUpgrade v7.0 panicked 'missing merge constructors or activation precompiles: 0x0903, 0x0905, 0x0906' (node/upgrades.go:584): the node imports the oracle, scheduler and streams precompiles only in 5.94.4."
+assumption = "The task now requires 5.94.4 and the test is kept as written; the check is not relaxed."
+severity = "major"
+
+[finding.3.21.4]
+task = "3.21.4"
+file = "precompiles/spot/spot_abis_test.go"
+symbol = "TestNewPrecompileSetAddresses"
+observed = "At 0cca6976d the package failed to compile: spot_abis_test.go:33 still calls NewPrecompileSet after the rename."
+assumption = "The file joins the task's touches (do_5); no behaviour changes."
+severity = "minor"
+
+[finding.5.16.1]
+task = "5.16.1"
+file = "node/sequencer/receipt_latency_test.go"
+symbol = "TestReceiptLatencyP99UnderBound"
+observed = "At e201a203e and 75c0e4d8f the test ran 500 sequential transfers through a loopback standby and measured a p99 in the 50-100 ms bucket, then beyond the largest bucket, against req.5074 ac_1's bound of 50 ms (mean 21 ms)."
+assumption = "The bound is a performance requirement the qualification environment does not meet; the test is kept as written and the task is held for the owner's ruling on where the bound is measured."
+severity = "major"
+
+[finding.11.10.2]
+task = "11.10.2"
+file = "services/interop/PORTABILITY.md"
+symbol = "portability_v2_example_parses"
+observed = "At be392e1ff and 868922d69 the graph check refused symbol PORTABILITY.md, a file name rather than a declared symbol."
+assumption = "The task's symbols now name the test function."
+severity = "minor"
+
+[finding.11.13.5]
+task = "11.13.5"
+file = "services/interop/deploy/search-front/nginx.conf"
+symbol = "test_search_location_clears_the_payer_did"
+observed = "At 5d00fc4e0 and 9f43cedcc the graph check refused symbol nginx.conf, a file name rather than a declared symbol."
+assumption = "The task's symbols now name the test function."
+severity = "minor"
