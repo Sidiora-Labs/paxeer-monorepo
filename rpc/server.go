@@ -33,6 +33,15 @@ type EVMServer interface {
 	Stop()
 }
 
+func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
+	return RPCEndpointConfig{
+		batchItemLimit:         config.BatchRequestLimit,
+		batchResponseSizeLimit: config.BatchResponseMaxSize,
+		ipRateLimitRPS:         config.IPRateLimitRPS,
+		ipRateLimitBurst:       config.IPRateLimitBurst,
+	}
+}
+
 // ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
 // SequencerOption, PendingOption or SequencerForwardOption) and NewEVMWebSocketServer
 // (a SequencerOption, PendingOption or SequencerForwardOption).
@@ -335,6 +344,7 @@ func NewEVMHTTPServer(
 		Vhosts:             []string{"*"},
 		DenyList:           config.DenyList,
 		PaxLegacyAllowlist: paxLegacyAllowlist,
+		RPCEndpointConfig:  newRPCEndpointConfig(config),
 	}); err != nil {
 		return nil, err
 	}
@@ -450,7 +460,7 @@ func NewEVMWebSocketServer(
 		cacheCreationMutex: cacheCreationMutex,
 		globalLogSlicePool: globalLogSlicePool,
 		watermarks:         watermarks,
-	}, &SubscriptionConfig{subscriptionCapacity: 100, newHeadLimit: config.MaxSubscriptionsNewHead}, &FilterConfig{timeout: config.FilterTimeout, maxLog: config.MaxLogNoBlock, maxBlock: config.MaxBlocksForLog}, ConnectionTypeWS, blockHeaderNotifier)
+	}, &SubscriptionConfig{subscriptionCapacity: 100, newHeadLimit: config.MaxSubscriptionsNewHead, logLimit: config.MaxSubscriptionsLogs}, &FilterConfig{timeout: config.FilterTimeout, maxLog: config.MaxLogNoBlock, maxBlock: config.MaxBlocksForLog}, ConnectionTypeWS, blockHeaderNotifier)
 	if err != nil {
 		return nil, err
 	}
@@ -513,8 +523,9 @@ func NewEVMWebSocketServer(
 	}
 
 	wsConfig := WsConfig{
-		Origins:  strings.Split(config.WSOrigins, ","),
-		DenyList: config.DenyList,
+		Origins:           strings.Split(config.WSOrigins, ","),
+		DenyList:          config.DenyList,
+		RPCEndpointConfig: newRPCEndpointConfig(config),
 	}
 	wsConfig.readLimit = DefaultWebsocketMaxMessageSize
 	if err := httpServer.EnableWS(apis, wsConfig); err != nil {

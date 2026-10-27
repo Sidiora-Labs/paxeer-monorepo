@@ -5,24 +5,6 @@
 
 #include <string.h>
 
-static lxp_result withdrawal_record(
-    const lx_withdrawal_store *store,
-    const uint8_t nullifier[32],
-    const lx_withdrawal_record **record)
-{
-    size_t i;
-    if (store == NULL || nullifier == NULL || record == NULL ||
-        store->count > LX_DEPOSIT_NULLIFIER_CAPACITY)
-        return LXP_ERR_NON_CANONICAL;
-    for (i = 0U; i < store->count; ++i) {
-        if (lxp_ct_memcmp(store->records[i].nullifier, nullifier, 32U) == 0) {
-            *record = &store->records[i];
-            return LXP_OK;
-        }
-    }
-    return LXP_ERR_WITHDRAWAL_ALREADY_SETTLED;
-}
-
 lxp_result lxp_withdrawal_nullifier(const lx_withdrawal_request *request,
                                     uint8_t nullifier[32])
 {
@@ -140,78 +122,3 @@ lxp_result lxp_paxeer_challenge_window(
     return LXP_OK;
 }
 
-lxp_result lxp_bridge_withdraw_finalize(
-    lxp_module_ctx *ctx,
-    lx_account *withdrawals,
-    lx_account *reserve,
-    const lx_asset_record *asset,
-    const lx_withdrawal_request *withdrawal,
-    lx_withdrawal_store *store,
-    const lxp_withdrawal_claim *claim,
-    lxp_transfer_context transfer_context,
-    lxp_receipt *receipt)
-{
-    const lx_withdrawal_record *record;
-    uint8_t nullifier[32];
-    uint8_t certificate_id[32];
-    uint8_t withdrawal_leaf[32];
-    size_t valid_signatures = 0U;
-    lxp_result status;
-    if (withdrawal == NULL || store == NULL)
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_withdrawal_nullifier(withdrawal, nullifier);
-    if (status != LXP_OK) return status;
-    status = withdrawal_record(store, nullifier, &record);
-    if (status != LXP_OK || record->settled)
-        return LXP_ERR_WITHDRAWAL_ALREADY_SETTLED;
-    if (lxp_ct_memcmp(withdrawal->payout_recipient,
-                      record->request.payout_recipient, 32U) != 0)
-        return LXP_ERR_CONTEXT_MISMATCH;
-    if ((asset != NULL &&
-         lxp_ct_memcmp(asset->asset_id, record->request.asset_id, 32U) != 0) ||
-        (withdrawals != NULL &&
-         (!withdrawals->has_asset ||
-          lxp_ct_memcmp(withdrawals->asset_id,
-                        record->request.asset_id, 32U) != 0)) ||
-        (reserve != NULL && reserve->has_asset &&
-         lxp_ct_memcmp(reserve->asset_id,
-                       record->request.asset_id, 32U) != 0))
-        return LXP_ERR_WITHDRAWAL_ASSET_MISMATCH;
-    if (ctx == NULL || withdrawals == NULL || reserve == NULL || asset == NULL ||
-        claim == NULL || claim->checkpoint == NULL ||
-        claim->certificate == NULL || claim->guarantor_keys == NULL ||
-        claim->guarantor_key_count == 0U || claim->challenge_window == NULL ||
-        claim->arena == NULL || receipt == NULL ||
-        !claim->checkpoint->finalized ||
-        lxp_ct_memcmp(claim->checkpoint->checkpoint_id,
-                      withdrawal->checkpoint_id, 32U) != 0 ||
-        lxp_ct_memcmp(claim->checkpoint->state_root,
-                      claim->certificate->checkpoint.header.resulting_state_root,
-                      32U) != 0 ||
-        lxp_ct_memcmp(claim->challenge_window->checkpoint_id,
-                      withdrawal->checkpoint_id, 32U) != 0)
-        return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    status = lxp_checkpoint_certificate_hash(
-        &claim->certificate->checkpoint, claim->arena, certificate_id);
-    if (status != LXP_OK ||
-        lxp_ct_memcmp(certificate_id, withdrawal->checkpoint_id, 32U) != 0)
-        return LXP_ERR_DEPOSIT_PROOF_NOT_FINAL;
-    status = lxp_withdrawal_leaf(withdrawal, withdrawal_leaf);
-    if (status != LXP_OK) return status;
-    status = lxp_merkle_proof_verify(
-        withdrawal_leaf, &claim->state_membership_proof,
-        claim->checkpoint->state_root);
-    if (status != LXP_OK) return LXP_ERR_ROOT_MISMATCH;
-    status = lxp_guarantor_cert_verify(
-        claim->certificate, claim->guarantor_keys,
-        claim->guarantor_key_count, claim->arena, &valid_signatures);
-    if (status != LXP_OK || valid_signatures < claim->certificate->threshold)
-        return LXP_ERR_ATTESTATION_THRESHOLD;
-    status = lxp_paxeer_challenge_window(
-        claim->challenge_window, claim->now_ms, LXP_CHALLENGE_NONE,
-        claim->certificate->attestation_count);
-    if (status != LXP_OK) return status;
-    return lx_asset_withdraw_settle(
-        ctx, withdrawals, reserve, asset, claim->checkpoint, nullifier,
-        store, transfer_context, receipt);
-}
