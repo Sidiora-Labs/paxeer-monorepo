@@ -13,6 +13,7 @@
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_state_proof.h"
 #include "layerx/programs.h"
+#include "layerx/lxp_replica.h"
 
 #include "../modules/programs/event.h"
 
