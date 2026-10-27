@@ -374,7 +374,7 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
         {
             return Err(fail(Ap2Error::EvidenceMismatch));
         }
-        let key = self
+        let receipt_key = self
             .receipt_keys
             .iter()
             .find(|key| key.sequencer_id() == protocol.context_hash())
@@ -389,8 +389,9 @@ impl<'a, R: KeyResolver> Ap2Adapter<'a, R> {
             SettlementRung::Committed { block_number, .. } => block_number,
             SettlementRung::Submitted => return Ok(AdapterOutcome::Pending),
         };
-        let layerx = PortableReceiptV2::export(&evidence.signed_receipt, key, inclusion_height)
-            .map_err(|_| fail(Ap2Error::EvidenceMismatch))?;
+        let layerx: PortableLayerXEvidence =
+            PortableReceiptV2::export(&evidence.signed_receipt, receipt_key, inclusion_height)
+                .map_err(|_| fail(Ap2Error::EvidenceMismatch))?;
         let status = gateway
             .settle_with_sequencer_evidence(
                 principal,

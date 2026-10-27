@@ -7546,8 +7546,8 @@ severity = "major"
 task = "13.22.1"
 file = "precompiles/layerxprograms/layerxprograms.go"
 symbol = "Address"
-observed = "Attempt ff31f629c fails go build because tasks 13.22.4 to 13.22.6 landed submit.go and the event files first, referencing Address as a common.Address and a PrecompileExecutor with an evmKeeper field (submit.go:20,32), while do_1 declares Address as a string constant and the attempt's executor lacks the field."
-assumption = "A new do item makes the base file conform to the declarations the sibling files already use. Recorded once."
+observed = "Attempts ff31f629c and f1460932f fail go build with redeclarations: the package on the merged tree already declares Address (events.go:14), PrecompileExecutor, callContext, RequiredGas and Execute (submit.go:18-74) from tasks 13.22.2 to 13.22.6, while do_1 and do_4 asked 13.22.1 to declare them."
+assumption = "do_8 now limits layerxprograms.go to the constructors, the keepers interface, the merge registration and the tests; the handler table of do_4 is superseded by the Execute submit.go already carries. Recorded once."
 severity = "major"
 
 [finding.5.98.1.3]

@@ -18,6 +18,7 @@ use layerx_interop_gateway::gateway::TranslationStatus;
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
+use layerx_portable::{PortableReceiptV2, PORTABLE_RECEIPT_FORMAT_V2};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
@@ -507,6 +508,98 @@ fn ap2_execute_settles_receipted_evidence() {
             receipt_digest: digest
         }
     );
+    assert_eq!(plane.executions, 1);
+}
+
+#[test]
+fn ap2_portable_evidence_round_trips_as_v2() {
+    let case = recorded_case();
+    let mut evidence = recorded_evidence(&case);
+    let binding = binding(&evidence);
+    let pair = mandates();
+    let principal = PrincipalId::new("buyer").expect("principal");
+    let payment = authorized(&principal, &pair, &binding);
+    let key = ReceiptKey::new();
+    let digest = sign_payment_reference(&mut evidence, &payment, &key);
+    let recorded_pin = pinned_key(&case);
+    let pins = [SequencerAuthorization::new(
+        recorded_pin.sequencer_id(),
+        key.public_key,
+        recorded_pin.first_batch_number(),
+        recorded_pin.last_batch_number(),
+    )];
+    let receipt = verify_sequencer_signature(&evidence.signed_receipt, pins.as_slice())
+        .expect("authentic sequencer receipt");
+    let protocol = receipt.protocol().expect("protocol receipt");
+    let height = u64::from_be_bytes(
+        protocol.batch_id()[24..]
+            .try_into()
+            .expect("receipt height"),
+    );
+    verify_logs(&receipt, evidence.logs.clone()).expect("signed PaymentExact log");
+    let mut plane = ReceiptedPlane {
+        evidence,
+        key,
+        executions: 0,
+    };
+    let trace = TraceId::mint([0x53; 16]);
+    let mut gateway = gateway(&trace);
+    let mut payment_signer = Ap2Signer(es256_key(23));
+    let mut checkout_signer = Ap2Signer(es256_key(29));
+    let outcome = Ap2Adapter::new(&MandateKeys, &pins)
+        .execute(
+            &mut gateway,
+            &principal,
+            &pair.0,
+            &pair.1,
+            &context(),
+            &binding,
+            &mut plane,
+            &mut payment_signer,
+            &mut checkout_signer,
+            &trace,
+            NOW,
+        )
+        .expect("AP2 settlement");
+    let AdapterOutcome::Settled(settled) = outcome else {
+        panic!("expected settled evidence: {outcome:?}");
+    };
+    let json = settled.layerx.to_json().expect("portable JSON export");
+    let parsed = PortableReceiptV2::from_json(&json).expect("version 2 portable receipt");
+    assert_eq!(parsed, settled.layerx);
+    assert_eq!(parsed.format(), PORTABLE_RECEIPT_FORMAT_V2);
+    assert_eq!(parsed.format(), "layerx-receipt-proof-v2");
+    let verified = parsed
+        .verify_v2(&pins)
+        .expect("independent pinned verification");
+    assert_eq!(verified.signed_receipt(), plane.evidence.signed_receipt);
+    assert_eq!(verified.receipt_digest(), digest);
+    assert_eq!(verified.receipt_key(), &pins[0]);
+    assert_eq!(verified.height(), height);
+    assert_eq!(verified.inclusion_height(), height);
+    assert_eq!(settled.receipt_digest, digest);
+    assert_eq!(
+        gateway.translation(&principal, payment.idempotency_key()),
+        Some(TranslationStatus::ReceiptVerified {
+            receipt_digest: digest
+        })
+    );
+    for (jwt, signer) in [
+        (&settled.payment_receipt_jwt, &payment_signer),
+        (&settled.checkout_receipt_jwt, &checkout_signer),
+    ] {
+        let payload = signed_payload(jwt, signer.verifying_key());
+        let json = serde_json::to_vec(&payload["layerx_evidence"])
+            .expect("embedded portable evidence JSON");
+        let embedded = PortableReceiptV2::from_json(&json).expect("embedded version 2 evidence");
+        assert_eq!(embedded, parsed);
+        assert_eq!(
+            embedded
+                .verify_v2(&pins)
+                .expect("authentic embedded evidence"),
+            verified
+        );
+    }
     assert_eq!(plane.executions, 1);
 }
 
