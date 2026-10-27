@@ -99327,7 +99327,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.8]
 title = "Serve the nine 0x101B service views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.26.5", "2.28.4"]
@@ -107471,7 +107471,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.1]
 title = "Prove Query/Markets and Query/PoolMetadata agree with the PoolRegistry views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -107561,7 +107561,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.10.4]
 title = "Prove the launchpad ledger REST routes against a live network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.0.3"]
@@ -130724,7 +130724,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.2.1]
 title = "Serve px_requestFunds over the faucet claim path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.0.2", "8.1.5"]
@@ -134871,7 +134871,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.42.2]
 title = "JVM SDK verifies the committed rung (R7-R8) offline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.42.1", "8.0.2"]
