@@ -1,12 +1,19 @@
 import { decodeBatchHeader, type CheckpointAttestation, type CheckpointVerificationInput, type LocalSignatureVerifier } from "@sidiora/layerx-sdk";
-import { rpcHex, rpcObject } from "./rpc.js";
-import type { PaymentCommitmentEvidence } from "./commitment.js";
+import { rpcHex, rpcObject, type RpcBatchEvidence } from "./rpc.js";
 
 export interface RpcCheckpointAuthority {
   readonly canonicalContext: Uint8Array;
   readonly verification: Omit<CheckpointVerificationInput, "certificate">;
   readonly requiredGuarantors: number;
   readonly signatures: LocalSignatureVerifier;
+}
+
+export interface RpcCheckpointEvidence extends RpcBatchEvidence {
+  readonly checkpoint: {
+    readonly input: CheckpointVerificationInput;
+    readonly signatures: LocalSignatureVerifier;
+    readonly requiredGuarantors: number;
+  };
 }
 
 class Reader {
@@ -27,8 +34,8 @@ class Reader {
 
 const equal = (a: Uint8Array, b: Uint8Array) => a.length === b.length && a.every((v, i) => v === b[i]);
 
-export function rpcCheckpointEvidence(result: Record<string, unknown>, batch: PaymentCommitmentEvidence,
-  authority: RpcCheckpointAuthority): PaymentCommitmentEvidence {
+export function rpcCheckpointEvidence(result: Record<string, unknown>, batch: RpcBatchEvidence,
+  authority: RpcCheckpointAuthority): RpcCheckpointEvidence {
   const wire = rpcObject(result["checkpoint_evidence"]);
   if (!Number.isSafeInteger(authority.requiredGuarantors) || authority.requiredGuarantors <= 0 || authority.requiredGuarantors > 32
     || authority.canonicalContext.length === 0 || authority.canonicalContext.length > 131072
