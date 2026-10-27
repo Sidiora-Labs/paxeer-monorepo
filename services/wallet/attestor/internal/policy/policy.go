@@ -672,8 +672,6 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 			}
 		}
 		out.Spends = append(out.Spends, spend)
-	case call.Destination == "layerxcustody" && call.Method == "depositToken":
-		err = token("pointer", "amount")
 	case (call.Destination == "layerxpay" && (call.Method == "budgetFundNative" || call.Method == "budgetFund")) ||
 		(call.Destination == "layerxprograms" && call.Method == "sandboxFund"):
 		amount, ok := call.Args["amount"].(*big.Int)
