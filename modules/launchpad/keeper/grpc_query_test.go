@@ -258,8 +258,15 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "HasRole",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.HasRole(goCtx, &types.QueryHasRoleRequest{})
-				require.Nil(t, response)
+				contract := querier.Generation2().FeeAccumulator
+				account := address("query router role account")
+				response, err := client.HasRole(goCtx, &types.QueryHasRoleRequest{
+					Contract: contract.Hex(), Role: keeper.PoolRole.Hex(), Account: account.Hex(),
+				})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.False(t, response.HasRole)
+				require.Equal(t, querier.Keeper.HasRole(ctx, contract, keeper.PoolRole, account), response.HasRole)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -271,8 +278,12 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 		{
 			name: "QuoteLedger",
 			call: func(t *testing.T, goCtx context.Context) error {
-				response, err := client.QuoteLedger(goCtx, &types.QueryQuoteLedgerRequest{})
-				require.Nil(t, response)
+				amount, err := querier.GetQuoteLedger(ctx, keeper.TreasuryHeldLedger())
+				require.NoError(t, err)
+				response, err := client.QuoteLedger(goCtx, &types.QueryQuoteLedgerRequest{Kind: "treasury-held"})
+				require.NoError(t, err)
+				require.NotNil(t, response)
+				require.Equal(t, amount.String(), response.Amount)
 				return err
 			},
 			nilRequest: func(t *testing.T, goCtx context.Context) error {
@@ -334,7 +345,7 @@ func TestQuerierRegistersOnGRPCRouter(t *testing.T) {
 			require.NotNil(t, router.Route("/paxprotocol.paxchain.launchpad.Query/"+tc.name))
 			err := tc.call(t, sdk.WrapSDKContext(ctx))
 			switch tc.name {
-			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed":
+			case "Params", "Markets", "Treasury", "Surface", "Retired", "FeeRight", "AirdropEpoch", "AirdropClaimed", "HasRole", "QuoteLedger":
 				require.NoError(t, err)
 			case "Market":
 				require.Equal(t, codes.InvalidArgument, status.Code(err))
