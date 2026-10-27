@@ -458,30 +458,13 @@ func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM
 	}
 	for _, key := range state.ReceiptKeys {
 		if key.Covers(uint64(ctx.BlockHeight()) + 1) { //nolint:gosec // block heights are positive
+			if err := app.SequencerKeeper.SetActivationHeight(ctx, ctx.BlockHeight()+1); err != nil {
+				return newVM, fmt.Errorf("upgrade %s: %w", MergeUpgrade, err)
+			}
 			return newVM, nil
 		}
 	}
 	return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for first sequenced height %d", MergeUpgrade, uint64(ctx.BlockHeight())+1) //nolint:gosec // block heights are positive
-}
-
-// sequencerPinnedLeader is the gate of the leader pin and of the
-// ProcessProposal order check. At heights at or above the height H_act at which
-// the merge plan brought the sequencer module up it returns L[r mod len(L)] from
-// the leader list in the module store and true; below H_act, and on a chain
-// that has not applied the plan, it returns false and the proposer rotation and
-// the mempool path run unchanged. It reads the module store, never node config.
-func (app *App) sequencerPinnedLeader(ctx sdk.Context, height int64, round int32) ([32]byte, bool, error) {
-	if !app.UpgradeKeeper.IsUpgradeActiveAtHeight(ctx, MergeUpgrade, height) {
-		return [32]byte{}, false, nil
-	}
-	leaders, err := app.SequencerKeeper.Leaders(ctx)
-	if err != nil {
-		return [32]byte{}, false, err
-	}
-	if len(leaders) == 0 {
-		return [32]byte{}, false, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s applied with no pinned leader list", MergeUpgrade)
-	}
-	return leaders[uint64(uint32(round))%uint64(len(leaders))], true, nil //nolint:gosec // the round is reduced modulo the list length
 }
 
 // activationModules lists the modules the activation plan initialises, in the
@@ -650,7 +633,7 @@ func (app *App) unmountedActivationStores() []string {
 // state-commitment store. Only a process that read the plan's upgrade info file
 // at one above its last committed height mounts them, through the upgrade store
 // loader the store-loader wiring installs for the plan's name. Only the
-// activation and v6.12.0 plans are judged; every other plan names none. A
+// activation, v6.12.0 and merge plans are judged; every other plan names none. A
 // commit multistore that cannot report pending stores is judged on the stores
 // it carries alone.
 func (app *App) unmountedPlanStores(name string) []string {
@@ -660,6 +643,8 @@ func (app *App) unmountedPlanStores(name string) []string {
 		upgrades = activationStoreUpgrades()
 	case V6120Upgrade:
 		upgrades = v6120StoreUpgrades()
+	case MergeUpgrade:
+		upgrades = mergeStoreUpgrades()
 	default:
 		return nil
 	}

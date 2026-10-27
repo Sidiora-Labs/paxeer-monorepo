@@ -1,3 +1,6 @@
+[meta]
+format_version = 1
+
 [component.verify]
 req = "11001"
 symbols = ["layerxverify", "ILayerXVerify", "layerxVerify"]
