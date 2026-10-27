@@ -2469,3 +2469,67 @@ symbol = "lx_stream_record_decode"
 observed = "The ninth attempt (21c64bdef on 4ed02cfb5) re-ran the seventh attempt's test (b408330ce), whose record branch at :350-353 still expects LXP_ERR_TRAILING_BYTES or LXP_ERR_LENGTH_LIMIT, so the verify_cmd exited 1 (logs-verify-1.log) with `got -3` (LXP_ERR_NON_CANONICAL) for 256000 record extensions while open/amount/meter/keyed/id passed; lx_stream_record_decode refuses any other length with LXP_ERR_NON_CANONICAL by design (src/modules/stream/lx_stream_record.c:115-116, unchanged since 98d02716b), as do_3 requires."
 assumption = "The eighth attempt (e263a6440), which already carries `expected = status == LXP_ERR_NON_CANONICAL;`, is requalified unchanged; no spec or code change is needed."
 severity = "note"
+
+[finding.1.16.1]
+task = "1.16.1"
+file = "src/protocol/lxp_kernel.c:15"
+symbol = "lxp_replay_activity_output"
+observed = "The first attempt's build `make -C . build/liblayerx.a` (8a3b59d30 on bfb35d345) exited 2 (logs-build-1.log) at lxp_kernel.c:5660:39 `invalid application of 'sizeof' to incomplete type 'lxp_replay_activity_output'`: lxp_kernel.c dereferences that type at :5660-5666 (code from 287b9d642) and received its definition only through the layerx/lxp_replica.h include that do_1 removes from include/layerx/programs.h:7; do_3 asked for the direct includes but touches did not list lxp_kernel.c."
+assumption = "touches gains src/protocol/lxp_kernel.c and do_3 names the include explicitly; the programs.h split and the test of 8a3b59d30 are continued."
+severity = "blocker"
+
+[finding.5.5.12]
+task = "5.5.12"
+file = "node/sequencer/node_test.go:110"
+symbol = "TestNewNodeAssemblesSequencerComponents"
+observed = "The first attempt's verifier `cg spec done 5.5.12` (1aebb5dd6 on 5ea311121) exited 1 (logs-verify-1.log): require.Equal at node_test.go:110 compared a bytes.HexBytes proposer address (crypto.Address, consensus/crypto/crypto.go:21) with the []byte ProposerAddress of the sealed batch header; the 20 bytes are identical and only the types differ."
+assumption = "The assertion compares the two plain byte slices; its strength is unchanged and 1aebb5dd6 is continued."
+severity = "note"
+
+[finding.8.34.1.1]
+task = "8.34.1"
+file = "services/platform/middleware/seller/src/checkpoint.ts:1"
+symbol = "CheckpointAttestation"
+observed = "The third attempt's build `npm --prefix services/platform/middleware/seller run build` (688b10dca) exited 2 (logs-build-1.log) because seller/src/checkpoint.ts (8.22.2, 3f7657bab) imports CheckpointAttestation and CheckpointVerificationInput, which 9.34.2 (b69843349) deleted from the TypeScript SDK between the second and third attempt's bases; every seller package build on main fails the same way, and the only task that deleted the file, 8.22.6, sits at wave 29 behind 8.26.x tasks whose builds fail on it."
+assumption = "The dependency-free task 8.22.7 deletes checkpoint.ts and its re-export; 8.34.1, 8.23.2, 8.23.3 and 8.26.1-8.26.6 require it, and 688b10dca (do_8 already implemented) is continued."
+severity = "blocker"
+
+[finding.12.34.2]
+task = "12.34.2"
+file = "apps/wallet/src/surfaces/useSurface.ts:502"
+symbol = "WalletCapsState"
+observed = "The first attempt's build `pnpm --dir apps/wallet run typecheck` (9a03c301d on bfb35d345) exited 2 (logs-build-1.log) on 14 errors in useSurface.ts, WebDataView.tsx and WebDataView.test.tsx, which still used the observation and cap shapes that 12.25.1 (cd777e460) replaced in sdk/wallet; the task's own files type-check and 12.33.1 owns the three files."
+assumption = "12.34.2 requires 12.33.1 (done, merged at ab0b9a707); 9a03c301d is requalified unchanged."
+severity = "blocker"
+
+[finding.10.3.2.2]
+task = "10.3.2"
+file = "services/interop/crates/layerx-mirror/src/node.rs:428"
+symbol = "Freshness"
+observed = "The fourth attempt's build `cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service` (290feaa4e on 4ed02cfb5) exited 101 (logs-build-1.log) in layerx-mirror, reached through layerx-sdk, on the agent-api read types of finding.9.1.1; the stream journal change itself was never compiled."
+assumption = "The task requires 9.1.6 (qualified at 05dcc1243, merged at ab0b9a707) and 9.1.7 (layerx-sdk still uses achieved_verification_level); 290feaa4e is requalified unchanged once both are on main."
+severity = "note"
+
+[finding.8.1.1.1]
+task = "8.1.1"
+file = "services/platform/hosted/indexer/src/ai_market.rs:812"
+symbol = "FinalityEvidence"
+observed = "The fifth attempt's build `cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway` (d1729c149 on 4ed02cfb5) exited 101 (logs-build-1.log) in layerx-indexer, which still builds layerx_programs_ai_market::queries::FinalityEvidence with checkpoint and settlement and ReadProof with batch_id, fields 13.29.1 (faad391ea) replaced with block_height, block_hash, app_hash and store_proof_digest; 8.1.4 fails identically and no open task owns the port (8.96.2 touches ai_market.rs only, at wave 27 behind 8.0.4)."
+assumption = "The layerx-platform-gateway tasks are unchanged and requalify once the owner assigns the indexer port (ai_market.rs and ai_reputation.rs) to a task; until then every task whose build compiles layerx-indexer waits."
+severity = "blocker"
+
+[finding.9.22.4.1]
+task = "9.22.4"
+file = "services/agent/crates/layerx-client/src/rpc/payments.rs:10"
+symbol = "list_assets"
+observed = "The fourth attempt re-ran the first attempt's candidate (fb3230a14), whose list_assets takes `&SequencerEndpoint` and calls PxEndpoint::from on the reference while px.rs:96 implements only From<SequencerEndpoint> and SequencerEndpoint is not Clone, so the build exited 101 (logs-build-1.log); the third attempt acab2d929 takes `&PxEndpoint` as do_2 directs and stopped only on the layerx-client FinalityEvidence break fixed in 4ed02cfb5."
+assumption = "acab2d929 is requalified on main without further implementation."
+severity = "note"
+
+[finding.9.24.1.1]
+task = "9.24.1"
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs:9"
+symbol = "native_budget_versions_fields_and_extremes"
+observed = "The fifth attempt's verifier `cg spec done 9.24.1` (de9ce3a82 on 4ed02cfb5) exited 1 (logs-verify-1.log) because the kept gate test reads the file named by LAYERX_CAPS_VECTORS, the output of the native producer tests/qualification/lxp_wallet_caps_vectors.c, and nothing in the declared build or verify commands produced it; the third attempt passed the same test after compiling that producer against build/liblayerx.a and programs/target/release/liblayerx_programs_sandbox.a by hand."
+assumption = "build_cmd builds the producer and writes build/native-vectors.json, verify_cmd exports LAYERX_CAPS_VECTORS to it, the test and the decoder stay unchanged (do_3), and de9ce3a82 is requalified."
+severity = "blocker"

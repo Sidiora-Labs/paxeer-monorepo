@@ -9069,3 +9069,15 @@ area = "kernel tests"
 symptom = "a test encoding several activities into one arena fails lxp_activity_encode(...) == LXP_OK after a few encodes"
 cause = "lxp_activity_encode takes a full LXP_MAX_ACTIVITY_BYTES (1 MiB) writer from the arena it is given on every call and does not return it (src/protocol/lxp_activity.c:36)"
 do = "give a test encoding N activities N MiB of arena or a scratch arena reset per activity (1.4.3)"
+
+[gotcha.1891]
+area = "Rust gate tests"
+symptom = "a kept gate test that reads its input file from an environment variable (tests/committed_caps.rs:9, LAYERX_CAPS_VECTORS) fails under its declared verify_cmd although it passed when the input was prepared by hand"
+cause = "neither the build_cmd nor the verify_cmd produced the file or exported the variable, so the test only passed in a hand-prepared environment"
+do = "declare the producer in the gate: the build_cmd produces the file and the verify_cmd exports the variable, instead of relying on a hand-prepared environment (9.24.1)"
+
+[gotcha.1892]
+area = "spec / task dependencies"
+symptom = "every build of a package fails after a landed deletion task removed types it still imports (9.34.2 removed SDK types still imported by seller/src/checkpoint.ts), and the task that deletes the importer never becomes eligible"
+cause = "the importer is deleted only by a late task (8.22.6 at wave 29) that requires the very package tasks whose builds fail on it, so a requires edge to it deadlocks"
+do = "split the deletion into a dependency-free early task (8.22.7) and make the package tasks require it"
