@@ -3085,6 +3085,10 @@ func (app *App) SetCommitListener(fn func(height int64, appHash []byte)) {
 	app.commitListener = fn
 }
 
+func (app *App) LastBlockID() tmproto.BlockID {
+	return app.GetCheckCtx().BlockHeader().LastBlockId
+}
+
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
 // is open, so reads see every receipted transaction; otherwise it is the check context.
 func (app *App) LatestCtx() sdk.Context {
