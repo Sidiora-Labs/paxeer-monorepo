@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
+	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
@@ -46,7 +47,6 @@ func TestAuthRevertReasons(t *testing.T) {
 			{types.ErrNonCanonical, 8, "LXP_NON_CANONICAL"},
 			{types.ErrUnauthorizedDebit, 9, "LXP_UNAUTHORIZED_DEBIT"},
 			{types.ErrIdempotentReplay, 10, "LXP_IDEMPOTENT_REPLAY"},
-			{types.ErrPausedScope, 11, "LXP_PAUSED_SCOPE"},
 		}
 		for _, test := range cases {
 			t.Run(test.text, func(t *testing.T) {
@@ -72,6 +72,31 @@ func TestAuthRevertReasons(t *testing.T) {
 					assertLxpRevert(t, pcommon.LXPReason(converted), test.text)
 				}
 			})
+		}
+	})
+
+	t.Run("governanceRegistry", func(t *testing.T) {
+		registered := govtypes.ErrPausedScope
+		require.Equal(t, uint32(735), registered.ABCICode())
+		require.Equal(t, govtypes.ModuleName, registered.Codespace())
+		require.Equal(t, "LXP_PAUSED_SCOPE", registered.Error())
+		require.True(t, registered.Is(layerxauth.RevertError(registered)))
+		require.True(t, registered.Is(layerxauth.RevertError(sdkerrors.Wrap(registered, "auth refused"))))
+		for _, err := range []error{
+			registered,
+			fmt.Errorf("auth refused: %w", registered),
+			sdkerrors.Wrap(registered, "auth refused"),
+			fmt.Errorf("outer: %w", sdkerrors.Wrap(registered, "auth refused")),
+		} {
+			converted := layerxauth.RevertError(err)
+			require.Equal(t, "LXP_PAUSED_SCOPE", converted.Error())
+			require.Same(t, err, errors.Unwrap(converted))
+			require.Same(t, err, converted.(interface{ Cause() error }).Cause())
+			require.ErrorIs(t, converted, registered)
+			var result *sdkerrors.Error
+			require.ErrorAs(t, converted, &result)
+			require.Same(t, registered, result)
+			assertLxpRevert(t, pcommon.LXPReason(converted), "LXP_PAUSED_SCOPE")
 		}
 	})
 
