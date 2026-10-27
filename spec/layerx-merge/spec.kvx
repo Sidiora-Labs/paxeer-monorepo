@@ -97666,7 +97666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.2]
 title = "Prove 0x101C is served by the node only after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.4"]
@@ -97697,7 +97697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.3]
 title = "Prove a governance pause refuses 0x101A writes and 0x101C grants in the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.2", "5.19.4", "5.41.2"]
@@ -97727,7 +97727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.4]
 title = "Prove authz MsgExec under LayerXScopeAuthorization is refused after a kernel revoke"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "2.8.2", "5.14.3", "5.19.4"]
@@ -100127,7 +100127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.6]
 title = "Prove the application imports and exports layerxpay genesis over the shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.27.3", "2.0.2", "5.19.2", "5.94.2", "5.19.4"]
