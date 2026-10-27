@@ -34,7 +34,6 @@ use layerx_bridge_relayer::journal::{
 };
 use layerx_bridge_relayer::rpc::{JsonRpc, PaxeerRpc};
 use layerx_bridge_relayer::signer::{Attestor, ATTEST_INBOUND_DOMAIN, PAXEER_TRANSACTION_DOMAIN};
-use layerx_bridge_relayer::transport::PaxeerEndpoint;
 use layerx_mirror::rpc::RpcCluster;
 use layerx_mirror::signer::{
     RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
@@ -1026,6 +1025,67 @@ struct SuppliedOperator {
 }
 
 #[test]
+fn supplied_paxeer_endpoints_build_a_relayer_rpc() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../services/bridge/deploy/relayer-solana.example.json");
+    let mut value: serde_json::Value =
+        serde_json::from_slice(&fs::read(fixture).expect("read relayer fixture config"))
+            .expect("relayer fixture JSON");
+    let root = fixture_directory("supplied-paxeer-endpoints");
+    let ca = Ca::new(&root);
+    let der = ca.cert.to_der().expect("Paxeer trust anchor DER");
+    let anchor = root.join("paxeer-ca.der");
+    fs::write(&anchor, &der).expect("write Paxeer trust anchor");
+    value["paxeer"]["receipt_keys"] = serde_json::json!([{
+        "sequencer_id": hex::prefixed(&[1; 32]),
+        "public_key": hex::prefixed(&[2; 32]),
+        "first_height": 0,
+        "last_height": u64::MAX,
+    }]);
+    value["paxeer"]["endpoints"] = serde_json::json!([
+        {
+            "url": "https://paxeer.example.invalid/rpc",
+            "trust_anchor_der": anchor,
+            "request_timeout_ms": 1234,
+        },
+        {
+            "url": "http://127.0.0.1:8545",
+            "local_emulator": true,
+            "request_timeout_ms": 5678,
+        },
+    ]);
+    let path = root.join("relayer.json");
+    fs::write(
+        &path,
+        serde_json::to_vec(&value).expect("relayer config JSON"),
+    )
+    .expect("write relayer config");
+    let relayer = RelayerConfig::load(&path).expect("load supplied relayer config");
+    let endpoints = relayer
+        .paxeer_endpoints()
+        .expect("configured Paxeer endpoints");
+    assert_eq!(endpoints.len(), 2);
+    for (endpoint, configured) in endpoints.iter().zip(&relayer.paxeer.endpoints) {
+        assert_eq!(endpoint.url, configured.url);
+        assert_eq!(endpoint.expected_chain_id, relayer.paxeer.chain_id);
+        assert_eq!(
+            endpoint.request_timeout,
+            Duration::from_millis(configured.request_timeout_ms)
+        );
+    }
+    assert_eq!(
+        endpoints[0].trust_anchor_der.as_deref(),
+        Some(der.as_slice())
+    );
+    assert_eq!(endpoints[1].trust_anchor_der, None);
+    assert!(
+        PaxeerRpc::new(endpoints).is_ok(),
+        "configured Paxeer RPC adapter"
+    );
+    fs::remove_dir_all(root).expect("remove endpoint config fixture");
+}
+
+#[test]
 fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     let path = std::env::var_os("LAYERX_BRIDGE_OPERATOR_CONTRACT_INPUTS")
         .expect("missing authorized operator inventory/configuration inputs; generated signers are not approved membership");
@@ -1067,27 +1127,8 @@ fn supplied_operator_inventory_matches_registered_bridge_configuration() {
     }
     let relayer = &relayers[0];
     let endpoints = relayer
-        .paxeer
-        .endpoints
-        .iter()
-        .map(|endpoint| {
-            let trust_anchor_der = match &endpoint.trust_anchor_der {
-                Some(path) => Some(fs::read(path).expect("actual Paxeer RPC trust anchor")),
-                None => {
-                    assert!(endpoint.local_emulator);
-                    None
-                }
-            };
-            PaxeerEndpoint::new(
-                endpoint.url.clone(),
-                Duration::from_millis(endpoint.request_timeout_ms),
-                trust_anchor_der,
-                relayer.paxeer.chain_id,
-                endpoint.local_emulator,
-            )
-            .expect("production Paxeer RPC endpoint")
-        })
-        .collect();
+        .paxeer_endpoints()
+        .expect("production Paxeer RPC endpoints");
     let paxeer = PaxeerRpc::new(endpoints).expect("production Paxeer RPC adapter");
     let policy = inventory
         .destinations

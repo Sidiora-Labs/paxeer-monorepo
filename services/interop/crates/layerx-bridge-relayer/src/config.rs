@@ -12,6 +12,7 @@ use layerx_mirror::rpc::{RpcCluster, RpcQuorumConfig};
 use layerx_mirror::signer::{
     RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
 };
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde::Deserialize;
 
 use crate::cosign::CosignDirectory;
@@ -102,11 +103,23 @@ pub struct PaxeerEndpointConfig {
 pub struct PaxeerConfig {
     pub chain_id: u64,
     pub endpoints: Vec<PaxeerEndpointConfig>,
+    pub receipt_keys: Vec<ReceiptKeyConfig>,
     pub finality_depth: u64,
     pub start_block: u64,
     pub max_block_range: u64,
     pub submitter: KeyHandleConfig,
     pub gas: GasConfig,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiptKeyConfig {
+    #[serde(with = "hex::fixed_serde")]
+    pub sequencer_id: [u8; 32],
+    #[serde(with = "hex::fixed_serde")]
+    pub public_key: [u8; 32],
+    pub first_height: u64,
+    pub last_height: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -356,6 +369,7 @@ impl RelayerConfig {
                 )));
             }
         }
+        self.receipt_keys()?;
         if self.chains.is_empty() {
             return Err(invalid("at least one chain is required"));
         }
@@ -424,11 +438,17 @@ impl RelayerConfig {
         .map_err(|error| invalid(format!("signer handle {}: {error:?}", key.handle)))
     }
 
-    fn paxeer_endpoints(&self) -> Result<Vec<PaxeerEndpoint>, RelayerError> {
+    pub fn paxeer_endpoints(&self) -> Result<Vec<PaxeerEndpoint>, RelayerError> {
         self.paxeer
             .endpoints
             .iter()
             .map(|endpoint| {
+                if endpoint.local_emulator == endpoint.trust_anchor_der.is_some() {
+                    return Err(invalid(format!(
+                        "paxeer endpoint {} needs exactly one of a trust anchor or local_emulator",
+                        endpoint.url
+                    )));
+                }
                 let trust_anchor_der = endpoint
                     .trust_anchor_der
                     .as_ref()
@@ -449,6 +469,37 @@ impl RelayerConfig {
             .collect()
     }
 
+    pub fn receipt_keys(&self) -> Result<Vec<SequencerAuthorization>, RelayerError> {
+        let keys = &self.paxeer.receipt_keys;
+        if keys.is_empty() {
+            return Err(invalid("paxeer needs at least one receipt key"));
+        }
+        if keys.iter().any(|key| key.first_height > key.last_height) {
+            return Err(invalid(
+                "receipt key first_height must not exceed last_height",
+            ));
+        }
+        if keys
+            .windows(2)
+            .any(|pair| pair[1].first_height <= pair[0].last_height)
+        {
+            return Err(invalid(
+                "receipt key windows must be ordered and non-overlapping",
+            ));
+        }
+        Ok(keys
+            .iter()
+            .map(|key| {
+                SequencerAuthorization::new(
+                    key.sequencer_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect())
+    }
+
     /// Opens the journal and connects every transport and key handle, the
     /// Solana fee payer as an ed25519 handle when release mints are
     /// configured.
@@ -461,6 +512,7 @@ impl RelayerConfig {
         let attestor = Attestor::new(self.remote_signer(&self.attestor)?)
             .map_err(|error| invalid(format!("attestor: {error:?}")))?;
         let paxeer = PaxeerLink {
+            receipt_keys: self.receipt_keys()?,
             settings: PaxeerSettings {
                 chain_id: self.paxeer.chain_id,
                 finality_depth: self.paxeer.finality_depth,
@@ -542,6 +594,11 @@ mod tests {
         "paxeer": {
             "chain_id": 229,
             "endpoints": [{"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 3000}],
+            "receipt_keys": [{
+                "sequencer_id": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "public_key": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                "first_height": 0, "last_height": 18446744073709551615
+            }],
             "finality_depth": 2, "start_block": 0, "max_block_range": 500,
             "submitter": {"handle": "bridge-paxeer-fees", "public_key": "0x02bb"},
             "gas": {"gas_limit": 1000000, "max_fee_per_gas": 100000000000, "max_priority_fee_per_gas": 2000000000}
