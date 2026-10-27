@@ -9357,3 +9357,44 @@ title = "A Cargo.lock that lacks one dependency line fails every --locked build 
 observed = "After a crate manifest gained a workspace dependency without a lock refresh, cargo build --locked refused all 39 pending interop targets with 'the lock file needs to be updated'; the whole difference was one missing line in one dependency list."
 lesson = "When a task adds or removes a dependency in a Cargo.toml, its touches must include the workspace Cargo.lock and its implementation must regenerate it (cargo metadata --offline suffices for path and already-cached crates); check cargo metadata --locked --offline on main whenever a --locked gate fails before any task change."
 
+[gotcha.1939]
+area = "spec"
+symptom = "a task reshapes a public struct of a library crate and its tests pass, then the dependents gate fails in a binary of another crate that reads the removed fields (VerifiedLayerxLeg in the reference ramp)"
+cause = "the dependents gate compiles every crate that depends on a touched crate; a field rename is a break for each use site outside the task's touches"
+do = "before reshaping a public type, grep its field names across services/ and give the task the use-site files, or order the dependent's port task before it"
+
+[gotcha.1940]
+area = "node"
+symptom = "a precompile merge constructor panics 'keeper is unavailable' in every node.New although the keeper is wired"
+cause = "the keepers interface the constructor asserts declares the accessor returning the keeper by value while node/precompiles.go exposes it as a pointer; a type assertion on a mismatched method signature never matches"
+do = "declare the accessor exactly as node/precompiles.go exposes it (pointer or value), nil-check a pointer, and dereference for constructors that take a value"
+
+[gotcha.1941]
+area = "modules/launchpad"
+symptom = "a REST test asserts the registered error code (12) on the body of a gRPC-gateway response and reads 2"
+cause = "sdkerrors.Register codes are ABCI codes; the REST body carries the gRPC status code (codes.Unknown = 2 for an ABCI error); the two registries never agree"
+do = "assert ABCI codes on abciResponse.Response.Code with the codespace, and compare REST body codes only with status.Convert(err).Code() of the same query"
+
+[gotcha.1942]
+area = "modules/layerxauth"
+symptom = "a MsgExec after the grantor revokes the kernel grant on 0x101C fails with authz 'authorization not found' instead of ErrAuthRevoked"
+cause = "the kernel revoke deletes every authz grant bound to the kernel grant (keeper/revoke.go:41-74) before LayerXScopeAuthorization.Accept can report the stale revocation epoch"
+do = "prove the post-revoke refusal as ErrUnauthorized with GetAuthorization nil, and prove ErrAuthRevoked separately on a saved authorization whose RevocationEpoch is stale"
+
+[gotcha.1943]
+area = "apps/web e2e"
+symptom = "a test that mints a TLS certificate with 'openssl req' at runtime exits 1 with no output in the qualification environment"
+cause = "openssl is not on the test image; a shell-out at test time binds the test to the host toolchain"
+do = "commit a long-lived self-signed localhost certificate and key under e2e/fixtures/ and read them with fs, or serve the fixture over http"
+
+[gotcha.1944]
+area = "precompiles/spot"
+symptom = "a test asserting gas left == supplied - cost - executionGas measured on its own context fails by a few thousand gas"
+cause = "RunAndCalculateGas charges cost up front, meters the keeper execution under a fresh Cosmos meter sized from supplied-charge and converts the remainder back through GetEVMGasLimitFromCtx, so the inner reads' Cosmos gas is not the EVM gas a caller measures on another context"
+do = "assert supplied-left >= cost and the out-of-gas boundary at cost-1 instead of equality"
+
+[gotcha.1945]
+area = "node tests"
+symptom = "a sequencer RPC test refuses every request with gas wanted above the block limit although the limit was never set"
+cause = "InitChain with default consensus params leaves Block.MaxGasWanted 0 and node/sequencer/limits.go:43 compares literally"
+do = "set Block.MaxGas and Block.MaxGasWanted in the test app's InitChain consensus params (node/genesis_sequenced_test.go:52 shows the shape)"
