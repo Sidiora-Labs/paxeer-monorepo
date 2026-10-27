@@ -100095,7 +100095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.5]
 title = "Prove layerxagent params and pause change through a LayerX governance proposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.32.7", "2.32.8", "2.0.2", "6.95.1"]
@@ -101064,7 +101064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.3.2]
 title = "Pin the quoteMarket handler to the keeper market quote"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.0.3"]
@@ -104949,7 +104949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.5]
 title = "Apply chain order limits in PerpsOrderForm and buildOrderPlan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.48.1", "3.48.2", "3.47.3", "3.0.3"]
