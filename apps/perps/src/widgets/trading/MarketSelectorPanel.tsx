@@ -1,6 +1,7 @@
 import React, { useState, useMemo, forwardRef } from "react";
 import { cn } from "@/ui/utils/cn";
-import { PERPS_MARKETS, coinLogoUrl } from "@/core/perps/config";
+import { coinLogoUrl } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IcoSearch, IcoClock } from "@/ui/atoms/custom-icon";
@@ -17,7 +18,6 @@ interface MarketWatchlistProps {
 
 type FilterTab = "all" | "rwa" | "new";
 
-const NEW_MARKET_IDS = [5, 6, 7, 8, 9, 10];
 const RWA_MARKET_IDS = [5, 6, 7, 8, 9, 10];
 
 function formatPrice(price: number): string {
@@ -35,19 +35,20 @@ function fmtVol(v: number): string {
 
 export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(function MarketWatchlist({ chrome = "rail", width, collapsed, onToggle, onSelect, selectedSymbol }, ref) {
   const { prices, tickers } = useRealtimePrices();
+  const { tradeable } = usePerpsMarkets();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<FilterTab>("all");
 
   const filtered = useMemo(() => {
-    let list = [...PERPS_MARKETS];
+    let list = [...tradeable];
     if (tab === "rwa") list = list.filter((m) => RWA_MARKET_IDS.includes(m.marketId));
-    else if (tab === "new") list = list.filter((m) => NEW_MARKET_IDS.includes(m.marketId));
+    else if (tab === "new") list = list.filter((m) => m.category === "new");
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((m) => m.symbol.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
     }
     return list;
-  }, [tab, search]);
+  }, [tradeable, tab, search]);
 
   const handleSelect = (symbol: string) => {
     onSelect(symbol);
@@ -86,7 +87,7 @@ export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(
         </button>
         {/* Mini market icons */}
         <div className="flex flex-col items-center gap-1.5 mt-2 overflow-y-auto scrollbar-hide flex-1 py-1">
-          {PERPS_MARKETS.slice(0, 8).map((m) => {
+          {tradeable.slice(0, 8).map((m) => {
             const isSelected = selectedSymbol === m.symbol;
             return (
               <button
@@ -317,7 +318,7 @@ export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(
                   >
                     {m.symbol}
                   </span>
-                  {NEW_MARKET_IDS.includes(m.marketId) && (
+                  {m.category === "new" && (
                     <span
                       style={{
                         padding: "1px 4px",

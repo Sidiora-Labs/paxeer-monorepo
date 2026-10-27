@@ -37,9 +37,18 @@ type Market {
   maxLeverage: BigDecimal!
   enabled: Boolean!
   createdAt: DateTime
+  marginTiers: [MarginTier!]!
   latestPrice: LatestPrice
   poolState: PoolState
   fundingRate: FundingRate
+}
+
+type MarginTier {
+  tier: Int!
+  lowerBoundUsd: BigInt!
+  maxLeverage: BigInt!
+  maintenanceBps: BigInt!
+  deductionUsd: BigInt!
 }
 
 type Position {
