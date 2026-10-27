@@ -1104,7 +1104,7 @@ func New(
 		transferModule,
 		epochModule,
 		tokenfactorymodule.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper),
-		layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper),
+		layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		layerxcustodymodule.NewAppModule(app.LayerXCustodyKeeper),
 		layerxexchangemodule.NewAppModule(app.LayerXExchangeKeeper),
