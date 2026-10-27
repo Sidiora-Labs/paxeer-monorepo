@@ -17,7 +17,6 @@ import {
 import type {
   ContractTypes,
   ProfilePatchBody,
-  QuoteBody,
   DeviceRegisterBody,
   PreferencesUpdateBody,
 } from '../../../../../sdk/launchpad/packages/sdk/src/types.gen.ts';
@@ -427,8 +426,12 @@ export class MobileServices {
   streams(signal: AbortSignal) {
     return activityRoutes.streams(this.sdk, signal);
   }
-  quote(body: QuoteBody, signal: AbortSignal) {
-    return activityRoutes.quote(this.sdk, body, signal);
+  quote(
+    body: Omit<Parameters<typeof activityRoutes.quote>[1], 'slippageBps'>,
+    slippageBps: number,
+    signal: AbortSignal,
+  ) {
+    return activityRoutes.quote(this, { ...body, slippageBps }, signal);
   }
   receipt(hash: string, signal: AbortSignal) {
     return activityRoutes.receipt(this.sdk, hash, signal);
