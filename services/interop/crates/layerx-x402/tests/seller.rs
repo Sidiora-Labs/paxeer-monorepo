@@ -868,6 +868,200 @@ fn receipt_leaf(receipt: &[u8]) -> String {
 }
 
 #[test]
+fn seller_settles_a_drawn_payment() {
+    use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
+    use layerx_proof::sequencer_logs::verify_logs;
+
+    let grant = [0x8a; 32];
+    let reference = [0x74; 32];
+    let exact = settlement_log(payer_account(), reference);
+    let mut data = exact.data().to_vec();
+    data.extend_from_slice(&reference);
+    data.extend_from_slice(&[0x9b; 32]);
+    let drawn = SequencerLog::new(
+        exact.address(),
+        vec![
+            fixture_array("0x13473d103a2d52172016c872eeae0153e254af3c21a1d987492ab737f1a34fe1"),
+            grant,
+            payer_account(),
+            account_id(PAYEE_ACCOUNT),
+        ],
+        data,
+        0,
+    );
+    let payload = json!({"grantId": hex32(&grant), "idempotencyKey": hex32(&reference)});
+    for scheme in ["metered", "subscription"] {
+        for grant_id in [hex32(&grant), format!("0x{}", hex32(&grant).to_uppercase())] {
+            let mut offer = grant_requirements(Some(SETTLEMENT_PURPOSE));
+            offer.scheme = scheme.to_owned();
+            let executed = settlement_executed_with_logs(payer_account(), vec![drawn.clone()]);
+            let receipt = executed.evidence.signed_receipt.clone();
+            let expected_digest = canonical_receipt_digest(&receipt).unwrap();
+            let outcome = settle_executed(
+                offer,
+                json!({"grantId": grant_id, "idempotencyKey": hex32(&reference)}),
+                executed,
+                settlement_keys(),
+            )
+            .unwrap_or_else(|error| panic!("drawn payment settles: {error:?}"));
+            let SellerOutcome::Settled { receipt_digest, .. } = &outcome else {
+                panic!("drawn payment must settle");
+            };
+            assert_eq!(*receipt_digest, expected_digest);
+            let (header, response) = settled_header(outcome);
+            assert!(response.success);
+            assert_eq!(response.payer, Some(hex32(&payer_account())));
+            assert_eq!(response.amount, Some(AtomicAmount::from_u128(1000)));
+            assert_eq!(response.transaction, format!("0x{}", hex32(&[0x61; 32])));
+            assert_eq!(response.network, "eip155:125");
+            assert_eq!(
+                response.extensions["layerx"]["purposeHash"],
+                SETTLEMENT_PURPOSE
+            );
+            assert_eq!(
+                response.extensions["layerx"]["receiptDigest"],
+                hex32(&expected_digest)
+            );
+            assert_eq!(
+                response.extensions["layerx"]["verificationLevel"],
+                "receipted"
+            );
+            assert_eq!(
+                response.extensions["layerx"]["receipt"],
+                base64::engine::general_purpose::STANDARD.encode(receipt)
+            );
+            assert_eq!(
+                serde_json::from_slice::<SettlementResponse>(&header).unwrap(),
+                response
+            );
+        }
+    }
+
+    for grant_id in [
+        json!("8b".repeat(32)),
+        json!("00".repeat(32)),
+        json!("8a"),
+        json!("gg".repeat(32)),
+        json!(17),
+        serde_json::Value::Null,
+    ] {
+        let mut mismatched = payload.clone();
+        mismatched["grantId"] = grant_id;
+        assert_eq!(
+            settle_executed(
+                grant_requirements(Some(SETTLEMENT_PURPOSE)),
+                mismatched,
+                settlement_executed_with_logs(payer_account(), vec![drawn.clone()]),
+                settlement_keys(),
+            )
+            .map_err(Traced::into_error),
+            Err(X402Error::EvidenceMismatch),
+        );
+    }
+    assert_eq!(
+        settle_executed(
+            grant_requirements(Some(SETTLEMENT_PURPOSE)),
+            json!({"idempotencyKey": hex32(&reference)}),
+            settlement_executed_with_logs(payer_account(), vec![drawn.clone()]),
+            settlement_keys(),
+        )
+        .map_err(Traced::into_error),
+        Err(X402Error::EvidenceMismatch),
+    );
+
+    let mut invalid_logs = Vec::new();
+    for index in [1, 3] {
+        let mut topics = drawn.topics().to_vec();
+        topics[index] = [0x8b; 32];
+        invalid_logs.push(SequencerLog::new(
+            drawn.address(),
+            topics,
+            drawn.data().to_vec(),
+            0,
+        ));
+    }
+    for index in [0, 32, 63, 64] {
+        let mut data = drawn.data().to_vec();
+        data[index] ^= 1;
+        invalid_logs.push(SequencerLog::new(
+            drawn.address(),
+            drawn.topics().to_vec(),
+            data,
+            0,
+        ));
+    }
+    for length in [0, 64, 96, 127, 129] {
+        let mut data = drawn.data().to_vec();
+        data.resize(length, 0);
+        invalid_logs.push(SequencerLog::new(
+            drawn.address(),
+            drawn.topics().to_vec(),
+            data,
+            0,
+        ));
+    }
+    invalid_logs.push(SequencerLog::new(
+        [0x12; 20],
+        drawn.topics().to_vec(),
+        drawn.data().to_vec(),
+        0,
+    ));
+    invalid_logs.push(SequencerLog::new(
+        drawn.address(),
+        drawn.topics()[..3].to_vec(),
+        drawn.data().to_vec(),
+        0,
+    ));
+    let mut unknown_topics = drawn.topics().to_vec();
+    unknown_topics[0] = [0; 32];
+    invalid_logs.push(SequencerLog::new(
+        drawn.address(),
+        unknown_topics,
+        drawn.data().to_vec(),
+        0,
+    ));
+    let mut cases: Vec<Vec<SequencerLog>> = invalid_logs.into_iter().map(|log| vec![log]).collect();
+    cases.push(vec![
+        drawn.clone(),
+        SequencerLog::new(
+            drawn.address(),
+            drawn.topics().to_vec(),
+            drawn.data().to_vec(),
+            1,
+        ),
+    ]);
+    cases.push(vec![
+        drawn,
+        SequencerLog::new(
+            exact.address(),
+            exact.topics().to_vec(),
+            exact.data().to_vec(),
+            1,
+        ),
+    ]);
+    for logs in cases {
+        let executed = settlement_executed_with_logs(payer_account(), logs);
+        let keys = settlement_keys();
+        let receipt = verify_sequencer_signature(
+            &executed.evidence.signed_receipt,
+            ReceiptKeys::HeightRanges(&keys),
+        )
+        .unwrap();
+        verify_logs(&receipt, executed.evidence.logs.clone()).unwrap();
+        assert_eq!(
+            settle_executed(
+                grant_requirements(Some(SETTLEMENT_PURPOSE)),
+                payload.clone(),
+                executed,
+                keys,
+            )
+            .map_err(Traced::into_error),
+            Err(X402Error::EvidenceMismatch),
+        );
+    }
+}
+
+#[test]
 fn a_grant_settlement_repeats_the_challenge_purpose_hash_byte_for_byte() {
     let executed = settlement_executed(6, payer_account());
     let receipt = executed.evidence.signed_receipt.clone();

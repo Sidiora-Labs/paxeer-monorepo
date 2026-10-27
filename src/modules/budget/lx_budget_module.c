@@ -285,7 +285,9 @@ static lxp_result budget_authorized_signer(
     if (status == LXP_OK && memcmp(actor, authority->actor, 32U) != 0)
         status = LXP_ERR_UNAUTHORIZED_DEBIT;
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    const lx_asset_runtime *asset_runtime = ctx->kernel->module_runtime[LXP_MODULE_ASSET];
+    if (status == LXP_OK && (asset_runtime == NULL || !asset_runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK)
         status = lxp_ctx_account_find(ctx, authority->principal, signer);
     if (status != LXP_OK) return status;
