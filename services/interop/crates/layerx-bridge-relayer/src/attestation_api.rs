@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::fmt::Write as _;
 use std::io::{self, Read as _, Write as _};
 use std::net::{Shutdown, TcpListener, TcpStream};
 use std::sync::{Arc, RwLock};
@@ -23,11 +24,11 @@ const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
 pub fn serve(
     listener: TcpListener,
     view: Arc<RwLock<AttestationView>>,
-    _origins: Vec<String>,
+    origins: Vec<String>,
 ) -> io::Result<()> {
     for connection in listener.incoming() {
         let mut stream = connection?;
-        let result = serve_connection(&mut stream, &view);
+        let result = serve_connection(&mut stream, &view, &origins);
         let _ = stream.shutdown(Shutdown::Both);
         if let Err(error) = result {
             eprintln!("layerx-bridge-relayer: attestation connection: {error}");
@@ -36,7 +37,11 @@ pub fn serve(
     Ok(())
 }
 
-fn serve_connection(stream: &mut TcpStream, view: &RwLock<AttestationView>) -> io::Result<()> {
+fn serve_connection(
+    stream: &mut TcpStream,
+    view: &RwLock<AttestationView>,
+    origins: &[String],
+) -> io::Result<()> {
     stream.set_write_timeout(Some(REQUEST_TIMEOUT))?;
     let deadline = Instant::now() + REQUEST_TIMEOUT;
     let mut request = Vec::with_capacity(MAX_REQUEST_BYTES);
@@ -76,10 +81,31 @@ fn serve_connection(stream: &mut TcpStream, view: &RwLock<AttestationView>) -> i
     let [method, path, version] = parts.as_slice() else {
         return respond(stream, 400, json!({"error": "invalid request line"}));
     };
-    if !matches!(*version, "HTTP/1.0" | "HTTP/1.1") || lines.any(|line| !line.contains(':')) {
+    if !matches!(*version, "HTTP/1.0" | "HTTP/1.1") {
         return respond(stream, 400, json!({"error": "invalid request headers"}));
     }
-    if *method != "GET" {
+    let mut origin = None;
+    for line in lines {
+        let Some((name, value)) = line.split_once(':') else {
+            return respond(stream, 400, json!({"error": "invalid request headers"}));
+        };
+        if name.eq_ignore_ascii_case("Origin") {
+            if origin.is_some() {
+                return respond(stream, 400, json!({"error": "duplicate origin"}));
+            }
+            origin = Some(value.trim_matches([' ', '\t']));
+        }
+    }
+    let allowed_origin =
+        origin.filter(|origin| origins.iter().any(|allowed| allowed.as_str() == *origin));
+    let respond = |stream: &mut TcpStream, status, body| {
+        respond_with_origin(stream, status, body, allowed_origin)
+    };
+    let preflight = *method == "OPTIONS" && origin.is_some();
+    if preflight && allowed_origin.is_none() {
+        return respond(stream, 403, json!({"error": "origin not allowed"}));
+    }
+    if *method != "GET" && !preflight {
         return respond(stream, 405, json!({"error": "method not allowed"}));
     }
     let segments: Vec<_> = path.split('/').collect();
@@ -100,6 +126,9 @@ fn serve_connection(stream: &mut TcpStream, view: &RwLock<AttestationView>) -> i
     }
     let hash =
         hex::fixed(hash).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    if preflight {
+        return respond(stream, 204, Value::Null);
+    }
     let answer = {
         let Ok(view) = view.read() else {
             return respond(
@@ -128,21 +157,51 @@ fn decimal_u64(text: &str) -> Option<u64> {
 }
 
 fn respond(stream: &mut TcpStream, status: u16, body: Value) -> io::Result<()> {
+    respond_with_origin(stream, status, body, None)
+}
+
+fn respond_with_origin(
+    stream: &mut TcpStream,
+    status: u16,
+    body: Value,
+    origin: Option<&str>,
+) -> io::Result<()> {
     let reason = match status {
         200 => "OK",
+        204 => "No Content",
         400 => "Bad Request",
+        403 => "Forbidden",
         404 => "Not Found",
         405 => "Method Not Allowed",
         408 => "Request Timeout",
         413 => "Content Too Large",
         _ => "Internal Server Error",
     };
-    let body = body.to_string();
+    let body = if status == 204 {
+        String::new()
+    } else {
+        body.to_string()
+    };
+    let mut cors = String::from("Vary: Origin\r\n");
+    if let Some(origin) = origin {
+        write!(cors, "Access-Control-Allow-Origin: {origin}\r\n").map_err(io::Error::other)?;
+        if status == 204 {
+            cors.push_str(
+                "Access-Control-Allow-Methods: GET\r\nAccess-Control-Allow-Headers: accept\r\n",
+            );
+        }
+    }
+    if status == 204 {
+        return write!(
+            stream,
+            "HTTP/1.1 {status} {reason}\r\nConnection: close\r\n{cors}\r\n"
+        );
+    }
     write!(
         stream,
-        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n{body}",
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{}{cors}\r\n{body}",
         body.len(),
-        if status == 405 { "Allow: GET\r\n" } else { "" },
+        if status == 405 { "Allow: GET, OPTIONS\r\n" } else { "" },
     )
 }
 
