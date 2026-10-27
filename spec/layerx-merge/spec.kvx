@@ -91372,7 +91372,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.4]
 title = "Prove global_sequence gaps and reuse are refused at execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -91751,7 +91751,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.7.2]
 title = "Prove stream payload codecs are canonical"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["1.0.1", "16.2.1"]
@@ -92419,7 +92419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.14.2]
 title = "Reserve staging for native sandbox fund and activate before lifecycle validation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.14.1", "16.2.1", "9.23.7"]
@@ -92548,7 +92548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.15.1]
 title = "Stop the kernel binding and requiring the Programs state feed"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7"]
@@ -93330,7 +93330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.2]
 title = "Add ExecuteActivity and ResultError for EVM-bound kernel activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.23.1"]
@@ -93552,7 +93552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.26.3]
 title = "Check kernel Ed25519 verification against Go crypto/ed25519 through the host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["1.23.1"]
@@ -96028,7 +96028,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.3.4]
 title = "Submit ledger activities to the kernel host with global sequencing and idempotency"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["2.3.2", "1.91.1", "1.23.1"]
@@ -96695,7 +96695,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.7.3]
 title = "Revoke grants through governance sub-op 6 and advance the grantor revocation sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.6.3", "2.6.5"]
@@ -112198,7 +112198,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.5.21]
 title = "Check that receipts over TCP wait for the standby ack"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["5.5.12"]
@@ -113126,7 +113126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.15.5]
 title = "Rehearse a failover under load without losing a receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.15.4", "5.27.4"]
@@ -118898,7 +118898,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.6.3]
 title = "Record perps, pricefeed and spot names in PrecompileNamesToInfo"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["6.0.1", "6.6.2", "3.0.2", "3.93.2"]
@@ -126191,7 +126191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.0.2]
 title = "Freeze the wave-2 served HTTP and WebSocket method sets as goldens"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.0.1", "7.2.1", "7.2.2", "7.2.3", "7.3.1", "7.3.2", "7.4.1", "7.4.2", "7.4.3", "7.5.1", "7.5.2", "7.6.1", "7.6.2", "7.7.1", "7.8.1", "7.9.2"]
@@ -126817,7 +126817,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.9.1]
 title = "Bind the WebSocket listener to http_address and apply the deny list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["7.9.2", "7.2.1"]
@@ -145858,7 +145858,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.6]
 title = "Verify the receipted rung rules R4 to R6 against the recorded receipt fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.2.4"]
@@ -157324,7 +157324,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.1]
 title = "Delete types encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1, part a"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157356,7 +157356,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.2]
 title = "Delete types encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1, part b"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157388,7 +157388,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.3]
 title = "Delete the esm encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157421,7 +157421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.4]
 title = "Delete the cjs encoding files of accesscontrol, crisis.v1beta1, mint.v1beta1 from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157454,7 +157454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.5]
 title = "Delete types encoding files of accesscontrol_x, part a"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157486,7 +157486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.6]
 title = "Delete types encoding files of accesscontrol_x, part b"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157518,7 +157518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.7]
 title = "Delete the esm encoding files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157549,7 +157549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.2.8]
 title = "Delete the cjs encoding files of accesscontrol_x from sdk/js"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1", "14.1.3"]
@@ -157804,7 +157804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.2]
 title = "Align tendermint types and version encoders in sdk/js with consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157868,7 +157868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.4]
 title = "Add the evm Params fee-token and pointer fields of api/evm to the sdk/js encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157900,7 +157900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.5]
 title = "Add issuer_did and pagination to the sdk/js tokenfactory encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -157996,7 +157996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.8]
 title = "Drop the 21 remaining tendermint.abci encoders absent from consensus/proto"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.1"]
@@ -158029,7 +158029,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.9]
 title = "Align the sdk/js evm and tokenfactory type declarations with api/ protos"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.3.4", "14.3.10", "14.3.5"]
@@ -158061,7 +158061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.3.10]
 title = "Add the ChainConfig and Asset fields of api/evm to the sdk/js encoders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.1.1"]
@@ -161620,7 +161620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.2]
 title = "Add the paxeer-bridge-app-env command that writes the app env from a records directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.53.1"]
@@ -170480,7 +170480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.17.9.1]
 title = "Write the off-chain service catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["17.0.2"]
