@@ -33,15 +33,6 @@ defmodule Explorer.Chain.PaxeerX.Receipt do
   @origins ~w(evm kernel)a
   @kernel_verifications ~w(sequencer_verified)a
 
-  @evm_required_attrs ~w(receipt_id status block_hash block_number transaction_hash log_index)a
-  @evm_optional_attrs ~w(account payload_hash block_consensus)a
-  @evm_fields ~w(transaction_hash log_index block_hash block_number block_consensus)a
-
-  @kernel_required_attrs ~w(receipt_id status kernel_batch_number kernel_batch_id kernel_sequence kernel_activity_id kernel_result_code kernel_receipt_sha256 kernel_canonical_sha256 kernel_batch_raw_sha256 kernel_state_root kernel_proof kernel_verification)a
-  @kernel_optional_attrs ~w(account payload_hash)a
-  @kernel_status :batch_included
-  @kernel_proof_keys ~w(header_hex signature_hex batch_id raw_sha256)
-
   @public_fields ~w(id origin receipt_id account payload_hash status transaction_hash log_index block_hash block_number block_consensus kernel_batch_number kernel_batch_id kernel_sequence kernel_activity_id kernel_result_code kernel_receipt_sha256 kernel_canonical_sha256 kernel_batch_raw_sha256 kernel_state_root kernel_proof kernel_verification inserted_at updated_at)a
 
   @typedoc """
@@ -119,61 +110,6 @@ defmodule Explorer.Chain.PaxeerX.Receipt do
   def origins, do: @origins
 
   @doc """
-  Changeset dispatching on `origin` (from the attributes, else the struct).
-
-  An `:evm` receipt keeps the log-derived required attributes; a missing
-  `block_consensus` is set to `true`, the consensus a freshly imported block holds. A
-  `:kernel` receipt requires its batch, sequence, activity, digest and proof
-  provenance, refuses every EVM transaction, log and block field, requires `receipt_id`
-  to be the activity id, holds the `:batch_included` rung and must carry the
-  `:sequencer_verified` verification.
-  """
-  @spec changeset(Ecto.Schema.t(), map()) :: Ecto.Changeset.t()
-  def changeset(%__MODULE__{} = receipt, attrs) do
-    case attrs |> attr(:origin) |> cast_origin(receipt.origin) do
-      {:ok, :kernel} -> kernel_changeset(receipt, attrs)
-      {:ok, :evm} -> evm_changeset(receipt, attrs)
-      :error -> receipt |> change() |> add_error(:origin, "is invalid", validation: :inclusion)
-    end
-  end
-
-  defp evm_changeset(receipt, attrs) do
-    receipt
-    |> cast(attrs, @evm_required_attrs ++ @evm_optional_attrs)
-    |> put_change(:origin, :evm)
-    |> validate_required(@evm_required_attrs)
-    |> default_block_consensus()
-    |> foreign_key_constraint(:transaction_hash)
-    |> foreign_key_constraint(:block_hash)
-    |> receipt_constraints()
-  end
-
-  defp kernel_changeset(receipt, attrs) do
-    receipt
-    |> cast(attrs, @kernel_required_attrs ++ @kernel_optional_attrs)
-    |> put_change(:origin, :kernel)
-    |> validate_required(@kernel_required_attrs)
-    |> validate_no_evm_fields(attrs)
-    |> validate_inclusion(:status, [@kernel_status])
-    |> validate_inclusion(:kernel_verification, @kernel_verifications)
-    |> validate_number(:kernel_batch_number, greater_than_or_equal_to: 0)
-    |> validate_number(:kernel_sequence, greater_than_or_equal_to: 0)
-    |> validate_receipt_id_is_activity_id()
-    |> validate_kernel_proof()
-    |> receipt_constraints()
-  end
-
-  defp receipt_constraints(changeset) do
-    changeset
-    |> unique_constraint([:transaction_hash, :log_index], name: :lx_receipts_transaction_hash_log_index_index)
-    |> unique_constraint([:kernel_batch_number, :kernel_sequence],
-      name: :lx_receipts_kernel_batch_number_kernel_sequence_index
-    )
-    |> check_constraint(:origin, name: :lx_receipts_origin_check)
-    |> check_constraint(:origin, name: :lx_receipts_origin_fields)
-  end
-
-  @doc """
   One page of publicly served receipts, newest receipt id first, one row per receipt id
   (the newest), starting below `paging_id` when given.
 
@@ -235,50 +171,6 @@ defmodule Explorer.Chain.PaxeerX.Receipt do
   @spec lose_consensus_query([Hash.Full.t()]) :: Ecto.Query.t()
   def lose_consensus_query(block_hashes) when is_list(block_hashes) do
     from(receipt in __MODULE__, where: receipt.block_hash in ^block_hashes)
-  end
-
-  defp attr(attrs, key), do: Map.get(attrs, key, Map.get(attrs, Atom.to_string(key)))
-
-  defp cast_origin(nil, default), do: {:ok, default}
-  defp cast_origin(origin, _default) when origin in @origins, do: {:ok, origin}
-  defp cast_origin(origin, _default) when origin in ~w(evm kernel), do: {:ok, String.to_existing_atom(origin)}
-  defp cast_origin(_origin, _default), do: :error
-
-  defp default_block_consensus(changeset) do
-    if is_nil(get_field(changeset, :block_consensus)),
-      do: put_change(changeset, :block_consensus, true),
-      else: changeset
-  end
-
-  defp validate_no_evm_fields(changeset, attrs) do
-    Enum.reduce(@evm_fields, changeset, fn field, acc ->
-      if is_nil(attr(attrs, field)) and is_nil(get_field(acc, field)),
-        do: acc,
-        else: add_error(acc, field, "must be nil for a kernel receipt")
-    end)
-  end
-
-  defp validate_receipt_id_is_activity_id(changeset) do
-    receipt_id = get_field(changeset, :receipt_id)
-    activity_id = get_field(changeset, :kernel_activity_id)
-
-    if is_nil(receipt_id) or is_nil(activity_id) or receipt_id == activity_id,
-      do: changeset,
-      else: add_error(changeset, :receipt_id, "must be the kernel activity id")
-  end
-
-  defp validate_kernel_proof(changeset) do
-    validate_change(changeset, :kernel_proof, fn :kernel_proof, proof ->
-      missing =
-        Enum.reject(@kernel_proof_keys, fn key ->
-          value = Map.get(proof, key)
-          is_binary(value) and value != ""
-        end)
-
-      if missing == [],
-        do: [],
-        else: [kernel_proof: "is missing #{Enum.join(missing, ", ")}"]
-    end)
   end
 end
 
