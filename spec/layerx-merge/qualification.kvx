@@ -3613,3 +3613,11 @@ symbol = "pax_sequencerReceipt"
 observed = "Even with anvil nothing on the anvil/e2e-gateway path answers pax_sequencerReceipt \"receipted\", so the receipted rung cannot be asserted on the controlled chain."
 assumption = "The owner decides whether the receipted rung is asserted against a sequencer-backed node or the case is restated."
 severity = "blocker"
+
+[finding.9.24.4]
+task = "9.24.4"
+file = "services/agent/crates/layerx-client/tests/committed_caps.rs:9"
+symbol = "vectors"
+observed = "The first attempt 8066f7e30 built and the verifier `cg spec done 9.24.4` exited 1 (logs-verify-1.log): budget_refuses_malformed_and_arithmetic_bounds panicked `native vector producer output required: NotPresent` because the gate neither built build/native-vectors.json nor exported LAYERX_CAPS_VECTORS, the same gap finding.9.24.1.3 closed for 9.24.1."
+assumption = "9.24.4 and 9.24.6 take 9.24.1's producer build_cmd and LAYERX_CAPS_VECTORS export unchanged in test and decoder; 8066f7e30 is requalified unchanged."
+severity = "blocker"
