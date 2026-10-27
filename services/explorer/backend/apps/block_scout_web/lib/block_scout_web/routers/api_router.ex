@@ -190,6 +190,7 @@ defmodule BlockScoutWeb.Routers.ApiRouter do
       get("/:transaction_hash_param/state-changes", V2.TransactionController, :state_changes)
       get("/:transaction_hash_param/summary", V2.TransactionController, :summary)
       get("/:transaction_hash_param/status", V2.PaxeerX.TransactionStatusController, :status)
+      get("/:transaction_hash_param/signature", V2.PaxeerX.TransactionSignatureController, :signature)
 
       chain_scope :neon do
         get("/:transaction_hash_param/external-transactions", V2.TransactionController, :external_transactions)
