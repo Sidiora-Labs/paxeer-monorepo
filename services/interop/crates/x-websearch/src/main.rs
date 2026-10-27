@@ -15,11 +15,10 @@ use x_websearch::content::{self, ContentStore};
 use x_websearch::crawl::{CrawlBudget, CrawlReport, Crawler, StopSignal};
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::kernel::{
-    self, KernelAttestor, KernelRelay, KernelWatcher, ObservationSubmitter, ProgramExchange, Step,
-};
+use x_websearch::kernel::{self, KernelRelay, KernelWatcher, ObservationSubmitter, Step};
 use x_websearch::keys::ATTESTOR_KEY_FILE;
 use x_websearch::payment::{system_clock, GatewayRpc, PaymentGate, RpcAnswer};
+use x_websearch::program::{self, ProgramAttestor, ProgramExchange};
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -636,9 +635,9 @@ fn relay(
         ProgramExchange::open(&config.data_dir.join("kernel-attest"), &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
     );
-    kernel::register(routes, &exchange)
+    program::register(routes, &exchange)
         .map_err(|error| format!("route /program-attestations: {error}"))?;
-    let attestor = KernelAttestor::new(
+    let attestor = ProgramAttestor::new(
         attestor_key.clone(),
         network_id,
         Arc::clone(fetcher),

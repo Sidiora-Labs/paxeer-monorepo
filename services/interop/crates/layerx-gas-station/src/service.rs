@@ -11,8 +11,8 @@ use crate::policy::PolicyRefusal;
 use crate::price::{PriceError, PriceSource};
 use crate::quote::{keccak, word, Address, Word};
 use crate::rpc::{
-    bytes, hex, ConfiguredRpc, Execution, HttpsExchange, JsonRpc, RpcFault, Rung,
-    SequencerEndpoint, SequencerReceipt,
+    bytes, hex, ConfiguredRpc, Execution, FullSequencerReceipt, HttpsExchange, JsonRpc, RpcFault,
+    Rung, SequencerEndpoint, SequencerReceipt,
 };
 use crate::signer::QuoteSigner;
 use crate::station::{GasStation, Progress, QuoteOutcome, Recovery, StationError, SubmitRequest};
@@ -318,7 +318,7 @@ where
     /// The sequencer receipt of the submission `hash` at sponsor nonce
     /// `nonce`; a receipt naming another nonce, or a sponsor other than the
     /// one a successful sponsored write carries, is refused as malformed.
-    fn sequencer_receipt(
+    fn sequencer_summary(
         &self,
         sponsor: Address,
         nonce: u64,
@@ -331,6 +331,33 @@ where
             receipt.nonce != nonce
                 || executed(Some(receipt))
                     .is_some_and(|(_, run)| run.sponsor != run.succeeded.then_some(sponsor))
+        }) {
+            return Err(fault(RpcFault::Malformed));
+        }
+        Ok(receipt)
+    }
+
+    fn sequencer_receipt(
+        &self,
+        sponsor: Address,
+        nonce: u64,
+        hash: &Word,
+    ) -> Result<Option<FullSequencerReceipt>, ServiceError> {
+        if executed(self.sequencer_summary(sponsor, nonce, hash)?)
+            .is_some_and(|(_, run)| !run.succeeded)
+        {
+            return Err(ServiceError::Refused);
+        }
+        let fault = |fault| ServiceError::from(&StationError::Rpc(fault));
+        let sequencer = self.sequencer.as_ref().map_err(|error| fault(*error))?;
+        let receipt = sequencer.full_receipt(hash).map_err(fault)?;
+        if receipt.as_ref().is_some_and(|receipt| {
+            receipt.nonce != nonce
+                || executed(Some(SequencerReceipt {
+                    nonce: receipt.nonce,
+                    rung: receipt.rung,
+                }))
+                .is_some_and(|(_, run)| run.sponsor != run.succeeded.then_some(sponsor))
         }) {
             return Err(fault(RpcFault::Malformed));
         }
@@ -565,15 +592,40 @@ where
             .map(|submission| (submission.nonce, submission.hash))
             .ok_or(missing)?;
         let receipt = self.sequencer_receipt(key.sponsor, nonce, &hash)?;
-        match (receipt, executed(receipt)) {
+        let execution = executed(receipt.as_ref().map(|receipt| SequencerReceipt {
+            nonce: receipt.nonce,
+            rung: receipt.rung,
+        }));
+        match (receipt, execution) {
             (None, _) => Err(ServiceError::Refused),
             (Some(_), None) => Ok(json!({ "transactionHash": hex(&hash), "rung": "submitted" })),
             (Some(_), Some((_, run))) if !run.succeeded => Err(ServiceError::Refused),
-            (Some(_), Some((rung, run))) => Ok(json!({
-                "transactionHash": hex(&hash),
-                "rung": rung,
-                "seq": run.seq.to_string(),
-            })),
+            (Some(receipt), Some((rung, run))) => {
+                let mut answer = json!({
+                    "transactionHash": hex(&hash),
+                    "rung": rung,
+                    "seq": run.seq.to_string(),
+                    "height": receipt.height.ok_or(ServiceError::Unavailable)?.to_string(),
+                    "status": receipt.status.ok_or(ServiceError::Unavailable)?.to_string(),
+                    "logs": receipt.logs.iter().map(|log| json!({
+                        "address": hex(&log.address),
+                        "topics": log.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>(),
+                        "data": hex(&log.data),
+                        "logIndex": log.log_index.to_string(),
+                    })).collect::<Vec<_>>(),
+                    "keyId": hex(&receipt.key_id.ok_or(ServiceError::Unavailable)?),
+                    "receipt": hex(&receipt.receipt),
+                });
+                if matches!(receipt.rung, Rung::Committed(_)) {
+                    answer["blockNumber"] = json!(receipt
+                        .block_number
+                        .ok_or(ServiceError::Unavailable)?
+                        .to_string());
+                    answer["blockHash"] =
+                        json!(hex(&receipt.block_hash.ok_or(ServiceError::Unavailable)?));
+                }
+                Ok(answer)
+            }
         }
     }
 
@@ -620,7 +672,7 @@ where
             None => match status.submission {
                 None => ("quoted", Value::Null),
                 Some((nonce, hash)) => {
-                    match executed(self.sequencer_receipt(key.sponsor, nonce, &hash)?) {
+                    match executed(self.sequencer_summary(key.sponsor, nonce, &hash)?) {
                         None => ("pending", Value::Null),
                         Some((rung, run)) if run.succeeded => (
                             "completed",
