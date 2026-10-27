@@ -9165,3 +9165,39 @@ area = "C build / static archive"
 symptom = "a freshly built build/liblayerx.a lacks link closure (25 undefined references at 1.4.3 a8) while a pre-existing build directory links, then collides with moved definitions (lxp_batch_verify_signature, 1.11.4 a2)"
 cause = "a source filtered out of LIB_SOURCES (Makefile:41-50) is still referenced by kept members, and `ar rcsD` (Makefile:203) never prunes the stale member that masks it"
 do = "keep LIB_SOURCES link-closed when filtering a source and build the archive from an empty build directory"
+
+[gotcha.1907]
+area = "C build / Makefile tests"
+symptom = "a Makefile verify passes while the library it shapes no longer links"
+cause = "a verify that runs only `make -n` (tools/ci/tests/test_makefile_wave1.py, test_makefile_wave2.py) proves that rules exist or are gone, never that the library links"
+do = "a task that removes sources from LIB_SOURCES links layerxd or another consumer in its gate (16.2.2, 16.0.2 vs 1.4.3 a8, 9.24.1 a6)"
+
+[gotcha.1908]
+area = "C build / archive symbol tests"
+symptom = "modules/lxphost/archive_symbols_test.go passes against an archive that cannot link"
+cause = "it reads whatever build/liblayerx.a is on disk; an archive is a set of members, so it holds unresolved references silently and never detects a missing definition or a stale member (1.21.1 passed with the stale lxp_batch_seal.o still inside)"
+do = "pair an archive symbol check with a link of a consumer built from an empty build directory"
+
+[gotcha.1909]
+area = "sdk/baseapp"
+symptom = "A module query error reaches the CLI with codespace sdk and code 18 although the keeper returned a registered module error."
+cause = "gRPCErrorToSDKError (sdk/baseapp/abci.go:646) rewraps every handler error that is not a gRPC status as ErrInvalidRequest before QueryResultWithDebug reads the ABCI info."
+do = "Return an error that already carries a registered codespace (sdkerrors.ABCIInfo codespace other than undefined) unchanged, before the gRPC status mapping (task 15.0.5)."
+
+[gotcha.1910]
+area = "apps/launchpad/mobile"
+symptom = "tsc over the mobile app reports dozens of errors inside react-native globals.d.ts, lib.dom.d.ts and @types/node, or, without the DOM lib, in the launchpad SDK sources."
+cause = "react-native's global declarations overlap the DOM lib the DOM-typed SDK sources need; the conflict sits only in declaration files."
+do = "Keep the default lib and set skipLibCheck true in tsconfig.json as @react-native/typescript-config does; never drop DOM or add a second tsconfig for the tests."
+
+[gotcha.1911]
+area = "spec task symbols"
+symptom = "cg spec done reports N graph check(s) failed — symbol X not defined in the graph — although verify_cmd passed"
+cause = "symbols named things the code graph never indexes (Elixir modules and functions, ExUnit test names, env vars, Makefile variables, Python Class.method paths, script or file names, metric strings) or definitions the task itself deletes"
+do = "list in symbols only functions, methods, types, macros and test functions, by bare name, that exist after the change in a language the graph parses (C, Go, Rust, TypeScript, Python, Solidity); Elixir tasks use symbols = []; test names belong in tests; a deletion task lists only what it keeps or rewrites"
+
+[gotcha.1912]
+area = "kernel C structs"
+symptom = "-Werror=missing-field-initializers refuses the lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor after the struct gained a member"
+cause = "positional compound literals stop at the old last member; the task that appended the member built only its own test"
+do = "a task that appends a struct member updates every positional literal of that struct in the same change (grep for `(type){`) or names the task that will"
