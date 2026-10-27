@@ -3253,3 +3253,59 @@ symbol = "CmdQueryPriceHistory"
 observed = "At 540bffbb1 TestCmdQueryPriceNetwork/history, /buy and /sell receive code 18 where the launchpad error registered as code 12 is expected (logs-verify-1.log), because gRPCErrorToSDKError (sdk/baseapp/abci.go:646) replaces a registered codespace error with the generic gRPC mapping until 15.0.5 lands, the same break recorded for 4.5.3 and 4.5.4."
 assumption = "Every launchpad query command task requires 15.0.5 and continues from its candidate."
 severity = "blocker"
+
+[finding.2.22.4.3]
+task = "2.22.4"
+file = "src/sequencer/lxp_admission.c:14"
+symbol = "lxp_activity_check_timestamp_bound"
+observed = "[req.2252] ac_1 sets NotBefore/NotAfter to the block-open ms minus/plus TimestampWindowMs, a bound twice the window that kernel admission refuses with LXP_ERR_MALFORMED_ENVELOPE before execution, so the fifth attempt 2bdeed8d1 failed verify (exit 1, logs-verify-2.log) on all three tests; ac_1 also says AccountSequence = identity sequence + 1 although the host stores the next admitted sequence, and ac_3 expects a stored replay receipt that 1.2.1 retired."
+assumption = "2.22.4 uses NotBefore = block time, NotAfter = block time + window and the unchanged ReadIdentitySequence value, drops the stored-receipt lookup, tests the escrow activities registered since 1.23.3 instead of service activities, and no longer requires 1.24.1."
+severity = "blocker"
+
+[finding.2.10.5.2]
+task = "2.10.5"
+file = "precompiles/layerxledger/layerxledger.go:88"
+symbol = "PrecompileExecutor.Execute"
+observed = "The first attempt 0c969cd79 kept Execute unchanged because layerxledger.go was not yet in its touches, so Keeper.Actor (modules/layerxledger/keeper/authority.go:17) still refused every unbound view with LXP_UNAUTHORIZED_DEBIT before dispatch (verify exit 1, logs-verify-2.log), and Execute is identical on main, so a rebase alone changes nothing."
+assumption = "The next attempt continues 0c969cd79 after 2.10.2 is done, implements do_5 (Actor only for non-constant methods) and compares the getPayerGrant zero big.Int at views_test.go:204 by value without loosening it."
+severity = "note"
+
+[finding.3.93.1.2]
+task = "3.93.1"
+file = "modules/lxphost/host.go:168"
+symbol = "lxphost_reset"
+observed = "The hosted kernel registers no perps module on main, so the oracle push activity 0x00060003 is refused LXP_ERR_MODULE_DISABLED and verify exited 1 at ccb4b1943 (logs-verify-1.log); no host option or exchange keeper test enables it and only 1.24.1, already required, registers it."
+assumption = "ccb4b1943 is qualified again unchanged once 1.24.1 is done."
+severity = "note"
+
+[finding.4.4.8]
+task = "4.4.8"
+file = "api/launchpad/query.proto:350"
+symbol = "QueryTreasuryResponse"
+observed = "At 2c095aa90 the verify exited 1 (logs-verify-1.log) because TestQueryTreasuryServes panicked with `invalid Go type types.Int for field paxprotocol.paxchain.launchpad.QueryTreasuryResponse.balance` when sdk/baseapp/grpcrouter.go:100 marshalled the response with the grpc default proto codec, which cannot reflect a top-level non-pointer customtype Int field."
+assumption = "Query/Treasury declares balance and held as plain decimal strings (wire and JSON unchanged) and 4.4.8 takes the proto and its generated file into its touches; QueryQuoteLedgerResponse.amount (4.4.15) gets the same treatment."
+severity = "blocker"
+
+[finding.4.46.2.3]
+task = "4.46.2"
+file = "sdk/launchpad/packages/sdk/src/validate.ts:3"
+symbol = "contractValidators"
+observed = "At 6e21182bd the build exited 0 and the verify exited 1 (logs-verify-1.log) with `Cannot find module './validators-v1.gen.js'` although the SDK build had produced dist/, because compile-validators.mjs writes the validator modules only into dist/ while the route modules and routes-scaffold.test.ts import the SDK from src as do_3 requires."
+assumption = "4.46.2 takes apps/launchpad/mobile/vitest.config.ts into its touches and aliases the three generated specifiers to the built SDK files, with the two SDK builds prefixed to build_cmd, rather than switching the route modules to the built package."
+severity = "blocker"
+
+[finding.12.7.2]
+task = "12.7.2"
+file = "services/wallet/gateway/src/routes/agentActions.ts:157"
+symbol = "retainActionCustodyAuthorization"
+observed = "At a40e47f06 the build `pnpm --dir services/wallet/gateway exec tsc -p tsconfig.json --noEmit` exited 2 on agentActions.ts(8,3) because do_2 deleted retainActionCustodyAuthorization as if the retired deposit route were its only caller, while the shared submit() replay branch that serves POST /v1/agent/actions/allowance-and-call still calls it."
+assumption = "The custody reauthorization replay (AGENT_REAUTHORIZATION_REQUIRED, verify.ts:222-260) stays live for allowance_and_call, so the task keeps the function and only narrows ActionKind."
+severity = "blocker"
+
+[finding.14.7.2]
+task = "14.7.2"
+file = "apps/web/src/journeys/custody/journey-screen.tsx:12"
+symbol = "JourneyScreen"
+observed = "At f8be064c7 the typecheck `npm --prefix apps/web run typecheck` exited 2 on four TS2307 in journey-screen.tsx because 14.7.2 deletes the deposit, exit and withdraw models it imports while 14.7.3, which deletes the screen, requires 14.7.2 and also deletes timeline.tsx that the 14.7.2 screens import."
+assumption = "journey-screen.tsx and its index.ts:63 re-export move into 14.7.2 since the screen's only route went in 14.7.1 (9c2cbc26a), and req.14050 ac_1 still holds at 14.7.3."
+severity = "blocker"
