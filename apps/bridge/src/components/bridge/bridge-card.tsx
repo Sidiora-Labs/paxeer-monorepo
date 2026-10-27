@@ -1,10 +1,5 @@
 'use client';
 
-import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
-import { isAddress } from 'viem';
-import { useAccount, useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
-
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -28,6 +23,8 @@ import { erc20Abi, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS } from '@/lib/bridge/c
 import { describeWriteError } from '@/lib/bridge/errors';
 import { isSolanaAddress, solanaRecipientHandle } from '@/lib/bridge/solana';
 import { planDeposit } from '@/lib/bridge/submission';
+import { depositRecord, withdrawalRecord } from '@/lib/bridge/submitted';
+import { saveTransfer } from '@/lib/bridge/transfers';
 import {
   paxeerConfigured,
   useBridgedBalance,
@@ -35,6 +32,11 @@ import {
   usePaxeerPairState,
   useVaultState,
 } from '@/lib/bridge/use-bridge-state';
+import { CircleAlertIcon, CircleCheckIcon, InfoIcon, ShieldCheckIcon, TriangleAlertIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { isAddress } from 'viem';
+import { useAccount, useChainId, useConnect, useReadContract, useSwitchChain, useWaitForTransactionReceipt, useWriteContract } from 'wagmi';
+
 import { AmountInput, AssetPicker, ReceivePreview, RoutePanel, SwapDirectionButton, type RouteOption } from './route-panels';
 
 type Direction = 'in' | 'out';
@@ -103,6 +105,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
   const parsedAmount = parseAmount(amount, asset.decimals);
   const amountValue = parsedAmount ?? 0n;
   const excessPrecision = hasExcessPrecision(amount, asset.decimals);
+  const finality = paxeerState.finalityDepth ?? foreign.finalityDepth;
 
   const destination = destTouched ? destOverride.trim() : (address ?? '');
   const isSolanaRoute = foreign.kind === 'solana';
@@ -142,8 +145,8 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     paxeerState.maxInFlight > 0n &&
     paxeerState.inFlight + amountValue > paxeerState.maxInFlight;
 
-  const blockers = useMemo<string[]>(() => {
-    const list: string[] = [];
+  const blockers = useMemo<Array<string>>(() => {
+    const list: Array<string> = [];
     if (foreign.state === 'not-deployed') {
       list.push(`The ${ foreign.label } vault is not deployed yet. This route opens once the deployment record is published.`);
     }
@@ -195,7 +198,7 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
             `Enter a valid ${ foreign.label } address.` :
         undefined;
 
-  const routeOptions: RouteOption[] = [
+  const routeOptions: Array<RouteOption> = [
     { key: PAXEER_ROUTE_KEY, name: 'Paxeer', hint: paxeerConfigured ? 'Chain 125 · precompile 0x…1016' : 'RPC not configured' },
     ...BRIDGE_CHAINS.map((c) => ({ key: c.key, name: c.label, hint: ROUTE_HINT[c.state] })),
   ];
@@ -236,9 +239,14 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     !busy;
 
   const fire = (request: Parameters<typeof deposit.write.writeContract>[0], which: 'deposit' | 'withdraw') => {
+    if (!address) return;
     const w = which === 'deposit' ? deposit.write : withdraw.write;
     w.writeContract(request, {
-      onSuccess: () => {
+      onSuccess: (hash) => {
+        const input = { hash, foreign, asset, account: address, amount: amountValue, requiredConfirmations: finality };
+        saveTransfer(which === 'deposit' ?
+          depositRecord({ ...input, vault: request.address, recipient: destination }) :
+          withdrawalRecord({ ...input, destination }));
         toast.success(which === 'deposit' ? 'Deposit submitted' : 'Withdrawal burn submitted', {
           description:
             which === 'deposit' ?
@@ -326,19 +334,17 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
     submit();
   };
 
-  const finality = paxeerState.finalityDepth ?? foreign.finalityDepth;
-
   return (
     <Card variant="elevated" className="w-full gap-5">
       <CardHeader>
         <div className="flex flex-wrap items-center gap-2">
           <CardTitle>Bridge</CardTitle>
-          <Badge variant={foreign.state === 'configured' ? 'success' : 'warning'}>{ROUTE_HINT[foreign.state]}</Badge>
-          {paxeerState.threshold !== undefined && paxeerState.attestors.length > 0 ? (
+          <Badge variant={ foreign.state === 'configured' ? 'success' : 'warning' }>{ ROUTE_HINT[foreign.state] }</Badge>
+          { paxeerState.threshold !== undefined && paxeerState.attestors.length > 0 ? (
             <Badge variant="tonal">
-              <ShieldCheckIcon /> {paxeerState.threshold} of {paxeerState.attestors.length} attestors
+              <ShieldCheckIcon/> { paxeerState.threshold } of { paxeerState.attestors.length } attestors
             </Badge>
-          ) : null}
+          ) : null }
         </div>
         <CardDescription>
           Lock on one chain, mint or release on the other — every crossing is attested by the bridge attestor set.
@@ -348,35 +354,35 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
         <div className="flex items-center justify-between gap-2">
           <AssetPicker
             label="Asset"
-            symbols={foreign.assets.map((a) => a.symbol)}
-            value={asset.symbol}
-            onChange={(symbol) => {
+            symbols={ foreign.assets.map((a) => a.symbol) }
+            value={ asset.symbol }
+            onChange={ (symbol) => {
               const next = foreign.assets.find((a) => a.symbol === symbol);
               setAssetKey(next?.key);
-            }}
+            } }
           />
           <Badge variant="outline" className="font-mono text-[11px]">
-            1 {asset.symbol} = 1 bridged {asset.symbol}
+            1 { asset.symbol } = 1 bridged { asset.symbol }
           </Badge>
         </div>
 
         <RoutePanel
           label="From"
-          option={optionFor(sourceKey)}
-          options={routeOptions}
-          onSelect={selectRoute('source')}
+          option={ optionFor(sourceKey) }
+          options={ routeOptions }
+          onSelect={ selectRoute('source') }
           pickerTitle="Bridge from"
         >
           <AmountInput
             id="bridge-amount"
-            value={amount}
-            onChange={setAmount}
-            symbol={asset.symbol}
-            decimals={asset.decimals}
-            balance={balanceForDirection}
-            balanceLoading={direction === 'in' ? foreignBalance.isLoading : bridgedBalance.isLoading}
-            invalid={inputError !== undefined}
-            disabled={busy}
+            value={ amount }
+            onChange={ setAmount }
+            symbol={ asset.symbol }
+            decimals={ asset.decimals }
+            balance={ balanceForDirection }
+            balanceLoading={ direction === 'in' ? foreignBalance.isLoading : bridgedBalance.isLoading }
+            invalid={ inputError !== undefined }
+            disabled={ busy }
             onMax={
               balanceForDirection !== undefined ?
                 () => setAmount(formatAmountDisplay(balanceForDirection, asset.decimals).replace(/,/g, '')) :
@@ -386,40 +392,40 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
         </RoutePanel>
 
         <SwapDirectionButton
-          disabled={busy}
-          onClick={() => {
+          disabled={ busy }
+          onClick={ () => {
             setDirection((d) => (d === 'in' ? 'out' : 'in'));
             setDestTouched(false);
             setDestOverride('');
-          }}
+          } }
         />
 
         <RoutePanel
           label="To"
-          option={optionFor(destKey)}
-          options={routeOptions}
-          onSelect={selectRoute('destination')}
+          option={ optionFor(destKey) }
+          options={ routeOptions }
+          onSelect={ selectRoute('destination') }
           pickerTitle="Bridge to"
         >
-          <ReceivePreview symbol={asset.symbol} amountText={amount.trim() || undefined} denom={direction === 'in' ? paxeerState.denom : undefined} />
+          <ReceivePreview symbol={ asset.symbol } amountText={ amount.trim() || undefined } denom={ direction === 'in' ? paxeerState.denom : undefined }/>
         </RoutePanel>
 
         <Field>
           <FieldLabel htmlFor="bridge-destination">
             Destination address
-            {destinationIsSelf && isConnected ? (
+            { destinationIsSelf && isConnected ? (
               <Badge variant="tonal">Your wallet</Badge>
             ) : destination && destinationValid && isConnected ? (
               <Badge variant="warning">Different address — double-check it</Badge>
-            ) : null}
+            ) : null }
           </FieldLabel>
           <Input
             id="bridge-destination"
-            value={destination}
-            onChange={(e) => {
+            value={ destination }
+            onChange={ (e) => {
               setDestTouched(true);
               setDestOverride(e.target.value);
-            }}
+            } }
             placeholder={
               direction === 'in' ?
                 '0x… Paxeer address' :
@@ -427,54 +433,54 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
                   'Solana address (base58)' :
                   `0x… ${ foreign.label } address`
             }
-            aria-invalid={destinationError !== undefined || undefined}
+            aria-invalid={ destinationError !== undefined || undefined }
             autoComplete="off"
-            spellCheck={false}
+            spellCheck={ false }
             className="font-mono text-[13px]"
           />
           <FieldDescription>
-            {direction === 'in' ?
+            { direction === 'in' ?
               'Credited on Paxeer as the bridged denom. The low 20 bytes of this address are what the attestors sign.' :
               isSolanaRoute ?
                 'The burn records a handle of this pubkey — the payout can only ever go to this exact Solana address.' :
-                `Released from the ${ foreign.label } vault to this address once the burn is attested.`}
+                `Released from the ${ foreign.label } vault to this address once the burn is attested.` }
           </FieldDescription>
-          {destinationError ? (
+          { destinationError ? (
             <p role="alert" className="flex items-center gap-1.5 text-[13px] font-medium text-destructive">
-              <CircleAlertIcon className="size-3.5" /> {destinationError}
+              <CircleAlertIcon className="size-3.5"/> { destinationError }
             </p>
-          ) : null}
+          ) : null }
         </Field>
 
-        {inputError ? (
+        { inputError ? (
           <p role="alert" className="flex items-center gap-1.5 text-[13px] font-medium text-destructive">
-            <CircleAlertIcon className="size-3.5" /> {inputError}
+            <CircleAlertIcon className="size-3.5"/> { inputError }
           </p>
-        ) : null}
+        ) : null }
 
-        {blockers.map((blocker) => (
-          <Alert key={blocker} variant="warning">
-            <TriangleAlertIcon />
+        { blockers.map((blocker) => (
+          <Alert key={ blocker } variant="warning">
+            <TriangleAlertIcon/>
             <AlertTitle>Not available yet</AlertTitle>
-            <AlertDescription>{blocker}</AlertDescription>
+            <AlertDescription>{ blocker }</AlertDescription>
           </Alert>
-        ))}
+        )) }
 
-        <Separator />
+        <Separator/>
 
         <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px] sm:grid-cols-4">
           <div>
             <dt className="text-muted-foreground">Arrival</dt>
-            <dd className="font-medium">{finalityEstimate({ ...foreign, finalityDepth: finality })}</dd>
+            <dd className="font-medium">{ finalityEstimate({ ...foreign, finalityDepth: finality }) }</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Confirmations</dt>
-            <dd className="font-medium tabular-nums">{finality.toLocaleString()}</dd>
+            <dd className="font-medium tabular-nums">{ finality.toLocaleString() }</dd>
           </div>
           <div>
             <dt className="text-muted-foreground">Per-tx cap</dt>
             <dd className="font-medium tabular-nums">
-              {formatAmountDisplay(vaultPerTx, asset.decimals)} {asset.symbol}
+              { formatAmountDisplay(vaultPerTx, asset.decimals) } { asset.symbol }
             </dd>
           </div>
           <div>
@@ -483,14 +489,14 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
           </div>
         </dl>
 
-        {paxeerConfigured && paxeerState.loaded && paxeerState.registered && paxeerState.maxInFlight > 0n ? (
+        { paxeerConfigured && paxeerState.loaded && paxeerState.registered && paxeerState.maxInFlight > 0n ? (
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between text-[11px] text-muted-foreground">
               <span className="flex items-center gap-1">
                 In flight to Paxeer
                 <Tooltip>
                   <TooltipTrigger aria-label="About the in-flight cap" className="focus-ring rounded-full">
-                    <InfoIcon className="size-3.5" />
+                    <InfoIcon className="size-3.5"/>
                   </TooltipTrigger>
                   <TooltipContent variant="outline" className="max-w-60 font-normal">
                     Deposits credited on Paxeer that have not been burned back. New deposits stop at the cap.
@@ -498,14 +504,14 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
                 </Tooltip>
               </span>
               <span className="font-mono tabular-nums">
-                {formatAmountDisplay(paxeerState.inFlight, asset.decimals)} / {formatAmountDisplay(paxeerState.maxInFlight, asset.decimals)} {asset.symbol}
+                { formatAmountDisplay(paxeerState.inFlight, asset.decimals) } / { formatAmountDisplay(paxeerState.maxInFlight, asset.decimals) } { asset.symbol }
               </span>
             </div>
             <div
               role="progressbar"
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-valuenow={Math.round(capPercent(paxeerState.inFlight, paxeerState.maxInFlight))}
+              aria-valuemin={ 0 }
+              aria-valuemax={ 100 }
+              aria-valuenow={ Math.round(capPercent(paxeerState.inFlight, paxeerState.maxInFlight)) }
               aria-label="In-flight capacity used"
               className="h-1.5 overflow-hidden rounded-full bg-container-high"
             >
@@ -515,27 +521,27 @@ export function BridgeCard({ onTransferSubmitted }: { onTransferSubmitted: () =>
               />
             </div>
           </div>
-        ) : null}
+        ) : null }
 
         <Button
           size="lg"
           className="w-full"
-          disabled={isConnected ? (!onSourceChain && sourceChainId !== undefined ? switching : !ready) : connecting}
-          onClick={primaryAction}
+          disabled={ isConnected ? (!onSourceChain && sourceChainId !== undefined ? switching : !ready) : connecting }
+          onClick={ primaryAction }
         >
-          {busy ? <Spinner /> : null} {primaryLabel}
+          { busy ? <Spinner/> : null } { primaryLabel }
         </Button>
 
-        {deposit.hash || withdraw.hash ? (
+        { deposit.hash || withdraw.hash ? (
           <Alert variant="success">
-            <CircleCheckIcon />
+            <CircleCheckIcon/>
             <AlertTitle>Submitted</AlertTitle>
             <AlertDescription>
               Track finality, attestation and the credit or release below under Transfers. You can close this page —
               the transfer stays recoverable from the source transaction.
             </AlertDescription>
           </Alert>
-        ) : null}
+        ) : null }
       </CardContent>
     </Card>
   );
