@@ -1,5 +1,6 @@
 [plan.v6.9]
 handler = "runActivationUpgrade"
+precompile_gate = "activationPrecompileGate"
 store_added = ["layerxcustody", "layerxanchor", "layerxexchange", "layerxbridge", "launchpad", "xweb"]
 store_deleted = []
 
@@ -15,6 +16,7 @@ store_deleted = []
 
 [plan.v7.0]
 handler = "mergeUpgradePlan"
+precompile_gate = "mergePrecompileGate"
 store_added = ["sequencer", "layerxledger", "layerxauth", "layerxpay", "layerxprograms", "layerxagent", "layerxhost"]
 store_deleted = []
 
