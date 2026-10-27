@@ -159,6 +159,7 @@ func ExportGenesisStream(ctx sdk.Context, k *keeper.Keeper) <-chan *types.Genesi
 			types.PointerRegistryPrefix,
 			types.PointerCWCodePrefix,
 			types.PointerReverseRegistryPrefix,
+			types.AccountFeeDenomKeyPrefix,
 			types.EVMAddressToLayerXDidKeyPrefix,
 			types.LayerXDidToEVMAddressKeyPrefix,
 			types.LayerXBindNonceKeyPrefix,

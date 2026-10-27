@@ -95,20 +95,22 @@ test('store effect failure and quarantined snapshot/checkpoint never report live
 
 test('actual local HTTP/WebSocket adapter sends redacted-subprotocol ticket and replays exact fills',async()=>{
  const {createHash}=await import('node:crypto');
- const {browserStreamTransport}=await import('../dist/index.js');
+ const {browserStreamTransportV2,SnapshotStreamV2}=await import('../dist/index.js');
+ const ticket='a'.repeat(64);
+ const streamEvent=n=>({...event(n),revision:String(n+1)});
  const seen=[],delivered=[];let peer;
  const envelope=data=>({requestId:'11111111-1111-4111-8111-111111111111',data,watermark:null,revision:null,quality:'complete',nextCursor:null,generatedAt:date});
  const server=createServer((req,res)=>{
   seen.push({url:req.url,authorization:req.headers.authorization});res.setHeader('Content-Type','application/json');
-  if(req.url.startsWith('/v1/snapshots'))res.end(JSON.stringify(envelope({snapshot:snapshot()})));
-  else if(req.url==='/v1/stream-tickets')res.end(JSON.stringify(envelope({ticket:'one-use-fixture',subprotocol:'sidiora.v1',expiresAt:new Date(Date.now()+29000).toISOString()})));
+  if(req.url.startsWith('/v2/snapshots'))res.end(JSON.stringify(envelope({snapshot:snapshot()})));
+  else if(req.url==='/v2/stream/tickets')res.end(JSON.stringify(envelope({ticket,subprotocol:'sidiora.v2',expiresAt:new Date(Date.now()+29000).toISOString()})));
   else{res.writeHead(404);res.end()}
  });
  const frame=value=>{const payload=Buffer.from(JSON.stringify(value));return payload.length<126?Buffer.concat([Buffer.from([0x81,payload.length]),payload]):Buffer.concat([Buffer.from([0x81,126,payload.length>>8,payload.length&255]),payload])};
  server.on('upgrade',(req,socket)=>{
   peer=socket;seen.push({url:req.url,protocols:req.headers['sec-websocket-protocol']});
   const accept=createHash('sha1').update(req.headers['sec-websocket-key']+'258EAFA5-E914-47DA-95CA-C5AB0DC85B11').digest('base64');
-  socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSec-WebSocket-Protocol: sidiora.v1\r\n\r\n`);
+  socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\nSec-WebSocket-Protocol: sidiora.v2\r\n\r\n`);
   let pending=Buffer.alloc(0),handled=false;
   socket.on('data',chunk=>{
    if(handled)return;pending=Buffer.concat([pending,chunk]);if(pending.length<6)return;
@@ -117,17 +119,19 @@ test('actual local HTTP/WebSocket adapter sends redacted-subprotocol ticket and 
    const mask=pending.subarray(offset,offset+4),payload=pending.subarray(offset+4,offset+4+length);for(let i=0;i<payload.length;i++)payload[i]^=mask[i%4];
    const subscribe=JSON.parse(payload.toString());seen.push(subscribe);handled=true;
    const control=(op,cursor=null)=>({op,subscriptionId:subscribe.subscriptionId,cursor,code:null,snapshotUrl:null,watermark:null});
-   socket.write(Buffer.concat([frame(control('subscribed')),frame(event(1)),frame(event(1)),frame(control('checkpoint','checkpoint.cursor')),frame(event(2))]));
+   socket.write(Buffer.concat([frame(control('subscribed')),frame(streamEvent(1)),frame(streamEvent(1)),frame(control('checkpoint','checkpoint.cursor')),frame(streamEvent(2))]));
   });
  });
  server.listen(22401,'127.0.0.1');await once(server,'listening');
- const local={...config,production:false,apiOrigin:'http://127.0.0.1:22401',streamOrigin:'ws://127.0.0.1:22401',approvedStreamOrigins:['ws://127.0.0.1:22401'],session:{mode:'bearer',token:()=> 'fixture-access'}};
- const stream=new SnapshotStream({transport:browserStreamTransport(new SdkClient(local),true),installSnapshot:()=>{},applyEvent:e=>delivered.push(e)});
+ const local={...config,production:false,apiOrigin:'http://127.0.0.1:22401',identityOrigin:'http://127.0.0.1:22401',streamOrigin:'ws://127.0.0.1:22401',approvedStreamOrigins:['ws://127.0.0.1:22401'],session:{mode:'bearer',token:()=> 'fixture-access'}};
+ const stream=new SnapshotStreamV2({transport:browserStreamTransportV2(new SdkClient(local),{applicationOrigin:'https://app.example.com',snapshotPath:'/v2/snapshots'},true),installSnapshot:()=>{},applyEvent:e=>{delivered.push(e)}});
  try{
   await stream.start([topic]);
   for(let n=0;n<100&&delivered.length<2;n++)await new Promise(resolve=>setTimeout(resolve,10));
   assert.equal(stream.state,'live');assert.deepEqual(delivered.map(e=>e.eventId),['fill-1','fill-2']);assert.equal(delivered[0].payload.tokenAmountRaw,'9007199254740993');
-  assert.deepEqual(seen.find(v=>v.protocols)?.protocols.split(',').map(v=>v.trim()),['sidiora.v1','ticket.one-use-fixture']);assert.ok(seen.every(v=>!v.url||!v.url.includes('one-use-fixture')));assert.equal(seen.find(v=>v.op==='subscribe').afterCursor,'opaque.cursor');
+  assert.deepEqual(seen.find(v=>v.protocols)?.protocols.split(',').map(v=>v.trim()),['sidiora.v2',`ticket.${ticket}`]);assert.ok(seen.every(v=>!v.url||!v.url.includes(ticket)));assert.equal(seen.find(v=>v.op==='subscribe').afterCursor,'opaque.cursor');
+  assert.deepEqual(seen.filter(v=>v.url).map(v=>v.url),[`/v2/snapshots?topics=${encodeURIComponent(topic)}`,'/v2/stream/tickets','/v2/stream']);
+  assert.ok(seen.filter(v=>v.authorization).every(v=>v.authorization==='Bearer fixture-access'));
  }finally{stream.close();peer?.destroy();server.closeAllConnections();await new Promise(resolve=>server.close(resolve))}
 });
 

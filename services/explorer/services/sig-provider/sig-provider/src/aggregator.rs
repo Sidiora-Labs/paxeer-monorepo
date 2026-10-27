@@ -846,3 +846,7 @@ mod tests {
         assert_eq!(abi, event[0]);
     }
 }
+
+#[cfg(test)]
+#[path = "aggregator_precompiles_test.rs"]
+mod aggregator_precompiles_test;

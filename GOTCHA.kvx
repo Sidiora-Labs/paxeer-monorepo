@@ -9333,3 +9333,21 @@ area = "terminal v5 corpus"
 symptom = "program-terminal-v5.py refuses with `native signed corpus was not emitted` although the native build passed"
 cause = "test_terminal_v5 --dump-corpus exited non-zero on a V5_CHECK; the producer parses its truncated stdout and raises before printing the case names"
 do = "read native-result.json next to the producer output: stderr names the failing fixture line and the receipt codes of the completed cases"
+
+[gotcha.1935]
+area = "lxphost receipts"
+symptom = "a keeper or precompile test reads a write's receipt back with Host.ReadIdempotentReceipt and fails with LXP_ERR_UNKNOWN_FIELD although the write itself succeeded"
+cause = "since task 1.2.1 the kernel records no idempotency entry, so lxphost_read_receipt (modules/lxphost/read.go:164) finds no row for the key"
+do = "assert the write through the receipt the call returns, the stored record and the emitted event; do not read receipts back by key"
+
+[gotcha.1936]
+area = "spec verify_cmd"
+symptom = "a verify_cmd fails before running anything: the shell reports a path such as /work/repo/\"\"\"\" or the first word is export CARGO_TARGET_DIR=\\\"..."
+cause = "cg hands the kvx string to the shell as written, so an escaped double quote in verify_cmd reaches the shell as a literal backslash and quote"
+do = "write verify_cmd without double quotes: single quotes for test patterns, bare $(...) and ${VAR:-default} expansions, and paths without spaces"
+
+[gotcha.1937]
+area = "spec wave order"
+symptom = "Adding a later-wave task to one task's requires and bumping only that task's wave left a dependent task in an earlier wave than its requirement; the plan check reported a later-wave reference after the commit was already pushed."
+cause = "A wave bump cascades: every task that requires the moved task must move with it, and the chain that committed did not stop on the check's result."
+do = "After any requires or wave edit, recompute waves over the whole task graph until no task sits before a requirement, and gate the commit on the plan check's empty bad_refs and cycles."

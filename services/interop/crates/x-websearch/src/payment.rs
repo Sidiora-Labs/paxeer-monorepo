@@ -59,6 +59,7 @@ use zeroize::Zeroizing;
 use crate::assets::{AcceptedAsset, AcceptedAssets, AssetRefusal};
 use crate::config::{payer_did_valid, AssetSymbol, Config};
 use crate::server::{Request, Response, Route, RouteError, RouteTable};
+use crate::settlement::{SettlementError, SettlementRpc};
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
@@ -74,6 +75,10 @@ pub const PROTOCOL_VERSION: u16 = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL
 pub const OFFER_TIMEOUT_SECONDS: u32 = 60;
 pub const DRAW_VALIDITY_MS: u64 = 60_000;
 pub const GRANT_BYTES: usize = 346;
+pub const LEDGER_PRECOMPILE: [u8; 20] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+];
+pub const DRAW_SIGNATURE: &str = "draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)";
 
 const PURPOSE_DOMAIN: &[u8] = b"LayerX/x-websearch/v1/purpose\0";
 const PRINCIPAL_DOMAIN: &[u8] = b"LayerX/x-websearch/v1/principal\0";
@@ -183,16 +188,76 @@ pub fn purpose_hash(receiver_public_key: &[u8; 32]) -> [u8; 32] {
     sha256(&[PURPOSE_DOMAIN, receiver_public_key])
 }
 
-/// Decodes a payer-signed canonical grant, verifying its id and signature.
+/// Decodes the ledger's `getPayerGrant` return words, verifying the grant's id and signature.
 #[must_use]
 pub fn decode_grant(bytes: &[u8], actor: &str) -> Option<Grant> {
-    if bytes.len() != GRANT_BYTES {
-        return None;
-    }
-    match Payment::decode(ModuleId::Asset, 7, bytes, actor.as_bytes()).ok()? {
+    let payload = payer_grant_payload(bytes)?;
+    match Payment::decode(ModuleId::Asset, 7, payload, actor.as_bytes()).ok()? {
         Payment::IssueGrant(grant) => Some(grant),
         _ => None,
     }
+}
+
+fn payer_grant_payload(bytes: &[u8]) -> Option<&[u8]> {
+    const HEAD_BYTES: usize = 7 * 32;
+    let head = bytes.get(..HEAD_BYTES)?;
+    let word = |index: usize, width: usize| -> Option<u128> {
+        let bytes = head.get(index * 32..(index + 1) * 32)?;
+        if bytes[..32 - width].iter().any(|byte| *byte != 0) {
+            return None;
+        }
+        Some(u128::from_be_bytes(bytes[16..].try_into().ok()?))
+    };
+    if word(0, 8)? != HEAD_BYTES as u128 || word(5, 1)? > 1 || word(6, 1)? > 1 {
+        return None;
+    }
+    word(1, 16)?;
+    word(2, 16)?;
+    word(3, 8)?;
+    word(4, 8)?;
+    let length_word = bytes.get(HEAD_BYTES..HEAD_BYTES + 32)?;
+    if length_word[..24].iter().any(|byte| *byte != 0) {
+        return None;
+    }
+    let length = usize::try_from(u64::from_be_bytes(length_word[24..].try_into().ok()?)).ok()?;
+    if length > GRANT_BYTES {
+        return None;
+    }
+    let payload_start = HEAD_BYTES + 32;
+    let payload_end = payload_start + length;
+    let padded_end = payload_start + length.div_ceil(32) * 32;
+    if bytes.len() != padded_end || bytes[payload_end..].iter().any(|byte| *byte != 0) {
+        return None;
+    }
+    bytes.get(payload_start..payload_end)
+}
+
+pub fn read_payer_grant(
+    rpc: &SettlementRpc,
+    grant_id: &[u8; 32],
+) -> Result<Option<Grant>, SettlementError> {
+    let mut calldata = Vec::with_capacity(36);
+    calldata.extend_from_slice(&sha3::Keccak256::digest(b"getPayerGrant(bytes32)")[..4]);
+    calldata.extend_from_slice(grant_id);
+    let answer = match rpc.eth_call(LEDGER_PRECOMPILE, &calldata) {
+        Err(SettlementError::Rpc { code: 3, message })
+            if message == "LXP_NO_PAYER_GRANT"
+                || message == "execution reverted: LXP_NO_PAYER_GRANT" =>
+        {
+            return Ok(None);
+        }
+        result => result?,
+    };
+    let payload = payer_grant_payload(&answer).ok_or(SettlementError::Malformed)?;
+    if payload.is_empty() || (payload.len() == GRANT_BYTES && payload.iter().all(|byte| *byte == 0))
+    {
+        return Ok(None);
+    }
+    let grant = decode_grant(&answer, "").ok_or(SettlementError::Malformed)?;
+    if grant.id != *grant_id {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(Some(grant))
 }
 
 /// Everything one receiver-signed draw binds.
@@ -349,6 +414,30 @@ pub fn sign_draw(receiver: &SigningKey, draw: &DrawRequest<'_>) -> Result<Signed
         canonical,
         activity_id,
     })
+}
+
+#[must_use]
+pub fn draw_calldata(
+    grant_id: &[u8; 32],
+    recipient: &[u8; 32],
+    amount: u128,
+    idempotency_key: &[u8; 32],
+    deadline_ms: u64,
+    purpose: &[u8; 32],
+    trace: &[u8; 32],
+) -> Vec<u8> {
+    let mut calldata = Vec::with_capacity(4 + 7 * 32);
+    calldata.extend_from_slice(&sha3::Keccak256::digest(DRAW_SIGNATURE.as_bytes())[..4]);
+    calldata.extend_from_slice(grant_id);
+    calldata.extend_from_slice(recipient);
+    calldata.extend_from_slice(&[0; 16]);
+    calldata.extend_from_slice(&amount.to_be_bytes());
+    calldata.extend_from_slice(idempotency_key);
+    calldata.extend_from_slice(&[0; 24]);
+    calldata.extend_from_slice(&deadline_ms.to_be_bytes());
+    calldata.extend_from_slice(purpose);
+    calldata.extend_from_slice(trace);
+    calldata
 }
 
 /// One JSON-RPC answer from the gateway.
@@ -1084,6 +1173,7 @@ pub struct PaymentGate {
     payer: Option<String>,
     draw_fee_limit: u128,
     rpc: GatewayRpc,
+    settlement_rpc: SettlementRpc,
     store: PaymentStore,
     clock: Clock,
     gateway: Mutex<GatewayCore>,
@@ -1150,6 +1240,8 @@ impl PaymentGate {
             }
         }
         let rpc = GatewayRpc::new(&config.gateway.endpoint)?;
+        let settlement_rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
+            .map_err(|_| GateError::Endpoint)?;
         let rpc = match &config.gateway.authorization_file {
             Some(path) => rpc.with_authorization_file(path)?,
             None => rpc,
@@ -1193,6 +1285,7 @@ impl PaymentGate {
             payer: payment.payer_did.clone(),
             draw_fee_limit: payment.draw_fee_limit,
             rpc,
+            settlement_rpc,
             store,
             clock,
             gateway: Mutex::new(gateway),
@@ -1995,8 +2088,13 @@ impl Plane<'_> {
         pay_to: [u8; 32],
     ) -> Settled {
         let payer = self.payer.ok_or("payer_required")?;
-        let (grant_bytes, receive_key) = metered_payload(&request.scheme_payload)?;
-        let grant = decode_grant(&grant_bytes, &self.gate.receiver.did).ok_or("invalid_grant")?;
+        let (grant_id, receive_key) = metered_payload(&request.scheme_payload)?;
+        let grant = read_payer_grant(&self.gate.settlement_rpc, &grant_id)
+            .map_err(|error| match error {
+                SettlementError::Malformed => "invalid_grant",
+                _ => "payment_pending",
+            })?
+            .ok_or("invalid_grant")?;
         let payer_account = account_id(&wallet_account(payer, asset)).ok_or("payer_mismatch")?;
         check_grant(
             &grant,
@@ -2393,18 +2491,16 @@ fn check_grant(
     Ok(())
 }
 
-/// The metered payload: `grant`, the payer-signed canonical grant as
-/// lowercase hexadecimal, and `idempotencyKey`, the draw's 32-byte key.
-fn metered_payload(payload: &Value) -> Result<(Vec<u8>, [u8; 32]), &'static str> {
+/// The metered payload: `grantId` and `idempotencyKey` as 32-byte lowercase hex.
+fn metered_payload(payload: &Value) -> Result<([u8; 32], [u8; 32]), &'static str> {
     let fields = payload.as_object().ok_or("invalid_payment_payload")?;
     if fields.len() != 2 {
         return Err("invalid_payment_payload");
     }
     let grant = fields
-        .get("grant")
+        .get("grantId")
         .and_then(Value::as_str)
-        .filter(|grant| grant.len() == GRANT_BYTES * 2)
-        .and_then(unhex)
+        .and_then(unhex32)
         .ok_or("invalid_payment_payload")?;
     let key = fields
         .get("idempotencyKey")

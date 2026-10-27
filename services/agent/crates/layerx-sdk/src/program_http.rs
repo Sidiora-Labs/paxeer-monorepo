@@ -9,7 +9,7 @@ use layerx_crypto::ed25519;
 use layerx_types::intent::{
     CapabilityRequest, ProgramCallFailure, ProgramCallOutcome, ProgramLegacyValue,
 };
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 use sha2::{Digest as _, Sha256};
 use url::{Host, Url};
 use zeroize::Zeroizing;
@@ -17,12 +17,12 @@ use zeroize::Zeroizing;
 use crate::production::SecretBytes;
 
 use super::{
-    AgentErrorClass, BoundProgramRequest, MAX_OCCUPANCY_PAYERS, MAX_SIGNED_ACTIVITY_BYTES,
+    verify_program_evidence_with_payers, AgentErrorClass, BoundProgramRequest,
     NativeProgramCallRequest, NativeProgramTransport, OccupancyPayer, ProgramCallRequest,
     ProgramExecutionEvidence, ProgramLifecycle, ProgramOperationError, ProgramServiceError,
     ProgramSimulationEvidence, ProgramSource, ProgramSubmission, ProgramTransport, Retriability,
     VerifiedProgramDiscovery, VerifiedProgramInterface, VerifiedProgramSimulation,
-    verify_program_evidence_with_payers,
+    MAX_OCCUPANCY_PAYERS, MAX_SIGNED_ACTIVITY_BYTES,
 };
 
 const MAX_HTTP_REQUEST_BYTES: usize = 4 * 1_048_576 + 4096;
@@ -30,7 +30,7 @@ const MAX_HTTP_RESPONSE_BYTES: u64 = 9 * 1_048_576;
 const MAX_INTERFACE_BYTES: usize = 952;
 const MAX_REQUEST_ID_BYTES: usize = 128;
 const MAX_REASON_BYTES: usize = 128;
-const REQUESTED_VERIFICATION: &str = "sequencer-signed";
+const REQUESTED_VERIFICATION: &str = "receipted";
 const EXECUTION_VERIFICATION: &str = "receipt-terminal-and-call-graph-verified";
 const SIMULATION_EVIDENCE_DOMAIN: &[u8] = b"LayerX/agent/program-simulation-evidence/v1\0";
 const SIMULATION_BOUNDARY_DOMAIN: &[u8] = b"LayerX/emulator/simulation-boundary/v1\0";
@@ -383,7 +383,7 @@ impl ProgramTransport for HttpProgramTransport {
     ) -> Result<layerx_wire::receipt::Receipt, ProgramOperationError> {
         let key = request.bound_idempotency_key();
         let value = self.dispatch("program.receipt", Method::Get, &format!("/v1/programs/receipts/by-idempotency/{}", hex(&key)),
-            &json!({"idempotency_key":hex(&key),"expected_activity_id":hex(&request.bound_activity_id()),"requested_verification_level":"sequencer-signed"}), None)?;
+            &json!({"idempotency_key":hex(&key),"expected_activity_id":hex(&request.bound_activity_id()),"requested_rung":"receipted"}), None)?;
         if value.get("idempotency_key").is_some()
             && value.get("idempotency_key").and_then(Value::as_str) != Some(hex(&key).as_str())
         {
@@ -433,7 +433,7 @@ impl ProgramTransport for HttpProgramTransport {
             &format!("/v1/programs/registry/{program_id}"),
             &json!({
                 "program_id": program_id,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -456,7 +456,7 @@ impl ProgramTransport for HttpProgramTransport {
             &format!("/v1/programs/registry/{program_id}/interface"),
             &json!({
                 "program_id": program_id,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -503,7 +503,7 @@ impl ProgramTransport for HttpProgramTransport {
             &json!({
                 "idempotency_key": idempotency,
                 "expected_activity_id": activity,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -527,7 +527,7 @@ impl ProgramTransport for HttpProgramTransport {
             &format!("/v1/programs/activities/{activity}"),
             &json!({
                 "activity_id": activity,
-                "requested_verification_level": REQUESTED_VERIFICATION,
+                "requested_rung": REQUESTED_VERIFICATION,
             }),
             None,
         )?;
@@ -894,16 +894,16 @@ fn accepted_program_verification(operation: &str, result: &Value, value: Option<
     {
         return exact_unverified(status, "receipt_pending");
     }
-    exact_fields(status, &["state", "level"])
+    exact_fields(status, &["state", "rung"])
         && status.get("state").and_then(Value::as_str) == Some("Achieved")
-        && status.get("level").and_then(Value::as_str) == Some("SequencerSigned")
+        && status.get("rung").and_then(Value::as_str) == Some("receipted")
 }
 
 fn exact_unverified(value: &Map<String, Value>, reason: &str) -> bool {
     exact_fields(value, &["state", "requested", "achieved", "reason"])
         && value.get("state").and_then(Value::as_str) == Some("Unverified")
-        && value.get("requested").and_then(Value::as_str) == Some("SequencerSigned")
-        && value.get("achieved").and_then(Value::as_str) == Some("Unverified")
+        && value.get("requested").and_then(Value::as_str) == Some("receipted")
+        && value.get("achieved").and_then(Value::as_str) == Some("submitted")
         && value.get("reason").and_then(Value::as_str) == Some(reason)
 }
 
@@ -1772,22 +1772,22 @@ fn require_native_execution(
 
 #[cfg(test)]
 mod source_contract {
-    use serde_json::{Value, json};
+    use serde_json::{json, Value};
     use sha2::{Digest as _, Sha256};
 
     use super::{
-        ExecutionState, MAX_SIGNED_ACTIVITY_BYTES, NativeProgramCallRequest, ProgramLifecycle,
-        ProgramOperationError, ProgramSubmission, SubmissionExpectation, VerifiedProgramDiscovery,
         accepted_program_verification, bind_interface_discovery, bounded_hex, decode_discovery,
         decode_execution, decode_execution_usage, decode_interface, decode_service_error,
         decode_submission, discovery_digest, ed25519, exact_fields, fixed, guest_abi, hex, object,
-        require_native_execution, wire_native_call,
+        require_native_execution, wire_native_call, ExecutionState, NativeProgramCallRequest,
+        ProgramLifecycle, ProgramOperationError, ProgramSubmission, SubmissionExpectation,
+        VerifiedProgramDiscovery, MAX_SIGNED_ACTIVITY_BYTES,
     };
 
     #[test]
     fn corrupt_lifecycle_boundary_responses_retain_c_signed_request() -> Result<(), String> {
         use crate::program_lifecycle::{
-            NativeProgramLifecycleRequest, ProgramLifecycleSubmission, programs_module_registry,
+            programs_module_registry, NativeProgramLifecycleRequest, ProgramLifecycleSubmission,
         };
         use layerx_types::program_lifecycle::NativeProgramDeploy;
         let fixture: serde_json::Value = serde_json::from_str(include_str!(
@@ -1897,8 +1897,8 @@ mod source_contract {
     }
 
     #[test]
-    fn lifecycle_boundary_errors_preserve_exact_refusals()
-    -> Result<(), super::ProgramOperationError> {
+    fn lifecycle_boundary_errors_preserve_exact_refusals(
+    ) -> Result<(), super::ProgramOperationError> {
         let refusal = json!({"code":"invalid_program_payload","retry":"never"});
         assert_eq!(
             super::decode_boundary_error(400, object(&refusal)?)?,
@@ -1931,17 +1931,17 @@ mod source_contract {
     fn programs_verification_status_matrix_is_closed() {
         let server_attested = json!({
             "state":"Unverified",
-            "requested":"SequencerSigned",
-            "achieved":"Unverified",
+            "requested":"receipted",
+            "achieved":"submitted",
             "reason":"server_side_receipt_verification_only",
         });
         let pending = json!({
             "state":"Unverified",
-            "requested":"SequencerSigned",
-            "achieved":"Unverified",
+            "requested":"receipted",
+            "achieved":"submitted",
             "reason":"receipt_pending",
         });
-        let achieved = json!({"state":"Achieved","level":"SequencerSigned"});
+        let achieved = json!({"state":"Achieved","rung":"receipted"});
         assert!(accepted_program_verification(
             "program.discover",
             &json!({"program_id":"00"}),
@@ -2212,8 +2212,8 @@ mod source_contract {
     }
 
     #[test]
-    fn native_call_wire_preserves_real_signed_fixture_and_all_limits()
-    -> Result<(), ProgramOperationError> {
+    fn native_call_wire_preserves_real_signed_fixture_and_all_limits(
+    ) -> Result<(), ProgramOperationError> {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../../sdk/platform/conformance/fixtures/native-program-call-v3.json"
         ))
@@ -2274,18 +2274,16 @@ mod source_contract {
             fixed(document, "activity_id_hex")?
         );
         assert!(NativeProgramCallRequest::new(&registry, native, 999, &signed).is_err());
-        assert!(
-            NativeProgramCallRequest::new(
-                &registry,
-                layerx_types::program_call::NativeProgramCall {
-                    response_capacity: native.response_capacity + 1,
-                    ..native
-                },
-                1000,
-                &signed
-            )
-            .is_err()
-        );
+        assert!(NativeProgramCallRequest::new(
+            &registry,
+            layerx_types::program_call::NativeProgramCall {
+                response_capacity: native.response_capacity + 1,
+                ..native
+            },
+            1000,
+            &signed
+        )
+        .is_err());
         for abi in 1..=layerx_types::guest_abi::MAX_VERSION {
             assert_eq!(
                 guest_abi(
@@ -2299,8 +2297,8 @@ mod source_contract {
     }
 
     #[test]
-    fn native_execution_preserves_captured_receipt_authority_and_unknown_identity()
-    -> Result<(), ProgramOperationError> {
+    fn native_execution_preserves_captured_receipt_authority_and_unknown_identity(
+    ) -> Result<(), ProgramOperationError> {
         let fixture: Value = serde_json::from_str(include_str!(
             "../../../../../sdk/platform/conformance/fixtures/receipt-programs-executed-v4.json"
         ))
@@ -2380,15 +2378,13 @@ mod source_contract {
             execution.activity_id,
             fixed(object(document)?, "activity_id")?
         );
-        assert!(
-            decode_execution(
-                document,
-                Some(ExecutionState::Executed),
-                [0x55; 32],
-                &signed
-            )
-            .is_err()
-        );
+        assert!(decode_execution(
+            document,
+            Some(ExecutionState::Executed),
+            [0x55; 32],
+            &signed
+        )
+        .is_err());
         for (field, change) in [
             ("guest_abi_version", json!(3)),
             ("state_root", json!(hex(&[0x55; 32]))),
@@ -2438,8 +2434,8 @@ mod source_contract {
     }
 
     #[test]
-    fn v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes()
-    -> Result<(), ProgramOperationError> {
+    fn v5_native_corpus_binds_exact_profiles_authority_and_all_outcomes(
+    ) -> Result<(), ProgramOperationError> {
         let path = std::env::var_os("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS")
             .map(std::path::PathBuf::from)
             .ok_or(ProgramOperationError::Verification)?;

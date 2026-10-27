@@ -6,12 +6,9 @@ use layerx_agent_api::identity::{
     TenantId,
 };
 use layerx_agent_api::prepare::{CanonicalBytes, IdempotencyRef};
-use layerx_agent_api::read::{
-    AccountRef, BalanceValue, BatchRef, CheckpointRef, Freshness, RelativeTo, VerifiedRead,
-};
+use layerx_agent_api::read::{AccountRef, BalanceValue, Freshness, RelativeTo, VerifiedRead};
 use layerx_agent_api::track::{EvidenceRef, SubmissionRef, TrackedSubmission};
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::{Amount, ContractVersion, Sequence, SubmissionState, TimestampSeconds};
+use layerx_agent_api::{Amount, ContractVersion, SubmissionState, TimestampSeconds};
 use layerx_client::client::{ClientConfig, ReconnectPolicy};
 use layerx_client::lni::handshake::HandshakeConfig;
 use layerx_client::lni::schema::Version;
@@ -73,15 +70,12 @@ fn mutation<T>(operation: T) -> IdempotentMutation<T> {
 
 fn freshness() -> Freshness {
     Freshness {
-        chain_head: Sequence(20),
-        latest_sealed_batch: BatchRef::new("batch-19")
-            .unwrap_or_else(|error| panic!("batch: {error:?}")),
-        latest_finalised_checkpoint: CheckpointRef::new("checkpoint-18")
-            .unwrap_or_else(|error| panic!("checkpoint: {error:?}")),
-        value_sequence: Sequence(17),
-        relative_to: RelativeTo::Batch(
-            BatchRef::new("batch-19").unwrap_or_else(|error| panic!("batch: {error:?}")),
-        ),
+        chain_head: 20,
+        value_height: 17,
+        relative_to: RelativeTo::Block {
+            height: 19,
+            hash: [0x19; 32],
+        },
     }
 }
 
@@ -259,24 +253,25 @@ fn reads_never_present_unverified_or_below_requested_values() {
         asset: layerx_agent_api::identity::Asset::new("LXP")
             .unwrap_or_else(|error| panic!("asset: {error:?}")),
         amount: Amount(9_007_199_254_740_993),
+        height: 17,
         canonical_state: CanonicalBytes::new(b"core-state".to_vec())
             .unwrap_or_else(|error| panic!("state: {error:?}")),
     };
-    let unverified = VerifiedRead::new(balance.clone(), Level::Unverified, freshness());
+    let unverified = VerifiedRead::new(balance.clone(), Rung::Submitted, freshness());
     assert_eq!(
-        Client::accept_verified_read(Level::SequencerSigned, unverified),
+        Client::accept_verified_read(Rung::Receipted, unverified),
         Err(SdkError::UnverifiedRead)
     );
-    let below = VerifiedRead::new(balance.clone(), Level::SequencerSigned, freshness());
+    let below = VerifiedRead::new(balance.clone(), Rung::Receipted, freshness());
     assert_eq!(
-        Client::accept_verified_read(Level::StateProven, below),
+        Client::accept_verified_read(Rung::Committed, below),
         Err(SdkError::VerificationBelowRequested {
-            requested: Level::StateProven,
-            achieved: Level::SequencerSigned,
+            requested: Rung::Committed,
+            achieved: Rung::Receipted,
         })
     );
-    let proven = VerifiedRead::new(balance, Level::StateProven, freshness());
-    assert!(Client::accept_verified_read(Level::StateProven, proven).is_ok());
+    let proven = VerifiedRead::new(balance, Rung::Committed, freshness());
+    assert!(Client::accept_verified_read(Rung::Committed, proven).is_ok());
 }
 
 fn tracked(state: SubmissionState, evidence: Vec<EvidenceRef>, rung: Rung) -> TrackedSubmission {

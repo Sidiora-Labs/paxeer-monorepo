@@ -1,6 +1,7 @@
 package keys
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -95,11 +96,12 @@ func TestXWebStoreKeyFollowsTheV6120StoreKeys(t *testing.T) {
 		"perps", "spot", "pricefeed",
 		"xweb",
 		"sequencer",
+		"layerxledger", "layerxauth", "layerxpay", "layerxprograms", "layerxagent", "lxphost",
 	}, MemIAVLStoreKeys)
-	n := len(MemIAVLStoreKeys)
-	require.Equal(t, SequencerStoreKey, MemIAVLStoreKeys[n-1])
-	require.Equal(t, XWebStoreKey, MemIAVLStoreKeys[n-2])
-	require.Equal(t, []string{LaunchpadStoreKey, PerpsStoreKey, SpotStoreKey, PriceFeedStoreKey}, MemIAVLStoreKeys[n-6:n-2])
+	xweb := slices.Index(MemIAVLStoreKeys, XWebStoreKey)
+	require.GreaterOrEqual(t, xweb, 4)
+	require.Equal(t, xweb+1, slices.Index(MemIAVLStoreKeys, SequencerStoreKey))
+	require.Equal(t, []string{LaunchpadStoreKey, PerpsStoreKey, SpotStoreKey, PriceFeedStoreKey}, MemIAVLStoreKeys[xweb-4:xweb])
 
 	got, err := AllModulesExcept(XWebStoreKey)
 	require.NoError(t, err)
@@ -136,6 +138,25 @@ func TestMergeStoreKeyConstants(t *testing.T) {
 		require.LessOrEqual(t, mounted, 1, "merge store key %q shares its name with another mounted store", m.got)
 	}
 	require.Len(t, seen, 5)
+}
+
+func TestMergeStoreKeysAreMemIAVLStoreKeys(t *testing.T) {
+	got, err := AllModulesExcept(BankStoreKey)
+	require.NoError(t, err)
+	require.NotContains(t, got, BankStoreKey)
+	for _, key := range []string{
+		LayerXLedgerStoreKey,
+		LayerXAuthStoreKey,
+		LayerXPayStoreKey,
+		LayerXProgramsStoreKey,
+		LayerXAgentStoreKey,
+		LayerXHostStoreKey,
+	} {
+		t.Run(key, func(t *testing.T) {
+			require.True(t, IsMemIAVLStoreKey(key))
+			require.Contains(t, got, key)
+		})
+	}
 }
 
 func TestLayerXAgentStoreKeyMatchesAgentKeeper(t *testing.T) {
