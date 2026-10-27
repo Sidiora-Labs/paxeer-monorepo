@@ -93201,7 +93201,7 @@ touches = ["tests/programs/test_terminal_v5.c"]
 tests = ["tests/programs/test_terminal_v5.c::v5_case", "tests/programs/test_terminal_v5.c::v5_refusal_detail"]
 planned_paths = []
 build_cmd = "make -C . build/liblayerx.a"
-verify_cmd = "export CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/programs/target}\" && d=\"$(mktemp -d)\" && m=\"$(python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$d\" | tail -n1)\" && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest \"$m\""
+verify_cmd = "d=$(mktemp -d) && git worktree add -q --detach $d/src HEAD && (cd $d/src && export CARGO_TARGET_DIR=${CARGO_TARGET_DIR:-$d/target} && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output $d/out && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest $d/out/manifest.json); r=$?; git worktree remove --force $d/src > /dev/null 2>&1; exit $r"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-kernel"
