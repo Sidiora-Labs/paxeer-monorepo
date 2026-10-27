@@ -158961,7 +158961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Add a reverted case to the switch over outcome.outcome in apps/web/src/app/_markets/send-outcome.tsx:8 that returns an InlineNotice with tone danger naming outcome.transactionHash, so the component stays exhaustive once the reverted arm exists and npm run typecheck passes; task 14.0.4 later replaces that case with the catalog copy and the receipt line."
 [task.14.4.2]
 title = "Carry budget_exhausted and the submit receipt through the web gas-station client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["14.0.2", "14.4.1"]
