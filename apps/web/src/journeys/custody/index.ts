@@ -60,4 +60,3 @@ export {
   useCustodyShell,
   WalletPanelView,
 } from "./timeline";
-export { JourneyScreen } from "./journey-screen";
