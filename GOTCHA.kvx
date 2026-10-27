@@ -8985,3 +8985,9 @@ area = "spec"
 symptom = "cg spec done reports ✗ symbol <name> — not defined in the graph for a crate name or a harness test-case id listed in a task's symbols"
 cause = "The graph check resolves declared code symbols only; crate names, package names and case ids registered as strings are not symbols"
 do = "List the declared function, type, constant or test function that implements the behaviour (for a harness case, the C test function it registers); cover crates and packages with touched paths and the build"
+
+[gotcha.1877]
+area = "spec"
+symptom = "Retiring or re-signing a public item (a constant, a function parameter, a struct) builds in the task's crate and fails `cargo build --all-targets` on integration tests or sibling crates outside touches"
+cause = "--all-targets compiles every tests/*.rs of the crate and the dependents check compiles consumer crates, none of which the task owns"
+do = "Before retiring an item, `git grep` its name under the workspace and put every consumer file in touches, or add a requires edge to the task that owns it (11.29.4: PORTABLE_RECEIPT_FORMAT_V2 / trusted_batch)"
