@@ -1,4 +1,8 @@
 use std::collections::BTreeMap;
+use std::io::{self, Read as _, Write as _};
+use std::net::{Shutdown, TcpListener, TcpStream};
+use std::sync::{Arc, RwLock};
+use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
@@ -11,6 +15,135 @@ pub struct AttestationView {
     pub items: BTreeMap<String, Item>,
     pub signatures: BTreeMap<[u8; 32], Vec<[u8; 65]>>,
     pub thresholds: BTreeMap<u64, usize>,
+}
+
+const MAX_REQUEST_BYTES: usize = 8192;
+const REQUEST_TIMEOUT: Duration = Duration::from_secs(2);
+
+pub fn serve(
+    listener: TcpListener,
+    view: Arc<RwLock<AttestationView>>,
+    _origins: Vec<String>,
+) -> io::Result<()> {
+    for connection in listener.incoming() {
+        let mut stream = connection?;
+        let result = serve_connection(&mut stream, &view);
+        let _ = stream.shutdown(Shutdown::Both);
+        if let Err(error) = result {
+            eprintln!("layerx-bridge-relayer: attestation connection: {error}");
+        }
+    }
+    Ok(())
+}
+
+fn serve_connection(stream: &mut TcpStream, view: &RwLock<AttestationView>) -> io::Result<()> {
+    stream.set_write_timeout(Some(REQUEST_TIMEOUT))?;
+    let deadline = Instant::now() + REQUEST_TIMEOUT;
+    let mut request = Vec::with_capacity(MAX_REQUEST_BYTES);
+    let header_end = loop {
+        if let Some(end) = request.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+            break end;
+        }
+        if request.len() == MAX_REQUEST_BYTES {
+            return respond(stream, 413, json!({"error": "request too large"}));
+        }
+        let Some(remaining) = deadline.checked_duration_since(Instant::now()) else {
+            return respond(stream, 408, json!({"error": "request timeout"}));
+        };
+        stream.set_read_timeout(Some(remaining))?;
+        let mut bytes = [0_u8; 1024];
+        let capacity = bytes.len().min(MAX_REQUEST_BYTES - request.len());
+        match stream.read(&mut bytes[..capacity]) {
+            Ok(0) => return respond(stream, 400, json!({"error": "incomplete request"})),
+            Ok(count) => request.extend_from_slice(&bytes[..count]),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock
+                ) =>
+            {
+                return respond(stream, 408, json!({"error": "request timeout"}));
+            }
+            Err(error) => return Err(error),
+        }
+    };
+    let Ok(headers) = std::str::from_utf8(&request[..header_end]) else {
+        return respond(stream, 400, json!({"error": "invalid request"}));
+    };
+    let mut lines = headers.split("\r\n");
+    let parts: Vec<_> = lines.next().unwrap_or_default().split(' ').collect();
+    let [method, path, version] = parts.as_slice() else {
+        return respond(stream, 400, json!({"error": "invalid request line"}));
+    };
+    if !matches!(*version, "HTTP/1.0" | "HTTP/1.1") || lines.any(|line| !line.contains(':')) {
+        return respond(stream, 400, json!({"error": "invalid request headers"}));
+    }
+    if *method != "GET" {
+        return respond(stream, 405, json!({"error": "method not allowed"}));
+    }
+    let segments: Vec<_> = path.split('/').collect();
+    let ["", "v1", route @ ("deposit" | "release"), chain, hash, index] = segments.as_slice()
+    else {
+        return respond(stream, 404, json!({"error": "not found"}));
+    };
+    let (Some(chain), Some(index)) = (decimal_u64(chain), decimal_u64(index)) else {
+        return respond(stream, 400, json!({"error": "invalid chain id or index"}));
+    };
+    if hash.len() != 66
+        || !hash.starts_with("0x")
+        || !hash.as_bytes()[2..]
+            .iter()
+            .all(|byte| matches!(byte, b'0'..=b'9' | b'a'..=b'f'))
+    {
+        return respond(stream, 400, json!({"error": "invalid transaction hash"}));
+    }
+    let hash =
+        hex::fixed(hash).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))?;
+    let answer = {
+        let Ok(view) = view.read() else {
+            return respond(
+                stream,
+                500,
+                json!({"error": "attestation view unavailable"}),
+            );
+        };
+        if *route == "deposit" {
+            deposit_answer(&view, chain, &hash, index)
+        } else {
+            release_answer(&view, chain, &hash, index)
+        }
+    };
+    match answer {
+        Some(answer) => respond(stream, 200, answer),
+        None => respond(stream, 404, json!({"error": "not observed"})),
+    }
+}
+
+fn decimal_u64(text: &str) -> Option<u64> {
+    if text.is_empty() || !text.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    text.parse().ok()
+}
+
+fn respond(stream: &mut TcpStream, status: u16, body: Value) -> io::Result<()> {
+    let reason = match status {
+        200 => "OK",
+        400 => "Bad Request",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        408 => "Request Timeout",
+        413 => "Content Too Large",
+        _ => "Internal Server Error",
+    };
+    let body = body.to_string();
+    write!(
+        stream,
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n{}\r\n{body}",
+        body.len(),
+        if status == 405 { "Allow: GET\r\n" } else { "" },
+    )
 }
 
 #[must_use]

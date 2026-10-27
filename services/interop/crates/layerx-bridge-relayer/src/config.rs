@@ -318,6 +318,15 @@ pub struct RelayerConfig {
     /// The approved attestor set; absent, the relayer runs a single attestor.
     #[serde(default)]
     pub attestor_set: Option<AttestorSetConfig>,
+    #[serde(default, deserialize_with = "deserialize_attestation_listen")]
+    pub attestation_listen: Option<SocketAddr>,
+}
+
+fn deserialize_attestation_listen<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<SocketAddr>, D::Error> {
+    Option::<SocketAddr>::deserialize(deserializer)
+        .map_err(|error| serde::de::Error::custom(format!("attestation_listen: {error}")))
 }
 
 fn invalid(detail: impl Into<String>) -> RelayerError {
