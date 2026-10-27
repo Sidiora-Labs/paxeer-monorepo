@@ -97325,7 +97325,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.3]
 title = "Serve openAccount and send on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.3", "2.4.4", "2.3.6"]
@@ -98301,7 +98301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.23.1]
 title = "Implement escrow open, capture and partial capture in the pay keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4"]
@@ -98332,7 +98332,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.23.2]
 title = "Implement escrow release, timeout, dispute open and dispute resolve"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4"]
@@ -106481,7 +106481,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.11]
 title = "Serve Query/FeeRight from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.10"]
@@ -140538,7 +140538,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.27.7]
 title = "Delete the layerx-client kernel finality evidence suite"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["9.23.5"]
@@ -159194,7 +159194,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.3]
 title = "Delete the custody journey screen, timeline, recovery and barrel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.7.2", "14.8.1", "14.11.2"]
@@ -159579,7 +159579,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.10.2]
 title = "Remove the wallet binding copy keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.8.1"]
@@ -160017,7 +160017,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.2]
 title = "Serve frozen anchors and receipts under /api/v2/paxeer-x/archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.23.1", "14.25.3"]
@@ -160142,7 +160142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.6]
 title = "Make the Anchor and Receipt chain schemas read-only archive records"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.25.3"]
@@ -160202,7 +160202,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.24.2]
 title = "Drop the kernel receipts fetcher from the backend and indexer READMEs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.24.1"]
@@ -160357,7 +160357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.5]
 title = "Check every kept PaxeerXLogs topic against the precompile ABI files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.25.1"]
@@ -162430,7 +162430,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.53.6]
 title = "Pin the env names appenv writes to the names the bridge app reads"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.53.3", "14.50.1"]
@@ -162553,7 +162553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.54.4]
 title = "Pin the client Solana handle derivation to the committed SOL asset id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.54.1", "14.50.2"]
