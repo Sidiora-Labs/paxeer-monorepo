@@ -216,7 +216,9 @@ func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 		{"launchpad", "buy", []any{pointer, big.NewInt(10), big.NewInt(9), big.NewInt(1000)}, "pool", pointer},
 		{"feetoken", "setFeeDenom", []any{"usid"}, "denom", "usid"},
 		{"xweb", "request", []any{uint8(2), []byte("query"), uint64(50_000)}, "callbackGas", uint64(50_000)},
+		{"layerxledger", "openAccount", []any{did}, "assetId", did},
 		{"layerxpay", "budgetFund", []any{did, big.NewInt(500)}, "budgetId", did},
+		{"layerxauth", "grantSession", []any{[]byte{1, 2, 3}, uint64(42), did}, "actionKey", did},
 		{"layerxprograms", "call", []any{did, uint16(5), "execute", []byte{1, 2, 3}, []byte{4}, []byte{5}, uint32(1024), [7]uint64{1, 2, 3, 4, 5, 6, 7}, big.NewInt(100)}, "programId", did},
 	}
 	if len(cases) != len(PrecompileNames()) {
@@ -265,6 +267,48 @@ func TestDecodeCalldataForEachPrecompile(t *testing.T) {
 	addr, _ := PrecompileAddress("addr")
 	if _, err := DecodeCalldata(addr, []byte{0xde, 0xad, 0xbe, 0xef}); !errors.Is(err, ErrUnknownMethod) {
 		t.Fatalf("unknown precompile method: %v", err)
+	}
+}
+
+func TestDecodeCalldataForLayerxledgerWrites(t *testing.T) {
+	address := common.HexToAddress("0x000000000000000000000000000000000000101A")
+	if got, ok := PrecompileAddress("layerxledger"); !ok || got != address || !IsPrecompile(address) {
+		t.Fatalf("layerxledger address %s registered=%v", got, ok)
+	}
+	envelope := bytes.Repeat([]byte{0x01, 0x00, 0xff}, 23)
+	call := decodePrecompileWrite(t, address, "layerxledger", "send(bytes)", []any{envelope})
+	assertDecodedArgs(t, call.Args, map[string]any{"envelope": envelope})
+}
+
+func TestDecodeCalldataForLayerxauthWrites(t *testing.T) {
+	address := common.HexToAddress("0x000000000000000000000000000000000000101C")
+	if got, ok := PrecompileAddress("layerxauth"); !ok || got != address || !IsPrecompile(address) {
+		t.Fatalf("layerxauth address %s registered=%v", got, ok)
+	}
+	grant := bytes.Repeat([]byte{0x02, 0x00, 0xfe}, 23)
+	expirySequence := uint64(1)<<63 + 42
+	actionKey := [32]byte{0x03}
+	cases := []struct {
+		sig  string
+		args []any
+		want map[string]any
+	}{
+		{
+			sig:  "grantSession(bytes,uint64,bytes32)",
+			args: []any{grant, expirySequence, actionKey},
+			want: map[string]any{"grant": grant, "expirySequence": expirySequence, "actionKey": actionKey},
+		},
+		{
+			sig:  "grantCapability(bytes)",
+			args: []any{grant},
+			want: map[string]any{"grant": grant},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.sig, func(t *testing.T) {
+			call := decodePrecompileWrite(t, address, "layerxauth", tc.sig, tc.args)
+			assertDecodedArgs(t, call.Args, tc.want)
+		})
 	}
 }
 

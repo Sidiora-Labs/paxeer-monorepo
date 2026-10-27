@@ -3637,3 +3637,11 @@ symbol = "v5_callback_module"
 observed = "The seventh attempt 3b4e21fb3 built and the verifier `cg spec done 9.1.7` exited 1 (logs-verify-1.log): scripts/qualification/paxeer-x/program-terminal-v5.py refused with `native signed corpus was not emitted` because test_terminal_v5 --dump-corpus failed its V5_CHECK at line 161 for case abi3-callback, whose call returns LXP_OK since ad8a576e8 (task 1.18.1) removed the web request intake that refused the fixture's PAXEERX_WEB_REQUEST_V1 event with LXP_ERR_FEE_UNPAYABLE."
 assumption = "Task 1.18.4 moves the callback fixture to an event the kernel event callback still refuses; the corpus shape is unchanged and 3b4e21fb3 is requalified unchanged once 1.18.4 is on main."
 severity = "blocker"
+
+[finding.5.98.1.1]
+task = "5.98.1"
+file = "sdk/types/module/module.go:112"
+symbol = "ValidateGenesis"
+observed = "At revision 9372974fd the verifier `cg spec done 5.98.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (logs-verify-2.log): paxd validate-genesis on the genesis derived from node/testdata/v6120-halt-export.json failed with `failed to unmarshal pricefeed genesis state: unexpected end of JSON input`, because BasicManager.ValidateGenesis hands every wired module its app_state entry and the export carries none for pricefeed, perps and spot, while spot initGenesis (modules/spot/keeper/genesis.go:97) writes ParamsKey so a default spot entry would make InitV6120 refuse the v6.12.0 plan in the first block; the first cycle (da7d54c0c) failed the same step on timeout.ProposeDelta because the export carries zero consensus timeouts."
+assumption = "do_1 validates a copy of the genesis that carries the three default states and copies the consensus timeouts from the paxd init genesis, while the node starts from the genesis without those entries; do_3 submits prices through paxd tx sign and paxd tx broadcast because the pricefeed module has no tx command."
+severity = "blocker"
