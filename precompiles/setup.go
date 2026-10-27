@@ -87,6 +87,18 @@ var (
 	mergeConstructors    = map[ecommon.Address]MergeConstructor{}
 )
 
+func MissingMergeConstructors() []MergeAddress {
+	mergeConstructorsMtx.RLock()
+	defer mergeConstructorsMtx.RUnlock()
+	missing := make([]MergeAddress, 0, len(MergeAddressTable))
+	for _, entry := range MergeAddressTable {
+		if _, registered := mergeConstructors[entry.Address]; !registered {
+			missing = append(missing, entry)
+		}
+	}
+	return missing
+}
+
 // RegisterMergeConstructor records the constructor of the precompile served at
 // a MergeAddressTable address. An address with no registered constructor is
 // not served. It refuses an address outside the table, a nil constructor and

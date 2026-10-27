@@ -13,12 +13,10 @@ use std::time::Duration;
 use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retriability};
 use layerx_agent_api::idempotency::{IdempotentMutation, Key};
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget, MAX_PROOF_BUNDLE_BYTES};
-use layerx_agent_api::read::{
-    BatchRef, CheckpointRef, Freshness, ReadRequest, RelativeTo, VerifiedRead,
-};
-use layerx_agent_api::verify::{ApiSuccess, Level, VerificationStatus};
-use layerx_agent_api::Sequence;
+use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
+use layerx_agent_api::read::{ReadRequest, VerifiedRead};
+use layerx_agent_api::verify::{ApiSuccess, Level, Rung, VerificationStatus};
+
 use layerx_types::result::ResultCode;
 use serde_json::{json, Map, Value};
 use url::Url;
@@ -567,22 +565,36 @@ impl AgentEnvelopeTransport {
         request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
-    ) -> Result<ApiSuccess<layerx_agent_api::identity::NativeDisclosureResultV1>, EnvelopeError> {
+    ) -> Result<ApiSuccess<layerx_agent_api::identity::NativeDisclosureResultV1>, EnvelopeError>
+    {
         use sha2::{Digest, Sha256};
         let body = crate::native_effect::encode_native_disclosure(request)?;
-        let response = self.send_operation(Operation::Prepare, request_id, &body, Some(credential), Some(key))?;
-        let unknown = || EnvelopeError::Unknown { operation:Operation::Prepare };
+        let response = self.send_operation(
+            Operation::Prepare,
+            request_id,
+            &body,
+            Some(credential),
+            Some(key),
+        )?;
+        let unknown = || EnvelopeError::Unknown {
+            operation: Operation::Prepare,
+        };
         let value = decode_native_disclosure(&response.value).ok_or_else(unknown)?;
-        let disclosure = layerx_crypto::disclosure::bind(&request.canonical_bytes, registry).map_err(|_| unknown())?;
+        let disclosure = layerx_crypto::disclosure::bind(&request.canonical_bytes, registry)
+            .map_err(|_| unknown())?;
         if value.canonical_bytes != request.canonical_bytes
-            || value.preparation_id != <[u8;32]>::from(Sha256::digest(&request.canonical_bytes))
+            || value.preparation_id != <[u8; 32]>::from(Sha256::digest(&request.canonical_bytes))
             || value.disclosure_digest != disclosure.audit_digest().map_err(|_| unknown())?
             || value.activity_type != disclosure.activity_type.value()
-            || value.actor != disclosure.actor || value.authority != disclosure.authority
-            || value.asset != disclosure.asset || value.fee_limit != disclosure.fee_limit
-            || value.not_before != disclosure.expiry.not_before || value.not_after != disclosure.expiry.not_after
+            || value.actor != disclosure.actor
+            || value.authority != disclosure.authority
+            || value.asset != disclosure.asset
+            || value.fee_limit != disclosure.fee_limit
+            || value.not_before != disclosure.expiry.not_before
+            || value.not_after != disclosure.expiry.not_after
             || value.payload_expires_at != disclosure.expiry.payload_expires_at
-            || value.idempotency_key != disclosure.idempotency_key {
+            || value.idempotency_key != disclosure.idempotency_key
+        {
             return Err(unknown());
         }
         Ok(native_success(response, value))
@@ -609,7 +621,14 @@ impl AgentEnvelopeTransport {
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         let body = crate::native_effect::encode_native_registration_prepare(request)?;
-        self.prepare_native_effect_body(request_id, key, &request.request, &body, credential, registry)
+        self.prepare_native_effect_body(
+            request_id,
+            key,
+            &request.request,
+            &body,
+            credential,
+            registry,
+        )
     }
 
     fn prepare_native_effect_body(
@@ -1199,23 +1218,58 @@ fn native_optional_id(value: &Value) -> Option<Option<[u8; 32]>> {
     }
 }
 
-pub fn decode_native_disclosure(value: &Value) -> Option<layerx_agent_api::identity::NativeDisclosureResultV1> {
+pub fn decode_native_disclosure(
+    value: &Value,
+) -> Option<layerx_agent_api::identity::NativeDisclosureResultV1> {
     let value = value.as_object()?;
-    if !exact_fields(value, &["version","preparation_id","canonical_bytes","disclosure_digest","activity_type","actor","authority","asset","fee_limit","not_before","not_after","payload_expires_at","idempotency_key"])
-        || value.get("version")?.as_str()? != "1" { return None; }
-    let number = |field:&str| canonical_u64(value.get(field)?.as_str()?);
+    if !exact_fields(
+        value,
+        &[
+            "version",
+            "preparation_id",
+            "canonical_bytes",
+            "disclosure_digest",
+            "activity_type",
+            "actor",
+            "authority",
+            "asset",
+            "fee_limit",
+            "not_before",
+            "not_after",
+            "payload_expires_at",
+            "idempotency_key",
+        ],
+    ) || value.get("version")?.as_str()? != "1"
+    {
+        return None;
+    }
+    let number = |field: &str| canonical_u64(value.get(field)?.as_str()?);
     let amount = value.get("fee_limit")?.as_str()?;
-    if amount.is_empty() || !amount.bytes().all(|b|b.is_ascii_digit()) || (amount.len()>1 && amount.starts_with('0')) {return None;}
+    if amount.is_empty()
+        || !amount.bytes().all(|b| b.is_ascii_digit())
+        || (amount.len() > 1 && amount.starts_with('0'))
+    {
+        return None;
+    }
     Some(layerx_agent_api::identity::NativeDisclosureResultV1 {
-        preparation_id:native_id(value.get("preparation_id")?)?,
-        canonical_bytes:native_hex(value.get("canonical_bytes")?, layerx_wire::limits::MAX_MESSAGE_BYTES)?,
-        disclosure_digest:native_id(value.get("disclosure_digest")?)?,
-        activity_type:u32::try_from(number("activity_type")?).ok()?,
-        actor:native_hex(value.get("actor")?, layerx_types::limits::MAX_DID_BYTES)?,
-        authority:native_hex(value.get("authority")?, layerx_types::limits::MAX_AUTHORITY_BYTES)?,
-        asset:native_id(value.get("asset")?)?, fee_limit:amount.parse().ok()?,
-        not_before:number("not_before")?, not_after:number("not_after")?, payload_expires_at:number("payload_expires_at")?,
-        idempotency_key:native_id(value.get("idempotency_key")?)?,
+        preparation_id: native_id(value.get("preparation_id")?)?,
+        canonical_bytes: native_hex(
+            value.get("canonical_bytes")?,
+            layerx_wire::limits::MAX_MESSAGE_BYTES,
+        )?,
+        disclosure_digest: native_id(value.get("disclosure_digest")?)?,
+        activity_type: u32::try_from(number("activity_type")?).ok()?,
+        actor: native_hex(value.get("actor")?, layerx_types::limits::MAX_DID_BYTES)?,
+        authority: native_hex(
+            value.get("authority")?,
+            layerx_types::limits::MAX_AUTHORITY_BYTES,
+        )?,
+        asset: native_id(value.get("asset")?)?,
+        fee_limit: amount.parse().ok()?,
+        not_before: number("not_before")?,
+        not_after: number("not_after")?,
+        payload_expires_at: number("payload_expires_at")?,
+        idempotency_key: native_id(value.get("idempotency_key")?)?,
     })
 }
 
@@ -1324,20 +1378,20 @@ pub fn encode_proof_bundle_request(
         .map_err(|_| EnvelopeError::InvalidRequest)?;
     Ok(json!({
         "target": hex(request.selector.as_bytes()),
-        "requested_verification_level": format!("{:?}", request.requested_verification_level),
+        "requested_rung": request.requested_rung.name(),
     }))
 }
 
 pub fn decode_proof_bundle_request(value: &Value) -> Option<ReadRequest<CanonicalBytes>> {
     let request = value.as_object()?;
-    if !exact_fields(request, &["target", "requested_verification_level"]) {
+    if !exact_fields(request, &["target", "requested_rung"]) {
         return None;
     }
     let bytes = native_hex(request.get("target")?, 67)?;
     ProofBundleTarget::decode(&bytes).ok()?;
     Some(ReadRequest {
         selector: CanonicalBytes::new(bytes).ok()?,
-        requested_verification_level: level(request.get("requested_verification_level")?)?,
+        requested_rung: Rung::from_name(request.get("requested_rung")?.as_str()?)?,
     })
 }
 
@@ -1345,72 +1399,50 @@ pub fn decode_proof_bundle_response(
     request: &ReadRequest<CanonicalBytes>,
     response: &ApiSuccess<Value>,
 ) -> Option<VerifiedRead<ProofBundle>> {
+    let operation = Operation::ReadProofBundle;
     let read = response.value.as_object()?;
-    if !exact_fields(read, &["value", "achieved_verification_level", "freshness"]) {
+    if !exact_fields(read, &["value", "achieved_rung", "freshness"]) {
         return None;
     }
-    let achieved = level(read.get("achieved_verification_level")?)?;
-    if response.verification_status != VerificationStatus::Achieved(achieved) {
-        return None;
-    }
-    let bundle = read.get("value")?.as_object()?;
-    if !exact_fields(bundle, &["target", "proofs"]) {
-        return None;
-    }
-    let target = CanonicalBytes::new(native_hex(bundle.get("target")?, 67)?).ok()?;
-    let proofs = bundle.get("proofs")?.as_array()?;
-    if proofs.len() != 1 {
-        return None;
-    }
-    let proof = CanonicalBytes::new(native_hex(&proofs[0], MAX_PROOF_BUNDLE_BYTES)?).ok()?;
-    let freshness = read.get("freshness")?.as_object()?;
-    if !exact_fields(
-        freshness,
-        &[
-            "chain_head",
-            "latest_sealed_batch",
-            "latest_finalised_checkpoint",
-            "value_sequence",
-            "relative_to",
-        ],
-    ) {
-        return None;
-    }
-    let chain_head = canonical_u64(freshness.get("chain_head")?.as_str()?)?;
-    let value_sequence = canonical_u64(freshness.get("value_sequence")?.as_str()?)?;
-    let sealed = freshness.get("latest_sealed_batch")?.as_str()?;
-    let sealed_number = canonical_u64(sealed)?;
-    let checkpoint = freshness.get("latest_finalised_checkpoint")?;
-    native_id(checkpoint)?;
-    let relative = freshness.get("relative_to")?.as_object()?;
-    if !exact_fields(relative, &["batch"]) {
-        return None;
-    }
-    let batch = relative.get("batch")?.as_str()?;
-    let batch_number = canonical_u64(batch)?;
-    if chain_head == 0
-        || value_sequence == 0
-        || sealed_number == 0
-        || batch_number == 0
-        || value_sequence > chain_head
-        || batch_number > sealed_number
+    let achieved = Rung::from_name(read.get("achieved_rung")?.as_str()?)?;
+    if !matches!(response.verification_status, VerificationStatus::Achieved(level) if level.rung() == Some(achieved))
     {
         return None;
     }
     let result = VerifiedRead::new(
-        ProofBundle {
-            target,
-            proofs: vec![proof],
-        },
+        crate::rpc_export::decode_bundle(read.get("value")?, operation).ok()?,
         achieved,
-        Freshness {
-            chain_head: Sequence(chain_head),
-            latest_sealed_batch: BatchRef::new(sealed).ok()?,
-            latest_finalised_checkpoint: CheckpointRef::new(checkpoint.as_str()?).ok()?,
-            value_sequence: Sequence(value_sequence),
-            relative_to: RelativeTo::Batch(BatchRef::new(batch).ok()?),
-        },
+        crate::rpc_projection::decode_freshness(read.get("freshness")?, operation).ok()?,
     );
-    ProofBundle::check_response(request, &result).ok()?;
+    let target = ProofBundleTarget::decode(request.selector.as_bytes()).ok()?;
+    let typed_request = ReadRequest {
+        selector: target,
+        requested_rung: request.requested_rung,
+    };
+    ProofBundle::check_response(&typed_request, &result).ok()?;
+    let receipt = layerx_wire::receipt::decode(result.value.signed_receipt.as_bytes()).ok()?;
+    if receipt.protocol()?.activity_id() != target.activity_id() {
+        return None;
+    }
     Some(result)
+}
+
+#[cfg(test)]
+mod rung_contract_tests {
+    use super::*;
+
+    #[test]
+    fn idempotent_replay_remains_a_terminal_core_rejection() {
+        let expected = ApiError::idempotent_replay(RequestId(9));
+        let wire = json!({"class":"CoreRejection", "protocol_result_code":-302, "retriability":"Terminal", "request_id":"9", "reason":"idempotent_replay"});
+        assert_eq!(decode_response(409, &wire), Some(Err(expected.clone())));
+        assert_eq!(expected.class, ErrorClass::CoreRejection);
+        assert_eq!(
+            expected.protocol_result_code,
+            Some(ResultCode::from_raw(-302))
+        );
+        assert_eq!(expected.retriability, Retriability::Terminal);
+        assert_eq!(expected.reason.as_str(), "idempotent_replay");
+        assert_ne!(expected.class, ErrorClass::IdempotencyConflict);
+    }
 }
