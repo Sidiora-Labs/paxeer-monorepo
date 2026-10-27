@@ -148578,7 +148578,7 @@ capabilities = ["11.22.4"]
 interfaces = []
 do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from the repository root in services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs (planned) and iterate its cases."
 do_2 = "Build SequencerAuthorization windows from the vector's key entries with SequencerAuthorization::new from services/agent/crates/layerx-proof/src/inclusion.rs:14-30."
-do_3 = "Assert decode and verify outcomes in services/interop/crates/layerx-bridge-relayer/src/receipt.rs (planned) per case without changing the vector file."
+do_3 = "Assert per case from expected.verifier in services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs (planned), without changing the vector file: verifier \"Decode\" (R2) means SequencerReceipt::decode fails; verifier \"SequencerSignature\" (R3) means decode succeeds and verify(&[pin]) fails; the R5 case (tampered log) means verify fails with a view mismatch; verifier \"accepts\" means decode and verify both succeed, including V3-activity-id-not-raw-hash (R4) and V3-seq-hash-mismatch (R6), whose rules need the raw transaction and prevSeqHash that SequencerReceipt::verify never sees."
 symbols = ["the_shared_sequencer_receipt_vector_decodes_and_verifies"]
 touches = ["services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs"]
 tests = ["services/interop/crates/layerx-bridge-relayer/tests/sequencer_receipt.rs::the_shared_sequencer_receipt_vector_decodes_and_verifies"]
@@ -148596,6 +148596,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "For every case whose verifier is \"accepts\", apply R4 and R6 in the test from the vector inputs: R4 holds when sha3::Keccak256 of rawTransaction equals receipt.tx_hash; R6 holds when the protocol receipt recovered with layerx_proof::receipt::verify_sequencer_signature(&view.receipt, ReceiptKeys::HeightRanges(&[pin])).protocol() has previous_state_root() == prevSeqHash and resulting_state_root() == Sha256(b\"PAXEER/v1/sequence\\0\" || prevSeqHash || global_sequence().to_be_bytes() || activity_id()) (the rule at services/interop/crates/layerx-ucp/src/lib.rs:746). Assert each rule fails exactly for the case whose expected.refusedAt names it and holds for every other accepted case; fail the test on a case id it does not classify."
 
 [task.11.23.1]
 title = "Refuse a failed DID read as DidUnavailable and answer it 503"
@@ -150120,7 +150121,7 @@ do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from 
 do_2 = "Build SequencerAuthorization windows from the pinned keys (services/agent/crates/layerx-proof/src/inclusion.rs:14-30) and call MirrorVerifier::committed_receipt on each case."
 do_3 = "Fail the test when sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 holds a case id the test does not classify."
 symbols = ["MirrorVerifier::committed_receipt"]
-touches = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"]
+touches = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs", "services/interop/crates/layerx-mirror/src/verify.rs"]
 tests = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_receipted_case_verifies_in_the_mirror", "services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs::every_shared_refusal_case_is_refused_by_the_mirror"]
 planned_paths = ["services/interop/crates/layerx-mirror/tests/sequencer_vectors.rs"]
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets"
@@ -150136,6 +150137,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Make admit_committed at services/interop/crates/layerx-mirror/src/verify.rs:133 pub with its name, signature and the from_committed_source caller at :130 unchanged, and build each case's MirrorVerifier with MirrorVerifier::admit_committed(archive_bytes, MirrorObservation::from_archive(..)) in the test. ObservedArchive (services/interop/crates/layerx-mirror/src/source.rs:145) has no public constructor and MirrorSources::read needs a live source, so a fixture-driven test has no other route; attempts two and three failed the build with E0624 at that call."
 
 [task.11.38.1]
 title = "Build the deposit attestation bundle from journal items and cosign signatures"

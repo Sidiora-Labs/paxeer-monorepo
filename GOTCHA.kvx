@@ -9506,3 +9506,9 @@ area = "x-websearch"
 symptom = "error[E0432]: unresolved imports crate::payment::GatewayRpc, crate::payment::RpcAnswer after deleting them as a do item asked"
 cause = "the do item listed only the payment.rs sites; kernel.rs and watch.rs import the same items and neither is in the task"
 do = "before deleting a pub item, git grep its name across the crate and either add every importer to the task or keep the item and hand its deletion to the task that removes the last importer"
+
+[gotcha.1964]
+area = "sequencer-receipt vectors"
+symptom = "a vector test expects every expected.refusedAt case to be refused by decode or verify and fails on V3-activity-id-not-raw-hash and V3-seq-hash-mismatch"
+cause = "expected.verifier is the signature verifier's verdict; R4 and R6 are client rules over rawTransaction and prevSeqHash that a receipt verifier without those inputs cannot apply, so their verifier value is accepts"
+do = "classify by expected.verifier first (Decode, SequencerSignature, accepts) and apply R4 (keccak of rawTransaction) and R6 (sequence chain) in the test from the case inputs, as services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs does"
