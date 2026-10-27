@@ -510,7 +510,7 @@ fn malformed_receipt_keys_are_refused_naming_the_field() -> Result<(), Box<dyn s
 fn absent_payment_settings_keep_the_defaults() -> Result<(), Box<dyn std::error::Error>> {
     let config = x_websearch::load(&fixture("valid.json"))?;
     assert_eq!(config.payment, PaymentConfig::default());
-    assert_eq!(config.payment.payer_did, None);
+    assert_eq!(config.payment.payer_address, None);
     assert_eq!(config.payment.draw_fee_limit, DEFAULT_DRAW_FEE_LIMIT);
     assert_eq!(DEFAULT_DRAW_FEE_LIMIT, 1_000_000_000_000);
     assert_eq!(config.payment.conformance_suite, None);
@@ -522,22 +522,25 @@ fn absent_payment_settings_keep_the_defaults() -> Result<(), Box<dyn std::error:
 
 #[test]
 fn payment_settings_are_read_from_the_payment_object() -> Result<(), Box<dyn std::error::Error>> {
-    let payer = format!("did:layerx:{}", "3c".repeat(32));
+    let payer = format!("0x{}", "3c".repeat(20));
     let mut value = valid_json()?;
     value["payment"] = serde_json::json!({
-        "payer_did": payer,
+        "payer_address": payer,
         "draw_fee_limit": "340282366920938463463374607431768211455",
         "conformance_suite": "/var/lib/x-websearch/conformance",
     });
     let config = Config::parse(&value.to_string())?;
-    assert_eq!(config.payment.payer_did.as_deref(), Some(payer.as_str()));
+    assert_eq!(config.payment.payer_address, Some([0x3c; 20]));
     assert_eq!(config.payment.draw_fee_limit, u128::MAX);
     assert_eq!(
         config.payment.conformance_suite,
         Some(PathBuf::from("/var/lib/x-websearch/conformance"))
     );
     for (name, setting) in [
-        ("payer_did", serde_json::json!("did:web:paxeer.app")),
+        (
+            "payer_address",
+            serde_json::json!(format!("0x{}", "ab".repeat(20))),
+        ),
         ("draw_fee_limit", serde_json::json!("1")),
         ("conformance_suite", serde_json::json!("/srv/suite")),
     ] {
@@ -546,19 +549,19 @@ fn payment_settings_are_read_from_the_payment_object() -> Result<(), Box<dyn std
         let payment = Config::parse(&value.to_string())?.payment;
         let defaults = PaymentConfig::default();
         match name {
-            "payer_did" => {
-                assert_eq!(payment.payer_did.as_deref(), Some("did:web:paxeer.app"));
+            "payer_address" => {
+                assert_eq!(payment.payer_address, Some([0xab; 20]));
                 assert_eq!(payment.draw_fee_limit, defaults.draw_fee_limit);
                 assert_eq!(payment.conformance_suite, defaults.conformance_suite);
             }
             "draw_fee_limit" => {
                 assert_eq!(payment.draw_fee_limit, 1);
-                assert_eq!(payment.payer_did, defaults.payer_did);
+                assert_eq!(payment.payer_address, defaults.payer_address);
                 assert_eq!(payment.conformance_suite, defaults.conformance_suite);
             }
             _ => {
                 assert_eq!(payment.conformance_suite, Some(PathBuf::from("/srv/suite")));
-                assert_eq!(payment.payer_did, defaults.payer_did);
+                assert_eq!(payment.payer_address, defaults.payer_address);
                 assert_eq!(payment.draw_fee_limit, defaults.draw_fee_limit);
             }
         }
@@ -571,7 +574,7 @@ fn payment_settings_are_read_from_the_payment_object() -> Result<(), Box<dyn std
 fn malformed_payment_settings() -> Vec<(&'static str, Value, Refusal)> {
     let mut cases = Vec::new();
     cases.extend(malformed_object());
-    cases.extend(malformed_payer_did());
+    cases.extend(malformed_payer_address());
     cases.extend(malformed_draw_fee_limit());
     cases.extend(malformed_conformance_suite());
     cases
@@ -622,55 +625,84 @@ fn malformed_object() -> Vec<(&'static str, Value, Refusal)> {
     ]
 }
 
-fn malformed_payer_did() -> Vec<(&'static str, Value, Refusal)> {
-    vec![
+fn malformed_payer_address() -> Vec<(&'static str, Value, Refusal)> {
+    let mut cases = vec![
         (
-            "payment.payer_did",
+            "payment.payer_address",
             serde_json::json!(null),
             Refusal::Invalid,
         ),
-        ("payment.payer_did", serde_json::json!(7), Refusal::Invalid),
         (
-            "payment.payer_did",
-            serde_json::json!("did:Upper"),
+            "payment.payer_address",
+            serde_json::json!(7),
             Refusal::Invalid,
         ),
-        (
-            "payment.payer_did",
-            serde_json::json!("layerx:payer"),
+    ];
+    for address in [
+        "did:layerx:payer".to_owned(),
+        "ab".repeat(20),
+        format!("0X{}", "ab".repeat(20)),
+        format!("0x{}", "ab".repeat(19)),
+        format!("0x{}", "ab".repeat(21)),
+        format!("0x{}", "gg".repeat(20)),
+        format!("0x{}g", "a".repeat(39)),
+        format!(" 0x{}", "ab".repeat(20)),
+        format!("0x{} ", "ab".repeat(20)),
+    ] {
+        cases.push((
+            "payment.payer_address",
+            serde_json::json!(address),
             Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("did:layerx:"),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("did::layerx"),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("did:layerx:payer:asset:sid"),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!(format!("did:{}", "a".repeat(252))),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("<payer did>"),
-            Refusal::Placeholder,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!(""),
-            Refusal::Placeholder,
-        ),
-    ]
+        ));
+    }
+    cases.push((
+        "payment.payer_address",
+        serde_json::json!("<payer address>"),
+        Refusal::Placeholder,
+    ));
+    cases.push((
+        "payment.payer_address",
+        serde_json::json!(""),
+        Refusal::Placeholder,
+    ));
+    cases
+}
+
+#[test]
+fn payer_address_is_read_and_payer_did_is_refused() -> Result<(), Box<dyn std::error::Error>> {
+    let mut value = valid_json()?;
+    assert_eq!(
+        Config::parse(&value.to_string())?.payment.payer_address,
+        None
+    );
+    for address in [
+        format!("0x{}", "ab".repeat(20)),
+        format!("0x{}", "Ab".repeat(20)),
+    ] {
+        value["payment"] = serde_json::json!({"payer_address": address});
+        assert_eq!(
+            Config::parse(&value.to_string())?.payment.payer_address,
+            Some([0xab; 20])
+        );
+    }
+    for (field, setting, expected) in malformed_payer_address() {
+        value["payment"] = serde_json::json!({"payer_address": setting});
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal(field, expected))
+        );
+    }
+    for payment in [
+        serde_json::json!({"payer_did": "did:layerx:payer"}),
+        serde_json::json!({"payer_address": format!("0x{}", "ab".repeat(20)), "payer_did": "did:layerx:payer"}),
+    ] {
+        value["payment"] = payment;
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("payment.payer_did", Refusal::Unknown))
+        );
+    }
+    Ok(())
 }
 
 fn malformed_draw_fee_limit() -> Vec<(&'static str, Value, Refusal)> {
@@ -802,7 +834,7 @@ fn malformed_payment_settings_are_refused_naming_the_field(
         Some(refusal("payment.payer", Refusal::Unknown))
     );
     let mut value = valid_json()?;
-    value["payment"] = serde_json::json!({ "payer_did": "did:layerx:payer", "receiver_key": "k" });
+    value["payment"] = serde_json::json!({ "payer_address": format!("0x{}", "3c".repeat(20)), "receiver_key": "k" });
     assert_eq!(
         Config::parse(&value.to_string()).err(),
         Some(refusal("payment.receiver_key", Refusal::KeyMaterial))
