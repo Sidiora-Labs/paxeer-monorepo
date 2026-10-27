@@ -110494,7 +110494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.49.2]
 title = "Repoint the SDK examples generator at the monorepo layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["4.48.5"]
@@ -112653,7 +112653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.11.2]
 title = "Retire the embedded genesis documents of foreign chain ids"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.11.1"]
@@ -113326,7 +113326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.17.2]
 title = "Retire the Layers seal path in favour of SealBatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.4.4", "1.22.3"]
@@ -118418,7 +118418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.1.2]
 title = "Stop printing every failed dynamic-gas precompile call to stdout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.0.1", "6.1.1", "6.1.3"]
@@ -139357,7 +139357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.23.7]
 title = "Finalize AI market snapshots and journal records on block commits instead of checkpoints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["9.31.3", "13.29.1"]
@@ -150009,7 +150009,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.5.6]
 title = "Agent action retained submission goes through the pool sequencer endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.5.5", "12.7.1"]
@@ -154630,7 +154630,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.7.4]
 title = "Export layerx_programs_event_log_encode over the C ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.7.1", "13.7.3"]
