@@ -3,6 +3,7 @@ import type {
   AccountBalances,
   AnchorHead,
   AssetMap,
+  Balances,
   Capabilities,
   ChainHistoryPage,
   CompletedBalance,
@@ -70,6 +71,10 @@ export class EndpointClient {
 
   async getNetwork(): Promise<NetworkHead> {
     return decodeNetwork(await this.rpc.call('px_getNetwork', []));
+  }
+
+  async getBankBalances(address: string): Promise<Balances> {
+    return decodeBankBalances(await this.rpc.call('px_getBalances', [address]));
   }
 
   async getBalances(account: string, assets: readonly CompletionAsset[] = []): Promise<AccountBalances> {
@@ -274,6 +279,27 @@ export function decodeAssetMap(value: unknown): AssetMap {
     return { asset_id: asset.asset_id, layerx: record(asset.layerx, 'joined asset layerx'), paxeer: decodeCustody(asset.paxeer) };
   });
   return { assets, joined_limit: joinedLimit(doc.joined_limit) };
+}
+
+function decodeBankBalances(value: unknown): Balances {
+  if (!isRecord(value)) throw new TypeError('malformed bank balances');
+  if (typeof value.account !== 'string' || value.account.length === 0) {
+    throw new TypeError('malformed bank balances account');
+  }
+  if (typeof value.height !== 'string' || DECIMAL.exec(value.height)?.[0] !== value.height) {
+    throw new TypeError('malformed bank balances height');
+  }
+  if (!Array.isArray(value.balances)) throw new TypeError('malformed bank balances rows');
+  const balances = value.balances.map((row) => {
+    if (!isRecord(row) || typeof row.denom !== 'string' || row.denom.length === 0) {
+      throw new TypeError('malformed bank balance denom');
+    }
+    if (typeof row.amount !== 'string' || DECIMAL.exec(row.amount)?.[0] !== row.amount) {
+      throw new TypeError('malformed bank balance amount');
+    }
+    return { denom: row.denom, amount: row.amount };
+  });
+  return { account: value.account, height: value.height, balances };
 }
 
 export function decodeJoinedBalances(value: unknown): JoinedBalances {
