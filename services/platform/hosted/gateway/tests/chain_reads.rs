@@ -2,6 +2,7 @@ use layerx_platform_internal::http;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::{ServerConfig, ServerConnection, StreamOwned};
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -529,4 +530,212 @@ fn px_get_validators_answers_the_set_at_a_height() {
     drop(gateway);
     let unconfigured = Gateway::start(&fixture, None);
     assert_unavailable(&unconfigured.rpc("px_getValidators", json!(["5"])));
+}
+
+fn protobuf_field(number: u8, bytes: &[u8]) -> Vec<u8> {
+    let mut field = vec![(number << 3) | 2];
+    let mut length = bytes.len();
+    while length >= 128 {
+        field.push((length as u8 & 0x7f) | 0x80);
+        length >>= 7;
+    }
+    field.push(length as u8);
+    field.extend_from_slice(bytes);
+    field
+}
+
+fn cosmos_transaction(type_url: &str, memo: &str) -> Vec<u8> {
+    let mut any = protobuf_field(1, type_url.as_bytes());
+    any.extend(protobuf_field(2, &[8, 5]));
+    let mut body = protobuf_field(1, &any);
+    body.extend(protobuf_field(2, memo.as_bytes()));
+    body.extend_from_slice(&[24, 100]);
+    let mut tx = protobuf_field(1, &body);
+    tx.extend(protobuf_field(2, &[]));
+    tx
+}
+
+fn hex_bytes(bytes: &[u8]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn proof_hash(value: &Value) -> Vec<u8> {
+    let text = value
+        .as_str()
+        .unwrap_or_else(|| panic!("hex required: {value}"));
+    let text = text
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("0x required: {value}"));
+    assert_eq!(text.len(), 64);
+    text.as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            u8::from_str_radix(
+                std::str::from_utf8(pair).unwrap_or_else(|error| panic!("{error}")),
+                16,
+            )
+            .unwrap_or_else(|error| panic!("{error}"))
+        })
+        .collect()
+}
+
+fn transaction_leaf(tx: &[u8]) -> Vec<u8> {
+    Sha256::digest([&[0][..], Sha256::digest(tx).as_slice()].concat()).to_vec()
+}
+
+fn block_response(transactions: &[Vec<u8>]) -> Value {
+    let mut level: Vec<_> = transactions.iter().map(|tx| transaction_leaf(tx)).collect();
+    if level.is_empty() {
+        level.push(Sha256::digest([]).to_vec());
+    }
+    while level.len() > 1 {
+        level = level
+            .chunks(2)
+            .map(|pair| {
+                if pair.len() == 1 {
+                    pair[0].clone()
+                } else {
+                    Sha256::digest([&[1][..], &pair[0], &pair[1]].concat()).to_vec()
+                }
+            })
+            .collect();
+    }
+    let txs: Vec<_> = transactions
+        .iter()
+        .map(|tx| layerx_platform_internal::base64::encode(tx))
+        .collect();
+    json!({"block_id": {"hash": "AA".repeat(32)}, "block": {
+        "header": {"height": "5", "data_hash": hex_bytes(&level[0]).to_ascii_uppercase()},
+        "data": {"txs": txs}
+    }})
+}
+
+#[test]
+fn px_get_sequence_batch_proves_tx_zero_under_the_data_hash() {
+    let fixture = Fixture::start();
+    let batch = cosmos_transaction(
+        "/paxeer.sequencer.v1.MsgSequenceBatch",
+        &"batch memo".repeat(20),
+    );
+    for total in [1_usize, 2, 3, 5, 8, 9] {
+        let mut transactions = vec![batch.clone()];
+        transactions.extend(
+            (1..total).map(|index| {
+                cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", &index.to_string())
+            }),
+        );
+        let block = block_response(&transactions);
+        let consensus = Consensus::start(&fixture.tls, "block", vec![block.clone()]);
+        let gateway = Gateway::start(&fixture, Some(&consensus.url()));
+        let answer = gateway.rpc("px_getSequenceBatch", json!(["5"]));
+        assert!(answer.get("error").is_none(), "{answer}");
+        let result = &answer["result"];
+        assert_eq!(result["height"], "5");
+        assert_eq!(result["tx"], format!("0x{}", hex_bytes(&batch)));
+        let proof = &result["proof"];
+        assert_eq!(proof["total"], total);
+        assert_eq!(proof["index"], 0);
+        let mut root = proof_hash(&proof["leafHash"]);
+        assert_eq!(root, transaction_leaf(&batch));
+        let aunts = proof["aunts"]
+            .as_array()
+            .unwrap_or_else(|| panic!("{answer}"));
+        let depth = if total == 1 {
+            0
+        } else {
+            (total - 1).ilog2() as usize + 1
+        };
+        assert_eq!(aunts.len(), depth);
+        for aunt in aunts {
+            root = Sha256::digest([&[1][..], &root, &proof_hash(aunt)].concat()).to_vec();
+        }
+        assert_eq!(
+            hex_bytes(&root).to_ascii_uppercase(),
+            block["block"]["header"]["data_hash"]
+        );
+        assert_invalid_heights(&gateway, "px_getSequenceBatch");
+        assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
+    }
+
+    let valid = block_response(&[
+        batch,
+        cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "second"),
+    ]);
+    let mut corruptions = Vec::new();
+    let mut wrong_root = valid.clone();
+    wrong_root["block"]["header"]["data_hash"] = json!("00".repeat(32));
+    corruptions.push(wrong_root);
+    let mut wrong_height = valid.clone();
+    wrong_height["block"]["header"]["height"] = json!("6");
+    corruptions.push(wrong_height);
+    let mut bad_hash = valid.clone();
+    bad_hash["block"]["header"]["data_hash"] = json!("not-a-hash");
+    corruptions.push(bad_hash);
+    let mut bad_base64 = valid.clone();
+    bad_base64["block"]["data"]["txs"][0] = json!("!!!!");
+    corruptions.push(bad_base64);
+    for index in [0, 1] {
+        let mut changed_tx = valid.clone();
+        changed_tx["block"]["data"]["txs"][index] =
+            json!(layerx_platform_internal::base64::encode(
+                &cosmos_transaction("/paxeer.sequencer.v1.MsgSequenceBatch", "changed")
+            ));
+        corruptions.push(changed_tx);
+    }
+    for block in corruptions {
+        let consensus = Consensus::start(&fixture.tls, "block", vec![block]);
+        let gateway = Gateway::start(&fixture, Some(&consensus.url()));
+        let answer = gateway.rpc("px_getSequenceBatch", json!(["5"]));
+        assert_eq!(answer["error"]["code"], -32003, "{answer}");
+        assert_eq!(
+            answer["error"]["data"]["code"], "invalid_consensus_response",
+            "{answer}"
+        );
+        assert!(answer.get("result").is_none(), "{answer}");
+        assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
+    }
+    let gateway = Gateway::start(&fixture, None);
+    assert_unavailable(&gateway.rpc("px_getSequenceBatch", json!(["5"])));
+}
+
+#[test]
+fn px_get_sequence_batch_refuses_a_block_without_a_batch() {
+    let fixture = Fixture::start();
+    let batch_url = "/paxeer.sequencer.v1.MsgSequenceBatch";
+    let batch = cosmos_transaction(batch_url, "batch");
+    for transactions in [
+        vec![
+            cosmos_transaction("/cosmos.bank.v1beta1.MsgSend", "send"),
+            batch.clone(),
+        ],
+        vec![cosmos_transaction(
+            "/cosmos.bank.v1beta1.MsgSend",
+            batch_url,
+        )],
+        vec![cosmos_transaction(
+            "/other.sequencer.v1.MsgSequenceBatch",
+            "",
+        )],
+        vec![cosmos_transaction(
+            "/paxeer.sequencer.v1.MsgSequenceBatchResponse",
+            "",
+        )],
+        vec![cosmos_transaction(
+            "/paxeer.sequencer.v1.MsgSequenceBatchExtra",
+            "",
+        )],
+        Vec::new(),
+    ] {
+        let block = block_response(&transactions);
+        let consensus = Consensus::start(&fixture.tls, "block", vec![block]);
+        let gateway = Gateway::start(&fixture, Some(&consensus.url()));
+        let answer = gateway.rpc("px_getSequenceBatch", json!(["5"]));
+        assert_eq!(answer["error"]["code"], -32602, "{answer}");
+        assert_eq!(
+            answer["error"]["data"]["code"], "no_sequence_batch",
+            "{answer}"
+        );
+        assert!(answer.get("result").is_none(), "{answer}");
+        assert_eq!(consensus.hits.load(Ordering::Acquire), 1);
+    }
 }

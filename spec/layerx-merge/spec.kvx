@@ -30880,7 +30880,7 @@ symbols = ["Accept"]
 [capability.5.14.3]
 title = "Run the layerxauth revocation decorator in the ante chain"
 reqs = ["5042.1"]
-touches = ["node/ante.go", "node/ante_revocation_test.go"]
+touches = ["node/ante.go", "node/ante_revocation_test.go", "node/app.go"]
 tests = ["node/ante_revocation_test.go::TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
 verification_contract = "go test -count=1 ./node/ -run '^(TestAnteChainRunsRevocationDecoratorAfterAuthzNested)$'"
 do_1 = "Add LayerXAuthKeeper to HandlerOptions (node/ante.go:25-39) and refuse a nil keeper in NewAnteHandler beside the other nil checks."
@@ -93193,15 +93193,15 @@ reqs = ["1065.1", "1065.2", "1065.3"]
 capabilities = ["1.18.4"]
 interfaces = []
 wiring = []
-do_1 = "Replace v5_callback_module (tests/programs/test_terminal_v5.c:36-80), whose PAXEERX_WEB_REQUEST_V1 event no longer reaches an intake since task 1.18.1 removed web_request_capture from src/modules/programs/call.c, with a module whose layerx_v1.event_emit the kernel event callback still refuses (a bound or canonicality refusal of layerx_programs_call_event_byte or layerx_programs_call_event_emit), so the runtime writes the stage-4 LXP/programs/callback-failure/v1 detail (programs/crates/layerx-programs-runtime/src/ffi_call.rs:3426) and the call ends LXP_ERR_PROGRAM_REFUSED with terminal kind FAILURE, no effects and a zero transfer root."
-do_2 = "v5_refusal_detail (tests/programs/test_terminal_v5.c:89-110) checks stage 4 and the exact status the kernel event callback returns for the new module instead of LXP_ERR_FEE_UNPAYABLE; the five corpus roles (success, failure, resource, callback, settlement), the ten case names and the corpus shape stay, so the corpus checks of services/agent/crates/layerx-sdk/src/program_http.rs:2493, :2588 and :2654 need no change."
+do_1 = "Replace v5_callback_module (tests/programs/test_terminal_v5.c:33-81), whose PAXEERX_WEB_REQUEST_V1 event no longer reaches an intake since task 1.18.1 removed web_request_capture from src/modules/programs/call.c, with a module that imports only layerx_v1.event_emit(i32,i32,i32,i32)->i32 (programs/crates/layerx-programs-runtime/src/lib.rs:118), keeps the one-page memory and the layerx_reserve, layerx_call and memory exports, and whose layerx_call loops fifteen times over event_emit(topic_ptr 0, topic_len 1, data_ptr 0, data_len 65536) before returning 0; v5_case re-initialises the fixture arena with lxp_arena_init(&f->arena, f->arena_bytes, <capacity>) for variant 5 after the deploy v5_execute and before the call, with a capacity (start at 655360) under which the kernel's layerx_programs_call_event_begin (src/modules/programs/call.c:1738-1743) returns LXP_ERR_ARENA_EXHAUSTED from lxp_ctx_arena_alloc for one of the fifteen events while the runtime (programs/crates/layerx-programs-runtime/src/host/events.rs:23-44) has accepted all of them within the 1048576 output_bytes budget of call_payload_with_capabilities; emit_events (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2123-2170) then writes the stage-4 LXP/programs/callback-failure/v1 detail (ffi_call.rs:3426) and the call ends LXP_ERR_PROGRAM_REFUSED with terminal kind FAILURE, no effects and a zero transfer root."
+do_2 = "v5_refusal_detail (tests/programs/test_terminal_v5.c:90-111) checks stage byte 4U and v5_u32(detail + sizeof(callback) + 1U) == (uint32_t)LXP_ERR_ARENA_EXHAUSTED instead of LXP_ERR_FEE_UNPAYABLE; the five corpus roles (success, failure, resource, callback, settlement), the ten case names, the {0U, 1U, 3U} capability bytes of variant 5 and the corpus shape stay, so the corpus checks of services/agent/crates/layerx-sdk/src/program_http.rs:2493, :2588 and :2654 need no change."
 do_3 = "tests/programs/test_terminal_v5.c no longer includes lx_web.h or uses LX_WEB_KIND_FETCH, LX_WEB_REQUEST_TOPIC or LX_WEB_REQUEST_TOPIC_BYTES, so task 1.18.2's deletion of include/layerx/lx_web.h does not break it; every other V5_CHECK of the file stays as written."
 symbols = ["v5_callback_module", "v5_refusal_detail"]
 touches = ["tests/programs/test_terminal_v5.c"]
-tests = ["tests/programs/test_terminal_v5.c::v5_case"]
+tests = ["tests/programs/test_terminal_v5.c::v5_case", "tests/programs/test_terminal_v5.c::v5_refusal_detail"]
 planned_paths = []
 build_cmd = "make -C . build/liblayerx.a"
-verify_cmd = "python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$(mktemp -d)\""
+verify_cmd = "export CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR:-$PWD/programs/target}\" && d=\"$(mktemp -d)\" && m=\"$(python3 scripts/qualification/paxeer-x/program-terminal-v5.py --build --output \"$d\" | tail -n1)\" && python3 scripts/qualification/paxeer-x/program-terminal-v5.py --manifest \"$m\""
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-kernel"
@@ -97699,14 +97699,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove a governance pause refuses 0x101A writes and 0x101C grants in the node"
 status = "pending"
 mode = "BUILD"
-wave = 12
-requires = ["2.0.2"]
+wave = 15
+requires = ["2.0.2", "5.19.2", "5.19.4"]
 reqs = ["2062.1", "2062.2"]
 capabilities = ["2.12.3"]
 interfaces = []
 do_1 = "Write TestGovernancePauseRefusesLedgerWrites in precompiles/layerxledger/pause_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Write TestGovernancePauseRefusesAuthGrants in precompiles/layerxauth/pause_test.go (planned)."
-do_3 = "Drive the pause through MsgUpdateParams of api/layerxledger/tx.proto:11 and api/layerxauth/tx.proto:9 signed by the governance module authority."
+do_3 = "Drive the pause through MsgUpdateParams of api/layerxledger/tx.proto:11 and api/layerxauth/tx.proto:9 signed by the governance module authority. Obtain both keepers from a.GetPrecompileKeepers() asserted to layerxledger.LedgerKeepers and layerxauth.AuthKeepers (precompiles/layerxledger/layerxledger.go:24, precompiles/layerxauth/layerxauth.go:23), and take the host store key from the App under the name task 5.19.2 registers rather than a literal."
 symbols = ["TestGovernancePauseRefusesLedgerWrites", "TestGovernancePauseRefusesAuthGrants"]
 touches = ["precompiles/layerxledger/pause_test.go", "precompiles/layerxauth/pause_test.go"]
 tests = ["precompiles/layerxledger/pause_test.go::TestGovernancePauseRefusesLedgerWrites", "precompiles/layerxauth/pause_test.go::TestGovernancePauseRefusesAuthGrants"]
@@ -97729,7 +97729,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove authz MsgExec under LayerXScopeAuthorization is refused after a kernel revoke"
 status = "pending"
 mode = "BUILD"
-wave = 13
+wave = 15
 requires = ["2.0.2", "2.8.2", "5.14.3"]
 reqs = ["2063.1"]
 capabilities = ["2.12.4"]
@@ -97760,14 +97760,14 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Prove layerxledger and layerxauth genesis export and import through the node"
 status = "pending"
 mode = "BUILD"
-wave = 12
-requires = ["2.0.2"]
+wave = 14
+requires = ["2.0.2", "5.19.2"]
 reqs = ["2064.1"]
 capabilities = ["2.12.5"]
 interfaces = []
 do_1 = "Write TestLedgerAuthGenesisExportImport in modules/layerxledger/keeper/app_genesis_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Export with the app export path and decode the layerxledger and layerxauth entries with ModuleCdc (modules/layerxledger/types/codec.go:23)."
-do_3 = "Initialise a second app from the export with app.Setup (node/test_helpers.go:433) and compare GetParams of both keepers."
+do_3 = "Initialise a second app from the export with app.Setup (node/test_helpers.go:433) and compare GetParams of both keepers. The keepers are the App.LayerXLedgerKeeper and App.LayerXAuthKeeper fields task 5.19.2 declares; compare the imported state through GetParams (modules/layerxledger/keeper/keeper.go:25, modules/layerxauth/keeper/keeper.go:28)."
 symbols = ["TestLedgerAuthGenesisExportImport"]
 touches = ["modules/layerxledger/keeper/app_genesis_test.go"]
 tests = ["modules/layerxledger/keeper/app_genesis_test.go::TestLedgerAuthGenesisExportImport"]
@@ -99196,7 +99196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.4]
 title = "Serve the ten 0x101B escrow methods and seven escrow events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.23.1", "2.23.2", "2.23.3"]
@@ -105916,7 +105916,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.0.2]
 title = "Freeze the launchpad module Msg and Query surface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["4.4.1", "4.4.2", "4.4.3", "4.4.4", "4.4.5", "4.4.6", "4.4.7", "4.4.8", "4.4.9", "4.4.10", "4.4.11", "4.4.12", "4.4.13", "4.4.14", "4.4.15", "4.4.16", "4.4.17", "4.5.1", "4.5.2", "4.5.3", "4.5.4", "4.5.5", "4.5.6", "4.5.7", "4.5.8", "4.5.9", "4.6.1", "4.7.1", "4.9.3"]
@@ -113514,8 +113514,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the layerxauth revocation decorator in the ante chain"
 status = "pending"
 mode = "BUILD"
-wave = 12
-requires = ["5.14.1", "2.0.2"]
+wave = 14
+requires = ["5.14.1", "2.0.2", "5.19.2"]
 reqs = ["5042.1"]
 capabilities = ["5.14.3"]
 interfaces = []
@@ -113524,8 +113524,9 @@ do_1 = "Add LayerXAuthKeeper to HandlerOptions (node/ante.go:25-39) and refuse a
 do_2 = "Insert layerxauthante.NewRevocationDecorator (modules/layerxauth/ante/revocation.go, planned) after antedecorators.NewAuthzNestedMessageDecorator at node/ante.go:100."
 do_3 = "Keep the order of every other decorator of the chain at node/ante.go:78-126."
 do_4 = "Write node/ante_revocation_test.go (planned) in package app_test with TestAnteChainRunsRevocationDecoratorAfterAuthzNested."
+do_5 = "Pass app.LayerXAuthKeeper (created by task 5.19.2) as LayerXAuthKeeper in the HandlerOptions literal New builds at node/app.go:1182-1202 so New (node/app.go:1205) no longer refuses a nil keeper; insert the decorator by calling layerxauthante.NewRevocationDecorator(options.LayerXAuthKeeper, options.EVMKeeper) directly where do_2 places it, without adding a HandlerOptions method."
 symbols = ["NewAnteHandler", "NewRevocationDecorator", "TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
-touches = ["node/ante.go", "node/ante_revocation_test.go"]
+touches = ["node/ante.go", "node/ante_revocation_test.go", "node/app.go"]
 tests = ["node/ante_revocation_test.go::TestAnteChainRunsRevocationDecoratorAfterAuthzNested"]
 planned_paths = ["node/ante_revocation_test.go"]
 build_cmd = "go build ./node/..."
@@ -113533,7 +113534,7 @@ verify_cmd = "go test -count=1 ./node/ -run '^(TestAnteChainRunsRevocationDecora
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
-rollback = "Revert the files in touches; the change is confined to them and to the activation-gated sequenced path."
+rollback = "Revert the files in touches; the change is confined to them and to the activation-gated sequenced path; restore the HandlerOptions literal in node/app.go."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -114040,7 +114041,7 @@ title = "Register the ledger, auth and agent modules and the shared host in the 
 status = "pending"
 mode = "BUILD"
 wave = 13
-requires = ["5.0.2", "5.10.1", "5.14.3", "5.41.1", "2.0.2"]
+requires = ["5.0.2", "5.10.1", "5.41.1", "2.0.2"]
 reqs = ["5043.1", "5043.2", "5043.3", "5043.4", "5975.1", "5975.2"]
 capabilities = ["5.19.2"]
 interfaces = []
@@ -114050,7 +114051,7 @@ do_2 = "Add LayerXLedgerKeeper, LayerXAuthKeeper and LayerXAgentKeeper fields be
 do_3 = "Construct one lxphost.Host with NewHost (modules/lxphost/host.go:600) over the layerxhost key and the ledger and auth keepers with the governance authority, next to the exchange keeper at node/app.go:833."
 do_4 = "Add layerxledger.AppModuleBasic{} and layerxauth.AppModuleBasic{} to ModuleBasics before node/app.go:295 and their NewAppModule entries before node/app.go:1040."
 do_5 = "Add layerxledgertypes.ModuleName and layerxauthtypes.ModuleName to SetOrderInitGenesis at node/app.go:1095, and layerxledgertypes.ModuleName with authtypes.Minter and authtypes.Burner to maccPerms at node/app.go:300."
-do_6 = "Set AgentKeeper and MergeLive (a Sequenced-height check) in the EndBlockKeepers literal at node/app.go:1054, and pass the auth keeper as LayerXAuthKeeper in the HandlerOptions literal at node/app.go:1175."
+do_6 = "Set AgentKeeper and MergeLive (a Sequenced-height check) in the EndBlockKeepers literal at node/app.go:1054,."
 do_7 = "Write node/app_merge_modules_test.go (planned) in package app_test with the four tests below."
 do_8 = "Add a LayerXPayKeeper field beside LayerXAnchorKeeper (node/app.go:497) and construct it after the custody keeper at node/app.go:828-829 with the layerxpay keeper constructor of domain 2 (modules/layerxpay/keeper, planned) over keys[keys.LayerXPayStoreKey], the store key task 5.19.2 appends to kvStoreKeyNames at node/app.go:334, and the shared lxphost.Host that task 5.19.2 builds next to node/app.go:833."
 do_9 = "Add layerxpay.AppModuleBasic{} and layerxagent.AppModuleBasic{} (modules/layerxpay and modules/layerxagent, planned by domain 2) after sequencermodule.AppModuleBasic{} at node/app.go:295, and their NewAppModule entries over app.LayerXPayKeeper and app.LayerXAgentKeeper to module.NewManager at node/app.go:1004."
@@ -118829,10 +118830,10 @@ requires = []
 reqs = ["3533.2"]
 capabilities = []
 interfaces = []
-do_1 = "Write tools/qualification/localnode/v6120-node.sh: build paxd with make -f chain.mk install (needs paxd-native-libs), derive the genesis from node/testdata/v6120-halt-export.json with chain_id hyperpax_125-1, keep the first validator and jail/unbond the rest with the jq rewrite of services/platform/hosted/paxeer/fork-rehearsal.sh step 2 (signing info and supply recomputed), fund a deployer and a test key with uhpx, and run paxd validate-genesis."
+do_1 = "Write tools/qualification/localnode/v6120-node.sh: build paxd with make -f chain.mk install (needs paxd-native-libs), derive the genesis from node/testdata/v6120-halt-export.json with chain_id hyperpax_125-1, keep the first validator and jail/unbond the rest with the jq rewrite of services/platform/hosted/paxeer/fork-rehearsal.sh step 2 (signing info and supply recomputed), fund a deployer and a test key with uhpx, take consensus_params.timeout and consensus_params.synchrony from the paxd init genesis (the export carries zero timeouts and fails validate-genesis on timeout.ProposeDelta), and run paxd validate-genesis on a copy of the genesis whose app_state also carries the pricefeed, perps and spot default states of the paxd init genesis: BasicManager.ValidateGenesis (sdk/types/module/module.go:112) rejects an absent module, while the node must start from the genesis without those three entries because spot initGenesis writes ParamsKey (modules/spot/keeper/genesis.go:97) and InitV6120 then refuses the v6.12.0 plan in the first block; Manager.InitGenesis skips absent modules, as node/v6120_seed_helpers_test.go and TestV6120AppliesThePlanOnTheHaltExport rely on. Resolve the binary as ${PAXD:-$(go env GOBIN)/paxd}, falling back to the first GOPATH entry plus /bin, which is where make -f chain.mk install places it."
 do_2 = "Configure loopback ports and the EVM HTTP listener as services/platform/hosted/paxeer/init-chain.sh does, write data/upgrade-info.json naming v6.12.0 at initial_height so App.applyNamedUpgrade (node/upgrades.go) applies the plan in the first block, start paxd start --home <dir> in the background and wait until eth_chainId == 0x7d and the v6.12.0 done height is reported."
-do_3 = "After start: mint USDL to the test key from the deployer, register the validator's feed account and submit one fixed BTC observation per block through paxd tx pricefeed so PlaceOrder sees a fresh price."
-do_4 = "Print LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (the latter from --gateway-url, default http://127.0.0.1:0) as KEY=VALUE lines to the file named by --env-out; --stop <dir> stops the node. The node home and env file live under ${TMPDIR:-/tmp}/lx-localnode, never in the repository."
+do_3 = "After start: mint USDL to the test key from the deployer, register the validator's feed account and submit one fixed BTC observation per block as a signed /paxprotocol.paxchain.pricefeed.MsgSubmitPrices built as a JSON tx and sent with paxd tx sign and paxd tx broadcast (daemon/paxd/cmd/root.go:212, :217), because the pricefeed module has no tx command (modules/pricefeed/module.go:77 returns nil, asserted by modules/pricefeed/client/cli/query_test.go:51); a registered, bonded feeder submits gasless (modules/pricefeed/ante.go SubmissionIsGasless), so PlaceOrder sees a fresh price."
+do_4 = "Print LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (the latter from --gateway-url, default http://127.0.0.1:0) as KEY=VALUE lines to the file named by --env-out; --stop <dir> stops the node. The node home and env file live under ${TMPDIR:-/tmp}/lx-localnode, never in the repository. On any failure before the env file is written, the EXIT trap prints the failing command and the last 40 lines of init.log, validate-genesis.log, node.log and feeder.log to stderr, so the verify output alone names the failing step."
 do_5 = "Write tools/qualification/localnode/v6120_test.go with TestLocalNodeV6120Serves: dial PERPS_DATA_TEST_RPC and assert totalMarkets == 18 and getRegisteredTokens has length 3."
 symbols = ["TestLocalNodeV6120Serves"]
 touches = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/v6120_test.go"]
@@ -122212,7 +122213,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.28.2]
 title = "Route the layerxpay MsgUpdateParams pause through LayerXProposal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["6.28.1", "6.0.1", "2.0.2"]
@@ -130388,7 +130389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.2]
 title = "Publish every router method in the OpenRPC document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["8.0.1", "7.0.2", "8.1.2", "8.1.4", "8.1.5"]
@@ -130574,7 +130575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.3]
 title = "Serve px_getSequenceBatch with the transaction proof of a committed height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["8.1.2", "8.1.5"]
@@ -149514,7 +149515,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.34.2]
 title = "Encode the 0x101A draw call and read getPayerGrant before a metered draw"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["11.34.1", "11.31.1", "2.0.2"]
@@ -150459,7 +150460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.2.3]
 title = "Drop the layerxcustody and layerxanchor ABIs and the custody deposit spend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["12.14.1", "12.2.2"]

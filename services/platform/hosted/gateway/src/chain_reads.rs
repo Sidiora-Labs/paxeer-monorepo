@@ -1,6 +1,7 @@
 use super::{public_reads, rpc, Config, Endpoint};
 use layerx_platform_gateway::http::OutboundRequest;
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 fn unavailable(id: &Value, code: &str) -> Value {
     let mut answer = rpc::error(id, -32003, "Chain read unavailable");
@@ -125,6 +126,167 @@ fn px_getValidators(config: &Config, id: &Value, height: u64) -> Option<Value> {
     }
 }
 
+fn consensus_inner(left: &[u8; 32], right: &[u8; 32]) -> [u8; 32] {
+    let mut hash = Sha256::new();
+    hash.update([1]);
+    hash.update(left);
+    hash.update(right);
+    hash.finalize().into()
+}
+
+fn consensus_root(leaves: &[[u8; 32]]) -> [u8; 32] {
+    match leaves.len() {
+        0 => Sha256::digest([]).into(),
+        1 => leaves[0],
+        length => {
+            let split = 1_usize << (length - 1).ilog2();
+            consensus_inner(
+                &consensus_root(&leaves[..split]),
+                &consensus_root(&leaves[split..]),
+            )
+        }
+    }
+}
+
+fn transaction_zero_aunts(leaves: &[[u8; 32]], aunts: &mut Vec<[u8; 32]>) {
+    if leaves.len() > 1 {
+        let split = 1_usize << (leaves.len() - 1).ilog2();
+        transaction_zero_aunts(&leaves[..split], aunts);
+        aunts.push(consensus_root(&leaves[split..]));
+    }
+}
+
+fn protobuf_varint(input: &mut &[u8]) -> Option<u64> {
+    let mut value = 0_u64;
+    for shift in (0..70).step_by(7) {
+        let (&byte, rest) = input.split_first()?;
+        *input = rest;
+        if shift == 63 && byte > 1 {
+            return None;
+        }
+        value |= u64::from(byte & 0x7f) << shift;
+        if byte & 0x80 == 0 {
+            return Some(value);
+        }
+    }
+    None
+}
+
+fn protobuf_bytes(mut input: &[u8], field: u64) -> Option<Vec<&[u8]>> {
+    let mut values = Vec::new();
+    while !input.is_empty() {
+        let key = protobuf_varint(&mut input)?;
+        if key >> 3 == 0 || key >> 3 > 0x1fff_ffff {
+            return None;
+        }
+        if key >> 3 == field && key & 7 != 2 {
+            return None;
+        }
+        let length = match key & 7 {
+            0 => {
+                protobuf_varint(&mut input)?;
+                continue;
+            }
+            1 => 8,
+            2 => usize::try_from(protobuf_varint(&mut input)?).ok()?,
+            5 => 4,
+            _ => return None,
+        };
+        let value = input.get(..length)?;
+        input = input.get(length..)?;
+        if key >> 3 == field {
+            values.push(value);
+        }
+    }
+    Some(values)
+}
+
+fn is_sequence_batch(tx: &[u8]) -> Option<bool> {
+    let bodies = protobuf_bytes(tx, 1)?;
+    let [body] = bodies.as_slice() else {
+        return Some(false);
+    };
+    let messages = protobuf_bytes(body, 1)?;
+    let [message] = messages.as_slice() else {
+        return Some(false);
+    };
+    let urls = protobuf_bytes(message, 1)?;
+    Some(urls.as_slice() == [b"/paxeer.sequencer.v1.MsgSequenceBatch".as_slice()])
+}
+
+#[allow(non_snake_case)]
+fn px_getSequenceBatch(config: &Config, id: &Value, height: u64) -> Value {
+    let Some(result) = consensus(config, "block", id, json!({"height": height.to_string()})) else {
+        return unavailable(id, "consensus_unavailable");
+    };
+    let invalid = || unavailable(id, "invalid_consensus_response");
+    let block = &result["block"];
+    if decimal(&block["header"]["height"]) != Some(height) {
+        return invalid();
+    }
+    let Some(data_hash) = block["header"]["data_hash"]
+        .as_str()
+        .and_then(|text| super::parse_hex32(text).ok())
+    else {
+        return invalid();
+    };
+    let transactions = match block["data"].get("txs") {
+        Some(Value::Null) => Some(Vec::new()),
+        Some(Value::Array(txs)) => txs
+            .iter()
+            .map(|tx| layerx_platform_internal::base64::decode(tx.as_str()?))
+            .collect::<Option<Vec<_>>>(),
+        _ => None,
+    };
+    let Some(transactions) = transactions else {
+        return invalid();
+    };
+    let leaves: Vec<[u8; 32]> = transactions
+        .iter()
+        .map(|tx| {
+            let mut hash = Sha256::new();
+            hash.update([0]);
+            hash.update(Sha256::digest(tx));
+            hash.finalize().into()
+        })
+        .collect();
+    let mut aunts = Vec::new();
+    transaction_zero_aunts(&leaves, &mut aunts);
+    let root = leaves.first().map_or_else(
+        || consensus_root(&[]),
+        |leaf| {
+            aunts
+                .iter()
+                .fold(*leaf, |left, right| consensus_inner(&left, right))
+        },
+    );
+    if root != data_hash {
+        return invalid();
+    }
+    let batch = transactions
+        .first()
+        .map_or(Some(false), |tx| is_sequence_batch(tx));
+    match batch {
+        None => invalid(),
+        Some(false) => {
+            let mut answer = rpc::error(id, -32602, "No sequence batch at this height");
+            answer["error"]["data"] = json!({"code": "no_sequence_batch"});
+            answer
+        }
+        Some(true) => {
+            let aunts: Vec<_> = aunts
+                .iter()
+                .map(|aunt| format!("0x{}", super::hex(aunt)))
+                .collect();
+            json!({"jsonrpc": "2.0", "id": id, "result": {
+                "height": height.to_string(), "tx": format!("0x{}", super::hex(&transactions[0])),
+                "proof": {"total": transactions.len(), "index": 0,
+                    "leafHash": format!("0x{}", super::hex(&leaves[0])), "aunts": aunts}
+            }})
+        }
+    }
+}
+
 #[allow(non_snake_case)]
 fn px_getReceiptKeys(config: &Config, id: &Value, params: Option<&Value>) -> Value {
     if !params.is_some_and(|params| params.as_array().is_some_and(Vec::is_empty)) {
@@ -156,7 +318,7 @@ pub(super) fn dispatch(
 ) -> Option<Value> {
     if !matches!(
         method,
-        "px_getCommit" | "px_getValidators" | "px_getReceiptKeys"
+        "px_getCommit" | "px_getValidators" | "px_getReceiptKeys" | "px_getSequenceBatch"
     ) {
         return None;
     }
@@ -171,6 +333,9 @@ pub(super) fn dispatch(
     let Some(height) = height(params) else {
         return Some(rpc::error(id, -32602, "Invalid params"));
     };
+    if method == "px_getSequenceBatch" {
+        return Some(px_getSequenceBatch(config, id, height));
+    }
     let result = match method {
         "px_getCommit" => px_getCommit(config, id, height),
         "px_getValidators" => px_getValidators(config, id, height),

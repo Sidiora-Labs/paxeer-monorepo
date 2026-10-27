@@ -61,6 +61,7 @@ func init() {
 	govtypes.RegisterProposalTypeCodec(&exchange.MsgSetMarket{}, "layerxexchange/MsgSetMarket")
 	govtypes.RegisterProposalTypeCodec(&layerxledgertypes.MsgUpdateParams{}, "layerxledger/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&layerxauthtypes.MsgUpdateParams{}, "layerxauth/MsgUpdateParams")
+	govtypes.RegisterProposalTypeCodec(&pay.MsgUpdateParams{}, "layerxpay/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&launchpad.MsgUpdateParams{}, "launchpad/MsgUpdateParams")
 	govtypes.RegisterProposalTypeCodec(&web.MsgRegisterAttestor{}, "xweb/MsgRegisterAttestor")
 	govtypes.RegisterProposalTypeCodec(&web.MsgRemoveAttestor{}, "xweb/MsgRemoveAttestor")
@@ -217,6 +218,8 @@ func governanceMessage(msg sdk.Msg) (string, error) {
 	case *web.MsgPause:
 		return m.Authority, nil
 	case *web.MsgUnpause:
+		return m.Authority, nil
+	case *pay.MsgUpdateParams:
 		return m.Authority, nil
 	default:
 		return "", sdkerrors.Wrapf(govtypes.ErrInvalidProposalContent, "%T is not a fork authority message", msg)

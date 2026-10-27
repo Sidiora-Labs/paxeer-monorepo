@@ -3,7 +3,7 @@
   "info": {
     "title": "LayerX public JSON-RPC",
     "version": "0.1.0",
-    "description": "Public JSON-RPC reads, authenticated activity submission and scoped WebSocket subscriptions. Native DID enumeration, asset listing/detail and canonical fee estimation forward to authenticated core reads; unavailable evidence is returned explicitly and balances, metadata or fees are never fabricated. The same endpoint relays the Paxeer EVM JSON-RPC namespaces eth_, net_ and web3_ to the chain's node byte for byte, including eth_sendRawTransaction and batches that mix EVM and LayerX calls; node-side signing methods (eth_accounts, eth_coinbase, eth_sendTransaction, eth_sign, eth_signTransaction, eth_signTypedData, eth_signTypedData_v4, eth_mining) and eth_subscribe/eth_unsubscribe are refused here rather than at the node. The px_ namespace joins both domains through the native precompiles addr (0x0000000000000000000000000000000000001004), layerxCustody (0x0000000000000000000000000000000000001013) and layerxAnchor (0x0000000000000000000000000000000000001014). eth_sendRawTransaction and eth_sendRawTransactionSync whose transaction is addressed to the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016) or launchpad (0x0000000000000000000000000000000000001017) precompile are refused with -32003 surface_unavailable while px_getCapabilities reports that surface false."
+    "description": "Public JSON-RPC reads, authenticated activity submission and scoped WebSocket subscriptions. Native DID enumeration, asset listing/detail and canonical fee estimation forward to authenticated core reads; unavailable evidence is returned explicitly and balances, metadata or fees are never fabricated. The same endpoint relays the Paxeer EVM JSON-RPC namespaces eth_, net_ and web3_ to the chain's node byte for byte, including eth_sendRawTransaction and batches that mix EVM and LayerX calls; node-side signing methods (eth_accounts, eth_coinbase, eth_sendTransaction, eth_sign, eth_signTransaction, eth_signTypedData, eth_signTypedData_v4, eth_mining) and eth_subscribe/eth_unsubscribe are refused here rather than at the node. The px_ namespace resolves accounts through addr (0x1004), reads balances through bank (0x1001), and exposes consensus reads for signed commits, validator sets and sequence batches with transaction inclusion proofs. Receipt signing keys are published by px_getReceiptKeys; pax_sequencerReceipt relays the node receipt and commitment rung unchanged. eth_sendRawTransaction and eth_sendRawTransactionSync whose transaction is addressed to the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016) or launchpad (0x0000000000000000000000000000000000001017) precompile are refused with -32003 surface_unavailable while px_getCapabilities reports that surface false."
   },
   "methods": [
     {
@@ -80,6 +80,935 @@
               }
             }
           }
+        }
+      ]
+    },
+    {
+      "name": "px_getCommit",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9]*[1-9][0-9]*$",
+            "description": "Positive decimal u64 block height."
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "height",
+            "signedHeader"
+          ],
+          "properties": {
+            "height": {
+              "type": "string",
+              "pattern": "^[0-9]*[1-9][0-9]*$",
+              "description": "Positive decimal u64 block height."
+            },
+            "signedHeader": {
+              "type": "object",
+              "required": [
+                "header",
+                "commit"
+              ],
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "required": [
+                    "height"
+                  ],
+                  "properties": {
+                    "height": {
+                      "type": "string",
+                      "pattern": "^[0-9]*[1-9][0-9]*$",
+                      "description": "Positive decimal u64 block height."
+                    }
+                  }
+                },
+                "commit": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Reads the consensus commit at a positive decimal u64 height. Returns the decimal height and the consensus signed_header unchanged as signedHeader, including its header and commit. An unconfigured, unreachable or invalid consensus response is -32003 with data.code consensus_unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "consensus_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_getValidators",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9]*[1-9][0-9]*$",
+            "description": "Positive decimal u64 block height."
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "height",
+            "validators",
+            "total"
+          ],
+          "properties": {
+            "height": {
+              "type": "string",
+              "pattern": "^[0-9]*[1-9][0-9]*$",
+              "description": "Positive decimal u64 block height."
+            },
+            "validators": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "address",
+                  "pubKey",
+                  "votingPower"
+                ],
+                "properties": {
+                  "address": {
+                    "type": "string"
+                  },
+                  "pubKey": {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "value"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "votingPower": {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                }
+              }
+            },
+            "total": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        }
+      },
+      "description": "Reads the full validator set at a positive decimal u64 height, collecting all consensus pages. Returns decimal-string height, total and votingPower; pubKey preserves the consensus pub_key object. An unconfigured, unreachable or inconsistent consensus response is -32003 with data.code consensus_unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "consensus_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_getReceiptKeys",
+      "paramStructure": "by-position",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "keys"
+          ],
+          "properties": {
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "keyId",
+                  "publicKey",
+                  "firstHeight",
+                  "lastHeight"
+                ],
+                "properties": {
+                  "keyId": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  },
+                  "publicKey": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  },
+                  "firstHeight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "lastHeight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Publishes the configured pinned receipt signing keys and their inclusive height ranges. keyId and publicKey are 0x-prefixed 32-byte hexadecimal strings; firstHeight and lastHeight are JSON integers. Requires an explicit empty positional params array. An unconfigured list is -32003 with data.code receipt_keys_unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "receipt_keys_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_getSequenceBatch",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9]*[1-9][0-9]*$",
+            "description": "Positive decimal u64 block height."
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "height",
+            "tx",
+            "proof"
+          ],
+          "properties": {
+            "height": {
+              "type": "string",
+              "pattern": "^[0-9]*[1-9][0-9]*$",
+              "description": "Positive decimal u64 block height."
+            },
+            "tx": {
+              "type": "string",
+              "pattern": "^0x([0-9a-fA-F]{2})*$"
+            },
+            "proof": {
+              "type": "object",
+              "required": [
+                "total",
+                "index",
+                "leafHash",
+                "aunts"
+              ],
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "index": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "leafHash": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "aunts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Reads transaction 0 of the consensus block at a positive decimal u64 height. tx is the 0x-hex encoded MsgSequenceBatch transaction; proof contains total, index, leafHash and aunts for its Merkle inclusion under header.data_hash. The proof is verified before a result is served. A block without a MsgSequenceBatch at transaction 0 is -32602 with data.code no_sequence_batch; a proof mismatch is -32003 with data.code invalid_consensus_response.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32602,
+          "message": "Invalid params",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "no_sequence_batch"
+              }
+            }
+          }
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "consensus_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "invalid_consensus_response"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_requestFunds",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "did",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^did:[0-9A-Za-z._:-]+$",
+            "maxLength": 512
+          }
+        },
+        {
+          "name": "signer_public_key",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "claim",
+        "schema": {
+          "type": "object",
+          "required": [
+            "funded",
+            "funding_id",
+            "transaction_id",
+            "amount",
+            "network",
+            "starter_credit"
+          ],
+          "properties": {
+            "funded": {
+              "type": "boolean",
+              "const": true
+            },
+            "funding_id": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]+$",
+              "maxLength": 128
+            },
+            "transaction_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "amount": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "maxLength": 39
+            },
+            "network": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "starter_credit": {
+              "type": "object"
+            }
+          }
+        }
+      },
+      "description": "Claims the authenticated identity principal's starter credit through the faucet claim path. Params are a DID and its bound, nonzero 32-byte lowercase hexadecimal Ed25519 signer public key without a 0x prefix. The bearer session must authorise the signer. The result includes funded, funding_id, transaction_id, decimal-string amount, network and the settled starter_credit record. Idempotency is bound to the principal and starter-credit grant, so retries reuse the grant. Incomplete funding evidence or an amount mismatch is -32603; pending claims are -32001 with data.code faucet_claim_pending. An unavailable identity backend is -32010 Kernel unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32002,
+          "message": "Faucet claim refused"
+        },
+        {
+          "code": -32001,
+          "message": "Faucet claim unavailable"
+        },
+        {
+          "code": -32005,
+          "message": "Faucet claim unavailable"
+        },
+        {
+          "code": -32010,
+          "message": "Kernel unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code",
+              "backend",
+              "reason"
+            ],
+            "properties": {
+              "code": {
+                "const": "kernel_unavailable"
+              },
+              "backend": {
+                "enum": [
+                  "core_agent_boundary",
+                  "public_core",
+                  "independent_receipt_authority",
+                  "identity",
+                  "program_registry"
+                ]
+              },
+              "reason": {
+                "enum": [
+                  "not_configured",
+                  "unreachable"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "code": -32603,
+          "message": "Faucet claim evidence incomplete"
+        }
+      ]
+    },
+    {
+      "name": "pax_sequencerReceipt",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "rung",
+                "txHash",
+                "nonce"
+              ],
+              "properties": {
+                "rung": {
+                  "enum": [
+                    "submitted",
+                    "receipted",
+                    "committed"
+                  ]
+                },
+                "txHash": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "nonce": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "seq": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "height": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "index": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "0x0",
+                    "0x1"
+                  ]
+                },
+                "returnData": {
+                  "type": "string",
+                  "pattern": "^0x([0-9a-fA-F]{2})*$"
+                },
+                "logs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "address",
+                      "topics",
+                      "data",
+                      "logIndex"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                      },
+                      "topics": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-fA-F]{64}$"
+                        },
+                        "maxItems": 4
+                      },
+                      "data": {
+                        "type": "string",
+                        "pattern": "^0x([0-9a-fA-F]{2})*$"
+                      },
+                      "logIndex": {
+                        "type": "string",
+                        "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                      }
+                    }
+                  }
+                },
+                "gasUsed": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "cumulativeGasUsed": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "effectiveGasPrice": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "feeDenom": {
+                  "type": "string"
+                },
+                "feeAmount": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "sponsor": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "from": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "contractAddress": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "vmError": {
+                  "type": "string"
+                },
+                "keyId": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "signingKey": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "receipt": {
+                  "type": "string",
+                  "pattern": "^0x([0-9a-fA-F]{2})*$"
+                },
+                "blockNumber": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "blockHash": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                }
+              },
+              "oneOf": [
+                {
+                  "properties": {
+                    "rung": {
+                      "const": "submitted"
+                    }
+                  },
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "seq"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "height"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "index"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "timestamp"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "status"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "returnData"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "logs"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "gasUsed"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "cumulativeGasUsed"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "effectiveGasPrice"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "feeDenom"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "feeAmount"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "sponsor"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "from"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "to"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "contractAddress"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "vmError"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "keyId"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "signingKey"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "receipt"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "blockNumber"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "blockHash"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "rung": {
+                      "const": "receipted"
+                    }
+                  },
+                  "required": [
+                    "rung",
+                    "txHash",
+                    "nonce",
+                    "seq",
+                    "height",
+                    "index",
+                    "timestamp",
+                    "status",
+                    "returnData",
+                    "logs",
+                    "gasUsed",
+                    "cumulativeGasUsed",
+                    "effectiveGasPrice",
+                    "feeDenom",
+                    "feeAmount",
+                    "sponsor",
+                    "from",
+                    "to",
+                    "contractAddress",
+                    "vmError",
+                    "keyId",
+                    "signingKey",
+                    "receipt"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "blockNumber"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "blockHash"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "rung": {
+                      "const": "committed"
+                    }
+                  },
+                  "required": [
+                    "rung",
+                    "txHash",
+                    "nonce",
+                    "seq",
+                    "height",
+                    "index",
+                    "timestamp",
+                    "status",
+                    "returnData",
+                    "logs",
+                    "gasUsed",
+                    "cumulativeGasUsed",
+                    "effectiveGasPrice",
+                    "feeDenom",
+                    "feeAmount",
+                    "sponsor",
+                    "from",
+                    "to",
+                    "contractAddress",
+                    "vmError",
+                    "keyId",
+                    "signingKey",
+                    "receipt",
+                    "blockNumber",
+                    "blockHash"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "description": "Relays the node response unchanged for one 0x-prefixed 32-byte transaction hash. Unknown hashes return null. submitted carries rung, txHash and nonce; receipted adds the decoded signed receipt, signing key and execution outputs; committed also includes blockNumber and blockHash for the covering MsgSequenceBatch. Quantities are 0x-prefixed hexadecimal strings. Receipt consistency and signature checks do not establish signing authority without pinned receipt keys. The node may refuse with -32000 when the method is served only by a sequencer.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32000,
+          "message": "pax_sequencerReceipt served by sequencer"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
         }
       ]
     },
@@ -2436,6 +3365,7 @@
     },
     {
       "name": "px_getRouteCatalogue",
+      "paramStructure": "by-position",
       "summary": "Authenticated product route catalogue and dependency readiness.",
       "params": [],
       "result": {
