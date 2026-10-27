@@ -289,14 +289,9 @@ fn recover_committed_coordinate(
     if archive.data().batch_number.checked_add(1) != Some(next_height) {
         return Err(SpoolRecoveryError::BatchGap);
     }
-    let block = archive
-        .data()
-        .committed
-        .as_ref()
-        .ok_or(SpoolRecoveryError::Archive)?;
     Ok(Some(CommittedCoordinate {
         height: archive.data().batch_number,
-        block_hash: block.block_hash,
+        block_hash: archive.data().committed.block_hash,
     }))
 }
 
@@ -1425,11 +1420,7 @@ mod tests {
             assert_eq!(archive.data().batch_number, block.header.height);
             assert_eq!(archive.data().network_id, 125);
             assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
-            let committed = archive
-                .data()
-                .committed
-                .as_ref()
-                .unwrap_or_else(|| panic!("committed archive data"));
+            let committed = &archive.data().committed;
             assert_eq!(committed.block_hash, block.header.block_hash);
             assert_eq!(committed.receipts, block.receipts);
             assert_eq!(

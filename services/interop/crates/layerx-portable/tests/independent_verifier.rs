@@ -2,7 +2,7 @@
 //! The Python bridge implements FORMAT.md without importing any LayerX SDK.
 
 use layerx_portable::{
-    PortableReceiptError, PortableReceiptV2, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT_V2,
+    PortableReceiptError, PortableReceiptV2, ReceiptKeyEntry, PORTABLE_RECEIPT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -151,7 +151,7 @@ fn independent_verifier_no_layerx_infrastructure_required() -> Result<(), String
 
 #[test]
 fn portable_format_constant_is_stable() {
-    assert_eq!(PORTABLE_RECEIPT_FORMAT_V2, "layerx-receipt-proof-v2");
+    assert_eq!(PORTABLE_RECEIPT_FORMAT, "layerx-receipt-proof-v2");
 }
 
 #[test]
@@ -161,7 +161,7 @@ fn independent_implementation_can_enumerate_vectors() -> Result<(), String> {
     for case in vectors {
         let bytes = export_vector(&case, &pinned_keys(&case)?)?;
         let document: Value = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
-        assert_eq!(document["format"], PORTABLE_RECEIPT_FORMAT_V2);
+        assert_eq!(document["format"], PORTABLE_RECEIPT_FORMAT);
         assert_eq!(document["signedReceipt"], case["signedReceipt"]);
         assert_eq!(document["rawTransaction"], case["rawTransaction"]);
     }
