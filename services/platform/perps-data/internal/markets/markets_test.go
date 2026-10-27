@@ -90,7 +90,7 @@ func reseed(t *testing.T, db *sql.DB) {
 	if err != nil {
 		t.Fatalf("begin: %v", err)
 	}
-	for _, stmt := range []string{`DELETE FROM perps.markets`, `DELETE FROM perps.fee_config`, string(body)} {
+	for _, stmt := range []string{`DELETE FROM perps.market_tiers`, `DELETE FROM perps.markets`, `DELETE FROM perps.fee_config`, string(body)} {
 		if _, err := tx.Exec(stmt); err != nil {
 			_ = tx.Rollback()
 			t.Fatalf("reseed: %v", err)
@@ -158,6 +158,115 @@ func height(t *testing.T, client *ethclient.Client) int64 {
 		t.Fatalf("BlockNumber: %v", err)
 	}
 	return int64(h)
+}
+
+func TestRefreshMarginTiers(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	client := testClient(t)
+	reseed(t, db)
+	insertedID := Seed[len(Seed)-1].ID
+	res, err := db.ExecContext(ctx, `DELETE FROM perps.markets WHERE market_id = $1`, insertedID)
+	if err != nil {
+		t.Fatalf("remove market for refresh insertion: %v", err)
+	}
+	if n, err := res.RowsAffected(); err != nil || n != 1 {
+		t.Fatalf("removed %d markets, want 1: %v", n, err)
+	}
+
+	for pass := range 2 {
+		before := height(t, client)
+		if err := Refresh(ctx, db, client); err != nil {
+			t.Fatalf("Refresh pass %d: %v", pass, err)
+		}
+		after := height(t, client)
+		markets := readRows(t, db)
+		if len(markets) == 0 {
+			t.Fatal("Refresh stored no markets")
+		}
+		block := markets[0].refreshedBlock
+		if !block.Valid || block.Int64 < before || block.Int64 > after {
+			t.Fatalf("refreshed_block %v, want latest height in [%d, %d]", block, before, after)
+		}
+		c, _, err := latest(ctx, client)
+		if err != nil {
+			t.Fatalf("latest: %v", err)
+		}
+		c.at = big.NewInt(block.Int64)
+		out, err := c.call(ctx, "totalMarkets")
+		if err != nil {
+			t.Fatalf("totalMarkets: %v", err)
+		}
+		count, err := field[*big.Int](out, 0, "totalMarkets")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if count.Cmp(big.NewInt(int64(len(markets)))) != 0 {
+			t.Fatalf("stored %d markets, chain has %s", len(markets), count)
+		}
+		total := 0
+		foundInserted := false
+		for i, m := range markets {
+			if m.id != uint64(i) || m.refreshedBlock != block {
+				t.Fatalf("market %d has id %d and height %v, want id %d and height %v", i, m.id, m.refreshedBlock, i, block)
+			}
+			foundInserted = foundInserted || m.id == insertedID
+			out, err := c.call(ctx, "getMarginTiers", new(big.Int).SetUint64(m.id))
+			if err != nil {
+				t.Fatalf("getMarginTiers(%d) at %d: %v", m.id, block.Int64, err)
+			}
+			var decoded struct{ Tiers []marginTier }
+			if err := c.abi.Methods["getMarginTiers"].Outputs.Copy(&decoded, out); err != nil {
+				t.Fatalf("decode getMarginTiers(%d): %v", m.id, err)
+			}
+			rows, err := db.QueryContext(ctx, `SELECT tier, lower_bound_usd::text, max_leverage::text, maintenance_bps::text, deduction_usd::text, refreshed_block FROM perps.market_tiers WHERE market_id = $1 ORDER BY tier`, m.id)
+			if err != nil {
+				t.Fatalf("read market %d tiers: %v", m.id, err)
+			}
+			n := 0
+			for rows.Next() {
+				var tier int
+				var lower, leverage, maintenance, deduction string
+				var refreshed int64
+				if err := rows.Scan(&tier, &lower, &leverage, &maintenance, &deduction, &refreshed); err != nil {
+					rows.Close()
+					t.Fatalf("scan market %d tier: %v", m.id, err)
+				}
+				if n >= len(decoded.Tiers) {
+					rows.Close()
+					t.Fatalf("market %d has extra tier %d on pass %d", m.id, tier, pass)
+				}
+				want := decoded.Tiers[n]
+				if tier != n || lower != want.LowerBoundUsd.String() || leverage != want.MaxLeverage.String() || maintenance != want.MaintenanceBps.String() || deduction != want.DeductionUsd.String() || refreshed != block.Int64 {
+					rows.Close()
+					t.Fatalf("market %d tier %d = (%s, %s, %s, %s) at %d, want tier %d %+v at %d", m.id, tier, lower, leverage, maintenance, deduction, refreshed, n, want, block.Int64)
+				}
+				n++
+			}
+			if err := rows.Err(); err != nil {
+				rows.Close()
+				t.Fatalf("read market %d tiers: %v", m.id, err)
+			}
+			if err := rows.Close(); err != nil {
+				t.Fatalf("close market %d tiers: %v", m.id, err)
+			}
+			if n != len(decoded.Tiers) {
+				t.Fatalf("market %d has %d tiers, want %d on pass %d", m.id, n, len(decoded.Tiers), pass)
+			}
+			total += n
+			if pass == 0 {
+				if _, err := db.ExecContext(ctx, `UPDATE perps.market_tiers SET lower_bound_usd = 1, max_leverage = 1, maintenance_bps = 1, deduction_usd = 1, refreshed_block = 0 WHERE market_id = $1`, m.id); err != nil {
+					t.Fatalf("overwrite market %d tiers: %v", m.id, err)
+				}
+				if _, err := db.ExecContext(ctx, `INSERT INTO perps.market_tiers (market_id, tier, lower_bound_usd, max_leverage, maintenance_bps, deduction_usd, refreshed_block) VALUES ($1, $2, 1, 1, 1, 1, 0)`, m.id, n); err != nil {
+					t.Fatalf("insert stale tier for market %d: %v", m.id, err)
+				}
+			}
+		}
+		if !foundInserted || total == 0 {
+			t.Fatalf("Refresh inserted market %d: %t, stored %d chain tiers", insertedID, foundInserted, total)
+		}
+	}
 }
 
 func TestRefreshMarketConfig(t *testing.T) {
