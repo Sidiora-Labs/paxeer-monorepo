@@ -9105,3 +9105,27 @@ area = "spec / task dependencies"
 symptom = "a removal task and the test task whose build links the removed call site both stay ineligible (5.49.2 required 16.23.1)"
 cause = "a requires edge from the task that removes a call site to the test task whose build links that call site deadlocks when the test task also waits on the removal"
 do = "the removal task comes first and the test task requires it (5.49.2 before 16.23.1)"
+
+[gotcha.1897]
+area = "Rust / Cargo.lock"
+symptom = "every later `--locked` cargo build that resolves a crate stops before compiling after a dependency was added to the crate's Cargo.toml (11.2.6: serde_json.workspace = true in services/interop/crates/layerx-committed-proof)"
+cause = "the dependency landed without the Cargo.lock of every workspace that contains the crate (services/interop, services/agent, services/agent/fuzz, services/agent/tests/isolation, tools/platform)"
+do = "land the manifest edit with every containing workspace's Cargo.lock and list those lock files in the task's touches"
+
+[gotcha.1898]
+area = "C build / static archive"
+symptom = "the link of build/liblayerx.a duplicates a symbol (1.4.3: lxp_batch_verify_signature between lxp_batch_seal.o and lxp_batch_header.o)"
+cause = "the archive rule `ar rcsD` (Makefile:203) adds and replaces members but never removes a member whose source left LIB_SOURCES (lxp_batch_seal.o after f2a8c304f)"
+do = "delete build/liblayerx.a before rebuilding when LIB_SOURCES shrinks"
+
+[gotcha.1899]
+area = "code graph / symbols"
+symptom = "a qualified geth name (ethclient.Client) in a symbols list is always `not defined in the graph`"
+cause = ".cgignore:45 (`/core`) excludes core/deps/geth from the code graph"
+do = "bind rpc client tasks by their test function names under rpc/"
+
+[gotcha.1900]
+area = "spec / done evidence"
+symptom = "`cg spec done` refuses a candidate whose build and verify evidence sits at an earlier revision (1.23.3: the fixture repair committed as 041f841c2 after verifying 89b201c0b)"
+cause = "the repair commit was never built or verified at its own revision"
+do = "give a repair commit its own build and verify run within the task's budget"
