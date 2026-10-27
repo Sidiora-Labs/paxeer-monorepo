@@ -150149,7 +150149,7 @@ do_8 = "Three integration tests import the module through its re-exports and att
 
 [task.11.36.2]
 title = "Remove the kernel config section and gateway.authorization_file from x-websearch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["11.36.1", "11.34.5"]
