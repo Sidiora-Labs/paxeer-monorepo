@@ -97666,7 +97666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.2]
 title = "Prove 0x101C is served by the node only after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.4"]
@@ -97697,7 +97697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.3]
 title = "Prove a governance pause refuses 0x101A writes and 0x101C grants in the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.2", "5.19.4", "5.41.2"]
@@ -97727,17 +97727,17 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.4]
 title = "Prove authz MsgExec under LayerXScopeAuthorization is refused after a kernel revoke"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
-requires = ["2.0.2", "2.8.2", "5.14.3"]
+requires = ["2.0.2", "2.8.2", "5.14.3", "5.19.4"]
 reqs = ["2063.1"]
 capabilities = ["2.12.4"]
 interfaces = []
 wiring = ["wiring.J23.16"]
 do_1 = "Write TestAuthzExecRefusedAfterKernelRevoke in modules/layerxauth/ante/integration_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Deliver the MsgExec through the ante chain of NewAnteHandler (node/ante.go:41) so the decorator requested by wiring J23.16 runs."
-do_3 = "Assert the error matches ErrAuthRevoked (modules/layerxauth/types/errors.go:9) as Accept returns it (modules/layerxauth/types/authorization.go:50)."
+do_3 = "After revokeGrant on 0x101C the kernel revoke deletes every authz grant bound to the kernel grant (modules/layerxauth/keeper/revoke.go:41-74 through authzKeeper.DeleteGrant), so assert the MsgExec is refused with sdkerrors.ErrUnauthorized, AuthzKeeper.GetAuthorization returns nil and no funds move; then prove the Accept path of modules/layerxauth/types/authorization.go:76 by saving a fresh LayerXScopeAuthorization whose RevocationEpoch is the pre-revoke sequence and asserting the MsgExec fails with ErrAuthRevoked (modules/layerxauth/types/errors.go:9) and moves no funds."
 symbols = ["TestAuthzExecRefusedAfterKernelRevoke"]
 touches = ["modules/layerxauth/ante/integration_test.go"]
 tests = ["modules/layerxauth/ante/integration_test.go::TestAuthzExecRefusedAfterKernelRevoke"]
@@ -99229,7 +99229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.5]
 title = "Serve the fifteen 0x101B budget methods and nine budget events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 26
 requires = ["2.28.1", "2.28.2", "2.28.3", "2.24.1", "2.24.2", "2.24.3", "2.24.4", "2.24.5", "2.28.8"]
@@ -99687,7 +99687,7 @@ requires = ["2.34.1", "2.32.4", "5.94.2"]
 reqs = ["2294.1", "2294.2"]
 capabilities = ["2.34.2"]
 interfaces = ["interface.2.pc-0x0905-evt-jobexecuted", "interface.2.pc-0x0905-evt-jobfailed", "interface.2.go-layerxagent-scheduler-newmergeprecompile-j24", "interface.2.go-layerxagent-scheduler-layerxagentkeepers-j24"]
-do_1 = "Write type LayerXAgentKeepers interface { LayerXAgentK() agentkeeper.Keeper } in precompiles/layerxagent/scheduler/merge.go (planned); it lives beside the constructor because modules/layerxagent/keeper imports precompiles/layerxagent/common (modules/layerxagent/keeper/keeper.go:14)."
+do_1 = "Write type LayerXAgentKeepers interface { LayerXAgentK() *agentkeeper.Keeper } in precompiles/layerxagent/scheduler/merge.go (planned), the pointer-returning method node/precompiles.go:148 exposes; refuse a nil pointer with agentcommon.ErrNoContext and dereference it for NewPrecompile. It lives beside the constructor because modules/layerxagent/keeper imports precompiles/layerxagent/common (modules/layerxagent/keeper/keeper.go:14)."
 do_2 = "Write NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error) in precompiles/layerxagent/scheduler/merge.go (planned) reading LayerXAgentKeepers and keepers.EVMK().(*evmkeeper.Keeper) as precompiles/layerxagent/teeattestor/teeattestor.go:111-128 does."
 do_3 = "Register it in init through RegisterMergeConstructor (precompiles/setup.go:89)."
 do_4 = "Keep the JobExecuted and JobFailed topics of the frozen ABI with no EVM emitter (decision.233 pattern) and leave the typed events of modules/layerxagent/keeper/scheduler.go:66-84 as the outcome record."
@@ -100127,7 +100127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.6]
 title = "Prove the application imports and exports layerxpay genesis over the shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.27.3", "2.0.2", "5.19.2", "5.94.2", "5.19.4"]
@@ -102238,7 +102238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.9.5]
 title = "Change mark smoothing when a proposal changes MarkEmaTauMs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.14.1"]
@@ -107558,7 +107558,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "ErrUnknownMarket is registered with ABCI code 12 (modules/launchpad/types/errors.go:28); assert that code on abciResponse.Response.Code with the launchpad codespace, and compare the REST body code only with the gRPC status of the same query (status.Convert(err).Code(), codes.Unknown for an ABCI error) as the body comparison already does; gRPC status codes and ABCI codes are different registries, so the body code is not compared with 12."
 [task.4.10.4]
 title = "Prove the launchpad ledger REST routes against a live network"
 status = "done"
@@ -111690,7 +111690,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.0.3]
 title = "Pass the sequencer RPC options and wire the merged keepers, the served spot set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.0.2", "5.5.4", "5.5.10", "5.19.2", "3.0.2", "6.0.2"]
@@ -112866,7 +112866,7 @@ title = "Complete the merge plan: mount the merged stores, close the gate on mis
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5"]
+requires = ["5.6.4", "5.41.1", "2.0.2", "6.0.2", "6.6.5", "5.19.4"]
 reqs = ["5049.1", "5049.2", "5049.3", "5049.4"]
 capabilities = ["5.6.5"]
 interfaces = ["interface.6.cfg-merge-gate"]
@@ -112894,7 +112894,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_7 = "Split mergeUpgradePlan so the constructor gate of do_3 runs first and the store migrations, RetireAtMerge and ReleaseRetired run in an unexported continuation; TestMergePlanReturnsGuarantorBonds and TestMergeStoreUpgradesAddsLayerXStores drive the continuation directly, because the merge address table still has constructors registered by tasks that have not landed, while TestMergePlanRefusesMissingMergeConstructors proves the gate on the registry as it stands."
 [task.5.6.8]
 title = "Export and re-import a chain after the merge"
 status = "pending"
@@ -114111,7 +114111,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.19.4]
 title = "Import the merge precompile packages and expose the ledger and auth keepers to precompiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.19.2", "2.0.2", "6.0.2", "5.94.2"]
@@ -115132,7 +115132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.35.1]
 title = "Declare a leader pin in the e2e testnet manifest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.34.1", "5.0.3"]
@@ -118762,7 +118762,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.97.2]
 title = "Add the merge upgrade name to the embedded upgrade tags"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.0.3"]
@@ -119196,7 +119196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.2.2]
 title = "Key the three arbiter codes by their kernel values -737 to -739"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "6.2.1", "1.0.2", "1.1.1"]
@@ -131267,7 +131267,7 @@ title = "Answer agent-boundary receipts from pax_sequencerReceipt"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.1.4", "7.0.2", "7.94.1", "9.1.7"]
+requires = ["8.1.4", "7.0.2", "7.94.1", "9.1.7", "9.1.8"]
 reqs = ["8077.1", "8077.2"]
 capabilities = ["8.8.1"]
 interfaces = ["interface.8.env-agent-boundary-layerx-agent-boundary-chain-rpc-url-j40", "interface.8.env-agent-boundary-layerx-agent-boundary-receipt-keys-file-j40"]
@@ -131453,7 +131453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.10.1]
 title = "Send testnet funding as one EVM bank transfer from the core treasury"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["7.0.2", "6.94.1"]
@@ -131486,7 +131486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.10.2]
 title = "Report the funding chain and sender in core readiness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.10.1"]
@@ -131838,7 +131838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.3]
 title = "Run the testnet payment journey on the chain methods"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.5.1", "8.2.1"]
@@ -131900,7 +131900,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.14.5]
 title = "Admit the sequencer receipt read at the paxeer chain boundary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "9.1.7"]
@@ -132398,7 +132398,7 @@ do_3 = "Delete the lifecycle [[test]] entry (services/platform/hosted/gateway/te
 do_4 = "Keep services/platform/hosted/gateway/tests/local/required.rs, services/platform/hosted/gateway/tests/local/verifier.rs and services/platform/hosted/gateway/tests/local/lifecycle_sdk.rs, which services/agent/qualification/pay2/Cargo.toml:46 and services/agent/qualification/pay2/build.rs:1 still compile."
 do_5 = "Add services/platform/hosted/tests/test_retired_gateway_lifecycle.py (planned) with test_gateway_local_harness_has_no_lifecycle_test."
 symbols = ["Required", "test_gateway_local_harness_has_no_lifecycle_test"]
-touches = ["services/platform/hosted/gateway/tests/local/lifecycle.rs", "services/platform/hosted/gateway/tests/local/events.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/build.rs", "services/platform/hosted/gateway/tests/local/Cargo.toml", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/tests/test_retired_gateway_lifecycle.py"]
+touches = ["services/platform/hosted/gateway/tests/local/lifecycle.rs", "services/platform/hosted/gateway/tests/local/events.rs", "services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/withdrawal.rs", "services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/build.rs", "services/platform/hosted/gateway/tests/local/Cargo.toml", "services/platform/hosted/gateway/tests/local/Cargo.lock", "services/platform/hosted/tests/test_retired_gateway_lifecycle.py", "services/platform/hosted/gateway/tests/retired_client_modules.rs", "services/platform/hosted/gateway/tests/retired_client_modules_w2.rs"]
 tests = ["services/platform/hosted/tests/test_retired_gateway_lifecycle.py::test_gateway_local_harness_has_no_lifecycle_test"]
 planned_paths = ["services/platform/hosted/tests/test_retired_gateway_lifecycle.py"]
 build_cmd = "python3 -m py_compile services/platform/hosted/tests/test_retired_gateway_lifecycle.py"
@@ -132414,7 +132414,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "Delete services/platform/hosted/gateway/tests/retired_client_modules.rs and services/platform/hosted/gateway/tests/retired_client_modules_w2.rs together with the funding and registry_runtime modules they scan."
 [task.8.19.6]
 title = "Delete the kernel node tests of the agent boundary"
 status = "pending"
@@ -133708,7 +133708,7 @@ do_6 = "services/platform/ramps/toolkit/tests/contracts.rs:215 payment_direction
 do_7 = "Create services/platform/ramps/toolkit/tests/evm_order.rs (planned) with the four tests below over receipts signed in the test with an ed25519-dalek key."
 do_8 = "Adapt only the call sites in services/platform/ramps/toolkit/src/clients.rs (:26, :1022, :1038, :1230-1250, :1270, :2470), services/platform/ramps/toolkit/src/engine.rs:331 and services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs that reach the removed compilers and fields so the crate compiles; their rewrite belongs to task 8.28.3."
 symbols = ["compile_operator_send", "compile_payer_grant_draw", "verify_order_receipt", "ReceiptEvidence", "VerifiedLayerxLeg", "LedgerCall"]
-touches = ["services/platform/ramps/toolkit/src/lib.rs", "services/platform/ramps/toolkit/tests/contracts.rs", "services/platform/ramps/toolkit/tests/evm_order.rs", "services/platform/ramps/toolkit/src/clients.rs", "services/platform/ramps/toolkit/src/engine.rs", "services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs"]
+touches = ["services/platform/ramps/toolkit/src/lib.rs", "services/platform/ramps/toolkit/tests/contracts.rs", "services/platform/ramps/toolkit/tests/evm_order.rs", "services/platform/ramps/toolkit/src/clients.rs", "services/platform/ramps/toolkit/src/engine.rs", "services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs", "services/platform/ramps/reference/src/main.rs"]
 tests = ["services/platform/ramps/toolkit/tests/evm_order.rs::on_ramp_compiles_pay_exact_with_order_reference", "services/platform/ramps/toolkit/tests/evm_order.rs::off_ramp_compiles_draw_against_customer_grant", "services/platform/ramps/toolkit/tests/evm_order.rs::verify_order_receipt_accepts_matching_payment_log", "services/platform/ramps/toolkit/tests/evm_order.rs::verify_order_receipt_refuses_key_outside_height_range"]
 planned_paths = ["services/platform/ramps/toolkit/tests/evm_order.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-ramp-toolkit"
@@ -133724,7 +133724,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_9 = "The reference ramp reports the verified leg in its JSON response (services/platform/ramps/reference/src/main.rs:266-268 reads leg.activity_id and leg.batch_id); change that report to the fields VerifiedLayerxLeg now carries (tx_hash, height, rung) so the dependent binary builds; the wider reference-ramp port stays with task 8.30.1."
 [task.8.28.3]
 title = "Configure the ramp LayerX client for the sequencer endpoint, chain id and pinned receipt keys, and prepare, sign, submit and resolve ramp legs through it"
 status = "pending"
@@ -136873,7 +136873,7 @@ title = "Read program state through eth_call on 0x101D in the registry instead o
 status = "pending"
 mode = "BUILD"
 wave = 28
-requires = ["8.0.4", "6.0.4"]
+requires = ["8.0.4", "6.0.4", "9.1.8"]
 reqs = ["8966.1"]
 capabilities = []
 interfaces = []
@@ -137147,18 +137147,18 @@ capabilities = ["8.98.7"]
 interfaces = []
 do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/gateway/tests/local/funding.rs:216, :241, :264, :587 and 2 more with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-gateway-local-qualification (services/platform/hosted/gateway/tests/local/Cargo.toml:1) and every existing test of the crate stay unchanged."
-do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
+do_3 = "Write no_retired_layerx_client_module_paths_w2 in services/platform/hosted/gateway/tests/retired_client_modules_w2.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths_w2"]
-touches = ["services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs"]
-tests = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
-planned_paths = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification --test retired_client_modules_w2 -- --exact no_retired_layerx_client_module_paths_w2"
+touches = ["services/platform/hosted/gateway/tests/local/funding.rs", "services/platform/hosted/gateway/tests/retired_client_modules_w2.rs"]
+tests = ["services/platform/hosted/gateway/tests/retired_client_modules_w2.rs::no_retired_layerx_client_module_paths_w2"]
+planned_paths = ["services/platform/hosted/gateway/tests/retired_client_modules_w2.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules_w2"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules_w2 -- --exact no_retired_layerx_client_module_paths_w2"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 fulfils = ["wiring.J44.20"]
-rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/local/tests/retired_client_modules_w2.rs."
+rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/retired_client_modules_w2.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -137166,7 +137166,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "The scan test is an integration test of layerx-platform-gateway at services/platform/hosted/gateway/tests/retired_client_modules_w2.rs reading the scanned source with include_str!(\"local/<file>.rs\"), because the local qualification package (services/platform/hosted/gateway/tests/local) has a build.rs that requires a parent-built core binary through LAYERX_TEST_CORE_BIN and whose boundary fixture path contract no longer matches, so it cannot be built on its own."
 [task.8.98.8]
 title = "Migrate the local callers of wiring.J44.20"
 status = "pending"
@@ -137178,18 +137178,18 @@ capabilities = ["8.98.8"]
 interfaces = []
 do_1 = "Replace the retired layerx_client module uses at services/platform/hosted/gateway/tests/local/registry_runtime.rs:160 with layerx_client::sequencer, layerx_client::px or layerx_client::rpc (wiring.J44.20)."
 do_2 = "Change only import paths and call names, as wiring.J44.20 states; the behaviour of layerx-gateway-local-qualification (services/platform/hosted/gateway/tests/local/Cargo.toml:1) and every existing test of the crate stay unchanged."
-do_3 = "Write no_retired_layerx_client_module_paths in services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
+do_3 = "Write no_retired_layerx_client_module_paths in services/platform/hosted/gateway/tests/retired_client_modules.rs (planned): it reads each migrated file with include_str! and fails when any retired path of wiring.J44.20 remains."
 symbols = ["no_retired_layerx_client_module_paths"]
-touches = ["services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs"]
-tests = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
-planned_paths = ["services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs"]
-build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-gateway-local-qualification --test retired_client_modules -- --exact no_retired_layerx_client_module_paths"
+touches = ["services/platform/hosted/gateway/tests/local/registry_runtime.rs", "services/platform/hosted/gateway/tests/retired_client_modules.rs"]
+tests = ["services/platform/hosted/gateway/tests/retired_client_modules.rs::no_retired_layerx_client_module_paths"]
+planned_paths = ["services/platform/hosted/gateway/tests/retired_client_modules.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test retired_client_modules -- --exact no_retired_layerx_client_module_paths"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 fulfils = ["wiring.J44.20"]
-rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/local/tests/retired_client_modules.rs."
+rollback = "Revert the 1 migrated files of local and delete services/platform/hosted/gateway/tests/retired_client_modules.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -137197,7 +137197,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "The scan test is an integration test of layerx-platform-gateway at services/platform/hosted/gateway/tests/retired_client_modules.rs reading the scanned source with include_str!(\"local/<file>.rs\"), because the local qualification package (services/platform/hosted/gateway/tests/local) has a build.rs that requires a parent-built core binary through LAYERX_TEST_CORE_BIN and whose boundary fixture path contract no longer matches, so it cannot be built on its own."
 [task.8.98.9]
 title = "Migrate the indexer callers of wiring.J44.20"
 status = "pending"
@@ -137769,7 +137769,7 @@ do_1 = "Every src and test site renames the pre-rung fields to the agent-api nam
 do_2 = "Where a response now needs data the daemon does not yet produce, the handler answers ApiError::unavailable_capability for that operation instead of fabricating it: services/agent/crates/layerx-agentd/src/read/proof_bundle.rs and services/agent/crates/layerx-agentd/src/read/checkpoint.rs (receipt-proof-v2 bundles, produced by 9.5.5), services/agent/crates/layerx-agentd/src/read/balance.rs (height-addressed balances, 9.5.1), services/agent/crates/layerx-agentd/src/read/native.rs (9.5.7), services/agent/crates/layerx-agentd/src/finality.rs (block-height finality, 9.4.1), services/agent/crates/layerx-agentd/src/export.rs (bundle exports, 9.6.1). Each refusal names the operation."
 do_3 = "Tests that asserted the old field names assert the new ones; a test that exercised a now-refused path asserts the unavailable_capability class until its producing task lands."
 symbols = ["Rung", "Freshness", "HistorySelector", "OfflineExport", "FeeProjection", "ApiError::unavailable_capability"]
-touches = ["services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/approval/events.rs", "services/agent/crates/layerx-agentd/src/audit/record.rs", "services/agent/crates/layerx-agentd/src/boot.rs", "services/agent/crates/layerx-agentd/src/enrolment.rs", "services/agent/crates/layerx-agentd/src/events/deliver.rs", "services/agent/crates/layerx-agentd/src/events/outbound.rs", "services/agent/crates/layerx-agentd/src/export.rs", "services/agent/crates/layerx-agentd/src/finality.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/src/identity.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/read/balance.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs", "services/agent/crates/layerx-agentd/src/read/native.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/audit_coverage.rs", "services/agent/crates/layerx-agentd/tests/audit_export.rs", "services/agent/crates/layerx-agentd/tests/balance.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/checkpoint.rs", "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs", "services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs", "services/agent/crates/layerx-agentd/tests/finality.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/handshake_gate.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/identity.rs", "services/agent/crates/layerx-agentd/tests/native_owner_receipts.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-agentd/tests/observability.rs", "services/agent/crates/layerx-agentd/tests/receipts.rs", "services/agent/crates/layerx-agentd/tests/revocation.rs", "services/agent/crates/layerx-agentd/tests/session.rs", "services/agent/crates/layerx-agentd/tests/subscription.rs", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/agent_rpc.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs", "services/agent/crates/layerx-agentd/src/agent_rpc_wire.rs", "services/agent/crates/layerx-agentd/src/approval/events.rs", "services/agent/crates/layerx-agentd/src/audit/record.rs", "services/agent/crates/layerx-agentd/src/boot.rs", "services/agent/crates/layerx-agentd/src/enrolment.rs", "services/agent/crates/layerx-agentd/src/events/deliver.rs", "services/agent/crates/layerx-agentd/src/events/outbound.rs", "services/agent/crates/layerx-agentd/src/export.rs", "services/agent/crates/layerx-agentd/src/finality.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/human_runtime/subject.rs", "services/agent/crates/layerx-agentd/src/identity.rs", "services/agent/crates/layerx-agentd/src/managed_agent.rs", "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/read/balance.rs", "services/agent/crates/layerx-agentd/src/read/checkpoint.rs", "services/agent/crates/layerx-agentd/src/read/native.rs", "services/agent/crates/layerx-agentd/src/read/proof_bundle.rs", "services/agent/crates/layerx-agentd/src/receipt.rs", "services/agent/crates/layerx-agentd/src/session_control.rs", "services/agent/crates/layerx-agentd/tests/approval.rs", "services/agent/crates/layerx-agentd/tests/audit_coverage.rs", "services/agent/crates/layerx-agentd/tests/audit_export.rs", "services/agent/crates/layerx-agentd/tests/balance.rs", "services/agent/crates/layerx-agentd/tests/budget_durable_limits.rs", "services/agent/crates/layerx-agentd/tests/checkpoint.rs", "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs", "services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs", "services/agent/crates/layerx-agentd/tests/finality.rs", "services/agent/crates/layerx-agentd/tests/gaps.rs", "services/agent/crates/layerx-agentd/tests/handshake_gate.rs", "services/agent/crates/layerx-agentd/tests/human_projection_facts.rs", "services/agent/crates/layerx-agentd/tests/identity.rs", "services/agent/crates/layerx-agentd/tests/native_owner_receipts.rs", "services/agent/crates/layerx-agentd/tests/native_reads_daemon.rs", "services/agent/crates/layerx-agentd/tests/observability.rs", "services/agent/crates/layerx-agentd/tests/receipts.rs", "services/agent/crates/layerx-agentd/tests/revocation.rs", "services/agent/crates/layerx-agentd/tests/session.rs", "services/agent/crates/layerx-agentd/tests/subscription.rs", "services/agent/crates/layerx-agentd/tests/support/real_authority.rs", "services/agent/crates/layerx-agentd/tests/tenant_resolve.rs", "services/agent/crates/layerx-agentd/tests/w7_core_time.rs", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs", "services/agent/crates/layerx-agentd/tests/outbox_recover.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
@@ -141057,7 +141057,7 @@ do_5 = "Remove the layerx_wire::activity import (services/agent/crates/layerx-sd
 do_6 = "Create services/agent/crates/layerx-sdk/tests/wallet_calls.rs (planned) with a loopback JSON-RPC listener and LocalSigner."
 do_7 = "Remove RpcClient::send_activity (services/agent/crates/layerx-sdk/src/rpc.rs:928) and its lx_sendActivity call once Wallet::execute submits through send_raw_transaction."
 symbols = ["Wallet::send", "Wallet::open_account", "Wallet::execute", "send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "open_account_encodes_the_open_account_selector", "submitted_revert_maps_through_the_registry"]
-touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs", "services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs::send_signs_a_layerxledger_send_call_with_a_65_byte_signature", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::open_account_encodes_the_open_account_selector", "services/agent/crates/layerx-sdk/tests/wallet_calls.rs::submitted_revert_maps_through_the_registry"]
 planned_paths = ["services/agent/crates/layerx-sdk/tests/wallet_calls.rs"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
@@ -141073,7 +141073,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_8 = "decode_method in services/agent/crates/layerx-crypto/src/disclosure/call.rs:81 discloses only send(bytes), issueGrant(bytes), draw and revokeGrant on 0x101A, so bind_call refuses every other call as MalformedPayload: add ConstructMethod variants and decode_method arms for openAccount(bytes32), register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes), mint(bytes32,bytes32,uint128) and burn, with selectors computed from the layerxledger ABI (precompiles/layerxledger), map each to its Payment ordinal and disclose its asset, counterparties and amounts in fields (call.rs:138), and cover each in services/agent/crates/layerx-crypto/tests/disclosure_call.rs; the SDK signs these calls through the same sign_disclosed_call path."
 [task.9.32.3]
 title = "Serve layerx-wallet-rpc over the EVM signer with hashes and rungs"
 status = "pending"
@@ -141108,7 +141108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.32.4]
 title = "Verify SDK receipts against pinned ReceiptKeys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.27.1", "9.1.7"]
@@ -141735,7 +141735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.4]
 title = "Decode agent envelope, program and lifecycle payloads as EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.31.1", "9.1.7"]
@@ -141766,7 +141766,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.35.5]
 title = "Decode program HTTP signed calls as EIP-1559 transactions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.31.1", "9.1.7"]
@@ -143271,7 +143271,7 @@ title = "Replace the KMS activity module registry with a chain snapshot"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["10.0.1", "9.1.7"]
+requires = ["10.0.1", "9.1.7", "9.1.8"]
 reqs = ["10012.1", "10012.2"]
 capabilities = ["10.11.1"]
 interfaces = ["interface.10.cfg-kms-registry-modules", "interface.10.cfg-kms-registry-module-id", "interface.10.cfg-kms-registry-activity-types", "interface.10.env-layerx-human-kms-registry-file", "interface.10.env-layerx-human-kms-evm-client-cert-der", "interface.10.cli-layerx-human-kms"]
@@ -144664,8 +144664,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Serve the test evidence node over the human frame module"
 status = "pending"
 mode = "BUILD"
-wave = 4
-requires = ["10.0.1", "9.23.7"]
+wave = 6
+requires = ["10.0.1", "9.23.7", "9.1.8"]
 reqs = ["10252.1", "10252.2"]
 capabilities = ["10.25.3"]
 interfaces = ["interface.10.rs-human-test-support-evidence-node-serve-l301-j46"]
@@ -147046,7 +147046,7 @@ do_2 = "Make `Ap2Adapter::new` at services/interop/crates/layerx-ap2/src/adapter
 do_3 = "In the settling arm of `Ap2Adapter::execute` (services/interop/crates/layerx-ap2/src/adapter.rs:333-347) call `settle_with_sequencer_evidence` instead of `verify` and `settle_with_receipt`, keeping the payer and payee checks of services/interop/crates/layerx-ap2/src/adapter.rs:339-340 against the PaymentExact log fields."
 do_4 = "Keep the AP2 payment reference `lxp:` and the digest at services/interop/crates/layerx-ap2/src/adapter.rs:513, now the canonical receipt digest, per decision.1106."
 do_5 = "Create services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs (planned) with the tests below; ap2_execute_settles_receipted_evidence signs its own receipt with a test key over a PaymentExact log whose reference topic is the AP2 idempotency key, and the recorded fixture stays for the payee-mismatch case."
-symbols = ["ExecutedPayment", "Ap2Adapter::new", "Ap2Adapter::execute"]
+symbols = ["ExecutedPayment", "ap2_execute_settles_receipted_evidence", "ap2_execute_refuses_a_payee_mismatch"]
 touches = ["services/interop/crates/layerx-ap2/src/adapter.rs", "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs"]
 tests = ["services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs::ap2_execute_settles_receipted_evidence", "services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs::ap2_execute_refuses_a_payee_mismatch"]
 planned_paths = ["services/interop/crates/layerx-ap2/tests/sequencer_settlement.rs"]
@@ -147495,10 +147495,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.11.4]
 title = "Cross-check the committed rung's block number and hash before relaying it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
-requires = ["11.11.3", "9.1.7"]
+requires = ["11.11.3", "9.1.7", "11.16.2"]
 reqs = ["11036.1"]
 capabilities = ["11.11.4"]
 interfaces = []
@@ -147617,10 +147617,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.12.5]
 title = "Refuse a receipt keys file with overlapping or inverted height ranges"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
-requires = ["11.12.4", "9.1.7"]
+requires = ["11.12.4", "9.1.7", "11.16.2"]
 reqs = ["11037.1"]
 capabilities = ["11.12.3"]
 interfaces = ["interface.11.env-svc-layerx-interop-receipt-keys-file-j47"]
@@ -148105,7 +148105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.16.2]
 title = "Settle x402 payments in the service through the chain relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.16.1", "11.11.2", "11.4.1", "9.1.7", "11.3.1"]
@@ -148125,7 +148125,7 @@ verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-interop"
-rollback = "Revert server.rs; x402 settles through the hosted activity path."
+rollback = "Revert server.rs; x402 settles through the hosted activity path; the compile fixes for the SequencerEvidence results are reverted with the file"
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -148133,7 +148133,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_5 = "Before the relay work, make layerx-interop-service compile against the SequencerEvidence results that tasks 11.3.1, 11.4.1 and 11.9.1 landed: implement FacilitatorPlane::receipt_keys for X402VerifyPlane (services/interop/crates/layerx-interop-service/src/server.rs:1161) and X402SettlePlane (:1244) from the plane's configured sequencer authorities, build the x402 ExecutedPayment at :1312-1314 and the ExecutedUcpPayment at :1778-1779 from the SequencerEvidence that PlaneOutcome::Executed now carries, and pass the receipt keys as the fifth argument of UcpAdapter::complete_checkout at :1862; the AP2 and UCP relay itself stays with task 11.16.3."
 [task.11.16.3]
 title = "Execute AP2 and UCP payments in the service through the chain relay"
 status = "pending"
@@ -149291,7 +149291,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.30.1]
 title = "Delete the layerx-intent-ingester crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.0.1", "9.1.7"]
@@ -149454,7 +149454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.32.3]
 title = "Run the program relay from EVM program requests to fulfilProgram"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["11.32.1", "11.32.2", "11.33.1"]
@@ -149781,7 +149781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.35.2]
 title = "Serve /program-attestations from the program exchange of the EVM relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["11.32.3"]
@@ -156229,6 +156229,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Add the blank import of precompiles/layerxprograms to the import block at node/precompiles.go:3-24 beside the imports task 5.19.4 left, so init registers the 0x101D merge constructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
+do_8 = "Tasks 13.22.4 to 13.22.6 already landed submit.go, the event and test files of this package, and they reference Address as a common.Address value and a PrecompileExecutor carrying evmKeeper *evmkeeper.Keeper (precompiles/layerxprograms/submit.go:20,32); declare Address = common.HexToAddress(\"0x000000000000000000000000000000000000101D\") and give PrecompileExecutor every field the sibling files use, instead of the string constant of do_1, so the package builds as one."
 [task.13.22.2]
 title = "Gate 0x101D calls on the merge plan height, value and static-call context"
 status = "done"
@@ -158928,7 +158929,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.4.1]
 title = "Report the verified receipt with every wallet precompile send"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["14.0.2"]
@@ -158960,7 +158961,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_6 = "Add a reverted case to the switch over outcome.outcome in apps/web/src/app/_markets/send-outcome.tsx:8 that returns an InlineNotice with tone danger naming outcome.transactionHash, so the component stays exhaustive once the reverted arm exists and npm run typecheck passes; task 14.0.4 later replaces that case with the catalog copy and the receipt line."
 [task.14.4.2]
 title = "Carry budget_exhausted and the submit receipt through the web gas-station client"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["14.0.2", "14.4.1"]
@@ -158972,7 +158973,7 @@ do_2 = "In requestSidioraGasQuote (apps/web/src/api/gas-station.ts:62) map a req
 do_3 = "In sendSponsoredBatch (apps/web/src/api/gas-station.ts:81) read ethTransactionReceipt for the transactionHash the PAXEER_GAS_STATION_SUBMIT_URL endpoint (apps/web/src/api/gas-station.ts:88) answers and return it as the receipt of the sent outcome, or reverted when its status is reverted."
 do_4 = "Create apps/web/e2e/gas-station-receipt.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39 and loopback quote, submit and gateway servers, with gas_quote_reports_budget_exhausted and sponsored_submit_returns_receipt."
 symbols = ["GasQuoteOutcome", "requestSidioraGasQuote", "sendSponsoredBatch", "gas_quote_reports_budget_exhausted", "sponsored_submit_returns_receipt"]
-touches = ["apps/web/src/api/gas-station.ts", "apps/web/e2e/gas-station-receipt.test.ts"]
+touches = ["apps/web/src/api/gas-station.ts", "apps/web/e2e/gas-station-receipt.test.ts", "apps/web/e2e/fixtures/localhost-cert.pem", "apps/web/e2e/fixtures/localhost-key.pem"]
 tests = ["apps/web/e2e/gas-station-receipt.test.ts::gas_quote_reports_budget_exhausted", "apps/web/e2e/gas-station-receipt.test.ts::sponsored_submit_returns_receipt"]
 planned_paths = ["apps/web/e2e/gas-station-receipt.test.ts"]
 build_cmd = "npm --prefix apps/web run typecheck"
@@ -158989,7 +158990,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "The test does not shell out to openssl: load a committed self-signed localhost certificate and key for tests (SAN IP:127.0.0.1, long validity) from apps/web/e2e/fixtures/ with fs.readFileSync, or serve the station over http when the client accepts an http base URL."
 [task.14.4.3]
 title = "Return the receipt when a sponsored submission resumes or completes"
 status = "pending"

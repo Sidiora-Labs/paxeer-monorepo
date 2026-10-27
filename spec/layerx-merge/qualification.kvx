@@ -7453,3 +7453,163 @@ symbol = "lxpRustResultsForTest"
 observed = "Attempt bd8f005c6 passed every Go-side assertion of TestLXPRevertTable and failed at lxp_errors_test.go:81 because the Rust half of the test looks for a protocol_result_codes! invocation in layerx-types/src/result.rs; since 3422bafe2 that invocation is generated into OUT_DIR by layerx-types/build.rs from include/layerx/lxp_result.h and checked for header parity there (build.rs:529), so the test could not pass on main before this task touched it."
 assumption = "6.2.2 already owns the test file; its new do item rewrites the Rust half for the generated design (assert the build script's header input and entry format) and keeps every Go-side assertion. Recorded once."
 severity = "major"
+
+[finding.11.11.4]
+task = "11.11.4"
+file = "services/interop/crates/layerx-interop-service/src/server.rs"
+symbol = "X402SettlePlane"
+observed = "Attempts b7316adc8 (11.11.4) and be4a7cae6 (11.12.5) failed at cargo build because layerx-interop-service does not compile on main: server.rs still builds ExecutedPayment and ExecutedUcpPayment with canonical_receipt and authorised_batch, lacks FacilitatorPlane::receipt_keys at :1161 and :1244 and calls the six-argument complete_checkout at :1862, after tasks 11.3.1, 11.4.1 and 11.9.1 reshaped those types."
+assumption = "11.16.2, the first pending owner of server.rs, now carries the compile fixes as a do item and 11.11.4 and 11.12.5 require it; the other builders of the crate already follow 11.16.2 transitively. Recorded once."
+severity = "major"
+
+[finding.2.12.4]
+task = "2.12.4"
+file = "modules/layerxauth/ante/integration_test.go"
+symbol = "TestAuthzExecRefusedAfterKernelRevoke"
+observed = "Attempt 381c801a8 ran on a base before 1542220c2 (task 5.19.4), so layerxauth.NewPrecompile found no AuthKeepers provider and grantCapability reverted with LXP_PRECOMPILE_NO_CONTEXT; the test itself passes the keeper the way the current NewPrecompile expects."
+assumption = "2.12.4 now requires 5.19.4; the next attempt continues from 381c801a8 on a base that includes it. Recorded once."
+severity = "major"
+
+[finding.5.6.5.1]
+task = "5.6.5"
+file = "node/upgrades_merge_bonds_test.go"
+symbol = "TestMergePlanReturnsGuarantorBonds"
+observed = "Attempts f61886fb7 and 8cf4ead4a (the latter on a base that includes 1542220c2) fail TestMergePlanReturnsGuarantorBonds at node/upgrades_merge_bonds_test.go:22 because precompiles.MissingMergeConstructors lists layerxprograms 0x101D, the oracle aggregator 0x0903, the scheduler 0x0905 and other addresses whose registering tasks have not landed, so the whole plan refuses at the gate before the bond return runs."
+assumption = "The gate is a release-level condition on this tree; 5.6.5 now runs the gate first and tests the migrations, RetireAtMerge and ReleaseRetired through an unexported continuation while the gate keeps its own refusal test. Recorded once."
+severity = "major"
+
+[finding.8.98.8]
+task = "8.98.8"
+file = "services/platform/hosted/gateway/tests/local/Cargo.toml"
+symbol = "layerx-gateway-local-qualification"
+observed = "Attempts afabdc7e3 (8.98.8) and e43668a67 (8.98.7) failed at cargo build with 'package ID specification layerx-gateway-local-qualification did not match any packages' because that package is its own workspace (Cargo.toml:7) and not a member of services/platform/Cargo.toml."
+assumption = "The manifest-path commands given on 2026-10-27 were also wrong: the local qualification package has a build.rs that requires a parent-built core binary (LAYERX_TEST_CORE_BIN) and asserts a boundary fixture path contract that core/tests/boundary.rs no longer meets, so the scan tests now live in the gateway crate itself. Recorded once."
+severity = "major"
+
+[finding.8.98.5]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs"
+symbol = "wiring.J44.20"
+observed = "Attempts 92c2e4599 (8.98.5), 53ed2b963 (8.98.6), 76d14c2c2 (8.98.10) and the earlier 8.98.11 result show that wiring.J44.20 is not a rename: the retired modules (lni frame transport, read, evidence, caps, head, batch, payments, withdrawal) have no same-shaped counterparts under layerx_client::sequencer, px or rpc (rpc::account::account, rpc::module_state::module_state and rpc::evidence::proof_bundle take a Rung-based ReadContext over the sequencer endpoint instead of an LNI FrameTransport and RootSelector), so 'change only import paths and call names' cannot be satisfied; workers either invented paths that do not exist or left the uses in place and failed their own scan test."
+assumption = "The thirteen 8.98.x tasks need an owner decision on the migration shape (a replacement mapping or per-consumer ports as real tasks) before another attempt; recorded once for the family."
+severity = "major"
+
+[finding.2.34.2.1]
+task = "2.34.2"
+file = "precompiles/layerxagent/scheduler/merge.go"
+symbol = "LayerXAgentKeepers"
+observed = "Attempt 038baf1ce (base includes c833bda08) panics in every node.New with 'merge precompile scheduler at 0x0905: layerxagent keeper is unavailable' because do_1 asked for an accessor returning agentkeeper.Keeper by value while node/precompiles.go:148 exposes LayerXAgentK() *layerxagentkeeper.Keeper, so the keepers assertion never matches."
+assumption = "do_1 now names the pointer-returning method; the next attempt continues from 038baf1ce. Recorded once."
+severity = "major"
+
+[finding.2.12.4.1]
+task = "2.12.4"
+file = "modules/layerxauth/keeper/revoke.go"
+symbol = "DeleteGrant"
+observed = "Attempt 381c801a8 reaches the final assertion and receives authz 'authorization not found: unauthorized' instead of ErrAuthRevoked, because the kernel revoke deletes every authz grant bound to the kernel grant (revoke.go:41-74) before LayerXScopeAuthorization.Accept can report the stale epoch; req.2063 ac_1 names ErrAuthRevoked as the post-revoke error."
+assumption = "do_3 now proves the refusal after revoke as ErrUnauthorized with the grant gone and proves ErrAuthRevoked on a stale-epoch grant; whether ac_1 should name ErrUnauthorized instead is an owner decision. Recorded once."
+severity = "major"
+
+[finding.8.8.1]
+task = "8.8.1"
+file = "services/platform/hosted/agent-boundary/Cargo.toml"
+symbol = "layerx-agentd"
+observed = "Attempt 7fb495851 fails cargo test before the task's tests because layerx-platform-agent-boundary depends on layerx-agentd by path and layerx-agentd does not compile against the reshaped layerx-agent-api read, availability and Freshness types (errors in agent_rpc_adapters.rs, human_runtime.rs, export.rs, read/proof_bundle.rs)."
+assumption = "8.8.1 and 8.96.4 now require 9.1.8, the layerx-agentd port. Recorded once."
+severity = "major"
+
+[finding.4.10.3.1]
+task = "4.10.3"
+file = "modules/launchpad/client/rest/grpc_query_market_test.go"
+symbol = "TestRESTMarketRoutes"
+observed = "Attempts up to 325fd4b69 fail at :170 because the test compares the REST body's gRPC status code (2, codes.Unknown for an ABCI error) with 12, which is the ABCI code ErrUnknownMarket is registered with (modules/launchpad/types/errors.go:28); the body comparison with the gRPC status at :166 passes."
+assumption = "A new do item moves the code-12 assertion to abciResponse.Response.Code where that registry applies. Recorded once."
+severity = "major"
+
+[finding.5.0.3.1]
+task = "5.0.3"
+file = "node/app_merge_wiring_test.go"
+symbol = "TestV6120SpotServesThroughServedSet"
+observed = "Attempt aedd8d4f1 asserts left == supplied-cost-executionGas, but RunAndCalculateGas (precompiles/spot/spot.go:275) meters the keeper execution under a fresh Cosmos gas meter sized from supplied-charge and converts the remainder back through GetEVMGasLimitFromCtx, so the Cosmos gas of the inner reads (18025 and 3317 EVM gas in two subtests) is not the executionGas the test measured on its own context; TestEVMServerServesSequencerReceiptOption also fails because mergeRPCApp initialises the chain with Block.MaxGasWanted 0, which node/sequencer/limits.go:43 reads literally."
+assumption = "Both are test-fixture issues inside the task; the continue note names the out-of-gas boundary assertions and the consensus params to set. Recorded once."
+severity = "major"
+
+[finding.14.4.2]
+task = "14.4.2"
+file = "apps/web/e2e/gas-station-receipt.test.ts"
+symbol = "withStation"
+observed = "Attempt 07c8218b5 fails both tests at :99 because withStation shells out to 'openssl req' to mint a TLS certificate and the command exits 1 with no output in the qualification environment."
+assumption = "A new do item removes the openssl dependency (committed test certificate or an http station). Recorded once."
+severity = "major"
+
+[finding.13.22.1.1]
+task = "13.22.1"
+file = "precompiles/layerxprograms/layerxprograms.go"
+symbol = "Address"
+observed = "Attempt ff31f629c fails go build because tasks 13.22.4 to 13.22.6 landed submit.go and the event files first, referencing Address as a common.Address and a PrecompileExecutor with an evmKeeper field (submit.go:20,32), while do_1 declares Address as a string constant and the attempt's executor lacks the field."
+assumption = "A new do item makes the base file conform to the declarations the sibling files already use. Recorded once."
+severity = "major"
+
+[finding.5.98.1.3]
+task = "5.98.1"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "evm_call"
+observed = "Attempt a11f1e673 boots the node, applies v6.12.0 and validates genesis, then 'paxd tx evm call-contract' panics in getNonce (modules/evm/client/cli/tx.go:630 converts a null JSON result to string) right after the upgrade height."
+assumption = "The script needs to wait for a non-null eth_getTransactionCount result before each call and surface the RPC body on timeout; the CLI is untouched. Recorded once."
+severity = "major"
+
+[finding.9.32.2]
+task = "9.32.2"
+file = "services/agent/crates/layerx-sdk/src/wallet.rs"
+symbol = "open_account"
+observed = "Attempt 369bff6bc fails open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure): Disclosure::validate_bytes (layerx-crypto signer.rs:302) finds the disclosure does not describe the canonical bytes handed to sign_disclosed_call."
+assumption = "Task-scoped: the ABI-call disclosure must cover the signed 0x101A payload as the send path does. Recorded once."
+severity = "major"
+
+[finding.8.28.2.1]
+task = "8.28.2"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "VerifiedLayerxLeg"
+observed = "Attempt 3f8072724 builds and passes its tests, then the dependents gate fails because layerx-reference-ramp reads leg.activity_id and leg.batch_id (main.rs:266-268) from the VerifiedLayerxLeg the task reshaped to tx_hash, height and rung."
+assumption = "The task now owns that report line pair; the reference-ramp port proper stays with 8.30.1. Recorded once."
+severity = "major"
+
+[finding.10.11.1.1]
+task = "10.11.1"
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs"
+symbol = "ReadRequest"
+observed = "Attempt 6c8f358ff builds and passes its tests, then the dependents gate fails compiling layerx-agentd (78 errors against the reshaped layerx-agent-api read, availability and Freshness types), the same break finding.8.8.1 records."
+assumption = "10.11.1 now requires 9.1.8, the layerx-agentd port. Recorded once."
+severity = "major"
+
+[finding.10.25.3.2]
+task = "10.25.3"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "ReadRequest"
+observed = "Attempt b67f99438 fails its build because layerx-human-test-support compiles layerx-agentd, which does not compile against the reshaped layerx-agent-api types (78 errors), the break finding.8.8.1 records."
+assumption = "10.25.3 now requires 9.1.8. Recorded once."
+severity = "major"
+
+[finding.11.7.1.1]
+task = "11.7.1"
+file = "services/interop/crates/layerx-ap2/src/adapter.rs"
+symbol = "Ap2Adapter"
+observed = "Attempt 05597f7a3 passes both tests, then the done gate refuses Ap2Adapter::new and Ap2Adapter::execute as not defined in the graph: they are methods of a generic impl block, which the graph does not index."
+assumption = "The symbols list now names the two test functions, as recorded for the same refusal before; the attempt requalifies without a code change. Recorded once."
+severity = "major"
+
+[finding.9.32.2.1]
+task = "9.32.2"
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+symbol = "decode_method"
+observed = "Attempts 369bff6bc and 530b343f8 fail open_account_encodes_the_open_account_selector with Signing(InvalidDisclosure) because bind_call refuses the openAccount(bytes32) call: decode_method (call.rs:81) knows only send(bytes), issueGrant(bytes), draw and revokeGrant on 0x101A, so the account, registration, mint and burn calls do_2 asks for cannot be disclosed; task 9.31.1 covered four methods."
+assumption = "9.32.2 now extends the decoder for the methods it calls; the SDK code was not at fault. Recorded once."
+severity = "major"
+
+[finding.8.19.5]
+task = "8.19.5"
+file = "services/platform/hosted/gateway/tests/local/build.rs"
+symbol = "main"
+observed = "The local qualification package cannot be built on the merged tree: build.rs requires LAYERX_TEST_CORE_BIN (a parent-built layerx-core-boundary) and asserts that core/tests/boundary.rs contains the needle ../../../../tests/support/lxgb_metadata.rs exactly once, while boundary.rs:4 now reaches that file through five parent directories, so the fixture adapter panics with 'fixture path contract changed' even when the binary is supplied."
+assumption = "8.19.5 deletes build.rs and the lifecycle target it serves; until then no task builds that package on its own. Recorded once."
+severity = "major"

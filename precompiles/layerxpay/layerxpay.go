@@ -136,6 +136,8 @@ func (p *Executor) Execute(ctx sdk.Context, method *abi.Method, caller common.Ad
 	key := paytypes.DeriveIdempotencyKey([32]byte(ctx.EVMTxHash()), ordinal, selector)
 	var output []byte
 	switch method.Name {
+	case "budgetCreate", "budgetCreateNative", "budgetFund", "budgetFundNative", "budgetAmend", "budgetDelegateAdd", "budgetDelegateRemove", "budgetSpend", "budgetDelegateSpend", "budgetPull", "budgetDefund", "budgetClose", "budgetRevoke":
+		output, err = p.budgetHandlers(ctx, method, caller, args, key, evm)
 	case "escrowOpen", "escrowCapture", "escrowPartialCapture", "escrowRelease", "escrowTimeout", "escrowDisputeOpen", "escrowDisputeResolve":
 		output, err = p.escrowHandlers(ctx, method, caller, args, key, evm)
 	default:
@@ -254,9 +256,6 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 		return output, err
 	}
 	id := args[0].([32]byte)
-	var record interface{}
-	found := true
-	var err error
 	switch method.Name {
 	case "getEscrow", "escrowRemaining", "getEscrowResult":
 		return p.escrowHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
@@ -279,37 +278,10 @@ func (p *Executor) view(ctx sdk.Context, method *abi.Method, args []interface{})
 		}
 		return method.Outputs.Pack(accrued.BigInt(), unsettled.BigInt())
 	case "getBudget", "budgetRemaining":
-		key := paytypes.KernelKVKey(paytypes.BudgetModuleID, append([]byte("budget:"), id[:]...))
-		found = false
-		for _, pair := range p.keeper.ExportGenesis(ctx).KernelRecords {
-			if bytes.Equal(pair.Key, key) {
-				record, err = paytypes.DecodeBudgetRecord(pair.Value)
-				found = true
-				break
-			}
-		}
-		if err != nil {
-			return nil, err
-		}
-		if found && method.Name == "budgetRemaining" {
-			r := record.(paytypes.BudgetRecord)
-			remaining := new(big.Int).Sub(payAmount(r.PerPeriodLimit), payAmount(r.SpentThisPeriod))
-			if remaining.Sign() < 0 {
-				return nil, fmt.Errorf("LXP_FATAL_INVARIANT: negative budget remaining")
-			}
-			return method.Outputs.Pack(remaining)
-		}
+		return p.budgetHandlers(ctx, method, common.Address{}, args, [32]byte{}, nil)
 	default:
 		return nil, fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %s", method.Name)
 	}
-	if !found {
-		return nil, fmt.Errorf("LXP_UNKNOWN_FIELD: %s record not found", method.Name)
-	}
-	tuple, err := payTuple(method.Outputs[0].Type, reflect.ValueOf(record))
-	if err != nil {
-		return nil, err
-	}
-	return method.Outputs.Pack(tuple.Interface())
 }
 
 func payTuple(t abi.Type, record reflect.Value) (reflect.Value, error) {
