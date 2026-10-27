@@ -150180,7 +150180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.3]
 title = "Re-record the x-websearch conformance suite digest and vector count"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["11.34.7", "11.36.1"]
