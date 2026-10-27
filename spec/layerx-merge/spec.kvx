@@ -130498,7 +130498,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.0.3]
 title = "Exercise every router method against one chain and consensus pair"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.0.2", "8.1.3", "8.2.1", "8.2.2", "8.5.1", "7.0.3", "5.0.3", "8.1.5"]
