@@ -34,7 +34,7 @@ labelling = "enforcement_copy_key names the plain sentence stating who enforces 
 
 [type.AgentSpend]
 required = ["period_start:Timestamp","period_end:Timestamp","spent:Money","remaining:Money","verification:VerificationLevel"]
-optional = ["reconciliation_copy_key:CopyKey"]
+optional = ["reconciliation_copy_key:CopyKey","rung:Rung"]
 source = "Spend against the limit for the current period is computed from verified receipts and carries the verification level achieved. This plane never raises that level itself."
 reconciliation = "When local accounting and protocol state diverge the protocol figure is adopted and reconciliation_copy_key names the note surfacing the divergence honestly."
 
@@ -88,6 +88,7 @@ defective.semantics = "The held activity's disclosure could not back its own fac
 
 [type.VerifiedMoney]
 required = ["money:Money","verification:VerificationLevel"]
+optional = ["rung:Rung"]
 honesty = "A figure travels with the verification level the agent layer attached. This plane never raises it and visibly marks what it cannot verify."
 
 [type.ApprovalFacts]
@@ -120,7 +121,7 @@ authorization_class = "money-movement"
 method = "POST"
 path = "/v1/agents"
 request = "AgentCreateRequest"
-response = "Journey"
+response = "AgentCreationJourney"
 idempotency = true
 journey = "Creation is a staged receipt-verified journey of kind agent-create. The agent renders active only when every step's receipt has verified; a partial creation shows which steps completed and resumes."
 
@@ -252,3 +253,8 @@ request = "Empty"
 response = "ApprovalDecision"
 idempotency = true
 finality = "Rejection cancels the hold immediately and is final for it. The response confirms nothing moved."
+
+[type.AgentCreationJourney]
+required = ["journey_id:JourneyId","kind:JourneyKind","state:JourneyState","state_copy_key:CopyKey","stages:JourneyStage[]","evidence:EvidenceRef[]","started_at:Timestamp","updated_at:Timestamp"]
+optional = ["refusal:Refusal","wallet_request:WalletSignRequest","rung:Rung"]
+compatibility = "Retains every required and optional Journey field with the same types, adding only optional metadata."

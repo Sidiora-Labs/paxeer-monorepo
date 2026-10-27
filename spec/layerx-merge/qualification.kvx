@@ -2085,3 +2085,27 @@ symbol = "Server.evaluate"
 observed = "The first attempt deleted policy.KindLXActivity, lx.ActivityRequest and Evaluator.EvaluateActivity as do_1/do_2 direct, and its build `go -C services/wallet/attestor build ./internal/policy/ ./internal/policy/evm/ ./internal/policy/lx/ ./internal/server/` exited 1 (log /out/logs/build-1.log) on the ActivityRequest/EvaluateActivity arm and the KindLXActivity case of Server.evaluate in sign.go:519-529, which neither 12.11.3 nor 12.3.3 is told to remove and which lies outside 12.3.3's touches; durability_test.go:368, e2e_test.go:284 and cmd/attestor/main_test.go:760-908 also use the deleted names."
 assumption = "12.3.3 now touches sign.go, durability_test.go, e2e_test.go and cmd/attestor/main_test.go with a do_6 that deletes the activity arm of Server.evaluate and moves the EvaluateActivity uses to EvaluateSendAuthorization with unchanged assertions; 12.14.2 and 12.19.1 now require 12.3.3, and the attempt continues from be6b1af69 once 12.11.3 is done."
 severity = "blocker"
+
+[finding.9.23.7]
+task = "9.23.7"
+file = "services/agent/crates/layerx-client/src/ai_market.rs:288"
+symbol = "FinalityEvidence"
+observed = "Cross-task contradiction: since 13.29.1 landed, layerx-client does not compile because ai_market.rs:288-303 builds FinalityEvidence with the removed checkpoint and settlement fields (rustc E0560), so every crate whose dependency closure includes layerx-client and every Makefile target behind `| programs-build` (layerx-programs-arbiter depends on layerx-client) fails to build at bases from bbcebffe3 on; `cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-mirror --all-targets` exited 101 (logs-build-1.log) at 59370b1e2, and 9.23.7 required 9.23.5 whose build compiles the same crate, a deadlock."
+assumption = "The edge is reversed so 9.23.5 requires 9.23.7, and 9.1.6, 5.48.1 and 10.25.3 wait on 9.23.7, which owns ai_market.rs and repairs the compile break."
+severity = "blocker"
+
+[finding.11.14.5]
+task = "11.14.5"
+file = "services/interop/crates/layerx-fiat/src/lib.rs:751"
+symbol = "fiat_sequenced_journey_vectors_replay"
+observed = "Spec contradiction: do_1 and do_3 asked to settle the recorded receipt whose reference 0x26fde3de…b9839 can never equal `idempotency_key(facts)`, so the third attempt's verify `cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-fiat --test sequenced_vectors -- --exact fiat_sequenced_journey_vectors_replay` exited 101 (logs-verify-1.log) at 58d03d363 with ReceiptMismatch for all three credit journeys."
+assumption = "The card, bank and RTP credit journeys replay on the recorded V1-layerxledger-pay-exact receipt re-signed under the test key with topics[3] = `FiatAdapter::idempotency_key(facts)` and expect its `canonical_receipt_digest`, with the reference check in `FiatAdapter::apply` unchanged."
+severity = "blocker"
+
+[finding.11.9.2]
+task = "11.9.2"
+file = "services/interop/crates/layerx-ucp/tests/sequencer_checkout.rs:236"
+symbol = "ucp_order_digest_is_the_recorded_receipt_digest"
+observed = "Spec contradiction: the unmodified recorded receipt carries reference 0x26fde3de…b9839, which no UUID's gateway_key yields, so the test as first worded could never pass and attempts one and three of `cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-ucp --test sequencer_checkout -- --exact ucp_order_digest_is_the_recorded_receipt_digest` exited 101 (logs-verify-1.log) at 4d77ba160 with \"LayerX receipt does not match the checkout\"."
+assumption = "The test asserts that `canonical_receipt_digest` of the fixture's signedReceipt equals its receiptDigest 0x07ca8892… and that a checkout completed on the `checkout_payment()` receipt re-signed with topics[3] = the gateway_key yields `order.receipt_digest == canonical_receipt_digest(&payment.evidence.signed_receipt)`, with `verify_sequencer_receipt` unchanged."
+severity = "blocker"

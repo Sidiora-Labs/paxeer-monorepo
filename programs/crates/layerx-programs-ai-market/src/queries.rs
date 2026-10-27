@@ -34,7 +34,7 @@ const CURSOR_TAG_BYTES: usize = 32;
 pub const CURSOR_TOKEN_BYTES: usize = 2 * (CURSOR_PAYLOAD_BYTES + CURSOR_TAG_BYTES);
 /// Content-identity prefix through `roster_digest` with epoch and roster present.
 const BINDING_PREFIX_MAX_BYTES: usize = 2 + 3 * 32 + 8 + 8 + 32 + 32 + 8 + 32 + 9 + 8 + 32 + 33;
-pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 3 * 32 + 1 + 8 + 8;
+pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32 + 1 + 8 + 8;
 const HEX: &[u8; 16] = b"0123456789abcdef";
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
@@ -281,7 +281,7 @@ pub struct FinalityEvidence {
     pub rank: u8,
 }
 
-/// `SnapshotBindingV1` in canonical field order.
+/// `SnapshotBindingV2` in canonical field order.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct SnapshotBinding {
     pub chain: ChainDomain,
@@ -399,9 +399,12 @@ impl SnapshotBinding {
     /// Finalized endpoints and webhook publication require actual rank-4 evidence.
     ///
     /// # Errors
-    /// `FinalityUnavailable` below rank 4.
+    /// `FinalityUnavailable` unless rank is 4 and block and app hashes are nonzero.
     pub fn require_finalized(&self) -> QueryResult<()> {
-        if self.rank == FINALIZED_RANK {
+        if self.rank == FINALIZED_RANK
+            && self.block_hash.bytes() != [0; 32]
+            && self.app_hash.bytes() != [0; 32]
+        {
             Ok(())
         } else {
             Err(QueryError::FinalityUnavailable)

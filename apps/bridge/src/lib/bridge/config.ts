@@ -35,7 +35,7 @@ export function readConfig(env: Record<string, string | undefined>) {
 
     /** Paxeer JSON-RPC. Unset → Paxeer reads are disabled, never guessed. */
     paxeerRpcUrl: readUrl(env.NEXT_PUBLIC_PAXEER_RPC_URL),
-    paxeerExplorerUrl: readUrl(env.NEXT_PUBLIC_PAXEER_EXPLORER_URL) ?? 'https://paxscan.io',
+    paxeerExplorerUrl: readUrl(env.NEXT_PUBLIC_PAXEER_EXPLORER_URL),
 
     /** Attestation API base (the backend your devs run). Unset → claim/release disabled. */
     attestationApiUrl: readUrl(env.NEXT_PUBLIC_BRIDGE_API_URL),

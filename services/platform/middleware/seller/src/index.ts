@@ -4,7 +4,9 @@ import {
   paymentCurrency,
   paymentPayer,
   paymentPurpose,
+  verifyPaymentCommitment,
   type PaymentCommitment,
+  type PaymentCommitmentEvidence,
   type PaymentCommitmentResolver,
 } from "./commitment.js";
 export * from "./commitment.js";
@@ -84,9 +86,10 @@ export interface PortableReceiptV2 {
 }
 
 export interface PaymentReceiptVerification extends SequencerReceiptVerification {
-  readonly rung: "receipted";
+  readonly rung: PaymentCommitment;
   readonly txHash: string;
   readonly payment: PaymentExactEvent;
+  readonly commitmentEvidence?: PaymentCommitmentEvidence;
 }
 
 export interface SettlementResponse {
@@ -139,10 +142,13 @@ export interface SellerPaymentAuthority {
 export interface StoredFulfillment<T> extends PortableReceiptV2 {
   readonly idempotencyKey: string;
   readonly requestDigest: string;
+  readonly txHash: string;
+  readonly commitmentEvidence?: PaymentCommitmentEvidence;
   readonly resource: T;
 }
 
 export interface FulfillmentRepository<T> {
+  get(idempotencyKey: string): Promise<StoredFulfillment<T> | undefined>;
   fulfill(
     proposed: Omit<StoredFulfillment<T>, "resource">,
     release: () => Promise<T>,
@@ -247,54 +253,75 @@ export class SellerMiddleware<T> {
       new TextEncoder().encode(principal),
       requestDigestBytes,
     ));
-    const outcome = await this.#authority.settle({
-      principal,
-      payload,
-      requirements,
-      idempotencyKey,
-      requestDigest,
-    });
-    if (outcome.kind === "pending") {
-      return { kind: "pending", status: 202 };
+    let stored = await this.#fulfillments.get(idempotencyKey);
+    if (stored === undefined) {
+      const outcome = await this.#authority.settle({
+        principal,
+        payload,
+        requirements,
+        idempotencyKey,
+        requestDigest,
+      });
+      if (outcome.kind === "pending") {
+        return { kind: "pending", status: 202 };
+      }
+      if (outcome.kind === "refused") {
+        return refusalDecision(requirements, outcome.reason);
+      }
+      const proof: PortableReceiptV2 = structuredClone({
+        format: outcome.format,
+        verificationLevel: outcome.verificationLevel,
+        rawTransaction: outcome.rawTransaction,
+        signedReceipt: outcome.signedReceipt,
+        receiptDigest: outcome.receiptDigest,
+        receiptKey: outcome.receiptKey,
+      });
+      const verification = await verifyPaymentReceipt(proof, requirements, this.#receiptKeys, this.#commitments);
+      const proposed = {
+        ...proof,
+        idempotencyKey,
+        requestDigest,
+        txHash: verification.txHash,
+        ...(verification.commitmentEvidence === undefined ? {} : {
+          commitmentEvidence: verification.commitmentEvidence,
+        }),
+      };
+      stored = await this.#fulfillments.fulfill(proposed, () => release(idempotencyKey));
+      if (stored.receiptDigest !== proposed.receiptDigest || stored.txHash !== proposed.txHash) {
+        throw new MiddlewareError("fulfillment-conflict");
+      }
     }
-    if (outcome.kind === "refused") {
-      return refusalDecision(requirements, outcome.reason);
-    }
-    const proposed = {
-      idempotencyKey,
-      requestDigest,
-      format: outcome.format,
-      verificationLevel: outcome.verificationLevel,
-      rawTransaction: outcome.rawTransaction,
-      signedReceipt: outcome.signedReceipt,
-      receiptDigest: outcome.receiptDigest,
-      receiptKey: outcome.receiptKey,
-    };
-    const verification = await verifyPaymentReceipt(proposed, requirements, this.#receiptKeys, this.#commitments);
-    const stored = await this.#fulfillments.fulfill(proposed, () => release(idempotencyKey));
     if (stored.idempotencyKey !== idempotencyKey || stored.requestDigest !== requestDigest) {
       throw new MiddlewareError("fulfillment-conflict");
     }
-    const storedVerification = await verifyPaymentReceipt(stored, requirements, this.#receiptKeys, this.#commitments);
-    if (!equalBytes(verification.receiptDigest, storedVerification.receiptDigest)) {
+    const commitmentEvidence = stored.commitmentEvidence;
+    if (stored.verificationLevel === "committed" && commitmentEvidence === undefined) {
       throw new MiddlewareError("fulfillment-conflict");
     }
-    const receiptDigest = stored.receiptDigest;
-    const evidence: PortableReceiptV2 = {
+    const storedVerification = await verifyPaymentReceipt(stored, requirements, this.#receiptKeys,
+      commitmentEvidence === undefined ? undefined : {
+        resolve: async () => structuredClone(commitmentEvidence),
+      });
+    if (stored.txHash !== storedVerification.txHash) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    const evidence = {
       format: stored.format,
       verificationLevel: storedVerification.rung,
       rawTransaction: stored.rawTransaction,
       signedReceipt: stored.signedReceipt,
-      receiptDigest,
+      receiptDigest: stored.receiptDigest,
       receiptKey: stored.receiptKey,
+      ...(storedVerification.commitmentEvidence === undefined ? {} :
+        portableCommitmentEvidence(storedVerification.commitmentEvidence)),
     };
     const settlement: SettlementResponse = {
       success: true,
       payer: toHex(storedVerification.receipt.from),
-      transaction: `lxp:${receiptDigest}`,
+      transaction: stored.txHash,
       network: requirements.network,
       amount: requirements.amount,
-      extensions: { layerx: evidence as unknown as JsonValue },
+      extensions: { layerx: evidence },
     };
     return {
       kind: "released",
@@ -355,9 +382,6 @@ export async function verifyPaymentReceipt(
   let verified: SequencerReceiptVerification;
   try {
     verified = await verifySequencerReceipt(signedReceipt, parseReceiptHex(proof.rawTransaction), keys);
-    if (paymentCommitment(requirements.extra) !== "receipted") {
-      throw new MiddlewareError("verification-failure");
-    }
   } catch (error) {
     if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
     throw error;
@@ -416,7 +440,60 @@ export async function verifyPaymentReceipt(
     || (payer !== undefined && !equalBytes(payment.from, parseHex32(payer)))) {
     throw new MiddlewareError("verification-failure");
   }
-  return Object.freeze({ ...verified, rung: "receipted", txHash: `0x${toHex(receipt.activityId)}`, payment });
+  let commitmentEvidence: PaymentCommitmentEvidence | undefined;
+  const rung = proof.verificationLevel;
+  try {
+    if (paymentCommitment(requirements.extra) === "committed" && rung !== "committed") {
+      throw new MiddlewareError("verification-failure");
+    }
+    await verifyPaymentCommitment(verified, requirements.network, rung,
+      commitments === undefined ? undefined : {
+        resolve: async (transactionHash, network) => {
+          commitmentEvidence = structuredClone(await commitments.resolve(transactionHash, network));
+          return commitmentEvidence;
+        },
+      });
+  } catch (error) {
+    if (error instanceof PlatformSdkError) throw new MiddlewareError("verification-failure");
+    throw error;
+  }
+  return Object.freeze({ ...verified, rung, txHash: `0x${toHex(receipt.activityId)}`, payment,
+    ...(commitmentEvidence === undefined ? {} : { commitmentEvidence }),
+  });
+}
+
+function portableCommitmentEvidence(evidence: PaymentCommitmentEvidence) {
+  const hex = (value: Uint8Array): string => `0x${toHex(value)}`;
+  const quantity = (value: bigint): string => `0x${value.toString(16)}`;
+  const blockId = (value: PaymentCommitmentEvidence["blockHeader"]["blockId"]) => ({
+    hash: hex(value.hash),
+    partSetHeader: { total: value.partSetHeader.total, hash: hex(value.partSetHeader.hash) },
+  });
+  return {
+    landingBlockHeight: quantity(evidence.landingBlockHeight),
+    blockHeader: { chainId: evidence.blockHeader.chainId, blockId: blockId(evidence.blockHeader.blockId) },
+    receiptInclusion: {
+      transactionHash: hex(evidence.receiptInclusion.transactionHash),
+      receiptDigest: hex(evidence.receiptInclusion.receiptDigest),
+      sequence: quantity(evidence.receiptInclusion.sequence),
+    },
+    commit: {
+      height: quantity(evidence.commit.height),
+      round: evidence.commit.round,
+      blockId: blockId(evidence.commit.blockId),
+      signatures: evidence.commit.signatures.map((signature) => ({
+        blockIdFlag: signature.blockIdFlag,
+        validatorAddress: hex(signature.validatorAddress),
+        timestamp: { seconds: quantity(signature.timestamp.seconds), nanos: signature.timestamp.nanos },
+        signature: hex(signature.signature),
+      })),
+    },
+    validatorSet: evidence.validatorSet.map((validator) => ({
+      address: hex(validator.address),
+      publicKey: hex(validator.publicKey),
+      votingPower: quantity(validator.votingPower),
+    })),
+  };
 }
 
 export interface WebhookRequestHeaders {
