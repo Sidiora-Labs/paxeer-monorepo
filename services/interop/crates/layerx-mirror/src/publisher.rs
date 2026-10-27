@@ -2134,19 +2134,19 @@ pub enum ReconcileRefusal {
     Missing,
     CommitmentMismatch,
     Malformed,
-    CheckpointMismatch,
+    CommittedMismatch,
 }
 
 impl ReconcileRefusal {
     #[must_use]
     pub const fn code(self) -> &'static str {
         match self {
-            Self::ArchiveUnavailable => "checkpoint_mirror_archive_unavailable",
-            Self::ChainUnavailable => "checkpoint_mirror_chain_unavailable",
-            Self::Missing => "checkpoint_mirror_missing",
-            Self::CommitmentMismatch => "checkpoint_mirror_commitment_mismatch",
-            Self::Malformed => "checkpoint_mirror_malformed",
-            Self::CheckpointMismatch => "checkpoint_mirror_mismatch",
+            Self::ArchiveUnavailable => "committed_mirror_archive_unavailable",
+            Self::ChainUnavailable => "committed_mirror_chain_unavailable",
+            Self::Missing => "committed_mirror_missing",
+            Self::CommitmentMismatch => "committed_mirror_commitment_mismatch",
+            Self::Malformed => "committed_mirror_malformed",
+            Self::CommittedMismatch => "committed_mirror_mismatch",
         }
     }
 }
@@ -2259,7 +2259,7 @@ fn verify_reconciled(
     if decoded.checkpoint.map(|checkpoint| checkpoint.coordinate) == Some(expected) {
         Ok(())
     } else {
-        Err(ReconcileRefusal::CheckpointMismatch)
+        Err(ReconcileRefusal::CommittedMismatch)
     }
 }
 
@@ -2273,6 +2273,44 @@ mod tests {
         ArchiveCommitment, ArchiveData, ArchiveError, ArchivedCommittedBlock, CheckpointCoordinate,
         MirrorCursor, MirrorRetrieval, NodeHead, ProgressGate, ReconcileRefusal, SourceError,
     };
+
+    #[test]
+    fn reconcile_refusal_codes_name_the_committed_mirror() {
+        for (refusal, expected) in [
+            (
+                ReconcileRefusal::ArchiveUnavailable,
+                "committed_mirror_archive_unavailable",
+            ),
+            (
+                ReconcileRefusal::ChainUnavailable,
+                "committed_mirror_chain_unavailable",
+            ),
+            (ReconcileRefusal::Missing, "committed_mirror_missing"),
+            (
+                ReconcileRefusal::CommitmentMismatch,
+                "committed_mirror_commitment_mismatch",
+            ),
+            (ReconcileRefusal::Malformed, "committed_mirror_malformed"),
+            (
+                ReconcileRefusal::CommittedMismatch,
+                "committed_mirror_mismatch",
+            ),
+        ] {
+            assert_eq!(refusal.code(), expected);
+        }
+
+        let archive = Archive::from_committed(&committed_block(), 125, committed_head())
+            .unwrap_or_else(|error| panic!("committed archive: {error:?}"));
+        assert_eq!(
+            verify_reconciled(
+                archive.commitment(),
+                archive.bytes(),
+                CHECKPOINT,
+                archive.bytes(),
+            ),
+            Err(ReconcileRefusal::CommittedMismatch)
+        );
+    }
 
     fn committed_block() -> CommittedBlock {
         let transactions = vec![[0x44; 32], [0x55; 32]];
@@ -2425,7 +2463,7 @@ mod tests {
         assert_eq!(progress.refusal, Some(ReconcileRefusal::ArchiveUnavailable));
         assert_eq!(
             progress.refusal.map(ReconcileRefusal::code),
-            Some("checkpoint_mirror_archive_unavailable")
+            Some("committed_mirror_archive_unavailable")
         );
         let unchanged = gate.acknowledge(journal(), &[], unreachable_chain);
         assert_eq!(

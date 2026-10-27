@@ -92037,7 +92037,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.9.1]
 title = "Fuzz snapshot loading against mutated snapshots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["1.1.2", "1.2.2", "16.2.1"]
@@ -96144,7 +96144,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.3.6]
 title = "Decode ledger receipts into the 0x101A event set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["2.3.4", "1.21.3"]
@@ -102130,7 +102130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.13.2]
 title = "Name the 0x1020 site refusals as constants and register every pricefeed code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["3.13.1", "6.92.1", "6.2.1"]
@@ -112939,7 +112939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.13.2]
 title = "Serve the tokenfactory denom pause query and message to wasm contracts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.13.1", "6.0.1", "6.23.5", "6.24.3"]
@@ -116613,7 +116613,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.1]
 title = "Committed-fixture recorder that starts a single-node sequencer home"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["5.46.6", "5.46.7", "5.0.2"]
@@ -126380,7 +126380,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.1.1]
 title = "Assert the registered pax and pax2 set equals the legacy gate list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.9.2", "7.3.1", "7.2.1", "7.2.3"]
@@ -127939,7 +127939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.1]
 title = "Check ethclient decodes blocks and headers from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.10.1"]
@@ -127969,7 +127969,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.2]
 title = "Check ethclient decodes transactions from the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.5.2"]
@@ -128030,7 +128030,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.4]
 title = "Check ethclient reads balance, nonce, code and storage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2"]
@@ -128060,7 +128060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.5]
 title = "Check ethclient call and gas estimation against the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.15.2"]
@@ -128120,7 +128120,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.7]
 title = "Check ethclient chain id, network id and sync progress"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.4.3"]
@@ -128150,7 +128150,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.8]
 title = "Check ethclient filter logs against the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.17.2"]
@@ -128211,7 +128211,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.7.19.10]
 title = "Check an ethclient send round trip from transaction to receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["7.0.2", "7.8.2"]
@@ -139292,7 +139292,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.22.4]
 title = "Read assets through px_listAssets and fees through eth_estimateGas"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["9.21.7", "9.21.4", "11.2.7"]
@@ -147681,7 +147681,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.21.2]
 title = "Run PaxeerRpc majority reads over the relayer transport"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.21.1", "9.1.6", "11.2.7"]
@@ -148230,7 +148230,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.26.1]
 title = "Encode and decode mirror archive v4 for one committed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["11.25.1", "9.1.6", "11.25.2", "11.2.7"]
@@ -152609,7 +152609,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.33.4]
 title = "Read the created market from the receipt logs in the launchpad view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["12.33.3"]
@@ -158384,7 +158384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.3]
 title = "Read explorer records from the PAXEER_X_EXPLORER_BASE_URL origin only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.5.2"]
@@ -158416,7 +158416,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.5.4]
 title = "Read program records from the explorer base URL without the program bearer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.3"]
@@ -159187,7 +159187,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.21.1]
 title = "Stop probing the retired custody and anchor precompiles in Capabilities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -159404,7 +159404,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.22.5]
 title = "Serve the verified sequencer signature at /transactions/:hash/signature"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.22.4", "14.22.2", "16.93.1"]
@@ -159711,7 +159711,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.1]
 title = "Stop parsing custody, deposit-root, anchor and guarantor logs in PaxeerXLogs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -159866,7 +159866,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.26.1]
 title = "Delete the dead Finality.Anchor struct"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["14.0.1"]
@@ -159927,7 +159927,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.27.1]
 title = "Align the unified account OpenAPI schemas with the answer the controller sends"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.0.1"]
