@@ -103081,7 +103081,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.21.4]
 title = "Unexport spot NewPrecompileSet behind NewServedSet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["3.21.3"]
@@ -107289,7 +107289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.8.4]
 title = "Retire the launchpad bank balance-change hook and holding history"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["4.8.3", "5.7.1"]
@@ -115298,7 +115298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.41.3]
 title = "Retire LayerXAnchorStoreKey from the store-key list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["5.41.2", "5.0.3", "5.7.1"]
