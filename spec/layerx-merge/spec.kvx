@@ -91451,7 +91451,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.4.3]
 title = "Prove parallel batch preparation equals serial preparation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["1.0.1", "16.2.1", "9.23.7", "1.4.6"]
@@ -97311,7 +97311,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.2]
 title = "Serve register, pause, unpause, mint and burn on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.1", "2.4.2", "2.3.6"]
@@ -97375,7 +97375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.10.4]
 title = "Serve issueGrant, revokeGrant, draw and payExact on 0x101A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["2.10.1", "2.4.5", "2.4.6", "2.4.7", "2.3.6"]
@@ -99036,7 +99036,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.1]
 title = "Serve 0x101B as a merge precompile with the pay gas table and registry reverts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.0.1"]
@@ -99069,7 +99069,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.28.2]
 title = "Map pay keeper and kernel errors to 0x101B registry revert strings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.21.2", "2.22.4"]
@@ -106565,7 +106565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.12]
 title = "Serve Query/AirdropEpoch from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 13
 requires = ["4.3.1", "4.2.3", "4.2.6", "4.4.11"]
@@ -106597,7 +106597,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.13]
 title = "Serve Query/AirdropClaimed from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["4.3.1", "4.2.3", "4.4.12"]
@@ -159084,7 +159084,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.1]
 title = "Delete the explorer verify page and its evidence verifier view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.5.4", "14.6.3", "14.6.4"]
@@ -159116,7 +159116,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.2]
 title = "Retire POST /api/explorer/verify, the mirror verifier and verifyEvidenceUpstream"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.6.1"]
@@ -159180,7 +159180,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.6.4]
 title = "Drop the explorer verify page from the explorer browser specs and test scripts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.5.1", "14.7.2"]
@@ -159310,7 +159310,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.7.4]
 title = "Delete the custody hand-off, evidence and timing modules with the HUMAN_* variables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.7.3"]
@@ -160164,7 +160164,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.23.4]
 title = "Delete the live anchor and receipt controllers, views and their tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.23.2"]
@@ -160937,7 +160937,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.30.2]
 title = "Enable the precompile source in sig-provider-server settings and startup"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["14.30.1", "16.93.1"]
