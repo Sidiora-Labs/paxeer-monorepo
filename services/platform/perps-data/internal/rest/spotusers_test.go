@@ -236,6 +236,133 @@ func spotNodeBalance(t *testing.T, client *ethclient.Client, token []byte) strin
 	return new(big.Int).SetBytes(out).String()
 }
 
+func TestSpotLeaderboardProjection(t *testing.T) {
+	db := openDB(t)
+	accounts := [][]byte{addr(0xab, 0xcd), addr(0xcd, 0xab), addr(0xef, 0xab)}
+	want := []spotRankJSON{
+		{Rank: 1, Address: spotHexOf(accounts[0]), Value: "7"},
+		{Rank: 2, Address: spotHexOf(accounts[1]), Value: "123456789012345678901234567890"},
+		{Rank: 3, Address: spotHexOf(accounts[2]), Value: "99"},
+	}
+	// Insert out of rank order, with values that would rank differently if
+	// the handler tried to recompute the board instead of reading it.
+	for _, i := range []int{2, 0, 1} {
+		if _, err := db.Exec(`INSERT INTO perps.spot_leaderboard (kind, rank, account, value, updated_block)
+			VALUES ('volume', $1, $2, $3, 42)`, want[i].Rank, accounts[i], want[i].Value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, c := range []struct{ kind, value string }{
+		{"pnl", "-123456789012345678901234567890"},
+		{"win-rate", "66.6666666666666666666666666666666666666667"},
+	} {
+		if _, err := db.Exec(`INSERT INTO perps.spot_leaderboard (kind, rank, account, value, updated_block)
+			VALUES ($1, 1, $2, $3, 42)`, c.kind, accounts[2], c.value); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// A request-time fold would wait on these real source-table locks and
+	// fail its deadline. Reading the projection needs none of these tables.
+	lock, err := db.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer lock.Rollback()
+	if _, err := lock.Exec(`LOCK TABLE perps.spot_swaps, perps.spot_order_events, perps.spot_orders,
+		perps.spot_token_registry, perps.spot_fee_events, perps.spot_account_legs IN ACCESS EXCLUSIVE MODE`); err != nil {
+		t.Fatal(err)
+	}
+	users := &SpotUsers{db: db}
+	mux := spotMux(users)
+	bounded := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx, cancel := context.WithTimeout(r.Context(), 2*time.Second)
+		defer cancel()
+		mux.ServeHTTP(w, r.WithContext(ctx))
+	})
+
+	t.Run("rank_order_and_limit_without_folding", func(t *testing.T) {
+		var body spotLeaderboardBody
+		fields := spotGet(t, bounded, "/v1/leaderboards/volume?limit=2", http.StatusOK, &body)
+		wantKeys(t, fields, "kind", "as_of", "omitted_accounts", "items")
+		spotBoardAsOf(t, body.AsOf)
+		spotEqual(t, "projected volume ranks", body, spotLeaderboardBody{
+			Kind: "volume", AsOf: body.AsOf, Items: want[:2],
+		})
+		var items []map[string]json.RawMessage
+		if err := json.Unmarshal(fields["items"], &items); err != nil || len(items) != 2 {
+			t.Fatalf("items %s: %v", fields["items"], err)
+		}
+		for _, item := range items {
+			wantKeys(t, item, "rank", "address", "value")
+		}
+		for _, suffix := range []string{"", "?limit=999999999999999999999999999999"} {
+			body = spotLeaderboardBody{}
+			spotGet(t, bounded, "/v1/leaderboards/volume"+suffix, http.StatusOK, &body)
+			spotEqual(t, "all projected volume ranks", body.Items, want)
+		}
+	})
+
+	t.Run("kind_filter_and_value_format", func(t *testing.T) {
+		for _, c := range []struct{ kind, value string }{
+			{"pnl", "-123456789012345678901234567890"},
+			{"win-rate", "66.6667"},
+		} {
+			var body spotLeaderboardBody
+			spotGet(t, bounded, "/v1/leaderboards/"+c.kind, http.StatusOK, &body)
+			spotBoardAsOf(t, body.AsOf)
+			spotEqual(t, c.kind, body, spotLeaderboardBody{Kind: c.kind, AsOf: body.AsOf,
+				Items: []spotRankJSON{{Rank: 1, Address: spotHexOf(accounts[2]), Value: c.value}}})
+		}
+	})
+
+	t.Run("projection_updates_are_visible_immediately", func(t *testing.T) {
+		if _, err := db.Exec(`UPDATE perps.spot_leaderboard SET value = 17, updated_block = 43
+			WHERE kind = 'volume' AND rank = 1`); err != nil {
+			t.Fatal(err)
+		}
+		var body spotLeaderboardBody
+		spotGet(t, bounded, "/v1/leaderboards/volume?limit=1", http.StatusOK, &body)
+		spotEqual(t, "updated projection", body.Items, []spotRankJSON{{Rank: 1, Address: want[0].Address, Value: "17"}})
+	})
+
+	t.Run("invalid_requests", func(t *testing.T) {
+		spotRefused(t, bounded, "/v1/leaderboards/streak", http.StatusBadRequest, "unknown leaderboard streak")
+		spotRefused(t, bounded, "/v1/leaderboards/volume?limit=bad", http.StatusBadRequest, "invalid limit")
+	})
+
+	t.Run("empty_projection", func(t *testing.T) {
+		if _, err := db.Exec(`DELETE FROM perps.spot_leaderboard WHERE kind = 'volume'`); err != nil {
+			t.Fatal(err)
+		}
+		var body spotLeaderboardBody
+		fields := spotGet(t, bounded, "/v1/leaderboards/volume", http.StatusOK, &body)
+		spotBoardAsOf(t, body.AsOf)
+		spotEqual(t, "empty projection", body, spotLeaderboardBody{Kind: "volume", AsOf: body.AsOf, Items: []spotRankJSON{}})
+		if string(fields["items"]) != "[]" {
+			t.Fatalf("items = %s, want []", fields["items"])
+		}
+	})
+
+	t.Run("cancelled_request", func(t *testing.T) {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		if _, err := users.projectedRank(ctx, "volume", 2); !errors.Is(err, context.Canceled) {
+			t.Fatalf("cancelled projection read: %v", err)
+		}
+	})
+
+	if err := lock.Rollback(); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("database_error", func(t *testing.T) {
+		if err := db.Close(); err != nil {
+			t.Fatal(err)
+		}
+		spotRefused(t, bounded, "/v1/leaderboards/pnl", http.StatusInternalServerError, "internal error")
+	})
+}
+
 func TestSpotUsersREST(t *testing.T) {
 	db := openDB(t)
 	dbOnly := spotMux(&SpotUsers{db: db})

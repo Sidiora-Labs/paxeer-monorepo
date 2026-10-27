@@ -17,6 +17,8 @@ pub const XWEB_PRECOMPILE: [u8; 20] = [
 /// The event the precompile emits for every request.
 pub const REQUESTED_EVENT: &str = "XWebRequested(uint64,address,uint8,bytes,uint64,uint256,uint64)";
 
+pub const GET_KERNEL_NETWORK_ID_SIGNATURE: &str = "getKernelNetworkId()";
+
 /// The most blocks one `eth_getLogs` query spans.
 pub const MAX_BLOCK_RANGE: u64 = 1_000;
 
@@ -168,6 +170,20 @@ impl EvmRpc {
         )?;
         result.as_str().and_then(unhex0x).ok_or(EvmError::Malformed)
     }
+}
+
+pub fn kernel_network_id(rpc: &EvmRpc) -> Result<u32, EvmError> {
+    let word = rpc.eth_call(
+        XWEB_PRECOMPILE,
+        &keccak(GET_KERNEL_NETWORK_ID_SIGNATURE.as_bytes())[..4],
+    )?;
+    let word: [u8; 32] = word.try_into().map_err(|_| EvmError::Malformed)?;
+    if word[..28].iter().any(|byte| *byte != 0) {
+        return Err(EvmError::Malformed);
+    }
+    let mut network = [0; 4];
+    network.copy_from_slice(&word[28..]);
+    Ok(u32::from_be_bytes(network))
 }
 
 /// Where a journalled request stands against the chain at the watcher's
@@ -360,16 +376,23 @@ struct Progress {
 
 pub(crate) fn source_identity(log: &Value, chain_id: u64) -> Result<SourceIdentity, EvmError> {
     let hash = |field: &str| -> Result<[u8; 32], EvmError> {
-        log.get(field).and_then(Value::as_str).and_then(unhex0x)
-            .and_then(|bytes| bytes.try_into().ok()).filter(|hash| *hash != [0; 32])
+        log.get(field)
+            .and_then(Value::as_str)
+            .and_then(unhex0x)
+            .and_then(|bytes| bytes.try_into().ok())
+            .filter(|hash| *hash != [0; 32])
             .ok_or(EvmError::Malformed)
     };
     Ok(SourceIdentity {
         chain_id,
         block_hash: hash("blockHash")?,
         transaction_hash: hash("transactionHash")?,
-        log_index: log.get("logIndex").and_then(Value::as_str).and_then(parse_quantity)
-            .and_then(|value| u64::try_from(value).ok()).ok_or(EvmError::Malformed)?,
+        log_index: log
+            .get("logIndex")
+            .and_then(Value::as_str)
+            .and_then(parse_quantity)
+            .and_then(|value| u64::try_from(value).ok())
+            .ok_or(EvmError::Malformed)?,
     })
 }
 
@@ -402,7 +425,10 @@ impl RequestWatcher {
             Ok(bytes) => {
                 let entries = if let Ok(progress) = serde_json::from_slice::<Progress>(&bytes) {
                     if progress.version != 1 {
-                        return Err(io::Error::new(io::ErrorKind::InvalidData, "watch journal version"));
+                        return Err(io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            "watch journal version",
+                        ));
                     }
                     next_block = progress.next_block;
                     chain_id = progress.chain_id;
@@ -424,9 +450,11 @@ impl RequestWatcher {
                 pending
             }
             Err(error) if error.kind() == io::ErrorKind::NotFound => {
-                if stored.is_some() { next_block = Some(0); }
+                if stored.is_some() {
+                    next_block = Some(0);
+                }
                 BTreeMap::new()
-            },
+            }
             Err(error) => return Err(error),
         };
         Ok(Self {
@@ -444,29 +472,47 @@ impl RequestWatcher {
 
     pub fn with_chain_id(mut self, chain_id: u64) -> io::Result<Self> {
         if self.chain_id.is_some_and(|stored| stored != chain_id)
-            || self.pending.values().any(|entry| entry.source.as_ref()
-                .is_some_and(|source| source.chain_id != chain_id)) {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "watch journal chain mismatch"));
+            || self.pending.values().any(|entry| {
+                entry
+                    .source
+                    .as_ref()
+                    .is_some_and(|source| source.chain_id != chain_id)
+            })
+        {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "watch journal chain mismatch",
+            ));
         }
-        let lock = std::fs::OpenOptions::new().create(true).truncate(false).read(true).write(true)
+        let lock = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .read(true)
+            .write(true)
             .open(self.pending_path.with_extension("lock"))?;
-        lock.try_lock().map_err(|_| io::Error::other("watch journal already open"))?;
+        lock.try_lock()
+            .map_err(|_| io::Error::other("watch journal already open"))?;
         self._lock = Some(lock);
         self.chain_id = Some(chain_id);
         Ok(self)
     }
 
-    pub const fn confirmations(&self) -> u64 { self.confirmations }
+    pub const fn confirmations(&self) -> u64 {
+        self.confirmations
+    }
 
     pub fn eligible(&self, request_id: u64) -> bool {
-        self.pending.get(&request_id).is_some_and(|entry|
-            entry.refused.is_none() && entry.next_retry_block <= self.last_head)
+        self.pending.get(&request_id).is_some_and(|entry| {
+            entry.refused.is_none() && entry.next_retry_block <= self.last_head
+        })
     }
 
     pub fn transition(&mut self, request_id: u64, stage: WorkStage) -> Result<(), EvmError> {
         let mut pending = self.pending.clone();
         let entry = pending.get_mut(&request_id).ok_or(EvmError::Journal)?;
-        if entry.refused.is_some() { return Err(EvmError::Journal); }
+        if entry.refused.is_some() {
+            return Err(EvmError::Journal);
+        }
         entry.stage = stage;
         entry.last_error = None;
         entry.next_retry_block = 0;
@@ -530,8 +576,14 @@ impl RequestWatcher {
         let signed = entry.stage == WorkStage::Signed;
         entry.attempts = entry.attempts.saturating_add(1);
         entry.last_error = Some(reason.to_owned());
-        entry.stage = if signed { WorkStage::Signed } else { WorkStage::Retry };
-        entry.next_retry_block = self.last_head.saturating_add(1_u64 << entry.attempts.min(8));
+        entry.stage = if signed {
+            WorkStage::Signed
+        } else {
+            WorkStage::Retry
+        };
+        entry.next_retry_block = self
+            .last_head
+            .saturating_add(1_u64 << entry.attempts.min(8));
         if terminal || (!signed && entry.attempts >= MAX_ATTEMPTS) {
             entry.refused = Some(reason.to_owned());
             entry.stage = WorkStage::Refused;
@@ -551,13 +603,22 @@ impl RequestWatcher {
         if let Some(entry) = pending.remove(&request_id) {
             if entry.refused.is_some() {
                 let bytes = serde_json::to_vec(&entry).map_err(|_| EvmError::Journal)?;
-                let name = format!("retired-{request_id}-{}.json", crate::payment::hex(&keccak(&bytes)));
+                let name = format!(
+                    "retired-{request_id}-{}.json",
+                    crate::payment::hex(&keccak(&bytes))
+                );
                 let path = self.pending_path.with_file_name(name);
                 let temporary = path.with_extension("tmp");
                 std::fs::write(&temporary, bytes)
                     .and_then(|()| std::fs::File::open(&temporary)?.sync_all())
                     .and_then(|()| std::fs::rename(&temporary, &path))
-                    .and_then(|()| std::fs::File::open(path.parent().ok_or_else(|| io::Error::other("journal parent"))?)?.sync_all())
+                    .and_then(|()| {
+                        std::fs::File::open(
+                            path.parent()
+                                .ok_or_else(|| io::Error::other("journal parent"))?,
+                        )?
+                        .sync_all()
+                    })
                     .map_err(|_| EvmError::Journal)?;
             }
             self.store_pending(&pending)?;
@@ -594,7 +655,9 @@ impl RequestWatcher {
                     }
                     let source = source_identity(log, chain_id)?;
                     let mut pending = self.pending.clone();
-                    let entry = pending.get_mut(&request.request_id).ok_or(EvmError::Journal)?;
+                    let entry = pending
+                        .get_mut(&request.request_id)
+                        .ok_or(EvmError::Journal)?;
                     if entry.source.as_ref().is_some_and(|old| old != &source) {
                         return Ok(Canonical::Absent);
                     }
@@ -614,9 +677,17 @@ impl RequestWatcher {
         self.store_progress(pending, self.next_block)
     }
 
-    fn store_progress(&self, pending: &BTreeMap<u64, Pending>, next_block: Option<u64>) -> Result<(), EvmError> {
-        let progress = Progress { version: 1, next_block, chain_id: self.chain_id,
-            entries: pending.values().cloned().collect() };
+    fn store_progress(
+        &self,
+        pending: &BTreeMap<u64, Pending>,
+        next_block: Option<u64>,
+    ) -> Result<(), EvmError> {
+        let progress = Progress {
+            version: 1,
+            next_block,
+            chain_id: self.chain_id,
+            entries: pending.values().cloned().collect(),
+        };
         let bytes = serde_json::to_vec(&progress).map_err(|_| EvmError::Journal)?;
         let temporary = self.pending_path.with_extension("tmp");
         std::fs::write(&temporary, bytes)
@@ -691,10 +762,18 @@ impl RequestWatcher {
             return Err(EvmError::Malformed);
         }
         let mut pending = self.pending.clone();
-        for (request, log) in requests.iter().zip(logs.as_array().ok_or(EvmError::Malformed)?) {
-            let source = self.chain_id.map(|chain_id| source_identity(log, chain_id)).transpose()?;
+        for (request, log) in requests
+            .iter()
+            .zip(logs.as_array().ok_or(EvmError::Malformed)?)
+        {
+            let source = self
+                .chain_id
+                .map(|chain_id| source_identity(log, chain_id))
+                .transpose()?;
             if let Some(existing) = pending.get(&request.request_id) {
-                if existing.request != *request || (existing.source.is_some() && existing.source != source) {
+                if existing.request != *request
+                    || (existing.source.is_some() && existing.source != source)
+                {
                     return Err(EvmError::Malformed);
                 }
             } else {

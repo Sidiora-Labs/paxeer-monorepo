@@ -10,6 +10,19 @@ const vectors = JSON.parse(await readFile(new URL(
 ), "utf8"));
 const payment = vectors.cases.find((entry) => entry.id === "V1-layerxledger-pay-exact");
 assert.ok(payment);
+const bytes = (hex) => Uint8Array.from(Buffer.from(hex.replace(/^0x/u, ""), "hex"));
+const receiptKeys = [{
+  keyId: bytes(payment.pinnedKey.keyId),
+  publicKey: bytes(payment.pinnedKey.publicKey),
+  first_height: BigInt(payment.pinnedKey.firstHeight),
+  last_height: BigInt(payment.pinnedKey.lastHeight),
+}];
+const paymentLog = payment.receiptJson.logs[0];
+const requirements = {
+  scheme: "exact", network: "eip155:125", amount: BigInt(`0x${paymentLog.data.slice(66)}`).toString(),
+  asset: paymentLog.data.slice(0, 66), payTo: paymentLog.topics[3], maxTimeoutSeconds: 120,
+  extra: { layerx: { commitment: "receipted", payer: paymentLog.topics[2].slice(2), purposeHash: paymentLog.topics[1].slice(2) } },
+};
 
 async function loopbackRpc(context, responses) {
   const requests = [];
@@ -119,25 +132,9 @@ async function verifyRpcPaymentReportsSubmittedAsPending(context) {
     { result: submitted },
     { result: { ...submitted, txHash: vectors.cases[0].receiptJson.txHash } },
   ]);
-  const fixture = JSON.parse(await readFile(new URL(
-    "../../../../../sdk/platform/conformance/fixtures/receipt-positive-v3.json", import.meta.url,
-  ), "utf8"));
-  const bytes = (hex) => Uint8Array.from(Buffer.from(hex, "hex"));
-  const batch = fixture.authorized_batch;
-  const authority = {
-    batchId: bytes(batch.batch_id_hex),
-    asset: bytes(batch.asset_hex),
-    previousStateRoot: bytes(batch.previous_state_root_hex),
-    resultingStateRoot: bytes(batch.resulting_state_root_hex),
-    sequencerPublicKey: bytes(batch.sequencer_public_key_hex),
-  };
-  const requirements = {
-    scheme: "exact", network: "eip155:125", amount: fixture.expected.amount,
-    asset: batch.asset_hex, payTo: fixture.expected.to_hex, maxTimeoutSeconds: 120,
-  };
   const payer = payment.receiptJson.from.slice(2).padStart(64, "0");
   const verify = (answer, raw = payment.rawTransaction, terms = requirements) =>
-    verifyRpcPayment(answer, raw, payer, terms, authority, undefined, { protocolVersion: 3 });
+    verifyRpcPayment(answer, raw, payer, terms, receiptKeys);
   const refusesHash = (error) => error instanceof MiddlewareError && error.code === "verification-failure";
 
   assert.deepEqual(await verify(await rpc.receipt(txHash)), { kind: "pending" });
@@ -160,6 +157,33 @@ async function verifyRpcPaymentReportsSubmittedAsPending(context) {
   }
 }
 
+async function verifyRpcPaymentAcceptsPinnedSequencerReceipt() {
+  const payer = payment.receiptJson.from.slice(2).padStart(64, "0");
+  const verify = (answer, keys = receiptKeys, terms = requirements, expectedPayer = payer) =>
+    verifyRpcPayment(answer, payment.rawTransaction, expectedPayer, terms, keys);
+  const verified = await verify(payment.receiptJson);
+  assert.equal(verified.kind, "verified");
+  assert.equal(verified.format, "layerx-receipt-proof-v2");
+  assert.equal(verified.verificationLevel, "receipted");
+  assert.equal(verified.rawTransaction, payment.rawTransaction);
+  assert.equal(verified.signedReceipt, payment.signedReceipt);
+  assert.equal(verified.verification.rung, "receipted");
+  assert.equal(verified.verification.txHash, payment.receiptJson.txHash);
+  assert.equal(verified.verification.payment.amount.toString(), requirements.amount);
+  assert.equal(verified.receiptKey.publicKey, payment.pinnedKey.publicKey);
+  const refuses = (error) => error instanceof MiddlewareError && error.code === "verification-failure";
+  await assert.rejects(verify(payment.receiptJson, []), refuses);
+  await assert.rejects(verify(payment.receiptJson, [{ ...receiptKeys[0], last_height: 1000n }]), refuses);
+  await assert.rejects(verify({ ...payment.receiptJson, height: "0x3e8" }), refuses);
+  await assert.rejects(verify({ ...payment.receiptJson, keyId: `0x${"00".repeat(32)}` }), refuses);
+  await assert.rejects(verify(payment.receiptJson, receiptKeys, { ...requirements, amount: "1" }), refuses);
+  await assert.rejects(verify(payment.receiptJson, receiptKeys, requirements, "00".repeat(32)), refuses);
+  await assert.rejects(verify(payment.receiptJson, receiptKeys, {
+    ...requirements, extra: { layerx: { ...requirements.extra.layerx, commitment: "committed" } },
+  }), refuses);
+}
+
 test(paymentRpcSendsRawTransaction);
 test(paymentRpcReadsSequencerReceipt);
 test(verifyRpcPaymentReportsSubmittedAsPending);
+test(verifyRpcPaymentAcceptsPinnedSequencerReceipt);

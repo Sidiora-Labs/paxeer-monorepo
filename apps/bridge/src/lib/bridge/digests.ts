@@ -23,12 +23,13 @@ import {
   stringToHex,
   type Address,
   type Hex,
-} from "viem";
+} from 'viem';
 
 /** 20-byte domain, inbound (BridgeAttestation.DOMAIN_IN). */
-export const DOMAIN_IN = "PAXEERX_BRIDGE_IN_V1";
+export const DOMAIN_IN = 'PAXEERX_BRIDGE_IN_V1';
+
 /** 21-byte domain, outbound (BridgeAttestation.DOMAIN_OUT). */
-export const DOMAIN_OUT = "PAXEERX_BRIDGE_OUT_V1";
+export const DOMAIN_OUT = 'PAXEERX_BRIDGE_OUT_V1';
 
 const SECP256K1_HALF_ORDER = 0x7fffffffffffffffffffffffffffffff5d576e7357a4501ddfe92f46681b20a0n;
 
@@ -52,7 +53,7 @@ export function inboundPreimage(args: {
   amount: bigint;
 }): Hex {
   return encodePacked(
-    ["bytes", "uint256", "address", "bytes32", "uint64", "bytes32", "address", "uint256"],
+    [ 'bytes', 'uint256', 'address', 'bytes32', 'uint64', 'bytes32', 'address', 'uint256' ],
     [
       stringToHex(DOMAIN_IN),
       args.chainId,
@@ -87,7 +88,7 @@ export function outboundPreimage(args: {
   amount: bigint;
 }): Hex {
   return encodePacked(
-    ["bytes", "uint256", "address", "bytes32", "uint64", "address", "address", "uint256"],
+    [ 'bytes', 'uint256', 'address', 'bytes32', 'uint64', 'address', 'address', 'uint256' ],
     [
       stringToHex(DOMAIN_OUT),
       args.chainId,
@@ -107,12 +108,12 @@ export function outboundDigest(args: Parameters<typeof outboundPreimage>[0]): He
 
 /** Vault release nullifier: keccak256(paxeerTxHash || uint64 paxeerNonce). */
 export function releaseNullifier(paxeerTxHash: Hex, paxeerNonce: bigint): Hex {
-  return keccak256(concat([paxeerTxHash, numberToHex(paxeerNonce, { size: 8 })]));
+  return keccak256(concat([ paxeerTxHash, numberToHex(paxeerNonce, { size: 8 }) ]));
 }
 
 export type SignatureCheck =
-  | { ok: true; signers: Address[] }
-  | { ok: false; reason: string };
+  | { ok: true; signers: Address[] } |
+  { ok: false; reason: string };
 
 /**
  * Verify a threshold signature bundle exactly as the contracts do: each is
@@ -125,35 +126,41 @@ export async function verifyThresholdSignatures(args: {
   attestors: readonly Address[];
   threshold: number;
 }): Promise<SignatureCheck> {
+  if (args.threshold === 0) {
+    return { ok: false, reason: 'vault threshold is zero' };
+  }
+  if (args.attestors.length === 0) {
+    return { ok: false, reason: 'vault attestor set is empty' };
+  }
   if (args.signatures.length < args.threshold) {
-    return { ok: false, reason: `Only ${args.signatures.length} of ${args.threshold} required signatures are available.` };
+    return { ok: false, reason: `Only ${ args.signatures.length } of ${ args.threshold } required signatures are available.` };
   }
   const allowed = new Set(args.attestors.map((a) => getAddress(a).toLowerCase()));
   const signers: Address[] = [];
-  for (const [index, signature] of args.signatures.entries()) {
+  for (const [ index, signature ] of args.signatures.entries()) {
     if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
-      return { ok: false, reason: `Signature ${index + 1} is not 65 bytes.` };
+      return { ok: false, reason: `Signature ${ index + 1 } is not 65 bytes.` };
     }
     const v = Number.parseInt(signature.slice(130, 132), 16);
     if (v !== 27 && v !== 28) {
-      return { ok: false, reason: `Signature ${index + 1} has an invalid recovery id.` };
+      return { ok: false, reason: `Signature ${ index + 1 } has an invalid recovery id.` };
     }
-    const s = BigInt(`0x${signature.slice(66, 130)}`);
+    const s = BigInt(`0x${ signature.slice(66, 130) }`);
     if (s > SECP256K1_HALF_ORDER) {
-      return { ok: false, reason: `Signature ${index + 1} is not low-s.` };
+      return { ok: false, reason: `Signature ${ index + 1 } is not low-s.` };
     }
     let signer: Address;
     try {
       signer = await recoverAddress({ hash: args.digest, signature });
     } catch {
-      return { ok: false, reason: `Signature ${index + 1} does not recover a signer.` };
+      return { ok: false, reason: `Signature ${ index + 1 } does not recover a signer.` };
     }
     if (!allowed.has(signer.toLowerCase())) {
-      return { ok: false, reason: `Signature ${index + 1} is not from a registered attestor.` };
+      return { ok: false, reason: `Signature ${ index + 1 } is not from a registered attestor.` };
     }
     const previous = signers[signers.length - 1];
     if (previous && BigInt(signer) <= BigInt(previous)) {
-      return { ok: false, reason: "Signatures are not ordered by ascending signer." };
+      return { ok: false, reason: 'Signatures are not ordered by ascending signer.' };
     }
     signers.push(signer);
   }

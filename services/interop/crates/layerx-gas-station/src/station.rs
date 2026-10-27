@@ -206,6 +206,7 @@ impl<S: QuoteSigner, R: JsonRpc, P: PriceSource> GasStation<S, R, P> {
         journal: Journal,
     ) -> Result<Self, StationError> {
         let mut station = Station::new(config, signer).map_err(|_| StationError::Invalid)?;
+        // GAS_STATION_DID_GAS_LIMIT is the gas one DID may be sponsored per UTC day.
         let limit = std::env::var("GAS_STATION_DID_GAS_LIMIT").ok();
         let limit = DidGasLimit::try_from(limit.as_deref()).map_err(|_| StationError::Invalid)?;
         station.policy = station.policy.with_did_budget(DidBudget::new(limit.0));

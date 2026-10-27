@@ -255,7 +255,7 @@ pub struct Config {
     pub gateway: GatewayConfig,
     pub payment: PaymentConfig,
     pub evm: EvmConfig,
-    pub kernel_network_id: u32,
+    pub kernel_network_id: Option<u32>,
     pub kernel: Option<KernelConfig>,
     pub peers: Vec<String>,
 }
@@ -282,7 +282,18 @@ impl Config {
         let gateway = gateway(&mut root)?;
         let payment = payment(&mut root)?;
         let evm = evm(&mut root)?;
-        let kernel_network_id = positive_u32(&mut root, "kernel_network_id", u32::MAX)?;
+        let kernel_network_id = root
+            .optional("kernel_network_id")?
+            .map(|(value, path)| {
+                let number = value
+                    .as_u64()
+                    .ok_or_else(|| ConfigError::new(path.clone(), Refusal::Invalid))?;
+                if number == 0 {
+                    return Err(ConfigError::new(path, Refusal::Placeholder));
+                }
+                u32::try_from(number).map_err(|_| ConfigError::new(path, Refusal::Invalid))
+            })
+            .transpose()?;
         let kernel = kernel(&mut root)?;
         let peers = peers(&mut root)?;
         root.finish()?;

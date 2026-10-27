@@ -117,6 +117,7 @@ type DiscoveryFacts struct {
 }
 
 type PrecompileExecutor struct {
+	upgrades                 pcommon.UpgradeActivationReader
 	VerifyEd25519ID          []byte
 	VerifyReceiptID          []byte
 	VerifyReceiptInclusionID []byte
@@ -124,9 +125,12 @@ type PrecompileExecutor struct {
 	VerifyDiscoveryProofID   []byte
 }
 
-func NewPrecompile(utils.Keepers) (*pcommon.Precompile, error) {
+func NewPrecompile(keepers utils.Keepers) (*pcommon.Precompile, error) {
 	newAbi := pcommon.MustGetABI(f, "abi.json")
 	p := &PrecompileExecutor{}
+	if keepers != nil {
+		p.upgrades = pcommon.UpgradeReaderOf(keepers.EVMK())
+	}
 	for name, m := range newAbi.Methods {
 		switch name {
 		case VerifyEd25519Method:
@@ -192,6 +196,9 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, _ commo
 			err = fmt.Errorf("layerxverify: %v", recovered)
 		}
 	}()
+	if pcommon.RetiredAt(ctx, p.upgrades, pcommon.MergeUpgrade, ctx.BlockHeight()) {
+		return pcommon.RetiredRevert("layerxVerify"), vm.ErrExecutionReverted
+	}
 	if err = pcommon.ValidateNonPayable(value); err != nil {
 		return nil, err
 	}

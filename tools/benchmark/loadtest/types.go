@@ -32,7 +32,6 @@ const (
 	Limit                string = "limit"
 	Market               string = "market"
 	WasmMintNft          string = "wasm_mint_nft"
-	UNIV2                string = "univ2"
 	Vortex               string = "vortex"
 	WasmInstantiate      string = "wasm_instantiate"
 	WasmOccIteratorWrite string = "wasm_occ_iterator_write"
@@ -45,9 +44,8 @@ type WasmIteratorWriteMsg struct {
 }
 
 type EVMAddresses struct {
-	ERC20        common.Address
-	ERC721       common.Address
-	UniV2Swapper common.Address
+	ERC20  common.Address
+	ERC721 common.Address
 }
 
 type Config struct {
@@ -75,6 +73,28 @@ type Config struct {
 
 	// These are dynamically set at startup
 	EVMAddresses *EVMAddresses
+}
+
+func (c Config) ValidateMessageTypes() error {
+	valid := map[string]struct{}{
+		Bank: {}, EVM: {}, ERC20: {}, ERC721: {},
+		CollectRewards: {}, DistributeRewards: {},
+		FailureBankMalformed: {}, FailureBankInvalid: {},
+		FailureDexMalformed: {}, FailureDexInvalid: {},
+		Dex: {}, Staking: {}, Tokenfactory: {}, Limit: {}, Market: {},
+		WasmMintNft: {}, Vortex: {}, WasmInstantiate: {},
+		WasmOccIteratorWrite: {}, WasmOccIteratorRange: {}, WasmOccParallelWrite: {},
+	}
+	var unknown []string
+	for _, messageType := range c.MessageTypes {
+		if _, ok := valid[messageType]; !ok {
+			unknown = append(unknown, messageType)
+		}
+	}
+	if len(unknown) > 0 {
+		return fmt.Errorf("unrecognized message types: %q", unknown)
+	}
+	return nil
 }
 
 func (c *Config) EVMRpcEndpoint() string {

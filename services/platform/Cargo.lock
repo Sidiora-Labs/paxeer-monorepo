@@ -1669,11 +1669,14 @@ dependencies = [
 name = "layerx-programs-registry"
 version = "0.1.0"
 dependencies = [
+ "curve25519-dalek",
+ "ed25519-dalek",
  "layerx-program-sdk",
  "layerx-programs-runtime",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
+ "sha2 0.10.9",
 ]
 
 [[package]]

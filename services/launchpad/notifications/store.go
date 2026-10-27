@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	_ "embed"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -227,6 +228,23 @@ func (s Store) SetRead(ctx context.Context, account, id string, read bool) error
 	}
 	return e
 }
+
+const v2_id = "v2_id"
+
+func (s Store) SetReadV2(ctx context.Context, account, id string, read bool) error {
+	if s.DB == nil || account == "" || len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
+		return ErrInvalid
+	}
+	if raw, err := hex.DecodeString(strings.ReplaceAll(id, "-", "")); err != nil || len(raw) != 16 {
+		return ErrInvalid
+	}
+	var key string
+	if err := s.DB.QueryRowContext(ctx, `SELECT id FROM discovery_notifications.inbox WHERE account_id=$1 AND `+v2_id+`=$2::uuid`, account, id).Scan(&key); err != nil {
+		return err
+	}
+	return s.SetRead(ctx, account, key, read)
+}
+
 func erasedAccountKey(account string) string {
 	key := sha256.Sum256([]byte("notification-erased-account-v1\x00" + account))
 	return hex.EncodeToString(key[:])
@@ -286,6 +304,72 @@ func (s Store) List(ctx context.Context, account string, limit int) ([]InboxItem
 		out = append(out, n)
 	}
 	return out, rows.Err()
+}
+
+type InboxPageItem struct {
+	InboxItem
+	V2ID string
+}
+
+type InboxPage struct {
+	Items      []InboxPageItem
+	NextCursor string
+}
+
+func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cursor string, limit int) (InboxPage, error) {
+	if s.DB == nil || account == "" || limit < 1 || limit > 100 || len(cursor) > 256 {
+		return InboxPage{}, ErrInvalid
+	}
+	var after any
+	var afterID string
+	if cursor != "" {
+		raw, err := base64.RawURLEncoding.Strict().DecodeString(cursor)
+		if err != nil || base64.RawURLEncoding.EncodeToString(raw) != cursor {
+			return InboxPage{}, ErrInvalid
+		}
+		stamp, id, ok := strings.Cut(string(raw), "|")
+		createdAt, err := time.Parse(time.RFC3339Nano, stamp)
+		if !ok || err != nil || createdAt.IsZero() || len(id) != 64 {
+			return InboxPage{}, ErrInvalid
+		}
+		if _, err = hex.DecodeString(id); err != nil {
+			return InboxPage{}, ErrInvalid
+		}
+		after, afterID = createdAt, id
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT document,`+v2_id+`::text,created_at,id FROM discovery_notifications.inbox
+		WHERE account_id=$1 AND ($2 = false OR read_at IS NULL)
+		AND ($3::timestamptz IS NULL OR created_at<$3 OR (created_at=$3 AND id>$4))
+		ORDER BY created_at DESC,id LIMIT $5`, account, unreadOnly, after, afterID, limit+1)
+	if err != nil {
+		return InboxPage{}, err
+	}
+	defer rows.Close()
+	page := InboxPage{Items: []InboxPageItem{}}
+	var lastCreatedAt time.Time
+	var lastID string
+	for rows.Next() {
+		var item InboxPageItem
+		var document []byte
+		var createdAt time.Time
+		var id string
+		if err = rows.Scan(&document, &item.V2ID, &createdAt, &id); err != nil {
+			return InboxPage{}, err
+		}
+		if len(page.Items) == limit {
+			page.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(lastCreatedAt.UTC().Format(time.RFC3339Nano) + "|" + lastID))
+			break
+		}
+		if err = json.Unmarshal(document, &item.InboxItem); err != nil {
+			return InboxPage{}, err
+		}
+		page.Items = append(page.Items, item)
+		lastCreatedAt, lastID = createdAt, id
+	}
+	if err = rows.Err(); err != nil {
+		return InboxPage{}, err
+	}
+	return page, nil
 }
 
 var _ Repository = Store{}

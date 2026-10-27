@@ -34,6 +34,24 @@ func (s *msgServer) UpdateParams(goCtx context.Context, msg *types.MsgUpdatePara
 	if msg.Params.CollateralToken != before.CollateralToken {
 		return nil, fmt.Errorf("%w: collateral token cannot change", types.ErrInvalidParams)
 	}
+	if msg.Params.MaxOpenOrdersPerAccount < before.MaxOpenOrdersPerAccount {
+		iterator := sdk.KVStorePrefixIterator(s.keeper.store(cacheCtx), types.AccountPrefix)
+		defer iterator.Close()
+		var largestOpenOrderCount uint64
+		for ; iterator.Valid(); iterator.Next() {
+			var account types.Account
+			if err := account.Unmarshal(iterator.Value()); err != nil {
+				return nil, fmt.Errorf("%w: corrupt account: %v", types.ErrInvalidParams, err)
+			}
+			if account.OpenOrderCount > largestOpenOrderCount {
+				largestOpenOrderCount = account.OpenOrderCount
+			}
+		}
+		if msg.Params.MaxOpenOrdersPerAccount < largestOpenOrderCount {
+			return nil, fmt.Errorf("%w: max open orders per account %d below live count %d",
+				types.ErrInvalidParams, msg.Params.MaxOpenOrdersPerAccount, largestOpenOrderCount)
+		}
+	}
 	cacheCtx.EventManager().EmitEvent(sdk.NewEvent("perps_params_updated",
 		sdk.NewAttribute("authority", msg.Authority)))
 	write()

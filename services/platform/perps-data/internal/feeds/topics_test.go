@@ -1,8 +1,15 @@
 package feeds
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"log/slog"
 	"math/big"
+	"net/http"
+	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 	"time"
 
@@ -170,5 +177,131 @@ WHERE convert_from(envelope, 'UTF8')::jsonb #>> '{source_order,height}' = '2' OR
 	got := decodeJSON[map[string]any](t, sold[0].Data)
 	if got["symbol"] != "SID" || got["side"] != "SELL" || got["price"] != 1.5 || got["size"] != 2.0 {
 		t.Fatalf("SID trade %v", got)
+	}
+}
+
+func TestTopicsReloadMarkets(t *testing.T) {
+	db := openDB(t)
+	ctx := context.Background()
+	exec(t, db, `DELETE FROM perps.markets WHERE symbol = 'PAX'`)
+	registerTokens(t, db)
+	m, err := telemetry.New(config.Gateway)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var logs bytes.Buffer
+	p, err := NewProviders(ctx, db, slog.New(slog.NewTextHandler(&logs, nil)), m)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var count int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM perps.markets`).Scan(&count); err != nil {
+		t.Fatal(err)
+	}
+	checkGauge := func(want int) {
+		t.Helper()
+		w := httptest.NewRecorder()
+		m.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/metrics", nil))
+		if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "# TYPE perps_gateway_markets gauge\n") ||
+			!strings.Contains(w.Body.String(), fmt.Sprintf("\nperps_gateway_markets %d\n", want)) {
+			t.Fatalf("GET /metrics = %d %s; want market gauge %d", w.Code, w.Body.String(), want)
+		}
+	}
+	checkTopics := func(sym string) {
+		t.Helper()
+		want := []string{sym + "@perp_orderbook", sym + "@perp_trade", sym + "@perp_stats"}
+		if sym == "PAX" {
+			want = append(want, sym+"@orderbook", sym+"@trade", sym+"@stats")
+		}
+		if got, ok := p.SocketTopics("/ws/" + strings.ToLower(sym)); !ok || !reflect.DeepEqual(got, want) {
+			t.Fatalf("socket topics for %s = %v, %v; want %v", sym, got, ok, want)
+		}
+		for _, topic := range append(want, sym+"@market") {
+			if !p.Served(topic) {
+				t.Fatalf("%s is not served after reload", topic)
+			}
+			p.Subscribed(topic)
+			if err := p.Load(ctx, topic); err != nil {
+				t.Fatalf("load %s after reload: %v", topic, err)
+			}
+			body, ok := p.Held(topic)
+			if !ok || decodeJSON[map[string]any](t, body)["symbol"] != sym {
+				t.Fatalf("held %s = %s, %v", topic, body, ok)
+			}
+			p.Unsubscribed(topic)
+		}
+	}
+	checkGauge(count)
+	t0 := time.Now()
+	p.tick(ctx, t0)
+	for i, market := range []struct{ symbol, id string }{
+		{"DOGE", "18"}, {"LARGE", "18446744073709551616"}, {"PAX", "11"},
+	} {
+		sym := market.symbol
+		if p.Served(sym + "@market") {
+			t.Fatalf("%s unexpectedly served before insertion", sym)
+		}
+		if _, err := p.markets.Load().symbol.PerpStats(ctx, sym); err == nil {
+			t.Fatalf("symbol reader accepted unlisted %s succeeded", sym)
+		}
+		exec(t, db, `INSERT INTO perps.markets
+			(market_id, symbol, name, oracle_symbol, sz_decimals, px_decimals, max_leverage,
+			maintenance_margin_bps, max_open_interest, enabled, source, refreshed_block)
+			VALUES ($1, $2, $2, $2, 2, 4, 1000, 5, 1000000, true, 'chain', 1)`, market.id, sym)
+		next := t0.Add(time.Duration(i+1) * MarketInterval)
+		p.tick(ctx, next.Add(-time.Nanosecond))
+		if p.Served(sym + "@market") {
+			t.Fatalf("%s served before MarketInterval elapsed", sym)
+		}
+		checkGauge(count + i)
+		frames := p.tick(ctx, next)
+		all := only(frames, TopicMarketsAll)
+		if len(all) != 1 || len(decodeJSON[[]map[string]any](t, all[0].Data)) != count+i+1 {
+			t.Fatalf("markets@all did not include %s: %v", sym, all)
+		}
+		checkTopics(sym)
+		checkGauge(count + i + 1)
+	}
+	if logs.Len() != 0 {
+		t.Fatalf("successful reload logged errors: %s", logs.String())
+	}
+	exec(t, db, `ALTER TABLE perps.markets RENAME TO markets_saved`)
+	exec(t, db, `CREATE TABLE perps.markets (LIKE perps.markets_saved INCLUDING ALL)`)
+	if _, err := NewProviders(ctx, db, nil); err == nil || err.Error() != "feeds: perps.markets is empty" {
+		t.Fatalf("first empty load = %v; want empty-set error", err)
+	}
+	p.tick(ctx, t0.Add(4*MarketInterval))
+	if strings.Count(logs.String(), "feeds: reload markets") != 1 || strings.Count(logs.String(), "\n") != 1 {
+		t.Fatalf("empty reload should log once: %s", logs.String())
+	}
+	if !p.Served("DOGE@market") || !p.Served("LARGE@perp_trade") {
+		t.Fatal("empty reload discarded the previous market set")
+	}
+	checkGauge(count + 3)
+	exec(t, db, `DROP TABLE perps.markets`)
+	logs.Reset()
+	if _, err := NewProviders(ctx, db, nil); err == nil {
+		t.Fatal("first failed read succeeded")
+	}
+	p.tick(ctx, t0.Add(5*MarketInterval))
+	if strings.Count(logs.String(), "feeds: reload markets") != 1 || strings.Count(logs.String(), "\n") != 1 {
+		t.Fatalf("failed reload should log once: %s", logs.String())
+	}
+	if !p.Served("DOGE@market") || !p.Served("LARGE@perp_orderbook") {
+		t.Fatal("failed reload discarded the previous market set")
+	}
+	checkGauge(count + 3)
+	exec(t, db, `ALTER TABLE perps.markets_saved RENAME TO markets`)
+	logs.Reset()
+	p.tick(ctx, t0.Add(6*MarketInterval))
+	if logs.Len() != 0 {
+		t.Fatalf("recovered reload logged errors: %s", logs.String())
+	}
+	checkTopics("DOGE")
+	checkTopics("LARGE")
+	checkTopics("PAX")
+	checkGauge(count + 3)
+	if _, err := NewProviders(ctx, db, nil, m); err == nil {
+		t.Fatal("duplicate market gauge registration succeeded")
 	}
 }

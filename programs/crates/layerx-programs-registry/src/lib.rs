@@ -3,6 +3,7 @@
 mod account_state;
 mod archive;
 mod authority;
+pub mod chain_proof;
 mod deprecate;
 mod hash;
 pub mod hex;
