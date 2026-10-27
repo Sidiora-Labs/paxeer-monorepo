@@ -32,6 +32,7 @@ export interface MsgAssociateResponse extends MsgAssociateResponse_type {
 export interface MsgClaim extends MsgClaim_type {
 }
 export interface Asset extends Asset_type {
+    denom: string;
 }
 export interface MsgClaimSpecific extends MsgClaimSpecific_type {
 }
@@ -212,10 +213,12 @@ export declare const aminoConverters: {
         toAmino: (message: Asset) => {
             asset_type: import("../../types/evm").AssetType;
             contract_address: string;
+            denom: string;
         };
         fromAmino: (object: Asset) => {
             asset_type: import("../../types/evm").AssetType;
             contract_address: string;
+            denom: string;
         };
     };
     "/paxprotocol.paxchain.evm.MsgClaimSpecific": {
