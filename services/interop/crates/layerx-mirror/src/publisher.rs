@@ -15,7 +15,7 @@ use layerx_wire::receipt::{
 };
 use sha2::{Digest, Sha256};
 
-use crate::committed::CommittedBlock;
+use crate::committed::{CommittedBlock, CommittedCoordinate};
 
 const ARCHIVE_MAGIC: &[u8; 8] = b"LXMIRROR";
 const ARCHIVE_VERSION: u16 = 2;
@@ -43,28 +43,21 @@ impl ArchiveCommitment {
     }
 }
 
-/// Latest checkpoint known at the `LayerX` node boundary.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct CheckpointCoordinate {
-    pub batch_number: u64,
-    pub checkpoint_id: [u8; 32],
-}
-
 /// Latest sealed/finalised coordinates observed through the node boundary.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NodeHead {
     pub latest_sealed_batch: u64,
-    pub latest_finalised_checkpoint: Option<CheckpointCoordinate>,
+    pub latest_committed: Option<CommittedCoordinate>,
 }
 
 impl NodeHead {
     pub(crate) const fn new(
         sealed_height: u64,
-        committed_checkpoint: Option<CheckpointCoordinate>,
+        committed_coordinate: Option<CommittedCoordinate>,
     ) -> Self {
         Self {
             latest_sealed_batch: sealed_height,
-            latest_finalised_checkpoint: committed_checkpoint,
+            latest_committed: committed_coordinate,
         }
     }
 
@@ -72,8 +65,8 @@ impl NodeHead {
         self.latest_sealed_batch
     }
 
-    pub(crate) const fn committed_checkpoint(self) -> Option<CheckpointCoordinate> {
-        self.latest_finalised_checkpoint
+    pub(crate) const fn committed_coordinate(self) -> Option<CommittedCoordinate> {
+        self.latest_committed
     }
 }
 
@@ -190,7 +183,7 @@ impl From<&AvailabilityRecords> for ArchivedRecords {
 /// Exact finalised checkpoint certificate retained with the archive.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ArchivedCheckpoint {
-    pub coordinate: CheckpointCoordinate,
+    pub coordinate: CommittedCoordinate,
     pub canonical_certificate: Vec<u8>,
 }
 
@@ -236,6 +229,14 @@ pub struct ArchiveData {
 }
 
 impl ArchiveData {
+    #[must_use]
+    pub fn committed_coordinate(&self) -> Option<CommittedCoordinate> {
+        self.committed.as_ref().map(|block| CommittedCoordinate {
+            height: self.batch_number,
+            block_hash: block.block_hash,
+        })
+    }
+
     /// Decodes and verifies archive framing, canonical headers, chunk hashes,
     /// availability and record roots, and checkpoint certificate encoding.
     ///
@@ -378,9 +379,9 @@ impl ArchiveData {
         let checkpoint = match reader.u8()? {
             0 => None,
             1 => {
-                let coordinate = CheckpointCoordinate {
-                    batch_number: reader.u64()?,
-                    checkpoint_id: reader.array()?,
+                let coordinate = CommittedCoordinate {
+                    height: reader.u64()?,
+                    block_hash: reader.array()?,
                 };
                 let canonical_certificate = reader.bytes(MAX_FIELD_BYTES)?;
                 let certificate = decode_checkpoint(&canonical_certificate)
@@ -397,8 +398,8 @@ impl ArchiveData {
                 if reproduced != canonical_certificate
                     || certificate_header.protocol_version() != protocol_version
                     || certificate_header.network_id() != network_id
-                    || certificate_header.batch_number() != coordinate.batch_number
-                    || computed_id != coordinate.checkpoint_id
+                    || certificate_header.batch_number() != coordinate.height
+                    || computed_id != coordinate.block_hash
                 {
                     return Err(ArchiveError::Checkpoint);
                 }
@@ -460,8 +461,8 @@ impl ArchiveData {
         writer.records(&self.records.oracle_inputs)?;
         if let Some(checkpoint) = &self.checkpoint {
             writer.u8(1)?;
-            writer.u64(checkpoint.coordinate.batch_number)?;
-            writer.raw(&checkpoint.coordinate.checkpoint_id)?;
+            writer.u64(checkpoint.coordinate.height)?;
+            writer.raw(&checkpoint.coordinate.block_hash)?;
             writer.bytes(&checkpoint.canonical_certificate)?;
         } else {
             writer.u8(0)?;
@@ -492,8 +493,8 @@ impl Archive {
             return Err(SourceError::HeadBehindBatch);
         }
         if node_head
-            .latest_finalised_checkpoint
-            .is_some_and(|coordinate| coordinate.batch_number > node_head.latest_sealed_batch)
+            .latest_committed
+            .is_some_and(|coordinate| coordinate.height > node_head.latest_sealed_batch)
         {
             return Err(SourceError::HeadBehindCheckpoint);
         }
@@ -523,8 +524,8 @@ impl Archive {
         let data = ArchiveData::decode(&bytes).map_err(SourceError::Archive)?;
         if node_head.sealed_height() < data.batch_number
             || node_head
-                .committed_checkpoint()
-                .is_some_and(|checkpoint| checkpoint.batch_number > node_head.sealed_height())
+                .committed_coordinate()
+                .is_some_and(|checkpoint| checkpoint.height > node_head.sealed_height())
         {
             return Err(SourceError::HeadBehindBatch);
         }
@@ -583,8 +584,8 @@ impl Archive {
             return Err(SourceError::HeadBehindBatch);
         }
         if node_head
-            .committed_checkpoint()
-            .is_some_and(|coordinate| coordinate.batch_number > node_head.sealed_height())
+            .committed_coordinate()
+            .is_some_and(|coordinate| coordinate.height > node_head.sealed_height())
         {
             return Err(SourceError::HeadBehindCheckpoint);
         }
@@ -604,7 +605,7 @@ impl Archive {
         let archived_checkpoint = checkpoint
             .map(|material| {
                 let network_id = header.network_id();
-                let head = node_head.committed_checkpoint();
+                let head = node_head.committed_coordinate();
                 if material.read.achieved_rung < Rung::Committed {
                     return Err(SourceError::CheckpointVerificationLevel);
                 }
@@ -661,14 +662,14 @@ impl Archive {
                 if checkpoint_id != canonical_checkpoint_id {
                     return Err(SourceError::CheckpointMismatch);
                 }
-                let coordinate = CheckpointCoordinate {
-                    batch_number: material.verification.batch_number(),
-                    checkpoint_id,
+                let coordinate = CommittedCoordinate {
+                    height: material.verification.batch_number(),
+                    block_hash: checkpoint_id,
                 };
                 let head = head.ok_or(SourceError::HeadBehindCheckpoint)?;
-                if coordinate.batch_number > head.batch_number
-                    || (coordinate.batch_number == head.batch_number
-                        && coordinate.checkpoint_id != head.checkpoint_id)
+                if coordinate.height > head.height
+                    || (coordinate.height == head.height
+                        && coordinate.block_hash != head.block_hash)
                 {
                     return Err(SourceError::CheckpointMismatch);
                 }
@@ -1101,7 +1102,7 @@ pub struct EthereumArchiveWrite<'a> {
     pub commitment: ArchiveCommitment,
     pub network_id: u32,
     pub batch_number: u64,
-    pub checkpoint: Option<CheckpointCoordinate>,
+    pub checkpoint: Option<CommittedCoordinate>,
     pub archive: &'a [u8],
 }
 
@@ -1114,7 +1115,7 @@ pub struct SolanaArchiveWrite<'a> {
     pub commitment: ArchiveCommitment,
     pub network_id: u32,
     pub batch_number: u64,
-    pub checkpoint: Option<CheckpointCoordinate>,
+    pub checkpoint: Option<CommittedCoordinate>,
     pub archive: &'a [u8],
 }
 
@@ -1239,17 +1240,17 @@ pub enum ChainFailure {
 #[derive(Clone, Copy, Debug, Default, Eq, PartialEq)]
 pub struct MirrorCursor {
     pub latest_batch: Option<u64>,
-    pub latest_checkpoint: Option<CheckpointCoordinate>,
+    pub latest_committed: Option<CommittedCoordinate>,
 }
 
-/// Explicit checkpoint freshness relative to the latest node observation.
+/// Explicit committed freshness relative to the latest node observation.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum CheckpointFreshness {
-    NodeHasNoCheckpoint,
+pub enum CommittedFreshness {
+    NodeHasNoCommittedBlock,
     Current,
-    NotYetMirrored { target_batch: u64 },
-    Behind { batch_lag: u64 },
-    DifferentAtBatch { batch_number: u64 },
+    NotYetMirrored { target_height: u64 },
+    Behind { block_lag: u64 },
+    DifferentAtHeight { height: u64 },
 }
 
 /// Per-chain mirror freshness, never inferred from the other mirror.
@@ -1258,38 +1259,38 @@ pub struct MirrorFreshness {
     pub node_latest_sealed_batch: u64,
     pub latest_batch_mirrored: Option<u64>,
     pub batch_lag: u64,
-    pub node_latest_finalised_checkpoint: Option<CheckpointCoordinate>,
-    pub latest_checkpoint_mirrored: Option<CheckpointCoordinate>,
-    pub checkpoint: CheckpointFreshness,
+    pub node_latest_committed: Option<CommittedCoordinate>,
+    pub latest_committed_mirrored: Option<CommittedCoordinate>,
+    pub committed: CommittedFreshness,
 }
 
 impl MirrorFreshness {
-    fn new(cursor: MirrorCursor, node: NodeHead) -> Self {
+    pub fn new(cursor: MirrorCursor, node: NodeHead) -> Self {
         let batch_lag = node
             .sealed_height()
             .saturating_sub(cursor.latest_batch.unwrap_or(0));
-        let checkpoint = match (node.committed_checkpoint(), cursor.latest_checkpoint) {
-            (None, _) => CheckpointFreshness::NodeHasNoCheckpoint,
-            (Some(target), None) => CheckpointFreshness::NotYetMirrored {
-                target_batch: target.batch_number,
+        let committed = match (node.committed_coordinate(), cursor.latest_committed) {
+            (None, _) => CommittedFreshness::NodeHasNoCommittedBlock,
+            (Some(target), None) => CommittedFreshness::NotYetMirrored {
+                target_height: target.height,
             },
-            (Some(target), Some(current)) if target == current => CheckpointFreshness::Current,
-            (Some(target), Some(current)) if current.batch_number < target.batch_number => {
-                CheckpointFreshness::Behind {
-                    batch_lag: target.batch_number - current.batch_number,
+            (Some(target), Some(current)) if target == current => CommittedFreshness::Current,
+            (Some(target), Some(current)) if current.height < target.height => {
+                CommittedFreshness::Behind {
+                    block_lag: target.height - current.height,
                 }
             }
-            (Some(target), Some(current)) => CheckpointFreshness::DifferentAtBatch {
-                batch_number: current.batch_number.max(target.batch_number),
+            (Some(target), Some(current)) => CommittedFreshness::DifferentAtHeight {
+                height: current.height.max(target.height),
             },
         };
         Self {
             node_latest_sealed_batch: node.sealed_height(),
             latest_batch_mirrored: cursor.latest_batch,
             batch_lag,
-            node_latest_finalised_checkpoint: node.committed_checkpoint(),
-            latest_checkpoint_mirrored: cursor.latest_checkpoint,
-            checkpoint,
+            node_latest_committed: node.committed_coordinate(),
+            latest_committed_mirrored: cursor.latest_committed,
+            committed,
         }
     }
 }
@@ -1405,11 +1406,7 @@ impl<C: EthereumArchiveClient> EthereumPublisher<C> {
                 commitment,
                 network_id: archive.data.network_id,
                 batch_number: archive.data.batch_number,
-                checkpoint: archive
-                    .data
-                    .checkpoint
-                    .as_ref()
-                    .map(|value| value.coordinate),
+                checkpoint: archive.data.committed_coordinate(),
                 archive: archive.bytes(),
             };
             match self.client.append(request) {
@@ -1575,11 +1572,7 @@ impl<C: SolanaArchiveClient> SolanaPublisher<C> {
                 commitment,
                 network_id: archive.data.network_id,
                 batch_number: archive.data.batch_number,
-                checkpoint: archive
-                    .data
-                    .checkpoint
-                    .as_ref()
-                    .map(|value| value.coordinate),
+                checkpoint: archive.data.committed_coordinate(),
                 archive: archive.bytes(),
             };
             match self.client.append(request) {
@@ -1729,14 +1722,14 @@ impl<C: SolanaArchiveClient> SolanaPublisher<C> {
 #[derive(Clone, Copy)]
 struct MirrorCoordinate {
     batch_number: u64,
-    checkpoint: Option<CheckpointCoordinate>,
+    committed: Option<CommittedCoordinate>,
 }
 
 impl MirrorCoordinate {
     fn from_archive(archive: &ArchiveData) -> Self {
         Self {
             batch_number: archive.batch_number,
-            checkpoint: archive.checkpoint.as_ref().map(|value| value.coordinate),
+            committed: archive.committed_coordinate(),
         }
     }
 }
@@ -1745,13 +1738,13 @@ fn cursor_from_confirmed(
     confirmed: &BTreeMap<ArchiveCommitment, MirrorCoordinate>,
 ) -> MirrorCursor {
     let latest_batch = confirmed.values().map(|value| value.batch_number).max();
-    let latest_checkpoint = confirmed
+    let latest_committed = confirmed
         .values()
-        .filter_map(|value| value.checkpoint)
-        .max_by_key(|coordinate| coordinate.batch_number);
+        .filter_map(|value| value.committed)
+        .max_by_key(|coordinate| coordinate.height);
     MirrorCursor {
         latest_batch,
-        latest_checkpoint,
+        latest_committed,
     }
 }
 
@@ -2101,8 +2094,7 @@ impl ProgressGate {
     }
 }
 
-/// Latest batch and latest checkpoint carried by any verified spooled archive.
-/// Batches without checkpoint evidence never move the checkpoint coordinate.
+/// Latest batch and committed coordinate carried by verified spooled archives.
 #[must_use]
 pub fn verified_cursor(archives: &[Archive]) -> MirrorCursor {
     MirrorCursor {
@@ -2110,27 +2102,26 @@ pub fn verified_cursor(archives: &[Archive]) -> MirrorCursor {
             .iter()
             .map(|archive| archive.data.batch_number)
             .max(),
-        latest_checkpoint: archives
+        latest_committed: archives
             .iter()
-            .filter_map(|archive| archive.data.checkpoint.as_ref())
-            .map(|checkpoint| checkpoint.coordinate)
-            .max_by_key(|coordinate| coordinate.batch_number),
+            .filter_map(|archive| archive.data.committed_coordinate())
+            .max_by_key(|coordinate| coordinate.height),
     }
 }
 
-/// Re-reads the archive that carries the journal's latest mirrored checkpoint
+/// Re-reads the archive that carries the journal's latest mirrored committed block
 /// and accepts the journal cursor only when the chain returns exactly it.
 ///
 /// # Errors
 /// Returns a typed refusal when the archive is not spooled, the chain read
 /// fails, or the chain copy is absent, different, malformed or carries a
-/// different checkpoint coordinate.
+/// different committed coordinate.
 pub fn reconcile_journal<E>(
     journal: MirrorCursor,
     archives: &[Archive],
     retrieve: impl FnOnce(ArchiveCommitment) -> MirrorRetrieval<E>,
 ) -> Result<(), ReconcileRefusal> {
-    let Some(expected) = journal.latest_checkpoint else {
+    let Some(expected) = journal.latest_committed else {
         return Ok(());
     };
     let latest_batch = journal
@@ -2140,11 +2131,7 @@ pub fn reconcile_journal<E>(
         .iter()
         .filter(|archive| {
             archive.data.batch_number <= latest_batch
-                && archive
-                    .data
-                    .checkpoint
-                    .as_ref()
-                    .is_some_and(|checkpoint| checkpoint.coordinate == expected)
+                && archive.data.committed_coordinate() == Some(expected)
         })
         .max_by_key(|archive| archive.data.batch_number)
         .ok_or(ReconcileRefusal::ArchiveUnavailable)?;
@@ -2157,14 +2144,14 @@ pub fn reconcile_journal<E>(
 fn verify_reconciled(
     commitment: ArchiveCommitment,
     expected_bytes: &[u8],
-    expected: CheckpointCoordinate,
+    expected: CommittedCoordinate,
     retrieved: &[u8],
 ) -> Result<(), ReconcileRefusal> {
     if archive_commitment(retrieved) != commitment || retrieved != expected_bytes {
         return Err(ReconcileRefusal::CommitmentMismatch);
     }
     let decoded = ArchiveData::decode(retrieved).map_err(|_| ReconcileRefusal::Malformed)?;
-    if decoded.checkpoint.map(|checkpoint| checkpoint.coordinate) == Some(expected) {
+    if decoded.committed_coordinate() == Some(expected) {
         Ok(())
     } else {
         Err(ReconcileRefusal::CommittedMismatch)
@@ -2178,7 +2165,7 @@ mod tests {
 
     use super::{
         archive_commitment, reconcile_journal, verified_cursor, verify_reconciled, Archive,
-        ArchiveCommitment, ArchiveData, ArchiveError, ArchivedCommittedBlock, CheckpointCoordinate,
+        ArchiveCommitment, ArchiveData, ArchiveError, ArchivedCommittedBlock, CommittedCoordinate,
         MirrorCursor, MirrorRetrieval, NodeHead, ProgressGate, ReconcileRefusal, SourceError,
     };
 
@@ -2238,7 +2225,7 @@ mod tests {
     fn committed_head() -> NodeHead {
         NodeHead {
             latest_sealed_batch: 7,
-            latest_finalised_checkpoint: None,
+            latest_committed: None,
         }
     }
 
@@ -2321,15 +2308,15 @@ mod tests {
         );
     }
 
-    const CHECKPOINT: CheckpointCoordinate = CheckpointCoordinate {
-        batch_number: 4,
-        checkpoint_id: [7; 32],
+    const CHECKPOINT: CommittedCoordinate = CommittedCoordinate {
+        height: 4,
+        block_hash: [7; 32],
     };
 
     fn journal() -> MirrorCursor {
         MirrorCursor {
             latest_batch: Some(5),
-            latest_checkpoint: Some(CHECKPOINT),
+            latest_committed: Some(CHECKPOINT),
         }
     }
 
@@ -2341,7 +2328,7 @@ mod tests {
     fn a_journal_without_checkpoint_needs_no_chain_read() {
         let journal = MirrorCursor {
             latest_batch: Some(3),
-            latest_checkpoint: None,
+            latest_committed: None,
         };
         assert_eq!(reconcile_journal(journal, &[], unreachable_chain), Ok(()));
     }
@@ -2354,7 +2341,7 @@ mod tests {
         );
         let no_batch = MirrorCursor {
             latest_batch: None,
-            latest_checkpoint: Some(CHECKPOINT),
+            latest_committed: Some(CHECKPOINT),
         };
         assert_eq!(
             reconcile_journal(no_batch, &[], unreachable_chain),
@@ -2385,7 +2372,7 @@ mod tests {
         let mut gate = ProgressGate::new();
         let plain = MirrorCursor {
             latest_batch: Some(3),
-            latest_checkpoint: None,
+            latest_committed: None,
         };
         let progress = gate.acknowledge(plain, &[], unreachable_chain);
         assert_eq!(progress.mirrored, plain);
