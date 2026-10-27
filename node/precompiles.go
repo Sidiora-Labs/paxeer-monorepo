@@ -4,9 +4,12 @@ import (
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	launchpadv610keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	layerxagentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	layerxexchangekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/keeper"
+	layerxpaykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	perpskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/keeper"
 	pricefeedkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/keeper"
 	spotkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
@@ -45,6 +48,9 @@ type PrecompileKeepers struct {
 	layerxCustody   *layerxcustodykeeper.Keeper
 	layerxExchange  *layerxexchangekeeper.Keeper
 	layerxBridge    *layerxbridgekeeper.Keeper
+	layerxPay       *layerxpaykeeper.Keeper
+	layerxAgent     *layerxagentkeeper.Keeper
+	layerxHost      *lxphost.Host
 	launchpad       *launchpadkeeper.Keeper
 	launchpadV610   *launchpadv610keeper.Keeper
 	xweb            *xwebkeeper.Keeper
@@ -76,6 +82,9 @@ func NewPrecompileKeepers(a *App) *PrecompileKeepers {
 		layerxCustody:      a.LayerXCustodyKeeper,
 		layerxExchange:     a.LayerXExchangeKeeper,
 		layerxBridge:       &a.LayerXBridgeKeeper,
+		layerxPay:          a.LayerXPayKeeper,
+		layerxAgent:        &a.LayerXAgentKeeper.Keeper,
+		layerxHost:         a.LayerXHost,
 		launchpad:          a.LaunchpadKeeper,
 		launchpadV610: launchpadv610keeper.NewKeeper(a.GetKey(launchpadtypes.StoreKey), a.BankKeeper,
 			tokenfactorykeeper.NewMsgServerImpl(a.TokenFactoryKeeper), &a.EvmKeeper),
@@ -113,6 +122,12 @@ func (pk *PrecompileKeepers) LayerXExchangeK() *layerxexchangekeeper.Keeper {
 func (pk *PrecompileKeepers) LayerXBridgeK() *layerxbridgekeeper.Keeper {
 	return pk.layerxBridge
 }
+func (pk *PrecompileKeepers) LayerXPayK() *layerxpaykeeper.Keeper {
+	return pk.layerxPay
+}
+func (pk *PrecompileKeepers) LayerXAgentK() *layerxagentkeeper.Keeper {
+	return pk.layerxAgent
+}
 func (pk *PrecompileKeepers) LaunchpadK() *launchpadkeeper.Keeper {
 	return pk.launchpad
 }
@@ -126,6 +141,10 @@ func (pk *PrecompileKeepers) LaunchpadV610K() *launchpadv610keeper.Keeper {
 // XWebK hands the xweb precompile the application's xweb keeper.
 func (pk *PrecompileKeepers) XWebK() *xwebkeeper.Keeper {
 	return pk.xweb
+}
+
+func (pk *PrecompileKeepers) LayerXHost() *lxphost.Host {
+	return pk.layerxHost
 }
 
 // PerpsK hands the perps precompile the application's perps keeper.
