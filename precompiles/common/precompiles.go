@@ -43,12 +43,14 @@ type PrecompileExecutor interface {
 
 type Precompile struct {
 	abi.ABI
-	address  common.Address
-	name     string
-	executor PrecompileExecutor
-	reasons  bool
-	lxp      bool
-	gas      GasTable
+	address    common.Address
+	name       string
+	executor   PrecompileExecutor
+	reasons    bool
+	lxp        bool
+	gas        GasTable
+	retirePlan string
+	retired    map[string]bool
 }
 
 // MethodGas is one row of a fixed per-method gas table: the KV read or write
@@ -113,6 +115,15 @@ func (p *Precompile) WithLXPReasons() *Precompile {
 // method without a row instead of charging a default.
 func (p *Precompile) WithGasTable(table GasTable) *Precompile {
 	p.gas = table
+	return p
+}
+
+func (p *Precompile) WithRetirement(plan string, methods ...string) *Precompile {
+	p.retirePlan = plan
+	p.retired = make(map[string]bool, len(methods))
+	for _, method := range methods {
+		p.retired[method] = true
+	}
 	return p
 }
 
@@ -185,21 +196,36 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 func (p Precompile) Run(evm *vm.EVM, caller common.Address, callingContract common.Address, input []byte, value *big.Int, readOnly bool, isFromDelegateCall bool, hooks *tracing.Hooks) (bz []byte, err error) {
 	operation := fmt.Sprintf("%s_unknown", p.name)
+	retiredCall := false
 	defer func() {
 		HandlePrecompileError(err, evm, operation)
 		if err != nil {
-			if p.reasons {
+			if p.reasons && !retiredCall {
 				bz = revertData(err, p.lxp)
 			}
 			err = vm.ErrExecutionReverted
 		}
 	}()
-	ctx, method, args, err := p.Prepare(evm, input)
+	ctx, method, err := p.prepareMethod(evm, input)
 	if err != nil {
 		return nil, err
 	}
 
 	operation = method.Name
+	if p.retirePlan != "" && (len(p.retired) == 0 || p.retired[method.Name]) {
+		var reader UpgradeActivationReader
+		if getter, ok := p.executor.(interface{ EVMKeeper() putils.EVMKeeper }); ok {
+			reader = UpgradeReaderOf(getter.EVMKeeper())
+		}
+		if RetiredAt(ctx, reader, p.retirePlan, ctx.BlockHeight()) {
+			retiredCall = true
+			return RetiredRevert(p.name), vm.ErrExecutionReverted
+		}
+	}
+	args, err := method.Inputs.Unpack(input[4:])
+	if err != nil {
+		return nil, err
+	}
 	em := ctx.EventManager()
 	ctx = ctx.WithEventManager(sdk.NewEventManager())
 	ctx = ctx.WithEVMPrecompileCalledFromDelegateCall(isFromDelegateCall)
@@ -224,29 +250,34 @@ func HandlePrecompileError(err error, evm *vm.EVM, operation string) {
 }
 
 func (p Precompile) Prepare(evm *vm.EVM, input []byte) (sdk.Context, *abi.Method, []interface{}, error) {
+	ctx, method, err := p.prepareMethod(evm, input)
+	if err != nil {
+		return sdk.Context{}, nil, nil, err
+	}
+	args, err := method.Inputs.Unpack(input[4:])
+	if err != nil {
+		return sdk.Context{}, nil, nil, err
+	}
+	return ctx, method, args, nil
+}
+
+func (p Precompile) prepareMethod(evm *vm.EVM, input []byte) (sdk.Context, *abi.Method, error) {
 	ctxer := state.GetDBImpl(evm.StateDB)
 	if ctxer == nil {
-		return sdk.Context{}, nil, nil, withLXPCode("LXP_PRECOMPILE_NO_CONTEXT", errors.New("cannot get context from EVM"))
+		return sdk.Context{}, nil, withLXPCode("LXP_PRECOMPILE_NO_CONTEXT", errors.New("cannot get context from EVM"))
 	}
 	methodID, err := ExtractMethodID(input)
 	if err != nil {
-		return sdk.Context{}, nil, nil, err
+		return sdk.Context{}, nil, err
 	}
 	method, err := p.MethodById(methodID)
 	if err != nil {
-		return sdk.Context{}, nil, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", err)
+		return sdk.Context{}, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", err)
 	}
 	if _, ok := p.gas[method.Name]; p.gas != nil && !ok {
-		return sdk.Context{}, nil, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", fmt.Errorf("no method with id: %#x", methodID))
+		return sdk.Context{}, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", fmt.Errorf("no method with id: %#x", methodID))
 	}
-
-	argsBz := input[4:]
-	args, err := method.Inputs.Unpack(argsBz)
-	if err != nil {
-		return sdk.Context{}, nil, nil, err
-	}
-
-	return ctxer.Ctx(), method, args, nil
+	return ctxer.Ctx(), method, nil
 }
 
 func (p Precompile) GetABI() abi.ABI {
