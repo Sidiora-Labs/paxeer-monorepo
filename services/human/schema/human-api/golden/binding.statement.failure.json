@@ -1,9 +1,9 @@
 {
-  "status": 409,
+  "status": 410,
   "body": {
     "ok": false,
     "error": {
-      "code": "conflict",
+      "code": "operation-retired",
       "copy_key": "error.wallet.link-in-progress",
       "retry": "structural"
     },

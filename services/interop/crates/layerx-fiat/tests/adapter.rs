@@ -4,26 +4,29 @@
 //! the exact token bytes the card-data boundary must accept or refuse, and
 //! `journeys.json` holds one provider-evidence journey per record. Every
 //! record runs through the production `TokenReference`, `VerifiedProviderFacts`
-//! and `FiatAdapter` types. The canonical receipt an executed journey needs is
-//! signed here from the record's own key seed, because a receipt signature is a
-//! live signer's output over canonical bytes and cannot be a literal.
+//! and `FiatAdapter` types. Settlement also exercises the recorded sequencer
+//! receipt and its pinned signing key; journey-specific receipts are signed
+//! from each vector's key seed.
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_fiat::{
-    fiat_adapter_descriptor, EvidenceClass, ExecutedFiatOutcome, ExternalId, FiatAdapter,
-    FiatError, FiatIntent, FiatJourneyState, FiatPlane, FiatPlaneResult, FiatRail,
-    PlaneFiatOutcome, ProviderEvidence, ProviderVerifier, TokenReference, VerifiedProviderFacts,
+    fiat_adapter_descriptor, EvidenceClass, ExternalId, FiatAdapter, FiatError, FiatIntent,
+    FiatJourneyState, FiatPlane, FiatPlaneResult, FiatRail, PlaneFiatOutcome, ProviderEvidence,
+    ProviderVerifier, TokenReference, VerifiedProviderFacts,
 };
 use layerx_interop_gateway::adapter::{AdapterId, ConformanceSuite, PinnedSpec, SpecVersion};
 use layerx_interop_gateway::evidence::{
     canonical_receipt_digest, SequencerEvidence, SettlementRung,
 };
+use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::{interop_gateway_core, GatewayCore};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::sequencer_logs::SequencerLog;
 use sha2::{Digest as _, Sha256};
+
+type ExecutedFiatOutcome = layerx_fiat::ExecutedFiatOutcome;
 
 const PERIOD_START: u64 = 1_700_000_000;
 const WINDOW_START: u64 = 200;
@@ -34,6 +37,10 @@ const JOURNEYS_SOURCE: &str = "services/interop/specs/conformance/fiat/journeys.
 const TOKEN_REFERENCES: &str =
     include_str!("../../../specs/conformance/fiat/token-references.json");
 const JOURNEYS: &str = include_str!("../../../specs/conformance/fiat/journeys.json");
+const SEQUENCER_RECEIPTS_SOURCE: &str =
+    "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json";
+const SEQUENCER_RECEIPTS: &str =
+    include_str!("../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");
 
 /// Every vector file of the suite by its path relative to the suite directory,
 /// in the sorted order the deployment renderer walks.
@@ -58,6 +65,90 @@ struct ReceiptFields {
 struct ReceiptMaterial {
     evidence: SequencerEvidence,
     receipt_keys: [SequencerAuthorization; 1],
+}
+
+fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
+    let source = SEQUENCER_RECEIPTS_SOURCE;
+    let fixture: serde_json::Value = serde_json::from_str(SEQUENCER_RECEIPTS)
+        .unwrap_or_else(|error| panic!("{source}: {error}"));
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{source}: receipt cases"))
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .unwrap_or_else(|| panic!("{source}: recorded PaymentExact receipt"));
+    let receipt = &case["receiptJson"];
+    assert_eq!(field(receipt, "rung", source), "receipted");
+    let logs = receipt["logs"]
+        .as_array()
+        .unwrap_or_else(|| panic!("{source}: receipt logs"))
+        .iter()
+        .map(|log| {
+            let topics = log["topics"]
+                .as_array()
+                .unwrap_or_else(|| panic!("{source}: log topics"))
+                .iter()
+                .map(|topic| {
+                    let topic = topic
+                        .as_str()
+                        .and_then(|value| value.strip_prefix("0x"))
+                        .unwrap_or_else(|| panic!("{source}: log topic hex"));
+                    hex_bytes::<32>(topic, source)
+                })
+                .collect();
+            SequencerLog::new(
+                recorded_array(log, "address"),
+                topics,
+                recorded_bytes(log, "data"),
+                u64::from_str_radix(
+                    field(log, "logIndex", source)
+                        .strip_prefix("0x")
+                        .unwrap_or_else(|| panic!("{source}: log index hex")),
+                    16,
+                )
+                .unwrap_or_else(|error| panic!("{source}: log index: {error}")),
+            )
+        })
+        .collect();
+    let pin = &case["pinnedKey"];
+    (
+        ReceiptMaterial {
+            evidence: SequencerEvidence {
+                transaction_hash: recorded_array(receipt, "txHash"),
+                signed_receipt: recorded_bytes(case, "signedReceipt"),
+                logs,
+                rung: SettlementRung::Receipted,
+            },
+            receipt_keys: [SequencerAuthorization::new(
+                recorded_array(pin, "keyId"),
+                recorded_array(pin, "publicKey"),
+                number(pin, "firstHeight", source),
+                number(pin, "lastHeight", source),
+            )],
+        },
+        recorded_array(case, "receiptDigest"),
+    )
+}
+
+fn recorded_bytes(record: &serde_json::Value, name: &str) -> Vec<u8> {
+    let source = SEQUENCER_RECEIPTS_SOURCE;
+    let value = field(record, name, source)
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("{source}: {name} hex prefix"));
+    assert_eq!(value.len() % 2, 0, "{source}: {name} whole bytes");
+    (0..value.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&value[index..index + 2], 16)
+                .unwrap_or_else(|error| panic!("{source}: {name}: {error}"))
+        })
+        .collect()
+}
+
+fn recorded_array<const N: usize>(record: &serde_json::Value, name: &str) -> [u8; N] {
+    recorded_bytes(record, name)
+        .try_into()
+        .unwrap_or_else(|_| panic!("{SEQUENCER_RECEIPTS_SOURCE}: {name} must have {N} bytes"))
 }
 
 fn signed_receipt(
@@ -547,6 +638,81 @@ fn run_journey(record: &serde_json::Value) -> (FiatRail, Option<FiatJourneyState
         );
     }
     (verifier.facts.rail, Some(state))
+}
+
+#[test]
+fn fiat_adapter_suite_settles_on_the_recorded_receipt() {
+    let (material, digest) = recorded_receipt();
+    let executed = ExecutedFiatOutcome {
+        evidence: material.evidence,
+    };
+    assert_eq!(
+        canonical_receipt_digest(&executed.evidence.signed_receipt)
+            .unwrap_or_else(|error| panic!("recorded receipt digest: {error:?}")),
+        digest,
+    );
+    assert_eq!(executed.evidence.logs.len(), 1);
+    let key = executed.evidence.logs[0].topics()[3];
+    let facts = VerifiedProviderFacts {
+        provider: external("recorded-card-provider", SEQUENCER_RECEIPTS_SOURCE),
+        settlement: external("recorded-card-capture", SEQUENCER_RECEIPTS_SOURCE),
+        rail: FiatRail::Card,
+        class: EvidenceClass::Settled,
+        amount: 1_000_000,
+        asset: hex_bytes::<32>(
+            "4e366c1f82bbcb0cfc80b6168346024ca11db454d4b5e93dc7cac57bc5292f28",
+            SEQUENCER_RECEIPTS_SOURCE,
+        ),
+        destination: hex_bytes::<32>(
+            "84ddb3e2af095e5f24fbe8a6d3e161eb9ebae5d2292861f3287f14e0db317985",
+            SEQUENCER_RECEIPTS_SOURCE,
+        ),
+        observed_at: 10,
+        hold_until: None,
+    };
+    let principal = principal("recorded-card-capture");
+    let trace = TraceId::mint([0x18; 16]);
+    let mut gateway = registered_gateway(10);
+    let request = TranslationRequest::new(
+        adapter_id(),
+        TranslationKind::StateChanging,
+        key,
+        ProviderEvidence::new(b"recorded-card-provider-evidence".to_vec())
+            .unwrap_or_else(|error| panic!("provider evidence: {error}"))
+            .digest(),
+    )
+    .unwrap_or_else(|error| panic!("capture request: {error}"));
+    assert_eq!(
+        gateway
+            .begin_translation(&principal, &request, &trace, 11)
+            .unwrap_or_else(|error| panic!("reserve capture: {error}")),
+        TranslationStatus::Pending,
+    );
+    let expected = FiatJourneyState::Credited {
+        receipt_digest: digest,
+    };
+    for now in [12, 13] {
+        assert_eq!(
+            FiatAdapter::settle_evidence(
+                &mut gateway,
+                &principal,
+                key,
+                &facts,
+                &executed.evidence,
+                &material.receipt_keys,
+                &trace,
+                now,
+            )
+            .unwrap_or_else(|error| panic!("settle recorded card capture: {error}")),
+            expected,
+        );
+        assert_eq!(
+            gateway.translation(&principal, key),
+            Some(TranslationStatus::ReceiptVerified {
+                receipt_digest: digest,
+            }),
+        );
+    }
 }
 
 #[test]
