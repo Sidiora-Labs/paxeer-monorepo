@@ -140190,8 +140190,8 @@ symbols = ["budget_refuses_malformed_and_arithmetic_bounds"]
 touches = ["services/agent/crates/layerx-client/tests/lni_abi.rs", "services/agent/crates/layerx-client/tests/lni_handshake.rs", "services/agent/crates/layerx-client/tests/lni_schema.rs", "services/agent/crates/layerx-client/tests/lni_transport.rs", "services/agent/crates/layerx-client/tests/lni_preparation.rs", "services/agent/crates/layerx-client/tests/head_attestation.rs", "services/agent/crates/layerx-client/tests/program_read.rs", "services/agent/crates/layerx-client/tests/simulation_artifacts.rs", "services/agent/crates/layerx-client/examples/go_verifier_vectors.rs", "services/agent/crates/layerx-client/tests/reads.rs", "services/agent/crates/layerx-client/tests/stream.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::budget_refuses_malformed_and_arithmetic_bounds"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact budget_refuses_malformed_and_arithmetic_bounds"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact budget_refuses_malformed_and_arithmetic_bounds"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -140220,8 +140220,8 @@ symbols = ["native_grant_signatures_and_every_committed_field"]
 touches = ["services/agent/crates/layerx-client/src/lni/head_attestation.rs", "services/agent/crates/layerx-client/src/lni/preparation.rs", "services/agent/crates/layerx-client/src/lni/program_read.rs", "services/agent/crates/layerx-client/src/lni/simulate.rs", "services/agent/crates/layerx-client/src/evidence/module_state.rs", "services/agent/crates/layerx-client/src/evidence/asset_record.rs", "services/agent/crates/layerx-client/tests/committed_caps.rs"]
 tests = ["services/agent/crates/layerx-client/tests/committed_caps.rs::native_grant_signatures_and_every_committed_field"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
+build_cmd = "make -C . paxd-native-libs && cc -std=c17 -pedantic -Werror -Wall -Wextra -Wconversion -Wshadow -Wvla -fno-strict-aliasing -ffp-contract=off -O2 -ffunction-sections -fdata-sections -Iinclude -Ibuild/generated tests/qualification/lxp_wallet_caps_vectors.c build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a build/liblayerx.a -Wl,--gc-sections -lcrypto -pthread -ldl -lm -o build/lxp_wallet_caps_vectors && build/lxp_wallet_caps_vectors > build/native-vectors.json && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-client --tests"
+verify_cmd = "env LAYERX_CAPS_VECTORS=$PWD/build/native-vectors.json cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-client --test committed_caps -- --exact native_grant_signatures_and_every_committed_field"
 gate_kind = "existing"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
