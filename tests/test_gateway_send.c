@@ -165,7 +165,7 @@ static int world_init(
     world->payer->has_authority_key = true;
     world->environment = (lxp_send_environment){
         &world->accounts, &world->transfer_asset, 1U,
-        &world->sends, timestamp, 42U, LXP_PROTOCOL_VERSION, NULL
+        &world->sends, timestamp, 42U, LXP_PROTOCOL_VERSION, NULL, false
     };
     world->settlement.assets = &world->assets;
     world->settlement.send_environment = &world->environment;
