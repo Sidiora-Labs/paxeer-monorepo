@@ -8969,3 +8969,9 @@ area = "build"
 symptom = "programs-build fails its vendored checksum step (`failed to calculate checksum of: programs/vendor/cc-1.4.4/src/target/apple.rs`) after a vendor refresh that built cleanly in the tree where it was made"
 cause = "a broad ignore pattern such as programs/.gitignore `/**/target/` also hides vendored crate sources (cc src/target/*.rs) and test fixtures (*.pem, *.key), so the refresh commit silently omits files the crates' .cargo-checksum.json lists"
 do = "a vendor refresh must `git add -f` those paths or carry negation patterns, and must be verified with `cargo build --offline` from a fresh clone, not from the tree that still holds the ignored files"
+
+[gotcha.1874]
+area = "spec"
+symptom = "two tasks that edit one crate both stay blocked: one cannot build because the crate does not compile, and the task that must repair the compile break waits on it (9.23.5/9.23.7 after 13.29.1 removed the FinalityEvidence checkpoint and settlement fields)"
+cause = "the requires edge pointed from the repairer to the other task, while the other task's build compiles the broken crate"
+do = "when two tasks edit one crate and one of them must repair that crate's compile break, point the requires edge from the other task to the repairer; the opposite direction deadlocks both"
