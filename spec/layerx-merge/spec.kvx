@@ -110494,7 +110494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.49.2]
 title = "Repoint the SDK examples generator at the monorepo layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["4.48.5"]
@@ -112653,7 +112653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.11.2]
 title = "Retire the embedded genesis documents of foreign chain ids"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["5.11.1"]
@@ -113326,7 +113326,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.17.2]
 title = "Retire the Layers seal path in favour of SealBatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["5.4.4", "1.22.3"]
@@ -118418,7 +118418,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.1.2]
 title = "Stop printing every failed dynamic-gas precompile call to stdout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["6.0.1", "6.1.1", "6.1.3"]
@@ -118867,7 +118867,8 @@ wiring = ["wiring.J34.4"]
 do_1 = "Build perps.NewPrecompile(keepers) (precompiles/perps/perps.go:130) and pricefeed.NewPrecompile(keepers) (precompiles/pricefeed/pricefeed.go:60) in InitializePrecompiles (precompiles/setup.go:203) and record their names after the layerxexchange entry at precompiles/setup.go:331"
 do_2 = "Record the five spot names of precompiles/spot/spot.go:358-362 through the keeper-free spot ABI accessor of wiring.J34.4 instead of NewPrecompileSet (precompiles/spot/spot.go:328), which needs keepers"
 do_3 = "Keep the \"layerxexchange\" entry for 0x1015 and add \"perps\" for the same address (decision.613); add none of them to the VM tables at precompiles/setup.go:351-370"
-do_4 = "Write TestPrecompileNamesIncludeMarkets in precompiles/names_markets_test.go (planned) reading PrecompileNamesToInfo (precompiles/setup.go:151) after a dry run with utils.EmptyKeepers"
+do_4 = "Write TestPrecompileNamesIncludeMarkets in precompiles/names_markets_test.go (planned) reading PrecompileNamesToInfo (precompiles/setup.go:151) after a dry run of InitializePrecompiles with the real test keepers, testkeeper.EVMTestApp.GetPrecompileKeepers() (testkeeper = tests/testutil/keeper), as precompiles/setup_test.go:56 does"
+do_5 = "Do not pass utils.EmptyKeepers to InitializePrecompiles: since c802cb331 the orob merge constructor (precompiles/layerxagent/orob/merge.go:15-29) registers at init and refuses a keeper set without the EVM keeper with LXP_PRECOMPILE_NO_CONTEXT, so an empty keeper set can never complete the dry run"
 symbols = ["InitializePrecompiles", "PrecompileNamesToInfo", "TestPrecompileNamesIncludeMarkets"]
 touches = ["precompiles/setup.go", "precompiles/names_markets_test.go"]
 tests = ["precompiles/names_markets_test.go::TestPrecompileNamesIncludeMarkets"]
@@ -139357,7 +139358,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.23.7]
 title = "Finalize AI market snapshots and journal records on block commits instead of checkpoints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["9.31.3", "13.29.1"]
@@ -150009,7 +150010,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.5.6]
 title = "Agent action retained submission goes through the pool sequencer endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["12.5.5", "12.7.1"]
@@ -154630,7 +154631,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.7.4]
 title = "Export layerx_programs_event_log_encode over the C ABI"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["13.7.1", "13.7.3"]

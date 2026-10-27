@@ -2381,3 +2381,11 @@ symbol = "lxphost_reset"
 observed = "The first attempt (ccb4b1943 on 1b20d42f3) passed `go build ./modules/layerxexchange/...` and the verifier exited 1 (logs-verify-1.log) on LXP_ERR_MODULE_DISABLED at oracle_test.go:128, because do_3 routes the observation through the hosted kernel, which registers only governance, Programs and asset (host.go:150-157) until 1.24.1 registers perps; host.go is in the touches of 1.23.1, 1.23.3, 1.25.1, 1.26.1 and 2.22.4, so widening would collide."
 assumption = "3.93.1 requires 1.24.1 and is continued from ccb4b1943 once perps is registered, with the observation backed by the host's committed read."
 severity = "blocker"
+
+[finding.6.6.3]
+task = "6.6.3"
+file = "precompiles/names_markets_test.go:41"
+symbol = "TestPrecompileNamesIncludeMarkets"
+observed = "The first and second attempts (1fa86cc00 on 1b20d42f3, 3be20bacb on 7f5fc9cea) passed `go build ./precompiles/` and the verifier exited 1 (logs-verify-1.log) at names_markets_test.go:41 on `merge precompile orob at 0x...0901: LXP_PRECOMPILE_NO_CONTEXT: evm keeper is unavailable`, because do_4 prescribed a dry run with utils.EmptyKeepers while c802cb331 (task 2.37.1) made the orob merge constructor, registered from init, require the EVM keeper; the asserted names and 0x1015/0x1020-0x1025 addresses were never reached."
+assumption = "The dry run uses testkeeper.EVMTestApp.GetPrecompileKeepers() as precompiles/setup_test.go:56 does, and 3be20bacb is continued with only the fixture changed."
+severity = "blocker"
