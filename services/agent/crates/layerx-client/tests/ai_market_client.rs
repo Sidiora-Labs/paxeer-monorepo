@@ -13,7 +13,7 @@ use std::time::Duration;
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_client::ai_market::{
-    AiClientError, ApprovalTerms, CheckpointFinality, DomainStatus, EpochHistoryEntry, EpochStatus,
+    AiClientError, ApprovalTerms, CommitFinality, DomainStatus, EpochHistoryEntry, EpochStatus,
     FinalizedSnapshot, Freshness, HistoricalSource, NativeTerms, ObservedSnapshot, OperationEffect,
     OperationJournal, OperationRecord, OperationRequest, OperationState, Review, ReviewField,
     AUTHORITY_FRESHNESS_HEIGHTS, ENTRYPOINT, GUEST_ABI, NATIVE_CALL_PROTOCOL_VERSION,
@@ -60,8 +60,6 @@ use layerx_programs_ai_market::{
     MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVALUATORS, MAX_EVENT_BYTES, MAX_PAYLOAD_BYTES,
     MAX_STATE_BYTES, MAX_TASKS, MAX_WORKERS,
 };
-use layerx_proof::checkpoint::{Attestation, Certificate, Checkpoint};
-use layerx_proof::settlement::declared_domain;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::program_call::{NativeProgramCall, Resources};
 use layerx_types::vectors::checkpoint::{load_checkpoint_vectors, CheckpointVector};
@@ -322,7 +320,7 @@ fn chunks(state: &[u8], root: [u8; 32], sequence: u64) -> Checked<Vec<(ReadProof
         native_state_root: Digest32::new(root)?,
         observed_sequence: sequence,
         execution_height: EXECUTION_HEIGHT,
-        batch_id: digest(0xBB)?,
+        block_hash: digest(0xBB)?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let length = read_state_chunk(state, &chunk_payload(0, None, 0), &mut out)?;
@@ -340,56 +338,22 @@ fn chunks(state: &[u8], root: [u8; 32], sequence: u64) -> Checked<Vec<(ReadProof
     Ok(bodies)
 }
 
-fn certificate(vector: &CheckpointVector) -> Checked<Certificate> {
-    let domain = declared_domain(&vector.settlement_domain).map_err(setup("domain"))?;
-    let attestations = vector
-        .attestations
-        .iter()
-        .map(|attestation| {
-            Attestation::new(
-                vector.header.protocol_version,
-                vector.header.network_id,
-                domain.settlement().paxeer_chain_id(),
-                domain.settlement().settlement_contract(),
-                vector.header.epoch,
-                vector.expected_digest,
-                vector.expected_digest,
-                attestation.guarantor_id,
-                vector.header.batch_number,
-                vector.header.data_availability_root,
-                attestation.replayed,
-                attestation.data_possessed,
-                attestation.availability_class_mask,
-                attestation.attested_at_ms,
-                attestation.signer,
-                attestation.signature,
-                attestation.signature_v,
-            )
-        })
-        .collect();
-    Ok(Certificate::new(
-        Checkpoint::new(vector.header.bytes.clone(), vector.validity_proof.clone()),
-        attestations,
-        vector.threshold,
-        None,
-    ))
-}
-
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
 }
 
-/// The published accepting checkpoint vector, verified through the declared domain.
-fn fresh() -> Checked<(CheckpointVector, CheckpointFinality)> {
+/// Block commit facts paired with the published state fixture.
+fn fresh() -> Checked<(CheckpointVector, CommitFinality)> {
     let vector = load_checkpoint_vectors(&repo_root())
         .map_err(setup("checkpoint vectors"))?
         .into_iter()
         .find(|vector| vector.case_name == "fresh")
         .ok_or_else(|| Failure::Setup("fresh vector missing".to_owned()))?;
-    let finality = CheckpointFinality::verify(
-        &certificate(&vector)?,
-        &vector.settlement_domain,
-        &vector.expected_digest,
+    let finality = CommitFinality::new(
+        EXECUTION_HEIGHT,
+        vector.expected_digest,
+        vector.header.resulting_state_root,
+        [0xBC; 32],
     )?;
     Ok((vector, finality))
 }
@@ -623,17 +587,15 @@ fn ready<F: Future>(future: F) -> F::Output {
 }
 
 #[test]
-fn a02_snapshot_finalizes_only_with_checkpoint_evidence_for_the_same_root() -> Checked {
+fn a02_snapshot_finalizes_only_with_a_commit_covering_the_observed_height() -> Checked {
     let state = market_with_workers(&[worker(0, 1)?])?;
     let (vector, finality) = fresh()?;
     let root = vector.header.resulting_state_root;
     let sequence = vector.header.last_sequence;
-    assert_eq!(finality.network_id(), NETWORK);
-    assert_eq!(finality.state_root().bytes(), root);
-    assert_eq!(finality.checkpoint().bytes(), vector.expected_digest);
-    assert_eq!(finality.first_sequence(), vector.header.first_sequence);
-    assert_eq!(finality.last_sequence(), sequence);
-    assert_eq!(finality.batch_number(), vector.header.batch_number);
+    assert_eq!(finality.block_height(), EXECUTION_HEIGHT);
+    assert_eq!(finality.block_hash().bytes(), vector.expected_digest);
+    assert_eq!(finality.app_hash().bytes(), root);
+    assert_eq!(finality.store_proof_digest().bytes(), [0xBC; 32]);
 
     let observed = ObservedSnapshot::capture(&chunks(&state, root, sequence)?)?;
     assert_eq!(observed.facts().proof.observed_sequence, sequence);
@@ -641,12 +603,21 @@ fn a02_snapshot_finalizes_only_with_checkpoint_evidence_for_the_same_root() -> C
         observed.clone().finalize(None, 5_000),
         Err(AiClientError::Query(QueryError::FinalityUnavailable))
     );
-    let other_root = ObservedSnapshot::capture(&chunks(&state, [0x77; 32], sequence)?)?;
+    let older = CommitFinality::new(
+        EXECUTION_HEIGHT - 1,
+        finality.block_hash().bytes(),
+        finality.app_hash().bytes(),
+        finality.store_proof_digest().bytes(),
+    )?;
     assert_eq!(
-        other_root.finalize(Some(&finality), 5_000),
+        observed.clone().finalize(Some(&older), 5_000),
         Err(AiClientError::Query(QueryError::BindingMismatch))
     );
-    let uncovered = ObservedSnapshot::capture(&chunks(&state, root, sequence + 1)?)?;
+    let mut later_chunks = chunks(&state, root, sequence)?;
+    for (proof, _) in &mut later_chunks {
+        proof.execution_height = EXECUTION_HEIGHT + 1;
+    }
+    let uncovered = ObservedSnapshot::capture(&later_chunks)?;
     assert_eq!(
         uncovered.finalize(Some(&finality), 5_000),
         Err(AiClientError::Query(QueryError::BindingMismatch))
@@ -656,8 +627,11 @@ fn a02_snapshot_finalizes_only_with_checkpoint_evidence_for_the_same_root() -> C
     let binding = snapshot.binding();
     assert_eq!(binding.rank, FINALIZED_RANK);
     assert_eq!(binding.native_state_root.bytes(), root);
-    assert_eq!(binding.checkpoint.bytes(), vector.expected_digest);
-    assert_eq!(binding.settlement, Presence::Absent);
+    assert_eq!(snapshot.commit(), &finality);
+    assert_eq!(binding.block_height, finality.block_height());
+    assert_eq!(binding.block_hash, finality.block_hash());
+    assert_eq!(binding.app_hash, finality.app_hash());
+    assert_eq!(binding.store_proof_digest, finality.store_proof_digest());
     assert_eq!(binding.observed_sequence, sequence);
     assert_eq!(binding.execution_height, EXECUTION_HEIGHT);
     assert_eq!(binding.market, market()?);
@@ -1141,7 +1115,7 @@ fn a08_lost_ack_resolves_by_exact_resend_receipt_and_checkpoint() -> Checked {
         journal.finalize(&mut record, &finality)?,
         OperationState::Finalized
     );
-    assert_eq!(record.checkpoint(), Some(finality.checkpoint().bytes()));
+    assert_eq!(record.checkpoint(), Some(finality.block_hash().bytes()));
     assert_eq!(record.domain(), DomainStatus::Pending);
     assert_eq!(journal.load(&id, &registry)?, record);
 
