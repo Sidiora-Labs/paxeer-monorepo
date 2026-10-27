@@ -97666,7 +97666,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.2]
 title = "Prove 0x101C is served by the node only after the merge plan"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.4"]
@@ -97697,7 +97697,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.3]
 title = "Prove a governance pause refuses 0x101A writes and 0x101C grants in the node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "5.19.2", "5.19.4", "5.41.2"]
@@ -97727,7 +97727,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.12.4]
 title = "Prove authz MsgExec under LayerXScopeAuthorization is refused after a kernel revoke"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["2.0.2", "2.8.2", "5.14.3", "5.19.4"]
@@ -97737,7 +97737,7 @@ interfaces = []
 wiring = ["wiring.J23.16"]
 do_1 = "Write TestAuthzExecRefusedAfterKernelRevoke in modules/layerxauth/ante/integration_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Deliver the MsgExec through the ante chain of NewAnteHandler (node/ante.go:41) so the decorator requested by wiring J23.16 runs."
-do_3 = "Assert the error matches ErrAuthRevoked (modules/layerxauth/types/errors.go:9) as Accept returns it (modules/layerxauth/types/authorization.go:50)."
+do_3 = "After revokeGrant on 0x101C the kernel revoke deletes every authz grant bound to the kernel grant (modules/layerxauth/keeper/revoke.go:41-74 through authzKeeper.DeleteGrant), so assert the MsgExec is refused with sdkerrors.ErrUnauthorized, AuthzKeeper.GetAuthorization returns nil and no funds move; then prove the Accept path of modules/layerxauth/types/authorization.go:76 by saving a fresh LayerXScopeAuthorization whose RevocationEpoch is the pre-revoke sequence and asserting the MsgExec fails with ErrAuthRevoked (modules/layerxauth/types/errors.go:9) and moves no funds."
 symbols = ["TestAuthzExecRefusedAfterKernelRevoke"]
 touches = ["modules/layerxauth/ante/integration_test.go"]
 tests = ["modules/layerxauth/ante/integration_test.go::TestAuthzExecRefusedAfterKernelRevoke"]
@@ -99687,7 +99687,7 @@ requires = ["2.34.1", "2.32.4", "5.94.2"]
 reqs = ["2294.1", "2294.2"]
 capabilities = ["2.34.2"]
 interfaces = ["interface.2.pc-0x0905-evt-jobexecuted", "interface.2.pc-0x0905-evt-jobfailed", "interface.2.go-layerxagent-scheduler-newmergeprecompile-j24", "interface.2.go-layerxagent-scheduler-layerxagentkeepers-j24"]
-do_1 = "Write type LayerXAgentKeepers interface { LayerXAgentK() agentkeeper.Keeper } in precompiles/layerxagent/scheduler/merge.go (planned); it lives beside the constructor because modules/layerxagent/keeper imports precompiles/layerxagent/common (modules/layerxagent/keeper/keeper.go:14)."
+do_1 = "Write type LayerXAgentKeepers interface { LayerXAgentK() *agentkeeper.Keeper } in precompiles/layerxagent/scheduler/merge.go (planned), the pointer-returning method node/precompiles.go:148 exposes; refuse a nil pointer with agentcommon.ErrNoContext and dereference it for NewPrecompile. It lives beside the constructor because modules/layerxagent/keeper imports precompiles/layerxagent/common (modules/layerxagent/keeper/keeper.go:14)."
 do_2 = "Write NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPrecompile, error) in precompiles/layerxagent/scheduler/merge.go (planned) reading LayerXAgentKeepers and keepers.EVMK().(*evmkeeper.Keeper) as precompiles/layerxagent/teeattestor/teeattestor.go:111-128 does."
 do_3 = "Register it in init through RegisterMergeConstructor (precompiles/setup.go:89)."
 do_4 = "Keep the JobExecuted and JobFailed topics of the frozen ABI with no EVM emitter (decision.233 pattern) and leave the typed events of modules/layerxagent/keeper/scheduler.go:66-84 as the outcome record."
@@ -100127,7 +100127,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.38.6]
 title = "Prove the application imports and exports layerxpay genesis over the shared host"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["2.27.3", "2.0.2", "5.19.2", "5.94.2", "5.19.4"]
@@ -107558,7 +107558,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_4 = "ErrUnknownMarket is registered with ABCI code 12 (modules/launchpad/types/errors.go:28); assert that code on abciResponse.Response.Code with the launchpad codespace, and compare the REST body code only with the gRPC status of the same query (status.Convert(err).Code(), codes.Unknown for an ABCI error) as the body comparison already does; gRPC status codes and ABCI codes are different registries, so the body code is not compared with 12."
 [task.4.10.4]
 title = "Prove the launchpad ledger REST routes against a live network"
 status = "done"
@@ -111690,7 +111690,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.0.3]
 title = "Pass the sequencer RPC options and wire the merged keepers, the served spot set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["5.0.2", "5.5.4", "5.5.10", "5.19.2", "3.0.2", "6.0.2"]
@@ -112894,7 +112894,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_7 = "Split mergeUpgradePlan so the constructor gate of do_3 runs first and the store migrations, RetireAtMerge and ReleaseRetired run in an unexported continuation; TestMergePlanReturnsGuarantorBonds and TestMergeStoreUpgradesAddsLayerXStores drive the continuation directly, because the merge address table still has constructors registered by tasks that have not landed, while TestMergePlanRefusesMissingMergeConstructors proves the gate on the registry as it stands."
 [task.5.6.8]
 title = "Export and re-import a chain after the merge"
 status = "pending"
@@ -119196,7 +119196,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.6.2.2]
 title = "Key the three arbiter codes by their kernel values -737 to -739"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = ["6.0.2", "6.2.1", "1.0.2", "1.1.1"]
@@ -131267,7 +131267,7 @@ title = "Answer agent-boundary receipts from pax_sequencerReceipt"
 status = "pending"
 mode = "BUILD"
 wave = 8
-requires = ["8.1.4", "7.0.2", "7.94.1", "9.1.7"]
+requires = ["8.1.4", "7.0.2", "7.94.1", "9.1.7", "9.1.8"]
 reqs = ["8077.1", "8077.2"]
 capabilities = ["8.8.1"]
 interfaces = ["interface.8.env-agent-boundary-layerx-agent-boundary-chain-rpc-url-j40", "interface.8.env-agent-boundary-layerx-agent-boundary-receipt-keys-file-j40"]
@@ -131486,7 +131486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.10.2]
 title = "Report the funding chain and sender in core readiness"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["8.10.1"]
@@ -136873,7 +136873,7 @@ title = "Read program state through eth_call on 0x101D in the registry instead o
 status = "pending"
 mode = "BUILD"
 wave = 28
-requires = ["8.0.4", "6.0.4"]
+requires = ["8.0.4", "6.0.4", "9.1.8"]
 reqs = ["8966.1"]
 capabilities = []
 interfaces = []
@@ -148105,7 +148105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.16.2]
 title = "Settle x402 payments in the service through the chain relay"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.16.1", "11.11.2", "11.4.1", "9.1.7", "11.3.1"]
@@ -149291,7 +149291,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.30.1]
 title = "Delete the layerx-intent-ingester crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["11.0.1", "9.1.7"]
@@ -156229,6 +156229,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_7 = "Add the blank import of precompiles/layerxprograms to the import block at node/precompiles.go:3-24 beside the imports task 5.19.4 left, so init registers the 0x101D merge constructor (precompiles/setup.go:89) before node/app.go:990 builds the custom precompile set."
+do_8 = "Tasks 13.22.4 to 13.22.6 already landed submit.go, the event and test files of this package, and they reference Address as a common.Address value and a PrecompileExecutor carrying evmKeeper *evmkeeper.Keeper (precompiles/layerxprograms/submit.go:20,32); declare Address = common.HexToAddress(\"0x000000000000000000000000000000000000101D\") and give PrecompileExecutor every field the sibling files use, instead of the string constant of do_1, so the package builds as one."
 [task.13.22.2]
 title = "Gate 0x101D calls on the merge plan height, value and static-call context"
 status = "done"
@@ -158972,7 +158973,7 @@ do_2 = "In requestSidioraGasQuote (apps/web/src/api/gas-station.ts:62) map a req
 do_3 = "In sendSponsoredBatch (apps/web/src/api/gas-station.ts:81) read ethTransactionReceipt for the transactionHash the PAXEER_GAS_STATION_SUBMIT_URL endpoint (apps/web/src/api/gas-station.ts:88) answers and return it as the receipt of the sent outcome, or reverted when its status is reverted."
 do_4 = "Create apps/web/e2e/gas-station-receipt.test.ts (planned) using the registerHooks transpile loader of apps/web/e2e/gas-station.test.ts:12-39 and loopback quote, submit and gateway servers, with gas_quote_reports_budget_exhausted and sponsored_submit_returns_receipt."
 symbols = ["GasQuoteOutcome", "requestSidioraGasQuote", "sendSponsoredBatch", "gas_quote_reports_budget_exhausted", "sponsored_submit_returns_receipt"]
-touches = ["apps/web/src/api/gas-station.ts", "apps/web/e2e/gas-station-receipt.test.ts"]
+touches = ["apps/web/src/api/gas-station.ts", "apps/web/e2e/gas-station-receipt.test.ts", "apps/web/e2e/fixtures/localhost-cert.pem", "apps/web/e2e/fixtures/localhost-key.pem"]
 tests = ["apps/web/e2e/gas-station-receipt.test.ts::gas_quote_reports_budget_exhausted", "apps/web/e2e/gas-station-receipt.test.ts::sponsored_submit_returns_receipt"]
 planned_paths = ["apps/web/e2e/gas-station-receipt.test.ts"]
 build_cmd = "npm --prefix apps/web run typecheck"
@@ -158989,7 +158990,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
+do_6 = "The test does not shell out to openssl: load a committed self-signed localhost certificate and key for tests (SAN IP:127.0.0.1, long validity) from apps/web/e2e/fixtures/ with fs.readFileSync, or serve the station over http when the client accepts an http base URL."
 [task.14.4.3]
 title = "Return the receipt when a sponsored submission resumes or completes"
 status = "pending"
