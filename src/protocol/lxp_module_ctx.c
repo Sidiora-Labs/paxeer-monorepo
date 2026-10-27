@@ -1401,13 +1401,8 @@ static lxp_result preview_apply_journal(const lxp_state_journal *journal,
                                         lxp_state_store *preview)
 {
     size_t i;
-    lxp_result status;
-    status = lxp_idempotency_can_commit(journal);
-    if (status != LXP_OK) return status;
     if (journal->count > LXP_MAX_TRANSFER_SET_LEGS ||
-        journal->store->count > LXP_STATE_MAX_CELLS ||
-        lxp_idempotency_live_count(journal->store, journal->global_sequence) >
-            LXP_STATE_MAX_IDEMPOTENCY)
+        journal->store->count > LXP_STATE_MAX_CELLS)
         return LXP_FATAL_INVARIANT;
     for (i = 0U; i < journal->count; ++i) {
         size_t location = preview_state_cell_find(
@@ -1420,11 +1415,6 @@ static lxp_result preview_apply_journal(const lxp_state_journal *journal,
                          journal->staged[i].key, 32U);
         }
         preview->cells[location].value = journal->staged[i].value;
-    }
-    if (journal->has_idempotency) {
-        status = lxp_idempotency_append(preview, &journal->staged_idempotency,
-                                        journal->global_sequence);
-        if (status != LXP_OK) return status;
     }
     preview->next_sequence = journal->global_sequence + 1U;
     return LXP_OK;

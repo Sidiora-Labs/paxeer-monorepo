@@ -230,7 +230,10 @@ export async function startAccountEndpoint(): Promise<AccountEndpoint> {
   const unmatched: string[] = [];
   const refusals: string[] = [];
   const recorded = Object.fromEntries(
-    SCENARIOS.map((scenario) => [scenario, recordings(scenario)])
+    SCENARIOS.map((scenario) => [
+      scenario,
+      recordings(scenario).filter((entry) => !entry.request.method.startsWith('lx_')),
+    ])
   ) as Record<Scenario, Exchange[]>;
   const statuses = explorerStatuses();
   const state = { now: 0 };

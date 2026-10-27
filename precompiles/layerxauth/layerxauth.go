@@ -76,9 +76,13 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	if p.keeper == nil {
 		return nil, errors.New("LXP_PRECOMPILE_NO_CONTEXT: layerxauth keeper is unavailable")
 	}
-	actor, err := p.keeper.Actor(ctx, caller)
-	if err != nil {
-		return nil, RevertError(err)
+	actor := authkeeper.Actor{}
+	if !method.IsConstant() {
+		var err error
+		actor, err = p.keeper.Actor(ctx, caller)
+		if err != nil {
+			return nil, RevertError(err)
+		}
 	}
 	handler, ok := authHandlers[method.Name]
 	if !ok {
