@@ -95731,7 +95731,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.0.2]
 title = "Freeze the served 0x101A and 0x101C method surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["2.10.2", "2.10.3", "2.10.4", "2.10.5", "2.11.2", "2.11.3", "2.11.4", "2.5.3", "2.9.3"]
@@ -97536,7 +97536,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.11.2]
 title = "Serve grantSession, grantSessionSuccessor and grantCapability on 0x101C"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["2.11.1", "2.7.1", "2.7.2", "1.14.6", "1.22.4"]
@@ -98505,7 +98505,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.2]
 title = "Implement budget spend, delegate add, delegate remove and delegate spend"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.21.3", "2.24.6"]
@@ -98569,7 +98569,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.24.4]
 title = "Implement budget close, defund and revoke"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 25
 requires = ["2.22.4", "2.24.6"]
@@ -106759,7 +106759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.16]
 title = "Serve Query/FeeAccounting from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["4.3.1", "4.2.5", "4.4.15"]
@@ -106791,7 +106791,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.4.17]
 title = "Serve Query/PoolMetadata from the launchpad keeper"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["4.3.1", "4.2.3", "4.4.16"]
@@ -106884,7 +106884,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.2]
 title = "Add the launchpad params query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["4.5.1", "4.4.1", "4.4.16", "15.0.5"]
@@ -107008,7 +107008,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.6]
 title = "Add the launchpad ledger query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["4.5.1", "4.4.8", "4.4.15", "15.0.5"]
@@ -107070,7 +107070,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.5.8]
 title = "Add the launchpad feeright query commands"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["4.5.1", "4.4.11", "4.4.17", "15.0.5"]
@@ -130510,7 +130510,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.1]
 title = "Load the receipt key list without the kernel backend set"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["8.0.1", "8.1.5"]
@@ -130541,7 +130541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.1.2]
 title = "Serve px_getCommit, px_getValidators and px_getReceiptKeys from the router"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["8.1.1", "8.0.1", "5.93.1", "8.1.5"]
@@ -140241,7 +140241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.24.4]
 title = "Delete the LNI and kernel read and stream test suites"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["9.24.1", "9.22.1", "9.23.3"]
@@ -160537,7 +160537,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.25.6]
 title = "Decode the twelve v6.12.0 launchpad events in PaxeerXLogs next to the ten v6.10 ones"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["14.25.5"]
@@ -161035,7 +161035,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.30.3]
 title = "Check the embedded precompile signatures against the precompile ABI files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["14.30.2", "14.30.4"]
@@ -161065,7 +161065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.14.30.4]
 title = "Rank precompile signatures first in the sig-provider aggregator"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["14.30.2"]
