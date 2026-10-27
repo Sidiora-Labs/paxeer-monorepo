@@ -105016,7 +105016,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.48.7]
 title = "Load the market catalog from gateway GraphQL with chain config fields"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["3.48.3", "3.48.9", "3.0.3", "5.98.1", "3.98.1"]
@@ -105454,7 +105454,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.2]
 title = "Local node: an aligned limit order lands and an off-tick one reverts PerpsTickSize"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["3.48.5", "3.0.4", "5.98.1", "3.98.1"]
@@ -105485,7 +105485,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.3]
 title = "Local node: getMarketConfig decodes for every active market"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.48.1", "3.0.4", "5.98.1", "3.98.1"]
@@ -105578,7 +105578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.6]
 title = "Local node: the vault reports the stable token as unpaused"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.52.1", "3.0.4", "5.98.1", "3.98.1"]
@@ -157744,7 +157744,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.3]
 title = "Fuzz 0x101D argument decoding against the ABI for panics and non-canonical input"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.21.9", "13.22.1"]
