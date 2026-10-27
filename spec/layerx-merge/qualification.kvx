@@ -3109,3 +3109,147 @@ symbol = "compilerOptions"
 observed = "At 248ae2b71 the build `pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.json && pnpm --dir apps/launchpad/mobile exec tsc --noEmit -p tsconfig.test.json` exited 2 (logs-build-1.log) with 94 errors, none in the route modules or their test: lib ES2022 without DOM breaks the DOM-typed SDK sources (reconnect.ts:54, transport.ts:50) and the existing throwIfAborted calls (session.ts:15, lifecycle.ts:23), while the default DOM lib at b6763f366 left 46 react-native globals.d.ts conflicts, all inside declaration files, plus the four source errors do_7 fixes."
 assumption = "tsconfig.json keeps main's lib and include and gains skipLibCheck, the preset setting of @react-native/typescript-config, so declaration files are not cross-checked while every source file is; 248ae2b71 is continued with tsconfig.json restored to main plus that key and tsconfig.test.json deleted."
 severity = "blocker"
+
+[finding.14.22.6]
+task = "14.22.6"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex"
+symbol = "committed_height"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named the ExUnit test signature_route_reports_committed_rung and the Elixir function committed_height, which the graph never holds; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.14.26.2]
+task = "14.26.2"
+file = "services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_finality_config_test.exs"
+symbol = "finality_config_is_not_set"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named the ExUnit test finality_config_is_not_set, which the graph never holds; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.14.27.2]
+task = "14.27.2"
+file = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/views/api/v2/paxeer_x/unified_account_view_gone_test.exs"
+symbol = "unified_account_view_is_gone"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named the ExUnit test unified_account_view_is_gone, which the graph never holds; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.14.38.1]
+task = "14.38.1"
+file = "services/explorer/backend/apps/indexer/test/indexer/transform/paxeer_x_logs_market_test.exs"
+symbol = "market_logs_still_parse"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named the ExUnit tests market_logs_still_parse and binding_log_still_parses, which the graph never holds; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.14.58.1.1]
+task = "14.58.1"
+file = "services/bridge/deploy/checklist.sh"
+symbol = "PAXEER_BRIDGE_APP_ENV"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named PAXEER_BRIDGE_APP_ENV, an env var, and checklist-check, a script name, which the graph never holds; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.14.8.1]
+task = "14.8.1"
+file = "apps/web/src/settings/wallet/wallet-screen.tsx"
+symbol = "WalletBindingScreen"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named WalletBindingController and WalletBindingScreen, the definitions the task removes; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.11.25.5]
+task = "11.25.5"
+file = "services/interop/crates/layerx-mirror/src/node.rs"
+symbol = "LniArchiveSource"
+observed = "cg spec done failed only its graph check (logs-verify-1.log): symbols named LniArchiveSource, NativeCheckpointPolicy and checkpoint_with_native_authority, the definitions the task deletes; tests passed."
+assumption = "symbols lists only definitions that exist after the change; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.1.4.6]
+task = "1.4.6"
+file = "cmd/layerxd/lxp_daemon_process.c:5847"
+symbol = "open_process"
+observed = "Both attempts' verify_cmd exited 2 (logs-verify-1.log: lxp_daemon_process.c:5850:13 error: missing initializer for field 'binding_authority') on the missing binding_authority initializer that 66e8f097c introduced; -Werror=missing-field-initializers (Makefile:32) refuses the seven-member lx_asset_runtime literals in cmd/layerxd and cmd/layerx-guarantor."
+assumption = "The two cmd/ literals are set to false by 1.4.6 and 1.11.4 keeps only the test literals."
+severity = "blocker"
+
+[finding.8.1.5.1]
+task = "8.1.5"
+file = "services/platform/hosted/webhooks/src/ai_market.rs:930"
+symbol = "certify"
+observed = "At cb08d8ffb the build exited 0 and the dependent webhooks crate failed with three E0609 `no field checkpoint on &SnapshotBinding` (:930, :969, :1090), a break 13.29.1 left on main."
+assumption = "The webhooks sites and the ai_finalized_delivery fixtures move to store_proof_digest under this task and the 17-fact certificate keeps the checkpoint_id fact name."
+severity = "blocker"
+
+[finding.2.4.2.1]
+task = "2.4.2"
+file = "modules/layerxledger/keeper/execute.go:70"
+symbol = "execute"
+observed = "At 06acd128d (and the 2.4.3, 2.4.4, 2.4.6, 2.4.7 candidates) every keeper test fails with LXP_ERR_UNKNOWN_FIELD from the first kernel call (logs-verify-1.log) because execute.go reads the idempotency table that 1.2.1 (787dd93be) stopped recording and modules/lxphost/read.go:164 reports the missing row as LXP_ERR_UNKNOWN_FIELD."
+assumption = "New task 2.3.7 removes the read and the five tasks require it."
+severity = "blocker"
+
+[finding.2.4.7]
+task = "2.4.7"
+file = "src/ledger/lxp_receive.c:357"
+symbol = "verify_receiver"
+observed = "At 99b96c720 the draw receipt carries LXP_ERR_UNAUTHORIZED_DEBIT (logs-verify-1.log) because verify_receiver always checks an ed25519 receiver signature that EncodeReceivePayload leaves zero (modules/layerxledger/types/payload_transfer.go:79-86), while send skips it under binding authority since 1.11.1."
+assumption = "New task 1.11.5 mirrors 1.11.1 for receive until 1.12.1 deletes the path."
+severity = "blocker"
+
+[finding.11.3.1.3]
+task = "11.3.1"
+file = "services/interop/crates/layerx-x402/src/model.rs:216"
+symbol = "PaymentRequirements::layerx_terms"
+observed = "a3 (41a94c873) and a4 (ad80c5fac) both panic at tests/seller.rs:810 `valid required: ProfileMismatch` (logs-verify-1.log) because the recorded fixture payee keccak256(\"vector payee account\") derives from no account reference and the binding check refuses it."
+assumption = "The receipted test settles a receipt signed by the test sequencer key for account_identifiers(PAYEE_ACCOUNT)[0] and the submitted-rung test keeps the recorded txHash."
+severity = "blocker"
+
+[finding.11.21.3]
+task = "11.21.3"
+file = "services/interop/crates/layerx-bridge-relayer/src/relayer.rs:224"
+symbol = "PaxeerLink"
+observed = "At 56b0544df the build exited 101 (logs-build-1.log) with E0560 `PaxeerLink has no field receipt_keys` (config.rs:515) because no revision ever gave PaxeerLink that field; 11.22.3, which requires 11.21.3, adds it."
+assumption = "11.21.3 only exposes RelayerConfig::receipt_keys and 11.22.3 fills the link."
+severity = "blocker"
+
+[finding.14.25.5]
+task = "14.25.5"
+file = "services/explorer/deploy/tools/mix-in-builder.sh:308"
+symbol = "mix_in_container"
+observed = "At 0ed3c372f verify exited 1 (logs-verify-1.log) because kept_topics_match_precompile_abis could not read /precompiles/addr/abi.json — the builder mounts only the backend, so the test's directory climb leaves the mounted tree."
+assumption = "The builder mounts precompiles read-only and the test reads PAXEER_PRECOMPILES_DIR when set."
+severity = "blocker"
+
+[finding.7.14.6.1]
+task = "7.14.6"
+file = "rpc/uncle.go:24"
+symbol = "GetUncleByBlockNumberAndIndex"
+observed = "At 4a5e1913a verify exited 1 (logs-verify-1.log) because six served methods (four uncle methods, eth_sendRawTransactionSync, debug_traceStateAccess) never record evmrpc_request_latency_seconds while the acceptance requires every served method to."
+assumption = "The task records those six with each API's connection type set at the server.go registrations."
+severity = "blocker"
+
+[finding.2.4.5]
+task = "2.4.5"
+file = "modules/layerxledger/keeper/execute.go:70"
+symbol = "execute"
+observed = "At 5505e61e2 TestPayExact fails with LXP_ERR_UNKNOWN_FIELD (logs-verify-1.log) from the post-execute idempotency read that 1.2.1 (787dd93be) left without a writer, the same break as [finding.2.4.2.1]."
+assumption = "New task 2.3.7 removes the read and 2.4.5 requires it."
+severity = "blocker"
+
+[finding.14.25.2]
+task = "14.25.2"
+file = "services/explorer/backend/apps/indexer/lib/indexer/block/fetcher.ex"
+symbol = "do_import_options"
+observed = "At a50b528ce the test passed and the done gate failed only on symbols Indexer.Block.Fetcher, do_import_options and paxeer_x_import_options_carry_two_keys (logs-verify-1.log), which the code graph never holds (Elixir definitions and an ExUnit test name)."
+assumption = "symbols = [] as every qualified explorer backend task; the same candidate is qualified again unchanged."
+severity = "minor"
+
+[finding.4.5.5]
+task = "4.5.5"
+file = "modules/launchpad/client/cli/query_price.go"
+symbol = "CmdQueryPriceHistory"
+observed = "At 540bffbb1 TestCmdQueryPriceNetwork/history, /buy and /sell receive code 18 where the launchpad error registered as code 12 is expected (logs-verify-1.log), because gRPCErrorToSDKError (sdk/baseapp/abci.go:646) replaces a registered codespace error with the generic gRPC mapping until 15.0.5 lands, the same break recorded for 4.5.3 and 4.5.4."
+assumption = "Every launchpad query command task requires 15.0.5 and continues from its candidate."
+severity = "blocker"

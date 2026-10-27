@@ -358,6 +358,7 @@ static lxp_result asset_execute_typed(lxp_module_ctx *ctx, const lxp_activity *a
             environment.global_sequence = ctx->global_sequence;
             environment.network_id = activity->network_id;
             environment.protocol_version = activity->protocol_version;
+            environment.binding_authority = runtime->binding_authority;
             status = lxp_receive_execute(p, &environment, &projection);
             if (status == LXP_OK) grant = store->grants[0];
         }
