@@ -110580,7 +110580,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.3]
 title = "Repoint mobile market reads to the served v2 pool and search routes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110610,7 +110610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.46.4]
 title = "Repoint the mobile portfolio read to the served v2 portfolio route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.2", "4.0.3"]
@@ -110763,7 +110763,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.4.47.1]
 title = "Pin mobile native trading to the launchpad surface runtime"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["4.46.1", "4.0.3"]
