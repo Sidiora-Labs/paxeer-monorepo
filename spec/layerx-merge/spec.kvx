@@ -134386,7 +134386,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.4]
 title = "Ship ramp example configuration and container environment for the merged chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["8.30.1", "8.31.2", "18.1083.1"]
@@ -176731,7 +176731,7 @@ qualification = "UNRUN"
 
 [task.18.788.1]
 title = "Issue #788: Decode agent SDK gateway amounts up to uint256 and run the AI market test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1069.1"]
@@ -179687,7 +179687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1077.1]
 title = "Issue #1077: Drop the retired Paxeer RPC fields from the reference ramp route test fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
