@@ -139142,7 +139142,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.12.2]
 title = "Gate daemon readiness on the node JSON-RPC connection"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.12.1", "9.1.8"]
