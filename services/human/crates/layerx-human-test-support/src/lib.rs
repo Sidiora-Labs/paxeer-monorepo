@@ -16,7 +16,7 @@ use layerx_agentd::protocol_evidence::{EvidenceAuthority, RawReceiptEvidence, Ra
 use layerx_agentd::store::TenantId;
 use layerx_client::lni::handshake::{perform, HandshakeConfig};
 use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
+use layerx_client::lni::transport::{self, ConnectionGate, Limits};
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::send::SendDebit;
 use layerx_crypto::signer::Signer as _;
@@ -284,8 +284,8 @@ pub fn serve_evidence_node(node: EvidenceNode, label: &str) -> (PathBuf, JoinHan
 /// # Panics
 /// Panics if connecting to the evidence socket fails.
 #[must_use]
-pub fn connect_evidence_node(socket_path: &Path) -> Uds {
-    Uds::connect(
+pub fn connect_evidence_node(socket_path: &Path) -> transport::Uds {
+    transport::Uds::connect(
         socket_path,
         &ConnectionGate::new(1),
         Limits {
