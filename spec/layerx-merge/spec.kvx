@@ -174759,7 +174759,7 @@ qualification = "UNRUN"
 
 [task.18.865.1]
 title = "Issue #865: Broadcast explorer price updates once and keep catch-up heights off the live block and transaction feeds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182498,7 +182498,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.894.1]
 title = "Issue #894: Send the launchpad approve and then the write under the sponsored SID fee on the web launchpad page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184639,7 +184639,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1153.1]
 title = "Issue #1153: Delete the layerx-explorer-index mirror report that still builds on the archive types layerx-mirror no longer has"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
