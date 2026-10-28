@@ -37,6 +37,55 @@ after(async () => {
 
 const row = (date: string | null, pnl: string | null, volume: string | null, trades: number | null) => ({ date, pnl, volume, trades });
 
+async function allTimeLabelDisclosesCappedHistory() {
+  assert.equal(daily.DAILY_PNL_LIMIT, 90);
+  const completeRows = Array.from({ length: daily.DAILY_PNL_LIMIT + 1 }, (_, index) =>
+    row(new Date(Date.UTC(2026, 9, 28 - index)).toISOString().slice(0, 10), '1', '2', 1),
+  );
+
+  for (const count of [daily.DAILY_PNL_LIMIT, daily.DAILY_PNL_LIMIT - 1, daily.DAILY_PNL_LIMIT + 1]) {
+    requests.length = 0;
+    graphql = { status: 200, body: { data: { userDailyPnl: completeRows.slice(0, count) } } };
+    const result = await daily.fetchDailyPnl(ADDRESS);
+    const capped = count >= daily.DAILY_PNL_LIMIT;
+    assert.equal(result.rows.length, count);
+    assert.equal(result.skippedDays, 0);
+    assert.equal(result.historyCapped, capped);
+    assert.equal(
+      grid.rangeLabelFor('ALL', result.historyCapped),
+      capped ? 'Last 90 active days' : 'All-time',
+    );
+    if (capped) assert.notEqual(grid.rangeLabelFor('ALL', result.historyCapped), 'All-time');
+    assert.deepEqual(requests, ['POST /graphql']);
+  }
+
+  graphql = {
+    status: 200,
+    body: { data: { userDailyPnl: [null, ...completeRows.slice(0, daily.DAILY_PNL_LIMIT - 1)] } },
+  };
+  const filtered = await daily.fetchDailyPnl(ADDRESS);
+  assert.equal(filtered.rows.length, daily.DAILY_PNL_LIMIT - 1);
+  assert.equal(filtered.skippedDays, 1);
+  assert.equal(filtered.historyCapped, true);
+  assert.equal(grid.rangeLabelFor('ALL', filtered.historyCapped), 'Last 90 active days');
+
+  requests.length = 0;
+  graphql = { status: 200, body: { data: { userDailyPnl: null } } };
+  rest = { status: 200, body: { dailyPnl: completeRows } };
+  const fallback = await daily.fetchDailyPnl(ADDRESS);
+  assert.equal(fallback.rows.length, daily.DAILY_PNL_LIMIT + 1);
+  assert.equal(fallback.historyCapped, false);
+  assert.equal(grid.rangeLabelFor('ALL', fallback.historyCapped), 'All-time');
+  assert.deepEqual(requests, ['POST /graphql', `GET /v2/user/${ADDRESS}/daily-pnl`]);
+
+  for (const range of ['7D', '30D', '90D'] as const) {
+    assert.equal(grid.rangeLabelFor(range, true), range);
+    assert.equal(grid.rangeLabelFor(range, false), range);
+  }
+}
+
+test(allTimeLabelDisclosesCappedHistory);
+
 test('graphqlRowsAscendingWithoutNullDates', async () => {
   requests.length = 0;
   graphql = { status: 200, body: { data: { userDailyPnl: [
