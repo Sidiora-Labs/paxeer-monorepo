@@ -176683,7 +176683,7 @@ qualification = "UNRUN"
 
 [task.18.770.1]
 title = "Issue #770: Show only accepted observations of successful submissions as price-feed prices"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
