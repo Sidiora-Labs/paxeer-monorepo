@@ -9355,3 +9355,43 @@ symbol = "activity_types"
 observed = "Attempt 1 (7f60ac18a) linked the target; wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt fails before signing because the fixture passes the governance and bridge types to the attestor cluster, which admits only the asset send since eec0db612 (issue #1151)."
 assumption = "verify_cmd runs the attestor-independent test exactly; the attestor path is 18.1151.1's gate."
 severity = "major"
+
+[finding.10.21.1.1]
+task = "10.21.1"
+file = "services/human/crates/layerx-intents/src/precompile.rs:20"
+symbol = "IntentKind"
+observed = "Attempt 2 (aceba10d2) deleted the thirteen variants and failed its build with fifteen E0599 errors: precompile.rs, owned by 10.21.2, constructs the variants while the variants wrap crate::precompile types."
+assumption = "The precompile.rs, lib.rs:13 and tests/precompile_router.rs deletions moved into 10.21.1 (do_6-do_8); 10.21.2 keeps the keccak and router_retired proof only."
+severity = "major"
+
+[finding.10.98.1.1]
+task = "10.98.1"
+file = "services/human/crates/layerx-explorer-index/src/mirror.rs:6"
+symbol = "MirrorReceiptReport"
+observed = "Attempts 2 of 10.98.1 (a5d1ff77b) and 10.98.13 (bf9b1f768) stopped on the crate build: mirror.rs imports SignedHeaderTrust and calls MirrorVerifier::from_source, BatchIncluded and StateProven, removed from layerx-mirror by edd77cf4a (11.26.4)."
+assumption = "Issue #1153 / 18.1153.1 deletes the module now; 10.98.1, 10.98.13 and 10.27.6 require it."
+severity = "major"
+
+[finding.10.98.5.1]
+task = "10.98.5"
+file = "services/human/crates/layerx-human-service/tests"
+symbol = "read_frame"
+observed = "Attempts 1 of 10.98.4, 10.98.5 and 10.98.6 (db9da2b8a) report that wiring.J44.21 is not a rename: the replacement modules lack read_frame, write_frame, Limits, MutualTlsConfig and Submission::Acknowledged, so 24 retired paths remain across four test files."
+assumption = "Same class as finding.8.98.5 (wiring.J44.20): the mapping needs an owner decision; no further attempt until it exists."
+severity = "major"
+
+[finding.10.98.9.1]
+task = "10.98.9"
+file = "services/human/crates/layerx-human-service/src"
+symbol = "sign_disclosed"
+observed = "Attempts 1 of 10.98.7 and 10.98.9 report that wiring.J44.25 maps 64-byte activity signatures onto an EVM-only submit API that takes 65-byte signatures, and that DisclosedCall carries no canonical or registry fields; 18.1149.1 attempt 1 met the same divergence."
+assumption = "Owner decision on the J44.25 mapping; the wave-12 part of the family is held with the same reason."
+severity = "major"
+
+[finding.18.1152.1.1]
+task = "18.1152.1"
+file = "go.sum:2526"
+symbol = "golang.org/x/term"
+observed = "docker/layerx/Dockerfile:66 (go mod download) fails at head: go.sum carries no /go.mod hash for golang.org/x/term v0.15.0 (18.849.1 attempt 9, 18.869.1 attempt 11); 18.1141.1 closed the same gap for golang.org/x/net only."
+assumption = "18.1152.1 adds the two lines; 18.849.1 and 18.869.1 require it."
+severity = "major"

@@ -2481,6 +2481,12 @@ fn creation_material(
         crate::journeys::ReceiptLookup::Found(value) => value,
         crate::journeys::ReceiptLookup::Absent => return Err(ApiFailure::upstream_degraded()),
     };
+    if material.tx_hash != activity_id
+        || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+        || material.rung < layerx_types::rung::Rung::Receipted
+    {
+        return Err(ApiFailure::upstream_degraded());
+    }
     let evidence = crate::agents::ProtocolEvidence {
         signed_activity: signed.bytes().to_vec(),
         actor: activity.actor_did().to_vec(),

@@ -309,6 +309,12 @@ function evidence(value: unknown, what: string): EvidenceRef[] {
       class: oneOf(ref.class, EVIDENCE_CLASSES, `${what} class`),
       verification: oneOf(ref.verification, VERIFICATION_LEVELS, `${what} verification`),
     };
+    if ('tx_hash' in ref) {
+      if (typeof ref.tx_hash !== 'string' || ref.tx_hash.length !== 66 || !TX_HASH.test(ref.tx_hash)) {
+        throw new HumanDecodeError(`${what} tx_hash`);
+      }
+      decoded.tx_hash = ref.tx_hash;
+    }
     if ('settlement_domain' in ref) decoded.settlement_domain = text(ref.settlement_domain, `${what} settlement_domain`);
     return decoded;
   });
