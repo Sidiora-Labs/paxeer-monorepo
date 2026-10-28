@@ -179786,11 +179786,11 @@ ac_1 = "The example lists PAXSCAN_DATABASE_PUBLIC_URL and LAYERX_INDEXER_PAXSCAN
 
 [req.181150]
 title = "The approval stream test restores a gap through a chain event the backfill rule accepts"
-ac_1 = "cargo test -p layerx-agentd --test approval_events passes: the restore-after-gap fixture recovers a durable chain log whose position lies inside the gap, and every approval emission and digest-evidence assertion is unchanged."
+ac_1 = "cargo test -p layerx-agentd --test approval_events passes: the restore-after-gap fixture recovers a durable chain log whose position lies inside the gap, and every approval emission and digest-evidence assertion is unchanged; after the restore the subscription delivers the four approval events and then the recovered chain event once."
 
 [req.181151]
 title = "The wallet identity end-to-end test starts its attestor nodes with the type the attestor admits"
-ac_1 = "cargo test -p layerx-human-service --test wallet_identity_e2e passes: both attestor nodes start with ATTESTOR_ACTIVITY_TYPES holding the asset send alone and the kernel send is signed through them to a verified receipt."
+ac_1 = "cargo test -p layerx-human-service --test wallet_identity_e2e passes: both attestor nodes start with ATTESTOR_ACTIVITY_TYPES holding the asset send alone and the kernel send is signed through them to a verified receipt, and the test's receipt builder fills the transaction hash, receipt hash, block height and rung that receipt material carries since 10.2.7."
 
 [req.181152]
 title = "The root go.sum carries every go.mod hash the module graph needs, including golang.org/x/term v0.15.0"
@@ -180871,7 +180871,7 @@ qualification = "UNRUN"
 [acceptance.18.1150.1]
 feature = "18"
 req = "181150.1"
-scenario = "Given a subscription blocked by a gap at sequence 1 and a durable chain log at block height 1, when the test applies a Recovered backfill carrying that log and its position, then apply_backfill returns Restored, admit succeeds, and the approval stream resumes and exports its digest evidence."
+scenario = "Given a subscription blocked by a gap at sequence 1 and a durable chain log at block height 1, when the test applies a Recovered backfill carrying that log and its position, then apply_backfill returns Restored, admit succeeds, and the approval stream resumes and exports its digest evidence, and delivery yields the four approval events followed by the recovered event."
 contract = "contracts/agent-api.md#approval-list"
 qualification = "UNRUN"
 test = "services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
@@ -184560,7 +184560,7 @@ reqs = ["181150.1"]
 capabilities = []
 interfaces = []
 do_1 = "In services/agent/crates/layerx-agentd/tests/approval_events.rs subscriptions_restored_after_gap (:163-201) make the backfill recover a chain event instead of the local-only approval bytes: build a log JSON with block height 1, transaction index 0 and log index 0 as tests/gaps.rs:267-272 log(height, tx, index) does, persist it into the durable store of the same tenant through EventIngestor::open and ingest with CoreEvent::from_log_bytes and global_sequence 1 as tests/gaps.rs:349-392 does, and hand the same canonical bytes with position Cursor { block_height: 1, tx_index: 0, log_index: 0 } to the RecoveredEvent, so apply_backfill (src/events/gap.rs:383-420) finds the durable match; the recovered_bytes parameter and its caller change accordingly."
-do_2 = "Keep the admit refusal before the backfill (:186), the Restored assertion (:197), the admit acceptance after it (:201), the approval emissions and every digest-evidence assertion exactly as written; change no file under src/ and remove no test. If a later assertion of the test fails on the recovered event, stop and record it."
+do_2 = "Keep the admit refusal before the backfill (:186), the Restored assertion (:197), the admit acceptance after it (:201), the approval emissions and the digest-evidence assertion (assert_digest_evidence_exported over the audit log and the four lifecycles) exactly as written; change no file under src/ and remove no test. The delivery assertion after the restore expects the four approval emissions' canonical bytes followed by the recovered chain event's canonical bytes: a restored subscription delivers the event it recovered once, and attempt 1 observed it as the fifth delivered event, so assert it rather than filtering it out."
 symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/approval_events.rs"]
 tests = ["services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
@@ -184607,6 +184607,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "In the same file's receipt builder (fn receipt, :580-644) complete the ReceiptMaterial initializer at :631 with the four fields 85c5b32c5 (10.2.7) added to src/journeys/engine.rs:229-237: receipt_hash = Sha256::digest(&canonical_bytes).into(), tx_hash = activity_id, block_height = sequence and rung = layerx_types::rung::Rung::Receipted, exactly as tests/intent_submit.rs:631-635 fills the same builder; change nothing else in it."
 
 [task.18.1152.1]
 title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"

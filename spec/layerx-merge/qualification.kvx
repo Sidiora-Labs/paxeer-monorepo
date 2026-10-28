@@ -9427,3 +9427,19 @@ symbol = "sealedBlockForFinalize"
 observed = "Attempt 2 (81078331a) added a SealForFinalize hook that nothing calls; the product path is sealedBlockForFinalize reading the installed sequencer source's Sealed() (app.go:3216-3259)."
 assumption = "The next attempt installs a sealed-layer sequencer source with SetSequencerSource beside SetOpenBlock; no app.go change."
 severity = "minor"
+
+[finding.18.1151.1.1]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:631"
+symbol = "ReceiptMaterial"
+observed = "Attempt 1 (4c0c687f9) narrowed the attestor activity types and failed its build: the file's receipt builder still fills the pre-85c5b32c5 (10.2.7) ReceiptMaterial without tx_hash, receipt_hash, block_height and rung."
+assumption = "do_3 ports that initializer as tests/intent_submit.rs:631-635 does; same file, same gate, so no separate task."
+severity = "major"
+
+[finding.18.1150.1.1]
+task = "18.1150.1"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:407"
+symbol = "approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
+observed = "Attempt 1 (3a21c8716) restored the gap with a durable chain event at Cursor 1/0/0; the delivery assertion then saw that event delivered fifth after the four approval emissions and stopped as do_2 instructed."
+assumption = "Delivering the recovered event once is the restored subscription's contract; do_2 now asserts the five-event delivery and the digest assertion is unaffected (audit log only)."
+severity = "minor"
