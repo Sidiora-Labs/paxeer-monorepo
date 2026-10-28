@@ -131621,7 +131621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.8.1]
 title = "Answer agent-boundary receipts from pax_sequencerReceipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.1.4", "7.0.2", "7.94.1", "9.1.7", "9.1.8", "18.1083.1"]
@@ -131874,7 +131874,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.11.1]
 title = "Look up receipts for the authority from pax_sequencerReceipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["7.0.2", "7.94.1", "9.1.8", "18.1083.1"]
