@@ -14,8 +14,9 @@ defmodule Explorer.PaxeerX.CosmosRest do
   round the list at most `@rounds` times, so one dead node costs one short connect
   timeout until another node answers. A node that no longer serves the height answers
   `height_unavailable`, which is returned only when every attempt answered so; a node
-  whose head is below the height answers `height_ahead`, which wins over any other
-  failure so the caller retries later. Otherwise the last failure is returned.
+  whose head is below the height answers `height_ahead`. A definitive failure wins
+  over transient failures, followed by `height_ahead` so the caller retries later.
+  Otherwise the last failure other than `height_unavailable` is returned.
   """
 
   alias Explorer.Chain.PaxeerX.Identity
@@ -342,7 +343,15 @@ defmodule Explorer.PaxeerX.CosmosRest do
   end
 
   defp pick_error(errors) do
+    definitive =
+      Enum.find(errors, fn
+        {kind, _} when kind in [:unreachable, :height_unavailable, :height_ahead] -> false
+        {:http_status, status, _} when status in 500..599 -> false
+        _ -> true
+      end)
+
     cond do
+      definitive -> definitive
       Enum.all?(errors, &match?({:height_unavailable, _}, &1)) -> List.last(errors)
       ahead = Enum.find(errors, &match?({:height_ahead, _}, &1)) -> ahead
       true -> errors |> Enum.reject(&match?({:height_unavailable, _}, &1)) |> List.last()
