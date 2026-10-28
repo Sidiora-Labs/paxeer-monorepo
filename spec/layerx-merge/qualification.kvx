@@ -9475,3 +9475,11 @@ symbol = "MirrorVerifier"
 observed = "Attempt 4 (d3d145844) built and the dependents check failed on the explorer-index mirror module at its base; 18.1153.1 (ef7eb440a) deleted that module minutes later."
 assumption = "No spec change; the next attempt re-applies attempt 4 on a base that carries ef7eb440a."
 severity = "minor"
+
+[finding.18.1144.1.2]
+task = "18.1144.1"
+file = "node/sequencer/wal/wal.go:122"
+symbol = "Seal"
+observed = "Attempt 3 (53c5b3509) installed a standby source with Seal, Sealed and SealForFinalize; nothing calls SealForFinalize because FinalizeBlock reads Sealed() before any decided transaction reaches the source, and the WAL Seal record has no tx 0, so Sealed() stayed nil and the new test failed at its sealed-layer assertion."
+assumption = "do_4 adds the one FinalizeBlock hook that hands the decided transactions to a source implementing SealForFinalize; node/app.go joins the touches and go vet covers ./node/."
+severity = "major"

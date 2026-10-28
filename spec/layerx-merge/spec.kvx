@@ -184381,10 +184381,10 @@ do_1 = "In node/sequencer/standby_role.go install on the standby app, beside Set
 do_2 = "Add to node/sequencer/standby_role_test.go a case TestStandbyReplayCommitsSealedLayerAcrossBlocks that drives a register in one block and an openAccount reading that asset in the next block through primary and standby and proves the standby's rebuilt receipt equals the primary's; the existing case (:39-220) stays as it is."
 do_3 = "Change no recorder code under daemon/committed-fixture; task 5.55.5 records the V4 vector once this lands."
 symbols = []
-touches = ["node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go"]
+touches = ["node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go", "node/app.go"]
 tests = []
 planned_paths = []
-build_cmd = "go vet ./node/sequencer/"
+build_cmd = "go vet ./node/ ./node/sequencer/"
 verify_cmd = "go test -count=1 ./node/sequencer/ -run ^TestStandbyReplayCommitsSealedLayerAcrossBlocks$"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
@@ -184396,6 +184396,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The WAL Seal record (node/sequencer/wal/wal.go:122-127) carries no batch transaction, so the standby cannot seal its replayed layer before consensus delivers the primary's signed tx 0, and app.go:3217 reads Sealed() with no arguments. In node/app.go FinalizeBlock, immediately before sealedBlockForFinalize (:1784), when the installed sequencer source implements interface{ SealForFinalize(height int64, txs [][]byte) error }, call it with req.Header.Height and req.Txs and return its error; the standby source implements it by checking the decided transactions against the replayed batch, decoding tx 0 with DecodeSequenceBatch and sealing through SealBatch, so Sealed() then returns the layer and the sealed path commits it. ConsensusSource does not implement the method and the primary is unchanged; change nothing else in app.go."
 
 [task.18.1147.1]
 title = "Issue #1147: Give layerx-human-service the ureq development dependency its wallet identity test needs through the shared KMS attestor test support"
