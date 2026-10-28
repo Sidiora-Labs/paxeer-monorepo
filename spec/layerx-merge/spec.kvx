@@ -167561,7 +167561,7 @@ title = "Remove retired daemon and codec references from the client evidence pro
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["16.0.4"]
+requires = ["16.0.4", "18.911.1"]
 reqs = ["16064.1"]
 capabilities = ["16.11.17"]
 interfaces = ["interface.16.cli-qual-qualification-paxeer-x-program-balance-read", "interface.16.cli-qual-qualification-paxeer-x-program-cache-native-equivalence", "interface.16.cli-qual-qualification-paxeer-x-program-market-attestation"]
@@ -172295,7 +172295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -172440,7 +172440,7 @@ qualification = "UNRUN"
 
 [task.18.826.1]
 title = "Issue #826: Refuse the all-zero DID in the SDK history account helpers and regenerate the SDK reference"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1071.1"]
@@ -172520,6 +172520,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Keep every re-include that a vendored crate's .cargo-checksum.json requires (cargo --locked refuses a vendored source whose listed file is missing), placed after the last programs/vendor/** exclusion; the native target built with them in the sixth qualification run, so change the ignore file only if make programs-release-build reports a missing file."
 
 [req.18849]
 title = "Build the layerx chain image with its native-library stage"
@@ -172748,7 +172749,7 @@ qualification = "UNRUN"
 
 [task.18.1010.1]
 title = "Issue #1010: Build the archive controller test fixtures without the retired Anchor and Receipt changesets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173294,7 +173295,7 @@ qualification = "UNRUN"
 
 [task.18.1012.1]
 title = "Issue #1012: Read receipt keys, commits, validators and batches in the unified gateway wire format"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173794,7 +173795,7 @@ qualification = "UNRUN"
 
 [task.18.723.1]
 title = "Issue #723: Serve a Prometheus metrics endpoint from the paxai worker"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
@@ -175835,7 +175836,7 @@ do_2 = "Encode the op 13 and op 14 requests in the C test with new helpers profi
 do_3 = "In empty_plan_cases (test_market_attestation.c:984-1067), for model 3 change the two op 10 acceptances at lines 1034-1035 into op 10 refusals ('restored-usage-direct-refused', 'usage-direct-refused') and add the op 13 plus op 14 acceptances on both the live and the restored fixture; models 1 and 2 keep their op 10 acceptances unchanged."
 do_4 = "Leave model_cases(f, 1U) and every other assertion as written, and qualify by running the market attestation driver once on the rebuilt market guest so test_market_attestation exits 0 with the new op 10 refusal and op 14 acceptance cases."
 symbols = ["model_cases", "empty_plan_cases", "profile_request", "billing_request", "test_market_attestation"]
-touches = ["tests/programs/test_market_attestation.c"]
+touches = ["tests/programs/test_market_attestation.c", "tools/qualification/paxeer-x/program_market_attestation.py"]
 tests = ["tests/programs/test_market_attestation.c::test_market_attestation"]
 planned_paths = []
 build_cmd = "export PAXEER_X_BUILDER_ID=$(hostname); make -C . build/liblayerx.a && python3 tools/qualification/paxeer-x/program_market_attestation.py --begin-build && python3 tools/qualification/paxeer-x/program_market_attestation.py --build"
@@ -175851,6 +175852,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "In tools/qualification/paxeer-x/program_market_attestation.py:390 default --cppflags to '-Iinclude' as tools/qualification/paxeer-x/arbiter_prestate.py:355 does, keep it overridable, and record the native flags in the attestation as program_balance_read.py:106 does; every tests/programs file includes 'layerx/programs.h' relative to include/, which the Makefile supplies with -Iinclude (issue #1105)."
 
 [req.18911]
 title = "The kernel market attestation test follows the fraud-provable billing path"
@@ -178145,7 +178147,7 @@ qualification = "UNRUN"
 
 [task.18.1005.1]
 title = "Issue #1005: Answer the committed-receipt lookup in the signature route test fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178356,6 +178358,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Move the real kernel-node readiness stage of tools/bringup/check-live.test.sh (the kn_report block starting at :1470 through the genesis and sequencer cases that consume kn_genesis and kn_public, ending at :1516) unchanged to after the last stand-in case and before the failure summary at the end of the file, so every stand-in case reports before that stage runs (issue #1100); change no assertion and no stand-in case."
+do_6 = "In tools/bringup/check-live.test.sh replace every stand-in daemon made with cp '$(command -v sleep)' (layerx-agentd :1312, layerx-event-source :1691, layerx-bridge-relayer :1774, layerx-mirror-signer :1775, layerx-indexer :2418, layerx-human-service :3145, layerx-receipt-authority :3466) by a copy of the shell interpreter (command -v bash) started as the named copy with -c 'sleep 600' and no exec, keeping each start line's environment and backgrounding, so /proc/<pid>/exe still resolves to the daemon name and /proc/<pid>/environ still carries its environment where coreutils is a multicall binary that prints 'coreutils: unknown program' for an unknown name (issue #1107)."
 
 [req.18776]
 title = "The live indexer check probes only the history methods the gateway serves"
@@ -178787,7 +178790,7 @@ qualification = "UNRUN"
 
 [task.18.1006.1]
 title = "Issue #1006: Remove the retired CustodyEvent struct from the retained Paxeer X web tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178917,7 +178920,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179171,6 +179174,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [req.181065]
 title = "Issue #1065: the gateway end-to-end harness boots its attestors at main"
 ac_1 = "Every attestor the end-to-end harness starts receives the custody authority public key, issuer and tenant and a signed inventory naming the five node pins, and the readiness test passes with its assertions unchanged."
+ac_2 = "The gateway under test is configured with the identity producer key, tenant, custody inventory and inventory public key that its environment schema requires once attestor endpoints are set, so loadEnv succeeds and the readiness test reaches its assertions."
 
 [acceptance.18.1065.1]
 feature = "18"
@@ -179180,19 +179184,24 @@ contract = "contracts/wallet.md#gateway"
 test = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts::reports every readiness component up"
 qualification = "UNRUN"
 
+[acceptance.18.1065.2]
+scenario = "Given the attestor network started by the e2e harness, when gateway.e2e.test.ts loads src/env.ts, then the four wallet identity and custody inventory variables are set from the harness and env parsing succeeds."
+contract = "contracts/wallet.md#gateway"
+test = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"
+
 [task.18.1065.1]
 title = "Issue #1065: Start the end-to-end attestors with the authority public key file the attestor requires"
 status = "pending"
 mode = "BUILD"
 wave = 1
 requires = []
-reqs = ["181065.1"]
+reqs = ["181065.1", "181065.2"]
 capabilities = []
 interfaces = []
 do_1 = "In services/wallet/gateway/test/e2e/attestors.ts, inside startAttestorNetwork before the per-node loop, generate a producer key pair and an inventory signer key pair with generateKeyPairSync('ec', { namedCurve: 'prime256v1' }), write producer.pub and inventory.pub (spki pem) under the run temp dir, and write inventory.jwt: an ES256 JWT (header {alg:'ES256', typ:'wallet-custody-inventory+jwt'}, signature sign('sha256', ...) with dsaEncoding 'ieee-p1363', base64url) whose payload is {version:1, iss: opts.identity.issuer, aud:'wallet-custody-inventory', tenant:'e2e', sequence:'1', iat: now-1, exp: now+3600, protocol:'wallet', threshold:3, members: ids.map(id => ({id, spki_sha256: pki.node(id).pin})), keys: []}, exactly as services/wallet/gateway/test/evm-sign.test.ts:189-210 builds it. members must name all five node ids with their pins because NewInventory (services/wallet/attestor/internal/server/authority.go:50-86) requires five member pins equal to the node pins, threshold 3 and protocol wallet; keys may be empty because the readiness test exercises no custody key."
 do_2 = "Add to the attestor env block (attestors.ts:251-273) ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE (producer.pub), ATTESTOR_AUTHORITY_ISSUER (opts.identity.issuer), ATTESTOR_AUTHORITY_TENANT ('e2e', the JWT tenant), ATTESTOR_INVENTORY_PUBLIC_KEY_FILE (inventory.pub) and ATTESTOR_INVENTORY_FILE (inventory.jwt), mirroring evm-sign.test.ts:244-247; services/wallet/attestor/cmd/attestor/main.go:218 passes all five into NewInventory and services/wallet/attestor/internal/config/config.go:18-22 names them."
 symbols = []
-touches = ["services/wallet/gateway/test/e2e/attestors.ts"]
+touches = ["services/wallet/gateway/test/e2e/attestors.ts", "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"]
 tests = ["services/wallet/gateway/test/e2e/gateway.e2e.test.ts::reports every readiness component up"]
 planned_paths = []
 build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
@@ -179208,7 +179217,9 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-do_3 = "Change no assertion in test/e2e/gateway.e2e.test.ts; change no file other than attestors.ts."
+do_3 = "Write the producer private key as producer.key (pkcs8 pem, mode 0o600, as evm-sign.test.ts:191-195) next to producer.pub and return the paths from startAttestorNetwork as a new field authority: { producerKeyFile, tenant: 'e2e', inventoryFile, inventoryPublicKeyFile } on AttestorNetwork (attestors.ts:53-60)."
+do_4 = "In test/e2e/gateway.e2e.test.ts set, before startPostgres at :143 imports src/env.ts, WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = network.authority.producerKeyFile (an absolute path to the 0o600 pkcs8 file, as src/agent/authority.ts:38-50 requires), WALLET_IDENTITY_BINDING_TENANT = network.authority.tenant ('e2e', equal to ATTESTOR_AUTHORITY_TENANT and to the tenant claim of inventory.jwt, which src/agent/authority.ts:74-82 checks together with aud 'wallet-custody-inventory'), WALLET_CUSTODY_INVENTORY_FILE = network.authority.inventoryFile and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE = network.authority.inventoryPublicKeyFile, mirroring evm-sign.test.ts:285-289; src/env.ts:258-261 requires all four whenever ATTESTOR_ENDPOINTS is set (since 281e812be)."
+do_5 = "Change no assertion in test/e2e/gateway.e2e.test.ts and no file other than attestors.ts and gateway.e2e.test.ts."
 
 [req.181066]
 title = "Issue #1066: the attestor ABI copies match the repository at main"
@@ -179273,6 +179284,10 @@ ac_1 = "The sequencer section of the explorer fixture receipt_vectors.json is id
 [req.181098]
 title = "Issue #1098: Run mix-in-builder.sh test once per umbrella app when the path arguments span several apps"
 ac_1 = "One mix-in-builder.sh test invocation naming paths from apps/indexer and apps/explorer runs each app's tests in its own sidecar and passes when every named test passes."
+
+[req.181104]
+title = "Issue #1104: Seed the explorer status test's anchor rows without the retired Anchor changeset"
+ac_1 = "status_test.exs seeds anchor rows through a cast changeset and all of its tests pass against the read-only Anchor schema."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -179400,6 +179415,14 @@ req = "181098.1"
 scenario = "Given test paths from two umbrella apps, when mix-in-builder.sh test runs once with all of them, then each app's tests run against a fresh sidecar and the run exits 0 when every test passes."
 contract = contracts/explorer-http-api.md#api-v2-paxeer-x
 test = "services/explorer/deploy/tools/mix-in-builder.sh::test"
+qualification = "UNRUN"
+
+[acceptance.18.1104.1]
+feature = "18"
+req = "181104.1"
+scenario = "Given the read-only Anchor archive schema, when status_test.exs runs, then insert_anchor/3 writes its rows and every test in the file passes."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -179551,7 +179574,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1071.1]
 title = "Issue #1071: Make the system docs generator resolve lowercase constructors and regenerate the stale system docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179730,7 +179753,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1078.1]
 title = "Issue #1078: Make the platform dependency policy pass on the live workspace while still banning the retired crates from the ramps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
@@ -179822,7 +179845,7 @@ title = "Issue #1089: Refresh the explorer's embedded copy of the sequencer rece
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.997.1"]
+requires = ["18.997.1", "18.1104.1"]
 reqs = ["181089.1"]
 capabilities = []
 interfaces = []
@@ -179834,7 +179857,7 @@ touches = ["services/explorer/backend/apps/explorer/test/support/fixture/paxeer_
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs apps/explorer/test/explorer/chain/paxeer_x/status_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller_test.exs"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -179868,6 +179891,35 @@ gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the wrapper; a run naming paths from two umbrella apps returns to failing in the second app's test helper."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1104.1]
+title = "Issue #1104: Issue #1104: Seed the explorer status test's anchor rows without the retired Anchor changeset"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181104.1"]
+capabilities = []
+interfaces = []
+do_1 = "In insert_anchor/3 (services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs:383-393) build the row with Ecto.Changeset.cast(%AnchorRow{}, attributes, Map.keys(attributes)) |> Repo.insert!() in place of AnchorRow.changeset(attributes) at :391, which the read-only archive schema (services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/anchor.ex, b14589838) no longer exports; archive_readonly_test.exs asserts that Anchor and Receipt export no changeset/2."
+do_2 = "Change no assertion and no other file; the two web test files with the same call are #1010 and #1006."
+symbols = []
+touches = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/status_test.exs"]
+tests = []
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/status_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert status_test.exs; its two anchor-seeding tests return to failing on the undefined changeset."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
