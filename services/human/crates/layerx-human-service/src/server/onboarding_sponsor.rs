@@ -1,5 +1,6 @@
 use super::*;
 use crate::custody::{Operation, SignAuthorization, SignRequest};
+use crate::frame::Limits;
 use crate::store::{PrincipalId, TenancyMap};
 use layerx_intents::owner_activity::OwnerEnvelopeContext;
 use layerx_types::payload::{ActivityType, ModuleRegistration, ModuleRegistry};
