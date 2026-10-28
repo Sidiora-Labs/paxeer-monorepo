@@ -14,14 +14,20 @@ import {
   Cell,
 } from "recharts";
 import { ChevronDown } from "lucide-react";
-import type { DailyPnl } from "@/hooks/perps/useDailyPnl";
+import { DAILY_PNL_LIMIT, type DailyPnl } from "@/hooks/perps/useDailyPnl";
 import { parseWei, weiToNumber, fmtUsdCompact as fmtUsd } from "@/ui/utils/format";
 import { cn } from "@/ui/utils/cn";
 
 export type PerformanceRange = "7D" | "30D" | "90D" | "ALL";
 
+export function rangeLabelFor(range: PerformanceRange, historyCapped: boolean): string {
+  if (range === "ALL") return historyCapped ? `Last ${DAILY_PNL_LIMIT} active days` : "All-time";
+  return range;
+}
+
 interface Props {
   dailyPnl: DailyPnl[];
+  historyCapped?: boolean;
   isLoading?: boolean;
   /** Set when both PerfDB reads failed; the grid shows an error, never an empty chart. */
   error?: Error | null;
@@ -49,13 +55,20 @@ interface SeriesPoint {
  *
  * All four charts share a single time-range dropdown.
  */
-export function PortfolioPerformanceGrid({ dailyPnl, isLoading, error, skippedDays = 0, className }: Props) {
+export function PortfolioPerformanceGrid({
+  dailyPnl,
+  isLoading,
+  error,
+  skippedDays = 0,
+  historyCapped = false,
+  className,
+}: Props) {
   const [range, setRange] = useState<PerformanceRange>("7D");
   const series = useMemo(() => buildSeries(dailyPnl, range), [dailyPnl, range]);
   const totals = useMemo(() => windowTotals(sliceByRange(dailyPnl, range)), [dailyPnl, range]);
   const failed = Boolean(error);
   const roi = totals?.roiHundredthsPct ?? null;
-  const rangeLabel = range === "ALL" ? "All-time" : range;
+  const rangeLabel = rangeLabelFor(range, historyCapped);
 
   return (
     <section

@@ -80,10 +80,10 @@ func TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit(t *testing.T) 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, _ = c.post(stopped.apiAddr, PathRefresh, RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key"}, "")
+		_, _ = c.post(stopped.apiAddr, PathRefresh, RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-lx-key", ExpectedEpoch: new(uint64)}, "")
 	}()
 	results := c.callAll(t, others, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key"}
+		return RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-lx-key", ExpectedEpoch: new(uint64)}
 	}, "")
 	select {
 	case <-staged:
@@ -127,7 +127,7 @@ func TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit(t *testing.T) 
 	verifyBind(t, "sign at the old epoch after the node returned", pub, account, signBind(t, c, "lx-key", "sign-after-return", []string{"node-1", "node-3", "node-5"}, account, c.idp.mint(t, c.idp.key, testOwner)))
 
 	refreshed := decodeOK[KeyResponse](t, "refresh with every participant", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-all", KeyID: "lx-key"}
+		return RefreshRequest{SessionID: "refresh-all", KeyID: "lx-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-lx-key", ExpectedEpoch: new(uint64), RecoverySessionID: "refresh-stopped"}
 	}, ""))
 	for _, r := range refreshed {
 		if r.Epoch != 1 || !r.Refreshed {
@@ -139,6 +139,7 @@ func TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit(t *testing.T) 
 			t.Fatalf("%s: committed epoch after a full refresh: %+v %v", n.id, rec, err)
 		}
 	}
+	c.publishImportEpoch(t, "lx-key", 1)
 	verifyBind(t, "sign at the new epoch", pub, account, signBind(t, c, "lx-key", "sign-new-epoch", []string{"node-2", "node-4", "node-5"}, account, c.idp.mint(t, c.idp.key, testOwner)))
 
 	_, account2 := importEd25519(t, c, "skew-key", "attestor epoch skew ed25519 key")
@@ -178,13 +179,14 @@ func TestSpendLedgerHoldsAcrossSignerSetsAndRestarts(t *testing.T) {
 	address := gethcrypto.PubkeyToAddress(key.PublicKey)
 	importKey(t, c, "evm-key", dealer.Secp256k1, new(big.Int).SetBytes(seed[:]), "")
 	for _, r := range decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-ledger", KeyID: "evm-key"}
+		return RefreshRequest{SessionID: "refresh-ledger", KeyID: "evm-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-evm-key", ExpectedEpoch: new(uint64)}
 	}, "")) {
 		if r.Epoch != 1 {
 			t.Fatalf("%s: refresh committed epoch %d", r.NodeID, r.Epoch)
 		}
 	}
 
+	c.publishImportEpoch(t, "evm-key", 1)
 	to := common.HexToAddress("0x1111111111111111111111111111111111111111")
 	txSigner := types.LatestSignerForChainID(big.NewInt(testChainID))
 	onePAX := big.NewInt(1_000_000_000_000_000_000)
@@ -447,8 +449,9 @@ func TestRequestRateCountsEVMAndKernelSignsAcrossARestart(t *testing.T) {
 	address := gethcrypto.PubkeyToAddress(key.PublicKey)
 	importKey(t, c, "rate-evm", dealer.Secp256k1, new(big.Int).SetBytes(seed[:]), "")
 	decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-rate", KeyID: "rate-evm"}
+		return RefreshRequest{SessionID: "refresh-rate", KeyID: "rate-evm", CeremonyID: "metrics-ceremony", ImportSessionID: "import-rate-evm", ExpectedEpoch: new(uint64)}
 	}, ""))
+	c.publishImportEpoch(t, "rate-evm", 1)
 	pub := importKernelKey(t, c, "rate-lx", "attestor shared rate ed25519 key", address.Hex())
 
 	to := common.HexToAddress("0x1111111111111111111111111111111111111111")
