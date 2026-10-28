@@ -182239,7 +182239,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.897.1]
 title = "Issue #897: Bound the socket buffers of the price feed pages while updates are held"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183439,7 +183439,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.888.1]
 title = "Issue #888: Name the runnable custody governance step and only its real inputs in kernel genesis step A"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183499,7 +183499,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.950.1]
 title = "Issue #950: List the EIP-7702 delegate refusal among the attestor fail-closed paths"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
