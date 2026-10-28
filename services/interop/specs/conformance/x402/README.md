@@ -9,7 +9,7 @@ message it names, together with whether the model must accept it.
 - `payment-payload.json` — `PaymentPayload` requests
 - `settlement-response.json` — `SettlementResponse` results
 - `sequenced-settlement.json` — sequenced `PAYMENT-RESPONSE` bodies for
-  receipted, submitted and committed-without-proof settlements
+  receipted, submitted, committed-without-proof and committed settlements
 
 ## Vector Format
 
@@ -25,8 +25,8 @@ decides the verdict: `/success`, `/errorReason` or `/transaction`. Pending
 responses are valid wire documents with `success: false` and
 `errorReason: "settlement_pending"`.
 
-Every sequenced vector copies `extensions.layerx.receiptDigest` verbatim from
-the `receiptDigest` of case `V1-layerxledger-pay-exact` in
+The three original sequenced vectors copy `extensions.layerx.receiptDigest`
+verbatim from the `receiptDigest` of case `V1-layerxledger-pay-exact` in
 `sdk/platform/conformance/fixtures/sequencer-receipt-v1.json`. That fixture was
 written by `rpc/sequencer_receipt_vectors_test.go` with
 `go test -count=1 ./rpc/ -run TestSequencerReceiptVectors -update`. The
@@ -38,6 +38,14 @@ empty `transaction` and only `receiptDigest` in `extensions.layerx`.
 on `/transaction`; it does not inspect the receipt extensions or establish
 commitment.
 
+`committed_settlement` copies the `committed-payExact` case in
+`services/interop/specs/conformance/committed/vector-v4-committed.json`, recorded
+by `daemon/committed-fixture/vector_v4.go::recordV4`. It uses that case's
+`receiptJson.txHash`, signed receipt, payer account and amount (3 atomic units).
+Its LayerX extension carries the canonical receipt digest,
+`verificationLevel: "committed"`, `blockNumber: "0xa"` and the recorded
+`blockHash`. The expected verdict is `accept` on `/success`.
+
 ## Conformance
 
 `services/interop/crates/layerx-x402/tests/vectors.rs` reads these files and runs every
@@ -47,9 +55,15 @@ tests exercise. The vectors target the x402 v2 specification vendored at
 `services/interop/specs/vendor/x402`.
 
 `services/interop/crates/layerx-x402/tests/sequenced_vectors.rs` compares every
-sequenced case with the recorded payExact receipt and asserts its declared
+sequenced case with its source payExact receipt and asserts its declared
 verdict through `SettlementResponse::validate_wire`. These checks exercise
-wire validation; they do not authenticate the receipt or verify a chain proof.
+wire validation. `x402_committed_vector_settles_as_committed` additionally
+authenticates the committed vector's original receipt and logs and verifies its
+recorded consensus and batch inclusion proof. It then binds the recorded payment
+to the test facilitator request's identity and account profile and signs that
+receipt under a test authority, preserving the activity, sequence chain and
+consensus proof. The production facilitator and gateway settle that evidence;
+the test requires the committed level and both block fields to match the vector.
 
 `services/interop/deploy/gateway/render.py` derives the suite identifier, the vector
 count and the SHA-256 the gateway configuration declares from these files.
