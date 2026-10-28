@@ -36,7 +36,7 @@
 
 Paxeer X Network ist ein Netzwerk mit zwei Ausführungsdomänen: der Paxeer-X-Chain (`paxd`, Go, EVM-Chain-ID 125) und dem LayerX-Kernel (`layerxd`, C17), der deterministischen Ausführungs- und Buchungsdomäne für autonome Agenten. Offizielle Website: [paxeer.network](https://paxeer.network/). Dokumentation: [docs.paxeer.app](https://docs.paxeer.app/).
 
-Die Paxeer-X-Chain führt EVM-Ausführung auf Tendermint-Konsens aus und trägt die Module `layerxcustody`, `layerxexchange`, `layerxbridge` und `launchpad`, die Contracts über die Precompiles an `0x1013`, `0x1015`, `0x1016` und `0x1017` erreichen. Der LayerX-Kernel führt Agentenaktivität deterministisch aus, verbucht sie und gibt für jede Activity eine signierte Quittung zurück; seine Checkpoints werden über das Precompile `layerxAnchor` an `0x1014` auf der Chain abgewickelt.
+Die Paxeer-X-Chain führt EVM-Ausführung auf Tendermint-Konsens aus und trägt die Module `layerxcustody`, `layerxexchange`, `layerxbridge` und `launchpad`. Contracts greifen über die Precompiles `layerxCustody` (`0x1013`), `perps` (`0x1015`), `layerxBridge` (`0x1016`) und `launchpad` (`0x1017`) auf native Module zu. Der in `node/app.go` zusammengestellte v6.12.0-Satz stellt ab Aktivierung des Upgrades `perps` an `0x1015` mit Vorrang vor `layerxExchange` bereit. Der LayerX-Kernel führt Agentenaktivität deterministisch aus, verbucht sie und gibt für jede Activity eine signierte Quittung zurück; seine Checkpoints werden über das Precompile `layerxAnchor` an `0x1014` auf der Chain abgewickelt.
 
 Dieses Repository ist das Monorepo von Sidiora Labs für Paxeer X Network: die Paxeer-X-Chain und der LayerX-Kernel in einem Repository. Die gemeinsame Ablage hält Kernel, Chain, Contracts und Entwickleroberflächen an einem Ort prüfbar. Jedes Subsystem behält seine eigene Build-, Release-, Deployment- und Vertrauensgrenze. Die maßgebliche Spezifikation ist [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx), gerendert als [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md); Release Notes stehen in [`CHANGELOG.md`](../../CHANGELOG.md).
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]
