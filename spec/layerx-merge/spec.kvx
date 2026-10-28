@@ -182906,7 +182906,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1062.1]
 title = "Issue #1062: Limit owner-authorized transfer legs to the principal's main and asset accounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182936,7 +182936,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1063.1]
 title = "Issue #1063: Write v2 transaction evidence in the ramp journal replay-equivalence test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182965,7 +182965,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1064.1]
 title = "Issue #1064: Document the v2 ramp journal domain and read-only v1 replay in the Market Maker Ramps wiki"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182994,7 +182994,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1086.1]
 title = "Issue #1086: Trigger the wallet Go tests on every repository input the attestor and ceremony tests read"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
