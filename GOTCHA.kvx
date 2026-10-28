@@ -10351,3 +10351,22 @@ detail = "18.997.1 added signingKey to the sequencer receipt conformance fixture
 title = "Retiring a signer on the KMS side leaves its service callers refusing at parse"
 detail = "10.11.5 made both KMS providers parse operation 11 as an EIP-1559 send authorization; Keystore::authorize_send, authorize_kernel_send and the send route's attestor branch still send a SendPlanAuthorization, so every kernel send is Kms(Refused) with no quorum code (#1169, 10.0.3 do_6). A task that changes what a KMS operation accepts must port or delete the service callers of that operation in its gate."
 
+[gotcha.2120]
+title = "A test target that includes tests/support cannot be gated alone while support is broken"
+detail = "18.1166.1 gated --test migration, which pulls tests/support/mod.rs and real_authority.rs; those failed on ports 18.1131.1 owns, and 18.1131.1 required 18.1166.1. Fold the file into the task that owns the support module instead of adding a task per test file."
+
+
+[gotcha.2121]
+title = "Reshaping an evidence struct must port every test fixture that builds it"
+detail = "10.13.1 removed authorized_batch and verification_level from ProtocolEvidence and AgentEvidence and gated two targets; eleven human-service test files kept the old fields and every pending human-service task started failing its build (#1172). Grep tests/ for the removed field names before publishing."
+
+
+[gotcha.2122]
+title = "A Tendermint transaction leaf is the Cosmos wrapper, never the raw EVM transaction"
+detail = "sdk/platform/go/committed.go hashed one inclusion transaction both as the EVM activity id and as the sha256 block leaf; no recording can satisfy both on a node whose blocks wrap MsgEthereumTx (#1171). Bind through the wrapper."
+
+
+[gotcha.2123]
+title = "A LayerX profile on an external network is a mismatch, not a valid offer"
+detail = "After keying is_layerx_network on eip155:125, the non-LayerX branch of validate accepted an eip155:8453 offer carrying a bound extra.layerx profile; the seller test expects ProfileMismatch there (18.1162.1 attempt 5)."
+

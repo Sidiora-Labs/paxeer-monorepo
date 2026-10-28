@@ -9755,3 +9755,35 @@ symbol = "verify_receipt_view"
 observed = "Attempt 1 (ae2f48e86) carried the operation byte; the receipted target failed at tests/receipted.rs:84 with ReceiptViewMismatch on V1-pax-transfer because 6c1851b54 (18.997.1) added signingKey to every fixture receiptJson and the exact view comparison never builds it (issue #1170)."
 assumption = "do_6 builds signingKey from the matched pinned key; the fixture is canonical and unchanged."
 severity = "major"
+
+[finding.8.47.7.3]
+task = "8.47.7"
+file = "sdk/platform/go/committed.go:128"
+symbol = "VerifyCommittedReceipt"
+observed = "Attempt 3 (aadd43b19) rebuilt V4 and V5 from the re-recorded settlement; both committed cases fail committed-inclusion because the verifier requires the inclusion transaction to be the raw EVM transaction and the Tendermint leaf at once, while the block carries the Cosmos-encoded wrapper (issue #1171)."
+assumption = "18.1171.1 binds the wrapped transaction in the verifier; this task now requires it and passes the block transaction (do_7)."
+severity = "major"
+
+[finding.18.1165.1.1]
+task = "18.1165.1"
+file = "services/human/crates/layerx-human-service/tests/support/canonical_owner.rs:71"
+symbol = "ProtocolEvidence"
+observed = "Attempt 1 (b30629254) derived the activity types from the preset and added the route test; the agent_create build failed on authorized_batch and verification_level, removed by 10.13.1 (a5edae038) and still built by eleven test files (issue #1172)."
+assumption = "18.1172.1 ports the eleven files; this task and every pending owner of those files now require it."
+severity = "major"
+
+[finding.18.1166.1.1]
+task = "18.1166.1"
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs:433"
+symbol = "StartupConfig"
+observed = "Attempt 1 (8de89c843) ported migration.rs; the --test migration build failed in tests/support (handshake_gate import at real_authority.rs:5, StartupConfig fields at mod.rs:433-445), which 18.1131.1 owns, and 18.1131.1 required this task."
+assumption = "The port moved into 18.1131.1 (its new do step and touches); this task is superseded and the edge removed."
+severity = "minor"
+
+[finding.18.1162.1.3]
+task = "18.1162.1"
+file = "services/interop/crates/layerx-x402/src/model.rs:181"
+symbol = "PaymentRequirements::validate"
+observed = "Attempt 5 (07c1bb776) keyed is_layerx_network on eip155:125; the eip155:8453 offer with a bound LayerX profile still validated Ok(()) through the non-LayerX branch against the unchanged Err(ProfileMismatch) at tests/seller.rs:630."
+assumption = "A LayerX profile on a network the offer does not settle on is a ProfileMismatch; do_1 now says so and the external case stays as written."
+severity = "minor"
