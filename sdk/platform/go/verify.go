@@ -1010,6 +1010,7 @@ type sequencerReceiptJSON struct {
 	ContractAddress   string                `json:"contractAddress"`
 	VMError           string                `json:"vmError"`
 	KeyID             string                `json:"keyId"`
+	SigningKey        string                `json:"signingKey,omitempty"`
 	Receipt           string                `json:"receipt"`
 }
 
@@ -1080,6 +1081,12 @@ func VerifySequencerReceipt(receiptBytes, rawTransaction []byte, keys ReceiptKey
 	}
 	if key == nil {
 		return fail(ReceiptCheckKeyHeight)
+	}
+	if _, present := fields["signingKey"]; present {
+		signingKey, ok := receiptHex(view.SigningKey)
+		if !ok || !bytes.Equal(signingKey, key.PublicKey[:]) {
+			return fail(ReceiptCheckKeyID)
+		}
 	}
 	if len(rawTransaction) == 0 || len(rawTransaction) > maximumMessageBytes || receiptKeccak256(rawTransaction) != r.ActivityID {
 		return fail(ReceiptCheckRawTransaction)
