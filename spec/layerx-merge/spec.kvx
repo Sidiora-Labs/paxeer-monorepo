@@ -143836,7 +143836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.5]
 title = "Authorize sends as EIP-1559 transactions and retire the kernel send signers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["10.11.3", "10.11.4", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143995,7 +143995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.1]
 title = "Carry rungs and transaction receipts in agent creation evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "10.2.7", "9.1.8", "18.1119.1"]
@@ -146466,7 +146466,7 @@ title = "Migrate the layerx-human-kms callers of wiring.J44.25"
 status = "pending"
 mode = "BUILD"
 wave = 12
-requires = ["10.0.3", "9.1.7", "9.1.8", "18.1119.1"]
+requires = ["10.0.3", "9.1.7", "9.1.8", "18.1119.1", "18.1156.1"]
 reqs = ["10948.1"]
 capabilities = ["10.98.8"]
 interfaces = []
@@ -157371,7 +157371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.26.3]
 title = "Serve exitValue and exitValueBounded from a tombstoned program"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1", "18.1124.1", "18.1130.1"]
@@ -179829,10 +179829,12 @@ ac_1 = "The approvals and decide test targets of layerx-human-service build agai
 [req.181156]
 title = "layerx-human-kms provider test writes a registry the KMS refuses: network_id 77 where it requires chain_id 125"
 ac_1 = "The layerx-human-kms provider test writes the chain_id 125 registry the KMS accepts, signs and sends with network 125, and passes."
+ac_2 = "The provider test target compiles: native_setup.rs matches every DisclosedNativeOperation variant explicitly, without a wildcard arm."
 
 [req.181157]
 title = "x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
 ac_1 = "Buyer::capture_settlement accepts a metered settlement whose single 0x101a log is the PaymentDrawn the seller verifies, refuses it when the idempotency key differs, keeps accepting exact settlements through their PaymentExact log, and the buyer and seller tests pass."
+ac_2 = "Every test of tests/buyer.rs passes with its fixtures in the eip155 network and transaction-hash forms the crate validates."
 
 [req.181158]
 title = "layerx-agentd audit_coverage test still reconstructs the version-2 audit session and fails to compile"
@@ -184439,7 +184441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1144.1]
 title = "Issue #1144: Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184809,7 +184811,7 @@ do_1 = "In services/human/crates/layerx-human-kms/tests/provider.rs:60-81 write 
 do_2 = "Align the network words the test signs and sends to the chain id the server derives (src/server.rs:140-155 computes network from config.chain.chain_id and refuses a request whose network differs): the 77_u32 the canonical_send request writes at :304, the 77 the production keystore opens with at :329 and every other 77 network literal in the file become 125, so the mutual-TLS lifecycle and canonical send tests pass through the checks the KMS applies."
 do_3 = "Change no source file and remove no test."
 symbols = []
-touches = ["services/human/crates/layerx-human-kms/tests/provider.rs"]
+touches = ["services/human/crates/layerx-human-kms/tests/provider.rs", "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
 tests = ["services/human/crates/layerx-human-kms/tests/provider.rs::actual_client_lifecycle_and_mutual_tls"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
@@ -184825,6 +184827,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "In services/human/crates/layerx-human-kms/tests/provider/native_setup.rs make the two matches on DisclosedNativeOperation (:73 and :82) exhaustive against the enum at services/agent/crates/layerx-crypto/src/disclosure/native.rs:44 by adding explicit arms for ProgramDeploy, ProgramUpgrade, ProgramCall, ProgramWindDown, LegacyProgramCall, BudgetFund, BudgetDefund and BudgetRevoke: a mutation count of 0 at :73 beside OwnerRotation | None, and the unreachable panic at :82 beside OwnerRotation. Add no wildcard arm, so the compiler keeps catching the next variant (issue #1159); the provider target does not compile without this."
 
 [task.18.1157.1]
 title = "Issue #1157: x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
@@ -184855,10 +184858,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "In services/interop/crates/layerx-x402/tests/buyer.rs port the fixtures to the forms the crate validates (issue #1160): every network word layerx:beta or layerx:mainnet (test_supported :59/:63, test_requirements :71, the kinds and requirements at :150-:195 and :437-:518, and every other site in the file) becomes an eip155 identifier as validate_network (src/seller.rs:411-423) demands — eip155:125 as tests/seller.rs:81 and tests/layerx_evidence.rs:129 use, and a second distinct eip155 chain where a test needs two networks — with the assertions that name the word (such as :217) updated to the same value; every settlement transaction word that is not a 0x-prefixed 64-hex hash (String::new() at :437, 'test' at :472 and :517, the grant-settlement fixtures) becomes such a hash as tests/seller.rs:387 does, unless a test asserts TransactionForm itself. Keep every assertion: the grant-settlement refusal tests at :1020 and :1033 must again receive EvidenceMismatch, and all 26 tests of the target plus the two new metered tests pass."
 
 [task.18.1158.1]
 title = "Issue #1158: layerx-agentd audit_coverage test still reconstructs the version-2 audit session and fails to compile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
