@@ -9875,3 +9875,11 @@ symbol = "configure_with"
 observed = "Attempt 12 (d2aa1cd26) built and failed 30 of 35 payment tests with one root: the harness offers eip155:1337 (valid.json:52 through configure_with) and layerx-x402 model.rs:180-193 (e556c8b04, between attempts 11 and 12) refuses extra.layerx on any network but eip155:125, so Seller::new answers 503 payment_unavailable before any challenge; do_3 forbade moving the three chain-bound assertions."
 assumption = "Ruling: the recorded eip155:125 binding governs; do_12 moves the harness and the three assertions to chain 125 at equal strength, a port of the landed contract, with no change to layerx-x402."
 severity = "major"
+
+[finding.18.1156.1.6]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:874"
+symbol = "signing_request"
+observed = "Attempt 8 (f759ae9ca) passed 6 of 15 provider tests; seven failures send the kernel activity envelope with a SHA-256 preimage that sign refuses since 843ee0252 (10.11.7), one is Keystore::authorize_send still serializing the retired SendPlanAuthorization (issue #1169, owned by 10.0.3 do_6), one is the 2 s fixture deadline under fifteen concurrent attestor clusters."
+assumption = "Ruling: the seven sites port to the landed EIP-1559 contract inside touches (owner_bootstrap.rs included, deleted later by 10.21.4), the deadlines rise to 30 s, and the task requires 10.0.3 at wave 11 rather than splitting #1169 out, since a split would collide with 10.0.3 on custody/evm.rs; the kernel fee-grant, session-grant, onboarding and native-operation disclosure checks that bind_call does not carry are retired coverage under decision.1005 unless an owner rules otherwise."
+severity = "major"

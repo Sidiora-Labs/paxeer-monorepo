@@ -185016,8 +185016,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Issue #1156: layerx-human-kms provider test writes a registry the KMS refuses: network_id 77 where it requires chain_id 125"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 11
+requires = ["10.0.3"]
 reqs = ["181156.1"]
 capabilities = []
 interfaces = []
@@ -185048,6 +185048,9 @@ do_7 = "send::digest (services/human/crates/layerx-human-kms/src/send.rs:22-34) 
 do_8 = "Since 23ebd9073 (10.11.3) every EVM operation needs the attestor signer EvmAttestor::load (src/store.rs:52-72) builds from LAYERX_HUMAN_KMS_ATTESTOR_CONFIG_FILE (an AttestorSignerConfig, src/attestor.rs:535-546: nodes, trust_anchors, client_certificate_chain, client_private_key_pkcs8, key_id, public_key, evm_key_id, evm_address, signers, network_id 125, timeout_seconds) and LAYERX_HUMAN_KMS_EVM_ASSERTION_FILE; without them store.evm_wallet (:885, :887, :1356, :1441) returns Unavailable (:398, :434, :457). Before starting the KMS (tests/provider.rs:181-197) start the attestor cluster of tests/support/attestor_cluster.rs (Cluster::start, Pki, the key generation and approval helpers), generate the EVM key through it, write the two files and set both variables. Issue #1168."
 do_9 = "canonical_signing_and_disclosure_refusals (tests/provider.rs:620-660) still sends operation 11 with the kernel SendPlanAuthorization (network 77, sequence, idempotency_key) and asserts status 0 at :656; since 10.11.5 (4bbccf849, decision.1005) validate_sign (src/server.rs:148-151) parses operation 11 as the SendAuthorization of src/send.rs:17-20 (an EvmPlanAuthorization whose EIP-1559 transaction has chain_id 125 and to = the bank precompile 0x...1001, with a SendDisclosure of recipient, denom and amount) and refuses anything else. Port that case to the SendAuthorization shape with the test's own plan binding, keep the refusal cases refusing, and assert the same status and digest fields; do not reopen operation 11 to the retired shape."
 do_10 = "Attempt 7 (dc8dac988) left ten tests failing after the fixture gained the attestor cluster: every test that calls host.stop() then host.start() (:802, :1020, :1485, session_registration_and_replacement_disclosures_survive_provider_restart) answered status 1 or 'KMS exited at startup' on the restarted host, evm_authorization_nonce_dedup_and_acknowledgement_recovery timed out, and the signing tests of provider/owner_bootstrap.rs:60, provider/native_setup.rs:131 and provider/owner_rotation.rs:110 were refused. Make the attestor cluster, its config file, the EVM assertion file and the registry file outlive a host restart (start them once per test, reference them by path from the environment the restarted KMS inherits) and make every canonical call those signing tests compile carry chain_id 125 and network 125 as sign (src/server.rs:158-161) requires. A test that still fails after this is recorded by name in the qualification log, not changed."
+do_11 = "Since 843ee0252 (10.11.7) sign (services/human/crates/layerx-human-kms/src/server.rs:158-184) admits only an unsigned EIP-1559 type-2 call whose bind_call disclosure (sender = disclosure[9..29]) and Keccak256 digest match call.signing_hash(); tests/sign_eip1559_requests.rs:541-581 asserts the kernel envelope is refused. Port the seven kernel-envelope sign sites as attempt 8 ported canonical_signing_and_disclosure_refusals (evm_signing_request, tests/provider.rs:716-730): monetary_roles :874, primary_export :1092 (export_signing_frame :1058-1073), owner_fee_grants :1557, session_registration :1638, provider/native_setup.rs:131 (sign_setup), provider/owner_rotation.rs:110 (sign) and provider/owner_bootstrap.rs:60, which stays and is ported too (10.21.4 do_5 deletes that file later). Build the canonical bytes as an unsigned type-2 call with chain_id 125 that bind_call discloses (openAccount, mint, issueGrant, draw or bank-send selectors, layerx-crypto/src/disclosure/call.rs:236-342), encode its disclosure in wire::disclosure's layout and sign the Keccak digest. Keep every status-0, 72-byte, Ed25519-verify, restart and mismatch-refusal assertion and the local disclosure::bind assertions that never reach the KMS. Change no source file."
+do_12 = "The RemoteKmsProvider deadline of 2 s (tests/provider.rs:270) and LAYERX_HUMAN_KMS_DEADLINE_SECONDS=2 (:196) bound every EVM operation that waits on the 5-node attestor quorum (tests/support/attestor_cluster.rs:25) while fifteen tests run their own clusters; map_transport (layerx-human-service/src/custody/provider.rs:1332) reports the exceeded deadline as Kms(Timeout), which moved from evm_authorization_nonce_dedup_and_acknowledgement_recovery (attempt 7) to external_signature_verification_and_executor_journey_recovery (attempt 8). Raise both, and the raw socket timeouts at :283-284, to 30 s (config.rs:138 admits 1..=60); no assertion of the target observes a timeout, so no check changes."
+do_13 = "native_send_authorization_is_scoped_and_durable (tests/provider.rs:1285-1349) authorizes through Keystore::authorize_send (layerx-human-service/src/custody/evm.rs:212-223), which still serializes a SendPlanAuthorization as operation 11 while validate_sign (src/server.rs:148-150) has parsed operation 11 as send::SendAuthorization since 4bbccf849 (10.11.5), so the call returns Kms(Refused) (issue #1169). 10.0.3 do_6 ports that caller and this task now requires 10.0.3; do not rewrite the test as a raw operation-11 request, which would duplicate authorize_canonical_send (:634-715) and stop testing the service path. Once 10.0.3 is in the base, port the test to the landed Keystore::authorize_send shape: authorize the EIP-1559 bank 0x...1001 transfer, verify the returned signed transaction's sender and plan binding as authorize_canonical_send does, and keep the replay, mutation-refusal and restart assertions. The Ed25519 check over owner_send_authorization (:1322-1340) belongs to the signer 10.11.5 do_2 deleted and follows the port."
 
 [task.18.1157.1]
 title = "Issue #1157: x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
@@ -185544,7 +185547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1175.1]
 title = "Issue #1175: Serialize the committed block number and hash in x402 seller settlement responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185575,7 +185578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1178.1]
 title = "Issue #1178: Bind the portable receipt's raw transaction through the wrapped block transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
