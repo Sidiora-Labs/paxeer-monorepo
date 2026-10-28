@@ -131906,7 +131906,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.11.2]
 title = "Take the authority's sequencer trust from the pinned receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.11.1", "9.1.8", "18.1083.1", "18.1127.1"]
