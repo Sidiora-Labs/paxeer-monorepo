@@ -29,7 +29,6 @@ pub(crate) enum Operation {
     /// Version 3, operations 7 through 10 and 12: the existing JSON payload.
     Evm,
     AuthorizeSend,
-    AuthorizeRecipient,
     ExportPrimary,
     /// The read-only movement executor probe: admitted only for the
     /// restricted executor identity, it echoes the caller's challenge and the
@@ -49,17 +48,13 @@ impl Operation {
             (3, 6) => Self::EvmWallet,
             (3, 7..=10 | 12) => Self::Evm,
             (3, 11) => Self::AuthorizeSend,
-            (4, 13) => Self::AuthorizeRecipient,
             (5, 14) => Self::ExportPrimary,
             (6, 15) => Self::ExecutorProbe,
             _ => return Err(Error::Refused),
         })
     }
     const fn carries_payload(self) -> bool {
-        matches!(
-            self,
-            Self::Evm | Self::AuthorizeSend | Self::AuthorizeRecipient
-        )
+        matches!(self, Self::Evm | Self::AuthorizeSend)
     }
 }
 

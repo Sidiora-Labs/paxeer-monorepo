@@ -22,11 +22,10 @@ use layerx_types::verify::VerificationLevel;
 use sha2::Digest as _;
 use zeroize::Zeroizing;
 
-use crate::journeys::DepositAgentBoundary;
 use crate::journeys::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, ReceiptLookup,
-    ReceiptMaterial,
 };
+use crate::journeys::{DepositAgentBoundary, ReceiptMaterial};
 
 const MAGIC: &[u8; 8] = b"LXHAGT01";
 const TRACED_MAGIC: &[u8; 8] = b"LXHAGT02";
@@ -4253,10 +4252,23 @@ fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryE
         5 => VerificationLevel::SETTLEMENT_ANCHORED,
         _ => return Err(AgentBoundaryError::CorruptResponse),
     };
+    let tx_hash = reader.fixed::<32>()?;
+    let receipt_hash = reader.fixed::<32>()?;
+    let block_height = reader.u64()?;
+    let rung = match reader.u8()? {
+        0 => Rung::Submitted,
+        1 => Rung::Receipted,
+        2 => Rung::Committed,
+        _ => return Err(AgentBoundaryError::CorruptResponse),
+    };
     Ok(ReceiptMaterial {
         canonical_bytes,
         authorised_batch,
         verification_level,
+        tx_hash,
+        receipt_hash,
+        block_height,
+        rung,
     })
 }
 

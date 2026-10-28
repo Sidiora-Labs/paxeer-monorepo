@@ -9355,3 +9355,155 @@ symbol = "activity_types"
 observed = "Attempt 1 (7f60ac18a) linked the target; wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt fails before signing because the fixture passes the governance and bridge types to the attestor cluster, which admits only the asset send since eec0db612 (issue #1151)."
 assumption = "verify_cmd runs the attestor-independent test exactly; the attestor path is 18.1151.1's gate."
 severity = "major"
+
+[finding.10.21.1.1]
+task = "10.21.1"
+file = "services/human/crates/layerx-intents/src/precompile.rs:20"
+symbol = "IntentKind"
+observed = "Attempt 2 (aceba10d2) deleted the thirteen variants and failed its build with fifteen E0599 errors: precompile.rs, owned by 10.21.2, constructs the variants while the variants wrap crate::precompile types."
+assumption = "The precompile.rs, lib.rs:13 and tests/precompile_router.rs deletions moved into 10.21.1 (do_6-do_8); 10.21.2 keeps the keccak and router_retired proof only."
+severity = "major"
+
+[finding.10.98.1.1]
+task = "10.98.1"
+file = "services/human/crates/layerx-explorer-index/src/mirror.rs:6"
+symbol = "MirrorReceiptReport"
+observed = "Attempts 2 of 10.98.1 (a5d1ff77b) and 10.98.13 (bf9b1f768) stopped on the crate build: mirror.rs imports SignedHeaderTrust and calls MirrorVerifier::from_source, BatchIncluded and StateProven, removed from layerx-mirror by edd77cf4a (11.26.4)."
+assumption = "Issue #1153 / 18.1153.1 deletes the module now; 10.98.1, 10.98.13 and 10.27.6 require it."
+severity = "major"
+
+[finding.10.98.5.1]
+task = "10.98.5"
+file = "services/human/crates/layerx-human-service/tests"
+symbol = "read_frame"
+observed = "Attempts 1 of 10.98.4, 10.98.5 and 10.98.6 (db9da2b8a) report that wiring.J44.21 is not a rename: the replacement modules lack read_frame, write_frame, Limits, MutualTlsConfig and Submission::Acknowledged, so 24 retired paths remain across four test files."
+assumption = "Same class as finding.8.98.5 (wiring.J44.20): the mapping needs an owner decision; no further attempt until it exists."
+severity = "major"
+
+[finding.10.98.9.1]
+task = "10.98.9"
+file = "services/human/crates/layerx-human-service/src"
+symbol = "sign_disclosed"
+observed = "Attempts 1 of 10.98.7 and 10.98.9 report that wiring.J44.25 maps 64-byte activity signatures onto an EVM-only submit API that takes 65-byte signatures, and that DisclosedCall carries no canonical or registry fields; 18.1149.1 attempt 1 met the same divergence."
+assumption = "Owner decision on the J44.25 mapping; the wave-12 part of the family is held with the same reason."
+severity = "major"
+
+[finding.18.1152.1.1]
+task = "18.1152.1"
+file = "go.sum:2526"
+symbol = "golang.org/x/term"
+observed = "docker/layerx/Dockerfile:66 (go mod download) fails at head: go.sum carries no /go.mod hash for golang.org/x/term v0.15.0 (18.849.1 attempt 9, 18.869.1 attempt 11); 18.1141.1 closed the same gap for golang.org/x/net only."
+assumption = "18.1152.1 adds the two lines; 18.849.1 and 18.869.1 require it."
+severity = "major"
+
+[finding.18.1131.1.3]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/checkpoint.rs:138"
+symbol = "ProofBundleRequest"
+observed = "Attempt 6 (52f7ad5da) ported its three files and failed the all-targets test build: tests/checkpoint.rs still builds the pre-2666a01d5 (9.5.5) ProofBundleRequest with seven removed fields."
+assumption = "Issue #1154 / 18.1154.1 ports that block; 18.1131.1 requires it."
+severity = "major"
+
+[finding.18.1152.1.2]
+task = "18.1152.1"
+file = "go.sum"
+symbol = "golang.org/x/net"
+observed = "Attempt 1 (b3fb6c275) added the x/term v0.15.0 lines; go list -m all then reported the next missing go.mod hash (golang.org/x/net 20211112 through xanzy/ssh-agent v0.3.3), so the graph has more than one gap."
+assumption = "do_1 now covers every missing hash the graph reports; the next attempt iterates until go list -m all exits 0."
+severity = "minor"
+
+[finding.18.1149.1.1]
+task = "18.1149.1"
+file = "services/human/crates/layerx-human-service/tests/journey_faults.rs"
+symbol = "custody_signature"
+observed = "Attempts 1-2 (26fec6a91) leave 3 of 5 reclaim journey tests failing: the live submit contract rejects 64-byte custody signatures (65 required) and refuses the Budget activity 0x00030007 as unsupported; nonces and signature verification pass."
+assumption = "Same divergence as 10.98.9 (wiring.J44.25); the task is held for the owner's decision on the signature form."
+severity = "major"
+
+[finding.18.1144.1.1]
+task = "18.1144.1"
+file = "node/app.go:3216"
+symbol = "sealedBlockForFinalize"
+observed = "Attempt 2 (81078331a) added a SealForFinalize hook that nothing calls; the product path is sealedBlockForFinalize reading the installed sequencer source's Sealed() (app.go:3216-3259)."
+assumption = "The next attempt installs a sealed-layer sequencer source with SetSequencerSource beside SetOpenBlock; no app.go change."
+severity = "minor"
+
+[finding.18.1151.1.1]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:631"
+symbol = "ReceiptMaterial"
+observed = "Attempt 1 (4c0c687f9) narrowed the attestor activity types and failed its build: the file's receipt builder still fills the pre-85c5b32c5 (10.2.7) ReceiptMaterial without tx_hash, receipt_hash, block_height and rung."
+assumption = "do_3 ports that initializer as tests/intent_submit.rs:631-635 does; same file, same gate, so no separate task."
+severity = "major"
+
+[finding.18.1150.1.1]
+task = "18.1150.1"
+file = "services/agent/crates/layerx-agentd/tests/approval_events.rs:407"
+symbol = "approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
+observed = "Attempt 1 (3a21c8716) restored the gap with a durable chain event at Cursor 1/0/0; the delivery assertion then saw that event delivered fifth after the four approval emissions and stopped as do_2 instructed."
+assumption = "Delivering the recovered event once is the restored subscription's contract; do_2 now asserts the five-event delivery and the digest assertion is unaffected (audit log only)."
+severity = "minor"
+
+[finding.10.13.3.1]
+task = "10.13.3"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4249"
+symbol = "decode_receipt"
+observed = "Attempt 6 (de9558b07) rebuilt ReceiptMaterial with observed_height and signature as the old do_3 described; the type 10.2.7 landed (85c5b32c5) carries block_height and no signature plus the three retained fields, so the library did not build."
+assumption = "do_3 now names the landed shape; the next attempt keeps the seven fields and routes the rung byte through decode_rung."
+severity = "major"
+
+[finding.10.13.1.1]
+task = "10.13.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:530"
+symbol = "SessionProvision"
+observed = "Attempt 5 (7ead99073) replaced the provisions' activity_types with call_selectors and left nine consumers in agent_creation.rs, agent_creation_native.rs, production_components.rs and production_rotation.rs without the kernel activity types the grants require."
+assumption = "do_3 only renames the preset catalog key; the provisions keep activity_types and the next attempt restores them."
+severity = "major"
+
+[finding.10.11.5.1]
+task = "10.11.5"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8758"
+symbol = "sign_send_now"
+observed = "Attempt 1 (6eb8fcf06) built and the dependents check failed: the human service library still calls the deleted sign_send from sign_send_now, which only 10.0.3 (wave 11, requiring this task) was to port."
+assumption = "The caller port is do_5 of this task now and 10.0.3 lost that step; the deletion and its one caller land together."
+severity = "major"
+
+[finding.10.21.1.2]
+task = "10.21.1"
+file = "services/human/crates/layerx-explorer-index/src/mirror.rs"
+symbol = "MirrorVerifier"
+observed = "Attempt 4 (d3d145844) built and the dependents check failed on the explorer-index mirror module at its base; 18.1153.1 (ef7eb440a) deleted that module minutes later."
+assumption = "No spec change; the next attempt re-applies attempt 4 on a base that carries ef7eb440a."
+severity = "minor"
+
+[finding.18.1144.1.2]
+task = "18.1144.1"
+file = "node/sequencer/wal/wal.go:122"
+symbol = "Seal"
+observed = "Attempt 3 (53c5b3509) installed a standby source with Seal, Sealed and SealForFinalize; nothing calls SealForFinalize because FinalizeBlock reads Sealed() before any decided transaction reaches the source, and the WAL Seal record has no tx 0, so Sealed() stayed nil and the new test failed at its sealed-layer assertion."
+assumption = "do_4 adds the one FinalizeBlock hook that hands the decided transactions to a source implementing SealForFinalize; node/app.go joins the touches and go vet covers ./node/."
+severity = "major"
+
+[finding.18.1154.1.1]
+task = "18.1154.1"
+file = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs:224"
+symbol = "CheckpointReadError::UnavailableCapability"
+observed = "No path in src/read constructs UnavailableCapability; the checkpoint test asserted the reason unavailable_capability.read.proof_bundle, which only the RPC adapter's read_proof_bundle (src/agent_rpc_adapters.rs:1722-1737) renders when it refuses every request, so the assertion cannot be met through proof_bundle (attempt 1, 57e8cb95b)."
+assumption = "do_1 asserts the BelowRequestedRung and NotCommitted refusals verify_bundle produces; the adapter's blanket refusal of read.proof_bundle belongs to the read capability's owner."
+severity = "minor"
+
+[finding.18.1129.1.4]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+symbol = "recorded_settlements_are_captured_by_the_buyer"
+observed = "Attempt 11 (d8b55d7cc) fails 12 of 35 payment tests: the buyer refuses every metered settlement because capture_settlement accepts only PaymentExact (issue #1157); the conformance pin in src/lib.rs:43-49 lies outside touches; the PAX payee loop at :3520-3533 and fourteen assertions naming retired lx_* RPCs contradict do_7 and the native gateway the landed tasks record; the refusals.json recorder has no native rules for refused draws; RECEIVER_SEQUENCE renders as the word equal to the in-file RECEIVER_SECRET."
+assumption = "Resolved by requires 18.1157.1, do_9 to do_11 and decisions 1800 to 1802; attempt 12 starts from attempt 11."
+severity = "major"
+
+[finding.18.849.1.4]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile"
+symbol = "layerx-chain:qualify"
+observed = "Attempt 10 (291d759bb) built the native stage; the full image build failed in the paxd Go compile with no space left on device (logs-verify-2.log:767) when the build host's disk filled."
+assumption = "The full build needs more free disk than the native stage leaves; attempt 11 frees the build host's caches before the full build or runs on a larger disk."
+severity = "minor"

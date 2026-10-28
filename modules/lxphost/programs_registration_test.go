@@ -22,6 +22,7 @@ func TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities(t *testi
 			chain := newTestChain(t)
 			host := chain.host(t)
 			authority := executeActivityAuthority(t, [32]byte{0x73})
+			seedProgramsFeeRecord(t, chain, authority.Actor)
 			ctx := chain.context(1, bindingBlockTime, 41)
 
 			receipt, err := ExecuteActivity(ctx, host, authority, activity.typeID, nil, 0)
@@ -37,6 +38,7 @@ func TestHostProgramsModuleRefusesUnknownOrdinal(t *testing.T) {
 	chain := newTestChain(t)
 	host := chain.host(t)
 	authority := executeActivityAuthority(t, [32]byte{0x74})
+	seedProgramsFeeRecord(t, chain, authority.Actor)
 	ctx := chain.context(1, bindingBlockTime, 41)
 
 	_, err := ExecuteActivity(ctx, host, authority, 0x0009000C, nil, 0)
