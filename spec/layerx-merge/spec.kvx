@@ -138160,7 +138160,7 @@ do_8 = "authenticate_cumulative_use (services/agent/crates/layerx-agentd/src/pro
 
 [task.9.2.1]
 title = "Prepare EIP-1559 transactions at the pending nonce"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.12.1", "9.0.1", "9.1.8"]
