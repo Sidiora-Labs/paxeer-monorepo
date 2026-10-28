@@ -55,24 +55,24 @@ pub fn encode_pay_exact(
 
 #[must_use]
 pub fn encode_draw(
-    from: [u8; 32],
-    asset: [u8; 32],
+    grant_id: [u8; 32],
+    recipient: [u8; 32],
     amount: u128,
-    grant: [u8; 32],
-    receiver_sequence: u64,
     idempotency_key: [u8; 32],
-    context: [u8; 32],
+    sequence: u64,
+    purpose_hash: [u8; 32],
+    context_hash: [u8; 32],
 ) -> Vec<u8> {
     encode_call(
         DRAW_SIGNATURE,
         &[
-            from,
-            asset,
+            grant_id,
+            recipient,
             uint_word(amount.to_be_bytes()),
-            grant,
-            uint_word(receiver_sequence.to_be_bytes()),
             idempotency_key,
-            context,
+            uint_word(sequence.to_be_bytes()),
+            purpose_hash,
+            context_hash,
         ],
     )
 }

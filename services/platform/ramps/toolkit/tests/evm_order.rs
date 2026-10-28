@@ -19,6 +19,7 @@ fn order(direction: RampDirection) -> RampOrder {
             order_id: "order-1".into(),
             quote_id: "quote-1".into(),
             payer_grant: (direction == RampDirection::OffRamp).then_some([7; 32]),
+            payer_grant_purpose: (direction == RampDirection::OffRamp).then_some([6; 32]),
         },
         QuoteTerms {
             quote_id: "quote-1".into(),
@@ -90,17 +91,26 @@ fn off_ramp_compiles_draw_against_customer_grant() {
         &call.data[..4],
         &Keccak256::digest(b"draw(bytes32,bytes32,uint128,bytes32,uint64,bytes32,bytes32)")[..4]
     );
-    assert_eq!(&call.data[4..36], &account_id(&order.customer.account));
-    assert_eq!(&call.data[36..68], &order.quote.layerx_asset);
+    assert_eq!(&call.data[4..36], &order.payer_grant.expect("grant"));
+    assert_eq!(
+        &call.data[36..68],
+        &account_id(&format!(
+            "agent:did:layerx:operator-1:asset:{}",
+            "01".repeat(32)
+        ))
+    );
     assert_eq!(&call.data[68..84], &[0; 16]);
     assert_eq!(
         &call.data[84..100],
         &order.quote.layerx_amount.to_be_bytes()
     );
-    assert_eq!(&call.data[100..132], &order.payer_grant.expect("grant"));
+    assert_eq!(&call.data[100..132], &order.order_digest);
     assert_eq!(&call.data[132..156], &[0; 24]);
     assert_eq!(&call.data[156..164], &9_u64.to_be_bytes());
-    assert_eq!(&call.data[164..196], &order.order_digest);
+    assert_eq!(
+        &call.data[164..196],
+        &order.payer_grant_purpose.expect("grant purpose")
+    );
     assert_eq!(&call.data[196..228], &order.context);
     assert_eq!(
         compile_payer_grant_draw(&self::order(RampDirection::OnRamp), 9),
@@ -113,6 +123,127 @@ fn off_ramp_compiles_draw_against_customer_grant() {
         compile_payer_grant_draw(&missing, 9),
         Err(RampError::PayerGrantRequired)
     );
+    for purpose in [None, Some([0; 32])] {
+        let mut missing = order.clone();
+        missing.payer_grant_purpose = purpose;
+        missing.order_digest = missing.digest();
+        assert_eq!(
+            compile_payer_grant_draw(&missing, 9),
+            Err(RampError::PayerGrantRequired)
+        );
+    }
+    let mut tampered = order.clone();
+    tampered.payer_grant_purpose = Some([5; 32]);
+    assert_ne!(tampered.digest(), order.order_digest);
+    assert_eq!(
+        compile_payer_grant_draw(&tampered, 9),
+        Err(RampError::OrderBinding)
+    );
+}
+
+#[test]
+fn off_ramp_draw_follows_the_native_ledger_abi() {
+    let abi: serde_json::Value = serde_json::from_str(
+        &std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .join("../../../../precompiles/layerxledger/abi.json"),
+        )
+        .expect("native ledger ABI"),
+    )
+    .expect("ledger ABI JSON");
+    let draw = abi
+        .as_array()
+        .expect("ABI entries")
+        .iter()
+        .find(|entry| entry["type"] == "function" && entry["name"] == "draw")
+        .expect("native draw function");
+    let inputs = draw["inputs"].as_array().expect("draw inputs");
+    let names: Vec<_> = inputs
+        .iter()
+        .map(|input| input["name"].as_str().expect("input name"))
+        .collect();
+    assert_eq!(
+        names,
+        [
+            "grantId",
+            "recipient",
+            "amount",
+            "idempotencyKey",
+            "sequence",
+            "purposeHash",
+            "contextHash"
+        ]
+    );
+
+    let mut order = order(RampDirection::OffRamp);
+    order.quote.layerx_asset = [0xab; 32];
+    order.quote.layerx_amount = (1_u128 << 100) + 1_000;
+    order.order_digest = order.digest();
+    let sequence = 0x0102_0304_0506_0708_u64;
+    let call = compile_payer_grant_draw(&order, sequence).expect("native draw call");
+    let mut amount = [0; 32];
+    amount[16..].copy_from_slice(&order.quote.layerx_amount.to_be_bytes());
+    let mut sequence_word = [0; 32];
+    sequence_word[24..].copy_from_slice(&sequence.to_be_bytes());
+    let expected = [
+        order.payer_grant.expect("payer grant"),
+        account_id(&format!(
+            "agent:did:layerx:operator-1:asset:{}",
+            "ab".repeat(32)
+        )),
+        amount,
+        order.order_digest,
+        sequence_word,
+        order.payer_grant_purpose.expect("grant purpose"),
+        order.context,
+    ];
+    let signature = format!(
+        "draw({})",
+        inputs
+            .iter()
+            .map(|input| input["type"].as_str().expect("input type"))
+            .collect::<Vec<_>>()
+            .join(",")
+    );
+    assert_eq!(call.to, LEDGER_ADDRESS);
+    assert_eq!(call.data.len(), 4 + expected.len() * 32);
+    assert_eq!(
+        &call.data[..4],
+        &Keccak256::digest(signature.as_bytes())[..4]
+    );
+    for (index, word) in expected.iter().enumerate() {
+        assert_eq!(
+            &call.data[4 + index * 32..4 + (index + 1) * 32],
+            word,
+            "{}",
+            names[index]
+        );
+    }
+
+    for direction in [RampDirection::OnRamp, RampDirection::OffRamp] {
+        let bound = self::order(direction);
+        for purpose in [None, Some([0; 32]), Some([6; 32])] {
+            let result = RampOrder::bind(
+                CreateOrder {
+                    order_id: bound.order_id.clone(),
+                    quote_id: bound.quote.quote_id.clone(),
+                    payer_grant: bound.payer_grant,
+                    payer_grant_purpose: purpose,
+                },
+                bound.quote.clone(),
+                bound.customer.clone(),
+                bound.operator.clone(),
+                1_000,
+            );
+            if (direction == RampDirection::OffRamp && purpose == Some([6; 32]))
+                || (direction == RampDirection::OnRamp && purpose.is_none())
+            {
+                assert_eq!(result, Ok(bound.clone()));
+            } else {
+                assert_eq!(result, Err(RampError::InvalidOrder));
+            }
+        }
+    }
 }
 
 fn payment_log(order: &RampOrder) -> SequencerLog {

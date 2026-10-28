@@ -112,6 +112,7 @@ pub struct CreateOrder {
     pub order_id: String,
     pub quote_id: String,
     pub payer_grant: Option<[u8; 32]>,
+    pub payer_grant_purpose: Option<[u8; 32]>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -122,6 +123,7 @@ pub struct RampOrder {
     pub customer: AuthenticatedPrincipal,
     pub operator: OperatorIdentity,
     pub payer_grant: Option<[u8; 32]>,
+    pub payer_grant_purpose: Option<[u8; 32]>,
     pub context: [u8; 32],
     pub order_digest: [u8; 32],
 }
@@ -143,8 +145,11 @@ impl RampOrder {
         validate_operator(&operator)?;
         if request.quote_id != quote.quote_id
             || request.payer_grant == Some([0; 32])
-            || matches!(quote.direction, RampDirection::OnRamp) && request.payer_grant.is_some()
-            || matches!(quote.direction, RampDirection::OffRamp) && request.payer_grant.is_none()
+            || request.payer_grant_purpose == Some([0; 32])
+            || matches!(quote.direction, RampDirection::OnRamp)
+                && (request.payer_grant.is_some() || request.payer_grant_purpose.is_some())
+            || matches!(quote.direction, RampDirection::OffRamp)
+                && (request.payer_grant.is_none() || request.payer_grant_purpose.is_none())
         {
             return Err(RampError::InvalidOrder);
         }
@@ -155,6 +160,7 @@ impl RampOrder {
             customer,
             operator,
             payer_grant: request.payer_grant,
+            payer_grant_purpose: request.payer_grant_purpose,
             context,
             order_digest: [0; 32],
         };
@@ -189,6 +195,12 @@ impl RampOrder {
         field(
             &mut hasher,
             self.payer_grant
+                .as_ref()
+                .map_or(&[], |value| value.as_slice()),
+        );
+        field(
+            &mut hasher,
+            self.payer_grant_purpose
                 .as_ref()
                 .map_or(&[], |value| value.as_slice()),
         );
@@ -291,15 +303,28 @@ pub fn compile_payer_grant_draw(
         .payer_grant
         .filter(|grant| *grant != [0; 32])
         .ok_or(RampError::PayerGrantRequired)?;
+    let purpose = order
+        .payer_grant_purpose
+        .filter(|purpose| *purpose != [0; 32])
+        .ok_or(RampError::PayerGrantRequired)?;
+    let operator = order
+        .operator
+        .account
+        .strip_suffix(":main")
+        .ok_or(RampError::InvalidPrincipal)?;
+    let recipient = ledger_account(&format!(
+        "{operator}:asset:{}",
+        clients::hex(&order.quote.layerx_asset)
+    ))?;
     Ok(LedgerCall {
         to: LEDGER_ADDRESS,
         data: encode_draw(
-            ledger_account(&order.customer.account)?,
-            order.quote.layerx_asset,
-            order.quote.layerx_amount,
             grant,
-            receiver_sequence,
+            recipient,
+            order.quote.layerx_amount,
             order.order_digest,
+            receiver_sequence,
+            purpose,
             order.context,
         ),
     })
