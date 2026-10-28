@@ -181284,7 +181284,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1119.1]
 title = "Issue #1119: Port the human service's activity module to the rung convention so layerx-human-service compiles again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183721,7 +183721,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1136.1]
 title = "Issue #1136: Make the bridge app type-check at main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183782,7 +183782,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1138.1]
 title = "Issue #1138: Port the agentd handshake gate fixture to the startup configuration with node endpoint and chain id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
