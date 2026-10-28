@@ -10,7 +10,7 @@ import {
   type AbiReadField,
   type AbiReadRecord,
 } from "./abi-read.ts";
-import { GatewayRpcError, ethBlockNumber, ethCall, ethGetLogs, type GatewayLog } from "./gateway.ts";
+import { GatewayRpcError, GatewayUnavailableError, ethBlockNumber, ethCall, ethGetLogs, type GatewayLog } from "./gateway.ts";
 import {
   BRIDGE_EVENTS,
   LAUNCHPAD_PRECOMPILE,
@@ -30,8 +30,8 @@ export const PRECOMPILE_LOG_WINDOW = 50_000n;
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 
-async function view(to: string, data: string, outputs: readonly AbiReadField[]): Promise<AbiReadRecord> {
-  return decodeAbiResult(await ethCall({ to, data }), outputs);
+async function view(to: string, data: string, outputs: readonly AbiReadField[], block?: bigint): Promise<AbiReadRecord> {
+  return decodeAbiResult(await ethCall({ to, data }, block), outputs);
 }
 
 function addressTopic(address: string): string {
@@ -118,6 +118,10 @@ export interface LaunchpadMarket {
   readonly price: bigint;
 }
 
+export type LaunchpadMarketRow = LaunchpadMarket | Readonly<{ pool: string; unavailable: string }>;
+
+export const LAUNCHPAD_READ_CONCURRENCY = 8;
+
 export interface LaunchpadConfig {
   readonly quoteDenom: string;
   readonly creationFee: bigint;
@@ -126,23 +130,35 @@ export interface LaunchpadConfig {
   readonly baseFeeBps: bigint;
 }
 
-async function viewUint(to: string, name: string, types: readonly ("address" | "uint256")[] = [], values: readonly (string | bigint)[] = []): Promise<bigint> {
-  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "uint256" }]);
+async function viewUint(
+  to: string,
+  name: string,
+  types: readonly ("address" | "uint256")[] = [],
+  values: readonly (string | bigint)[] = [],
+  block?: bigint,
+): Promise<bigint> {
+  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "uint256" }], block);
   return readUint(result.value, name);
 }
 
-async function viewAddress(to: string, name: string, types: readonly "address"[] = [], values: readonly string[] = []): Promise<string> {
-  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "address" }]);
+async function viewAddress(
+  to: string,
+  name: string,
+  types: readonly "address"[] = [],
+  values: readonly string[] = [],
+  block?: bigint,
+): Promise<string> {
+  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "address" }], block);
   return readText(result.value, name);
 }
 
-async function viewString(to: string, name: string): Promise<string> {
-  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "string" }]);
+async function viewString(to: string, name: string, block?: bigint): Promise<string> {
+  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "string" }], block);
   return readText(result.value, name);
 }
 
-async function viewFlag(to: string, name: string): Promise<boolean> {
-  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "bool" }]);
+async function viewFlag(to: string, name: string, block?: bigint): Promise<boolean> {
+  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "bool" }], block);
   return readFlag(result.value, name);
 }
 
@@ -151,24 +167,31 @@ export async function launchpadMarketCount(): Promise<bigint> {
   return viewUint(LAUNCHPAD_PRECOMPILE, "getPoolCount");
 }
 
-async function launchpadMarket(pool: string, feeRights: string): Promise<LaunchpadMarket> {
-  const [statsResult, metadataResult, paused] = await Promise.all([
-    view(LAUNCHPAD_PRECOMPILE, encodeAbiCall("getPoolStats", ["address"], [pool]), [
-      { name: "stats", type: { tuple: LAUNCHPAD_POOL_STATS } },
-    ]),
-    view(LAUNCHPAD_PRECOMPILE, encodeAbiCall("getPoolMetadata", ["address"], [pool]), LAUNCHPAD_POOL_METADATA),
-    viewFlag(pool, "paused"),
-  ]);
+async function launchpadMarket(pool: string, feeRights: string, block: bigint): Promise<LaunchpadMarket> {
+  const statsResult = await view(
+    LAUNCHPAD_PRECOMPILE,
+    encodeAbiCall("getPoolStats", ["address"], [pool]),
+    [{ name: "stats", type: { tuple: LAUNCHPAD_POOL_STATS } }],
+    block,
+  );
+  const metadataResult = await view(
+    LAUNCHPAD_PRECOMPILE,
+    encodeAbiCall("getPoolMetadata", ["address"], [pool]),
+    LAUNCHPAD_POOL_METADATA,
+    block,
+  );
+  const paused = await viewFlag(pool, "paused", block);
   const stats = readRecord(statsResult.stats, "stats");
   const token = readText(metadataResult.token, "token");
-  const [name, symbol, totalSupply, feeStrategy] = await Promise.all([
-    viewString(token, "name"),
-    viewString(token, "symbol"),
-    viewUint(token, "totalSupply"),
-    view(feeRights, encodeAbiCall("getFeeStrategy", ["uint256"], [readUint(metadataResult.nftId, "nftId")]), [
-      { name: "strategy", type: "uint8" },
-    ]),
-  ]);
+  const name = await viewString(token, "name", block);
+  const symbol = await viewString(token, "symbol", block);
+  const totalSupply = await viewUint(token, "totalSupply", [], [], block);
+  const feeStrategy = await view(
+    feeRights,
+    encodeAbiCall("getFeeStrategy", ["uint256"], [readUint(metadataResult.nftId, "nftId")]),
+    [{ name: "strategy", type: "uint8" }],
+    block,
+  );
   return {
     pool,
     token,
@@ -186,15 +209,34 @@ async function launchpadMarket(pool: string, feeRights: string): Promise<Launchp
 }
 
 /** PoolRegistry `getAllPools(offset, limit)`, each pool read through the Quoter, its pool surface, its token and its fee right. */
-export async function launchpadMarkets(offset: bigint, limit: bigint): Promise<readonly LaunchpadMarket[]> {
+export async function launchpadMarkets(offset: bigint, limit: bigint): Promise<readonly LaunchpadMarketRow[]> {
+  const block = await ethBlockNumber();
   const [result, feeRights] = await Promise.all([
-    view(LAUNCHPAD_PRECOMPILE, encodeAbiCall("getAllPools", ["uint256", "uint256"], [offset, limit]), [
-      { name: "pools", type: { array: "address" } },
-    ]),
-    viewAddress(LAUNCHPAD_PRECOMPILE, "nftContract"),
+    view(
+      LAUNCHPAD_PRECOMPILE,
+      encodeAbiCall("getAllPools", ["uint256", "uint256"], [offset, limit]),
+      [{ name: "pools", type: { array: "address" } }],
+      block,
+    ),
+    viewAddress(LAUNCHPAD_PRECOMPILE, "nftContract", [], [], block),
   ]);
   const pools = readList(result.pools, "pools").map((pool) => readText(pool, "pool"));
-  return Promise.all(pools.map((pool) => launchpadMarket(pool, feeRights)));
+  const remaining = pools.entries();
+  const rows: LaunchpadMarketRow[] = [];
+  async function readPools(): Promise<void> {
+    for (const [index, pool] of remaining) {
+      try {
+        rows[index] = await launchpadMarket(pool, feeRights, block);
+      } catch (error) {
+        if (!(error instanceof GatewayUnavailableError || error instanceof GatewayRpcError)) {
+          throw error;
+        }
+        rows[index] = { pool, unavailable: error.message };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(LAUNCHPAD_READ_CONCURRENCY, pools.length) }, readPools));
+  return rows;
 }
 
 /** The ProtocolConfig getters, with the quote asset named by the USDL token's symbol. */
