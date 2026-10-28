@@ -156,7 +156,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
                                             lxp_governance_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
-                                            programs_module_registration());
+                                            programs_module_registration_v4_storage_retirement());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());
@@ -533,6 +533,8 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
     execution->signature_valid = node->envelope.activity.signature.length != 0U ?
         lxp_activity_verify_signature(&node->envelope.activity) == LXP_OK :
         binding_authority;
+    execution->binding_authority =
+        node->envelope.activity.signature.length == 0U && binding_authority;
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;
@@ -765,6 +767,11 @@ type Config struct {
 	GasLimit          uint64
 }
 
+// TimestampWindowMs returns the maximum activity timestamp window in milliseconds.
+func (h *Host) TimestampWindowMs() uint64 {
+	return h.cfg.TimestampWindowMs
+}
+
 type Activity struct {
 	ProtocolVersion uint16
 	Type            uint32
@@ -946,10 +953,20 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 		return Receipt{}, err
 	}
 	modules := activityModules(module)
+	var keys [][]byte
+	if module == C.LXP_MODULE_GOVERNANCE {
+		activeKey := moduleKVKey(C.LXP_MODULE_PROGRAMS, []byte("progfee/active/v1"))
+		keys = append(keys, activeKey)
+		active := branch.store.Get(activeKey)
+		if len(active) >= 9 && string(active[:5]) == "LXFR1" {
+			history := append([]byte("progfee/history/v1/"), active[5:9]...)
+			keys = append(keys, moduleKVKey(C.LXP_MODULE_PROGRAMS, history))
+		}
+	}
 	if err := lxphost_authority_write(h.node, authority); err != nil {
 		return Receipt{}, err
 	}
-	if err := branch.load(h, modules); err != nil {
+	if err := branch.load(h, modules, keys...); err != nil {
 		return Receipt{}, err
 	}
 	loadedBlobs, err := h.loadBlobs(branch.store, modules)

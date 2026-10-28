@@ -79,7 +79,7 @@ static int run(unsigned mode, int vectors)
     CHECK(lxp_kernel_create(&kernel, &state, &journal, &parameters, 0U) == LXP_OK);
     CHECK(lxp_kernel_register_module(&kernel, lx_asset_module_iface()) == LXP_OK);
     CHECK(lxp_kernel_set_capabilities(&kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
-    runtime = (lx_asset_runtime){&accounts, &asset, 1U, &asset_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+    runtime = (lx_asset_runtime){&accounts, &asset, 1U, &asset_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     CHECK(lxp_kernel_bind_module_runtime(&kernel, LXP_MODULE_ASSET, &runtime) == LXP_OK);
     CHECK(lxp_kernel_module_for_activity(&kernel, LX_ASSET_WITHDRAW, 0U, &registration) == LXP_OK);
     memcpy(payload, asset.asset_id, 32U); payload[47] = 25U;

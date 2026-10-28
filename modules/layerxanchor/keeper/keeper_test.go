@@ -613,7 +613,7 @@ func TestDefaultGenesisIsValid(t *testing.T) {
 	require.Error(t, bad.Validate())
 }
 
-func parameterRouter(t *testing.T, k keeper.Keeper) (*baseapp.MsgServiceRouter, *codec.ProtoCodec) {
+func parameterRouter(t *testing.T, k keeper.Keeper, upgrades keeper.UpgradeReader) (*baseapp.MsgServiceRouter, *codec.ProtoCodec) {
 	t.Helper()
 	registry := cdctypes.NewInterfaceRegistry()
 	sdk.RegisterInterfaces(registry)
@@ -621,7 +621,7 @@ func parameterRouter(t *testing.T, k keeper.Keeper) (*baseapp.MsgServiceRouter, 
 	cdc := codec.NewProtoCodec(registry)
 	router := baseapp.NewMsgServiceRouter()
 	router.SetInterfaceRegistry(registry)
-	moduleimpl.NewAppModule(k).RegisterServices(module.NewConfigurator(cdc, router, baseapp.NewGRPCQueryRouter()))
+	moduleimpl.NewAppModule(k, upgrades).RegisterServices(module.NewConfigurator(cdc, router, baseapp.NewGRPCQueryRouter()))
 	return router, cdc
 }
 func parameterRoute(t *testing.T, router *baseapp.MsgServiceRouter, cdc *codec.ProtoCodec, ctx sdk.Context, msg *types.MsgUpdateParams) error {
@@ -643,7 +643,7 @@ func TestMsgUpdateParamsGovernanceRoute(t *testing.T) {
 	s := newSuite(t, nil)
 	k, ctx := s.k, s.ctx
 	authority := s.authority.String()
-	router, cdc := parameterRouter(t, k)
+	router, cdc := parameterRouter(t, k, &s.app.UpgradeKeeper)
 	params := k.GetParams(ctx)
 	params.ReporterShare = sdk.NewDecWithPrec(2, 1)
 	params.PermissionlessRegistration = !params.PermissionlessRegistration
@@ -662,7 +662,7 @@ func TestMsgUpdateParamsCodecAndSigners(t *testing.T) {
 	s := newSuite(t, nil)
 	k, ctx := s.k, s.ctx
 	authority := s.authority.String()
-	_, cdc := parameterRouter(t, k)
+	_, cdc := parameterRouter(t, k, &s.app.UpgradeKeeper)
 	msg := &types.MsgUpdateParams{Authority: authority, Params: k.GetParams(ctx)}
 	require.NoError(t, msg.ValidateBasic())
 	signer, err := sdk.AccAddressFromBech32(authority)
@@ -719,7 +719,7 @@ func TestMsgUpdateParamsRefusals(t *testing.T) {
 	s := newSuite(t, nil)
 	k, ctx := s.k, s.ctx
 	authority := s.authority.String()
-	router, cdc := parameterRouter(t, k)
+	router, cdc := parameterRouter(t, k, &s.app.UpgradeKeeper)
 	before := k.GetParams(ctx)
 	outsider := sdk.AccAddress(bytes.Repeat([]byte{0xfe}, 20)).String()
 	for _, caller := range []string{outsider, "invalid-bech32"} {

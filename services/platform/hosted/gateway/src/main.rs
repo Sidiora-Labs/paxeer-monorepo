@@ -1,4 +1,5 @@
 mod capabilities;
+mod chain_reads;
 mod explorer_proxy;
 mod history;
 mod native_call;
@@ -24,10 +25,9 @@ use layerx_platform_gateway::store::{
     Reservation, ReservationRequest,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, native_explorer_public_route, pay_timing, production_route,
-    verify_live_receipt, verify_program_operation, verify_program_simulation_operation,
-    verify_submission, AccessError, AuthorityFacts, GatewayError, IssuedKey,
-    NativeExplorerPublicRoute, PrincipalId, ProductionRoute, Quota, ReceiptKeyList,
+    authenticate_gateway_key, pay_timing, production_route, verify_live_receipt,
+    verify_program_operation, verify_program_simulation_operation, verify_submission, AccessError,
+    AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota,
     VerifiedSubmission,
 };
 use layerx_types::amount::Amount;
@@ -58,6 +58,8 @@ const MAX_IDEMPOTENCY_SECONDS: u64 = 2_592_000;
 const MAX_REQUESTS_PER_CONNECTION: usize = 128;
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
 
+type ReceiptKeyList = layerx_platform_gateway::ReceiptKeyList;
+
 enum Listener {
     Tls(Arc<ServerConfig>),
     Plain,
@@ -71,6 +73,7 @@ struct Config {
     client: Client,
     client_identity: bool,
     kernel: Option<Kernel>,
+    receipt_keys: Option<ReceiptKeyList>,
     paxeer: Option<Vec<Endpoint>>,
     capabilities: capabilities::Cache,
     indexer: Option<history::Indexer>,
@@ -96,12 +99,11 @@ struct Kernel {
     identity_token: Zeroizing<String>,
     registry: Endpoint,
     registry_token: Zeroizing<String>,
-    receipt_keys: ReceiptKeyList,
     key_provisioning_key: Zeroizing<[u8; 32]>,
     modules: ModuleRegistry,
 }
 
-const KERNEL_VARIABLES: [&str; 14] = [
+const KERNEL_VARIABLES: [&str; 13] = [
     "LAYERX_GATEWAY_COMPONENT_URL",
     "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
     "LAYERX_GATEWAY_PUBLIC_CORE_URL",
@@ -113,7 +115,6 @@ const KERNEL_VARIABLES: [&str; 14] = [
     "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    "LAYERX_GATEWAY_RECEIPT_KEYS_FILE",
     "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
     "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
 ];
@@ -284,8 +285,9 @@ impl Config {
     }
 
     fn receipt_keys(&self) -> Result<&ReceiptKeyList, KernelUnavailable> {
-        self.kernel_side(KernelBackend::Authority)
-            .map(|kernel| &kernel.receipt_keys)
+        self.receipt_keys
+            .as_ref()
+            .ok_or(KernelUnavailable::not_configured(KernelBackend::Authority))
     }
 
     fn key_provisioning_key(&self) -> Result<&Zeroizing<[u8; 32]>, KernelUnavailable> {
@@ -1018,19 +1020,6 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
         identity_password.as_str(),
     )
     .map_err(|error| error.to_string())?;
-    let receipt_key_file = fs::File::open(
-        env::var("LAYERX_GATEWAY_RECEIPT_KEYS_FILE")
-            .map_err(|_| "LAYERX_GATEWAY_RECEIPT_KEYS_FILE is required")?,
-    )
-    .map_err(|error| error.to_string())?;
-    let mut receipt_key_document = String::new();
-    std::io::Read::read_to_string(
-        &mut std::io::Read::take(receipt_key_file, 256 * 1024 + 1),
-        &mut receipt_key_document,
-    )
-    .map_err(|error| error.to_string())?;
-    let receipt_keys = ReceiptKeyList::from_config(&receipt_key_document)
-        .map_err(|field| format!("invalid gateway {field}"))?;
     let provisioning_key = read_secret("LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE")?;
     let key_provisioning_key = Zeroizing::new(parse_hex32(provisioning_key.as_str())?);
     let modules = configured_modules()?;
@@ -1056,7 +1045,6 @@ fn configured_kernel() -> Result<Option<(Kernel, Identity)>, String> {
                 .map_err(|_| "gateway program registry URL is required")?,
         )?,
         registry_token: read_secret("LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE")?,
-        receipt_keys,
         key_provisioning_key,
         modules,
     };
@@ -1092,6 +1080,22 @@ fn configured_service_identity(kernel_configured: bool) -> Result<Option<Identit
 }
 
 fn config(event_producer: bool) -> Result<Config, String> {
+    let receipt_keys = match env::var_os("LAYERX_GATEWAY_RECEIPT_KEYS_FILE") {
+        Some(path) => {
+            let receipt_key_file = fs::File::open(path).map_err(|error| error.to_string())?;
+            let mut receipt_key_document = String::new();
+            std::io::Read::read_to_string(
+                &mut std::io::Read::take(receipt_key_file, 256 * 1024 + 1),
+                &mut receipt_key_document,
+            )
+            .map_err(|error| error.to_string())?;
+            Some(
+                ReceiptKeyList::from_config(&receipt_key_document)
+                    .map_err(|field| format!("invalid gateway {field}"))?,
+            )
+        }
+        None => None,
+    };
     let ca = Certificate::from_der(
         &fs::read(
             env::var("LAYERX_GATEWAY_OUTBOUND_CA_DER")
@@ -1129,6 +1133,7 @@ fn config(event_producer: bool) -> Result<Config, String> {
         client,
         client_identity,
         kernel,
+        receipt_keys,
         paxeer: paxeer::configured_endpoint()?
             .map(|endpoints| endpoints.into_iter().map(capabilities::chain_rpc).collect()),
         capabilities: capabilities::configured()?,
@@ -3986,6 +3991,7 @@ fn readiness(config: &Config) -> Vec<BackendAvailability> {
             BackendAvailability::not_configured("event_producer")
         },
         paxeer_chain_readiness(config),
+        consensus_readiness(config),
     ];
     backends.extend(KernelBackend::ALL.into_iter().map(|backend| {
         kernel_availability(config, backend, |endpoint, token| match backend {
@@ -4024,6 +4030,54 @@ fn paxeer_chain_readiness(config: &Config) -> BackendAvailability {
             && document.get("error").is_none()
     });
     BackendAvailability::probed("paxeer_chain", ready)
+}
+
+fn consensus_readiness(config: &Config) -> BackendAvailability {
+    let Some(url) = env::var_os("LAYERX_GATEWAY_CONSENSUS_RPC_URL") else {
+        return BackendAvailability::not_configured("consensus");
+    };
+    let ready = (|| {
+        let mut endpoint = Endpoint::parse(url.to_str()?).ok()?;
+        let path = if endpoint.base_path.is_empty() {
+            "/".to_owned()
+        } else {
+            std::mem::take(&mut endpoint.base_path)
+        };
+        let request = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": "gateway-readiness-consensus",
+            "method": "status",
+            "params": {}
+        });
+        let body = serde_json::to_vec(&request).ok()?;
+        let response = config
+            .client
+            .request_unauthenticated(
+                &endpoint,
+                &http::OutboundRequest {
+                    method: "POST",
+                    path: &path,
+                    idempotency: None,
+                    content_type: "application/json",
+                    body: &body,
+                },
+            )
+            .ok()?;
+        if response.status != 200 || response.content_type != "application/json" {
+            return None;
+        }
+        let document: serde_json::Value = serde_json::from_slice(&response.body).ok()?;
+        Some(
+            document.get("jsonrpc").and_then(serde_json::Value::as_str) == Some("2.0")
+                && document.get("id") == request.get("id")
+                && document.get("error").is_none()
+                && document
+                    .pointer("/result/sync_info/catching_up")
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(false),
+        )
+    })() == Some(true);
+    BackendAvailability::probed("consensus", ready)
 }
 
 fn layerx_activity_readiness(backends: &[BackendAvailability]) -> BackendAvailability {

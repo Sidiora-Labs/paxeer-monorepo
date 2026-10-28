@@ -190,6 +190,7 @@ type Replicator struct {
 	onWALSync func(time.Duration)
 	conn      net.Conn
 	retained  []retainedFrame
+	lastSeq   uint64
 	epoch     uint64
 }
 
@@ -249,6 +250,7 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 		switch v := e.(type) {
 		case *wal.Accept:
 			rf.seq = v.Seq
+			r.lastSeq = v.Seq
 		case *wal.Committed:
 			rf.committed = true
 		case *wal.Lease:
@@ -417,8 +419,9 @@ type StandbyConfig struct {
 	PrimaryConsensusKey crypto.PubKey
 	PrimaryReceiptKey   ed25519.PublicKey
 	// CommittedHeight and LastSeq are the committed height and seq the Executor starts from.
-	CommittedHeight uint64
-	LastSeq         uint64
+	CommittedHeight    uint64
+	LastSeq            uint64
+	ReplicationTimeout time.Duration
 }
 
 // standbyCursor is the position of the standby's replicated state.
@@ -505,19 +508,24 @@ func (c *standbyCursor) advance(e wal.Entry) {
 // Standby is the hot standby: it appends and syncs every replicated group to its own WAL,
 // re-executes it in seq order and only then acknowledges it.
 type Standby struct {
-	mu           sync.Mutex
-	wal          *wal.WAL
-	exec         wal.Executor
-	consensusKey tmtypes.PrivValidator
-	receiptKey   ed25519.PrivateKey
-	cur          standbyCursor
-	failed       error
-	leader       bool
+	mu                 sync.Mutex
+	wal                *wal.WAL
+	exec               wal.Executor
+	consensusKey       tmtypes.PrivValidator
+	receiptKey         ed25519.PrivateKey
+	cur                standbyCursor
+	failed             error
+	leader             bool
+	ctx                context.Context
+	replicationTimeout time.Duration
 }
 
 // NewStandby checks that the standby holds its own consensus and receipt keys, then replays the
 // records of its WAL after the last COMMITTED through cfg.Executor.
 func NewStandby(ctx context.Context, cfg StandbyConfig) (*Standby, error) {
+	if cfg.ReplicationTimeout < 0 {
+		return nil, ErrConfigReplicationTimeout
+	}
 	if cfg.WAL == nil {
 		return nil, errors.New("sequencer: standby without a wal")
 	}
@@ -557,11 +565,13 @@ func NewStandby(ctx context.Context, cfg StandbyConfig) (*Standby, error) {
 		cur = standbyCursor{lastSeq: c.LastSeq, openHeight: c.Height, sealedHeight: c.Height, committedHeight: c.Height}
 	}
 	s := &Standby{
-		wal:          cfg.WAL,
-		exec:         cfg.Executor,
-		consensusKey: cfg.ConsensusKey,
-		receiptKey:   cfg.ReceiptKey,
-		cur:          cur,
+		wal:                cfg.WAL,
+		exec:               cfg.Executor,
+		consensusKey:       cfg.ConsensusKey,
+		receiptKey:         cfg.ReceiptKey,
+		cur:                cur,
+		ctx:                ctx,
+		replicationTimeout: cfg.ReplicationTimeout,
 	}
 	res, err := cfg.WAL.Replay(standbyReplay{s})
 	if err != nil {
@@ -690,6 +700,11 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 	if len(fresh) == 0 {
 		return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 	}
+	for _, e := range fresh {
+		if open, ok := e.(*wal.Open); ok && !s.waitForCommit(open.Height-1) {
+			return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: s.cur.lastSeq + 1, GapTo: s.cur.lastSeq}
+		}
+	}
 	if err := s.persist(fresh); err != nil {
 		s.failed = err
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
@@ -702,6 +717,34 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 		s.cur.advance(e)
 	}
 	return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
+}
+
+func (s *Standby) waitForCommit(height uint64) bool {
+	host, ok := s.exec.(interface{ LastBlockHeight() int64 })
+	if !ok {
+		return true
+	}
+	committed := func() bool {
+		last := host.LastBlockHeight()
+		return last >= 0 && uint64(last) >= height
+	}
+	if committed() {
+		return true
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, s.replicationTimeout)
+	defer cancel()
+	tick := time.NewTicker(time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return false
+		case <-tick.C:
+			if committed() {
+				return true
+			}
+		}
+	}
 }
 
 // persist appends records to the standby WAL and returns once one fdatasync covers them.

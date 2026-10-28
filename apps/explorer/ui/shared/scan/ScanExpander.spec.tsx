@@ -41,6 +41,14 @@ describe('ScanExpander', () => {
     expect(container.querySelector('[data-toggle]')?.textContent).toBe('+ Click to show more');
     expect(container.querySelector('[data-content]')).toBeNull();
     expect(container.querySelector('[data-scan-expander]')?.getAttribute('data-open')).toBe('false');
+
+    const toggle = screen.getByRole('button', { name: '+ Click to show more' });
+    expect(toggle.tagName).toBe('BUTTON');
+    expect(toggle.getAttribute('type')).toBe('button');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(toggle.tabIndex).toBe(0);
+    toggle.focus();
+    expect(document.activeElement).toBe(toggle);
   });
 
   it('reveals the children and swaps the prompt when it is clicked', () => {
@@ -57,6 +65,13 @@ describe('ScanExpander', () => {
     expect(container.querySelector('[data-content]')?.textContent).toBe('the rest of the transaction');
     expect(container.querySelector('[data-toggle]')?.textContent).toBe('- Click to show less');
     expect(container.querySelector('[data-scan-expander]')?.getAttribute('data-open')).toBe('true');
+    expect(screen.getByRole('button', { name: '- Click to show less' }).getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: '- Click to show less' }));
+
+    expect(container.querySelector('[data-content]')).toBeNull();
+    expect(container.querySelector('[data-scan-expander]')?.getAttribute('data-open')).toBe('false');
+    expect(screen.getByRole('button', { name: '+ Click to show more' }).getAttribute('aria-expanded')).toBe('false');
   });
 
   it('opens on mount when the caller asks for it', () => {
@@ -70,5 +85,6 @@ describe('ScanExpander', () => {
 
     expect(container.querySelector('[data-label]')?.textContent).toBe('Advanced:');
     expect(screen.getByText('already visible')).toBeDefined();
+    expect(screen.getByRole('button', { name: '- Click to show less' }).getAttribute('aria-expanded')).toBe('true');
   });
 });

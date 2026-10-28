@@ -25,6 +25,9 @@ PAXEER_DIR := $(CURDIR)
 PAXEER_MAKE := $(MAKE) -f $(PAXEER_DIR)/chain.mk
 HPX_ORIGIN ?= https://node.hyperpaxeer.com
 
+CHECKPOINT_SETTLEMENT_HEADER := $(BUILD_DIR)/generated/lxp_checkpoint_settlement.h
+CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS := 3600
+
 CPPFLAGS := -Iinclude -I$(BUILD_DIR)/generated \
 	-DLXP_BUILD_TARGET_TRIPLE=\"$(shell $(CC) -dumpmachine)\" \
 	-DLXP_BUILD_OPTIMISATION=\"$(OPT_LEVEL)\" \
@@ -39,14 +42,8 @@ CONSENSUS_CFLAGS := -mgeneral-regs-only
 endif
 
 LIB_SOURCES := $(filter-out src/storage/lxp_projection.c \
-	src/network/lx_oracle_adapter.c src/network/lx_web_adapter.c \
-	src/sequencer/lx_oracle_root.c src/sequencer/lx_web_root.c \
-	src/state/lxp_idempotency.c src/paxeer/lxp_checkpoint_cert.c \
-	src/sequencer/lxp_batch_seal.c src/replica/lxp_replica_ingest.c \
-	src/network/lxp_da_service.c src/network/lxp_da_kernel.c \
-	src/network/lxp_da_bundle.c src/storage/lxp_da_verified.c \
-	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c \
-	src/guarantor/lxp_da_possession.c src/guarantor/lxp_guarantor.c, \
+	src/network/lx_oracle_adapter.c src/sequencer/lx_oracle_root.c \
+	src/paxeer/lxp_da_challenge_record.c src/guarantor/lxp_da_challenge.c, \
 	$(shell find src -type f -name '*.c' -print | LC_ALL=C sort))
 LIB_OBJECTS := $(patsubst %.c,$(BUILD_DIR)/obj/%.o,$(LIB_SOURCES))
 LIBRARY := $(BUILD_DIR)/liblayerx.a
@@ -200,6 +197,7 @@ $(LIB_OBJECTS) $(TEST_LIB_OBJECTS): Makefile
 
 $(LIBRARY): $(LIB_OBJECTS)
 	@mkdir -p $(@D)
+	rm -f $@
 	$(AR) rcsD $@ $(LIB_OBJECTS)
 
 $(BUILD_DIR)/obj/%.o: %.c
@@ -208,11 +206,20 @@ $(BUILD_DIR)/obj/%.o: %.c
 
 $(TEST_LIBRARY): $(TEST_LIB_OBJECTS)
 	@mkdir -p $(@D)
+	rm -f $@
 	$(AR) rcsD $@ $(TEST_LIB_OBJECTS)
 
 $(BUILD_DIR)/test-obj/%.o: %.c
 	@mkdir -p $(@D)
 	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) -MMD -MP -c $< -o $@
+
+$(CHECKPOINT_SETTLEMENT_HEADER): Makefile
+	@mkdir -p $(@D)
+	printf '#ifndef LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_SETTLEMENT_H\n#define LXP_CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS UINT64_C(%s)\n#endif\n' \
+		'$(CHECKPOINT_MAXIMUM_ATTESTATION_DELAY_SECONDS)' > $@
+
+$(BUILD_DIR)/obj/src/paxeer/lxp_checkpoint_cert.o \
+$(BUILD_DIR)/test-obj/src/paxeer/lxp_checkpoint_cert.o: $(CHECKPOINT_SETTLEMENT_HEADER)
 
 clean:
 	rm -rf -- build
@@ -3190,6 +3197,12 @@ $(BUILD_DIR)/tests/programs_monetary_law: tests/programs/test_monetary_law.c \
 	$(CC) $(CPPFLAGS) -DLXP_TESTING $(CFLAGS) $< $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
 		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
+$(BUILD_DIR)/tests/programs_transfer_principal: tests/programs/test_transfer_principal.c \
+		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
 $(BUILD_DIR)/tests/programs_call_activity: tests/programs/test_call_activity.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
@@ -3360,6 +3373,7 @@ test-paxai-native-gaps: $(BUILD_DIR)/tests/lxp_test_paxai_native_gaps
 programs-core-test: $(BUILD_DIR)/tests/programs_registration \
 		$(BUILD_DIR)/tests/programs_lifecycle \
 		$(BUILD_DIR)/tests/programs_monetary_law \
+		$(BUILD_DIR)/tests/programs_transfer_principal \
 		$(BUILD_DIR)/tests/programs_call_activity \
 		$(BUILD_DIR)/tests/programs_metered_call \
 		$(BUILD_DIR)/tests/programs_occupancy_batch \
@@ -3369,6 +3383,7 @@ programs-core-test: $(BUILD_DIR)/tests/programs_registration \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_registration
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_lifecycle
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_monetary_law
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_transfer_principal
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_call_activity
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_metered_call
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/programs_occupancy_batch

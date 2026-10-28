@@ -24,7 +24,7 @@ import (
 const GasPerInputByte uint64 = 16
 
 // SpotKeepers is implemented by application keepers that carry the spot
-// keeper. NewPrecompileSet refuses to build without one.
+// keeper. NewServedSet refuses to build without one.
 type SpotKeepers interface {
 	SpotK() *spotkeeper.Keeper
 }
@@ -345,9 +345,9 @@ func PrecompileABIs() map[string]abi.ABI {
 	return abis
 }
 
-// NewPrecompileSet builds the PECOR set at 0x1021-0x1025 over the spot keeper
+// newPrecompileSet builds the PECOR set at 0x1021-0x1025 over the spot keeper
 // of keepers. 0x1026 and 0x1027 carry no code and have no entry.
-func NewPrecompileSet(keepers utils.Keepers) (map[common.Address]*pcommon.Precompile, error) {
+func newPrecompileSet(keepers utils.Keepers) (map[common.Address]*pcommon.Precompile, error) {
 	wired, ok := keepers.(SpotKeepers)
 	if !ok || wired.SpotK() == nil {
 		return nil, errors.New("spot: the application keepers carry no spot keeper")

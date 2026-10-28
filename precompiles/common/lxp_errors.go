@@ -26,8 +26,7 @@ const lxpFatalLimit int32 = -1000
 
 // lxpRevertEntry is one row of the error code registry. A kernel row is keyed
 // by its kernel value, a module row by its registered Go error; a precompile
-// site row, LXP_UNKNOWN and a kernel code whose value is not yet declared by
-// the kernel are keyed by code alone.
+// site row and LXP_UNKNOWN are keyed by code alone.
 type lxpRevertEntry struct {
 	code    string
 	message string

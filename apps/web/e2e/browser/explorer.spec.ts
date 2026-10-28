@@ -7,7 +7,7 @@ const RECEIPT_IDENTIFIER = "d".repeat(64);
 const ACCOUNT_IDENTIFIER = "e".repeat(64);
 const PROGRAM_IDENTIFIER = "f".repeat(64);
 
-const KEPT_PAGES = ["/explorer", "/explorer/verify"] as const;
+const KEPT_PAGES = ["/explorer"] as const;
 
 function lookupForm(kind: "receipt" | "account" | "program") {
   return `form:has(input[name="kind"][value="${kind}"])`;
@@ -69,41 +69,6 @@ test.describe("Public Explorer Plane", () => {
 
     await page.waitForURL(/\/explorer\/programs\//);
     await expect(page.locator('[data-application="explorer"]')).toBeVisible();
-  });
-
-  test("@explorer the evidence verifier renders and accepts input", async ({ page }) => {
-    await page.goto("/explorer/verify", { waitUntil: "networkidle" });
-
-    await expect(page.getByRole("main")).toHaveCount(1);
-    await expect(page.locator('[data-application="explorer"]')).toBeVisible();
-    await expect(page.locator("textarea")).toBeVisible();
-    await expect(page.locator('[role="radiogroup"]')).toBeVisible();
-    await expect(page.locator('button[type="submit"]')).toBeVisible();
-  });
-
-  test("@explorer the evidence verifier accepts receipt evidence", async ({ page }) => {
-    await page.goto("/explorer/verify", { waitUntil: "networkidle" });
-
-    const evidence = "dGVzdF9ldmlkZW5jZV9kYXRhX2Zvcl9yZWNlaXB0X3ZlcmlmaWNhdGlvbg";
-    await page.locator("textarea").fill(evidence);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForTimeout(1000);
-
-    await expect(page.locator('[data-application="explorer"]')).toBeVisible();
-  });
-
-  test("@explorer the evidence verifier handles altered evidence", async ({ page }) => {
-    await page.goto("/explorer/verify", { waitUntil: "networkidle" });
-
-    const altered = "YWx0ZXJlZF9ldmlkZW5jZV90aGF0X3Nob3VsZF9mYWlsX3ZlcmlmaWNhdGlvbg";
-    await page.locator("textarea").fill(altered);
-    await page.locator('button[type="submit"]').click();
-    await page.waitForTimeout(1000);
-
-    const errorNotice = page.locator('[role="alert"]');
-    if (await errorNotice.count() > 0) {
-      await expect(errorNotice.first()).toBeVisible();
-    }
   });
 
   test("@explorer every kept page is readable without authentication", async ({ page, context }) => {

@@ -18,8 +18,7 @@ use layerx_migrate::{AccountMappingStoreV2, JournalConfig};
 use layerx_platform_gateway::http::{Client, Endpoint};
 use layerx_platform_gateway::store::{RedisEndpoint, RedisStore};
 use layerx_platform_gateway::{
-    configured_sequencer, ActivityType, ModuleId, ModuleRegistration, ModuleRegistry,
-    SequencerAuthorization,
+    ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, SequencerAuthorization,
 };
 use layerx_ucp::{ucp_adapter_descriptor, PaymentHandler, UCP_CHECKOUT_SPEC_SHA256};
 use layerx_visa_tap::{
@@ -53,12 +52,7 @@ pub struct Config {
     pub listen: SocketAddr,
     pub listener: Listener,
     pub client: Client,
-    pub hosted_gateway: Endpoint,
-    pub receipt_authority: Endpoint,
-    pub receipt_authority_token: Zeroizing<String>,
     pub store: RedisStore,
-    pub trusted_sequencer_key: [u8; 32],
-    pub sequencer_authorization: SequencerAuthorization,
     pub sequencer: SequencerEndpoint,
     pub receipt_keys: Vec<SequencerAuthorization>,
     pub network_id: String,
@@ -242,7 +236,7 @@ struct ModuleDeclaration {
 }
 
 pub fn load() -> Result<Config, String> {
-    let hosted_gateway = hosted_gateway_endpoint()?;
+    let (sequencer_url, private_network) = sequencer_url()?;
     let manifest_path = env::var("LAYERX_INTEROP_CONFIG")
         .map_err(|_| "LAYERX_INTEROP_CONFIG is required".to_owned())?;
     let manifest_bytes = fs::read(manifest_path).map_err(|error| error.to_string())?;
@@ -267,19 +261,14 @@ pub fn load() -> Result<Config, String> {
         &env::var("LAYERX_INTEROP_REDIS_URL")
             .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?,
     )?;
-    let trusted_key = read_secret("LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE")?;
-    let trusted_sequencer_key = parse_hex32(trusted_key.as_str())?;
-    let sequencer_authorization = configured_sequencer(
-        read_secret("LAYERX_INTEROP_SEQUENCER_ID_FILE")?.as_str(),
-        trusted_key.as_str(),
-        read_secret("LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE")?.as_str(),
-        read_secret("LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE")?.as_str(),
-    )
-    .map_err(|error| format!("interop sequencer authorization is invalid: {error}"))?;
-    let sequencer = SequencerEndpoint::new(
-        &required_label("LAYERX_INTEROP_SEQUENCER_URL", 4096)?,
-        &[outbound_ca_der.as_slice()],
-    )
+    let sequencer = if private_network {
+        SequencerEndpoint::new_with_railway_private_network(
+            &sequencer_url,
+            &[outbound_ca_der.as_slice()],
+        )
+    } else {
+        SequencerEndpoint::new(&sequencer_url, &[outbound_ca_der.as_slice()])
+    }
     .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
     let receipt_keys =
         parse_receipt_keys(&read_file("LAYERX_INTEROP_RECEIPT_KEYS_FILE", 64 * 1024)?)?;
@@ -323,11 +312,7 @@ pub fn load() -> Result<Config, String> {
     if !(1..=30_000).contains(&readiness_max_age_ms) {
         return Err("interop readiness maximum age exceeds its bound".to_owned());
     }
-    validate_x402_binding(
-        &manifest.x402_supported,
-        &network_id,
-        &trusted_sequencer_key,
-    )?;
+    validate_x402_binding(&manifest.x402_supported, &network_id, &receipt_keys)?;
     let modules = module_registry()?;
     let tap_clock_skew_seconds = env::var("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS")
         .map_err(|_| "LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS is required".to_owned())?
@@ -343,15 +328,7 @@ pub fn load() -> Result<Config, String> {
             .map_err(|_| "interop listen address is invalid".to_owned())?,
         listener: listener_config()?,
         client: Client::new(outbound_ca.clone(), identity),
-        hosted_gateway,
-        receipt_authority: Endpoint::parse(
-            &env::var("LAYERX_INTEROP_RECEIPT_AUTHORITY_URL")
-                .map_err(|_| "LAYERX_INTEROP_RECEIPT_AUTHORITY_URL is required".to_owned())?,
-        )?,
-        receipt_authority_token: read_secret("LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE")?,
         store: RedisStore::new(redis, outbound_ca, redis_username, redis_password),
-        trusted_sequencer_key,
-        sequencer_authorization,
         sequencer,
         receipt_keys,
         network_id,
@@ -383,7 +360,8 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
     if keys.is_empty() {
         return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE must contain at least one key".to_owned());
     }
-    keys.into_iter()
+    let mut keys = keys
+        .into_iter()
         .map(|key| {
             let hex32 = |value: &str, field: &str| {
                 value
@@ -408,7 +386,15 @@ fn parse_receipt_keys(bytes: &[u8]) -> Result<Vec<SequencerAuthorization>, Strin
                 key.last_height,
             ))
         })
-        .collect()
+        .collect::<Result<Vec<_>, String>>()?;
+    keys.sort_by_key(SequencerAuthorization::first_batch_number);
+    if keys
+        .windows(2)
+        .any(|pair| pair[1].first_batch_number() <= pair[0].last_batch_number())
+    {
+        return Err("LAYERX_INTEROP_RECEIPT_KEYS_FILE has overlapping height ranges".to_owned());
+    }
+    Ok(keys)
 }
 
 fn check_receipt_keys(
@@ -435,9 +421,8 @@ fn check_receipt_keys(
     Ok(())
 }
 
-fn hosted_gateway_endpoint() -> Result<Endpoint, String> {
-    let value = env::var("LAYERX_INTEROP_HOSTED_GATEWAY_URL")
-        .map_err(|_| "LAYERX_INTEROP_HOSTED_GATEWAY_URL is required".to_owned())?;
+fn sequencer_url() -> Result<(String, bool), String> {
+    let value = required_label("LAYERX_INTEROP_SEQUENCER_URL", 4096)?;
     let private_network = match env::var("LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK") {
         Err(env::VarError::NotPresent) => false,
         Ok(flag) if flag == "0" => false,
@@ -445,35 +430,18 @@ fn hosted_gateway_endpoint() -> Result<Endpoint, String> {
         _ => return Err("LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK must be 0 or 1".to_owned()),
     };
     match value.strip_prefix("http://") {
-        Some(authority) if private_network => railway_private_endpoint(authority),
-        _ => Endpoint::parse(&value),
-    }
-}
-
-fn railway_private_endpoint(authority: &str) -> Result<Endpoint, String> {
-    let refused = || {
-        "LAYERX_INTEROP_HOSTED_GATEWAY_URL may use http:// only as http://<name>.railway.internal:<port>"
-            .to_owned()
+        Some(_) if SequencerEndpoint::new(&value, &[]).is_ok() => {}
+        Some(_) if private_network => {
+            SequencerEndpoint::new_with_railway_private_network(&value, &[]).map_err(|_| {
+                "LAYERX_INTEROP_SEQUENCER_URL may use http:// only as http://<name>.railway.internal:<port>"
+                    .to_owned()
+            })?;
+        }
+        _ => {
+            Endpoint::parse(&value)?;
+        }
     };
-    let (host, port) = authority.rsplit_once(':').ok_or_else(refused)?;
-    let name = host.strip_suffix(".railway.internal").ok_or_else(refused)?;
-    if name.is_empty()
-        || name.len() > 63
-        || !name
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-        || name.starts_with('-')
-        || name.ends_with('-')
-        || port.is_empty()
-        || port.len() > 5
-        || !port.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return Err(refused());
-    }
-    match port.parse::<u16>() {
-        Ok(port) if port != 0 => Ok(Endpoint::plain(host.to_owned(), port)),
-        _ => Err(refused()),
-    }
+    Ok((value, private_network))
 }
 
 fn migration_v2_config() -> Result<Option<MigrationV2Config>, String> {
@@ -712,26 +680,35 @@ fn runtime_manifest(file: ManifestFile) -> Result<RuntimeManifest, String> {
 fn validate_x402_binding(
     supported: &SupportedResponse,
     network_id: &str,
-    sequencer_key: &[u8; 32],
+    receipt_keys: &[SequencerAuthorization],
 ) -> Result<(), String> {
     let (namespace, reference) = network_id
         .split_once('-')
         .ok_or_else(|| "interop network identifier cannot bind a CAIP-2 network".to_owned())?;
     let network = format!("{namespace}:{reference}");
-    let signer = format!(
-        "did:layerx:{}",
-        sequencer_key
-            .iter()
-            .map(|byte| format!("{byte:02x}"))
-            .collect::<String>()
-    );
-    if *sequencer_key == [0; 32]
+    let signers: BTreeSet<_> = receipt_keys
+        .iter()
+        .map(|key| {
+            format!(
+                "did:layerx:{}",
+                key.public_key()
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            )
+        })
+        .collect();
+    let signers: Vec<_> = signers.into_iter().collect();
+    let mut declared = supported.signers.get(&network).cloned().unwrap_or_default();
+    declared.sort();
+    if receipt_keys.is_empty()
+        || receipt_keys.iter().any(|key| key.public_key() == [0; 32])
         || supported.kinds.len() != 1
         || supported.kinds[0].x402_version != 2
         || supported.kinds[0].scheme != "exact"
         || supported.kinds[0].network != network
         || supported.signers.len() != 1
-        || supported.signers.get(&network) != Some(&vec![signer])
+        || declared != signers
     {
         return Err(
             "x402 support must bind exact settlement to the configured network and sequencer"
@@ -1131,6 +1108,70 @@ mod tests {
             error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn overlapping_receipt_key_ranges_are_refused() {
+        let fixture: serde_json::Value = serde_json::from_slice(include_bytes!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        )))
+        .expect("sequencer receipt fixture");
+        let parse = |ranges: &[(u64, u64)]| {
+            let entries: Vec<_> = ranges
+                .iter()
+                .enumerate()
+                .map(|(index, &(first, last))| {
+                    let mut entry = fixture["cases"][0]["pinnedKey"].clone();
+                    entry["keyId"] = format!("0x{:064x}", index + 1).into();
+                    entry["firstHeight"] = first.into();
+                    entry["lastHeight"] = last.into();
+                    entry
+                })
+                .collect();
+            let bytes = serde_json::to_vec(&entries).expect("receipt keys JSON array");
+            super::parse_receipt_keys(&bytes)
+        };
+
+        for ranges in [
+            vec![(10, 20), (15, 25)],
+            vec![(15, 25), (10, 20)],
+            vec![(10, 20), (20, 30)],
+            vec![(10, 30), (15, 20)],
+            vec![(10, 20), (10, 30)],
+            vec![(10, 20), (10, 20)],
+            vec![(30, 40), (10, 20), (15, 25)],
+            vec![(u64::MAX, u64::MAX), (0, u64::MAX)],
+        ] {
+            let error = parse(&ranges).expect_err("overlapping keys must be refused");
+            assert!(
+                error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
+                "{error}"
+            );
+            assert!(
+                error.contains("overlapping height ranges"),
+                "{ranges:?}: {error}"
+            );
+        }
+
+        let error = parse(&[(20, 10)]).expect_err("inverted range must be refused");
+        assert!(
+            error.contains("LAYERX_INTEROP_RECEIPT_KEYS_FILE"),
+            "{error}"
+        );
+        assert!(error.contains("reversed height range"), "{error}");
+
+        let keys = parse(&[(11, u64::MAX), (0, 0), (1, 10)])
+            .expect("unsorted disjoint ranges, including adjacent ranges, are accepted");
+        assert_eq!(keys.len(), 3);
+        for (key, (first, last, id)) in keys.iter().zip([(0, 0, 2), (1, 10, 3), (11, u64::MAX, 1)])
+        {
+            assert_eq!(key.first_batch_number(), first);
+            assert_eq!(key.last_batch_number(), last);
+            let mut expected_id = [0; 32];
+            expected_id[31] = id;
+            assert_eq!(key.sequencer_id(), expected_id);
+        }
     }
 
     fn receipt_key_pins() -> (Vec<super::SequencerAuthorization>, super::ReceiptKeyEntry) {
