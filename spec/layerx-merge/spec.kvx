@@ -138699,7 +138699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.6.1]
 title = "Produce offline exports v2 without settlement certificates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.5.5", "9.1.1", "9.1.8", "9.27.2"]
@@ -139014,7 +139014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.11.1]
 title = "Persist subscription cursors as block-position triples"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.0.1", "9.1.8"]
