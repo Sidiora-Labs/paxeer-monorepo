@@ -108,6 +108,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.FeedView do
     %{
       "update_hash" => to_string(observation.update_hash),
       "block_number" => observation.block_number,
+      "index" => update.index,
       "timestamp" => update.timestamp,
       "index_price" => integer_string(observation.index_price),
       "mark_price" => integer_string(observation.mark_price),
