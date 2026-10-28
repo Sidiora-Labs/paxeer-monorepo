@@ -181377,7 +181377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.745.1]
 title = "Issue #745: Drop the retired LayerX vault and sequencer sync settings from the wallet README"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
