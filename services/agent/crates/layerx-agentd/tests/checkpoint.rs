@@ -135,7 +135,7 @@ fn verified_checkpoint_derives_block_commit_without_anchor_escalation() {
     assert_eq!(served.rung, Rung::Committed);
 
     let fixture = inclusion_fixture();
-    let bundle = proof_bundle(&ProofBundleRequest {
+    let result = proof_bundle(&ProofBundleRequest {
         kind: ProofBundleKind::State,
         canonical_leaf_bytes: &fixture.state,
         proof: &fixture.state_proof,
@@ -143,11 +143,18 @@ fn verified_checkpoint_derives_block_commit_without_anchor_escalation() {
         header_bytes: &fixture.header,
         header_signature: fixture.header_signature,
         authorization: &fixture.authorization,
-    })
-    .unwrap_or_else(|error| panic!("proof bundle: {error:?}"));
-    assert_eq!(bundle.named_root, fixture.state_root);
-    assert_eq!(bundle.batch_number, 8);
-    assert_eq!(bundle.verification_level, VerificationLevel::STATE_PROVEN);
+    });
+    let Err(CheckpointReadError::UnavailableCapability(error)) = result else {
+        panic!("old state proofs cannot produce receipt-proof-v2");
+    };
+    assert_eq!(
+        error.class,
+        layerx_agent_api::error::ErrorClass::UnavailableCapability
+    );
+    assert_eq!(
+        error.reason.as_str(),
+        "unavailable_capability.read.proof_bundle"
+    );
 }
 
 #[test]

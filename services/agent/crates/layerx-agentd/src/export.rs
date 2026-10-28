@@ -4,10 +4,11 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use layerx_agent_api::export::{FactRef, OfflineExport};
+use layerx_agent_api::export::FactRef;
+type OfflineExport = layerx_agent_api::export::OfflineExport;
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::read::{BatchRef, CheckpointRef, Freshness, RelativeTo, VerifiedRead};
-use layerx_agent_api::verify::Level;
+use layerx_agent_api::read::VerifiedRead;
+
 use layerx_agent_api::Sequence;
 use layerx_client::availability::{
     AvailabilitySelector, FetchContext, FetchError, FetchOutcome, RetrievalLimits,
@@ -21,17 +22,17 @@ use layerx_programs::hex;
 use layerx_proof::availability::RootCommitments;
 use layerx_proof::checkpoint::SettlementDomain;
 use layerx_proof::export::{
-    verify, verify_complete, CompleteExportError, ExportVerificationError,
-    IndependentOfflineTrust, OfflineExport as LegacyOfflineExport, OfflineTrustError,
-    TrustedCheckpointMembership, VerificationReport,
+    verify, verify_complete, CompleteExportError, ExportVerificationError, IndependentOfflineTrust,
+    OfflineExport as LegacyOfflineExport, OfflineTrustError, TrustedCheckpointMembership,
+    VerificationReport,
+};
+use layerx_proof::export_codec::{
+    parse_fact_set, AccountStateRecord, AccountStateVariant, ArtifactDecodeError, CheckpointRecord,
+    CompleteOfflineArtifact, ExportCodecError, FactRefError, FactSelector, HeaderRecord,
+    InclusionRecord, InclusionRecordKind, ProofRecord, ReceiptRecord, MAX_AVAILABILITY_CHUNKS,
 };
 use layerx_proof::settlement::DeclaredDomain;
 use layerx_proof::signed_authority::SignedAuthorityHistory;
-use layerx_proof::export_codec::{
-    parse_fact_set, AccountStateRecord, AccountStateVariant, CheckpointRecord,
-    ArtifactDecodeError, CompleteOfflineArtifact, ExportCodecError, FactRefError, FactSelector, HeaderRecord,
-    InclusionRecord, InclusionRecordKind, ProofRecord, ReceiptRecord, MAX_AVAILABILITY_CHUNKS,
-};
 use layerx_types::payload::ModuleRegistry;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::batch_maintenance::decode_maintenance;
@@ -116,7 +117,10 @@ impl ExportTrustSource {
     ///
     /// # Errors
     /// Returns the trust-context construction refusal.
-    pub fn trust(&self, registry: ModuleRegistry) -> Result<IndependentOfflineTrust, OfflineTrustError> {
+    pub fn trust(
+        &self,
+        registry: ModuleRegistry,
+    ) -> Result<IndependentOfflineTrust, OfflineTrustError> {
         IndependentOfflineTrust::from_declared_domain(
             registry,
             self.authority.clone(),
@@ -153,18 +157,38 @@ pub struct ProducedExport {
 
 #[derive(Debug)]
 pub enum ExportProduceError {
+    UnavailableCapability(layerx_agent_api::error::ApiError),
     Facts(FactRefError),
     SettlementAnchoringUnavailable,
-    NotOwned { fact: usize },
-    AccountNotBound { fact: usize },
+    NotOwned {
+        fact: usize,
+    },
+    AccountNotBound {
+        fact: usize,
+    },
     Store,
     Correlation,
-    Evidence { fact: usize, error: EvidenceError },
-    ReceiptEvidence { fact: usize, error: ReceiptEvidenceError },
-    Binding { fact: usize },
-    MaintenanceLink { fact: usize },
-    Availability { fact: usize, error: FetchError },
-    AvailabilityIncomplete { fact: usize },
+    Evidence {
+        fact: usize,
+        error: EvidenceError,
+    },
+    ReceiptEvidence {
+        fact: usize,
+        error: ReceiptEvidenceError,
+    },
+    Binding {
+        fact: usize,
+    },
+    MaintenanceLink {
+        fact: usize,
+    },
+    Availability {
+        fact: usize,
+        error: FetchError,
+    },
+    AvailabilityIncomplete {
+        fact: usize,
+    },
     Codec(ExportCodecError),
     Artifact(ArtifactDecodeError),
     ConflictingRecord,
@@ -204,122 +228,14 @@ pub fn produce(
     facts: &[FactRef],
     requested: VerificationLevel,
 ) -> Result<ProducedExport, ExportProduceError> {
-    if VerificationLevel::SETTLEMENT_ANCHORED <= requested {
-        return Err(ExportProduceError::SettlementAnchoringUnavailable);
-    }
-    let texts: Vec<&str> = facts.iter().map(FactRef::as_str).collect();
-    let selectors = parse_fact_set(&texts).map_err(ExportProduceError::Facts)?;
-    let served = owned_anchors(context, &selectors)?;
-    let head = node.head();
-    let mut producer = Producer {
-        node,
-        context,
-        served,
-        correlation: context.first_correlation,
-        collected: Collected::default(),
-        dependencies: BTreeMap::new(),
-    };
-    producer.collected.binary = selectors.iter().try_fold(0_usize, |total, selector| {
-        checked_total(total, selector.canonical_text().len())
-    })?;
-    let mut primary_headers = Vec::with_capacity(selectors.len());
-    for (fact, selector) in selectors.iter().enumerate() {
-        primary_headers.push(producer.fact(fact, *selector)?);
-    }
-    let Producer { node, collected, .. } = producer;
-    if node.head() != head {
-        return Err(ExportProduceError::StaleHead);
-    }
-    let common = primary_headers
-        .first()
-        .copied()
-        .ok_or(ExportProduceError::Contract)?;
-    if primary_headers.iter().any(|digest| *digest != common) {
-        return Err(ExportProduceError::MixedSnapshot);
-    }
-    let common_header = collected
-        .headers
-        .get(&common)
-        .map(|(record, _)| decode_batch_header(&record.canonical_header))
-        .ok_or(ExportProduceError::Contract)?
-        .map_err(|_| ExportProduceError::Contract)?;
-    if common_header.batch_number() > head.sealed_batch
-        || common_header.last_sequence() > head.chain_sequence
-    {
-        return Err(ExportProduceError::MixedSnapshot);
-    }
-    let certified_checkpoint = collected.certified.get(&common).copied();
-    let artifact = CompleteOfflineArtifact {
-        facts: selectors,
-        receipts: collected.receipts.into_values().map(|(record, _)| record).collect(),
-        proofs: collected.proofs.into_values().map(|(record, _)| record).collect(),
-        certificates: collected
-            .certificates
-            .into_values()
-            .map(|(record, _)| record)
-            .collect(),
-        headers: collected.headers.into_values().map(|(record, _)| record).collect(),
-    };
-    let report = verify_complete(&artifact, context.trust, requested)
-        .map_err(ExportProduceError::Verification)?;
-    let achieved = report.achieved();
-    let encoded = artifact.encode().map_err(ExportProduceError::Artifact)?;
-    let buckets = [
-        &encoded.receipts,
-        &encoded.proofs,
-        &encoded.certificates,
-        &encoded.headers,
-    ];
-    let mut binary_bytes = encoded
-        .facts
-        .iter()
-        .try_fold(0_usize, |total, text| checked_total(total, text.len()))?;
-    for bucket in buckets {
-        for record in bucket {
-            binary_bytes = checked_total(binary_bytes, record.len())?;
-        }
-    }
-    let json_value_bytes = json_value_bytes(&encoded.facts, buckets)?;
-    let relative_to = match certified_checkpoint {
-        Some(checkpoint_id) if VerificationLevel::CHECKPOINT_FINALISED <= achieved => {
-            RelativeTo::Checkpoint(
-                CheckpointRef::new(hex::encode(&checkpoint_id))
-                    .map_err(|_| ExportProduceError::Contract)?,
-            )
-        }
-        _ => RelativeTo::Batch(
-            BatchRef::new(common_header.batch_number().to_string())
-                .map_err(|_| ExportProduceError::Contract)?,
-        ),
-    };
-    let freshness = Freshness {
-        chain_head: Sequence(head.chain_sequence),
-        latest_sealed_batch: BatchRef::new(head.sealed_batch.to_string())
-            .map_err(|_| ExportProduceError::Contract)?,
-        latest_finalised_checkpoint: CheckpointRef::new(hex::encode(&head.finalised_checkpoint))
-            .map_err(|_| ExportProduceError::Contract)?,
-        value_sequence: Sequence(common_header.last_sequence()),
-        relative_to,
-    };
-    let value = OfflineExport {
-        facts: encoded
-            .facts
-            .into_iter()
-            .map(FactRef::new)
-            .collect::<Result<_, _>>()
-            .map_err(|_| ExportProduceError::Contract)?,
-        receipts: canonical(encoded.receipts)?,
-        proofs: canonical(encoded.proofs)?,
-        certificates: canonical(encoded.certificates)?,
-        headers: canonical(encoded.headers)?,
-    }
-    .validate()
-    .map_err(|_| ExportProduceError::Contract)?;
-    Ok(ProducedExport {
-        response: VerifiedRead::new(value, Level::from(achieved), freshness),
-        binary_bytes,
-        json_value_bytes,
-    })
+    let _ = (node, context, facts, requested);
+    Err(ExportProduceError::UnavailableCapability(
+        layerx_agent_api::error::ApiError::unavailable_capability(
+            layerx_agent_api::error::RequestId(context.first_correlation),
+            "export.offline",
+        )
+        .expect("static operation name"),
+    ))
 }
 
 /// D8: every fact's anchor must be a tenant-served activity and every state
@@ -437,7 +353,11 @@ fn json_value_bytes(
         .into_iter()
         .zip(buckets)
     {
-        total = array(total, key, bucket.iter().map(|record| record.len().checked_mul(2)))?;
+        total = array(
+            total,
+            key,
+            bucket.iter().map(|record| record.len().checked_mul(2)),
+        )?;
     }
     Ok(total)
 }
@@ -502,7 +422,12 @@ impl Producer<'_, '_, '_> {
         Ok(digest)
     }
 
-    fn proof(&mut self, kind: u8, reference: FactSelector, record: ProofRecord) -> Result<(), ExportProduceError> {
+    fn proof(
+        &mut self,
+        kind: u8,
+        reference: FactSelector,
+        record: ProofRecord,
+    ) -> Result<(), ExportProduceError> {
         let bytes = record.encode().map_err(ExportProduceError::Codec)?;
         admit(
             &mut self.collected.proofs,
@@ -514,7 +439,11 @@ impl Producer<'_, '_, '_> {
     }
 
     /// Produces one fact and returns the digest of its primary signed header.
-    fn fact(&mut self, fact: usize, selector: FactSelector) -> Result<[u8; 32], ExportProduceError> {
+    fn fact(
+        &mut self,
+        fact: usize,
+        selector: FactSelector,
+    ) -> Result<[u8; 32], ExportProduceError> {
         match selector {
             FactSelector::Receipt { activity_id } => {
                 Ok(self.receipt_dependency(fact, activity_id)?.header_digest)
@@ -558,7 +487,8 @@ impl Producer<'_, '_, '_> {
                 return Err(ExportProduceError::Binding { fact });
             };
             if bundle_activity != activity_id
-                || self.served.get(&activity_id).map(Vec::as_slice) != Some(canonical_bytes.as_slice())
+                || self.served.get(&activity_id).map(Vec::as_slice)
+                    != Some(canonical_bytes.as_slice())
             {
                 return Err(ExportProduceError::Binding { fact });
             }
@@ -619,7 +549,11 @@ impl Producer<'_, '_, '_> {
             .ok_or(ExportProduceError::Contract)
     }
 
-    fn activity(&mut self, fact: usize, activity_id: [u8; 32]) -> Result<[u8; 32], ExportProduceError> {
+    fn activity(
+        &mut self,
+        fact: usize,
+        activity_id: [u8; 32],
+    ) -> Result<[u8; 32], ExportProduceError> {
         let correlation = self.next_correlation()?;
         let bundle = self
             .node
@@ -704,7 +638,11 @@ impl Producer<'_, '_, '_> {
                     || dependency.evidence.raw().canonical_receipt() != activity_receipt.as_slice()
                     || dependency.evidence.raw().proof() != &activity_receipt_proof
                     || dependency.evidence.verified().activity_id() != activity_id
-                    || dependency.evidence.verified().global_sequence().checked_add(1)
+                    || dependency
+                        .evidence
+                        .verified()
+                        .global_sequence()
+                        .checked_add(1)
                         != Some(global_sequence)
                     || dependency.evidence.resulting_state_root() != Some(previous_state_root)
                 {
@@ -808,7 +746,11 @@ impl Producer<'_, '_, '_> {
         };
         let outcome = self
             .node
-            .fetch_availability(AvailabilitySelector::Checkpoint(checkpoint_id), fetch, |_| {})
+            .fetch_availability(
+                AvailabilitySelector::Checkpoint(checkpoint_id),
+                fetch,
+                |_| {},
+            )
             .map_err(|error| ExportProduceError::Availability { fact, error })?;
         let FetchOutcome::Complete(result) = outcome else {
             return Err(ExportProduceError::AvailabilityIncomplete { fact });
@@ -845,7 +787,11 @@ impl Producer<'_, '_, '_> {
             record,
             bytes,
         )?;
-        if let Some(existing) = self.collected.certified.insert(header_digest, checkpoint_id) {
+        if let Some(existing) = self
+            .collected
+            .certified
+            .insert(header_digest, checkpoint_id)
+        {
             if existing != checkpoint_id {
                 return Err(ExportProduceError::ConflictingRecord);
             }

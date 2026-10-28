@@ -44,6 +44,7 @@ pub struct FinalityRecord {
 
 #[derive(Debug)]
 pub enum FinalityError {
+    UnavailableCapability(layerx_agent_api::error::ApiError),
     Receipt(ReceiptStoreError),
     Inclusion(InclusionError),
     Store(StoreError),
@@ -80,85 +81,14 @@ pub fn augment(
     idempotency_key: [u8; 32],
     inclusion: &InclusionBundle<'_>,
 ) -> Result<FinalityRecord, FinalityError> {
-    let receipt_before = receipt::serve(
-        durable,
-        tenant.clone(),
-        ReceiptLookupKey::Idempotency(idempotency_key),
-    )?;
-    let activity = decode_signed(inclusion.activity_bytes, inclusion.registry)
-        .map_err(|_| FinalityError::Corrupt)?;
-    if encode_signed(&activity).map_err(|_| FinalityError::Corrupt)? != inclusion.activity_bytes
-        || activity_id(&activity).map_err(|_| FinalityError::Corrupt)?
-            != receipt_before.metadata.activity_id
-    {
-        return Err(FinalityError::Corrupt);
-    }
-    verify_activity(
-        inclusion.activity_bytes,
-        inclusion.activity_proof,
-        inclusion.header_bytes,
-        &inclusion.header_signature,
-        inclusion.authorization,
-    )
-    .map_err(FinalityError::Inclusion)?;
-    if inclusion.receipt_bytes != receipt_before.canonical_bytes {
-        return Err(FinalityError::Corrupt);
-    }
-    let receipt_value = verify_sequencer_signature(
-        inclusion.receipt_bytes,
-        inclusion.authorization.public_key(),
-    )
-    .map_err(|_| FinalityError::Corrupt)?;
-    let Receipt::Protocol(protocol_receipt) = receipt_value else {
-        return Err(FinalityError::Corrupt);
-    };
-    if protocol_receipt.activity_id() != receipt_before.metadata.activity_id
-        || protocol_receipt.global_sequence() != receipt_before.metadata.global_sequence
-        || protocol_receipt.result_code() != receipt_before.metadata.result.code.raw()
-    {
-        return Err(FinalityError::Corrupt);
-    }
-    verify_receipt(
-        inclusion.receipt_bytes,
-        inclusion.receipt_proof,
-        inclusion.header_bytes,
-        &inclusion.header_signature,
-        inclusion.authorization,
-    )
-    .map_err(FinalityError::Inclusion)?;
-
-    let record = FinalityRecord {
-        idempotency_key,
-        verification_level: VerificationLevel::BATCH_INCLUDED,
-        activity_proof: encode_proof(inclusion.activity_proof)?,
-        receipt_proof: encode_proof(inclusion.receipt_proof)?,
-        checkpoint_id: None,
-        guarantor_signatures_achieved: None,
-        guarantor_threshold: None,
-        settlement_reference: None,
-    };
-    durable.put_local(
-        record_key(tenant.clone(), idempotency_key)?,
-        encode_record(&record)?,
-    )?;
-    let metadata = receipt::raise_verification_level(
-        durable,
-        tenant.clone(),
-        idempotency_key,
-        &receipt_before.canonical_bytes,
-        record.verification_level,
-    )?;
-    let receipt_after = receipt::serve(
-        durable,
-        tenant,
-        ReceiptLookupKey::Idempotency(idempotency_key),
-    )?;
-    if receipt_after.canonical_bytes != receipt_before.canonical_bytes
-        || receipt_after.metadata.verification_level != metadata.verification_level
-    {
-        return Err(FinalityError::Corrupt);
-    }
-    Ok(record)
+    let _ = (durable, tenant, idempotency_key, inclusion);
+    Err(FinalityError::UnavailableCapability(
+        layerx_agent_api::error::ApiError::unavailable_capability(
+            layerx_agent_api::error::RequestId(0),
+            "track.wait",
+        )
+        .expect("static operation name"),
+    ))
 }
 
 /// Persists finality already established by the production LNI verifier.
@@ -178,82 +108,21 @@ pub fn augment_verified(
     receipt_bundle: &VerifiedProofBundle,
     checkpoint: Option<&VerifiedCheckpoint>,
 ) -> Result<FinalityRecord, FinalityError> {
-    let receipt_before = receipt::serve(
-        durable,
-        tenant.clone(),
-        ReceiptLookupKey::Idempotency(idempotency_key),
-    )?;
-    let (
-        VerifiedProofBundle::Activity {
-            activity_id,
-            proof: activity_proof,
-            signed_header: activity_header,
-            ..
-        },
-        VerifiedProofBundle::Receipt {
-            canonical_bytes: receipt_bytes,
-            activity_id: receipt_activity_id,
-            proof: receipt_proof,
-            signed_header: receipt_header,
-        },
-    ) = (activity, receipt_bundle)
-    else {
-        return Err(FinalityError::Corrupt);
-    };
-    if activity_id != receipt_activity_id
-        || *activity_id != receipt_before.metadata.activity_id
-        || receipt_bytes != &receipt_before.canonical_bytes
-        || !activity_header.same_evidence(receipt_header)
-    {
-        return Err(FinalityError::Corrupt);
-    }
-    let mut record = FinalityRecord {
-        idempotency_key,
-        verification_level: VerificationLevel::BATCH_INCLUDED,
-        activity_proof: encode_proof(activity_proof)?,
-        receipt_proof: encode_proof(receipt_proof)?,
-        checkpoint_id: None,
-        guarantor_signatures_achieved: None,
-        guarantor_threshold: None,
-        settlement_reference: None,
-    };
-    if let Some(checkpoint) = checkpoint {
-        let report = checkpoint.report();
-        if report.level() != VerificationLevel::CHECKPOINT_FINALISED
-            || checkpoint.canonical_header() != activity_header.canonical_bytes
-        {
-            return Err(FinalityError::Corrupt);
-        }
-        record.verification_level = VerificationLevel::CHECKPOINT_FINALISED;
-        record.checkpoint_id = report.evidence().checkpoint_id();
-        record.guarantor_signatures_achieved = Some(report.achieved);
-        record.guarantor_threshold = Some(report.required);
-        // Registration bytes are retained, but never relabelled as a Paxeer
-        // settlement anchor without a separate live-chain finality verifier.
-        record.settlement_reference = report.evidence().settlement_reference().map(<[u8]>::to_vec);
-    }
-    durable.put_local(
-        record_key(tenant.clone(), idempotency_key)?,
-        encode_record(&record)?,
-    )?;
-    let metadata = receipt::raise_verification_level(
-        durable,
-        tenant.clone(),
-        idempotency_key,
-        &receipt_before.canonical_bytes,
-        record.verification_level,
-    )?;
-    let receipt_after = receipt::serve(
+    let _ = (
         durable,
         tenant,
-        ReceiptLookupKey::Idempotency(idempotency_key),
-    )?;
-    if receipt_after.canonical_bytes != receipt_before.canonical_bytes
-        || receipt_after.metadata.verification_level != metadata.verification_level
-    {
-        return Err(FinalityError::Corrupt);
-    }
-    Ok(record)
+        idempotency_key,
+        activity,
+        receipt_bundle,
+        checkpoint,
+    );
+    Err(FinalityError::UnavailableCapability(
+        layerx_agent_api::error::ApiError::unavailable_capability(
+            layerx_agent_api::error::RequestId(0),
+            "track.wait",
+        )
+        .expect("static operation name"),
+    ))
 }
 
 /// Source of independently observed finality progress for deadline-bounded waits.
@@ -294,33 +163,21 @@ pub fn wait_for_level<P: VerificationProgress>(
     deadline_ms: u64,
     poll_interval_ms: u64,
 ) -> Result<WaitResult, FinalityError> {
-    if deadline_ms < started_at_ms || poll_interval_ms == 0 {
-        return Err(FinalityError::InvalidDeadline);
-    }
-    let mut observed_at_ms = started_at_ms;
-    loop {
-        let reached = progress.level_at(idempotency_key, observed_at_ms)?;
-        if reached >= requested {
-            return Ok(WaitResult {
-                requested,
-                reached,
-                observed_at_ms,
-                deadline_elapsed: false,
-            });
-        }
-        if observed_at_ms == deadline_ms {
-            return Ok(WaitResult {
-                requested,
-                reached,
-                observed_at_ms,
-                deadline_elapsed: true,
-            });
-        }
-        observed_at_ms = observed_at_ms
-            .checked_add(poll_interval_ms)
-            .ok_or(FinalityError::Arithmetic)?
-            .min(deadline_ms);
-    }
+    let _ = (
+        progress,
+        idempotency_key,
+        requested,
+        started_at_ms,
+        deadline_ms,
+        poll_interval_ms,
+    );
+    Err(FinalityError::UnavailableCapability(
+        layerx_agent_api::error::ApiError::unavailable_capability(
+            layerx_agent_api::error::RequestId(0),
+            "track.wait",
+        )
+        .expect("static operation name"),
+    ))
 }
 
 fn record_key(tenant: TenantId, idempotency_key: [u8; 32]) -> Result<TenantKey, StoreError> {

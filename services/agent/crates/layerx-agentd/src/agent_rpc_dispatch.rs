@@ -7,7 +7,8 @@
 //! match: they are not answered with any substitute refusal.
 
 use layerx_agent_api::error::{ErrorClass, RequestId, Retriability};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::verify::RungStatus as VerificationStatus;
 use layerx_crypto::evm_transaction::{
     decode_signed, recover_sender, transaction_hash, Eip1559Call,
 };
@@ -347,27 +348,17 @@ fn hexv(bytes: &[u8]) -> Value {
     Value::String(lower_hex(bytes))
 }
 
-fn level(value: u8) -> Option<Level> {
+fn level(value: u8) -> Option<Rung> {
     Some(match value {
-        0 => Level::Unverified,
-        1 => Level::SequencerSigned,
-        2 => Level::BatchIncluded,
-        3 => Level::StateProven,
-        4 => Level::CheckpointFinalised,
-        5 => Level::SettlementAnchored,
+        0 | 1 => Rung::Submitted,
+        2 | 3 => Rung::Receipted,
+        4 => Rung::Committed,
         _ => return None,
     })
 }
 
-pub(crate) fn level_name(value: Level) -> &'static str {
-    match value {
-        Level::Unverified => "Unverified",
-        Level::SequencerSigned => "SequencerSigned",
-        Level::BatchIncluded => "BatchIncluded",
-        Level::StateProven => "StateProven",
-        Level::CheckpointFinalised => "CheckpointFinalised",
-        Level::SettlementAnchored => "SettlementAnchored",
-    }
+pub(crate) fn level_name(value: Rung) -> &'static str {
+    value.name()
 }
 
 fn state_name(value: u8) -> Option<&'static str> {
@@ -385,7 +376,7 @@ fn state_name(value: u8) -> Option<&'static str> {
     })
 }
 
-fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     out.insert("chain_sequence".into(), dec(reader.u64()?));
     out.insert("sealed_batch".into(), dec(reader.u64()?));
@@ -396,13 +387,13 @@ fn decode_head(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
 fn decode_account_state(
     reader: &mut Reader<'_>,
     account_id: [u8; 32],
-) -> Option<(Value, Option<Level>)> {
+) -> Option<(Value, Option<Rung>)> {
     let observed = reader.fixed::<32>()?;
     let achieved = level(reader.u8()?)?;
     let value = reader.bytes()?;
     let proof = reader.bytes()?;
     let sequence = reader.u64()?;
-    if observed != account_id || achieved < Level::StateProven || sequence == 0 {
+    if observed != account_id || achieved < Rung::Committed || sequence == 0 {
         return None;
     }
     let mut out = Map::new();
@@ -413,7 +404,7 @@ fn decode_account_state(
     Some((Value::Object(out), Some(achieved)))
 }
 
-fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     let account = reader.fixed::<32>()?;
     let asset = reader.fixed::<32>()?;
@@ -428,7 +419,7 @@ fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     out.insert("observed_checkpoint".into(), hexv(&reader.fixed::<32>()?));
     out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
     out.insert("proof_material".into(), hexv(reader.bytes()?));
-    if achieved < Level::CheckpointFinalised
+    if achieved < Rung::Committed
         || account == [0; 32]
         || asset == [0; 32]
         || currency.is_empty()
@@ -443,7 +434,7 @@ fn decode_balance(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     Some((Value::Object(out), Some(achieved)))
 }
 
-fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     out.insert("submission_ref".into(), Value::String(reader.text()?));
     let state = reader.u8()?;
@@ -458,10 +449,7 @@ fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
         _ => {}
     }
     let achieved = level(reader.u8()?)?;
-    out.insert(
-        "verification_level".into(),
-        Value::String(level_name(achieved).into()),
-    );
+    out.insert("rung".into(), Value::String(level_name(achieved).into()));
     let evidence_count = usize::from(reader.u8()?);
     if evidence_count > MAX_EVIDENCE {
         return None;
@@ -496,7 +484,7 @@ fn decode_tracked(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
     Some((Value::Object(out), Some(achieved)))
 }
 
-pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let activity_id = reader.fixed::<32>()?;
     if activity_id == [0; 32] {
         return None;
@@ -518,7 +506,7 @@ pub(crate) fn decode_observation(reader: &mut Reader<'_>) -> Option<(Value, Opti
     Some((Value::Object(out), achieved))
 }
 
-fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     out.insert("canonical_bytes".into(), hexv(reader.bytes()?));
     let mut batch = Map::new();
@@ -536,14 +524,11 @@ fn decode_receipt(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
         0 => return None,
         value => level(value)?,
     };
-    out.insert(
-        "verification_level".into(),
-        Value::String(level_name(achieved).into()),
-    );
+    out.insert("rung".into(), Value::String(level_name(achieved).into()));
     Some((Value::Object(out), Some(achieved)))
 }
 
-fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     match reader.u8()? {
         0 => {
             let mut out = Map::new();
@@ -564,7 +549,7 @@ fn decode_receipt_lookup(reader: &mut Reader<'_>) -> Option<(Value, Option<Level
 /// Reads a preparation reference, the type-2 call fields, and the activity disclosure.
 /// The signing hash is derived from the call rather than trusted from the owner payload.
 /// The client additionally re-binds the disclosure against its activity registry.
-pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_preparation(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let mut out = Map::new();
     out.insert("preparation_ref".into(), Value::String(reader.text()?));
     if reader.u8()? != 2 {
@@ -626,7 +611,7 @@ pub fn decode_eip1559_prepare_answer(
     dispatched(request_id, Ok(response), decode_preparation).map(|answer| answer.value)
 }
 
-fn decode_eip1559_submission(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_eip1559_submission(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let preparation_ref = reader.text()?;
     let raw_transaction = reader.bytes()?;
     let (transaction, signature) = decode_signed(raw_transaction).ok()?;
@@ -664,7 +649,7 @@ pub fn decode_eip1559_submit_answer(
     dispatched(request_id, Ok(response), decode_eip1559_submission).map(|answer| answer.value)
 }
 
-pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+pub(crate) fn decode_decision(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let outcome = reader.u8()?;
     let submission_ref = match reader.u8()? {
         0 => None,
@@ -757,7 +742,7 @@ fn decode_approval(reader: &mut Reader<'_>) -> Option<Value> {
     Some(Value::Object(out))
 }
 
-fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     let count = usize::from(reader.u8()?);
     if count > MAX_APPROVALS {
         return None;
@@ -777,7 +762,7 @@ fn decode_approval_list(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>
     Some((Value::Object(out), None))
 }
 
-fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)> {
+fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Rung>)> {
     Some((decode_approval(reader)?, None))
 }
 
@@ -786,7 +771,7 @@ fn decode_approval_get(reader: &mut Reader<'_>) -> Option<(Value, Option<Level>)
 pub(crate) fn dispatched(
     request_id: RequestId,
     response: Result<HumanResponse, HumanOperationError>,
-    decoder: impl FnOnce(&mut Reader<'_>) -> Option<(Value, Option<Level>)>,
+    decoder: impl FnOnce(&mut Reader<'_>) -> Option<(Value, Option<Rung>)>,
 ) -> Result<Dispatched, Rejection> {
     let response = response.map_err(|error| owner_error(request_id, error))?;
     let mut reader = Reader {
@@ -1307,12 +1292,28 @@ pub(crate) fn dispatch_operation<A: HumanAuthorityBoundary>(
         Operation::ReadBalance => {
             let request: CoordinatesOnly = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            dispatched(id, owner.balance(peer), decode_balance)
+            let error =
+                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.balance")
+                    .expect("static operation name");
+            Err(Rejection {
+                class: error.class,
+                retriability: error.retriability,
+                request_id: id,
+                reason: "unavailable_capability.read.balance",
+            })
         }
         Operation::ReadCheckpoint => {
             let request: CoordinatesOnly = decode(request, id)?;
             let _ = (request.tenant, request.agent);
-            dispatched(id, owner.head(peer), decode_head)
+            let error =
+                layerx_agent_api::error::ApiError::unavailable_capability(id, "read.checkpoint")
+                    .expect("static operation name");
+            Err(Rejection {
+                class: error.class,
+                retriability: error.retriability,
+                request_id: id,
+                reason: "unavailable_capability.read.checkpoint",
+            })
         }
         Operation::Track => {
             let request: TrackRequest = decode(request, id)?;
