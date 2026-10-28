@@ -134419,7 +134419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.31.1]
 title = "Run the ramp sandbox journey on transaction hashes and receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["8.30.2", "8.30.4"]
@@ -172295,7 +172295,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -176635,7 +176635,7 @@ qualification = "UNRUN"
 
 [task.18.700.1]
 title = "Issue #700: Assert the three native identities in the account-binding tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178355,6 +178355,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Move the real kernel-node readiness stage of tools/bringup/check-live.test.sh (the kn_report block starting at :1470 through the genesis and sequencer cases that consume kn_genesis and kn_public, ending at :1516) unchanged to after the last stand-in case and before the failure summary at the end of the file, so every stand-in case reports before that stage runs (issue #1100); change no assertion and no stand-in case."
 
 [req.18776]
 title = "The live indexer check probes only the history methods the gateway serves"
@@ -178916,7 +178917,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179169,12 +179170,12 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [req.181065]
 title = "Issue #1065: the gateway end-to-end harness boots its attestors at main"
-ac_1 = "pnpm --dir services/wallet/gateway exec vitest run test/e2e/gateway.e2e.test.ts -t 'reports every readiness component up' passes at main: services/wallet/gateway/test/e2e/attestors.ts writes the producer public key it generates to a file and passes ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE to every attestor, as evm-sign.test.ts:244 does, so node-1 no longer exits with custody authority unavailable or refused."
+ac_1 = "Every attestor the end-to-end harness starts receives the custody authority public key, issuer and tenant and a signed inventory naming the five node pins, and the readiness test passes with its assertions unchanged."
 
 [acceptance.18.1065.1]
 feature = "18"
 req = "181065.1"
-scenario = "Given the end-to-end harness at main, when the attestors start, then each receives the authority public key file and the readiness test passes with its assertions unchanged."
+scenario = "Given the end-to-end harness at main, when the attestors start, then each receives the authority public key, issuer, tenant, inventory public key and signed inventory and the readiness test passes with its assertions unchanged."
 contract = "contracts/wallet.md#gateway"
 test = "services/wallet/gateway/test/e2e/gateway.e2e.test.ts::reports every readiness component up"
 qualification = "UNRUN"
@@ -179188,8 +179189,8 @@ requires = []
 reqs = ["181065.1"]
 capabilities = []
 interfaces = []
-do_1 = "In services/wallet/gateway/test/e2e/attestors.ts write the producer public key the harness generates to a file under the run temp dir and add ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE to the attestor env block (lines 251-262), mirroring services/wallet/gateway/test/evm-sign.test.ts:244."
-do_2 = "Change no assertion in test/e2e/gateway.e2e.test.ts."
+do_1 = "In services/wallet/gateway/test/e2e/attestors.ts, inside startAttestorNetwork before the per-node loop, generate a producer key pair and an inventory signer key pair with generateKeyPairSync('ec', { namedCurve: 'prime256v1' }), write producer.pub and inventory.pub (spki pem) under the run temp dir, and write inventory.jwt: an ES256 JWT (header {alg:'ES256', typ:'wallet-custody-inventory+jwt'}, signature sign('sha256', ...) with dsaEncoding 'ieee-p1363', base64url) whose payload is {version:1, iss: opts.identity.issuer, aud:'wallet-custody-inventory', tenant:'e2e', sequence:'1', iat: now-1, exp: now+3600, protocol:'wallet', threshold:3, members: ids.map(id => ({id, spki_sha256: pki.node(id).pin})), keys: []}, exactly as services/wallet/gateway/test/evm-sign.test.ts:189-210 builds it. members must name all five node ids with their pins because NewInventory (services/wallet/attestor/internal/server/authority.go:50-86) requires five member pins equal to the node pins, threshold 3 and protocol wallet; keys may be empty because the readiness test exercises no custody key."
+do_2 = "Add to the attestor env block (attestors.ts:251-273) ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE (producer.pub), ATTESTOR_AUTHORITY_ISSUER (opts.identity.issuer), ATTESTOR_AUTHORITY_TENANT ('e2e', the JWT tenant), ATTESTOR_INVENTORY_PUBLIC_KEY_FILE (inventory.pub) and ATTESTOR_INVENTORY_FILE (inventory.jwt), mirroring evm-sign.test.ts:244-247; services/wallet/attestor/cmd/attestor/main.go:218 passes all five into NewInventory and services/wallet/attestor/internal/config/config.go:18-22 names them."
 symbols = []
 touches = ["services/wallet/gateway/test/e2e/attestors.ts"]
 tests = ["services/wallet/gateway/test/e2e/gateway.e2e.test.ts::reports every readiness component up"]
@@ -179207,6 +179208,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Change no assertion in test/e2e/gateway.e2e.test.ts; change no file other than attestors.ts."
 
 [req.181066]
 title = "Issue #1066: the attestor ABI copies match the repository at main"
@@ -179254,7 +179256,7 @@ ac_1 = "The reference ramp's rebalance and work route tests build their PaxeerCo
 
 [req.181078]
 title = "Make the platform dependency policy pass on the live workspace while still banning the retired crates from the ramps"
-ac_1 = "sh services/platform/tools/dependency-policy.sh exits 0 on the live platform workspace, exits 1 when a ramp crate depends on layerx-paxeer-client or layerx-intents, and test_ramp_dependencies.py proves both."
+ac_1 = "sh services/platform/tools/dependency-policy.sh exits 0 on the live platform workspace, exits 1 when a ramp crate reaches layerx-paxeer-client, layerx-intents, rusqlite or libsqlite3-sys, and test_ramp_dependencies.py proves both."
 
 [req.181083]
 title = "Refresh services/platform/Cargo.lock after the ramp manifests dropped the retired Paxeer crates"
@@ -179267,6 +179269,10 @@ ac_1 = "The layerx-proof and layerx-x402 vector suites pass against the regenera
 [req.181089]
 title = "Refresh the explorer's embedded copy of the sequencer receipt vectors after their regeneration"
 ac_1 = "The sequencer section of the explorer fixture receipt_vectors.json is identical to the regenerated source vectors and the four explorer tests that read it pass."
+
+[req.181098]
+title = "Issue #1098: Run mix-in-builder.sh test once per umbrella app when the path arguments span several apps"
+ac_1 = "One mix-in-builder.sh test invocation naming paths from apps/indexer and apps/explorer runs each app's tests in its own sidecar and passes when every named test passes."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -179359,7 +179365,7 @@ qualification = "UNRUN"
 [acceptance.18.1078.1]
 feature = "18"
 req = "181078.1"
-scenario = "Given the live platform workspace with the retired crates still as members, when the dependency policy runs without arguments, then it exits 0, and when a ramp crate depends on a retired crate, then it exits 1 naming both."
+scenario = "Given the live platform workspace with the retired crates and the hosted indexer's rusqlite still present, when the dependency policy runs without arguments, then it exits 0, and when a ramp crate reaches a ramp-edge banned crate, then it exits 1 naming both."
 contract = "contracts/perps-data.md#websocket"
 test = "services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client"
 qualification = "UNRUN"
@@ -179386,6 +179392,14 @@ req = "181089.1"
 scenario = "Given the regenerated sequencer receipt vectors, when the explorer fixture's sequencer section is refreshed from them and the four reading test files run, then the embedded cases equal the source cases and every test passes."
 contract = "contracts/explorer-http-api.md#api-v2-paxeer-x"
 test = "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/sequencer_receipt_test.exs"
+qualification = "UNRUN"
+
+[acceptance.18.1098.1]
+feature = "18"
+req = "181098.1"
+scenario = "Given test paths from two umbrella apps, when mix-in-builder.sh test runs once with all of them, then each app's tests run against a fresh sidecar and the run exits 0 when every test passes."
+contract = contracts/explorer-http-api.md#api-v2-paxeer-x
+test = "services/explorer/deploy/tools/mix-in-builder.sh::test"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -179419,7 +179433,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1067.1]
 title = "Issue #1067: Give the gateway starter-credit test fixture the Faucet.claim_amount the binary requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
@@ -179544,7 +179558,7 @@ requires = []
 reqs = ["181071.1"]
 capabilities = []
 interfaces = []
-do_1 = "Make the RPC section of tools/docs/gen/gen_system_docs.py resolve lowercase constructors: widen CTOR (gen_system_docs.py:67) and the server variable pattern (gen_system_docs.py:81) from New\w+ to [Nn]ew\w+, so sequencerReceiptAPI built by newSequencerReceiptAPI (rpc/server.go:199, rpc/sequencer_receipt.go:244) resolves instead of exiting with 'rpc: cannot resolve service sequencerReceiptAPI' (gen_system_docs.py:105)."
+do_1 = "Make the RPC section of tools/docs/gen/gen_system_docs.py resolve every service expression in rpc/server.go: widen CTOR (gen_system_docs.py:67) and the server variable pattern (gen_system_docs.py:81) from New\w+ to [Nn]ew\w+, so sequencerReceiptAPI built by newSequencerReceiptAPI (rpc/server.go:199, rpc/sequencer_receipt.go:244) resolves, and add a second variable pattern that maps a closure `name := func(...) *Type {` to Type, so filterAPI (rpc/server.go:225 and :433, registered as filterAPI('eth') at :305 and :518 and wrapped by NewPaxFilterAPI(filterAPI('pax')) at :309 since 2adf875c0) resolves to FilterAPI instead of exiting 'rpc: cannot resolve service filterAPI' (gen_system_docs.py:105)."
 do_2 = "Run tools/docs/gen-system-docs.sh and commit every file under docs/system it rewrites (chain-modules.md, kernel-modules.md, rpc.md and any other page); do not hand-edit them."
 symbols = []
 touches = ["tools/docs/gen/gen_system_docs.py", "docs/system/INDEX.md", "docs/system/chain-modules.md", "docs/system/cli.md", "docs/system/governance.md", "docs/system/kernel-modules.md", "docs/system/precompiles.md", "docs/system/routes.md", "docs/system/rpc.md", "docs/system/sdk.md"]
@@ -179672,7 +179686,7 @@ touches = ["services/explorer/backend/apps/indexer/test/indexer/transform/paxeer
 tests = []
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs && services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
@@ -179723,8 +179737,8 @@ requires = ["18.1083.1"]
 reqs = ["181078.1"]
 capabilities = []
 interfaces = []
-do_1 = "In services/platform/tools/dependency-policy.sh:27 keep bindgen, libsqlite3-sys, rusqlite, sqlx-sqlite, layerx-core, layerx-protocol-core, ctor and inventory as global package bans, and move layerx-paxeer-client and layerx-intents to a ramp-edge ban: exit 1 naming the crate and the dependency when layerx-ramp-toolkit or layerx-reference-ramp lists one of them in its dependencies array, so the live workspace (which keeps both crates as members until 8.9.2) passes the no-argument run that make platform-lint performs (services/platform/Makefile.inc:120)."
-do_2 = "In services/platform/tests/test_ramp_dependencies.py change test_dependency_policy_bans_paxeer_client to prove the refusal on a copy of the live metadata where a ramp crate gains a dependency on layerx-paxeer-client, and add a test that the policy passes on the unmodified live metadata; keep test_ramp_crates_do_not_depend_on_paxeer_client as written."
+do_1 = "In services/platform/tools/dependency-policy.sh:27 keep bindgen, sqlx-sqlite, layerx-core, layerx-protocol-core, ctor and inventory as global package bans, and move libsqlite3-sys, rusqlite, layerx-paxeer-client and layerx-intents to a ramp-edge ban: exit 1 naming the ramp crate and the banned crate when the resolve graph (.resolve.nodes of the metadata) of layerx-ramp-toolkit or layerx-reference-ramp reaches one of them, so the live workspace, where services/platform/hosted/indexer/Cargo.toml:25 depends on rusqlite (issue #1099) and both retired crates stay members until 8.9.2, passes the no-argument run that make platform-lint performs (services/platform/Makefile.inc:120)."
+do_2 = "In services/platform/tests/test_ramp_dependencies.py change test_dependency_policy_bans_paxeer_client to prove the refusal on a copy of the live metadata where a ramp crate gains a dependency on layerx-paxeer-client, add the same proof for rusqlite, and add a test that the policy passes on the unmodified live metadata; keep test_ramp_crates_do_not_depend_on_paxeer_client as written."
 do_3 = "Do not change any Cargo manifest or lock file."
 symbols = []
 touches = ["services/platform/tools/dependency-policy.sh", "services/platform/tests/test_ramp_dependencies.py"]
@@ -179775,7 +179789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1088.1]
 title = "Issue #1088: Prove the Rust sequencer receipt vector consumers accept the regenerated conformance vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.997.1"]
@@ -179825,6 +179839,35 @@ gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the fixture; the explorer copy returns to the 9e6b79d65 cases without signingKey."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1098.1]
+title = "Issue #1098: Issue #1098: Run mix-in-builder.sh test once per umbrella app when the path arguments span several apps"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1076.1"]
+reqs = ["181098.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/explorer/deploy/tools/mix-in-builder.sh group the test path arguments by their apps/<name>/ prefix (options such as --only and paths without that prefix accompany every group) and run the existing single-invocation test flow once per group in argument order, each with its own fresh sidecar database, exiting with the first non-zero mix exit code after every group ran; --reuse-db keeps its meaning per group."
+do_2 = "Keep single-app invocations identical in behaviour and output; change no file other than the wrapper."
+symbols = []
+touches = ["services/explorer/deploy/tools/mix-in-builder.sh"]
+tests = []
+planned_paths = []
+build_cmd = "sh -n services/explorer/deploy/tools/mix-in-builder.sh"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/transform/paxeer_x_logs_retired_test.exs apps/indexer/test/indexer/transform/paxeer_x_logs_launchpad_test.exs apps/explorer/test/explorer/chain/paxeer_x/market_event_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the wrapper; a run naming paths from two umbrella apps returns to failing in the second app's test helper."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
