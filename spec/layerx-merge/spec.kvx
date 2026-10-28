@@ -181733,7 +181733,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.753.1]
 title = "Issue #753: Require wallet ownership proof before storing a push subscription"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182843,7 +182843,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1060.1]
 title = "Issue #1060: Answer a commit-pending OPEN well inside the primary's replication deadline and let the primary retry it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
