@@ -9539,3 +9539,19 @@ symbol = "test_supported"
 observed = "The first attempt (5b66056dd) implemented the metered PaymentDrawn capture and its two tests passed, but 19 of the 26 pre-existing tests of the buyer target fail at head: the fixtures offer layerx:beta and layerx:mainnet, which validate_network (src/seller.rs:411) has refused since c6f95f885, and non-hash transactions, which validate_transaction (b9ee0272a) refuses as TransactionForm; 11.5.1 and 18.1133.1 verified other targets."
 assumption = "Issue #1160; folded as do_4 (same file, same gate). tests/e2e.rs and tests/vectors.rs also carry the words and were not checked."
 severity = "minor"
+
+[finding.18.1151.1.2]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:979"
+symbol = "AttestorKms::create_owned_key"
+observed = "Attempts 2 (5c543dc72) and 7 (ae28b1158) built and failed identically: the attestors refused the service's key generation with key_invalid_share because the test cluster's wallet inventory, mandatory since 6a5587897 (10.11.2) made the shared support publish one, lists no key; the service surfaces the code as KmsError::Refused. The TLS handshake EOF lines in the attestor logs are the peers' TCP probes, not the failure."
+assumption = "do_4/do_5 approve the key for generate and sign through two new public helpers of the shared support; Keystore::binding becomes pub so the test derives the key id without copying private code."
+severity = "minor"
+
+[finding.18.849.1.5]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile"
+symbol = "native"
+observed = "Attempt 11 (37357d0a1) built both images within the limit and its verify passed; the done record was refused by the graph check 'symbol native — not defined in the graph' because the task listed the Dockerfile stage name as a symbol."
+assumption = "symbols emptied; the candidate stands and the next run re-qualifies it unchanged."
+severity = "minor"
