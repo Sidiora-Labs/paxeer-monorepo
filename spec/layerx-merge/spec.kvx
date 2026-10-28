@@ -172620,7 +172620,7 @@ qualification = "UNRUN"
 
 [task.18.924.1]
 title = "Issue #924: Compile the launchpad optical reference contracts from the in-tree sources by default"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173111,7 +173111,7 @@ qualification = "UNRUN"
 
 [task.18.904.1]
 title = "Issue #904: Size every perps close in base so a partial close fills the quoted lot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173154,7 +173154,7 @@ qualification = "UNRUN"
 
 [task.18.925.1]
 title = "Issue #925: Cover the suffixed initialize overloads and a funded direct airdrop claim on 0x1017"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173654,7 +173654,7 @@ qualification = "UNRUN"
 
 [task.18.943.1]
 title = "Issue #943: Run the paxd native digest check in CI, name missing archives and stamp the digest in the image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173707,7 +173707,7 @@ qualification = "UNRUN"
 
 [task.18.969.1]
 title = "Issue #969: Accept the programme wave identifier in the shared gate runner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174104,7 +174104,7 @@ qualification = "UNRUN"
 
 [task.18.861.1]
 title = "Issue #861: Age perps leaderboard 7d and 30d entries out at the head block time"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174147,7 +174147,7 @@ qualification = "UNRUN"
 
 [task.18.878.1]
 title = "Issue #878: Read the asset registry only for history pages that need it and pass through its refusal code"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174190,7 +174190,7 @@ qualification = "UNRUN"
 
 [task.18.928.1]
 title = "Issue #928: Raise cosmovisor's indirect crypto, compression, S3 and grpc modules to their patched versions"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174319,7 +174319,7 @@ qualification = "UNRUN"
 
 [task.18.989.1]
 title = "Issue #989: Restore the overwritten earlier GOTCHA entries and append their replacements"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174835,7 +174835,7 @@ qualification = "UNRUN"
 
 [task.18.973.1]
 title = "Issue #973: Clear the upgrade keeper in the missing-reader retirement test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175280,7 +175280,7 @@ qualification = "UNRUN"
 
 [task.18.931.1]
 title = "Issue #931: Describe the px_getCapabilities probe as the view call the gateway makes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175872,7 +175872,7 @@ qualification = "UNRUN"
 
 [task.18.932.1]
 title = "Issue #932: Build the root module against the required golang.org/x/crypto release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175967,7 +175967,7 @@ qualification = "UNRUN"
 
 [task.18.975.1]
 title = "Issue #975: Pin the teardown carry-forward test to an explicit small sweep limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176287,7 +176287,7 @@ qualification = "UNRUN"
 
 [task.18.836.1]
 title = "Issue #836: Refuse an unpayable starter credit before the faucet call, with its own message, budget slot and pinned amount"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176384,7 +176384,7 @@ qualification = "UNRUN"
 
 [task.18.933.1]
 title = "Issue #933: Package the nested perps, pricefeed and spot ABIs into the hosted indexer image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176471,7 +176471,7 @@ qualification = "UNRUN"
 
 [task.18.977.1]
 title = "Issue #977: Seed the linked offer and resolve as the arbiter in the service runtime reader test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177004,7 +177004,7 @@ qualification = "UNRUN"
 
 [task.18.915.1]
 title = "Issue #915: Document the forced-exit checkpoint and freeze in the custody docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177048,7 +177048,7 @@ qualification = "UNRUN"
 
 [task.18.957.1]
 title = "Issue #957: Map 0x1015 to the perps precompile in the translated READMEs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177436,7 +177436,7 @@ qualification = "UNRUN"
 
 [task.18.838.1]
 title = "Issue #838: Cover the gateway history answer path over a loopback Paxeer node, a DID selector and no Paxeer config"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177478,7 +177478,7 @@ qualification = "UNRUN"
 
 [task.18.872.1]
 title = "Issue #872: Count launchpad permit pulls against the token caps in the attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177562,7 +177562,7 @@ qualification = "UNRUN"
 
 [task.18.937.1]
 title = "Issue #937: Return timed-out xweb fees to the payer of each consumer request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177605,7 +177605,7 @@ qualification = "UNRUN"
 
 [task.18.1003.1]
 title = "Issue #1003: Retire the wallet SDK point tests that call the removed LX review API"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178011,7 +178011,7 @@ qualification = "UNRUN"
 
 [task.18.917.1]
 title = "Issue #917: Refuse token transfer and bridge recipients that are precompile addresses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178737,7 +178737,7 @@ qualification = "UNRUN"
 
 [task.18.982.1]
 title = "Issue #982: Fund benchmark accounts with ERC20 balance before the transfer workload starts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

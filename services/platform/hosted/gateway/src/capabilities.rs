@@ -1215,6 +1215,60 @@ mod tests {
     }
 
     #[test]
+    fn capabilities_schema_names_each_probe_view() {
+        let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
+            .unwrap_or_else(|e| panic!("{e}"));
+        let entry = schema["methods"]
+            .as_array()
+            .expect("methods missing")
+            .iter()
+            .find(|method| method["name"] == "px_getCapabilities")
+            .expect("px_getCapabilities missing");
+        let description = entry["description"].as_str().expect("description missing");
+        assert!(description.contains("eth_call"));
+        assert!(description.contains("revert"));
+        assert!(description.contains("malformed"));
+        for surface in Surface::ALL {
+            assert!(
+                description.contains(surface.probe_view().signature),
+                "{} probe view missing",
+                surface.name()
+            );
+            assert!(
+                description.contains(&evm::address_hex(&surface.address())),
+                "{} probe address missing",
+                surface.name()
+            );
+        }
+        let mut pending = vec![entry];
+        while let Some(value) = pending.pop() {
+            match value {
+                Value::Object(fields) => {
+                    if let Some(description) = fields.get("description") {
+                        let description = description.as_str().expect("description is not text");
+                        assert!(!description.contains("eth_getCode"), "{description}");
+                    }
+                    pending.extend(fields.values());
+                }
+                Value::Array(values) => pending.extend(values),
+                _ => {}
+            }
+        }
+        for surface in [Surface::Exchange, Surface::Bridge, Surface::Launchpad] {
+            let property = entry["result"]["schema"]["properties"][surface.name()]["description"]
+                .as_str()
+                .expect("surface description missing");
+            assert!(
+                property.contains(surface.probe_view().signature),
+                "{property}"
+            );
+            assert!(property.contains("eth_call"), "{property}");
+            assert!(property.contains("revert"), "{property}");
+            assert!(property.contains("malformed"), "{property}");
+        }
+    }
+
+    #[test]
     fn capabilities_method_is_published_in_openrpc() {
         let schema: Value = serde_json::from_slice(include_bytes!("../openrpc.json"))
             .unwrap_or_else(|e| panic!("{e}"));
