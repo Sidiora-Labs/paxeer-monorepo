@@ -919,8 +919,8 @@ affects = ["2.3.1", "2.6.1", "2.14.4", "2.14.5"]
 
 [decision.202]
 title = "Idempotency is kernel-owned"
-value = "Idempotency records live in the host store under prefix 0x04 and are pruned by the kernel; the keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired, and IdempotencyRetention stays a layerxauth param that no host setter carries to the kernel."
-basis = "The host writes idempotency entries at modules/lxphost/ctx.go:281 and the kernel prunes them at src/state/lxp_idempotency.c:128 from the retention field of include/layerx/lxp_state.h:42; the module keys at modules/layerxauth/types/keys.go:21-35 are used only by a test."
+value = "The keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired and IdempotencyRetention stays a layerxauth param that no host setter carries to the kernel; since req.1010 the kernel records no idempotency entries, the host store holds nothing under prefix 0x04, and replay protection is the per-account sequence (ErrSequenceReused)."
+basis = "Task 1.2.1 (req.1010) removed kernel idempotency recording and replay, leaving lxp_idempotency_canonical_lookup (src/protocol/lxp_kernel.c:7876); the module keys at modules/layerxauth/types/keys.go:21-35 are used only by a test."
 affects = ["2.1.6", "2.6.4", "2.14.4"]
 
 [decision.203]
@@ -3282,10 +3282,10 @@ basis = "lxphost.Activity carries IdempotencyKey [32]byte at modules/lxphost/hos
 affects = ["13.21.8", "13.34.4"]
 
 [decision.1329]
-title = "0x101D principal is the bound DID's kernel main account"
-value = "The precompile resolves the EVM caller to its bound DID and uses MainAccountID as principal with the DID as actor; an unbound caller is refused with LXP_ADDR_EVM_NOT_BOUND."
-basis = "modules/evm/keeper/layerx_binding.go:18 holds the binding and modules/lxphost/accountmap.go:43 defines MainAccountID."
-affects = ["13.22.3"]
+title = "0x101D principal is the bound DID id; the main account is the debit account"
+value = "principalOf resolves the EVM caller to its bound DID and submits with Actor = Principal = the DID id (lxphost.DIDID), VerifiedKey = the DID key, Kind = LXP_AUTHORITY_OWNER and AuthorityHash = lxp_authority_hash(LXP_AUTHORITY_OWNER, zero grant id, VerifiedKey); the DID's main account (MainAccountID) or one of its DID asset accounts is the debit account of a value leg, never the principal; an unbound caller is refused with LXP_ADDR_EVM_NOT_BOUND."
+basis = "kernel_program_signer_binding (src/protocol/lxp_kernel.c:201-221) requires actor == principal == the DID id for a host-bound Programs activity, and lni_principal derives the same id for Programs activities at cmd/layerxd/lxp_daemon_lni.c:2346-2350; the kernel tests hash the owner authority with a zero grant id (tests/programs/test_monetary_law.c:591, :681); modules/evm/keeper/layerx_binding.go:18 holds the binding and modules/lxphost/accountmap.go:43 defines MainAccountID."
+affects = ["13.22.3", "13.25.1", "13.25.4", "13.25.5"]
 
 [decision.1330]
 title = "Static calls serve views and simulateCall only"
@@ -11684,8 +11684,8 @@ ac_1 = "After a full ledger scenario through 0x101A, iterating the layerxledger 
 ac_2 = "After grants and revokes through 0x101C, iterating the layerxauth module store (storage/common/keys/store_keys.go:44) yields only ParamsKey 0x01 (modules/layerxauth/types/keys.go:20), with no 0x02 or 0x03 idempotency entries."
 
 [req.2071]
-title = "Ledger and auth share one kernel idempotency space per DID"
-ac_1 = "An idempotency key used by a DID for a ledger send cannot be reused by the same DID for grantSession (ErrIdempotentReplay, modules/layerxauth/types/errors.go:16) because both keepers run on one host store (modules/lxphost/ctx.go:65), while another DID may use the same key."
+title = "Ledger and auth share one host store whose kernel keeps no idempotency entries"
+ac_1 = "Ledger and auth run on one host store (modules/lxphost/ctx.go:65) whose kernel keeps no idempotency entries (req.1010): after DID A sends with key K through the ledger keeper, A's grantSession with K at the next sequence executes, re-submitting an activity on A's consumed account sequence is refused with ErrSequenceReused (modules/layerxauth/types/errors.go:14), DID B's grantSession with K executes, and the host store holds no key under prefix 0x04."
 
 
 [req.2072]
@@ -12625,7 +12625,7 @@ ac_1 = "On the local node an off-tick placeOrder reverts with PerpsTickSize clas
 [req.3533]
 title = "Local node: getMarketConfig decodes for every active market"
 ac_1 = "For every id of getActiveMarketIds (apps/perps/src/core/network/abi/PerpsPrecompile.ts:1630) on the local node decodeMarketConfig returns a symbol, tickSize above 0 and lotSize above 0."
-ac_2 = "tools/qualification/localnode/v6120-node.sh starts a disposable chain-125 node on loopback with the v6.12.0 plan applied in its first block, funds a test key, feeds one fixed BTC price per block, and prints LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL to the env file named by --env-out"
+ac_2 = "tools/qualification/localnode/v6120-node.sh starts a disposable chain-125 node on loopback with the v6.12.0 plan applied in its first block, funds a test key, feeds one fixed BTC price per block, and prints LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC, PERPS_DATA_TEST_COMET and NEXT_PUBLIC_PERPS_GATEWAY_URL to the env file named by --env-out, PERPS_DATA_TEST_COMET being http://127.0.0.1:<comet rpc port>"
 
 [req.3534]
 title = "Local node: getFeeTier of a fresh account decodes to tier 0"
@@ -19493,7 +19493,7 @@ ac_2 = "checkCall (planned) refuses a nonzero value on any method with LXP_PRECO
 
 [req.13252]
 title = "Resolve the 0x101D caller to its bound DID and kernel main account"
-ac_1 = "principalOf (planned) reads the DID bound to the EVM caller with GetLayerXDid (modules/evm/keeper/layerx_binding.go:18) and returns the kernel main account from MainAccountID (modules/lxphost/accountmap.go:43) with the DID as actor, the account as principal and the DID key as verified key in lxphost.KernelAuthority (modules/lxphost/host.go:568) (decision.1329)."
+ac_1 = "principalOf (precompiles/layerxprograms/principal.go) reads the DID bound to the EVM caller with GetLayerXDid (modules/evm/keeper/layerx_binding.go:18) and returns lxphost.KernelAuthority with Bound = true, Actor = Principal = lxphost.DIDID of the DID, VerifiedKey = the DID key, Kind = LXP_AUTHORITY_OWNER and AuthorityHash = lxp_authority_hash(LXP_AUTHORITY_OWNER, zero grant id, VerifiedKey) (decision.1329)."
 ac_2 = "principalOf refuses a caller with no DID binding with ErrUnboundCaller (LXP_ADDR_EVM_NOT_BOUND) and never falls back to a derived address account."
 
 [req.13253]
@@ -19548,8 +19548,41 @@ ac_2 = "A call made with feeLimit equal to the quoted ceiling never reverts with
 
 [req.13263]
 title = "Serve transfer of program value legs"
-ac_1 = "transfer (precompiles/layerxprograms/abi.json:1056) submits activity 0x00090005 (include/layerx/programs.h:173) with EncodeTransferPayload and emits ProgramTransferred."
+ac_1 = "transfer (precompiles/layerxprograms/abi.json:1056) submits activity 0x00090005 (include/layerx/programs.h:173) with EncodeTransferPayload under the authority principalOf supplies, debiting each leg from the caller DID's main account (MainAccountID) or one of its DID asset accounts, and emits ProgramTransferred."
 ac_2 = "transfer of more than the source balance reverts with the refusal lxp_ctx_emit_transfer_set returns in the transfer execute at src/modules/programs/transfer.c:200 and moves no units."
+
+[req.13301]
+title = "Authorize transfer legs debited from accounts the principal DID owns"
+ac_1 = "lxp_programs_transfer_validate and lxp_programs_transfer_execute_root (src/modules/programs/transfer.c) accept a leg whose from id equals authority->principal or names an account of the module runtime registry whose lx_account_owner_did (src/ledger/lx_account_read.c:6) equals authority->principal (kinds LX_ACCOUNT_AGENT_MAIN and LX_ACCOUNT_AGENT_ASSET), use the principal DID's account of kind LX_ACCOUNT_AGENT_MAIN as the sequence account, and keep each source authority's authorized_from equal to its leg's from id."
+ac_2 = "A leg whose from account is owned by another DID, or by no DID, is refused with LXP_ERR_AUTH_SCOPE and moves no units; a zero program_id or authority_hash stays LXP_ERR_NON_CANONICAL."
+
+[acceptance.13.301.1]
+feature = "13"
+req = "13301.1"
+scenario = "Given a kernel with the programs module registered, a DID whose main account holds 10 units of an asset and a program value account, when the DID's owner authority submits a transfer of 4 units from its main account to the value account, then the receipt is LXP_OK, the main account holds 6 and the value account 4"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/programs/test_transfer_principal.c::transfer_from_owned_main_account (planned)"
+qualification = "UNRUN"
+
+[acceptance.13.301.2]
+feature = "13"
+req = "13301.2"
+scenario = "Given the same kernel and a second DID's main account holding 10 units, when the first DID's owner authority submits a transfer of 4 units from the second DID's main account, then the receipt is LXP_ERR_AUTH_SCOPE and both balances are unchanged"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/programs/test_transfer_principal.c::transfer_from_foreign_account_refused (planned)"
+qualification = "UNRUN"
+
+[req.13302]
+title = "Owner authority kind and hash on the 0x101D principal"
+ac_1 = "principalOf sets Kind = LXP_AUTHORITY_OWNER and AuthorityHash = lxp_authority_hash(LXP_AUTHORITY_OWNER, zero grant id, VerifiedKey) (src/state/lxp_authority.c:326) through a cgo wrapper in modules/lxphost, so lxp_programs_transfer_validate (src/modules/programs/transfer.c:133-136) no longer refuses the hosted authority as LXP_ERR_NON_CANONICAL for a zero authority_hash."
+
+[acceptance.13.302.1]
+feature = "13"
+req = "13302.1"
+scenario = "Given an EVM address bound to DID key 0x55..55, when principalOf runs for that caller, then Kind is LXP_AUTHORITY_OWNER and AuthorityHash equals lxp_authority_hash of (LXP_AUTHORITY_OWNER, a zero grant id, the DID key) and differs from the hash of another key"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalAuthorityKindAndHash (planned)"
+qualification = "UNRUN"
 
 [req.13264]
 title = "Serve registerAccount for LXPA1 and LXPA2 program accounts"
@@ -49603,7 +49636,7 @@ qualification = "UNRUN"
 [acceptance.1.73.1]
 feature = "1"
 req = "1073.1"
-scenario = "Given the hosted kernel of modules/lxphost, when an activity of type 0x00090006, 0x00090009 or 0x0009000B with an empty payload is executed through Host.Execute, then the kernel code is a Programs module refusal and not LXP_ERR_UNKNOWN_ACTIVITY, and an activity of an unlisted ordinal is refused with LXP_ERR_UNKNOWN_ACTIVITY"
+scenario = "Given the hosted kernel of modules/lxphost, when an activity of type 0x00090006, 0x00090009 or 0x0009000B with an empty payload is executed through Host.Execute, then the kernel code is not LXP_ERR_UNKNOWN_ACTIVITY: LXP_ERR_TRUNCATED from the Programs decoder for 0x00090009 and 0x0009000B, and LXP_ERR_MODULE_DISABLED from the Programs state-activity gate for 0x00090006 while the host binds no state feed, and an activity of an unlisted ordinal is refused with LXP_ERR_UNKNOWN_ACTIVITY"
 contract = "contracts/kernel.md#lxphost-host"
 test = "modules/lxphost/programs_registration_test.go::TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities (planned)"
 qualification = "UNRUN"
@@ -51466,7 +51499,7 @@ qualification = "UNRUN"
 [acceptance.2.71.1]
 feature = "2"
 req = "2071.1"
-scenario = "Given DID A that sent with key K through 0x101A, when A grants a session with K and DID B grants with K, then A is refused with ErrIdempotentReplay and B succeeds"
+scenario = "Given DID A that sent with key K through 0x101A, when A grants a session with K and DID B grants with K, then both succeed, A's replay of a consumed sequence is refused with ErrSequenceReused, and no host key starts with 0x04"
 contract = "contracts/ledger-auth.md#idempotency"
 test = "modules/layerxauth/keeper/shared_host_test.go::TestSharedHostIdempotencyAcrossModules (planned)"
 qualification = "UNRUN"
@@ -54491,9 +54524,21 @@ qualification = "UNRUN"
 [acceptance.3.533.2]
 feature = "3"
 req = "3533.2"
-scenario = "Given a clean environment, when tools/qualification/localnode/v6120-node.sh runs with --env-out, then a disposable chain-125 node on loopback serves the v6.12.0 set from its first block with 18 markets and 3 spot tokens, a funded test key and one fixed BTC price per block, and the env file holds LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL"
+scenario = "Given a clean environment, when tools/qualification/localnode/v6120-node.sh runs with --env-out, then a disposable chain-125 node on loopback serves the v6.12.0 set from its first block with 18 markets and 3 spot tokens, a funded test key and one fixed BTC price per block, and the env file holds LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC, PERPS_DATA_TEST_COMET and NEXT_PUBLIC_PERPS_GATEWAY_URL"
 contract = "contracts/perps-client.md#core"
 test = "tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120Serves (planned)"
+qualification = "UNRUN"
+
+[req.5982]
+title = "Local node env file names the Comet RPC"
+ac_1 = "tools/qualification/localnode/v6120-node.sh writes PERPS_DATA_TEST_COMET=http://127.0.0.1:<comet rpc port> (the RPC_PORT of its NODE address, v6120-node.sh:324) into the env file named by --env-out beside LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (v6120-node.sh:419-424), and GET /status on that address reports network hyperpax_125-1."
+
+[acceptance.5.982.1]
+feature = "5"
+req = "5982.1"
+scenario = "Given the env file written by v6120-node.sh --env-out, when TestLocalNodeV6120CometEnv reads PERPS_DATA_TEST_COMET, then it has the shape http://127.0.0.1:<port> and GET /status on it reports network hyperpax_125-1"
+contract = "contracts/perps-client.md#core"
+test = "tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120CometEnv (planned)"
 qualification = "UNRUN"
 
 [acceptance.3.534.1]
@@ -58958,6 +59003,27 @@ req = "5515.1"
 scenario = "Given the recorded V1 file with provenance (paxd revision, chain id, heights, recorder command), when TestVectorV1ReceiptedPositiveVerifies decodes it, then ReceiptSignature succeeds under the pinned key and the activity id equals keccak256 of the raw transaction"
 contract = "contracts/sequencer.md#sequencer-receipt"
 test = "daemon/committed-fixture/vector_v1_test.go::TestVectorV1ReceiptedPositiveVerifies (planned)"
+qualification = "UNRUN"
+
+[req.5556]
+title = "Standby crosses commits and the sequencer serves a base fee"
+ac_1 = "The standby applies wal.Open(H+1) only after its app has committed H: standby.receive (node/sequencer/standby.go:693-701) waits, bounded by the replication timeout, for LastBlockHeight to reach H and answers the gap acknowledgement instead of setting the sticky failure when it has not, so sequential.Open (node/sequencer/executor.go:247) no longer fails with ErrOpenHeight on a following standby."
+ac_2 = "rpcPendingSnapshot (node/app.go:3288-3299) satisfies evmrpc.PendingBaseFee (rpc/info.go:376) with the base fee the open block fixed, so eth_gasPrice (rpc/info.go:105) and eth_feeHistory (rpc/info.go:282) are served on the sequencer and standby instead of failing with 'pending block does not fix a base fee' (rpc/info.go:389)."
+
+[acceptance.5.556.1]
+feature = "5"
+req = "5556.1"
+scenario = "Given a primary and a standby of node/sequencer/standby_role_test.go, when the primary commits heights 2 and 3 with the standby following, then the standby acknowledges both opens and reports no failure"
+contract = "contracts/sequencer.md#sequencer-executor"
+test = "node/sequencer/standby_role_test.go::TestStartStandbyServesReplication"
+qualification = "UNRUN"
+
+[acceptance.5.556.2]
+feature = "5"
+req = "5556.2"
+scenario = "Given the sequencer's RPC with an open pending block, when eth_gasPrice is served through rpcPendingSnapshot, then it returns the open block's base fee"
+contract = "contracts/sequencer.md#node-go-api"
+test = "node/rpc_pending_snapshot_test.go::TestRPCPendingSnapshotServesBaseFee (planned)"
 qualification = "UNRUN"
 
 [acceptance.5.516.1]
@@ -74347,7 +74413,7 @@ qualification = "UNRUN"
 [acceptance.13.252.1]
 feature = "13"
 req = "13252.1"
-scenario = "Given an EVM address bound with BindLayerX (modules/evm/keeper/layerx_binding.go:56) to DID key 0x55..55, when principalOf runs for that caller, then Actor and VerifiedKey equal the DID key and Principal equals the id returned by MainAccountID"
+scenario = "Given an EVM address bound with BindLayerX (modules/evm/keeper/layerx_binding.go:56) to DID key 0x55..55, when principalOf runs for that caller, then Actor and Principal equal lxphost.DIDID of the DID, VerifiedKey equals the DID key and Principal differs from the id returned by MainAccountID"
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalFromBoundDID (planned)"
 qualification = "UNRUN"
@@ -74523,10 +74589,12 @@ qualification = "UNRUN"
 [acceptance.13.263.1]
 feature = "13"
 req = "13263.1"
-scenario = "Given a program value account funded with 10 units, when its owner calls transfer with one leg of 4 units, then getValueAccount reports 6 for the source and 4 for the destination and ProgramTransferred is emitted"
+scenario = "Given a bound DID whose main account holds 10 units of an asset and a program value account, when the DID's EVM address calls transfer with one leg of 4 units from its main account to the value account, then getValueAccount reports 4 for the destination, the main account holds 6 and ProgramTransferred is emitted"
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "precompiles/layerxprograms/method_transfer_test.go::TestProgramsTransferMovesLegs (planned)"
 qualification = "UNRUN"
+
+
 
 [acceptance.13.263.2]
 feature = "13"
@@ -93791,7 +93859,7 @@ capabilities = ["1.23.5"]
 interfaces = []
 do_1 = "lxphost_reset (modules/lxphost/host.go:157-159) and lxphost_read_authority_envelope (modules/lxphost/read.go:216) register programs_module_registration() (src/modules/programs/registration.c:235), whose activity list activity_types_v1 (registration.c:18-24) holds only DEPLOY, UPGRADE, CALL, REGISTRY and TRANSFER, so lxp_kernel_module_for_activity (src/protocol/lxp_kernel.c:2240-2253) answers LXP_ERR_UNKNOWN_ACTIVITY for the account 0x00090006, wind-down 0x00090007, sandbox 0x00090009, sandbox-destroy 0x0009000A and storage-retirement 0x0009000B activities that tasks 13.25.2, 13.26.1, 13.26.2, 13.26.3, 13.27.1, 13.27.2, 13.27.3 and 13.27.4 submit, while deploy, call and transfer pass."
 do_2 = "Register programs_module_registration_v4_storage_retirement() (registration.c:311, include/layerx/programs.h:480) at both sites: it keeps the abi version LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION of the genesis table's programs_module_registration_v4 (src/protocol/lxp_genesis.c:54-55) and lists every type of activity_types_v4 plus LX_PROGRAMS_STORAGE_RETIREMENT (registration.c:52-57), the type task 13.27.4 submits; lxp_programs_account_module_validate (src/modules/programs/accounts.c:59-73) accepts that version. Change no kernel source, no genesis table and no existing test."
-do_3 = "Create modules/lxphost/programs_registration_test.go (planned) with TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities: through ExecuteActivity of modules/lxphost/execute_test.go:45 on the chain of modules/lxphost/host_test.go:40 submit one activity each of type 0x00090006, 0x00090009 and 0x0009000B with an empty payload and assert the returned kernel code is not the LXP_ERR_UNKNOWN_ACTIVITY code of the modules/lxphost Code table (the Programs decoder answers its own refusal), and TestHostProgramsModuleRefusesUnknownOrdinal submitting type 0x0009000C and asserting LXP_ERR_UNKNOWN_ACTIVITY."
+do_3 = "Create modules/lxphost/programs_registration_test.go (planned) with TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities: through ExecuteActivity of modules/lxphost/execute_test.go:45 on the chain of modules/lxphost/host_test.go:40 submit one activity each of type 0x00090006, 0x00090009 and 0x0009000B with an empty payload and assert the returned kernel code is not the LXP_ERR_UNKNOWN_ACTIVITY code of the modules/lxphost Code table (for 0x00090009 and 0x0009000B ExecuteActivity returns no error and receipt.ResultCode LXP_ERR_TRUNCATED from the Programs decoder; for 0x00090006 it returns the error LXP_ERR_MODULE_DISABLED from the Programs state-activity gate of src/protocol/lxp_kernel.c:6758-6762, because the hosted kernel binds no Programs state feed commit observer), and TestHostProgramsModuleRefusesUnknownOrdinal submitting type 0x0009000C and asserting LXP_ERR_UNKNOWN_ACTIVITY."
 do_4 = "Tasks 1.24.1, 1.25.1, 1.25.2 and 1.26.1 edit the same registration sites later and now require this task."
 symbols = ["lxphost_reset", "lxphost_read_authority_envelope", "TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities", "TestHostProgramsModuleRefusesUnknownOrdinal"]
 touches = ["modules/lxphost/host.go", "modules/lxphost/read.go", "modules/lxphost/programs_registration_test.go"]
@@ -98058,7 +98126,7 @@ capabilities = ["2.14.5"]
 interfaces = []
 do_1 = "Write TestSharedHostIdempotencyAcrossModules in modules/layerxauth/keeper/shared_host_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Use the node-constructed host shared by both keepers through the wiring of node/app.go:833."
-do_3 = "Assert the refusal matches ErrIdempotentReplay (modules/layerxauth/types/errors.go:16) and the host record under prefix 0x04 (modules/lxphost/ctx.go:65)."
+do_3 = "Assert both grants succeed, the consumed-sequence replay matches ErrSequenceReused (modules/layerxauth/types/errors.go:14), and no host key under prefix 0x04 (modules/lxphost/ctx.go:65)."
 symbols = ["TestSharedHostIdempotencyAcrossModules"]
 touches = ["modules/layerxauth/keeper/shared_host_test.go"]
 tests = ["modules/layerxauth/keeper/shared_host_test.go::TestSharedHostIdempotencyAcrossModules"]
@@ -105570,7 +105638,7 @@ title = "End-to-end: /api/markets serves every chain market by id"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["3.42.5", "3.41.4"]
+requires = ["3.42.5", "3.41.4", "5.98.2"]
 reqs = ["3500.1"]
 capabilities = ["3.54.1"]
 interfaces = []
@@ -105663,7 +105731,7 @@ title = "End-to-end: GraphQL markets equal the chain market config and tiers"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["3.42.9", "3.54.1"]
+requires = ["3.42.9", "3.54.1", "5.98.2"]
 reqs = ["3508.1"]
 capabilities = ["3.54.4"]
 interfaces = []
@@ -117343,7 +117411,7 @@ title = "Record and re-verify the V1 receipted-positive vector"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["5.55.1", "5.0.3", "5.1.3"]
+requires = ["5.55.1", "5.0.3", "5.1.3", "5.55.6"]
 reqs = ["5515.1"]
 capabilities = ["5.55.2"]
 interfaces = ["interface.5.fmt-committed-fixture-vector-j33"]
@@ -117371,6 +117439,8 @@ do_4 = "Recording the fixture is implementation work, not a qualification gate: 
 do_5 = "The recorder's primary sequencer config (daemon/committed-fixture/main.go:277-282) carries no standby-address, so paxd exits at node/sequencer/node.go:62 with 'invalid standby-address: missing port in address', and a primary needs a reachable standby because every Release (node/sequencer/node_start.go:111, node/sequencer/driver.go:81) returns the replication error. Fix the recorder here: start a second paxd home in role standby listening at a free loopback address (the pattern of node/sequencer/tcp_ack_test.go:70-90: listen, read the address, close, hand it to both configs) with its own wal-dir and receipt-key-file, write that address as the primary's standby-address and replication-timeout, and stop both processes after recording. The V2 and V3 vectors are not re-recorded by this task."
 do_6 = "Attempt three at 9eb233dec started a second paxd as the standby and it panicked at consensus/internal/consensus/state.go:2622 'validator ... not in committee': the standby home was initialised with --mode validator and its own priv_validator_key, which no gentx placed in the validator set. Initialise the standby home with --mode full (config.toml mode = \"full\"), copy the primary's config/genesis.json into it, give it its own rpc, p2p and evm listeners, set sequencer.role = standby and sequencer.standby-address to its own listener, point the primary's sequencer.standby-address at that listener, and start the standby before the primary; the primary keeps the gentx validator of main.go:178-180."
 do_7 = "Attempt 2484f85f7 built and pinned the validator's 32-byte ed25519 key with add-genesis-sequencer-leader --pubkey, which is right, but recording stalled at height 2 with 'proposer ... is outside the pinned leader list' because checkSequencerProposer compared the 20-byte Header.ProposerAddress with the 32-byte key; task 5.1.3 derives crypto.AddressHash of each leader, so continue from 2484f85f7 once it is in, keep the pubkey pinning, and on a recorder failure print the tail of its log to stderr so the cause is visible in the run output."
+do_8 = "Attempt 42d6f4e25 ran the recorder; it stopped on eth_gasPrice (pending block does not fix a base fee, rpc/info.go:389) and the primary halted at height 2 because the standby refused Open(3) (node/sequencer/standby.go:323). Continue from 42d6f4e25 once 5.55.6 is in; give the standby persistent-peers = the primary's p2p address so its app follows consensus; record per do_4."
+
 
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
@@ -117466,6 +117536,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "The first attempt stopped with an incomplete V4 vector because the recorder's primary paxd refused to start without a standby-address. 5.55.2 fixes the recorder (its do_5); this task requires it and does not change daemon/committed-fixture/main.go. Record V4 with the fixed recorder as described in do_1 and do_5."
+
+[task.5.55.6]
+title = "Let the standby cross commits and serve the sequencer base fee"
+status = "pending"
+mode = "BUILD"
+wave = 14
+requires = []
+reqs = ["5556.1", "5556.2"]
+capabilities = ["5.55.6"]
+interfaces = []
+do_1 = "In standby.receive (node/sequencer/standby.go:693-701) apply a wal.Open for height H+1 only after the standby app has committed H: wait, bounded by the replication timeout the standby role carries (node/sequencer/standby_role.go), for host.LastBlockHeight() (node/sequencer/executor.go:247) to reach H, and when it has not, answer the gap acknowledgement for the group and leave s.failed unset instead of the sticky AckRefused the primary turns into ErrStandbyRefused (node/sequencer/standby.go:323)."
+do_2 = "AppReplayer.Apply (node/sequencer/replay.go:22-38) keeps treating wal.Committed as a no-op; the wait of do_1 is the only coupling between replication and the app's consensus commit, so a standby whose app follows consensus through its peers crosses every commit."
+do_3 = "rpcPendingSnapshot (node/app.go:3288-3299) gains BaseFeePerGas() (sdk.Dec, error) forwarding the base fee the open block fixed at Open (sequencer.FeeFloor satisfies evmrpc.PendingBaseFee, rpc/info.go:374-377), through the pending source when it implements PendingBaseFee and from the app's open block otherwise, so eth_gasPrice (rpc/info.go:105) and eth_feeHistory (rpc/info.go:282) stop failing at rpc/info.go:389."
+do_4 = "Extend TestStartStandbyServesReplication (node/sequencer/standby_role_test.go:30) to commit two heights on the primary with the standby following and assert both opens are acknowledged and the standby reports no failure; create node/rpc_pending_snapshot_test.go (planned) with TestRPCPendingSnapshotServesBaseFee asserting rpcPendingSnapshot satisfies evmrpc.PendingBaseFee and returns the open block's base fee."
+do_5 = "Change no consensus, WAL format or receipt code; the change is the standby's ordering and the RPC's base-fee view."
+symbols = ["receive", "Apply", "rpcPendingSnapshot", "TestStartStandbyServesReplication", "TestRPCPendingSnapshotServesBaseFee"]
+touches = ["node/sequencer/standby.go", "node/sequencer/replay.go", "node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go", "node/app.go", "node/rpc_pending_snapshot_test.go"]
+tests = ["node/sequencer/standby_role_test.go::TestStartStandbyServesReplication", "node/rpc_pending_snapshot_test.go::TestRPCPendingSnapshotServesBaseFee"]
+planned_paths = ["node/rpc_pending_snapshot_test.go"]
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestStartStandbyServesReplication)$' && go test -count=1 ./node/ -run '^(TestRPCPendingSnapshotServesBaseFee)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the touched files; the standby then refuses the open after its first commit again and eth_gasPrice fails on the sequencer."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.5.56.1]
 title = "Let modules disable sends of a denom through registered send-enabled checkers"
@@ -119094,6 +119196,36 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-node-runtime"
 rollback = "Revert the touched files of task 5.98.1; the node home and env file live outside the repository, so no repository state depends on them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.98.2]
+title = "Name the Comet RPC in the local node env file"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["5.98.1"]
+reqs = ["5982.1"]
+capabilities = []
+interfaces = []
+do_1 = "In the env block of tools/qualification/localnode/v6120-node.sh:419-424 add a printf of PERPS_DATA_TEST_COMET=http://127.0.0.1:$RPC_PORT (the Comet RPC port of the NODE address at v6120-node.sh:324), quoted with %q like the four existing lines; the copy to --env-out carries it."
+do_2 = "Add TestLocalNodeV6120CometEnv to tools/qualification/localnode/v6120_test.go: read PERPS_DATA_TEST_COMET, require the http://127.0.0.1:<port> shape, GET <value>/status and require result.node_info.network == hyperpax_125-1."
+do_3 = "Change nothing else in the script; the four existing variables keep their names and values."
+symbols = ["TestLocalNodeV6120CometEnv"]
+touches = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/v6120_test.go"]
+tests = ["tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120CometEnv"]
+planned_paths = []
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^(TestLocalNodeV6120Serves|TestLocalNodeV6120CometEnv)$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-node-runtime"
+rollback = "Revert the two files; the env file then carries the four original variables."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -134065,12 +134197,12 @@ requires = ["8.28.3"]
 reqs = ["8271.1", "8271.2"]
 capabilities = ["8.29.1"]
 interfaces = ["interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-rampengine", "interface.8.rs-ramp-toolkit-journal-transitionevidence-j41", "interface.8.fmt-ramp-toolkit-journal"]
-do_1 = "services/platform/ramps/toolkit/src/engine.rs:178-250 submit_layerx, submit_native_receive and submit_payment record activity_id and canonical bytes; record tx_hash and raw_transaction and keep submit_native_receive recording the same fields until task 8.30.2 removes its last caller at services/platform/ramps/reference/src/main.rs:1049 (attempts 5ef277951 and eabd3e15b broke that caller)."
+do_1 = "services/platform/ramps/toolkit/src/engine.rs:178-250 submit_layerx and submit_payment record activity_id and canonical bytes; record tx_hash and raw_transaction as well (submit_native_receive and its caller at services/platform/ramps/reference/src/main.rs:1049 were removed by task 8.30.2, c596d0245)."
 do_2 = "services/platform/ramps/toolkit/src/engine.rs:252-346 resolve_layerx resolves by activity id and records receipt_digest; resolve by tx_hash, record receipt_digest, height and rung, and keep a Submitted answer in the pending stage."
 do_3 = "services/platform/ramps/toolkit/src/journal.rs:43-50 TransitionEvidence holds activity_id and canonical_activity; hold tx_hash, raw_transaction, receipt_digest, receipt_height and rung."
 do_4 = "services/platform/ramps/toolkit/src/journal.rs:12 binds records to the v1 journal domain; write v2 records under a v2 domain and replay v1 records read-only so existing journals still project per decision.834."
 do_5 = "Create services/platform/ramps/toolkit/tests/engine_legs.rs (planned) with the two tests below over a Journal opened in a temporary directory."
-symbols = ["RampEngine::submit_layerx", "RampEngine::resolve_layerx", "TransitionEvidence", "Journal"]
+symbols = ["TransitionEvidence", "Journal", "journal_records_transaction_hash_and_rung", "journal_replays_version_one_records"]
 touches = ["services/platform/ramps/toolkit/src/engine.rs", "services/platform/ramps/toolkit/src/journal.rs", "services/platform/ramps/toolkit/tests/engine_legs.rs"]
 tests = ["services/platform/ramps/toolkit/tests/engine_legs.rs::journal_records_transaction_hash_and_rung", "services/platform/ramps/toolkit/tests/engine_legs.rs::journal_replays_version_one_records"]
 planned_paths = ["services/platform/ramps/toolkit/tests/engine_legs.rs"]
@@ -156970,16 +157102,17 @@ title = "Serve transfer of program value legs"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8", "13.25.4", "13.25.5"]
 reqs = ["13263.1", "13263.2"]
 capabilities = ["13.25.1"]
 interfaces = ["interface.13.pc-0x101d-transfer"]
 do_1 = "Write the transfer handler in precompiles/layerxprograms/method_transfer.go (planned) decoding legs with decodeLegs of precompiles/layerxprograms/args.go (planned)."
 do_2 = "Submit activity 0x00090005 (include/layerx/programs.h:175) with EncodeTransferPayload of precompiles/layerxprograms/payload_accounts.go (planned)."
 do_3 = "Emit ProgramTransferred through emitReceiptEvents after success (precompiles/layerxprograms/method_transfer.go (planned)), passing the program id decoded from the activity payload."
-do_4 = "Write both tests in precompiles/layerxprograms/method_transfer_test.go (planned)."
+do_4 = "Write both tests in precompiles/layerxprograms/method_transfer_test.go (planned): fund the caller DID's main account (lxphost.MainAccountID) through the ledger as the setup of attempt 8290ed5ee did, debit the legs from that account, and assert the destination balance, the source balance and ProgramTransferred; the overdraft case asserts the lxp_ctx_emit_transfer_set refusal and unchanged balances."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
 do_6 = "Submit through submit() of precompiles/layerxprograms/submit.go with the KernelAuthority principalOf supplies; do not build lxphost.Activity or KernelAuthority in the handler."
+do_7 = "Legs debit the caller DID's main account or one of its DID asset accounts (lx_account_owner_did, src/ledger/lx_account_read.c:6), never a program value account: src/modules/programs/transfer.c authorizes a leg only when its from account is the principal or is owned by the principal DID (task 13.25.4), and the authority carries Kind and AuthorityHash (task 13.25.5)."
 symbols = ["transferHandler", "TestProgramsTransferMovesLegs", "TestProgramsTransferOverdraftReverts"]
 touches = ["precompiles/layerxprograms/method_transfer.go", "precompiles/layerxprograms/method_transfer_test.go"]
 tests = ["precompiles/layerxprograms/method_transfer_test.go::TestProgramsTransferMovesLegs", "precompiles/layerxprograms/method_transfer_test.go::TestProgramsTransferOverdraftReverts"]
@@ -156990,6 +157123,68 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
 rollback = "Revert the touched files; 0x101D is served only from MergeUpgrade and only through the constructor registered in precompiles/layerxprograms, so reverting removes the method."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.25.4]
+title = "Authorize transfer legs debited from accounts the principal DID owns"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = []
+reqs = ["13301.1", "13301.2"]
+capabilities = ["13.25.4"]
+interfaces = []
+do_1 = "In authorize_leg (src/modules/programs/transfer.c:97-108) and source_authority_add (src/modules/programs/transfer.c:40-52) replace the equality test of the leg's from id against authority->principal with: equal, or the from account exists in the module runtime registry (lxp_ctx_module_runtime, lx_programs_transfer_runtime.accounts, account_by_id) and lx_account_owner_did of it (src/ledger/lx_account_read.c:6) equals authority->principal; every other leg stays LXP_ERR_AUTH_SCOPE."
+do_2 = "In lxp_programs_transfer_execute_root (src/modules/programs/transfer.c:164-169) resolve sequence_account as account_by_id(principal) when that exists, otherwise as the principal DID's account of kind LX_ACCOUNT_AGENT_MAIN among lx_account_list_did (include/layerx/lxp_ledger.h:319); absent both, LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE as today. Leave set.context.authorized_from, debit_authority_kind and each source authority's authorized_from (transfer.c:61, the leg's from id) as written."
+do_3 = "Keep the LXP_ERR_NON_CANONICAL gate on program_id and authority_hash (src/modules/programs/transfer.c:133-136) and the layerx_programs_authorize_402lxp_leg call with the principal unchanged; the only changed outcome is a leg from an account the principal DID owns."
+do_4 = "Create tests/programs/test_transfer_principal.c (planned) on the fixture shape of tests/programs/test_monetary_law.c:963-1061 (lx_account_registry_init, a registered asset, an lxp_authority_resolved of kind LXP_AUTHORITY_OWNER whose actor and principal are the DID id of lxp_did_id_derive and whose authority_hash comes from lxp_authority_hash with a zero grant id as at test_monetary_law.c:591 and :681, activity_type 0x00090005, lxp_kernel_execute_activity): transfer_from_owned_main_account moves 4 of 10 units from agent:<did>:main to a program value account and asserts LXP_OK and both balances; transfer_from_foreign_account_refused submits a leg from another DID's main account and asserts LXP_ERR_AUTH_SCOPE with both balances unchanged."
+do_5 = "Add the Makefile target $(BUILD_DIR)/tests/programs_transfer_principal on the pattern of Makefile:3194-3199 and list it with the other programs tests of programs-core-test (Makefile:3367). Change no other kernel source."
+symbols = ["authorize_leg", "source_authority_add", "lxp_programs_transfer_execute_root", "transfer_from_owned_main_account", "transfer_from_foreign_account_refused"]
+touches = ["src/modules/programs/transfer.c", "tests/programs/test_transfer_principal.c", "Makefile"]
+tests = ["tests/programs/test_transfer_principal.c::transfer_from_owned_main_account", "tests/programs/test_transfer_principal.c::transfer_from_foreign_account_refused"]
+planned_paths = ["tests/programs/test_transfer_principal.c"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/programs_transfer_principal && ./build/tests/programs_transfer_principal"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert transfer.c and the Makefile target and delete the test; the transfer module then accepts only legs whose from id is the principal."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.25.5]
+title = "Set the owner authority kind and hash on the 0x101D principal"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = ["13.22.3"]
+reqs = ["13302.1"]
+capabilities = ["13.25.5"]
+interfaces = []
+do_1 = "Create modules/lxphost/authority_hash.go (planned) with func AuthorityHash(kind uint8, grantID, verifiedKey [32]byte) ([32]byte, error) calling C.lxp_authority_hash (include/layerx/lxp_authority.h:199, src/state/lxp_authority.c:326) and const AuthorityKindOwner = 1 (LXP_AUTHORITY_OWNER, include/layerx/lxp_authority.h:12); a non-OK status becomes an error, never a zero hash."
+do_2 = "principalOf (precompiles/layerxprograms/principal.go:24-28) sets Kind = lxphost.AuthorityKindOwner and AuthorityHash = lxphost.AuthorityHash(lxphost.AuthorityKindOwner, zero grant id, VerifiedKey), as the kernel tests do (tests/programs/test_monetary_law.c:591, :681) and as lxp_programs_transfer_validate requires a non-zero authority_hash (src/modules/programs/transfer.c:133-136); Actor, Principal (lxphost.DIDID of the DID), VerifiedKey and Bound stay as written."
+do_3 = "Correct TestProgramsPrincipalFromBoundDID (precompiles/layerxprograms/principal_test.go:55-60) to the shape principalOf has had since task 13.22.4: Actor and Principal equal lxphost.DIDID of the DID, VerifiedKey equals the key and Principal differs from MainAccountID; add TestProgramsPrincipalAuthorityKindAndHash asserting Kind is the owner kind, AuthorityHash equals lxphost.AuthorityHash(owner kind, zero grant id, key) and differs for another key."
+symbols = ["AuthorityHash", "AuthorityKindOwner", "principalOf", "TestProgramsPrincipalFromBoundDID", "TestProgramsPrincipalAuthorityKindAndHash"]
+touches = ["modules/lxphost/authority_hash.go", "precompiles/layerxprograms/principal.go", "precompiles/layerxprograms/principal_test.go"]
+tests = ["precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalFromBoundDID", "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalUnboundRefused", "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalAuthorityKindAndHash"]
+planned_paths = ["modules/lxphost/authority_hash.go"]
+build_cmd = "go build ./modules/lxphost/... ./precompiles/layerxprograms/..."
+verify_cmd = "go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsPrincipalFromBoundDID|TestProgramsPrincipalUnboundRefused|TestProgramsPrincipalAuthorityKindAndHash)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the touched files and delete authority_hash.go; principalOf then submits with a zero authority hash again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -172093,4 +172288,3 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-
