@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
 use std::time::{Duration, Instant};
 
-use layerx_client::lni::transport::{ConnectionGate, ConnectionPermit};
+use crate::frame::{read_frame, write_frame, ConnectionGate, ConnectionPermit};
 use layerx_types::payload::ModuleRegistry;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
@@ -182,6 +182,29 @@ pub struct LxkpGateway {
     window: Mutex<(Instant, u32)>,
 }
 
+struct GatewayRequestReader<'a> {
+    gateway: &'a LxkpGateway,
+    stream: &'a mut StreamOwned<ServerConnection, TcpStream>,
+    started: Instant,
+    failure: Option<KmsError>,
+}
+
+impl Read for GatewayRequestReader<'_> {
+    fn read(&mut self, output: &mut [u8]) -> std::io::Result<usize> {
+        if let Err(error) = self.gateway.bound(&self.stream.sock, self.started) {
+            self.failure = Some(error);
+            return Err(std::io::Error::other("gateway request read refused"));
+        }
+        match self.stream.read(output) {
+            Err(error) if error.kind() != ErrorKind::Interrupted => {
+                self.failure = Some(KmsError::Timeout);
+                Err(error)
+            }
+            result => result,
+        }
+    }
+}
+
 impl std::fmt::Debug for LxkpGateway {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         formatter
@@ -299,15 +322,11 @@ impl LxkpGateway {
             return Err(KmsError::Refused);
         };
         let response = Zeroizing::new(response);
-        let length = u32::try_from(response.len()).map_err(|_| KmsError::Refused)?;
         stream
             .sock
             .set_write_timeout(Some(self.limits.deadline))
             .map_err(|_| KmsError::Unavailable)?;
-        stream
-            .write_all(&length.to_be_bytes())
-            .and_then(|()| stream.write_all(&response))
-            .and_then(|()| stream.flush())
+        write_frame(&mut stream, &response, GATEWAY_FRAME_LIMIT)
             .map_err(|_| KmsError::Unavailable)?;
         stream.conn.send_close_notify();
         stream.flush().map_err(|_| KmsError::Unavailable)
@@ -330,34 +349,19 @@ impl LxkpGateway {
         stream: &mut StreamOwned<ServerConnection, TcpStream>,
         started: Instant,
     ) -> Result<Zeroizing<Vec<u8>>, KmsError> {
-        let mut prefix = [0_u8; 4];
-        self.read_exact(stream, &mut prefix, started)?;
-        let length = usize::try_from(u32::from_be_bytes(prefix)).map_err(|_| KmsError::Refused)?;
-        if length == 0 || length > self.limits.maximum_frame_bytes {
+        let mut reader = GatewayRequestReader {
+            gateway: self,
+            stream,
+            started,
+            failure: None,
+        };
+        let frame = read_frame(&mut reader, self.limits.maximum_frame_bytes)
+            .map(Zeroizing::new)
+            .map_err(|_| reader.failure.unwrap_or(KmsError::Refused))?;
+        if frame.is_empty() {
             return Err(KmsError::Refused);
         }
-        let mut frame = Zeroizing::new(vec![0_u8; length]);
-        self.read_exact(stream, &mut frame, started)?;
         Ok(frame)
-    }
-
-    fn read_exact(
-        &self,
-        stream: &mut StreamOwned<ServerConnection, TcpStream>,
-        output: &mut [u8],
-        started: Instant,
-    ) -> Result<(), KmsError> {
-        let mut offset = 0;
-        while offset < output.len() {
-            self.bound(&stream.sock, started)?;
-            match stream.read(&mut output[offset..]) {
-                Ok(0) => return Err(KmsError::Refused),
-                Ok(read) => offset += read,
-                Err(error) if error.kind() == ErrorKind::Interrupted => {}
-                Err(_) => return Err(KmsError::Timeout),
-            }
-        }
-        Ok(())
     }
 
     fn admit(&self) -> bool {

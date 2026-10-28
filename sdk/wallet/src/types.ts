@@ -564,6 +564,7 @@ export interface EvidenceRef {
   evidence_id: string;
   class: EvidenceClass;
   verification: VerificationLevel;
+  tx_hash?: string;
   settlement_domain?: string;
 }
 

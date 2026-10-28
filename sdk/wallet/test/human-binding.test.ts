@@ -2,9 +2,9 @@ import { createServer } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { expect, expectTypeOf, test } from 'vitest';
 import { EndpointClient } from '../src/endpoint.js';
-import { decodeIntentPlan, HumanClient, HumanDecodeError } from '../src/human.js';
+import { decodeIntentPlan, decodeJourney, HumanClient, HumanDecodeError } from '../src/human.js';
 import { KernelAvailability, KernelClient } from '../src/kernel.js';
-import type { IntentLegBinding, IntentPlan, IntentSubmission, SubmitPlanRequest } from '../src/types.js';
+import type { EvidenceRef, IntentLegBinding, IntentPlan, IntentSubmission, Journey, SubmitPlanRequest } from '../src/types.js';
 
 async function intent_binding_carries_the_pending_nonce_and_optional_tx_hash(): Promise<void> {
   expectTypeOf<IntentLegBinding['account_sequence']>().toEqualTypeOf<number>();
@@ -143,4 +143,75 @@ async function intent_binding_carries_the_pending_nonce_and_optional_tx_hash(): 
 test(
   intent_binding_carries_the_pending_nonce_and_optional_tx_hash,
   intent_binding_carries_the_pending_nonce_and_optional_tx_hash
+);
+
+function journey_evidence_carries_an_optional_transaction_hash(): void {
+  expectTypeOf<EvidenceRef['tx_hash']>().toEqualTypeOf<string | undefined>();
+  const txHash = `0x${'aB'.repeat(32)}`;
+  const ref: EvidenceRef = {
+    evidence_id: 'receipt-evidence',
+    class: 'layerx-receipt',
+    verification: 'receipt-verified',
+    settlement_domain: 'paxeer',
+  };
+  const journey: Journey = {
+    journey_id: 'evidence-journey',
+    kind: 'move',
+    state: 'processing',
+    state_copy_key: 'journey.processing',
+    stages: [{
+      stage_id: 'receipt-stage',
+      copy_key: 'journey.receipt',
+      state: 'processing',
+      evidence: [{ ...ref, tx_hash: txHash }, { ...ref }],
+    }],
+    evidence: [{ ...ref, tx_hash: txHash }, { ...ref }],
+    started_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:01Z',
+  };
+  const decoded = decodeJourney(journey);
+  expect(decoded).toEqual(journey);
+  expect(decoded.evidence[1]).not.toHaveProperty('tx_hash');
+  expect(decoded.stages[0].evidence[1]).not.toHaveProperty('tx_hash');
+
+  for (const hash of [`0x${'00'.repeat(32)}`, `0x${'ab'.repeat(32)}`, `0x${'FF'.repeat(32)}`, txHash]) {
+    const evidence = [{ ...ref, tx_hash: hash }, { ...ref }];
+    const withHash = { ...journey, evidence, stages: [{ ...journey.stages[0], evidence }] };
+    expect(decodeJourney(withHash)).toEqual(withHash);
+  }
+  for (const invalid of [
+    undefined,
+    null,
+    false,
+    42,
+    {},
+    [],
+    '',
+    txHash.slice(2),
+    `0X${'ab'.repeat(32)}`,
+    `0x${'ab'.repeat(31)}`,
+    `0x${'ab'.repeat(33)}`,
+    `0x${'gg'.repeat(32)}`,
+    `${txHash}\n`,
+    ` ${txHash}`,
+    `${txHash} `,
+  ]) {
+    for (const position of [0, 1]) {
+      const evidence = journey.evidence.map((entry, index) =>
+        index === position ? { ...entry, tx_hash: invalid } : entry
+      );
+      expect(() => decodeJourney({ ...journey, evidence })).toThrowError(
+        new HumanDecodeError('journey evidence tx_hash')
+      );
+      expect(() => decodeJourney({
+        ...journey,
+        stages: [{ ...journey.stages[0], evidence }],
+      })).toThrowError(new HumanDecodeError('journey stage evidence tx_hash'));
+    }
+  }
+}
+
+test(
+  journey_evidence_carries_an_optional_transaction_hash,
+  journey_evidence_carries_an_optional_transaction_hash
 );
