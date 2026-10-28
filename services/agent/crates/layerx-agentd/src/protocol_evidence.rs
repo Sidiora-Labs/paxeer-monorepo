@@ -21,10 +21,11 @@ use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRe
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::activity::{decode_signed, peek_signed_activity_type};
 use layerx_wire::hash::{activity_id, receipt_execution_batch_id};
+use layerx_wire::limits::PROTOCOL_VERSION;
 use layerx_wire::receipt::{decode, decode_batch_header, BatchHeader};
 use sha2::{Digest, Sha256};
 
-use crate::config::{read_protected_source, ProtectedSourceError, StartupConfig};
+use crate::config::{read_protected_source, ProtectedSourceError, ReceiptKeySource, StartupConfig};
 use crate::human::HumanOperationError;
 use layerx_client::Client;
 mod native_owner;
@@ -176,17 +177,24 @@ impl ProtocolEvidenceVerifier {
     }
 
     pub(crate) fn load(config: &StartupConfig) -> Result<Self, VerifierPolicyError> {
-        let bytes = read_protected_source(
-            &config.sequencer_authority_source,
-            MAX_AUTHORITY_SOURCE_BYTES,
-        )
-        .map_err(|failure| match failure {
-            ProtectedSourceError::Unavailable => VerifierPolicyError::AuthoritySourceUnavailable,
-            ProtectedSourceError::TooLarge => VerifierPolicyError::AuthoritySourceMalformed,
-            ProtectedSourceError::Unprotected | ProtectedSourceError::Changed => {
-                VerifierPolicyError::AuthoritySourceUnprotected
+        let path = match &config.receipt_key_source {
+            ReceiptKeySource::PinnedFile(path) => path,
+            ReceiptKeySource::NodeRpc => {
+                return Err(VerifierPolicyError::AuthoritySourceUnavailable)
             }
-        })?;
+        };
+        let bytes =
+            read_protected_source(path, MAX_AUTHORITY_SOURCE_BYTES).map_err(
+                |failure| match failure {
+                    ProtectedSourceError::Unavailable => {
+                        VerifierPolicyError::AuthoritySourceUnavailable
+                    }
+                    ProtectedSourceError::TooLarge => VerifierPolicyError::AuthoritySourceMalformed,
+                    ProtectedSourceError::Unprotected | ProtectedSourceError::Changed => {
+                        VerifierPolicyError::AuthoritySourceUnprotected
+                    }
+                },
+            )?;
         if bytes.is_empty() {
             return Err(VerifierPolicyError::AuthoritySourceMalformed);
         }
@@ -254,11 +262,7 @@ impl ProtocolEvidenceVerifier {
                 revoked_at_batch,
             )?);
         }
-        Self::new(
-            config.expected_protocol_version,
-            config.network_id,
-            sequencers,
-        )
+        Self::new(PROTOCOL_VERSION, config.network_id, sequencers)
     }
 
     pub(crate) fn accepts_handshake_key(&self, batch: u64, public_key: [u8; 32]) -> bool {

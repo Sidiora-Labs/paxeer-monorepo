@@ -49,7 +49,7 @@ const text = (value: string): string => {
   return word(body.length / 2) + body.padEnd(Math.ceil(body.length / 64) * 64, "0");
 };
 
-test("issue839_launchpad_permit_create_offsets_follow_the_full_static_head", () => {
+function issue839_launchpad_permit_create_offsets_follow_the_full_static_head() {
   const signature = "createMarketWithPermit(string,string,uint8,address,(uint256,uint256,uint8,bytes32,bytes32))";
   const entry = abi("launchpad").find(
     (candidate) => candidate.type === "function" && candidate.name === "createMarketWithPermit",
@@ -91,9 +91,11 @@ test("issue839_launchpad_permit_create_offsets_follow_the_full_static_head", () 
       (error: unknown) => error instanceof PrecompileAbiError && error.code === "invalid_value",
     );
   }
-});
+}
 
-test("issue839_nested_static_tuple_widths_and_dynamic_tuple_offsets", () => {
+test(issue839_launchpad_permit_create_offsets_follow_the_full_static_head);
+
+function issue839_nested_static_tuple_widths_and_dynamic_tuple_offsets() {
   const staticTypes = ["(uint256,(uint8,bytes32))", "string"];
   const staticSignature = `nested(${staticTypes.join(",")})`;
   const staticCall = precompileWriteCall(
@@ -119,4 +121,6 @@ test("issue839_nested_static_tuple_widths_and_dynamic_tuple_offsets", () => {
     dynamicCall.data,
     abiSelector(dynamicSignature) + word(64) + "31".repeat(32) + word(96) + word(7) + word(8) + text("A"),
   );
-});
+}
+
+test(issue839_nested_static_tuple_widths_and_dynamic_tuple_offsets);

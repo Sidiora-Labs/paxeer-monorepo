@@ -36,7 +36,7 @@ fixture_env=(
 	X_WEBSEARCH_USDL_ASSET_ID=0404040404040404040404040404040404040404040404040404040404040404
 	X_WEBSEARCH_USDL_PRICE=1000000000000000
 	X_WEBSEARCH_GATEWAY_ENDPOINT=https://api-mainnet-beta.paxeer.network/rpc
-	X_WEBSEARCH_RECEIPT_KEY_ID=test-receipt-key
+	X_WEBSEARCH_RECEIPT_KEY_ID=abcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
 	X_WEBSEARCH_RECEIPT_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_SEQUENCER_ID=0505050505050505050505050505050505050505050505050505050505050505
 	X_WEBSEARCH_SEQUENCER_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
@@ -112,6 +112,20 @@ def walk(want, got):
 walk(template, rendered)
 assert rendered["assets"]["PAX"]["price"] == "74405000000000"
 PY'
+
+config_receipt_key_ids_are_hex32() {
+	python3 - "$work/x-websearch.json" <<'PY'
+import json, re, sys
+
+rendered = json.load(open(sys.argv[1]))
+for entry in rendered["gateway"]["receipt_keys"]:
+    key_id = entry["key_id"]
+    assert re.fullmatch(r"[0-9a-f]{64}", key_id), key_id
+    assert len(set(bytes.fromhex(key_id))) > 1, key_id
+PY
+}
+check config_receipt_key_ids_are_hex32 config_receipt_key_ids_are_hex32
+
 status=0
 env "${fixture_env[@]}" X_WEBSEARCH_EVM_ENDPOINT= env -u X_WEBSEARCH_PAX_PRICE "$front" config >/dev/null 2>"$work/missing.err" || status=$?
 check config_refuses_unset '[ "$status" -eq 1 ] && grep -Fxq "search-front: unset X_WEBSEARCH_PAX_PRICE X_WEBSEARCH_EVM_ENDPOINT" "$work/missing.err"'

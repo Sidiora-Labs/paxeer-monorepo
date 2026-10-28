@@ -308,10 +308,25 @@ func (r *Replicator) replicate(ctx context.Context, frames []wal.Frame, maxSeq u
 		gap.GapFrom, gap.GapTo = r.retainedSeqs(len(r.retained) - len(frames))
 		frames = r.window()
 	}
-	ack, err := r.exchange(ctx, frames)
-	if err == nil && ack.Status == AckGap && !fresh {
+	var ack Ack
+	var err error
+	for {
+		if err = ctx.Err(); err != nil {
+			break
+		}
+		ack, err = r.exchange(ctx, frames)
+		if err != nil || ack.Status != AckGap {
+			break
+		}
+		if ack.GapFrom == ack.LastSeq+1 && ack.GapTo == ack.LastSeq {
+			continue
+		}
+		if fresh {
+			break
+		}
 		gap = ack
-		ack, err = r.exchange(ctx, r.window())
+		frames = r.window()
+		fresh = true
 	}
 	if err != nil {
 		r.dropConn()
@@ -805,6 +820,10 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 }
 
+func standbyCommitWait(replicationTimeout time.Duration) time.Duration {
+	return replicationTimeout / 4
+}
+
 func (s *Standby) waitForCommit(height uint64) bool {
 	host, ok := s.exec.(interface{ LastBlockHeight() int64 })
 	if !ok {
@@ -817,7 +836,7 @@ func (s *Standby) waitForCommit(height uint64) bool {
 	if committed() {
 		return true
 	}
-	ctx, cancel := context.WithTimeout(s.ctx, s.replicationTimeout)
+	ctx, cancel := context.WithTimeout(s.ctx, standbyCommitWait(s.replicationTimeout))
 	defer cancel()
 	tick := time.NewTicker(time.Millisecond)
 	defer tick.Stop()
