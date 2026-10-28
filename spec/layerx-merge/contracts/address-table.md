@@ -42,7 +42,7 @@ One row per address the merged chain serves; existing rows read from precompiles
 | 0x0000000000000000000000000000000000000908 | eip712 helper (agent function) | precompiles/layerxagent/eip712 (new) | new | live at plan height (D20 port; agent-functions.md A.1): pure EIP-712 hashing `hashTypedData`, `domainSeparator`, view `recoverTypedSigner`; gateway ABI EIP712_ABI precompiles.ts:153-187 matches | merge plan | agent functions (D20) |
 
 ### (a2) Method selectors of changed and new addresses
-One row per signature; selector = first 4 bytes of keccak256 of the canonical signature, each one recomputed with keccak-256 for this amendment and equal to the owning construct contract where that part prints one; rows marked "computed" carry a selector the owning part does not print.
+One row per signature; selector = first 4 bytes of keccak256 of the canonical signature, each one recomputed with keccak-256 for this amendment and equal to the owning construct contract where that part prints one; rows marked "computed" carry a selector the owning part does not print. From v6.12.0 the 0x1015 and 0x1017 rows of this section and of sections (a) and (c) describe only the precompiles served below that height: at and above it 0x1015 serves the perps precompile of precompiles/perps/abi/abi.json, spot is served by the PECOR precompiles at the addresses of modules/spot/types/keys.go, and 0x1017 serves the launchpad ABIs of precompiles/launchpad/abi; clients take those ABIs and addresses from the served JSON and the Go constants, and contracts/address-inventory.md records each superseded row (decision.323, decision.341, decision.1792).
 
 | Address | Canonical signature | Selector | Source (row) |
 |---|---|---|---|
