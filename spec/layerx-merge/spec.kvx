@@ -179901,7 +179901,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1104.1]
 title = "Issue #1104: Issue #1104: Seed the explorer status test's anchor rows without the retired Anchor changeset"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
