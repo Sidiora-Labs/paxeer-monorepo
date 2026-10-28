@@ -143191,7 +143191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.3.2]
 title = "Drop the settlement domain from the stream journal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -175427,7 +175427,7 @@ qualification = "UNRUN"
 
 [task.18.974.1]
 title = "Issue #974: Restore the rung-to-level conversion that activity detail assembly calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.1.8", "18.1119.1"]
