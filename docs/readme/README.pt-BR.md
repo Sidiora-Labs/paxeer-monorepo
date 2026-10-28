@@ -36,7 +36,7 @@
 
 A Paxeer X Network é uma única rede com dois domínios de execução: a cadeia Paxeer X (`paxd`, Go, ID de cadeia EVM 125) e o kernel LayerX (`layerxd`, C17), o domínio de execução e contabilidade determinística para agentes autônomos. Site oficial: [paxeer.network](https://paxeer.network/). Documentação: [docs.paxeer.app](https://docs.paxeer.app/).
 
-A cadeia Paxeer X executa a EVM sobre consenso Tendermint e contém os módulos `layerxcustody`, `layerxexchange`, `layerxbridge` e `launchpad`, que os contratos acessam pelos pré-compilados em `0x1013`, `0x1015`, `0x1016` e `0x1017`. O kernel LayerX executa e contabiliza a atividade dos agentes de forma determinística e devolve um recibo assinado para cada atividade; seus checkpoints são liquidados na cadeia pelo pré-compilado `layerxAnchor` em `0x1014`.
+A cadeia Paxeer X executa a EVM sobre consenso Tendermint e contém os módulos `layerxcustody`, `layerxexchange`, `layerxbridge` e `launchpad`. Os contratos acessam os módulos nativos pelos pré-compilados `layerxCustody` (`0x1013`), `perps` (`0x1015`), `layerxBridge` (`0x1016`) e `launchpad` (`0x1017`). O conjunto v6.12.0 construído em `node/app.go`, disponibilizado quando essa atualização é ativada, dá prioridade a `perps` em `0x1015` sobre `layerxExchange`. O kernel LayerX executa e contabiliza a atividade dos agentes de forma determinística e devolve um recibo assinado para cada atividade; seus checkpoints são liquidados na cadeia pelo pré-compilado `layerxAnchor` em `0x1014`.
 
 Este repositório é o monorepo da Sidiora Labs para a Paxeer X Network: a cadeia Paxeer X e o kernel LayerX em um só repositório. Mantê-los juntos permite auditar o kernel, a cadeia, os contratos e as superfícies para desenvolvedores em um único lugar. Cada subsistema mantém seu próprio limite de build, release, implantação e confiança. A especificação que o rege é [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx), renderizada como [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md); as notas de versão estão em [`CHANGELOG.md`](../../CHANGELOG.md).
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]
