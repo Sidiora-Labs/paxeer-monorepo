@@ -99,3 +99,26 @@ async function chain_history_keeps_paxeer_rows_and_drops_the_side_label(): Promi
 }
 
 test(chain_history_keeps_paxeer_rows_and_drops_the_side_label, chain_history_keeps_paxeer_rows_and_drops_the_side_label);
+
+function history_page_keeps_explorer_imported_row_ids(): void {
+  const exchanges = JSON.parse(
+    readFileSync(new URL('./fixtures/endpoint/available.json', import.meta.url), 'utf8'),
+  ) as Exchange[];
+  const history = exchanges.filter((exchange) => exchange.request.method === 'px_getUnifiedHistory');
+  const first = history[0].response.result;
+  const numeric = first.items[0];
+  const imported = { ...numeric, id: 'explorer:42', final: true };
+  const page = { ...first, items: [numeric, imported] };
+
+  const decoded = decodeHistoryPage(page);
+  expect(decoded).toEqual(page);
+  expect(decoded.items.map((item) => item.id)).toEqual(['5', 'explorer:42']);
+
+  for (const id of ['', '0', '01', 'explorer:', 'explorer:0', 'explorer:01', 'ledger:7']) {
+    const invalid = { ...page, items: [numeric, { ...imported, id }] };
+    expect(() => decodeHistoryPage(invalid)).toThrow(JsonRpcTransportError);
+    expect(() => decodeHistoryPage(invalid)).toThrow('history item id');
+  }
+}
+
+test(history_page_keeps_explorer_imported_row_ids, history_page_keeps_explorer_imported_row_ids);
