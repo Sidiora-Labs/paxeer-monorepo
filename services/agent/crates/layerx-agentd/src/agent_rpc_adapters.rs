@@ -255,6 +255,24 @@ fn subscription_result_classes(reader: &mut Reader<'_>) -> Option<Value> {
     Some(Value::Array(items))
 }
 
+fn subscription_cursor(reader: &mut Reader<'_>, id: RequestId) -> Option<Value> {
+    let text = reader.text()?;
+    let mut fields = text.strip_prefix('(')?.strip_suffix(')')?.split(", ");
+    let block_height = crate::agent_rpc_dispatch::decimal_u64(fields.next()?, id).ok()?;
+    let tx_index =
+        u32::try_from(crate::agent_rpc_dispatch::decimal_u64(fields.next()?, id).ok()?).ok()?;
+    let log_index =
+        u32::try_from(crate::agent_rpc_dispatch::decimal_u64(fields.next()?, id).ok()?).ok()?;
+    if fields.next().is_some() {
+        return None;
+    }
+    Some(serde_json::json!({
+        "block_height": dec(block_height),
+        "tx_index": dec(tx_index),
+        "log_index": dec(log_index),
+    }))
+}
+
 fn subscription_record(reader: &mut Reader<'_>, id: RequestId) -> Option<Value> {
     let subscription_id = reader.text()?;
     let scope = subscription_scope(reader)?;
@@ -265,8 +283,8 @@ fn subscription_record(reader: &mut Reader<'_>, id: RequestId) -> Option<Value> 
     let counterparties = subscription_tenant_objects(reader)?;
     let activity_types = subscription_activity_types(reader, id)?;
     let result_classes = subscription_result_classes(reader)?;
-    let start = subscription_decimal(reader, id)?;
-    let last_acknowledged = subscription_decimal(reader, id)?;
+    let start = subscription_cursor(reader, id)?;
+    let last_acknowledged = subscription_cursor(reader, id)?;
     let delivery_target = reader.text()?;
     let paused = subscription_flag(reader)?;
     Some(serde_json::json!({
@@ -281,8 +299,8 @@ fn subscription_record(reader: &mut Reader<'_>, id: RequestId) -> Option<Value> 
             "activity_types": activity_types,
             "result_classes": result_classes,
         },
-        "start": dec(start),
-        "last_acknowledged": dec(last_acknowledged),
+        "start": start,
+        "last_acknowledged": last_acknowledged,
         "delivery_target": delivery_target,
         "paused": paused,
     }))
@@ -307,7 +325,7 @@ fn subscription_health_value(id: RequestId, payload: &[u8]) -> Result<Value, Rej
     subscription_payload(id, payload, |reader| {
         let scope = subscription_scope(reader)?;
         let subscription_id = reader.text()?;
-        let last_acknowledged = subscription_decimal(reader, id)?;
+        let last_acknowledged = subscription_cursor(reader, id)?;
         let last_delivery_at = subscription_optional_decimal(reader, id)?;
         let pending_backfill = match reader.u8()? {
             0 => Value::Null,
@@ -327,7 +345,7 @@ fn subscription_health_value(id: RequestId, payload: &[u8]) -> Result<Value, Rej
         };
         Some(serde_json::json!({
             "target": {"scope": scope, "subscription_id": subscription_id},
-            "last_acknowledged": dec(last_acknowledged),
+            "last_acknowledged": last_acknowledged,
             "last_delivery_at": last_delivery_at,
             "pending_backfill": pending_backfill,
         }))

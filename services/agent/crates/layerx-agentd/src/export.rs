@@ -1,157 +1,121 @@
-//! Construction of proof-only offline verification exports.
+//! Proof-only offline exports of receipts at one committed block height.
 
-use std::collections::BTreeMap;
+use std::collections::BTreeSet;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use layerx_agent_api::export::FactRef;
-type OfflineExport = layerx_agent_api::export::OfflineExport;
+use layerx_agent_api::export::{FactRef, OfflineExport};
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::read::VerifiedRead;
-
-use layerx_agent_api::Sequence;
-use layerx_client::availability::{
-    AvailabilitySelector, FetchContext, FetchError, FetchOutcome, RetrievalLimits,
-};
-use layerx_client::evidence::{
-    AccountProofVariant, CheckpointSelector, EvidenceError, ProofBundleSelector, SignedHeader,
-    VerifiedProofBundle,
-};
+use layerx_agent_api::proof::ProofBundle;
+use layerx_agent_api::read::{Freshness, RelativeTo, VerifiedRead};
+use layerx_client::availability::FetchError;
+use layerx_client::evidence::EvidenceError;
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_client::Client;
-use layerx_programs::hex;
-use layerx_proof::availability::RootCommitments;
-use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::export::{
-    verify, verify_complete, CompleteExportError, ExportVerificationError, IndependentOfflineTrust,
-    OfflineExport as LegacyOfflineExport, OfflineTrustError, TrustedCheckpointMembership,
-    VerificationReport,
-};
+use layerx_crypto::evm_transaction::transaction_hash;
+use layerx_proof::export::{CompleteExportError, OfflineTrustError};
 use layerx_proof::export_codec::{
-    parse_fact_set, AccountStateRecord, AccountStateVariant, ArtifactDecodeError, CheckpointRecord,
-    CompleteOfflineArtifact, ExportCodecError, FactRefError, FactSelector, HeaderRecord,
-    InclusionRecord, InclusionRecordKind, ProofRecord, ReceiptRecord, MAX_AVAILABILITY_CHUNKS,
+    parse_fact_set, ArtifactDecodeError, ExportCodecError, FactRefError, FactSelector,
 };
-use layerx_proof::settlement::DeclaredDomain;
-use layerx_proof::signed_authority::SignedAuthorityHistory;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::{decode_summary, verify_logs, SequencerLog};
 use layerx_types::payload::ModuleRegistry;
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::batch_maintenance::decode_maintenance;
-use layerx_wire::receipt::{decode_batch_header, BatchHeader};
+use layerx_wire::hash::receipt_digest;
+use layerx_wire::receipt::encode_unsigned;
+use serde_json::{json, Value};
 
-use crate::protocol_evidence::{
-    EvidenceAuthority, ExportReceiptEvidence, RawReceiptEvidence, ReceiptEvidenceError,
+use crate::protocol_evidence::{EvidenceAuthority, ReceiptEvidenceError};
+use crate::read::{
+    checkpoint, BlockCommit, BlockId, CheckpointHeader, CommitTimestamp, CommitValidator,
+    CommitVote,
 };
-use crate::receipt::{serve, ReceiptLookupKey, ReceiptStoreError};
-use crate::store::{Store, TenantId};
+use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
-/// Binary and complete JSON response bound; the existing agent RPC body limit.
 pub const MAX_EXPORT_BYTES: usize = crate::agent_rpc::MAX_BODY_BYTES;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct BuiltExport {
-    pub artifact: LegacyOfflineExport,
-    pub local_verification: VerificationReport,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum ExportBuildError {
-    Empty,
-    Verification(ExportVerificationError),
-}
-
-/// Builds an export only from proof-verifiable core evidence and labelled local views.
-///
-/// # Errors
-///
-/// Refuses an artifact holding no receipts, inclusions or checkpoints, and returns the first
-/// verification failure raised by `layerx-proof` over the artifact.
-pub fn build(
-    artifact: LegacyOfflineExport,
-    expected_settlement_domain: SettlementDomain,
-) -> Result<BuiltExport, ExportBuildError> {
-    if artifact.receipts.is_empty()
-        && artifact.inclusions.is_empty()
-        && artifact.checkpoints.is_empty()
-    {
-        return Err(ExportBuildError::Empty);
-    }
-    let local_verification =
-        verify(&artifact, expected_settlement_domain).map_err(ExportBuildError::Verification)?;
-    Ok(BuiltExport {
-        artifact,
-        local_verification,
-    })
-}
-
-/// Independently configured deployment trust injected into the owner at boot:
-/// genesis-anchored signed sequencer authority, the explicitly selected
-/// declared settlement domain and the checkpoint membership version it pins.
-#[derive(Debug)]
 pub struct ExportTrustSource {
-    authority: SignedAuthorityHistory,
-    domain: DeclaredDomain,
-    set_version: u64,
+    receipt_keys: Vec<ReceiptKeyEntry>,
+    validator_set: Vec<CommitValidator>,
 }
 
 impl ExportTrustSource {
-    /// # Errors
-    /// Refuses a domain whose network differs from the authority's or whose
-    /// membership at `set_version` is not a valid trusted membership.
     pub fn new(
-        authority: SignedAuthorityHistory,
-        domain: DeclaredDomain,
-        set_version: u64,
+        receipt_keys: Vec<ReceiptKeyEntry>,
+        validator_set: Vec<CommitValidator>,
     ) -> Result<Self, OfflineTrustError> {
-        if authority.network_id() != domain.network_id() {
+        let mut keys = BTreeSet::new();
+        let mut validators = BTreeSet::new();
+        if receipt_keys.is_empty()
+            || validator_set.is_empty()
+            || receipt_keys.iter().any(|key| {
+                key.key_id == [0; 32]
+                    || key.public_key == [0; 32]
+                    || key.first_height > key.last_height
+                    || !keys.insert(key.key_id)
+            })
+            || validator_set.iter().any(|validator| {
+                validator.voting_power == 0
+                    || validator.address != CommitValidator::address_for_key(&validator.public_key)
+                    || !validators.insert(validator.address)
+            })
+        {
             return Err(OfflineTrustError::NetworkId);
         }
-        TrustedCheckpointMembership::from_declared(&domain, set_version)?;
         Ok(Self {
-            authority,
-            domain,
-            set_version,
+            receipt_keys,
+            validator_set,
         })
     }
 
-    /// Binds this trust to the authenticated module registry of one request.
-    ///
-    /// # Errors
-    /// Returns the trust-context construction refusal.
-    pub fn trust(
-        &self,
-        registry: ModuleRegistry,
-    ) -> Result<IndependentOfflineTrust, OfflineTrustError> {
-        IndependentOfflineTrust::from_declared_domain(
-            registry,
-            self.authority.clone(),
-            &self.domain,
-            self.set_version,
-        )
+    pub fn receipt_keys(&self) -> &[ReceiptKeyEntry] {
+        &self.receipt_keys
+    }
+    pub fn validator_set(&self) -> &[CommitValidator] {
+        &self.validator_set
+    }
+
+    pub fn trust(&self, _registry: ModuleRegistry) -> Result<Self, OfflineTrustError> {
+        Ok(self.clone())
     }
 }
 
-/// Owner-held inputs of one complete export. Trust is the owner's independently
-/// configured deployment trust; no request field selects it.
 pub struct ExportOwnerContext<'a> {
     pub store: &'a Mutex<Store>,
     pub tenant: &'a TenantId,
-    /// Account bound to the authenticated subject of the request, if any.
     pub bound_account: Option<[u8; 32]>,
     pub registry: &'a ModuleRegistry,
     pub authority: &'a EvidenceAuthority,
-    pub trust: &'a IndependentOfflineTrust,
-    /// First nonzero correlation identifier; each node read advances it by two.
+    pub trust: &'a ExportTrustSource,
     pub first_correlation: u64,
     pub availability_deadline: Duration,
 }
 
-/// A complete export verified offline under independent trust before release.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerificationReport {
+    pub verified_receipts: usize,
+    pub verified_inclusions: usize,
+    pub verified_checkpoints: usize,
+    pub height: u64,
+    pub block_hash: [u8; 32],
+    pub achieved_rung: Rung,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct BuiltExport {
+    pub artifact: OfflineExport,
+    pub local_verification: VerificationReport,
+}
+
+pub type ExportBuildError = ExportProduceError;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProducedExport {
     pub response: VerifiedRead<OfflineExport>,
-    /// Exact canonical record and fact bytes.
     pub binary_bytes: usize,
-    /// Exact serialized length of the export value object.
     pub json_value_bytes: usize,
 }
 
@@ -200,11 +164,6 @@ pub enum ExportProduceError {
     Contract,
 }
 
-/// Refuses a complete serialized response frame above the existing bound. The
-/// transport calls this on the exact bytes it would transmit.
-///
-/// # Errors
-/// Returns `Oversize` when the frame exceeds [`MAX_EXPORT_BYTES`].
 pub const fn require_frame_within_bound(
     serialized_frame_bytes: usize,
 ) -> Result<(), ExportProduceError> {
@@ -215,587 +174,1015 @@ pub const fn require_frame_within_bound(
     }
 }
 
-/// Produces every requested fact from tenant-owned anchors and verified node
-/// evidence, verifies the complete artifact offline under the owner's
-/// independent trust and returns it only when every fact reaches `requested`.
-///
-/// # Errors
-/// Refuses on the first ownership, evidence, binding, availability, snapshot,
-/// size or verification failure; no partial export is ever returned.
+pub fn build(
+    artifact: OfflineExport,
+    trust: &ExportTrustSource,
+) -> Result<BuiltExport, ExportBuildError> {
+    let local_verification = verify(&artifact, trust)?;
+    require_frame_within_bound(serialize_export(&artifact)?.len())?;
+    Ok(BuiltExport {
+        artifact,
+        local_verification,
+    })
+}
+
+pub fn verify(
+    artifact: &OfflineExport,
+    trust: &ExportTrustSource,
+) -> Result<VerificationReport, ExportBuildError> {
+    artifact
+        .clone()
+        .validate()
+        .map_err(|_| ExportProduceError::Contract)?;
+    let texts: Vec<_> = artifact.facts.iter().map(FactRef::as_str).collect();
+    let selectors = parse_fact_set(&texts).map_err(ExportProduceError::Facts)?;
+    if artifact.height == 0 || selectors.len() != artifact.bundles.len() {
+        return Err(ExportProduceError::Contract);
+    }
+    let mut block = None;
+    for (fact, (selector, bundle)) in selectors.iter().zip(&artifact.bundles).enumerate() {
+        let refusal = || ExportProduceError::Binding { fact };
+        if bundle.verification_level != Rung::Committed
+            || !trust.receipt_keys.contains(&bundle.receipt_key)
+        {
+            return Err(refusal());
+        }
+        let keys: Vec<_> = trust
+            .receipt_keys
+            .iter()
+            .map(|key| {
+                SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect();
+        let receipt = verify_sequencer_signature(bundle.signed_receipt.as_bytes(), keys.as_slice())
+            .map_err(|_| refusal())?;
+        let protocol = receipt.protocol().ok_or_else(refusal)?;
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&artifact.height.to_be_bytes());
+        if protocol.activity_id() != selector.activity_id()
+            || transaction_hash(bundle.raw_transaction.as_bytes()) != protocol.activity_id()
+            || protocol.batch_id() != height
+            || protocol.context_hash() != bundle.receipt_key.key_id
+            || receipt_digest(&encode_unsigned(&receipt).map_err(|_| refusal())?)
+                .map_err(|_| refusal())?
+                != bundle.receipt_digest
+        {
+            return Err(refusal());
+        }
+        let header = decode_header(required(&bundle.block_header)?)?;
+        let validators = decode_validators(required(&bundle.validator_set)?)?;
+        if validators != trust.validator_set {
+            return Err(refusal());
+        }
+        let commit = decode_commit(required(&bundle.commit)?, &validators)?;
+        let checkpoint = checkpoint(
+            artifact.height,
+            &header.chain_id,
+            &header,
+            &commit,
+            &validators,
+        )
+        .map_err(|_| refusal())?;
+        if block.is_some_and(|hash| hash != checkpoint.block_hash) {
+            return Err(ExportProduceError::MixedSnapshot);
+        }
+        block = Some(checkpoint.block_hash);
+        let inclusion = list_items(required(&bundle.receipt_inclusion)?)?;
+        if inclusion.len() != 2 {
+            return Err(refusal());
+        }
+        let evm_receipt = inclusion[0].bytes()?;
+        let proof: Vec<_> = list_items(inclusion[1].raw)?
+            .iter()
+            .map(|item| item.bytes().map(<[u8]>::to_vec))
+            .collect::<Result<_, _>>()?;
+        let summary = decode_summary(&receipt).map_err(|_| refusal())?;
+        let root = header.last_results_hash.ok_or_else(refusal)?;
+        if trie_value(root, &rlp_index(u64::from(summary.tx_index())), &proof)?.as_deref()
+            != Some(evm_receipt)
+        {
+            return Err(refusal());
+        }
+        let payload = match evm_receipt.first() {
+            Some(1..=4) => &evm_receipt[1..],
+            Some(0xc0..=0xff) => evm_receipt,
+            _ => return Err(refusal()),
+        };
+        let fields = list_items(payload)?;
+        if fields.len() != 4
+            || fields[0].bytes()?
+                != if protocol.result_code() == 0 {
+                    &[1][..]
+                } else {
+                    &[][..]
+                }
+            || word(fields[1].bytes()?)? != u64_word(summary.cumulative_gas_used())
+            || fields[2].bytes()?.len() != 256
+        {
+            return Err(refusal());
+        }
+        let mut logs = Vec::new();
+        for (index, log) in list_items(fields[3].raw)?.iter().enumerate() {
+            let fields = list_items(log.raw)?;
+            if fields.len() != 3 {
+                return Err(refusal());
+            }
+            let address = fields[0].bytes()?.try_into().map_err(|_| refusal())?;
+            let topics = list_items(fields[1].raw)?
+                .iter()
+                .map(|topic| topic.bytes()?.try_into().map_err(|_| refusal()))
+                .collect::<Result<_, _>>()?;
+            logs.push(SequencerLog::new(
+                address,
+                topics,
+                fields[2].bytes()?.to_vec(),
+                index as u64,
+            ));
+        }
+        verify_logs(&receipt, logs).map_err(|_| refusal())?;
+        match selector {
+            FactSelector::State { account_id, .. } => {
+                verify_account(
+                    required(&bundle.account_proof)?,
+                    *account_id,
+                    header.app_hash,
+                )?;
+            }
+            FactSelector::Checkpoint { batch_number, .. } if *batch_number != artifact.height => {
+                return Err(refusal())
+            }
+            _ if bundle.account_proof.is_some() => return Err(refusal()),
+            _ => {}
+        }
+    }
+    Ok(VerificationReport {
+        verified_receipts: selectors.len(),
+        verified_inclusions: selectors.len(),
+        verified_checkpoints: 1,
+        height: artifact.height,
+        block_hash: block.ok_or(ExportProduceError::Contract)?,
+        achieved_rung: Rung::Committed,
+    })
+}
+
+fn required(value: &Option<CanonicalBytes>) -> Result<&[u8], ExportProduceError> {
+    value
+        .as_ref()
+        .map(CanonicalBytes::as_bytes)
+        .ok_or(ExportProduceError::Contract)
+}
+
 pub fn produce(
-    node: &mut Client,
+    _node: &mut Client,
     context: &ExportOwnerContext<'_>,
     facts: &[FactRef],
     requested: VerificationLevel,
 ) -> Result<ProducedExport, ExportProduceError> {
-    let _ = (node, context, facts, requested);
-    Err(ExportProduceError::UnavailableCapability(
-        layerx_agent_api::error::ApiError::unavailable_capability(
-            layerx_agent_api::error::RequestId(context.first_correlation),
-            "export.offline",
-        )
-        .expect("static operation name"),
-    ))
+    requested.rung().ok_or(ExportProduceError::Contract)?;
+    produce_retained(
+        context.store,
+        context.tenant,
+        context.bound_account,
+        context.trust,
+        facts,
+    )
 }
 
-/// D8: every fact's anchor must be a tenant-served activity and every state
-/// fact's account the subject-bound account, before any evidence lookup. The
-/// store lock is released before node I/O.
-fn owned_anchors(
-    context: &ExportOwnerContext<'_>,
-    selectors: &[FactSelector],
-) -> Result<BTreeMap<[u8; 32], Vec<u8>>, ExportProduceError> {
-    let store = context
-        .store
-        .lock()
-        .map_err(|_| ExportProduceError::Store)?;
-    let mut served = BTreeMap::new();
-    for (fact, selector) in selectors.iter().enumerate() {
-        if let FactSelector::State { account_id, .. } = selector {
-            if context.bound_account != Some(*account_id) {
-                return Err(ExportProduceError::AccountNotBound { fact });
+pub fn produce_retained(
+    store: &Mutex<Store>,
+    tenant: &TenantId,
+    bound_account: Option<[u8; 32]>,
+    trust: &ExportTrustSource,
+    facts: &[FactRef],
+) -> Result<ProducedExport, ExportProduceError> {
+    let texts: Vec<_> = facts.iter().map(FactRef::as_str).collect();
+    let selectors = parse_fact_set(&texts).map_err(ExportProduceError::Facts)?;
+    let mut bundles = Vec::new();
+    let mut height = None;
+    {
+        let store = store.lock().map_err(|_| ExportProduceError::Store)?;
+        for (fact, selector) in selectors.iter().enumerate() {
+            if let FactSelector::State { account_id, .. } = selector {
+                if bound_account != Some(*account_id) {
+                    return Err(ExportProduceError::AccountNotBound { fact });
+                }
             }
+            let value = store
+                .get(&bundle_key(tenant.clone(), selector)?)
+                .ok_or(ExportProduceError::NotOwned { fact })?;
+            let artifact = deserialize_export(value.bytes())?;
+            if artifact.facts != [facts[fact].clone()] || artifact.bundles.len() != 1 {
+                return Err(ExportProduceError::Binding { fact });
+            }
+            if height.is_some_and(|previous| previous != artifact.height) {
+                return Err(ExportProduceError::MixedSnapshot);
+            }
+            height = Some(artifact.height);
+            bundles.extend(artifact.bundles);
         }
-        let anchor = selector.activity_id();
-        if served.contains_key(&anchor) {
-            continue;
-        }
-        let receipt = serve(
-            &store,
-            context.tenant.clone(),
-            ReceiptLookupKey::Activity(anchor),
-        )
-        .map_err(|error| match error {
-            ReceiptStoreError::Missing => ExportProduceError::NotOwned { fact },
-            _ => ExportProduceError::Store,
-        })?;
-        if receipt.metadata.activity_id != anchor {
-            return Err(ExportProduceError::NotOwned { fact });
-        }
-        served.insert(anchor, receipt.canonical_bytes);
     }
-    Ok(served)
+    let built = build(
+        OfflineExport {
+            facts: facts.to_vec(),
+            bundles,
+            height: height.ok_or(ExportProduceError::Contract)?,
+        },
+        trust,
+    )?;
+    let json_value_bytes = serialize_export(&built.artifact)?.len();
+    let binary_bytes = built
+        .artifact
+        .bundles
+        .iter()
+        .try_fold(0_usize, |total, bundle| {
+            [
+                Some(&bundle.raw_transaction),
+                Some(&bundle.signed_receipt),
+                bundle.block_header.as_ref(),
+                bundle.receipt_inclusion.as_ref(),
+                bundle.commit.as_ref(),
+                bundle.validator_set.as_ref(),
+                bundle.account_proof.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
+            .try_fold(total, |sum, bytes| {
+                sum.checked_add(bytes.as_bytes().len())
+                    .ok_or(ExportProduceError::Oversize)
+            })
+        })?;
+    let height = built.local_verification.height;
+    Ok(ProducedExport {
+        response: VerifiedRead::new(
+            built.artifact,
+            Rung::Committed,
+            Freshness {
+                chain_head: height,
+                value_height: height,
+                relative_to: RelativeTo::Block {
+                    height,
+                    hash: built.local_verification.block_hash,
+                },
+            },
+        ),
+        binary_bytes,
+        json_value_bytes,
+    })
 }
 
-#[derive(Default)]
-struct Collected {
-    receipts: BTreeMap<FactSelector, (ReceiptRecord, Vec<u8>)>,
-    proofs: BTreeMap<(u8, FactSelector), (ProofRecord, Vec<u8>)>,
-    certificates: BTreeMap<FactSelector, (CheckpointRecord, Vec<u8>)>,
-    headers: BTreeMap<[u8; 32], (HeaderRecord, Vec<u8>)>,
-    /// Signed-header digest to the identifier of the checkpoint certifying exactly that header.
-    certified: BTreeMap<[u8; 32], [u8; 32]>,
-    binary: usize,
-}
-
-/// Inserts one record keyed by its bound identity; an identical record is
-/// shared, a differing record under the same identity refuses the export.
-fn admit<K: Ord, R>(
-    map: &mut BTreeMap<K, (R, Vec<u8>)>,
-    binary: &mut usize,
-    key: K,
-    record: R,
-    bytes: Vec<u8>,
+pub fn retain_bundle(
+    store: &mut Store,
+    tenant: TenantId,
+    artifact: OfflineExport,
+    trust: &ExportTrustSource,
 ) -> Result<(), ExportProduceError> {
-    if let Some((_, existing)) = map.get(&key) {
-        return if *existing == bytes {
+    let built = build(artifact, trust)?;
+    if built.artifact.facts.len() != 1 {
+        return Err(ExportProduceError::Contract);
+    }
+    let selector = built.artifact.facts[0]
+        .selector()
+        .map_err(ExportProduceError::Facts)?;
+    let key = bundle_key(tenant, &selector)?;
+    let bytes = serialize_export(&built.artifact)?;
+    if let Some(existing) = store.get(&key) {
+        return if existing.bytes() == bytes {
             Ok(())
         } else {
             Err(ExportProduceError::ConflictingRecord)
         };
     }
-    *binary = checked_total(*binary, bytes.len())?;
-    map.insert(key, (record, bytes));
-    Ok(())
+    store
+        .put_local(key, bytes)
+        .map_err(|_| ExportProduceError::Store)
 }
 
-fn checked_total(total: usize, length: usize) -> Result<usize, ExportProduceError> {
-    total
-        .checked_add(length)
-        .filter(|sum| *sum <= MAX_EXPORT_BYTES)
-        .ok_or(ExportProduceError::Oversize)
+fn bundle_key(tenant: TenantId, selector: &FactSelector) -> Result<TenantKey, ExportProduceError> {
+    TenantKey::new(
+        tenant,
+        ObjectKind::Configuration,
+        [
+            b"export-proof-v2:".as_slice(),
+            selector.canonical_text().as_bytes(),
+        ]
+        .concat(),
+    )
+    .map_err(|_| ExportProduceError::Store)
 }
 
-/// Exact length of `{"facts":[..],"receipts":[..],"proofs":[..],"certificates":[..],"headers":[..]}`
-/// with facts as their grammar text (no escapes exist in the grammar) and
-/// records as lowercase hex strings.
-fn json_value_bytes(
-    facts: &[String],
-    buckets: [&Vec<Vec<u8>>; 4],
-) -> Result<usize, ExportProduceError> {
-    fn array(
-        total: usize,
-        key: &str,
-        lengths: impl Iterator<Item = Option<usize>>,
-    ) -> Result<usize, ExportProduceError> {
-        // "key":[ ... ]
-        let mut total = checked_total(total, key.len() + 5)?;
-        let mut first = true;
-        for length in lengths {
-            let element = length.ok_or(ExportProduceError::Oversize)?;
-            total = checked_total(total, element)?;
-            total = checked_total(total, 2 + usize::from(!first))?;
-            first = false;
+pub fn serialize_export(artifact: &OfflineExport) -> Result<Vec<u8>, ExportProduceError> {
+    let hex = |bytes: &[u8]| format!("0x{}", layerx_programs::hex::encode(bytes));
+    let bundles: Vec<_> = artifact.bundles.iter().map(|bundle| {
+        let mut value = json!({"format":bundle.format, "verificationLevel":bundle.verification_level.name(),
+            "rawTransaction":hex(bundle.raw_transaction.as_bytes()), "signedReceipt":hex(bundle.signed_receipt.as_bytes()),
+            "receiptDigest":hex(&bundle.receipt_digest), "receiptKey":{"keyId":hex(&bundle.receipt_key.key_id), "publicKey":hex(&bundle.receipt_key.public_key),
+                "firstHeight":bundle.receipt_key.first_height.to_string(), "lastHeight":bundle.receipt_key.last_height.to_string()}});
+        for (name, bytes) in [("blockHeader", &bundle.block_header), ("receiptInclusion", &bundle.receipt_inclusion), ("commit", &bundle.commit), ("validatorSet", &bundle.validator_set), ("accountProof", &bundle.account_proof)] {
+            if let Some(bytes) = bytes { value[name] = Value::String(hex(bytes.as_bytes())); }
         }
-        Ok(total)
-    }
-    if facts.iter().any(|text| {
-        !text
-            .bytes()
-            .all(|byte| byte.is_ascii_graphic() && byte != b'"' && byte != b'\\')
-    }) {
+        value
+    }).collect();
+    let value = json!({"facts": artifact.facts.iter().map(FactRef::as_str).collect::<Vec<_>>(), "bundles":bundles, "height":artifact.height.to_string()});
+    let bytes = serde_json::to_vec(&value).map_err(|_| ExportProduceError::Contract)?;
+    require_frame_within_bound(bytes.len())?;
+    Ok(bytes)
+}
+
+pub fn deserialize_export(bytes: &[u8]) -> Result<OfflineExport, ExportProduceError> {
+    require_frame_within_bound(bytes.len())?;
+    let value: Value = serde_json::from_slice(bytes).map_err(|_| ExportProduceError::Contract)?;
+    // The SDK decoder enforces the major-two field set. Keep the durable codec equally strict.
+    let object = value.as_object().ok_or(ExportProduceError::Contract)?;
+    if object.len() != 3
+        || !["facts", "bundles", "height"]
+            .iter()
+            .all(|key| object.contains_key(*key))
+    {
         return Err(ExportProduceError::Contract);
     }
-    // braces plus four separating commas
-    let mut total = 2 + 4;
-    total = array(total, "facts", facts.iter().map(|text| Some(text.len())))?;
-    for (key, bucket) in ["receipts", "proofs", "certificates", "headers"]
-        .into_iter()
-        .zip(buckets)
+    let facts = value["facts"]
+        .as_array()
+        .ok_or(ExportProduceError::Contract)?
+        .iter()
+        .map(|value| {
+            FactRef::new(value.as_str().ok_or(ExportProduceError::Contract)?)
+                .map_err(|_| ExportProduceError::Contract)
+        })
+        .collect::<Result<_, _>>()?;
+    let mut bundles = Vec::new();
+    for value in value["bundles"]
+        .as_array()
+        .ok_or(ExportProduceError::Contract)?
     {
-        total = array(
-            total,
-            key,
-            bucket.iter().map(|record| record.len().checked_mul(2)),
-        )?;
+        let object = value.as_object().ok_or(ExportProduceError::Contract)?;
+        let names = [
+            "format",
+            "verificationLevel",
+            "rawTransaction",
+            "signedReceipt",
+            "receiptDigest",
+            "receiptKey",
+            "blockHeader",
+            "receiptInclusion",
+            "commit",
+            "validatorSet",
+        ];
+        if object.len() != names.len() + usize::from(object.contains_key("accountProof"))
+            || names.iter().any(|key| !object.contains_key(*key))
+        {
+            return Err(ExportProduceError::Contract);
+        }
+        let key = &value["receiptKey"];
+        let fields = key.as_object().ok_or(ExportProduceError::Contract)?;
+        if fields.len() != 4
+            || ["keyId", "publicKey", "firstHeight", "lastHeight"]
+                .iter()
+                .any(|name| !fields.contains_key(*name))
+        {
+            return Err(ExportProduceError::Contract);
+        }
+        let optional = |name: &str| object.get(name).map(json_bytes).transpose();
+        bundles.push(ProofBundle {
+            format: value["format"]
+                .as_str()
+                .ok_or(ExportProduceError::Contract)?
+                .to_owned(),
+            verification_level: Rung::from_name(
+                value["verificationLevel"]
+                    .as_str()
+                    .ok_or(ExportProduceError::Contract)?,
+            )
+            .ok_or(ExportProduceError::Contract)?,
+            raw_transaction: json_bytes(&value["rawTransaction"])?,
+            signed_receipt: json_bytes(&value["signedReceipt"])?,
+            receipt_digest: json_array(&value["receiptDigest"])?,
+            receipt_key: ReceiptKeyEntry {
+                key_id: json_array(&key["keyId"])?,
+                public_key: json_array(&key["publicKey"])?,
+                first_height: decimal(&key["firstHeight"])?,
+                last_height: decimal(&key["lastHeight"])?,
+            },
+            block_header: optional("blockHeader")?,
+            receipt_inclusion: optional("receiptInclusion")?,
+            commit: optional("commit")?,
+            validator_set: optional("validatorSet")?,
+            account_proof: optional("accountProof")?,
+        });
     }
-    Ok(total)
+    let artifact = OfflineExport {
+        facts,
+        bundles,
+        height: decimal(&value["height"])?,
+    };
+    artifact
+        .validate()
+        .map_err(|_| ExportProduceError::Contract)
 }
-
-fn canonical(records: Vec<Vec<u8>>) -> Result<Vec<CanonicalBytes>, ExportProduceError> {
-    records
-        .into_iter()
-        .map(CanonicalBytes::new)
-        .collect::<Result<_, _>>()
+fn decimal(value: &Value) -> Result<u64, ExportProduceError> {
+    let text = value.as_str().ok_or(ExportProduceError::Contract)?;
+    let number: u64 = text.parse().map_err(|_| ExportProduceError::Contract)?;
+    if number.to_string() != text {
+        return Err(ExportProduceError::Contract);
+    }
+    Ok(number)
+}
+fn json_bytes(value: &Value) -> Result<CanonicalBytes, ExportProduceError> {
+    let text = value
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .ok_or(ExportProduceError::Contract)?;
+    if text.len() % 2 != 0
+        || !text
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+    {
+        return Err(ExportProduceError::Contract);
+    }
+    let bytes = text
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| {
+            let digit = |byte| {
+                if byte <= b'9' {
+                    byte - b'0'
+                } else {
+                    byte - b'a' + 10
+                }
+            };
+            digit(pair[0]) * 16 + digit(pair[1])
+        })
+        .collect();
+    CanonicalBytes::new(bytes).map_err(|_| ExportProduceError::Contract)
+}
+fn json_array<const N: usize>(value: &Value) -> Result<[u8; N], ExportProduceError> {
+    json_bytes(value)?
+        .as_bytes()
+        .try_into()
         .map_err(|_| ExportProduceError::Contract)
 }
 
-fn header_record(signed: &SignedHeader) -> HeaderRecord {
-    HeaderRecord {
-        canonical_header: signed.canonical_bytes.clone(),
-        signature: signed.signature,
-        sequencer_id: signed.sequencer_id,
-        public_key: signed.public_key,
-        first_batch: signed.first_batch_number,
-        last_batch: signed.last_batch_number,
+fn u64_word(value: u64) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[24..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+fn rlp_index(value: u64) -> Vec<u8> {
+    if value == 0 {
+        return vec![0x80];
+    }
+    if value < 128 {
+        return vec![value as u8];
+    }
+    let bytes = value.to_be_bytes();
+    let bytes = &bytes[bytes.iter().position(|byte| *byte != 0).unwrap_or(7)..];
+    let mut encoded = vec![0x80 + bytes.len() as u8];
+    encoded.extend_from_slice(bytes);
+    encoded
+}
+
+fn word(bytes: &[u8]) -> Result<[u8; 32], ExportProduceError> {
+    if bytes.len() > 32 || bytes.first() == Some(&0) {
+        return Err(ExportProduceError::Contract);
+    }
+    let mut value = [0; 32];
+    value[32 - bytes.len()..].copy_from_slice(bytes);
+    Ok(value)
+}
+
+#[derive(Clone, Copy)]
+struct RlpItem<'a> {
+    raw: &'a [u8],
+    payload: &'a [u8],
+    list: bool,
+}
+
+impl<'a> RlpItem<'a> {
+    fn bytes(self) -> Result<&'a [u8], ExportProduceError> {
+        if self.list {
+            Err(ExportProduceError::Contract)
+        } else {
+            Ok(self.payload)
+        }
     }
 }
 
-struct ReceiptDependency {
-    evidence: ExportReceiptEvidence,
-    signed_header: SignedHeader,
-    header_digest: [u8; 32],
+fn take_item<'a>(input: &mut &'a [u8]) -> Result<RlpItem<'a>, ExportProduceError> {
+    let original = *input;
+    let (&prefix, rest) = original.split_first().ok_or(ExportProduceError::Contract)?;
+    let list = prefix >= 0xc0;
+    let (offset, length) = match prefix {
+        0..=0x7f => (0_usize, 1_usize),
+        0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+        0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        _ => {
+            let width = usize::from(prefix - if list { 0xf7 } else { 0xb7 });
+            let bytes = rest.get(..width).ok_or(ExportProduceError::Contract)?;
+            if bytes.first() == Some(&0) {
+                return Err(ExportProduceError::Contract);
+            }
+            let length = bytes
+                .iter()
+                .try_fold(0_usize, |length, byte| {
+                    length.checked_mul(256)?.checked_add(usize::from(*byte))
+                })
+                .ok_or(ExportProduceError::Contract)?;
+            if length < 56 {
+                return Err(ExportProduceError::Contract);
+            }
+            (1 + width, length)
+        }
+    };
+    let end = offset
+        .checked_add(length)
+        .ok_or(ExportProduceError::Contract)?;
+    let raw = original.get(..end).ok_or(ExportProduceError::Contract)?;
+    let payload = &raw[offset..];
+    if prefix == 0x81 && payload[0] < 0x80 {
+        return Err(ExportProduceError::Contract);
+    }
+    *input = &original[end..];
+    Ok(RlpItem { raw, payload, list })
 }
 
-struct Producer<'n, 'c, 'a> {
-    node: &'n mut Client,
-    context: &'c ExportOwnerContext<'a>,
-    served: BTreeMap<[u8; 32], Vec<u8>>,
-    correlation: u64,
-    collected: Collected,
-    dependencies: BTreeMap<[u8; 32], ReceiptDependency>,
+fn list_items(bytes: &[u8]) -> Result<Vec<RlpItem<'_>>, ExportProduceError> {
+    let mut remaining = bytes;
+    let item = take_item(&mut remaining)?;
+    if !remaining.is_empty() || !item.list {
+        return Err(ExportProduceError::Contract);
+    }
+    remaining = item.payload;
+    let mut items = Vec::new();
+    while !remaining.is_empty() {
+        items.push(take_item(&mut remaining)?);
+    }
+    Ok(items)
 }
 
-impl Producer<'_, '_, '_> {
-    fn next_correlation(&mut self) -> Result<u64, ExportProduceError> {
-        let current = self.correlation;
-        if current == 0 {
-            return Err(ExportProduceError::Correlation);
-        }
-        self.correlation = current
-            .checked_add(2)
-            .ok_or(ExportProduceError::Correlation)?;
-        Ok(current)
-    }
+fn nibbles(bytes: &[u8]) -> Vec<u8> {
+    bytes
+        .iter()
+        .flat_map(|byte| [byte >> 4, byte & 15])
+        .collect()
+}
 
-    fn header(&mut self, signed: &SignedHeader) -> Result<[u8; 32], ExportProduceError> {
-        let record = header_record(signed);
-        let digest = record.digest().map_err(ExportProduceError::Codec)?;
-        let bytes = record.encode().map_err(ExportProduceError::Codec)?;
-        admit(
-            &mut self.collected.headers,
-            &mut self.collected.binary,
-            digest,
-            record,
-            bytes,
-        )?;
-        Ok(digest)
+fn trie_value(
+    root: [u8; 32],
+    key: &[u8],
+    proof: &[Vec<u8>],
+) -> Result<Option<Vec<u8>>, ExportProduceError> {
+    let path = nibbles(key);
+    if proof.len() > path.len() + 1
+        || proof.iter().any(|node| {
+            node.is_empty() || node.len() > layerx_agent_api::proof::MAX_PROOF_BUNDLE_BYTES
+        })
+    {
+        return Err(ExportProduceError::Contract);
     }
-
-    fn proof(
-        &mut self,
-        kind: u8,
-        reference: FactSelector,
-        record: ProofRecord,
-    ) -> Result<(), ExportProduceError> {
-        let bytes = record.encode().map_err(ExportProduceError::Codec)?;
-        admit(
-            &mut self.collected.proofs,
-            &mut self.collected.binary,
-            (kind, reference),
-            record,
-            bytes,
-        )
-    }
-
-    /// Produces one fact and returns the digest of its primary signed header.
-    fn fact(
-        &mut self,
-        fact: usize,
-        selector: FactSelector,
-    ) -> Result<[u8; 32], ExportProduceError> {
-        match selector {
-            FactSelector::Receipt { activity_id } => {
-                Ok(self.receipt_dependency(fact, activity_id)?.header_digest)
+    let mut offset = 0;
+    let mut used = 0;
+    let mut reference = root.to_vec();
+    let mut hashed = true;
+    for _ in 0..=path.len() {
+        let node = if hashed {
+            let node = proof.get(used).ok_or(ExportProduceError::Contract)?;
+            if transaction_hash(node).as_slice() != reference || used > 0 && node.len() < 32 {
+                return Err(ExportProduceError::Contract);
             }
-            FactSelector::Activity { activity_id } => self.activity(fact, activity_id),
-            FactSelector::State {
-                activity_id,
-                account_id,
-            } => self.state(fact, activity_id, account_id),
-            FactSelector::Checkpoint {
-                activity_id,
-                batch_number,
-            } => self.checkpoint(fact, activity_id, batch_number),
+            used += 1;
+            node.as_slice()
+        } else {
+            reference.as_slice()
+        };
+        let fields = list_items(node)?;
+        let child = match fields.len() {
+            17 => {
+                if offset == path.len() {
+                    let value = fields[16].bytes()?;
+                    if used != proof.len() {
+                        return Err(ExportProduceError::Contract);
+                    }
+                    return Ok((!value.is_empty()).then(|| value.to_vec()));
+                }
+                let child = fields[usize::from(path[offset])];
+                offset += 1;
+                child
+            }
+            2 => {
+                let compact = fields[0].bytes()?;
+                let (&first, _) = compact.split_first().ok_or(ExportProduceError::Contract)?;
+                if first >> 4 > 3 || first & 0x10 == 0 && first & 15 != 0 {
+                    return Err(ExportProduceError::Contract);
+                }
+                let expanded = nibbles(compact);
+                let segment = &expanded[if first & 0x10 == 0 { 2 } else { 1 }..];
+                let leaf = first & 0x20 != 0;
+                if !leaf && segment.is_empty() {
+                    return Err(ExportProduceError::Contract);
+                }
+                if !path[offset..].starts_with(segment) {
+                    return Err(ExportProduceError::Contract);
+                }
+                offset += segment.len();
+                if leaf {
+                    if used != proof.len() || offset != path.len() {
+                        return Err(ExportProduceError::Contract);
+                    }
+                    return Ok(Some(fields[1].bytes()?.to_vec()));
+                }
+                fields[1]
+            }
+            _ => return Err(ExportProduceError::Contract),
+        };
+        if child.list {
+            if child.raw.len() >= 32 {
+                return Err(ExportProduceError::Contract);
+            }
+            reference = child.raw.to_vec();
+            hashed = false;
+        } else {
+            if child.payload.len() != 32 {
+                return Err(ExportProduceError::Contract);
+            }
+            reference = child.payload.to_vec();
+            hashed = true;
         }
     }
+    Err(ExportProduceError::Contract)
+}
 
-    /// Exact tenant-served receipt bytes re-read as a receipt proof bundle and
-    /// verified under daemon authority, which establishes the authorised batch.
-    fn receipt_dependency(
-        &mut self,
-        fact: usize,
-        activity_id: [u8; 32],
-    ) -> Result<&ReceiptDependency, ExportProduceError> {
-        if !self.dependencies.contains_key(&activity_id) {
-            let correlation = self.next_correlation()?;
-            let bundle = self
-                .node
-                .proof_bundle(
-                    ProofBundleSelector::Receipt(activity_id),
-                    correlation,
-                    self.context.registry,
-                )
-                .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-            let VerifiedProofBundle::Receipt {
-                canonical_bytes,
-                activity_id: bundle_activity,
-                proof,
-                signed_header,
-            } = bundle
-            else {
-                return Err(ExportProduceError::Binding { fact });
-            };
-            if bundle_activity != activity_id
-                || self.served.get(&activity_id).map(Vec::as_slice)
-                    != Some(canonical_bytes.as_slice())
-            {
-                return Err(ExportProduceError::Binding { fact });
-            }
-            let raw = RawReceiptEvidence::new(
-                canonical_bytes,
-                proof,
-                signed_header.canonical_bytes.clone(),
-                signed_header.signature,
-            );
-            let evidence = self
-                .context
-                .authority
-                .verify_receipt_for_export(&raw)
-                .map_err(|error| ExportProduceError::ReceiptEvidence { fact, error })?;
-            if evidence.verified().activity_id() != activity_id {
-                return Err(ExportProduceError::Binding { fact });
-            }
-            let header_digest = self.header(&signed_header)?;
-            let reference = FactSelector::Receipt { activity_id };
-            let receipt = ReceiptRecord {
-                reference,
-                canonical_receipt: raw.canonical_receipt().to_vec(),
-                authorised_batch: *evidence.authorized_batch(),
-                expected_receipt_digest: evidence
-                    .receipt_digest()
-                    .ok_or(ExportProduceError::Binding { fact })?,
-            };
-            let bytes = receipt.encode().map_err(ExportProduceError::Codec)?;
-            admit(
-                &mut self.collected.receipts,
-                &mut self.collected.binary,
-                reference,
-                receipt,
-                bytes,
-            )?;
-            self.proof(
-                InclusionRecordKind::Receipt as u8,
-                reference,
-                ProofRecord::Inclusion(InclusionRecord {
-                    kind: InclusionRecordKind::Receipt,
-                    reference,
-                    canonical_leaf: raw.canonical_receipt().to_vec(),
-                    proof: raw.proof().clone(),
-                    header_digest,
-                }),
-            )?;
-            self.dependencies.insert(
-                activity_id,
-                ReceiptDependency {
-                    evidence,
-                    signed_header,
-                    header_digest,
-                },
-            );
+fn verify_account(
+    bytes: &[u8],
+    account_id: [u8; 32],
+    root: [u8; 32],
+) -> Result<(), ExportProduceError> {
+    if account_id[..12] != [0; 12] || account_id[12..] == [0; 20] {
+        return Err(ExportProduceError::Contract);
+    }
+    let fields = list_items(bytes)?;
+    if fields.len() != 6 || fields[0].bytes()? != &account_id[12..] {
+        return Err(ExportProduceError::Contract);
+    }
+    let proof = list_items(fields[5].raw)?
+        .iter()
+        .map(|item| item.bytes().map(<[u8]>::to_vec))
+        .collect::<Result<Vec<_>, _>>()?;
+    let value = trie_value(root, &transaction_hash(&account_id[12..]), &proof)?
+        .ok_or(ExportProduceError::Contract)?;
+    let account = list_items(&value)?;
+    if account.len() != 4
+        || account[0].bytes()? != fields[2].bytes()?
+        || account[1].bytes()? != fields[1].bytes()?
+        || account[2].bytes()? != fields[3].bytes()?
+        || account[3].bytes()? != fields[4].bytes()?
+    {
+        return Err(ExportProduceError::Contract);
+    }
+    word(account[0].bytes()?)?;
+    word(account[1].bytes()?)?;
+    if account[2].bytes()?.len() != 32 || account[3].bytes()?.len() != 32 {
+        return Err(ExportProduceError::Contract);
+    }
+    Ok(())
+}
+
+// CometBFT protobuf messages are decoded with bounded, canonical wire primitives.
+#[derive(Clone, Copy)]
+struct ProtoField<'a> {
+    number: u64,
+    integer: Option<u64>,
+    bytes: &'a [u8],
+}
+fn varint(input: &mut &[u8]) -> Result<u64, ExportProduceError> {
+    let mut value = 0;
+    for index in 0..10 {
+        let (&byte, rest) = input.split_first().ok_or(ExportProduceError::Contract)?;
+        *input = rest;
+        if index == 9 && byte > 1 {
+            return Err(ExportProduceError::Contract);
         }
-        self.dependencies
-            .get(&activity_id)
+        value |= u64::from(byte & 127) << (index * 7);
+        if byte < 128 {
+            if index > 0 && byte == 0 {
+                return Err(ExportProduceError::Contract);
+            }
+            return Ok(value);
+        }
+    }
+    Err(ExportProduceError::Contract)
+}
+fn proto(mut bytes: &[u8]) -> Result<Vec<ProtoField<'_>>, ExportProduceError> {
+    let mut fields = Vec::new();
+    while !bytes.is_empty() {
+        let tag = varint(&mut bytes)?;
+        if tag >> 3 == 0 {
+            return Err(ExportProduceError::Contract);
+        }
+        let (integer, data) = match tag & 7 {
+            0 => (Some(varint(&mut bytes)?), &[][..]),
+            2 => {
+                let length = usize::try_from(varint(&mut bytes)?)
+                    .map_err(|_| ExportProduceError::Contract)?;
+                let data = bytes.get(..length).ok_or(ExportProduceError::Contract)?;
+                bytes = &bytes[length..];
+                (None, data)
+            }
+            _ => return Err(ExportProduceError::Contract),
+        };
+        fields.push(ProtoField {
+            number: tag >> 3,
+            integer,
+            bytes: data,
+        });
+    }
+    Ok(fields)
+}
+fn message<'a>(
+    bytes: &'a [u8],
+    allowed: &[u64],
+) -> Result<Vec<ProtoField<'a>>, ExportProduceError> {
+    let fields = proto(bytes)?;
+    let mut seen = BTreeSet::new();
+    if fields
+        .iter()
+        .any(|field| !allowed.contains(&field.number) || !seen.insert(field.number))
+    {
+        return Err(ExportProduceError::Contract);
+    }
+    Ok(fields)
+}
+fn pbytes<'a>(fields: &[ProtoField<'a>], number: u64) -> Result<&'a [u8], ExportProduceError> {
+    match fields.iter().find(|field| field.number == number) {
+        Some(field) if field.integer.is_none() => Ok(field.bytes),
+        None => Ok(&[]),
+        _ => Err(ExportProduceError::Contract),
+    }
+}
+fn pint(fields: &[ProtoField<'_>], number: u64) -> Result<u64, ExportProduceError> {
+    match fields.iter().find(|field| field.number == number) {
+        Some(field) => field.integer.ok_or(ExportProduceError::Contract),
+        None => Ok(0),
+    }
+}
+fn fixed<const N: usize>(bytes: &[u8]) -> Result<[u8; N], ExportProduceError> {
+    bytes.try_into().map_err(|_| ExportProduceError::Contract)
+}
+fn optional_hash(
+    fields: &[ProtoField<'_>],
+    number: u64,
+) -> Result<Option<[u8; 32]>, ExportProduceError> {
+    let bytes = pbytes(fields, number)?;
+    if bytes.is_empty() {
+        Ok(None)
+    } else {
+        fixed(bytes).map(Some)
+    }
+}
+fn timestamp(bytes: &[u8]) -> Result<CommitTimestamp, ExportProduceError> {
+    let fields = message(bytes, &[1, 2])?;
+    Ok(CommitTimestamp {
+        seconds: pint(&fields, 1)? as i64,
+        nanos: u32::try_from(pint(&fields, 2)?).map_err(|_| ExportProduceError::Contract)?,
+    })
+}
+fn block_id(bytes: &[u8]) -> Result<Option<BlockId>, ExportProduceError> {
+    if bytes.is_empty() {
+        return Ok(None);
+    }
+    let fields = message(bytes, &[1, 2])?;
+    let parts = message(pbytes(&fields, 2)?, &[1, 2])?;
+    if pbytes(&fields, 1)?.is_empty() && pint(&parts, 1)? == 0 && pbytes(&parts, 2)?.is_empty() {
+        return Ok(None);
+    }
+    Ok(Some(BlockId {
+        hash: fixed(pbytes(&fields, 1)?)?,
+        part_set_total: u32::try_from(pint(&parts, 1)?)
+            .map_err(|_| ExportProduceError::Contract)?,
+        part_set_hash: fixed(pbytes(&parts, 2)?)?,
+    }))
+}
+pub fn decode_header(bytes: &[u8]) -> Result<CheckpointHeader, ExportProduceError> {
+    let fields = message(bytes, &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14])?;
+    let version = message(pbytes(&fields, 1)?, &[1, 2])?;
+    Ok(CheckpointHeader {
+        version_block: pint(&version, 1)?,
+        version_app: pint(&version, 2)?,
+        chain_id: std::str::from_utf8(pbytes(&fields, 2)?)
+            .map_err(|_| ExportProduceError::Contract)?
+            .to_owned(),
+        height: pint(&fields, 3)?,
+        time: timestamp(pbytes(&fields, 4)?)?,
+        last_block_id: block_id(pbytes(&fields, 5)?)?,
+        last_commit_hash: optional_hash(&fields, 6)?,
+        data_hash: optional_hash(&fields, 7)?,
+        validators_hash: fixed(pbytes(&fields, 8)?)?,
+        next_validators_hash: fixed(pbytes(&fields, 9)?)?,
+        consensus_hash: fixed(pbytes(&fields, 10)?)?,
+        app_hash: fixed(pbytes(&fields, 11)?)?,
+        last_results_hash: optional_hash(&fields, 12)?,
+        evidence_hash: optional_hash(&fields, 13)?,
+        proposer_address: fixed(pbytes(&fields, 14)?)?,
+    })
+}
+pub fn decode_validators(bytes: &[u8]) -> Result<Vec<CommitValidator>, ExportProduceError> {
+    let fields = proto(bytes)?;
+    let mut validators = Vec::new();
+    let mut proposer = None;
+    let mut declared_total = None;
+    for field in &fields {
+        match (field.number, field.integer) {
+            (1, None) => validators.push(decode_validator(field.bytes)?),
+            (2, None) if proposer.is_none() => proposer = Some(decode_validator(field.bytes)?),
+            (3, Some(total)) if declared_total.is_none() => declared_total = Some(total),
+            _ => return Err(ExportProduceError::Contract),
+        }
+    }
+    if validators.is_empty() || proposer.is_some_and(|value| !validators.contains(&value)) {
+        return Err(ExportProduceError::Contract);
+    }
+    let total = validators.iter().try_fold(0_u64, |total, validator| {
+        total
+            .checked_add(validator.voting_power)
             .ok_or(ExportProduceError::Contract)
+    })?;
+    if declared_total.is_some_and(|declared| declared != total) {
+        return Err(ExportProduceError::Contract);
     }
-
-    fn activity(
-        &mut self,
-        fact: usize,
-        activity_id: [u8; 32],
-    ) -> Result<[u8; 32], ExportProduceError> {
-        let correlation = self.next_correlation()?;
-        let bundle = self
-            .node
-            .proof_bundle(
-                ProofBundleSelector::Activity(activity_id),
-                correlation,
-                self.context.registry,
-            )
-            .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-        let VerifiedProofBundle::Activity {
-            canonical_bytes,
-            activity_id: bundle_activity,
-            proof,
-            signed_header,
-        } = bundle
-        else {
-            return Err(ExportProduceError::Binding { fact });
-        };
-        if bundle_activity != activity_id {
-            return Err(ExportProduceError::Binding { fact });
-        }
-        let header_digest = self.header(&signed_header)?;
-        let reference = FactSelector::Activity { activity_id };
-        self.proof(
-            InclusionRecordKind::Activity as u8,
-            reference,
-            ProofRecord::Inclusion(InclusionRecord {
-                kind: InclusionRecordKind::Activity,
-                reference,
-                canonical_leaf: canonical_bytes,
-                proof,
-                header_digest,
-            }),
-        )?;
-        Ok(header_digest)
+    Ok(validators)
+}
+fn decode_validator(bytes: &[u8]) -> Result<CommitValidator, ExportProduceError> {
+    let fields = message(bytes, &[1, 2, 3, 4])?;
+    let key = message(pbytes(&fields, 2)?, &[1])?;
+    // Proposer priority is signed int64 and is outside validator identity.
+    pint(&fields, 4)?;
+    Ok(CommitValidator {
+        address: fixed(pbytes(&fields, 1)?)?,
+        public_key: fixed(pbytes(&key, 1)?)?,
+        voting_power: pint(&fields, 3)?,
+    })
+}
+pub fn decode_commit(
+    bytes: &[u8],
+    validators: &[CommitValidator],
+) -> Result<BlockCommit, ExportProduceError> {
+    let fields = proto(bytes)?;
+    let mut singular = BTreeSet::new();
+    if fields.iter().any(|field| {
+        ![1, 2, 3, 4].contains(&field.number) || field.number != 4 && !singular.insert(field.number)
+    }) {
+        return Err(ExportProduceError::Contract);
     }
-
-    fn state(
-        &mut self,
-        fact: usize,
-        activity_id: [u8; 32],
-        account_id: [u8; 32],
-    ) -> Result<[u8; 32], ExportProduceError> {
-        let correlation = self.next_correlation()?;
-        let node_info = self.node.handshake().node();
-        let (protocol_version, network_id) = (node_info.protocol_version, node_info.network_id);
-        let bundle = self
-            .node
-            .proof_bundle(
-                ProofBundleSelector::AccountState {
-                    activity_id,
-                    account_id,
-                },
-                correlation,
-                self.context.registry,
-            )
-            .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-        let material = bundle
-            .account_proof(account_id, protocol_version, network_id)
-            .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-        if material.activity_id != activity_id {
-            return Err(ExportProduceError::Binding { fact });
+    let mut commit = BlockCommit {
+        height: pint(&fields, 1)?,
+        round: u32::try_from(pint(&fields, 2)?).map_err(|_| ExportProduceError::Contract)?,
+        block_id: block_id(pbytes(&fields, 3)?)?.ok_or(ExportProduceError::Contract)?,
+        votes: Vec::new(),
+    };
+    for (index, field) in fields.iter().filter(|field| field.number == 4).enumerate() {
+        if field.integer.is_some() {
+            return Err(ExportProduceError::Contract);
         }
-        let signed_header = bundle.signed_header().clone();
-        let header_digest = self.header(&signed_header)?;
-        let variant = match material.variant {
-            AccountProofVariant::Activity => AccountStateVariant::Activity,
-            AccountProofVariant::Maintenance {
-                activity_count,
-                parameter_version,
-                activity_receipt,
-                activity_receipt_proof,
-            } => {
-                let maintenance = decode_maintenance(&material.proof.receipt_bytes)
-                    .map_err(|_| ExportProduceError::MaintenanceLink { fact })?;
-                let occupancy = maintenance.occupancy();
-                let (global_sequence, previous_state_root) =
-                    (occupancy.global_sequence, occupancy.previous_state_root);
-                let dependency = self.receipt_dependency(fact, activity_id)?;
-                if dependency.signed_header != signed_header
-                    || dependency.header_digest != header_digest
-                    || dependency.evidence.raw().canonical_receipt() != activity_receipt.as_slice()
-                    || dependency.evidence.raw().proof() != &activity_receipt_proof
-                    || dependency.evidence.verified().activity_id() != activity_id
-                    || dependency
-                        .evidence
-                        .verified()
-                        .global_sequence()
-                        .checked_add(1)
-                        != Some(global_sequence)
-                    || dependency.evidence.resulting_state_root() != Some(previous_state_root)
-                {
-                    return Err(ExportProduceError::MaintenanceLink { fact });
-                }
-                AccountStateVariant::Maintenance {
-                    activity_count,
-                    parameter_version,
-                    dependency_receipt_activity_id: activity_id,
-                }
+        let vote = message(field.bytes, &[1, 2, 3, 4])?;
+        let validator = validators.get(index).ok_or(ExportProduceError::Contract)?;
+        match pint(&vote, 1)? {
+            1 if pbytes(&vote, 2)?.is_empty() && pbytes(&vote, 4)?.is_empty() => {
+                timestamp(pbytes(&vote, 3)?)?;
             }
-        };
-        let proof = material.proof;
-        let reference = FactSelector::State {
-            activity_id,
-            account_id,
-        };
-        self.proof(
-            3,
-            reference,
-            ProofRecord::AccountState(AccountStateRecord {
-                reference,
-                variant,
-                account_id,
-                account_value: bundle.canonical_bytes().to_vec(),
-                account_root: proof.account_root,
-                universal_root: proof.universal_root,
-                resulting_state_root: proof.resulting_state_root,
-                account_proof: proof.account_proof,
-                account_tree_proof: proof.account_tree_proof,
-                universal_root_proof: proof.universal_root_proof,
-                receipt_bytes: proof.receipt_bytes,
-                receipt_proof: proof.receipt_proof,
-                header_digest,
-            }),
-        )?;
-        Ok(header_digest)
+            2 => {
+                let address = fixed(pbytes(&vote, 2)?)?;
+                if address != validator.address {
+                    return Err(ExportProduceError::Contract);
+                }
+                commit.votes.push(CommitVote {
+                    validator_address: address,
+                    voting_power: validator.voting_power,
+                    timestamp: timestamp(pbytes(&vote, 3)?)?,
+                    signature: fixed(pbytes(&vote, 4)?)?,
+                });
+            }
+            // A nil precommit is not a vote for the exported block.
+            3 => {
+                if pbytes(&vote, 2)? != validator.address || pbytes(&vote, 4)?.len() != 64 {
+                    return Err(ExportProduceError::Contract);
+                }
+                timestamp(pbytes(&vote, 3)?)?;
+            }
+            _ => return Err(ExportProduceError::Contract),
+        }
     }
-
-    fn checkpoint(
-        &mut self,
-        fact: usize,
-        activity_id: [u8; 32],
-        batch_number: u64,
-    ) -> Result<[u8; 32], ExportProduceError> {
-        let dependency = self.receipt_dependency(fact, activity_id)?;
-        let header_bytes = dependency.signed_header.canonical_bytes.clone();
-        let header_digest = dependency.header_digest;
-        let header: BatchHeader =
-            decode_batch_header(&header_bytes).map_err(|_| ExportProduceError::Binding { fact })?;
-        if header.batch_number() != batch_number {
-            return Err(ExportProduceError::Binding { fact });
+    if fields.iter().filter(|field| field.number == 4).count() != validators.len() {
+        return Err(ExportProduceError::Contract);
+    }
+    Ok(commit)
+}
+fn put_varint(out: &mut Vec<u8>, mut value: u64) {
+    while value >= 128 {
+        out.push((value as u8) | 128);
+        value >>= 7;
+    }
+    out.push(value as u8);
+}
+fn put_int(out: &mut Vec<u8>, number: u64, value: u64) {
+    if value != 0 {
+        put_varint(out, number << 3);
+        put_varint(out, value);
+    }
+}
+fn put_bytes(out: &mut Vec<u8>, number: u64, value: &[u8]) {
+    put_varint(out, number << 3 | 2);
+    put_varint(out, value.len() as u64);
+    out.extend_from_slice(value);
+}
+fn encode_time(time: CommitTimestamp) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_int(&mut out, 1, time.seconds as u64);
+    put_int(&mut out, 2, u64::from(time.nanos));
+    out
+}
+fn encode_id(id: Option<BlockId>) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut parts = Vec::new();
+    if let Some(id) = id {
+        put_bytes(&mut out, 1, &id.hash);
+        put_int(&mut parts, 1, u64::from(id.part_set_total));
+        put_bytes(&mut parts, 2, &id.part_set_hash);
+    }
+    put_bytes(&mut out, 2, &parts);
+    out
+}
+pub fn encode_header(header: &CheckpointHeader) -> Vec<u8> {
+    let mut out = Vec::new();
+    let mut version = Vec::new();
+    put_int(&mut version, 1, header.version_block);
+    put_int(&mut version, 2, header.version_app);
+    put_bytes(&mut out, 1, &version);
+    put_bytes(&mut out, 2, header.chain_id.as_bytes());
+    put_int(&mut out, 3, header.height);
+    put_bytes(&mut out, 4, &encode_time(header.time));
+    put_bytes(&mut out, 5, &encode_id(header.last_block_id));
+    for (number, hash) in [
+        (6, header.last_commit_hash),
+        (7, header.data_hash),
+        (8, Some(header.validators_hash)),
+        (9, Some(header.next_validators_hash)),
+        (10, Some(header.consensus_hash)),
+        (11, Some(header.app_hash)),
+        (12, header.last_results_hash),
+        (13, header.evidence_hash),
+    ] {
+        if let Some(hash) = hash {
+            put_bytes(&mut out, number, &hash);
         }
-        let correlation = self.next_correlation()?;
-        let verified = self
-            .node
-            .checkpoint_evidence(CheckpointSelector::Batch(batch_number), correlation)
-            .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-        if verified.canonical_header() != header_bytes.as_slice()
-            || verified.report().batch_number() != batch_number
-        {
-            return Err(ExportProduceError::Binding { fact });
-        }
-        let certificate = verified
-            .certificate()
-            .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-        let (bonded_set, _) = verified
-            .bonded_keys()
-            .map_err(|error| ExportProduceError::Evidence { fact, error })?;
-        let checkpoint_id = verified
-            .report()
-            .evidence()
-            .checkpoint_id()
-            .ok_or(ExportProduceError::Binding { fact })?;
-        let registered_settlement_reference = verified
-            .report()
-            .evidence()
-            .settlement_reference()
-            .map(<[u8]>::to_vec);
-        let remaining = MAX_EXPORT_BYTES
-            .checked_sub(self.collected.binary)
-            .filter(|remaining| *remaining > 0)
-            .ok_or(ExportProduceError::Oversize)?;
-        let correlation = self.next_correlation()?;
-        let fetch = FetchContext {
-            interface_version: self.node.handshake().node().interface_version,
-            correlation_id: correlation,
-            expected_batch_number: batch_number,
-            data_availability_root: header.data_availability_root(),
-            record_roots: RootCommitments {
-                activity: header.activity_merkle_root(),
-                receipt: header.receipt_merkle_root(),
-                event: header.event_merkle_root(),
-                oracle: header.oracle_root(),
-            },
-            limits: RetrievalLimits {
-                maximum_bytes: remaining,
-                maximum_chunks: MAX_AVAILABILITY_CHUNKS,
-                deadline: self.context.availability_deadline,
-            },
-        };
-        let outcome = self
-            .node
-            .fetch_availability(
-                AvailabilitySelector::Checkpoint(checkpoint_id),
-                fetch,
-                |_| {},
-            )
-            .map_err(|error| ExportProduceError::Availability { fact, error })?;
-        let FetchOutcome::Complete(result) = outcome else {
-            return Err(ExportProduceError::AvailabilityIncomplete { fact });
-        };
-        if result.batch_number() != batch_number
-            || result.data_availability_root() != header.data_availability_root()
-            || result.record_roots() != fetch.record_roots
-        {
-            return Err(ExportProduceError::AvailabilityIncomplete { fact });
-        }
-        let availability = result
-            .chunks
+    }
+    put_bytes(&mut out, 14, &header.proposer_address);
+    out
+}
+pub fn encode_validators(validators: &[CommitValidator]) -> Vec<u8> {
+    let mut out = Vec::new();
+    for validator in validators {
+        let mut value = Vec::new();
+        let mut key = Vec::new();
+        put_bytes(&mut key, 1, &validator.public_key);
+        put_bytes(&mut value, 1, &validator.address);
+        put_bytes(&mut value, 2, &key);
+        put_int(&mut value, 3, validator.voting_power);
+        put_bytes(&mut out, 1, &value);
+    }
+    out
+}
+pub fn encode_commit(commit: &BlockCommit, validators: &[CommitValidator]) -> Vec<u8> {
+    let mut out = Vec::new();
+    put_int(&mut out, 1, commit.height);
+    put_int(&mut out, 2, u64::from(commit.round));
+    put_bytes(&mut out, 3, &encode_id(Some(commit.block_id)));
+    for validator in validators {
+        let mut value = Vec::new();
+        if let Some(vote) = commit
+            .votes
             .iter()
-            .map(|chunk| (chunk.chunk().clone(), chunk.proof().clone()))
-            .collect();
-        let reference = FactSelector::Checkpoint {
-            activity_id,
-            batch_number,
-        };
-        let record = CheckpointRecord {
-            reference,
-            certificate,
-            set_version: verified.set_version(),
-            bonded_set,
-            checkpoint_id,
-            registered_settlement_reference,
-            availability,
-        };
-        let bytes = record.encode().map_err(ExportProduceError::Codec)?;
-        admit(
-            &mut self.collected.certificates,
-            &mut self.collected.binary,
-            reference,
-            record,
-            bytes,
-        )?;
-        if let Some(existing) = self
-            .collected
-            .certified
-            .insert(header_digest, checkpoint_id)
+            .find(|vote| vote.validator_address == validator.address)
         {
-            if existing != checkpoint_id {
-                return Err(ExportProduceError::ConflictingRecord);
-            }
+            put_int(&mut value, 1, 2);
+            put_bytes(&mut value, 2, &vote.validator_address);
+            put_bytes(&mut value, 3, &encode_time(vote.timestamp));
+            put_bytes(&mut value, 4, &vote.signature);
+        } else {
+            put_int(&mut value, 1, 1);
+            put_bytes(
+                &mut value,
+                3,
+                &encode_time(CommitTimestamp {
+                    seconds: -62_135_596_800,
+                    nanos: 0,
+                }),
+            );
         }
-        Ok(header_digest)
+        put_bytes(&mut out, 4, &value);
     }
+    out
 }
