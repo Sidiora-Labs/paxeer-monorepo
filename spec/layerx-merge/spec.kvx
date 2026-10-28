@@ -143254,7 +143254,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.4.2]
 title = "Move the KMS gateway binary and KMS provider tests onto the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.1", "10.4.1", "9.1.7", "9.1.8", "18.1119.1"]
