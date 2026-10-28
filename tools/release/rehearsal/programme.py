@@ -2690,6 +2690,26 @@ def check_spot_logs(net):
 # --- req 4: prices ----------------------------------------------------------------------------
 
 
+def sidecar_cadence(per_block, start, end):
+    seen = {}
+    for height in range(start, end + 1):
+        for validator in per_block.get(height, set()):
+            seen[validator] = seen.get(validator, 0) + 1
+    for height in range(start, end + 1):
+        in_block = per_block.get(height, set())
+        missing = sorted(set(seen) - in_block)
+        require(
+            len(in_block) == 4 and not missing,
+            f"{len(in_block)} validators submitted at {height}: {sorted(in_block)}; missing validators {missing}",
+        )
+    for validator, count in sorted(seen.items()):
+        require(
+            count == SIDECAR_BLOCKS,
+            f"validator {validator} submitted {count} times between {start} and {end}, expected {SIDECAR_BLOCKS}",
+        )
+    return seen
+
+
 def check_sidecar_submissions(net):
     """4.1: the four sidecars submit signed prices for every listed market each block, free of fee."""
     pricefeed = abi("pricefeed")
@@ -2697,7 +2717,7 @@ def check_sidecar_submissions(net):
     start = net.node.height() + 1
     end = start + SIDECAR_BLOCKS - 1
     net.wait_comet(end + 1)
-    seen = {}
+    per_block = {}
     for height in range(start, end + 1):
         in_block = set()
         for raw, result in block_txs(net.node, height):
@@ -2739,11 +2759,8 @@ def check_sidecar_submissions(net):
                 ids == list(range(markets)),
                 f"{validator} at {height} submitted markets {ids}, expected 0..{markets - 1}",
             )
-            seen[validator] = seen.get(validator, 0) + 1
-    require(
-        len(seen) == 4,
-        f"{len(seen)} validators submitted between {start} and {end}: {seen}",
-    )
+        per_block[height] = in_block
+    seen = sidecar_cadence(per_block, start, end)
     print(
         f"sidecar submissions: blocks {start}..{end}, submissions per validator {sorted(seen.values())}"
     )
