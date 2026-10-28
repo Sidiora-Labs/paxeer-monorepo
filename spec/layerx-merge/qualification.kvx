@@ -8929,3 +8929,11 @@ symbol = "fixture"
 observed = "Attempt 5 (074077a97) passed two of three gate tests; committed_is_reached_only_from_executed asserts that build/bin/layerxd and build/bin/layerx-genesis-build exist and the build_cmd never produced them."
 assumption = "build_cmd now makes layerxd and layerx-genesis-build before the crate build; the test stays as written."
 severity = "minor"
+
+[finding.8.11.2.2]
+task = "8.11.2"
+file = "services/agent/crates/layerx-agent-api/tests/stream.rs:41"
+symbol = "Cursor"
+observed = "Attempt 3 (345ea972a) built layerx-platform-authority but the dependency check failed on the six stale Cursor(Sequence(..)) sites of layerx-agent-api tests/stream.rs (issue #1127), before the verify_cmd ran."
+assumption = "8.11.2 requires 18.1127.1; the candidate is continued once the port is on main."
+severity = "minor"
