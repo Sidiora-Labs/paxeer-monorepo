@@ -24,7 +24,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   alias Explorer.Chain.{Block, Hash}
   alias Explorer.Chain.Cache.Counters.LastFetchedCounter
   alias Explorer.Chain.PaxeerX.{PriceFeedScannedBlock, PriceMarket, PriceObservation, PriceUpdate}
-  alias Explorer.{PagingOptions, Repo}
+  alias Explorer.{Chain, PagingOptions, Repo}
 
   @default_page_size 50
 
@@ -406,6 +406,21 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
           where: fragment("starts_with(?, ?)", counter.counter_type, "paxeer_x_price_feed_scanned_through_")
         )
       ) or Repo.exists?(PriceUpdate)
+  end
+
+  @doc """
+  Whether a block within `window_blocks` of the current height has been successfully
+  scanned for submissions, by this node or any indexer writing to the same database.
+  """
+  @spec scanned_recently?(non_neg_integer()) :: boolean()
+  def scanned_recently?(window_blocks) when is_integer(window_blocks) and window_blocks >= 0 do
+    minimum_block = Chain.block_height() - window_blocks
+
+    Repo.exists?(
+      from(scanned in PriceFeedScannedBlock,
+        where: scanned.status == "scanned" and scanned.block_number >= ^minimum_block
+      )
+    )
   end
 
   @doc """
