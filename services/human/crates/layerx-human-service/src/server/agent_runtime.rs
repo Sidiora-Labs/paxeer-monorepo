@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+use crate::frame::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_agent_api::idempotency::IdempotentMutation;
 use layerx_agent_api::prepare::{PreparationRef, PrepareRequest};
 use layerx_agent_api::submit::SubmitRequest;
@@ -9,9 +10,7 @@ use layerx_agent_api::track::{
     EvidenceRef, ReceiptRef, SubmissionRef, SubmissionState, TrackRequest, TrackedSubmission,
     Transition,
 };
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::TimestampSeconds;
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_crypto::disclosure;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::Call;
@@ -28,19 +27,19 @@ use crate::journeys::{
 use crate::journeys::{DepositAgentBoundary, ReceiptMaterial};
 
 const MAGIC: &[u8; 8] = b"LXHAGT01";
-const TRACED_MAGIC: &[u8; 8] = b"LXHAGT02";
+const LXHAGT02: &[u8; 8] = b"LXHAGT02";
 
 thread_local! {
     static REQUEST_TRACE: std::cell::RefCell<Option<crate::trace::TraceId>> = const { std::cell::RefCell::new(None) };
 }
 
-pub(crate) struct TraceContext {
+pub struct TraceContext {
     previous: Option<crate::trace::TraceId>,
     local: std::marker::PhantomData<std::rc::Rc<()>>,
 }
 
 impl TraceContext {
-    pub(crate) fn enter(trace: &str) -> Result<Self, AgentBoundaryError> {
+    pub fn enter(trace: &str) -> Result<Self, AgentBoundaryError> {
         let trace = crate::trace::TraceId::parse(trace).map_err(|_| AgentBoundaryError::Refused)?;
         let previous = REQUEST_TRACE.with(|current| current.replace(Some(trace)));
         Ok(Self {
@@ -490,7 +489,7 @@ pub struct NativeProgramApprovalBudget {
     pub observed_at_sequence: u64,
     pub remaining: u128,
     pub terminal: bool,
-    pub verification: Level,
+    pub verification: layerx_agent_api::verify::Level,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -554,7 +553,7 @@ pub struct NativeEffectBudgetRow {
     pub budget_id: [u8; 32],
     pub source_account: [u8; 32],
     pub remaining: u128,
-    pub verification: Level,
+    pub verification: layerx_agent_api::verify::Level,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -848,7 +847,7 @@ pub struct AgentBudgetProof {
     pub source_account: [u8; 32],
     pub observed_head_sequence: u64,
     pub remaining: u128,
-    pub verification: Level,
+    pub verification: layerx_agent_api::verify::Level,
     pub evidence_digest: [u8; 32],
     pub receipt_digest: [u8; 32],
     pub checkpoint_digest: [u8; 32],
@@ -1284,7 +1283,10 @@ impl AgentRuntime {
             source_account: reader.fixed()?,
             observed_head_sequence: reader.u64()?,
             remaining: reader.u128()?,
-            verification: decode_level(reader.u8()?)?,
+            verification: match decode_rung(reader.u8()?)? {
+                Rung::Committed => layerx_agent_api::verify::Level::CheckpointFinalised,
+                _ => return Err(AgentBoundaryError::CorruptResponse),
+            },
             evidence_digest: reader.fixed()?,
             receipt_digest: reader.fixed()?,
             checkpoint_digest: reader.fixed()?,
@@ -1305,7 +1307,7 @@ impl AgentRuntime {
             || value.observed_head_sequence == 0
             || !matches!(
                 value.verification,
-                Level::CheckpointFinalised | Level::SettlementAnchored
+                layerx_agent_api::verify::Level::CheckpointFinalised
             )
             || value.evidence_digest == [0; 32]
             || value.receipt_digest == [0; 32]
@@ -1958,7 +1960,7 @@ impl AgentRuntime {
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
     pub fn probe(&self) -> Result<(), AgentBoundaryError> {
-        let mut runtime = Self::connect(&self.endpoint, self.limits)?;
+        let mut runtime = Self::connect_peer(&self.endpoint, self.limits)?;
         let head = runtime.head()?;
         if head.finalised_checkpoint == [0; 32] {
             return Err(AgentBoundaryError::CorruptResponse);
@@ -1970,7 +1972,26 @@ impl AgentRuntime {
     /// core-negotiated module registry.
     /// # Errors
     /// Returns a boundary refusal for invalid request fields, an unavailable transport, or a malformed response.
-    pub fn connect(endpoint: impl AsRef<Path>, limits: Limits) -> Result<Self, AgentBoundaryError> {
+    pub fn connect(
+        endpoint: impl AsRef<Path>,
+        limits: layerx_client::lni::transport::Limits,
+    ) -> Result<Self, AgentBoundaryError> {
+        Self::connect_peer(
+            endpoint,
+            Limits {
+                maximum_frame_bytes: limits.maximum_frame_bytes,
+                maximum_connections: limits.maximum_connections,
+                maximum_streams: limits.maximum_streams,
+                maximum_queued_bytes: limits.maximum_queued_bytes,
+                deadline: limits.deadline,
+            },
+        )
+    }
+
+    fn connect_peer(
+        endpoint: impl AsRef<Path>,
+        limits: Limits,
+    ) -> Result<Self, AgentBoundaryError> {
         let empty = ModuleRegistry::new(&[]).map_err(|_| AgentBoundaryError::Refused)?;
         let mut runtime = Self::new(endpoint, limits, empty)?;
         let mut reader = runtime.exchange(&Writer::new(REGISTRY).finish())?;
@@ -2036,7 +2057,7 @@ impl AgentRuntime {
         let trace = REQUEST_TRACE.with(|current| current.borrow().clone());
         let request = if let Some(trace) = &trace {
             let mut envelope = Zeroizing::new(Vec::with_capacity(48 + request.len()));
-            envelope.extend_from_slice(TRACED_MAGIC);
+            envelope.extend_from_slice(LXHAGT02);
             envelope.extend_from_slice(trace.as_str().as_bytes());
             envelope.extend_from_slice(
                 &u32::try_from(request.len())
@@ -2061,7 +2082,7 @@ impl AgentRuntime {
             .map_err(|_| AgentBoundaryError::Unavailable)?;
         let mut reader = Reader::new(response);
         if let Some(trace) = trace {
-            if reader.fixed::<8>()? != *TRACED_MAGIC
+            if reader.fixed::<8>()? != *LXHAGT02
                 || reader.fixed::<36>()?.as_slice() != trace.as_str().as_bytes()
             {
                 return Err(AgentBoundaryError::CorruptResponse);
@@ -2475,8 +2496,7 @@ impl AgentRuntime {
             _ => return Err(AgentBoundaryError::CorruptResponse),
         };
         let verification = match reader.u8()? {
-            4 => Level::CheckpointFinalised,
-            5 => Level::SettlementAnchored,
+            2 => layerx_agent_api::verify::Level::CheckpointFinalised,
             _ => return Err(AgentBoundaryError::CorruptResponse),
         };
         let evidence_digest = reader.fixed()?;
@@ -2826,8 +2846,7 @@ impl AgentRuntime {
             let source_account = reader.fixed()?;
             let remaining = reader.u128()?;
             let verification = match reader.u8()? {
-                4 => Level::CheckpointFinalised,
-                5 => Level::SettlementAnchored,
+                2 => layerx_agent_api::verify::Level::CheckpointFinalised,
                 _ => return Err(AgentBoundaryError::CorruptResponse),
             };
             let evidence_digest = reader.fixed()?;
@@ -3974,7 +3993,13 @@ impl AgentBoundary for AgentRuntime {
         let mutation = call.request();
         let mut writer = Self::encode_mutation_header(SUBMIT, mutation);
         writer.text(mutation.operation.preparation_ref.as_str())?;
-        writer.bytes(mutation.operation.signature.as_bytes())?;
+        let signature: &[u8; 65] = mutation
+            .operation
+            .signature
+            .as_bytes()
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        writer.bytes(signature)?;
         writer.fixed(&signer_public_key);
         match mutation.operation.approval_release_ref {
             Some(reference) => {
@@ -4053,8 +4078,8 @@ impl crate::approvals::ApprovalBoundary for AgentRuntime {
         let decode=|reader:&mut Reader| -> Result<crate::approvals::VerifiedBudgetAfter,AgentBoundaryError> {
             if reader.u16()?!=2 || reader.fixed::<32>()?!=hold.approval_id
                 || reader.fixed::<32>()?!=hold.canonical_bytes_digest {return Err(AgentBoundaryError::CorruptResponse)};
-            let remaining=reader.u128()?;let rung=match reader.u8()? {
-                4|5=>layerx_types::rung::Rung::Committed,
+            let remaining=reader.u128()?;let rung=match decode_rung(reader.u8()?)? {
+                Rung::Committed=>Rung::Committed,
                 _=>return Err(AgentBoundaryError::CorruptResponse)};
             let evidence_digest=reader.fixed()?;let observed_at_sequence=reader.u64()?;let asset=reader.fixed::<32>()?;
             if evidence_digest==[0;32] || asset==[0;32] || observed_at_sequence!=at_sequence {
@@ -4208,19 +4233,8 @@ fn decode_state_without_data(value: u8) -> Result<SubmissionState, AgentBoundary
 fn decode_rung(value: u8) -> Result<Rung, AgentBoundaryError> {
     match value {
         0 => Ok(Rung::Submitted),
-        1..=5 => Ok(Rung::Receipted),
-        _ => Err(AgentBoundaryError::CorruptResponse),
-    }
-}
-
-fn decode_level(value: u8) -> Result<Level, AgentBoundaryError> {
-    match value {
-        0 => Ok(Level::Unverified),
-        1 => Ok(Level::SequencerSigned),
-        2 => Ok(Level::BatchIncluded),
-        3 => Ok(Level::StateProven),
-        4 => Ok(Level::CheckpointFinalised),
-        5 => Ok(Level::SettlementAnchored),
+        1 => Ok(Rung::Receipted),
+        2 => Ok(Rung::Committed),
         _ => Err(AgentBoundaryError::CorruptResponse),
     }
 }
@@ -4255,12 +4269,7 @@ fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryE
     let tx_hash = reader.fixed::<32>()?;
     let receipt_hash = reader.fixed::<32>()?;
     let block_height = reader.u64()?;
-    let rung = match reader.u8()? {
-        0 => Rung::Submitted,
-        1 => Rung::Receipted,
-        2 => Rung::Committed,
-        _ => return Err(AgentBoundaryError::CorruptResponse),
-    };
+    let rung = decode_rung(reader.u8()?)?;
     Ok(ReceiptMaterial {
         canonical_bytes,
         authorised_batch,
@@ -4574,7 +4583,12 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        writer.fixed(&grant.signature);
+        let signature: &[u8; 65] = grant
+            .signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        writer.fixed(signature);
         let mut reader = self.exchange_secret(&writer.finish_secret())?;
         let canonical_bytes = reader.bytes()?;
         let signing_preimage = reader.bytes()?;
@@ -4929,7 +4943,8 @@ impl AgentRuntime {
             .ok_or(AgentBoundaryError::Refused)?;
         if preview.purpose != purpose.purpose
             || purpose.owner_public_key != preview.owner_public_key
-            || purpose.signature == [0; 64]
+            || purpose.signature.len() != 65
+            || purpose.signature.as_slice() == [0; 65]
         {
             return Err(AgentBoundaryError::Refused);
         }
@@ -5098,7 +5113,12 @@ impl AgentRuntime {
         writer.bytes(&grant.session_scope)?;
         writer.u64(grant.expires_at_ms);
         writer.fixed(&grant.owner_public_key);
-        writer.fixed(&grant.signature);
+        let signature: &[u8; 65] = grant
+            .signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| AgentBoundaryError::Refused)?;
+        writer.fixed(signature);
         let mut reader = self.exchange_secret(&writer.finish_secret())?;
         if reader.u16()? != 1 {
             return Err(AgentBoundaryError::CorruptResponse);
