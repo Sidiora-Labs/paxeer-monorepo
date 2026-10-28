@@ -178971,7 +178971,7 @@ qualification = "UNRUN"
 
 [task.18.1052.1]
 title = "Issue #1052: Declare esbuild for the apps/perps tests that import its types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179012,7 +179012,7 @@ qualification = "UNRUN"
 
 [task.18.1053.1]
 title = "Issue #1053: Build the asset list test Balances fixture as the UnifiedAccountDocument the SDK declares"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179053,7 +179053,7 @@ qualification = "UNRUN"
 
 [task.18.1054.1]
 title = "Issue #1054: Make the publish-images workflow and image table satisfy tools/ci/tests/publish-images.test.sh"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179136,7 +179136,7 @@ qualification = "UNRUN"
 
 [task.18.1056.1]
 title = "Issue #1056: Construct ReadProof in ai-evaluator with the fields it declares after d6f74eebd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
