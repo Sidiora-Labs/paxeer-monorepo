@@ -159,6 +159,9 @@ Each path below refuses the request, and no signature is produced. The order is 
 8. EIP-712 data that fails strict parsing: denied.
 9. Calldata that does not round-trip through the embedded ABIs: denied.
 10. Unknown inspector for a kind: denied.
+11. EIP-7702 authorisation, standalone or embedded in a transaction, whose delegate is not in `authorization_delegates`: denied with `delegate_not_allowed`. An absent or empty list denies every delegation (`services/wallet/attestor/internal/policy/policy.go:496-497`).
+
+The shipped policy keeps `authorization_delegates` empty (`services/wallet/deploy/attestor-policy.json:88`), refusing every delegation until activation sets it to exactly the gas-station paymaster address (decision.1794).
 
 ### Paths that do not fully fail closed
 
