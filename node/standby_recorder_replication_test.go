@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"math"
 	"math/big"
 	"net"
@@ -213,11 +214,21 @@ func TestStandbyReplicatesRecorderGroupsThroughOpenAccount(t *testing.T) {
 		{"issuer openAccount", ledgerCall(issuer, 2, "openAccount", asset)},
 		{"holder openAccount", ledgerCall(holder, 1, "openAccount", asset)},
 	}
+	leaseEpoch := uint64(1)
+	release("initial LEASE", 0, &wal.Lease{Epoch: leaseEpoch, KeyID: [32]byte(sequencerKeyID), ExpiryMs: uint64(at.Add(3 * time.Second).UnixMilli())})
 	for i, stage := range stages {
 		height, seq := int64(i+2), uint64(i+1)
 		at = at.Add(time.Second)
 		require.NoError(t, exec.Open(height, at.UnixMilli()), stage.name)
 		release(stage.name+" OPEN", seq-1, &wal.Open{Height: uint64(height), OpenTimeMs: uint64(at.UnixMilli()), BaseFee: uint256.NewInt(0)})
+		release(stage.name+" LEASE", seq-1, &wal.Lease{Epoch: leaseEpoch, KeyID: [32]byte(sequencerKeyID), ExpiryMs: uint64(at.Add(3 * time.Second).UnixMilli())})
+		if seq == 5 {
+			leaseEpoch++
+			release(stage.name+" later LEASE", seq-1, &wal.Lease{Epoch: leaseEpoch, KeyID: [32]byte(sequencerKeyID), ExpiryMs: uint64(at.Add(3 * time.Second).UnixMilli())})
+			// The retained window now includes the older lease, OPEN and renewal.
+			// A reconnect must resend the records without replaying a stale epoch.
+			repl.Close()
+		}
 		accepted, receipt, err := receipter.Accept(stage.tx)
 		require.NoError(t, err, stage.name)
 		require.Zero(t, accepted.Result.Code, "%s: %s", stage.name, accepted.Result.Log)
@@ -258,6 +269,14 @@ func TestStandbyReplicatesRecorderGroupsThroughOpenAccount(t *testing.T) {
 			require.Equal(t, asset, account.AssetID)
 		}
 	}
+	require.Equal(t, uint64(len(stages)), standby.LastSeq())
+	require.NoError(t, standby.Err())
+	// Admission refusals must reach the primary over TCP, including their detail.
+	_, err = repl.Release(ctx, &wal.Lease{Epoch: leaseEpoch - 1})
+	require.ErrorIs(t, err, sequencer.ErrStandbyRefused)
+	require.ErrorIs(t, standby.RefusalReason(), sequencer.ErrStaleLease)
+	require.ErrorContains(t, err, standby.RefusalReason().Error())
+	require.ErrorContains(t, err, fmt.Sprintf("epoch %d, held %d", leaseEpoch-1, leaseEpoch))
 	require.Equal(t, uint64(len(stages)), standby.LastSeq())
 	require.NoError(t, standby.Err())
 }
