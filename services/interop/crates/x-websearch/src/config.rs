@@ -23,7 +23,6 @@ pub const DEFAULT_CRAWL_INTERVAL_SECONDS: u64 = 900;
 /// The longest `crawl_interval_seconds` accepted: one day.
 pub const MAX_CRAWL_INTERVAL_SECONDS: u64 = 86_400;
 const MAX_PATH_BYTES: usize = 4_096;
-pub const MAX_DID_BYTES: usize = 255;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Refusal {
@@ -167,10 +166,10 @@ pub const DEFAULT_DRAW_FEE_LIMIT: u128 = 1_000_000_000_000;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PaymentConfig {
-    /// `payment.payer_did`: the DID whose accounts every metered draw is
+    /// `payment.payer_address`: the EVM address whose accounts every metered draw is
     /// taken from. Absent: each request names its payer in the
-    /// `LAYERX-PAYER-DID` header.
-    pub payer_did: Option<String>,
+    /// `LAYERX-PAYER-ADDRESS` header.
+    pub payer_address: Option<[u8; 20]>,
     /// `payment.draw_fee_limit`: the fee limit, as a canonical decimal
     /// string, the receiver signs into each draw and the most a draw's
     /// receipt may charge. Absent: [`DEFAULT_DRAW_FEE_LIMIT`].
@@ -184,27 +183,24 @@ pub struct PaymentConfig {
 impl Default for PaymentConfig {
     fn default() -> Self {
         Self {
-            payer_did: None,
+            payer_address: None,
             draw_fee_limit: DEFAULT_DRAW_FEE_LIMIT,
             conformance_suite: None,
         }
     }
 }
 
-/// Whether `did` is a DID a payer may be named by: `did:` followed by
-/// lowercase ASCII letters, digits, `.`, `_`, `-` and `:`, with no empty
-/// segment, no trailing `:`, no `:asset:` segment, and at most
-/// [`MAX_DID_BYTES`] bytes.
 #[must_use]
-pub fn payer_did_valid(did: &str) -> bool {
-    did.len() <= MAX_DID_BYTES
-        && did.starts_with("did:")
-        && !did.ends_with(':')
-        && !did.contains("::")
-        && !did.contains(":asset:")
-        && did
-            .bytes()
-            .all(|byte| matches!(byte, b'a'..=b'z' | b'0'..=b'9' | b'.' | b'_' | b':' | b'-'))
+pub fn parse_payer_address(text: &str) -> Option<[u8; 20]> {
+    let digits = text.strip_prefix("0x")?.as_bytes();
+    if digits.len() != 40 {
+        return None;
+    }
+    let mut address = [0; 20];
+    for (byte, pair) in address.iter_mut().zip(digits.chunks_exact(2)) {
+        *byte = (hex_nibble(pair[0])? << 4) | hex_nibble(pair[1])?;
+    }
+    Some(address)
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -909,12 +905,11 @@ fn payment(root: &mut Object) -> Result<PaymentConfig, ConfigError> {
         return Err(ConfigError::new(path, Refusal::Invalid));
     };
     let mut object = Object { path, map };
-    if let Some((value, path)) = object.optional("payer_did")? {
+    if let Some((value, path)) = object.optional("payer_address")? {
         let text = optional_text(value, &path)?;
-        if !payer_did_valid(&text) {
-            return Err(ConfigError::new(path, Refusal::Invalid));
-        }
-        config.payer_did = Some(text);
+        config.payer_address = Some(
+            parse_payer_address(&text).ok_or_else(|| ConfigError::new(path, Refusal::Invalid))?,
+        );
     }
     if let Some((value, path)) = object.optional("draw_fee_limit")? {
         let text = optional_text(value, &path)?;
