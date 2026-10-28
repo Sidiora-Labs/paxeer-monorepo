@@ -179085,18 +179085,18 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [req.181055]
 title = "Issue #1055: the explorer router only names controllers that exist"
-ac_1 = "services/explorer/backend compiles with --warnings-as-errors at main: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex no longer routes /receipts or /receipts/:id to V2.PaxeerX.ReceiptController, which fbf2ad202 deleted."
+ac_1 = "services/explorer/backend compiles with --warnings-as-errors at main: services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex no longer routes /anchors to V2.PaxeerX.AnchorController nor /receipts and /receipts/:id to V2.PaxeerX.ReceiptController, both deleted by fbf2ad202."
 
 [acceptance.18.1055.1]
 feature = "18"
 req = "181055.1"
-scenario = "Given main, when the backend compiles with warnings as errors, then no undefined controller warning is raised and the receipt routes are gone."
+scenario = "Given main, when the backend compiles with warnings as errors, then no undefined controller warning is raised and the anchor and receipt routes are gone."
 contract = "contracts/explorer-indexer.md#rpc-parity"
 test = ""
 qualification = "UNRUN"
 
 [task.18.1055.1]
-title = "Issue #1055: Remove the explorer /receipts routes that point at the deleted ReceiptController"
+title = "Issue #1055: Remove the explorer routes that point at the deleted anchor and receipt controllers"
 status = "pending"
 mode = "BUILD"
 wave = 1
@@ -179104,8 +179104,8 @@ requires = []
 reqs = ["181055.1"]
 capabilities = []
 interfaces = []
-do_1 = "Delete the two get('/receipts' ...) routes at api_router.ex:280-281 that reference V2.PaxeerX.ReceiptController, completing the deletion made by task 14.23.4."
-do_2 = "If docs/system/rpc.md still lists those two explorer routes, regenerate it with tools/docs/gen-system-docs.sh; otherwise leave it."
+do_1 = "Delete the three dangling routes at api_router.ex:279-281: get('/anchors' ...) to V2.PaxeerX.AnchorController and the two get('/receipts' ...) to V2.PaxeerX.ReceiptController; both controllers were deleted by task 14.23.4 (fbf2ad202). Leave every other route in place."
+do_2 = "If docs/system/rpc.md still lists the /anchors or /receipts explorer routes, regenerate it with tools/docs/gen-system-docs.sh; otherwise leave it."
 symbols = []
 touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex", "docs/system/rpc.md"]
 tests = []
