@@ -17,6 +17,7 @@ import { resolveGas } from '../chainReads.js';
 import { NonceBelowLatestError, NonceOutstandingError, NonceUnresolvedError, broadcastReserved, nonceUnresolvedBody, type NonceLease } from '../nonce/store.js';
 import { BroadcastOutcomeUnknownError, NonceConflictError, TransactionRejectedError, outcomeUnknownBody, sharedRpcPool, type SequencerReceiptResult } from '../rpc/pool.js';
 import { BROADCAST_GRACE_MS } from '../chain.js';
+import { PRECOMPILE_ADDRESSES, unservedPrecompileAt } from '../precompiles.js';
 
 /**
  * Shared agent execution core.
@@ -174,6 +175,18 @@ export async function executeAgentTransaction(args: {
   label?: string;
 }): Promise<ExecResult> {
   const { ctx, intent, tx, broadcast, audit } = args;
+
+  const precompile = unservedPrecompileAt(tx.to);
+  if (precompile !== null) {
+    return {
+      status: 503,
+      body: {
+        error: 'precompile_not_served',
+        precompile,
+        address: PRECOMPILE_ADDRESSES[precompile],
+      },
+    };
+  }
 
   const wallet = await getAgentWallet(ctx.did);
   if (!wallet) return { status: 409, body: { error: 'agent_wallet_not_provisioned' } };
