@@ -9179,3 +9179,12 @@ symbol = "symbols"
 observed = "Attempts 3 and 4 (38472f260) pass build and behaviour tests and fail cg spec done on symbol render-edge-trust.sh not defined in the graph; the same check fails 18.1058.1 (a test title) and would fail 18.900.1, 18.921.1, 18.922.1, 10.5.2 and 10.13.8."
 assumption = "Symbols are graph identifiers; file names and test titles removed from the seven tasks."
 severity = "minor"
+
+[finding.18.1136.1.1]
+task = "18.1136.1"
+file = "apps/bridge/vitest.config.ts:8"
+symbol = "defineConfig"
+observed = "Attempt 1 (d8e7bc915) raised the target, generated the route types and repaired most libraries, then exhausted its repairs on vitest.config.ts: the svgr and tsconfig-paths plugins are typed against a second vite copy whose Plugin type the vitest 4.0.15 vite rejects; bridge-card.tsx:210 and import.ts:87-91 also remain."
+assumption = "Dependency incoherence inside the app; do_4 and the two added touches let the next attempt align the vite versions and continue from the candidate."
+severity = "major"
+
