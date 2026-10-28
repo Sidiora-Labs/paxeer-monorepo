@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -735,6 +736,18 @@ func (n *node) printLogTail(stderr io.Writer) {
 	}
 	const tailBytes = 16 * 1024
 	if info.Size() > tailBytes {
+		// A halt may precede the tail by several rounds of consensus logging.
+		scanner := bufio.NewScanner(io.NewSectionReader(log, 0, info.Size()-tailBytes))
+		scanner.Buffer(make([]byte, 4096), 1<<20)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if strings.Contains(line, "standby refused") || strings.Contains(line, "standby stopped") || strings.Contains(line, "fences this primary") {
+				fmt.Fprintf(stderr, "recorder replication failure %s: %s\n", path, line)
+			}
+		}
+		if err := scanner.Err(); err != nil {
+			fmt.Fprintf(stderr, "scan recorder log %s: %v\n", path, err)
+		}
 		if _, err := log.Seek(-tailBytes, io.SeekEnd); err != nil {
 			fmt.Fprintf(stderr, "seek recorder log %s: %v\n", path, err)
 			return

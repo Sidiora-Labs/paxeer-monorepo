@@ -76,7 +76,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureCommittedTest do
 
     calls = [
       {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
-      {"px_getReceiptKeys", [], [key]},
+      {"px_getReceiptKeys", [], %{"keys" => [key]}},
       {"eth_getTransactionReceipt", [hash], nil}
     ]
 
@@ -87,16 +87,45 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureCommittedTest do
     assert_calls(calls)
   end
 
+  test "signature route rejects a bare receipt key list", %{conn: conn, cases: cases} do
+    vector = Map.fetch!(cases, "committed-ok")
+    hash = tx_hash(vector)
+
+    calls = [
+      {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
+      {"px_getReceiptKeys", [], [vector["pinnedKey"]]}
+    ]
+
+    serve_rpc(calls)
+    assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 404)
+    assert_calls(calls)
+  end
+
   defp committed_calls(vector, hash) do
     "0x" <> height = vector["eth_receipt"]["blockNumber"]
     height = String.to_integer(height, 16)
+    decimal_height = Integer.to_string(height)
+
+    validators = %{
+      "height" => decimal_height,
+      "total" => vector["validators"]["total"],
+      "validators" =>
+        Enum.map(vector["validators"]["validators"], fn validator ->
+          %{
+            "address" => validator["address"],
+            "pubKey" => validator["pub_key"],
+            "votingPower" => validator["voting_power"]
+          }
+        end)
+    }
 
     [
       {"pax_sequencerReceipt", [hash], vector["receiptJson"]},
-      {"px_getReceiptKeys", [], [vector["pinnedKey"]]},
+      {"px_getReceiptKeys", [], %{"keys" => [vector["pinnedKey"]]}},
       {"eth_getTransactionReceipt", [hash], vector["eth_receipt"]},
-      {"px_getCommit", [height], vector["commit"]},
-      {"px_getValidators", [height], vector["validators"]},
+      {"px_getCommit", [decimal_height],
+       %{"height" => decimal_height, "signedHeader" => vector["commit"]["signed_header"]}},
+      {"px_getValidators", [decimal_height], validators},
       {"px_getSequenceBatch", [height], vector["batch"]}
     ]
   end

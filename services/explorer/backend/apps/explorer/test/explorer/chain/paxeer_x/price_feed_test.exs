@@ -388,6 +388,27 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
       assert Enum.reverse(numbers) == [15, 10, 11, 12, 13, 14, 16, 17, 19, 20]
     end
 
+    test "a stale compaction write never moves the watermark back" do
+      Repo.insert_all(PriceFeedScannedBlock, Enum.map(10..12, &%{block_number: &1}))
+      :ok = PriceFeed.mark_unscannable(13, "failed", "unreachable")
+      :ok = PriceFeed.mark_unscannable(14, "unavailable", "pruned")
+
+      assert PriceFeed.scanned_through(10) == 9
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 14
+      assert PriceFeed.scanned_through(10) == 14
+      assert PriceFeed.advance_scanned_through(10, 12) == 14
+      assert PriceFeed.scanned_through(10) == 14
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 14
+
+      Repo.insert_all(PriceFeedScannedBlock, Enum.map([11, 15, 16, 18], &%{block_number: &1}))
+
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 16
+      assert PriceFeed.scanned_through(10) == 16
+
+      assert Repo.all(from(s in PriceFeedScannedBlock, order_by: s.block_number, select: {s.block_number, s.status})) ==
+               [{11, "scanned"}, {13, "failed"}, {14, "unavailable"}, {18, "scanned"}]
+    end
+
     test "a status outside the known set is refused" do
       assert_raise Postgrex.Error, ~r/paxeer_x_price_feed_scanned_blocks_status_check/, fn ->
         Repo.insert_all(PriceFeedScannedBlock, [%{block_number: 1, status: "done"}])

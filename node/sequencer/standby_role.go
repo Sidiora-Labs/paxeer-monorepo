@@ -197,6 +197,8 @@ func (r *standbyRoleReplay) Execute(a *wal.Accept) ([]byte, error) {
 	if verified == nil {
 		return nil, fmt.Errorf("%w: primary receipt signature or pin", wal.ErrReceiptMismatch)
 	}
+	r.r.mu.Lock()
+	defer r.r.mu.Unlock()
 	pre, err := r.exec.Snapshot()
 	if err != nil {
 		return nil, err

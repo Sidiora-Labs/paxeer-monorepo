@@ -383,7 +383,8 @@ fn ledger_account_registration_mint_and_burn_are_bound() -> Result<(), Box<dyn s
         let disclosure = bind_call(&transaction, SENDER)?;
         assert_eq!(
             disclosure.activity_type,
-            layerx_types::payload::ActivityType::new(ModuleId::Asset, ordinal)?
+            layerx_types::payload::ActivityType::new(ModuleId::Asset, ordinal)
+                .map_err(|e| format!("{e:?}"))?
         );
         assert_eq!(disclosure.asset, [3; 32]);
         assert_eq!(disclosure.payment, Some(payment.clone()));
