@@ -124,9 +124,9 @@ fn payment_log(order: &RampOrder) -> SequencerLog {
     let topics = match order.direction() {
         RampDirection::OnRamp => vec![
             Keccak256::digest(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)").into(),
+            order.order_digest,
             operator,
             customer,
-            order.order_digest,
         ],
         RampDirection::OffRamp => {
             data.extend_from_slice(&order.order_digest);
@@ -284,6 +284,14 @@ fn verify_order_receipt_accepts_matching_payment_log() {
         );
         assert_eq!(leg.height, 100);
         assert_eq!(leg.rung, Rung::Receipted);
+        if direction == RampDirection::OnRamp {
+            let mut log = payment_log(&order);
+            log.topics[1..].rotate_left(1);
+            assert_eq!(
+                verify_order_receipt(&order, &signed_evidence(&order, vec![log])),
+                Err(RampError::ReceiptMismatch)
+            );
+        }
         let mut changed = evidence.clone();
         changed.raw_transaction.push(0);
         assert_eq!(

@@ -174,6 +174,37 @@ export function spotConversionPrice(p: {
   };
 }
 
+export function spotPercentageAmount(p: {
+  side: "BUY" | "SELL";
+  sizeMode: SizeMode;
+  balance: { raw: string; decimals: number } | null;
+  pct: number;
+  price: string;
+  baseDecimals: number;
+  quoteDecimals: number;
+}): string | null {
+  if (!p.balance) return null;
+  const naturalMode = p.side === "BUY" ? "USD" : "BASE";
+  const naturalDecimals = p.side === "BUY" ? p.quoteDecimals : p.baseDecimals;
+  const balanceUnits = parseTokenAmount(
+    formatUnits(BigInt(p.balance.raw), p.balance.decimals),
+    naturalDecimals,
+  );
+  if (balanceUnits <= 0n) return null;
+  if (p.sizeMode !== naturalMode && !isPositivePrice(p.price)) return null;
+  const targetUnits = (balanceUnits * BigInt(p.pct)) / 100n;
+  const units = spotOrderUnits({
+    sizeMode: naturalMode,
+    amount: formatUnits(targetUnits, naturalDecimals),
+    price: p.price,
+    baseDecimals: p.baseDecimals,
+    quoteDecimals: p.quoteDecimals,
+  });
+  return p.sizeMode === "BASE"
+    ? formatUnits(units.baseUnits, p.baseDecimals)
+    : formatUnits(units.quoteUnits, p.quoteDecimals);
+}
+
 /**
  * Whether selling `baseUnits` (at `baseDecimals`) exceeds a holding of
  * `raw` integer units at `decimals`, compared in bigint with the holding
@@ -556,25 +587,24 @@ export function SpotOrderForm({ market, compact = false }: SpotOrderFormProps) {
 
   // ── % shortcuts ──
   const handlePctClick = (pct: number) => {
-    const max = side === "BUY" ? quoteBalance : baseBalance;
-    if (max <= 0) return;
-    const target = (max * pct) / 100;
-    if (sizeMode === (side === "BUY" ? "USD" : "BASE")) {
-      setAmount(String(target));
-    } else if (refPrice > 0) {
-      // We need to convert from the user's max in the natural unit to
-      // the displayed unit.
-      if (sizeMode === "BASE") {
-        // BUY: target was in quote; convert quote → base via price.
-        // SELL: target was already in base.
-        setAmount(side === "BUY" ? String(target / refPrice) : String(target));
-      } else {
-        // sizeMode === USD
-        setAmount(side === "BUY" ? String(target) : String(target * refPrice));
-      }
-    } else {
-      setAmount(String(target));
-    }
+    const nextAmount = spotPercentageAmount({
+      side,
+      sizeMode,
+      balance:
+        side === "BUY"
+          ? {
+              raw: Object.values(stableBalanceMap)
+                .reduce((sum, units) => sum + units, 0n)
+                .toString(),
+              decimals: decimalsStable,
+            }
+          : baseHolding,
+      pct,
+      price: conversion.price,
+      baseDecimals: market.baseDecimals,
+      quoteDecimals: decimalsStable,
+    });
+    if (nextAmount !== null) setAmount(nextAmount);
   };
 
   // Auto-tune Post-Only flag — only legal on limit + GTC.

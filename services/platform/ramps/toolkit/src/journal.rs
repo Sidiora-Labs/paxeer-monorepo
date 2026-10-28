@@ -3,13 +3,15 @@ use std::fs::{File, OpenOptions};
 use std::io::{BufRead as _, BufReader, Read as _, Seek as _, Write as _};
 use std::path::Path;
 
+use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
 use crate::migration::SourceSettlementRecordV2;
-use crate::{AggregateStatus, EXTERNAL_CUSTODY_LABEL, RampError, RampOrder, RampPresentation};
+use crate::{AggregateStatus, RampError, RampOrder, RampPresentation, EXTERNAL_CUSTODY_LABEL};
 
-const JOURNAL_DOMAIN: &[u8] = b"LXP/market-maker-ramp/journal/v1\0";
+const JOURNAL_DOMAIN: &[u8] = b"LXP/market-maker-ramp/journal/v2\0";
+const LEGACY_JOURNAL_DOMAIN: &[u8] = b"LXP/market-maker-ramp/journal/v1\0";
 const MAX_JOURNAL_RECORD_BYTES: usize = 4 * 1024 * 1024;
 const APPEND_INTENT_DOMAIN: &[u8] = b"LXP/market-maker-ramp/append-intent/v1\0";
 
@@ -45,7 +47,20 @@ pub struct TransitionEvidence {
     pub provider_evidence_digest: Option<[u8; 32]>,
     pub activity_id: Option<[u8; 32]>,
     pub canonical_activity: Option<Vec<u8>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tx_hash: Option<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub raw_transaction: Option<Vec<u8>>,
     pub receipt_digest: Option<[u8; 32]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub receipt_height: Option<u64>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        serialize_with = "serialize_rung",
+        deserialize_with = "deserialize_rung"
+    )]
+    pub rung: Option<Rung>,
     pub refusal_code: Option<String>,
     pub retry_at: Option<u64>,
 }
@@ -105,7 +120,11 @@ impl TransitionEvidence {
             provider_evidence_digest: None,
             activity_id: None,
             canonical_activity: None,
+            tx_hash: None,
+            raw_transaction: None,
             receipt_digest: None,
+            receipt_height: None,
+            rung: None,
             refusal_code: None,
             retry_at: None,
         }
@@ -159,6 +178,8 @@ pub enum Event {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 struct RecordBody {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    version: Option<u8>,
     sequence: u64,
     previous_hash: [u8; 32],
     recorded_at: u64,
@@ -168,6 +189,8 @@ struct RecordBody {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    version: Option<u8>,
     sequence: u64,
     previous_hash: [u8; 32],
     recorded_at: u64,
@@ -238,7 +261,7 @@ impl OrderSnapshot {
             external_custody_label: EXTERNAL_CUSTODY_LABEL,
             status,
             order_digest: self.order.order_digest,
-            activity_id: self.evidence.activity_id,
+            activity_id: self.evidence.tx_hash.or(self.evidence.activity_id),
             receipt_digest: self.evidence.receipt_digest,
             provider_evidence_digest: self.evidence.provider_evidence_digest,
             refusal_code,
@@ -454,10 +477,7 @@ impl Projection {
         if next == WorkflowStage::Done {
             if let Some(settlement) = self.source_settlement(order_digest) {
                 settlement.validate_order(&snapshot.order)?;
-                if snapshot.evidence.activity_id.is_none()
-                    || snapshot.evidence.canonical_activity.is_none()
-                    || snapshot.evidence.receipt_digest.is_none()
-                {
+                if payment_receipt_missing(&snapshot.evidence) {
                     return Err(RampError::IllegalTransition);
                 }
             } else if completion_missing(&snapshot.evidence) {
@@ -487,6 +507,10 @@ impl Projection {
             || snapshot.stage != WorkflowStage::AwaitingExternalCredit
             || snapshot.evidence.provider_operation_id.is_some()
             || snapshot.evidence.provider_evidence_digest.is_some()
+            || snapshot.evidence.tx_hash.is_some()
+            || snapshot.evidence.raw_transaction.is_some()
+            || snapshot.evidence.receipt_height.is_some()
+            || snapshot.evidence.rung.is_some()
             || snapshot.evidence.activity_id.is_some()
             || snapshot.evidence.canonical_activity.is_some()
             || snapshot.evidence.receipt_digest.is_some()
@@ -778,6 +802,7 @@ pub struct Journal {
     recovery: Option<TornTail>,
     fault: Option<(WriteStep, WriteFault)>,
     halted: bool,
+    legacy: bool,
 }
 
 impl Journal {
@@ -806,6 +831,7 @@ impl Journal {
             recovery: None,
             fault: None,
             halted: false,
+            legacy: false,
         };
         journal.reload()?;
         journal.halted =
@@ -823,6 +849,7 @@ impl Journal {
         self.previous_head = [0; 32];
         self.durable_len = 0;
         self.recovery = None;
+        self.legacy = false;
         let mut reader = BufReader::new(reader);
         let mut line = Vec::new();
         loop {
@@ -850,6 +877,7 @@ impl Journal {
                 return Err(RampError::Journal);
             }
             let Record {
+                version,
                 sequence,
                 previous_hash,
                 recorded_at,
@@ -859,7 +887,14 @@ impl Journal {
             if sequence != self.next_sequence || previous_hash != self.head {
                 return Err(RampError::Journal);
             }
+            let legacy = version.is_none();
+            if self.next_sequence != 0 && legacy != self.legacy {
+                return Err(RampError::Journal);
+            }
+            self.legacy = legacy;
+            validate_record_format(version, &event)?;
             let body = RecordBody {
+                version,
                 sequence,
                 previous_hash,
                 recorded_at,
@@ -901,11 +936,16 @@ impl Journal {
                     && metadata.modified().ok() == self.durable_modified
             });
         let writer_held = self._lock.held();
-        let ready = !self.halted && !uncertain && self.recovery.is_none() && durable && writer_held;
+        let ready = !self.legacy
+            && !self.halted
+            && !uncertain
+            && self.recovery.is_none()
+            && durable
+            && writer_held;
         JournalHealth {
             ready,
             writer_held,
-            halted: self.halted || !durable || uncertain,
+            halted: self.legacy || self.halted || !durable || uncertain,
             uncertain_write: uncertain || !durable,
             recovery_required: !ready,
             torn_tail: self.recovery.is_some(),
@@ -923,6 +963,9 @@ impl Journal {
             return Err(RampError::Journal);
         }
         self.reload()?;
+        if self.legacy {
+            return Err(RampError::Journal);
+        }
         let pending = self.pending_append()?;
         let observed = self.file.metadata().map_err(|_| RampError::Journal)?;
         let observed_modified = observed.modified().map_err(|_| RampError::Journal)?;
@@ -1060,7 +1103,12 @@ impl Journal {
             serde_json::from_slice(&bytes[..bytes.len() - 1]).map_err(|_| RampError::Journal)?;
         let mut canonical = serde_json::to_vec(&record).map_err(|_| RampError::Journal)?;
         canonical.push(b'\n');
+        validate_record_format(record.version, &record.event)?;
+        if record.version != Some(2) {
+            return Err(RampError::Journal);
+        }
         let body = RecordBody {
+            version: record.version,
             sequence: record.sequence,
             previous_hash: record.previous_hash,
             recorded_at: record.recorded_at,
@@ -1479,12 +1527,14 @@ impl Journal {
 
     fn append(&mut self, event: Event, recorded_at: u64) -> Result<(), RampError> {
         self.require_operational()?;
+        validate_record_format(Some(2), &event)?;
         let staged = self.projection.stage(&event)?;
         let next_sequence = self
             .next_sequence
             .checked_add(1)
             .ok_or(RampError::Journal)?;
         let body = RecordBody {
+            version: Some(2),
             sequence: self.next_sequence,
             previous_hash: self.head,
             recorded_at,
@@ -1492,6 +1542,7 @@ impl Journal {
         };
         let record_hash = record_digest(&body)?;
         let record = Record {
+            version: body.version,
             sequence: body.sequence,
             previous_hash: body.previous_hash,
             recorded_at: body.recorded_at,
@@ -1700,10 +1751,64 @@ fn open_journal(path: &Path) -> Result<File, RampError> {
         .map_err(|_| RampError::Journal)
 }
 
+fn serialize_rung<S: serde::Serializer>(
+    rung: &Option<Rung>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    rung.map(Rung::name).serialize(serializer)
+}
+
+fn deserialize_rung<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<Rung>, D::Error> {
+    let name = Option::<String>::deserialize(deserializer)?;
+    name.map(|name| {
+        Rung::from_name(&name).ok_or_else(|| serde::de::Error::custom("invalid journal rung"))
+    })
+    .transpose()
+}
+
+fn validate_record_format(version: Option<u8>, event: &Event) -> Result<(), RampError> {
+    if !matches!(version, None | Some(2)) {
+        return Err(RampError::Journal);
+    }
+    if let Event::Transition { evidence, .. } | Event::ProviderCallbackApplied { evidence, .. } =
+        event
+    {
+        let legacy = evidence.activity_id.is_some() || evidence.canonical_activity.is_some();
+        let transaction = evidence.tx_hash.is_some()
+            || evidence.raw_transaction.is_some()
+            || evidence.receipt_height.is_some()
+            || evidence.rung.is_some();
+        if (version.is_none() && transaction) || (version == Some(2) && legacy) {
+            return Err(RampError::Journal);
+        }
+    }
+    Ok(())
+}
+
+fn payment_receipt_missing(evidence: &TransitionEvidence) -> bool {
+    if evidence.activity_id.is_some() || evidence.canonical_activity.is_some() {
+        evidence.activity_id.is_none()
+            || evidence.canonical_activity.is_none()
+            || evidence.receipt_digest.is_none()
+    } else {
+        evidence.tx_hash.is_none()
+            || evidence.raw_transaction.is_none()
+            || evidence.receipt_digest.is_none()
+            || evidence.receipt_height.is_none()
+            || !matches!(evidence.rung, Some(Rung::Receipted | Rung::Committed))
+    }
+}
+
 fn record_digest(body: &RecordBody) -> Result<[u8; 32], RampError> {
     let bytes = serde_json::to_vec(body).map_err(|_| RampError::Journal)?;
     let mut hasher = Sha256::new();
-    hasher.update(JOURNAL_DOMAIN);
+    hasher.update(match body.version {
+        None => LEGACY_JOURNAL_DOMAIN,
+        Some(2) => JOURNAL_DOMAIN,
+        _ => return Err(RampError::Journal),
+    });
     hasher.update(bytes);
     Ok(hasher.finalize().into())
 }
@@ -1724,6 +1829,18 @@ fn merge_evidence(target: &mut TransitionEvidence, value: &TransitionEvidence) {
         target
             .canonical_activity
             .clone_from(&value.canonical_activity);
+    }
+    if value.tx_hash.is_some() {
+        target.tx_hash = value.tx_hash;
+    }
+    if value.raw_transaction.is_some() {
+        target.raw_transaction.clone_from(&value.raw_transaction);
+    }
+    if value.receipt_height.is_some() {
+        target.receipt_height = value.receipt_height;
+    }
+    if value.rung.is_some() {
+        target.rung = value.rung;
     }
     if value.receipt_digest.is_some() {
         target.receipt_digest = value.receipt_digest;
@@ -1752,15 +1869,30 @@ fn evidence_conflicts(existing: &TransitionEvidence, incoming: &TransitionEviden
             .zip(incoming.canonical_activity.as_ref())
             .is_some_and(|(current, next)| current != next)
         || existing
+            .tx_hash
+            .zip(incoming.tx_hash)
+            .is_some_and(|(current, next)| current != next)
+        || existing
+            .raw_transaction
+            .as_ref()
+            .zip(incoming.raw_transaction.as_ref())
+            .is_some_and(|(current, next)| current != next)
+        || existing
+            .receipt_height
+            .zip(incoming.receipt_height)
+            .is_some_and(|(current, next)| current != next)
+        || existing
+            .rung
+            .zip(incoming.rung)
+            .is_some_and(|(current, next)| next < current)
+        || existing
             .receipt_digest
             .zip(incoming.receipt_digest)
             .is_some_and(|(current, next)| current != next)
 }
 
 fn completion_missing(evidence: &TransitionEvidence) -> bool {
-    evidence.activity_id.is_none()
-        || evidence.canonical_activity.is_none()
-        || evidence.receipt_digest.is_none()
+    payment_receipt_missing(evidence)
         || evidence.provider_operation_id.is_none()
         || evidence.provider_evidence_digest.is_none()
 }
@@ -1787,14 +1919,26 @@ fn validate_resulting_evidence(
     let provider_digest = evidence
         .provider_evidence_digest
         .is_some_and(|value| value != [0; 32]);
-    let activity = evidence.activity_id.is_some_and(|value| value != [0; 32]);
-    let canonical_activity = evidence
-        .canonical_activity
-        .as_ref()
-        .is_some_and(|value| !value.is_empty() && value.len() <= 1024 * 1024);
+    let legacy = evidence.activity_id.is_some() || evidence.canonical_activity.is_some();
+    let activity = if legacy {
+        evidence.activity_id
+    } else {
+        evidence.tx_hash
+    }
+    .is_some_and(|value| value != [0; 32]);
+    let canonical_activity = if legacy {
+        &evidence.canonical_activity
+    } else {
+        &evidence.raw_transaction
+    }
+    .as_ref()
+    .is_some_and(|value| !value.is_empty() && value.len() <= 1024 * 1024);
     let receipt = evidence
         .receipt_digest
-        .is_some_and(|value| value != [0; 32]);
+        .is_some_and(|value| value != [0; 32])
+        && (legacy
+            || (evidence.receipt_height.is_some_and(|height| height != 0)
+                && matches!(evidence.rung, Some(Rung::Receipted | Rung::Committed))));
     let refusal = evidence
         .refusal_code
         .as_deref()
@@ -1810,9 +1954,11 @@ fn validate_resulting_evidence(
         }
         WorkflowStage::ProviderRefused => provider_operation && refusal,
         WorkflowStage::LayerxSubmittedUnknown | WorkflowStage::LayerxPending => {
-            activity && canonical_activity
+            activity && canonical_activity && (legacy || evidence.rung.is_some())
         }
-        WorkflowStage::LayerxSubmissionPlanned => activity && canonical_activity,
+        WorkflowStage::LayerxSubmissionPlanned => {
+            activity && canonical_activity && (legacy || evidence.rung == Some(Rung::Submitted))
+        }
         WorkflowStage::LayerxVerified | WorkflowStage::Done => {
             activity && canonical_activity && receipt
         }

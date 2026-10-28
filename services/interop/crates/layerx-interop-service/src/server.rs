@@ -1774,9 +1774,9 @@ fn ap2_executed(
         || log.topics()
             != [
                 topic,
+                payment.idempotency_key(),
                 payment.payer_receipt_account(),
                 payment.payee_receipt_account(),
-                payment.idempotency_key(),
             ]
         || log.data().len() != 64
         || log.data()[..32] != payment.asset()
@@ -2529,13 +2529,111 @@ struct FiatServicePlane {
     transaction: Vec<u8>,
     observed_at: u64,
     evidence: Option<SequencerEvidence>,
+    capture: Option<SequencerEvidence>,
     submitted: Option<[u8; 32]>,
     refusal: Option<&'static str>,
+}
+
+impl FiatServicePlane {
+    fn apply(
+        &mut self,
+        gateway: &mut GatewayCore,
+        principal: &PrincipalId,
+        token: &TokenReference,
+        evidence: &ProviderEvidence,
+        verifier: &impl ProviderVerifier,
+        trace: &TraceId,
+    ) -> Result<FiatJourneyState, layerx_interop_gateway::trace::Traced<FiatError>> {
+        self.evidence = None;
+        self.submitted = None;
+        self.refusal = None;
+        self.capture = None;
+        let facts = FiatAdapter::verify_evidence(token, evidence, verifier, trace)?;
+        if matches!(
+            facts.class,
+            EvidenceClass::Reversed | EvidenceClass::Chargeback
+        ) {
+            self.restore_capture(gateway, principal, &facts, trace)
+                .map_err(|error| trace.wrap(error))?;
+        }
+        let observed_at = self.observed_at;
+        FiatAdapter::apply(
+            gateway,
+            principal,
+            token,
+            evidence,
+            verifier,
+            self,
+            trace,
+            observed_at,
+        )
+    }
+
+    fn restore_capture(
+        &mut self,
+        gateway: &mut GatewayCore,
+        principal: &PrincipalId,
+        facts: &VerifiedProviderFacts,
+        trace: &TraceId,
+    ) -> Result<(), FiatError> {
+        let mut capture_facts = facts.clone();
+        capture_facts.class = EvidenceClass::Settled;
+        capture_facts.hold_until = None;
+        let capture_key = FiatAdapter::idempotency_key(&capture_facts);
+        let capture = match self.relay.recorded_evidence(&hex(&capture_key)) {
+            Ok(Some(RelayOutcome::Executed(capture))) => capture,
+            Ok(None | Some(RelayOutcome::Pending { .. })) => {
+                return Err(FiatError::ReceiptRequired);
+            }
+            Err(
+                RelayError::ReceiptRejected(_)
+                | RelayError::LogsRejected(_)
+                | RelayError::TransactionHashMismatch
+                | RelayError::Transaction(_),
+            ) => {
+                return Err(FiatError::ReceiptMismatch);
+            }
+            Err(_) => return Err(FiatError::ReceiptRequired),
+        };
+        let request = TranslationRequest::new(
+            AdapterId::new("fiat").map_err(|error| FiatError::Gateway(error.into()))?,
+            TranslationKind::StateChanging,
+            capture_key,
+            layerx_interop_gateway::evidence::canonical_receipt_digest(&capture.signed_receipt)
+                .map_err(FiatError::Gateway)?,
+        )
+        .map_err(FiatError::Gateway)?;
+        if gateway.translation(principal, capture_key).is_none() {
+            gateway
+                .begin_translation(principal, &request, trace, self.observed_at)
+                .map_err(|error| FiatError::Gateway(error.into_error()))?;
+        }
+        let state = FiatAdapter::settle_evidence(
+            gateway,
+            principal,
+            capture_key,
+            &capture_facts,
+            &capture,
+            &self.relay.receipt_keys,
+            trace,
+            self.observed_at,
+        )
+        .map_err(|error| error.into_error())?;
+        if !matches!(state, FiatJourneyState::Credited { .. }) {
+            return Err(FiatError::ReceiptRequired);
+        }
+        self.capture = Some(capture);
+        Ok(())
+    }
 }
 
 impl FiatPlane for FiatServicePlane {
     fn receipt_keys(&self) -> &[SequencerAuthorization] {
         &self.relay.receipt_keys
+    }
+
+    fn capture_evidence(&self, _facts: &VerifiedProviderFacts) -> Option<&SequencerEvidence> {
+        self.capture.as_ref()
     }
 
     fn execute(
@@ -2652,18 +2750,17 @@ fn fiat(
                 transaction: activity,
                 observed_at,
                 evidence: None,
+                capture: None,
                 submitted: None,
                 refusal: None,
             };
-            let outcome = FiatAdapter::apply(
+            let outcome = plane.apply(
                 &mut gateway,
                 principal,
                 &token,
                 &evidence,
                 &evidence_verifier,
-                &mut plane,
                 trace,
-                observed_at,
             );
             fiat_executed(outcome, &plane)
         }
@@ -3607,6 +3704,7 @@ mod tests {
             transaction: decode_hex(&callback.activity, MAX_BODY)?,
             observed_at: 1_700_000_000,
             evidence: None,
+            capture: None,
             submitted: None,
             refusal: None,
         };
@@ -3659,6 +3757,514 @@ mod tests {
                 receipt_digest: digest
             })
         );
+        Ok(())
+    }
+
+    fn fiat_capture_gateway(trace: &TraceId) -> X402TestResult<GatewayCore> {
+        use layerx_interop_gateway::adapter::{PinnedSpec, SpecVersion};
+        let mut gateway = GatewayCore::new();
+        let spec = PinnedSpec::new(
+            AdapterId::new("fiat")?,
+            SpecVersion::parse("1")?,
+            [0x74; 32],
+        )?;
+        let suite = ConformanceSuite::new(AdapterId::new("fiat-capture-vectors")?, 1, [0x75; 32])?;
+        gateway
+            .register_adapter(layerx_fiat::fiat_adapter_descriptor(spec, suite)?, trace, 1)
+            .map_err(|error| format!("register fiat: {error:?}"))?;
+        Ok(gateway)
+    }
+
+    fn fiat_capture_provider_evidence(
+        facts: &FiatFacts,
+        signing: &SigningKey,
+    ) -> X402TestResult<ProviderEvidence> {
+        let mut signed = FIAT_EVIDENCE_SIGNATURE_DOMAIN.to_vec();
+        signed.extend_from_slice(&serde_json::to_vec(facts)?);
+        Ok(ProviderEvidence::new(serde_json::to_vec(
+            &FiatEvidenceEnvelope {
+                facts: facts.clone(),
+                signature: hex(&signing.sign(&signed).to_bytes()),
+            },
+        )?)?)
+    }
+
+    fn fiat_capture_facts() -> X402TestResult<FiatFacts> {
+        let (raw, _, _) = relay_fixture([0x59; 32])?;
+        let (payment, _, _) = decode_pay_exact(&raw)?;
+        Ok(FiatFacts {
+            provider: "provider-capture".into(),
+            settlement: "settlement-capture".into(),
+            token_reference_sha256: hex(&Sha256::digest(b"provider-capture-token")),
+            rail: "card".into(),
+            class: "settled".into(),
+            amount: payment.amount.to_string(),
+            asset: hex(&payment.asset),
+            destination: hex(&payment.to),
+            observed_at: 1_700_000_000,
+            hold_until: None,
+        })
+    }
+
+    fn fiat_capture_plane(relay: ChainRelay, transaction: Vec<u8>) -> FiatServicePlane {
+        FiatServicePlane {
+            relay,
+            transaction,
+            observed_at: 1_700_000_000,
+            evidence: None,
+            capture: None,
+            submitted: None,
+            refusal: None,
+        }
+    }
+
+    fn fiat_capture_rpc(
+        redis: &X402RedisProcess,
+        keys: Vec<SequencerAuthorization>,
+        replies: Vec<(&'static str, Value, Value)>,
+    ) -> X402TestResult<(ChainRelay, thread::JoinHandle<Result<(), String>>)> {
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        listener.set_nonblocking(true)?;
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
+            &format!("http://{}", listener.local_addr()?),
+            &[],
+        )
+        .map_err(|error| format!("sequencer endpoint: {error:?}"))?;
+        let server = thread::spawn(move || -> Result<(), String> {
+            let deadline = Instant::now() + Duration::from_secs(8);
+            for (method, params, result) in replies {
+                let mut stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            if Instant::now() >= deadline {
+                                return Err(format!("timed out waiting for {method}"));
+                            }
+                            thread::sleep(Duration::from_millis(5));
+                        }
+                        Err(error) => return Err(error.to_string()),
+                    }
+                };
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .map_err(|e| e.to_string())?;
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(5)))
+                    .map_err(|e| e.to_string())?;
+                let request = http::read_request(&mut stream, 64 * 1024)?;
+                let rpc: Value =
+                    serde_json::from_slice(&request.body).map_err(|e| e.to_string())?;
+                assert_eq!(request.method, "POST");
+                assert_eq!(rpc["method"], method);
+                assert_eq!(rpc["params"], params);
+                http::write_response(
+                    &mut stream,
+                    &OutgoingResponse {
+                        content_type: "application/json".to_owned(),
+                        headers: vec![],
+                        status: 200,
+                        body: serde_json::to_vec(
+                            &json!({"jsonrpc":"2.0", "id":rpc["id"], "result":result}),
+                        )
+                        .map_err(|e| e.to_string())?,
+                        retry_after: None,
+                    },
+                )?;
+            }
+            assert!(
+                matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+            );
+            Ok(())
+        });
+        Ok((
+            ChainRelay {
+                endpoint: Arc::new(endpoint),
+                receipt_keys: keys,
+                journal: redis.journal()?,
+            },
+            server,
+        ))
+    }
+
+    fn fiat_refund_fixture(
+        reference: [u8; 32],
+    ) -> X402TestResult<(Vec<u8>, Value, Vec<SequencerAuthorization>)> {
+        fn replace(bytes: &mut [u8], old: &[u8], new: &[u8]) {
+            assert_eq!(old.len(), new.len());
+            let positions: Vec<_> = bytes
+                .windows(old.len())
+                .enumerate()
+                .filter_map(|(index, value)| (value == old).then_some(index))
+                .collect();
+            assert_eq!(positions.len(), 1);
+            bytes[positions[0]..positions[0] + old.len()].copy_from_slice(new);
+        }
+        let (raw, mut answer, keys) = relay_fixture(reference)?;
+        let (transfer, _, old_hash) = decode_pay_exact(&raw)?;
+        let (mut tx, _) = layerx_crypto::evm_transaction::decode_signed(&raw)?;
+        tx.data[4..36].copy_from_slice(&transfer.to);
+        tx.data[36..68].copy_from_slice(&transfer.from);
+        tx.nonce += 1;
+        let raw = tx.sign(&[0x3b; 32])?;
+        let (_, _, hash) = decode_pay_exact(&raw)?;
+        let mut receipt = decode_hex(
+            answer["receipt"]
+                .as_str()
+                .and_then(|v| v.strip_prefix("0x"))
+                .ok_or("receipt")?,
+            MAX_BODY,
+        )?;
+        let verified = verify_sequencer_signature(&receipt, keys.as_slice())
+            .map_err(|e| format!("fixture: {e:?}"))?;
+        let protocol = verified.protocol().ok_or("protocol receipt")?;
+        let old_root = protocol.resulting_state_root();
+        let mut sequence = Sha256::new();
+        sequence.update(b"PAXEER/v1/sequence\0");
+        sequence.update(protocol.previous_state_root());
+        sequence.update(protocol.global_sequence().to_be_bytes());
+        sequence.update(hash);
+        let new_root: [u8; 32] = sequence.finalize().into();
+        replace(
+            &mut receipt,
+            &[reference, transfer.from, transfer.to].concat(),
+            &[reference, transfer.to, transfer.from].concat(),
+        );
+        replace(&mut receipt, &old_hash, &hash);
+        replace(&mut receipt, &old_root, &new_root);
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        let signature_start = receipt.len() - 64;
+        receipt[signature_start..]
+            .copy_from_slice(&SigningKey::from_bytes(&[0x5e; 32]).sign(&digest).to_bytes());
+        answer["txHash"] = json!(format!("0x{}", hex(&hash)));
+        answer["nonce"] = json!(format!("0x{:x}", tx.nonce));
+        answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
+        answer["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&transfer.to)));
+        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&transfer.from)));
+        Ok((raw, answer, keys))
+    }
+
+    #[test]
+    fn fiat_capture_evidence_restores_refunds_after_restart_without_resubmission() -> X402TestResult
+    {
+        for (class, expected) in [("reversed", "reversed"), ("chargeback", "charged-back")] {
+            let trace = TraceId::mint([0x61; 16]);
+            let principal = PrincipalId::new("fiat-capture-principal")?;
+            let signing = SigningKey::from_bytes(&[0x62; 32]);
+            let pins = [FiatProviderPin {
+                provider: "provider-capture".into(),
+                public_key_ed25519: hex(signing.verifying_key().as_bytes()),
+            }];
+            let verifier = FiatEvidenceVerifier {
+                pins: &pins,
+                expected_rail: HostedAdapter::FiatCard,
+            };
+            let token = TokenReference::new(b"provider-capture-token".to_vec())?;
+            let mut facts = fiat_capture_facts()?;
+            let credit = fiat_capture_provider_evidence(&facts, &signing)?;
+            let verified = FiatAdapter::verify_evidence(&token, &credit, &verifier, &trace)
+                .map_err(|e| format!("provider: {e:?}"))?;
+            let capture_key = FiatAdapter::idempotency_key(&verified);
+            let (capture_raw, capture_receipt, keys) = relay_fixture(capture_key)?;
+            facts.class = class.into();
+            facts.hold_until = Some(facts.observed_at + 60);
+            let refund = fiat_capture_provider_evidence(&facts, &signing)?;
+            let verified = FiatAdapter::verify_evidence(&token, &refund, &verifier, &trace)
+                .map_err(|e| format!("provider: {e:?}"))?;
+            let refund_key = FiatAdapter::idempotency_key(&verified);
+            let (refund_raw, refund_receipt, _) = fiat_refund_fixture(refund_key)?;
+            let capture_query = || {
+                (
+                    "pax_sequencerReceipt",
+                    json!([capture_receipt["txHash"]]),
+                    capture_receipt.clone(),
+                )
+            };
+            let refund_query = || {
+                (
+                    "pax_sequencerReceipt",
+                    json!([refund_receipt["txHash"]]),
+                    refund_receipt.clone(),
+                )
+            };
+            let redis = X402RedisProcess::start()?;
+            let (relay, server) = fiat_capture_rpc(
+                &redis,
+                keys,
+                vec![
+                    (
+                        "eth_sendRawTransaction",
+                        json!([format!("0x{}", hex(&capture_raw))]),
+                        capture_receipt["txHash"].clone(),
+                    ),
+                    capture_query(),
+                    capture_query(),
+                    (
+                        "eth_sendRawTransaction",
+                        json!([format!("0x{}", hex(&refund_raw))]),
+                        refund_receipt["txHash"].clone(),
+                    ),
+                    (
+                        "pax_sequencerReceipt",
+                        json!([refund_receipt["txHash"]]),
+                        json!({"rung":"submitted", "txHash":refund_receipt["txHash"], "nonce":refund_receipt["nonce"]}),
+                    ),
+                    capture_query(),
+                    refund_query(),
+                    capture_query(),
+                    refund_query(),
+                ],
+            )?;
+            let mut plane = fiat_capture_plane(relay, capture_raw);
+            let mut gateway = fiat_capture_gateway(&trace)?;
+            let outcome = plane.apply(&mut gateway, &principal, &token, &credit, &verifier, &trace);
+            assert_eq!(fiat_executed(outcome, &plane).status, 200);
+            let capture = plane.evidence.clone().ok_or("capture evidence")?;
+            let capture_digest = layerx_interop_gateway::evidence::canonical_receipt_digest(
+                &capture.signed_receipt,
+            )?;
+            let relay = plane.relay;
+            let mut plane = fiat_capture_plane(relay, refund_raw);
+            for attempt in 0..3 {
+                let mut gateway = fiat_capture_gateway(&trace)?;
+                assert!(gateway.translation(&principal, capture_key).is_none());
+                let outcome =
+                    plane.apply(&mut gateway, &principal, &token, &refund, &verifier, &trace);
+                let result = fiat_executed(outcome, &plane);
+                assert_eq!(
+                    gateway.translation(&principal, capture_key),
+                    Some(TranslationStatus::ReceiptVerified {
+                        receipt_digest: capture_digest
+                    })
+                );
+                assert_eq!(plane.capture_evidence(&verified), Some(&capture));
+                if attempt == 0 {
+                    assert_eq!(result.status, 202);
+                    assert_eq!(result.result["state"], "submitted");
+                    assert!(result.receipt_hex.is_none());
+                } else {
+                    assert_eq!(result.status, 200);
+                    assert_eq!(result.durable_state, "completed");
+                    assert_eq!(result.result["state"], expected);
+                    assert_eq!(
+                        result.receipt_hex.as_deref(),
+                        refund_receipt["receipt"]
+                            .as_str()
+                            .and_then(|v| v.strip_prefix("0x"))
+                    );
+                    assert_eq!(
+                        result.activity_id.as_deref(),
+                        refund_receipt["txHash"]
+                            .as_str()
+                            .and_then(|v| v.strip_prefix("0x"))
+                    );
+                    assert_ne!(
+                        result.activity_id.as_deref(),
+                        capture_receipt["txHash"]
+                            .as_str()
+                            .and_then(|v| v.strip_prefix("0x"))
+                    );
+                }
+            }
+            server
+                .join()
+                .map_err(|_| "fiat capture fixture panicked")??;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn fiat_capture_evidence_refuses_missing_capture_and_unauthenticated_provider() -> X402TestResult
+    {
+        let trace = TraceId::mint([0x63; 16]);
+        let principal = PrincipalId::new("fiat-capture-principal")?;
+        let signing = SigningKey::from_bytes(&[0x62; 32]);
+        let pins = [FiatProviderPin {
+            provider: "provider-capture".into(),
+            public_key_ed25519: hex(signing.verifying_key().as_bytes()),
+        }];
+        let verifier = FiatEvidenceVerifier {
+            pins: &pins,
+            expected_rail: HostedAdapter::FiatCard,
+        };
+        let token = TokenReference::new(b"provider-capture-token".to_vec())?;
+        let mut facts = fiat_capture_facts()?;
+        facts.class = "reversed".into();
+        let evidence = fiat_capture_provider_evidence(&facts, &signing)?;
+        let verified = FiatAdapter::verify_evidence(&token, &evidence, &verifier, &trace)
+            .map_err(|e| format!("provider: {e:?}"))?;
+        let refund_key = FiatAdapter::idempotency_key(&verified);
+        let (raw, _, keys) = fiat_refund_fixture(refund_key)?;
+        let redis = X402RedisProcess::start()?;
+        let listener = TcpListener::bind("127.0.0.1:0")?;
+        listener.set_nonblocking(true)?;
+        let endpoint = layerx_client::sequencer::SequencerEndpoint::new(
+            &format!("http://{}", listener.local_addr()?),
+            &[],
+        )
+        .map_err(|e| format!("endpoint: {e:?}"))?;
+        let relay = ChainRelay {
+            endpoint: Arc::new(endpoint),
+            receipt_keys: keys,
+            journal: redis.journal()?,
+        };
+        let mut plane = fiat_capture_plane(relay, raw);
+        let mut gateway = fiat_capture_gateway(&trace)?;
+        let error = plane
+            .apply(
+                &mut gateway,
+                &principal,
+                &token,
+                &evidence,
+                &verifier,
+                &trace,
+            )
+            .unwrap_err();
+        assert_eq!(error.error(), &FiatError::ReceiptRequired);
+        assert!(gateway.translation(&principal, refund_key).is_none());
+        assert!(plane.relay.recorded_evidence(&hex(&refund_key))?.is_none());
+        let unauthenticated =
+            fiat_capture_provider_evidence(&facts, &SigningKey::from_bytes(&[0x99; 32]))?;
+        assert!(plane
+            .apply(
+                &mut gateway,
+                &principal,
+                &token,
+                &unauthenticated,
+                &verifier,
+                &trace
+            )
+            .is_err());
+        let wrong_token = TokenReference::new(b"other-provider-token".to_vec())?;
+        assert!(plane
+            .apply(
+                &mut gateway,
+                &principal,
+                &wrong_token,
+                &evidence,
+                &verifier,
+                &trace
+            )
+            .is_err());
+        assert!(
+            matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+        );
+        assert!(plane.capture.is_none());
+        assert!(plane.evidence.is_none());
+        assert!(plane.submitted.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn fiat_capture_evidence_refuses_unsettled_tampered_or_mismatched_capture() -> X402TestResult {
+        for failure in [
+            "submitted",
+            "signature",
+            "logs",
+            "amount",
+            "asset",
+            "destination",
+        ] {
+            let trace = TraceId::mint([0x64; 16]);
+            let principal = PrincipalId::new("fiat-capture-principal")?;
+            let signing = SigningKey::from_bytes(&[0x62; 32]);
+            let pins = [FiatProviderPin {
+                provider: "provider-capture".into(),
+                public_key_ed25519: hex(signing.verifying_key().as_bytes()),
+            }];
+            let verifier = FiatEvidenceVerifier {
+                pins: &pins,
+                expected_rail: HostedAdapter::FiatCard,
+            };
+            let token = TokenReference::new(b"provider-capture-token".to_vec())?;
+            let mut facts = fiat_capture_facts()?;
+            let credit = fiat_capture_provider_evidence(&facts, &signing)?;
+            let verified = FiatAdapter::verify_evidence(&token, &credit, &verifier, &trace)
+                .map_err(|e| format!("provider: {e:?}"))?;
+            let capture_key = FiatAdapter::idempotency_key(&verified);
+            let (capture_raw, capture_receipt, keys) = relay_fixture(capture_key)?;
+            let mut served = capture_receipt.clone();
+            let submitted = json!({"rung":"submitted", "txHash":capture_receipt["txHash"], "nonce":capture_receipt["nonce"]});
+            match failure {
+                "submitted" => served = submitted.clone(),
+                "signature" => {
+                    let value = served["receipt"].as_str().ok_or("receipt")?;
+                    let mut bytes =
+                        decode_hex(value.strip_prefix("0x").ok_or("receipt hex")?, MAX_BODY)?;
+                    *bytes.last_mut().ok_or("signature")? ^= 1;
+                    served["receipt"] = json!(format!("0x{}", hex(&bytes)));
+                }
+                "logs" => served["logs"][0]["topics"][2] = json!(format!("0x{}", "99".repeat(32))),
+                "amount" => facts.amount = "1".into(),
+                "asset" => facts.asset = "99".repeat(32),
+                "destination" => facts.destination = "99".repeat(32),
+                _ => unreachable!(),
+            }
+            facts.class = "chargeback".into();
+            let refund = fiat_capture_provider_evidence(&facts, &signing)?;
+            let verified = FiatAdapter::verify_evidence(&token, &refund, &verifier, &trace)
+                .map_err(|e| format!("provider: {e:?}"))?;
+            let refund_key = FiatAdapter::idempotency_key(&verified);
+            let (refund_raw, _, _) = fiat_refund_fixture(refund_key)?;
+            let redis = X402RedisProcess::start()?;
+            let (relay, server) = fiat_capture_rpc(
+                &redis,
+                keys,
+                vec![
+                    (
+                        "eth_sendRawTransaction",
+                        json!([format!("0x{}", hex(&capture_raw))]),
+                        capture_receipt["txHash"].clone(),
+                    ),
+                    (
+                        "pax_sequencerReceipt",
+                        json!([capture_receipt["txHash"]]),
+                        submitted,
+                    ),
+                    (
+                        "pax_sequencerReceipt",
+                        json!([capture_receipt["txHash"]]),
+                        served,
+                    ),
+                ],
+            )?;
+            let (_, sender, _) = decode_pay_exact(&capture_raw)?;
+            assert!(matches!(
+                relay.relay(&hex(&capture_key), &capture_raw, sender)?,
+                RelayOutcome::Pending { .. }
+            ));
+            let mut plane = fiat_capture_plane(relay, refund_raw);
+            let mut gateway = fiat_capture_gateway(&trace)?;
+            let error = plane
+                .apply(&mut gateway, &principal, &token, &refund, &verifier, &trace)
+                .unwrap_err();
+            let expected = if failure == "submitted" {
+                FiatError::ReceiptRequired
+            } else {
+                FiatError::ReceiptMismatch
+            };
+            assert_eq!(error.error(), &expected, "{failure}");
+            assert!(
+                !matches!(
+                    gateway.translation(&principal, capture_key),
+                    Some(TranslationStatus::ReceiptVerified { .. })
+                ),
+                "{failure}"
+            );
+            assert!(
+                gateway.translation(&principal, refund_key).is_none(),
+                "{failure}"
+            );
+            assert!(
+                plane.relay.recorded_evidence(&hex(&refund_key))?.is_none(),
+                "{failure}"
+            );
+            assert!(plane.capture.is_none(), "{failure}");
+            assert!(plane.evidence.is_none(), "{failure}");
+            assert!(plane.submitted.is_none(), "{failure}");
+            server
+                .join()
+                .map_err(|_| "fiat capture fixture panicked")??;
+        }
         Ok(())
     }
 
@@ -3721,7 +4327,11 @@ mod tests {
         sequence.update(protocol.global_sequence().to_be_bytes());
         sequence.update(hash);
         let new_root: [u8; 32] = sequence.finalize().into();
-        replace(&mut receipt, &transfer.reference, &reference);
+        replace(
+            &mut receipt,
+            &[transfer.from, transfer.to, transfer.reference].concat(),
+            &[reference, transfer.from, transfer.to].concat(),
+        );
         replace(&mut receipt, &old_hash, &hash);
         replace(&mut receipt, &old_root, &new_root);
         if old_sender != sender {
@@ -3736,7 +4346,9 @@ mod tests {
         answer["txHash"] = json!(format!("0x{}", hex(&hash)));
         answer["from"] = json!(format!("0x{}", hex(&sender)));
         answer["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&reference)));
+        answer["logs"][0]["topics"][1] = json!(format!("0x{}", hex(&reference)));
+        answer["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&transfer.from)));
+        answer["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&transfer.to)));
         Ok((raw, answer, keys))
     }
 
@@ -4395,11 +5007,10 @@ mod tests {
                 .ok_or("receipt prefix")?,
             MAX_BODY,
         )?;
-        replace(&mut receipt, &old_transfer.to, &recipient);
         replace(
             &mut receipt,
-            &old_transfer.reference,
-            &identity.idempotency_key,
+            &[old_transfer.from, old_transfer.to, old_transfer.reference].concat(),
+            &[identity.idempotency_key, old_transfer.from, recipient].concat(),
         );
         replace(&mut receipt, &old_hash, &tx_hash);
         if old_sender != sender {
@@ -4412,9 +5023,10 @@ mod tests {
         receipt_json["txHash"] = json!(format!("0x{}", hex(&tx_hash)));
         receipt_json["from"] = json!(format!("0x{}", hex(&sender)));
         receipt_json["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        receipt_json["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&recipient)));
-        receipt_json["logs"][0]["topics"][3] =
+        receipt_json["logs"][0]["topics"][1] =
             json!(format!("0x{}", hex(&identity.idempotency_key)));
+        receipt_json["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&old_transfer.from)));
+        receipt_json["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&recipient)));
         request.payment_payload.payload = json!({
             "layerxTransaction": format!("0x{}", hex(&raw)),
             "layerxIdempotencyKey": hex(&stable_identity),

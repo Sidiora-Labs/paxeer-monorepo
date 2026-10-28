@@ -7,7 +7,20 @@ export function SendOutcome({ outcome }: Readonly<{ outcome: PrecompileSendOutco
   }
   switch (outcome.outcome) {
     case "sent":
+      if (outcome.receipt === undefined) {
+        return (
+          <InlineNotice tone="warning">
+            Submitted. Awaiting confirmation. Transaction {outcome.transactionHash}. Check its status before sending again.
+          </InlineNotice>
+        );
+      }
       return <InlineNotice tone="success">Sent. Transaction {outcome.transactionHash}</InlineNotice>;
+    case "unconfirmed":
+      return (
+        <InlineNotice tone="warning">
+          Submitted, but confirmation is unavailable. Transaction {outcome.transactionHash}. Check its status before sending again.
+        </InlineNotice>
+      );
     case "reverted":
       return <InlineNotice tone="danger">Transaction {outcome.transactionHash} reverted.</InlineNotice>;
     case "cancelled":

@@ -3,6 +3,7 @@
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_receipt.h"
 
+#include <stdlib.h>
 #include <string.h>
 
 enum { PROGRAM_TRANSFER_LEG_BYTES = 112 };
@@ -37,7 +38,22 @@ static lx_account *account_by_id(lx_account_registry *accounts,
     return NULL;
 }
 
-static lxp_result source_authority_add(
+static bool principal_authorizes_from(lxp_module_ctx *ctx,
+                                      const uint8_t from[32],
+                                      const uint8_t principal[32])
+{
+    lx_programs_transfer_runtime *runtime;
+    lx_account *account;
+    uint8_t owner[32];
+    if (lxp_ct_memcmp(from, principal, 32U) == 0) return true;
+    runtime = (lx_programs_transfer_runtime *)lxp_ctx_module_runtime(ctx);
+    if (runtime == NULL) return false;
+    account = account_by_id(runtime->accounts, from);
+    return account != NULL && lx_account_owner_did(account, owner) == LXP_OK &&
+        lxp_ct_memcmp(owner, principal, 32U) == 0;
+}
+
+static lxp_result source_authority_add(lxp_module_ctx *ctx,
     lxp_transfer_source_authority
         authorities[LXP_MAX_TRANSFER_SET_LEGS],
     size_t *authority_count, const lxp_transfer_leg *leg,
@@ -48,7 +64,7 @@ static lxp_result source_authority_add(
     if (authorities == NULL || authority_count == NULL || leg == NULL ||
         leg->from == NULL || resolved == NULL)
         return LXP_ERR_NON_CANONICAL;
-    if (lxp_ct_memcmp(leg->from->id, resolved->principal, 32U) != 0)
+    if (!principal_authorizes_from(ctx, leg->from->id, resolved->principal))
         return LXP_ERR_AUTH_SCOPE;
     for (index = 0U; index < *authority_count; ++index)
         if (lxp_ct_memcmp(authorities[index].authorized_from,
@@ -94,7 +110,8 @@ lxp_result lxp_programs_transfer_decode(lxp_module_ctx *ctx,
     return LXP_OK;
 }
 
-static lxp_result authorize_leg(const programs_transfer_activity *value,
+static lxp_result authorize_leg(lxp_module_ctx *ctx,
+                                const programs_transfer_activity *value,
                                 const lxp_authority_resolved *authority,
                                 const uint8_t *leg)
 {
@@ -104,7 +121,7 @@ static lxp_result authorize_leg(const programs_transfer_activity *value,
     uint64_t asset[4];
     uint64_t to[4];
     size_t i;
-    if (lxp_ct_memcmp(leg, authority->principal, 32U) != 0)
+    if (!principal_authorizes_from(ctx, leg, authority->principal))
         return LXP_ERR_AUTH_SCOPE;
     for (i = 0U; i < 4U; ++i) {
         program[i] = read_u64(value->program_id + i * 8U);
@@ -135,7 +152,7 @@ lxp_result lxp_programs_transfer_validate(
         lxp_ct_is_zero(authority->authority_hash, 32U))
         return LXP_ERR_NON_CANONICAL;
     for (i = 0U; i < value->leg_count; ++i) {
-        status = authorize_leg(value, authority,
+        status = authorize_leg(ctx, value, authority,
                                value->legs + i * PROGRAM_TRANSFER_LEG_BYTES);
         if (status != LXP_OK) return status;
     }
@@ -166,6 +183,26 @@ lxp_result lxp_programs_transfer_execute_root(
     if (runtime == NULL || runtime->accounts == NULL || runtime->assets == NULL)
         return LXP_ERR_MODULE_DISABLED;
     sequence_account = account_by_id(runtime->accounts, authority->principal);
+    if (sequence_account == NULL) {
+        uint8_t (*account_ids)[32];
+        size_t account_count = 0U;
+        if (runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY)
+            return LXP_ERR_NON_CANONICAL;
+        account_ids = calloc(runtime->accounts->count + 1U, sizeof(*account_ids));
+        if (account_ids == NULL) return LXP_ERR_ARENA_EXHAUSTED;
+        status = lx_account_list_did(runtime->accounts, authority->principal,
+                                      account_ids, runtime->accounts->count,
+                                      &account_count);
+        for (i = 0U; status == LXP_OK && i < account_count; ++i) {
+            lx_account *account = account_by_id(runtime->accounts, account_ids[i]);
+            if (account != NULL && account->kind == LX_ACCOUNT_AGENT_MAIN) {
+                sequence_account = account;
+                break;
+            }
+        }
+        free(account_ids);
+        if (status != LXP_OK) return status;
+    }
     if (sequence_account == NULL)
         return LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE;
     (void)memset(source_authorities, 0, sizeof(source_authorities));
@@ -182,7 +219,7 @@ lxp_result lxp_programs_transfer_execute_root(
                                         read_u64(leg + 104U)};
         set.legs[i].reason = LXP_REASON_PAYMENT;
         set.legs[i].supply_mode = LXP_TRANSFER_CONSERVED;
-        status = source_authority_add(source_authorities,
+        status = source_authority_add(ctx, source_authorities,
                                       &source_authority_count,
                                       &set.legs[i], authority);
         if (status != LXP_OK) return status;

@@ -9626,3 +9626,45 @@ area = "ramps"
 symptom = "Removing the reference ramp's PaxeerConfig RPC fields or State tracker fields fails to build with E0609, E0061 and E0063."
 cause = "rebalance, rebalance_presentation, verify_recovery_settlement's sixth argument and RampEngine.registry still read them until later tasks remove those readers."
 do = "Remove the fields in the task that removes the last reader (8.31.2), not in the configuration task."
+
+[gotcha.1984]
+area = "programs"
+symptom = "A hosted Programs transfer from a ledger account is refused LXP_ERR_AUTH_SCOPE, or LXP_ERR_NON_CANONICAL when the authority hash is zero."
+cause = "src/modules/programs/transfer.c:107-108 and :51-52 accept only a leg whose from id equals authority->principal, which under decision.1329 is the DID id and never an account id; :133-136 refuse a zero authority_hash."
+do = "Debit the DID's main or asset account under task 13.25.4 and fill Kind and AuthorityHash through principalOf (13.25.5)."
+
+[gotcha.1985]
+area = "lxphost"
+symptom = "Host.Execute of ACCOUNT 0x00090006 or WIND_DOWN 0x00090007 returns the Go error LXP_ERR_MODULE_DISABLED although the Programs module is registered."
+cause = "src/protocol/lxp_kernel.c:6752-6762 gates Programs state activities on kernel->observe_commit, which only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114) sets."
+do = "Bind a Programs state feed before expecting a receipt; the error is not a registration failure."
+
+[gotcha.1986]
+area = "layerxauth"
+symptom = "A test expecting ErrIdempotentReplay for a reused idempotency key never sees it and finds nothing under host prefix 0x04."
+cause = "req.1010 (task 1.2.1) removed kernel idempotency recording; only the account sequence refuses replay, with ErrSequenceReused."
+do = "Assert ErrSequenceReused on a consumed sequence and an empty 0x04 prefix."
+
+[gotcha.1987]
+area = "sequencer"
+symptom = "A paxd standby refuses every replicated group after the first commit ('standby holds seq 1') and the primary halts in its commit listener."
+cause = "AppReplayer.Apply treats wal.Committed as a no-op and sequential.Open requires LastBlockHeight+1, so an unpeered standby stays at height 1 and Open(3) fails with a sticky refusal (node/sequencer/standby.go:323, :695-700)."
+do = "Peer the standby to the primary and, under task 5.55.6, wait for the app commit before applying Open(H+1)."
+
+[gotcha.1988]
+area = "rpc"
+symptom = "eth_gasPrice on a sequencer fails with 'pending block does not fix a base fee'."
+cause = "rpcPendingSnapshot (node/app.go:3288) forwards only Snapshot and PendingTx, so evmrpc.PendingBaseFee (rpc/info.go:376) is unsatisfied at rpc/info.go:387."
+do = "Read baseFeePerGas of eth_getBlockByNumber latest, or forward BaseFeePerGas (task 5.55.6)."
+
+[gotcha.1989]
+area = "spec"
+symptom = "cg spec done refuses 'symbol Type::method -- not defined in the graph' for a method declared in a lifetime or generic impl."
+cause = "The symbol graph does not link methods of impl Type<'_> back to Type::method (finding.11.23.3.1, finding.8.29.1.1)."
+do = "List the test functions or free symbols in symbols instead of the impl methods."
+
+[gotcha.1990]
+area = "x-websearch tests"
+symptom = "cargo test -p x-websearch fails in tests/api.rs at under_the_single_level_only_the_named_attestor_signs_and_fulfil_carries_one_signature with Error: Evm(Malformed) while the lib and payment suites pass."
+cause = "decode_request_view (src/submit.rs:291-327) accepts only the eleven-word request view, but tests/fixtures/api/evm.json still records the nine-word getRequest answer from before the view grew."
+do = "Re-record the fixture's getRequest answer as the eleven-field view (task 18.1037.1, issue #1037); never widen the decoder to accept the short answer."

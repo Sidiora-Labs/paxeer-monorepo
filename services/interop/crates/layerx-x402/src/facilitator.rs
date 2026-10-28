@@ -561,7 +561,7 @@ fn settle_executed(
             && log.topics().len() == 4
             && hex(&log.topics()[0])
                 == "c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1"
-            && log.topics()[3] == idempotency_key
+            && log.topics()[1] == idempotency_key
     });
     let payment = payments.next().ok_or(X402Error::EvidenceMismatch)?;
     if payments.next().is_some() || payment.data().len() != 64 || payment.data()[32..48] != [0; 16]
@@ -576,7 +576,7 @@ fn settle_executed(
             .try_into()
             .map_err(|_| X402Error::EvidenceMismatch)?,
     );
-    payment_matches(requirements, asset, payment.topics()[2], amount)?;
+    payment_matches(requirements, asset, payment.topics()[3], amount)?;
     let status = gateway
         .settle_with_sequencer_evidence(
             principal,
@@ -608,7 +608,7 @@ fn settle_executed(
     let response = SettlementResponse {
         success: true,
         error_reason: None,
-        payer: Some(hex(&payment.topics()[1])),
+        payer: Some(hex(&payment.topics()[2])),
         transaction: format!("0x{}", hex(&evidence.transaction_hash)),
         network: requirements.network.clone(),
         amount: Some(requirements.amount),
@@ -787,10 +787,9 @@ mod tests {
         let recipient: [u8; 32] = bytes(&accepted.pay_to)
             .try_into()
             .unwrap_or_else(|_| panic!("payee"));
-        replace(&mut receipt, &topics[2], &recipient);
-        topics[2] = recipient;
-        replace(&mut receipt, &topics[3], &[0x74; 32]);
-        topics[3] = [0x74; 32];
+        let recorded_topics = topics.concat();
+        topics = vec![topics[0], [0x74; 32], topics[1], recipient];
+        replace(&mut receipt, &recorded_topics, &topics.concat());
         let old_data = bytes(&text(&log["data"]));
         let mut data = bytes(&accepted.asset);
         data.extend_from_slice(&[0; 16]);

@@ -31,8 +31,7 @@ use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_types::payload::ModuleId;
 pub use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use layerx_x402::model::{
-    account_identifiers, AtomicAmount, PaymentRequired, PaymentRequirements, ResourceInfo,
-    X402_VERSION,
+    AtomicAmount, PaymentRequired, PaymentRequirements, ResourceInfo, X402_VERSION,
 };
 use layerx_x402::seller::{
     ExecutedPayment, LayerXPaymentRequest, PaymentPlane, PlanePaymentOutcome, Seller, SellerOutcome,
@@ -48,14 +47,15 @@ use crate::submit::{SignedTransaction, SubmitError};
 use crate::watch::{hex0x, keccak, parse_quantity};
 
 use crate::assets::{AcceptedAsset, AcceptedAssets, AssetRefusal};
-use crate::config::{payer_did_valid, AssetSymbol, Config};
+use crate::config::{parse_payer_address, Config};
 use crate::server::{Request, Response, Route, RouteError, RouteTable};
 use crate::settlement::{SettlementError, SettlementLog, SettlementReceipt, SettlementRpc};
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
-/// Names the buyer's DID so metered offers can be bound to its accounts.
+/// Names the buyer's EVM address so metered offers can be bound to its accounts.
+pub const PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS";
 pub const PAYER_DID: &str = "LAYERX-PAYER-DID";
 pub const COMMITMENT: &str = "executed";
 pub const METERED: &str = "metered";
@@ -132,22 +132,27 @@ fn sha256(parts: &[&[u8]]) -> [u8; 32] {
     hash.finalize().into()
 }
 
-/// The account `did` pays or is paid in `asset`: the main account
-/// `agent:<did>:main` for PAX, the kernel's native coin, and the per-asset
-/// account for SID, USDC and USDL.
-#[must_use]
-pub fn wallet_account(did: &str, asset: &AcceptedAsset) -> String {
-    if asset.symbol == AssetSymbol::Pax {
-        format!("agent:{did}:main")
-    } else {
-        format!("agent:{did}:asset:{}", hex(&asset.asset_id))
+fn ledger_account(
+    rpc: &SettlementRpc,
+    address: &[u8; 20],
+    asset: &AcceptedAsset,
+) -> Result<[u8; 32], SettlementError> {
+    let mut owner = [0; 32];
+    owner[12..].copy_from_slice(address);
+    let data = [
+        &keccak(b"accountId(bytes32,bytes32)")[..4],
+        &owner,
+        &asset.asset_id,
+    ]
+    .concat();
+    let account: [u8; 32] = rpc
+        .eth_call(LEDGER_PRECOMPILE, &data)?
+        .try_into()
+        .map_err(|_| SettlementError::Malformed)?;
+    if account == [0; 32] {
+        return Err(SettlementError::Malformed);
     }
-}
-
-/// The account id of a wallet reference.
-#[must_use]
-pub fn account_id(account: &str) -> Option<[u8; 32]> {
-    account_identifiers(account).ok().map(|ids| ids[1])
+    Ok(account)
 }
 
 /// The purpose every grant for this receiver's paid routes carries.
@@ -226,6 +231,56 @@ pub fn read_payer_grant(
         return Err(SettlementError::Malformed);
     }
     Ok(Some(grant))
+}
+
+pub fn read_receiver_did(
+    rpc: &SettlementRpc,
+    address: &[u8; 20],
+) -> Result<[u8; 32], SettlementError> {
+    let mut precompile = [0; 20];
+    precompile[18..].copy_from_slice(&[0x10, 0x04]);
+    let data = [&keccak(b"getLayerXDid(address)")[..4], &[0; 12], address].concat();
+    let answer = rpc.eth_call(precompile, &data)?;
+    if answer.len() != 192 {
+        return Err(SettlementError::Malformed);
+    }
+    let key: [u8; 32] = answer[..32]
+        .try_into()
+        .map_err(|_| SettlementError::Malformed)?;
+    let did = format!("did:layerx:{}", hex(&key));
+    if key == [0; 32]
+        || answer[32..63].iter().any(|byte| *byte != 0)
+        || answer[63] != 64
+        || answer[64..95].iter().any(|byte| *byte != 0)
+        || usize::from(answer[95]) != did.len()
+        || answer[96..96 + did.len()] != *did.as_bytes()
+        || answer[96 + did.len()..].iter().any(|byte| *byte != 0)
+    {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(key)
+}
+
+pub fn read_receiver_sequence(
+    rpc: &SettlementRpc,
+    did_key: &[u8; 32],
+    asset: &[u8; 32],
+) -> Result<u64, SettlementError> {
+    let data = [
+        &keccak(b"nextSequence(bytes32,bytes32)")[..4],
+        did_key,
+        asset,
+    ]
+    .concat();
+    let answer = rpc.eth_call(LEDGER_PRECOMPILE, &data)?;
+    if answer.len() != 32 || answer[..24].iter().any(|byte| *byte != 0) {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(u64::from_be_bytes(
+        answer[24..]
+            .try_into()
+            .map_err(|_| SettlementError::Malformed)?,
+    ))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -310,7 +365,7 @@ pub fn draw_calldata(
     recipient: &[u8; 32],
     amount: u128,
     idempotency_key: &[u8; 32],
-    deadline_ms: u64,
+    receiver_sequence: u64,
     purpose: &[u8; 32],
     trace: &[u8; 32],
 ) -> Vec<u8> {
@@ -322,7 +377,7 @@ pub fn draw_calldata(
     calldata.extend_from_slice(&amount.to_be_bytes());
     calldata.extend_from_slice(idempotency_key);
     calldata.extend_from_slice(&[0; 24]);
-    calldata.extend_from_slice(&deadline_ms.to_be_bytes());
+    calldata.extend_from_slice(&receiver_sequence.to_be_bytes());
     calldata.extend_from_slice(purpose);
     calldata.extend_from_slice(trace);
     calldata
@@ -593,9 +648,9 @@ pub fn decode_payment_exact(log: &SettlementLog) -> Option<PaymentExactLog> {
         return None;
     }
     Some(PaymentExactLog {
-        payer: log.topics[1],
-        payee: log.topics[2],
-        reference: log.topics[3],
+        payer: log.topics[2],
+        payee: log.topics[3],
+        reference: log.topics[1],
         asset: log.data[..32].try_into().ok()?,
         amount: u128::from_be_bytes(log.data[48..64].try_into().ok()?),
     })
@@ -1047,7 +1102,7 @@ impl std::fmt::Display for GateError {
             Self::Authorization => f.write_str("gateway authorization file or transport refused"),
             Self::Adapter => f.write_str("the 402LXP adapter cannot be registered"),
             Self::Store(error) => write!(f, "the payment store cannot be opened: {error}"),
-            Self::Payer => f.write_str("payment.payer_did does not derive a payer account"),
+            Self::Payer => f.write_str("payment.payer_address does not derive a payer account"),
             Self::Conformance => {
                 f.write_str("payment.conformance_suite does not hold the pinned conformance suite")
             }
@@ -1060,6 +1115,7 @@ impl std::error::Error for GateError {}
 struct Receiver {
     key: SigningKey,
     address: [u8; 20],
+    did_key: [u8; 32],
     purpose: [u8; 32],
     accounts: [[u8; 32]; 4],
 }
@@ -1071,7 +1127,7 @@ pub struct PaymentGate {
     network: String,
     chain_id: u64,
     receipt_keys: Vec<SequencerAuthorization>,
-    payer: Option<String>,
+    payer_address: Option<[u8; 20]>,
     draw_fee_limit: u128,
     rpc: SettlementRpc,
     store: PaymentStore,
@@ -1123,16 +1179,6 @@ impl PaymentGate {
         }
         let assets = AcceptedAssets::new(&config.assets).map_err(GateError::Assets)?;
         let payment = &config.payment;
-        if let Some(payer) = payment.payer_did.as_deref() {
-            if !payer_did_valid(payer)
-                || assets
-                    .all()
-                    .iter()
-                    .any(|asset| account_id(&wallet_account(payer, asset)).is_none())
-            {
-                return Err(GateError::Payer);
-            }
-        }
         if let Some(directory) = payment.conformance_suite.as_deref() {
             if recorded_suite(directory).ok()
                 != Some((conformance.suite_digest(), conformance.vector_count()))
@@ -1156,8 +1202,7 @@ impl PaymentGate {
             .try_lock()
             .map_err(|_| GateError::Store(io::Error::other("payment journal already open")))?;
         let address = signer_address(receiver);
-        let mut owner = [0; 32];
-        owner[12..].copy_from_slice(&address);
+        let owner = read_receiver_did(&rpc, &address).map_err(|_| GateError::Adapter)?;
         let mut accounts = [[0; 32]; 4];
         for (slot, asset) in accounts.iter_mut().zip(assets.all()) {
             let data = [
@@ -1187,12 +1232,13 @@ impl PaymentGate {
                 key: receiver.clone(),
                 purpose: purpose_hash(&address),
                 address,
+                did_key: owner,
                 accounts,
             },
             network: format!("eip155:{}", config.evm.chain_id),
             chain_id: config.evm.chain_id,
             receipt_keys: config.gateway.receipt_keys.clone(),
-            payer: payment.payer_did.clone(),
+            payer_address: payment.payer_address,
             draw_fee_limit: payment.draw_fee_limit,
             rpc,
             store,
@@ -1221,8 +1267,8 @@ impl PaymentGate {
 
     /// The configured payer every draw is taken from, if any.
     #[must_use]
-    pub fn payer(&self) -> Option<&str> {
-        self.payer.as_deref()
+    pub fn payer(&self) -> Option<[u8; 20]> {
+        self.payer_address
     }
 
     /// The fee limit each draw is signed with and may be charged.
@@ -1252,21 +1298,20 @@ impl PaymentGate {
         &self,
         asset: &AcceptedAsset,
         scheme: &str,
-        payer: Option<&str>,
-    ) -> PaymentRequirements {
-        let mut owner = [0; 32];
-        owner[12..].copy_from_slice(&self.receiver.address);
+        payer: Option<[u8; 20]>,
+    ) -> Result<PaymentRequirements, Response> {
         let mut layerx = json!({
             "commitment": COMMITMENT,
-            "account": format!("agent:did:layerx:{}:asset:{}", hex(&owner), asset.id_hex()),
+            "account": format!("agent:did:layerx:{}:asset:{}", hex(&self.receiver.did_key), asset.id_hex()),
             "currency": asset.symbol.code(),
         });
         if let (Some(payer), Some(terms)) = (payer, layerx.as_object_mut()) {
-            let payer = account_id(&wallet_account(payer, asset)).map(|id| hex(&id));
-            terms.insert("payer".to_owned(), json!(payer));
+            let payer = ledger_account(&self.rpc, &payer, asset)
+                .map_err(|_| Response::error(503, "payment_unavailable"))?;
+            terms.insert("payer".to_owned(), json!(hex(&payer)));
             terms.insert("purposeHash".to_owned(), json!(hex(&self.receiver.purpose)));
         }
-        PaymentRequirements {
+        Ok(PaymentRequirements {
             scheme: scheme.to_owned(),
             network: self.network.clone(),
             amount: AtomicAmount::from_u128(asset.price),
@@ -1274,7 +1319,7 @@ impl PaymentGate {
             pay_to: hex(&self.payee(asset)),
             max_timeout_seconds: OFFER_TIMEOUT_SECONDS,
             extra: Some(json!({ "layerx": layerx })),
-        }
+        })
     }
 
     /// The offers for one request: per asset a metered draw bound to the
@@ -1285,7 +1330,7 @@ impl PaymentGate {
     pub fn payment_required(
         &self,
         request: &Request,
-        payer: Option<&str>,
+        payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequired, Response> {
         let host = request
             .header("Host")
@@ -1301,9 +1346,9 @@ impl PaymentGate {
         let mut accepts = Vec::with_capacity(8);
         for asset in self.assets.all() {
             if payer.is_some() {
-                accepts.push(self.offer(asset, METERED, payer));
+                accepts.push(self.offer(asset, METERED, payer)?);
             }
-            accepts.push(self.offer(asset, EXACT, None));
+            accepts.push(self.offer(asset, EXACT, None)?);
         }
         Ok(PaymentRequired {
             x402_version: X402_VERSION,
@@ -1354,7 +1399,7 @@ impl PaymentGate {
             Ok(resource) => resource,
             Err(response) => return response,
         };
-        let payer = match payer_did(request, self.payer.as_deref()) {
+        let payer = match payer_address(request, self.payer_address) {
             Ok(payer) => payer,
             Err(response) => return response,
         };
@@ -1714,7 +1759,7 @@ impl PaymentGate {
             let plane = Plane {
                 gate: self,
                 resource: &payment.resource,
-                payer: self.payer.as_deref(),
+                payer: self.payer_address,
                 now_ms: (self.clock)(),
                 key: None,
                 refusal: None,
@@ -1821,18 +1866,16 @@ const fn describe(route: Route) -> &'static str {
     }
 }
 
-/// The payer a request's draws are taken from: the configured payer when
-/// there is one, which a `LAYERX-PAYER-DID` header may repeat but not
-/// contradict, and otherwise the DID the header names.
-fn payer_did<'a>(
-    request: &'a Request,
-    configured: Option<&'a str>,
-) -> Result<Option<&'a str>, Response> {
-    let named = match request.header(PAYER_DID) {
-        None => None,
-        Some(did) if payer_did_valid(did) => Some(did),
-        Some(_) => return Err(Response::error(400, "malformed_payer")),
-    };
+fn payer_address(
+    request: &Request,
+    configured: Option<[u8; 20]>,
+) -> Result<Option<[u8; 20]>, Response> {
+    let named = request
+        .header(PAYER_ADDRESS)
+        .map(|text| {
+            parse_payer_address(text).ok_or_else(|| Response::error(400, "malformed_payer"))
+        })
+        .transpose()?;
     match (configured, named) {
         (Some(configured), Some(named)) if configured != named => {
             Err(Response::error(400, "payer_mismatch"))
@@ -1870,15 +1913,10 @@ fn recorded_suite(directory: &Path) -> io::Result<([u8; 32], u64)> {
     Ok((digest.finalize().into(), rules))
 }
 
-fn principal(payer: Option<&str>) -> PrincipalId {
+fn principal(payer: Option<[u8; 20]>) -> PrincipalId {
     let name = payer.map_or_else(
         || ANONYMOUS_PRINCIPAL.to_owned(),
-        |did| {
-            format!(
-                "payer-{}",
-                hex(&sha256(&[PRINCIPAL_DOMAIN, did.as_bytes()]))
-            )
-        },
+        |address| format!("payer-{}", hex(&sha256(&[PRINCIPAL_DOMAIN, &address]))),
     );
     PrincipalId::new(name).unwrap_or_else(|_| {
         PrincipalId::new(ANONYMOUS_PRINCIPAL).unwrap_or_else(|_| unreachable!("fixed principal"))
@@ -1942,7 +1980,7 @@ type Settled = Result<PlanePaymentOutcome, &'static str>;
 struct Plane<'a> {
     gate: &'a PaymentGate,
     resource: &'a str,
-    payer: Option<&'a str>,
+    payer: Option<[u8; 20]>,
     now_ms: u64,
     key: Option<[u8; 32]>,
     refusal: Option<&'static str>,
@@ -2078,7 +2116,8 @@ impl<'Plane> Plane<'Plane> {
                 _ => "payment_pending",
             })?
             .ok_or("invalid_grant")?;
-        let payer_account = account_id(&wallet_account(payer, asset)).ok_or("payer_mismatch")?;
+        let payer_account =
+            ledger_account(&self.gate.rpc, &payer, asset).map_err(|_| "payment_pending")?;
         check_grant(
             &grant,
             &payer_account,
@@ -2100,6 +2139,13 @@ impl<'Plane> Plane<'Plane> {
             Err(_) => return Err("payment_pending"),
         }
         let rpc = &self.gate.rpc;
+        let did_key =
+            read_receiver_did(rpc, &self.gate.receiver.address).map_err(|_| "payment_pending")?;
+        if did_key != self.gate.receiver.did_key {
+            return Err("payment_pending");
+        }
+        let receiver_sequence = read_receiver_sequence(rpc, &did_key, &asset.asset_id)
+            .map_err(|_| "payment_pending")?;
         let nonce = rpc
             .pending_nonce(self.gate.receiver.address)
             .map_err(|_| "payment_pending")?;
@@ -2108,7 +2154,7 @@ impl<'Plane> Plane<'Plane> {
             &pay_to,
             asset.price,
             &receive_key,
-            self.now_ms.saturating_add(DRAW_VALIDITY_MS),
+            receiver_sequence,
             &self.gate.receiver.purpose,
             &request.request_digest,
         );
@@ -2361,8 +2407,8 @@ impl<'Plane> Plane<'Plane> {
                                 .as_ref()
                                 .is_some_and(|key| data[64..96] == key[..])
                     } else {
-                        expected.from.is_none_or(|from| topics[1] == from)
-                            && topics[2] == expected.to
+                        expected.from.is_none_or(|from| topics[2] == from)
+                            && topics[3] == expected.to
                             && data.len() == 64
                     }
                     && data[..32] == expected.asset
@@ -2410,7 +2456,9 @@ impl<'Plane> Plane<'Plane> {
             activity_id: Some(hash),
             from: self
                 .payer
-                .map(|payer| account_id(&wallet_account(payer, asset)).ok_or("payer_mismatch"))
+                .map(|payer| {
+                    ledger_account(&self.gate.rpc, &payer, asset).map_err(|_| "payment_pending")
+                })
                 .transpose()?,
             to: pay_to,
             asset: asset.asset_id,
@@ -2661,7 +2709,7 @@ mod offer_tests {
     use layerx_x402::seller::Seller;
     use serde_json::{json, Value};
 
-    use super::{PaymentGate, PAYER_DID, PAYMENT_REQUIRED};
+    use super::{PaymentGate, PAYER_ADDRESS, PAYMENT_REQUIRED};
     use crate::config::Config;
     use crate::server::{Request, Response, Route};
 
@@ -2685,10 +2733,25 @@ mod offer_tests {
             serde_json::from_str(include_str!("../tests/fixtures/gateway/metered.json"))?;
         let ledger = std::thread::spawn(move || {
             use std::io::{Read as _, Write as _};
-            let rules = recording["endpoints"]["gateway"]["*"]
+            let mut rules = recording["endpoints"]["gateway"]["*"]
                 .as_array()
-                .expect("rules");
-            for _ in 0..8 {
+                .expect("rules")
+                .clone();
+            let payer_rules: Vec<Value> = rules
+                .iter()
+                .filter_map(|rule| {
+                    let data = rule["params"][0]["data"].as_str()?;
+                    let asset = data.strip_prefix("0x3f050cbc")?.get(64..)?;
+                    let owner = format!("{:0>64}", "6813eb9362372eef6200f3b1dbc3f819671cba69");
+                    let account = super::keccak(&super::unhex(&format!("{owner}{asset}"))?);
+                    let mut payer = rule.clone();
+                    payer["params"][0]["data"] = json!(format!("0x3f050cbc{owner}{asset}"));
+                    payer["result"] = json!(format!("0x{}", super::hex(&account)));
+                    Some(payer)
+                })
+                .collect();
+            rules.extend(payer_rules);
+            for _ in 0..26 {
                 let (mut stream, _) = listener.accept().expect("ledger connection");
                 let mut raw = Vec::new();
                 let request = loop {
@@ -2741,8 +2804,7 @@ mod offer_tests {
             conformance,
             fixed_clock,
         )?;
-        ledger.join().map_err(|_| "ledger recorder failed")?;
-        let payer = format!("did:layerx:{}", super::hex(&[12; 32]));
+        let payer = gate.receiver_address();
         let request = Request {
             method: "GET".to_owned(),
             route: Route::Fetch,
@@ -2750,14 +2812,17 @@ mod offer_tests {
             query: Some("url=https%3A%2F%2Fpaxeer.app%2F".to_owned()),
             headers: vec![
                 ("Host".to_owned(), "127.0.0.1:8480".to_owned()),
-                (PAYER_DID.to_owned(), payer.clone()),
+                (
+                    PAYER_ADDRESS.to_owned(),
+                    format!("0x{}", super::hex(&payer)),
+                ),
             ],
             digest: None,
             peer: SocketAddr::from(([127, 0, 0, 1], 40_000)),
         };
 
         let required = gate
-            .payment_required(&request, Some(&payer))
+            .payment_required(&request, Some(payer))
             .map_err(|response| format!("offers refused with {}", response.status))?;
         assert_eq!(required.accepts.len(), 8);
         assert!(required
@@ -2780,6 +2845,7 @@ mod offer_tests {
         let body: Value = serde_json::from_slice(&response.body)?;
         assert_eq!(body["error"], json!("payment_required"));
         assert_eq!(body["paymentRequired"], expected);
+        ledger.join().map_err(|_| "ledger recorder failed")?;
         drop(gate);
         std::fs::remove_dir_all(&data)?;
         Ok(())

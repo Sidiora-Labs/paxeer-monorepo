@@ -308,9 +308,9 @@ impl Gateway {
                 .iter()
                 .filter(|call| {
                     call["method"] == "eth_call"
-                        && call["params"][0]["data"]
-                            .as_str()
-                            .is_some_and(|data| data.starts_with("0x3f050cbc"))
+                        && call["params"][0]["data"].as_str().is_some_and(|data| {
+                            data.starts_with("0x3f050cbc") || data.starts_with("0xd3600b24")
+                        })
                 })
                 .cloned()
                 .collect::<Vec<_>>()
@@ -864,6 +864,24 @@ fn the_pinned_conformance_suite_is_the_recorded_gateway_exchange() -> TestResult
     assert_eq!(suite.suite().as_str(), x_websearch::CONFORMANCE_SUITE);
     assert_eq!(suite.vector_count(), rules);
     assert_eq!(suite.suite_digest(), digest);
+    Ok(())
+}
+
+#[test]
+fn the_conformance_vector_count_is_the_number_of_recorded_answers() -> TestResult {
+    let mut answers = 0_u64;
+    for entry in std::fs::read_dir(fixtures().join("gateway"))? {
+        let recording: Value = serde_json::from_slice(&std::fs::read(entry?.path())?)?;
+        if let Some(endpoints) = recording.get("endpoints") {
+            let recorded_answers = endpoints
+                .pointer("/gateway/*")
+                .and_then(Value::as_array)
+                .ok_or("missing recorded gateway answers")?;
+            answers += u64::try_from(recorded_answers.len())?;
+        }
+    }
+    assert_eq!(answers, x_websearch::CONFORMANCE_VECTOR_COUNT);
+    assert_eq!(answers, x_websearch::conformance_suite()?.vector_count());
     Ok(())
 }
 

@@ -1,17 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import {
-  buildGetAccountSummary,
-  buildGetPositionMargin,
-  buildTopUpPosition,
-} from "@/core/perps/calls";
+import { buildGetAccountSummary, buildGetPositionMargin, buildTopUpPosition } from "@/core/perps/calls";
+import { PERPS_SPENDER } from "@/core/network/approvals";
+import { COLLATERAL_TOKENS } from "@/core/perps/config";
+import { ensureAllowance } from "@/hooks/spot/useSpotApprovals";
 import { readContract, writeContract, waitForTx } from "./useContract";
 import type { PositionMargin, AccountSummary, TopUpPositionArgs } from "@/types/perps";
 
 export function usePositionMargin(
   userAddress: `0x${string}` | undefined,
-  positionId: bigint | undefined
+  positionId: bigint | undefined,
 ): {
   data: PositionMargin | undefined;
   isLoading: boolean;
@@ -48,7 +47,9 @@ export function usePositionMargin(
   useEffect(() => {
     mountedRef.current = true;
     refetch();
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, [refetch]);
 
   return { data, isLoading, error, refetch };
@@ -61,29 +62,44 @@ export function useTopUpPosition(userAddress: `0x${string}` | undefined): {
 } {
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<Error | null>(null);
+  const pendingRef = useRef(false);
 
-  const execute = useCallback(async (args: TopUpPositionArgs) => {
-    if (!userAddress) throw new Error("Wallet not connected");
-    setIsPending(true);
-    setError(null);
-    try {
-      const hash = await writeContract(buildTopUpPosition(args.positionId, args.amount));
-      await waitForTx(hash);
-    } catch (e) {
-      const err = e instanceof Error ? e : new Error(String(e));
-      setError(err);
-      throw err;
-    } finally {
-      setIsPending(false);
-    }
-  }, [userAddress]);
+  const execute = useCallback(
+    async (args: TopUpPositionArgs) => {
+      if (!userAddress) throw new Error("Wallet not connected");
+      if (pendingRef.current) throw new Error("Position top-up already pending");
+      pendingRef.current = true;
+      args = { ...args };
+      setIsPending(true);
+      setError(null);
+      try {
+        buildTopUpPosition(args.positionId, args.amount);
+        await ensureAllowance({
+          token: COLLATERAL_TOKENS.usdl.address,
+          owner: userAddress,
+          spender: PERPS_SPENDER,
+          amount: args.amount,
+        });
+        const hash = await writeContract(buildTopUpPosition(args.positionId, args.amount));
+        await waitForTx(hash);
+      } catch (e) {
+        const err = e instanceof Error ? e : new Error(String(e));
+        setError(err);
+        throw err;
+      } finally {
+        pendingRef.current = false;
+        setIsPending(false);
+      }
+    },
+    [userAddress],
+  );
 
   return { execute, isPending, error };
 }
 
 export function useAccountSummary(
   userAddress: `0x${string}` | undefined,
-  tokenAddress: `0x${string}` | undefined
+  tokenAddress: `0x${string}` | undefined,
 ): {
   data: AccountSummary | undefined;
   isLoading: boolean;
@@ -100,9 +116,7 @@ export function useAccountSummary(
     setIsLoading(true);
     setError(null);
     try {
-      const result = (await readContract(
-        buildGetAccountSummary(userAddress, tokenAddress),
-      )) as AccountSummary;
+      const result = (await readContract(buildGetAccountSummary(userAddress, tokenAddress))) as AccountSummary;
 
       if (mountedRef.current) {
         setData({
@@ -121,7 +135,9 @@ export function useAccountSummary(
   useEffect(() => {
     mountedRef.current = true;
     refetch();
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, [refetch]);
 
   return { data, isLoading, error, refetch };

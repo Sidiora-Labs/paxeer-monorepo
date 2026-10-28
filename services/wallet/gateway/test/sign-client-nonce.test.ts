@@ -3,9 +3,9 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { keccak256 } from 'viem';
+import { keccak256, parseTransaction, recoverTransactionAddress } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
-import { startIdentityProvider, type IdentityProvider } from './support/identity.js';
+import { newAgentKey, startIdentityProvider, type IdentityProvider } from './support/identity.js';
 
 let idp: IdentityProvider;
 let pg: EphemeralPostgres;
@@ -60,8 +60,18 @@ const tx = (nonce?: number) => ({
   maxPriorityFeePerGas: '1000000000', ...(nonce === undefined ? {} : { nonce }),
 });
 
-describe('/v1/wallet/sign with a client nonce', () => {
+describe('/v1/wallet/sign after migration 019', () => {
   it('reserves the client nonce with the signed hash, refuses it while outstanding and below latest, and returns the broadcast deadline', async () => {
+    const migration = await poolModule.query(
+      'select filename from _migrations where filename = $1',
+      ['019_drop_retired_layerx_custody.sql'],
+    );
+    expect(migration.rows).toEqual([{ filename: '019_drop_retired_layerx_custody.sql' }]);
+    const tables = await poolModule.query(
+      `select to_regclass('public.wallet_custody_submissions')::text as retired,
+              to_regclass('public.custody_signing_reservations')::text as retained`,
+    );
+    expect(tables.rows).toEqual([{ retired: null, retained: 'custody_signing_reservations' }]);
     const user = randomUUID();
     const provisioned = await asUser(user, '/v1/wallet/provision', {});
     expect(provisioned.statusCode).toBe(200);
@@ -72,6 +82,8 @@ describe('/v1/wallet/sign with a client nonce', () => {
     expect(signed.statusCode).toBe(200);
     const body = signed.json() as { signed_tx: `0x${string}`; nonce: number; broadcast_deadline: string };
     expect(body.nonce).toBe(9);
+    expect(parseTransaction(body.signed_tx).nonce).toBe(9);
+    expect((await recoverTransactionAddress({ serializedTransaction: body.signed_tx })).toLowerCase()).toBe(address.toLowerCase());
     const { BROADCAST_GRACE_MS } = await import('../src/chain.js');
     expect(Date.parse(body.broadcast_deadline)).toBeGreaterThanOrEqual(before + BROADCAST_GRACE_MS);
     const { rows } = await poolModule.query<{ nonce: string; tx_hash: string }>(
@@ -86,5 +98,118 @@ describe('/v1/wallet/sign with a client nonce', () => {
     const gateway = await asUser(user, '/v1/wallet/sign', { tx: tx() });
     expect(gateway.statusCode).toBe(200);
     expect((gateway.json() as { nonce: number }).nonce).toBe(7);
+  });
+
+  it('keeps custody reservations exclusive to their action and chain before signing', async () => {
+    const user = randomUUID();
+    const provisioned = await asUser(user, '/v1/wallet/provision', {});
+    expect(provisioned.statusCode).toBe(200);
+    const { id, address, chain_id: chainId } = provisioned.json().wallet as {
+      id: string; address: string; chain_id: number;
+    };
+    const key = address.toLowerCase();
+    const agent = newAgentKey('nonce-reservation');
+    const actionId = randomUUID();
+    await poolModule.query(
+      `insert into agent_principals (did, label, key_fingerprint, public_key)
+       values ($1, 'nonce-reservation', $2, $3)`,
+      [agent.did, agent.publicKeyHex.slice(0, 16), agent.publicKeyHex],
+    );
+    await poolModule.query(
+      `insert into agent_actions (id, did, wallet_id, wallet_address, kind, idempotency_key, request)
+       values ($1, $2, $3, $4, 'allowance_and_call', $1, '{}'::jsonb)`,
+      [actionId, agent.did, id, address],
+    );
+    await poolModule.query(
+      `insert into custody_signing_reservations (address, chain_id, action_id, nonce)
+       values ($1, $2, $3, 7), ($1, $4, $3, 7)`,
+      [key, chainId, actionId, chainId + 1],
+    );
+    const { sharedNonceStore } = await import('../src/nonce/store.js');
+    const store = sharedNonceStore();
+    const refusal = 'wallet nonce is reserved by an action awaiting custody authorization or broadcast';
+    let callbacks = 0;
+    for (const owner of [undefined, randomUUID()]) {
+      await expect(store.withLock(address, async (lease) => {
+        callbacks += 1;
+        return lease.peek();
+      }, owner)).rejects.toThrow(refusal);
+    }
+    expect(callbacks).toBe(0);
+    const allocations = await poolModule.query('select address from nonce_allocations where address = $1', [key]);
+    expect(allocations.rows).toEqual([]);
+
+    const blocked = await asUser(user, '/v1/wallet/sign', { tx: tx() });
+    expect(blocked.statusCode).toBe(500);
+    expect(blocked.json()).toEqual({ error: 'sign_failed', detail: refusal, request_id: expect.any(String) });
+    const signatures = await poolModule.query('select id from wallet_signatures where wallet_id = $1', [id]);
+    expect(signatures.rows).toEqual([]);
+
+    latestCount = 7;
+    expect(await store.withLock(address, async (lease) => {
+      const nonce = await lease.next();
+      await lease.release(nonce);
+      return nonce;
+    }, actionId)).toBe(7);
+    const reservations = await poolModule.query(
+      `select chain_id::text, action_id, nonce::text, signed_hash from custody_signing_reservations
+       where address = $1 order by chain_id`,
+      [key],
+    );
+    expect(reservations.rows).toEqual([
+      { chain_id: String(chainId), action_id: actionId, nonce: '7', signed_hash: null },
+      { chain_id: String(chainId + 1), action_id: actionId, nonce: '7', signed_hash: null },
+    ]);
+    await poolModule.query('delete from custody_signing_reservations where address = $1 and chain_id = $2', [key, chainId]);
+    const signed = await asUser(user, '/v1/wallet/sign', { tx: tx() });
+    expect(signed.statusCode).toBe(200);
+    const body = signed.json() as { signed_tx: `0x${string}`; nonce: number };
+    expect(body.nonce).toBe(7);
+    const outstanding = await poolModule.query(
+      'select nonce::text, tx_hash from nonce_outstanding where address = $1', [key],
+    );
+    expect(outstanding.rows).toEqual([{ nonce: '7', tx_hash: keccak256(body.signed_tx) }]);
+  });
+
+  it('rolls back incomplete leases and gives concurrent sign requests distinct tracked nonces', async () => {
+    const user = randomUUID();
+    const provisioned = await asUser(user, '/v1/wallet/provision', {});
+    expect(provisioned.statusCode).toBe(200);
+    const { address } = provisioned.json().wallet as { address: string };
+    const key = address.toLowerCase();
+    const { sharedNonceStore } = await import('../src/nonce/store.js');
+    const store = sharedNonceStore();
+    latestCount = 7;
+    const failure = new Error('signing interrupted');
+    await expect(store.withLock(address, async (lease) => {
+      expect(await lease.next()).toBe(7);
+      throw failure;
+    })).rejects.toBe(failure);
+    await expect(store.withLock(address, (lease) => lease.next())).rejects.toThrow(
+      'reserved nonce 7 was neither tracked with a signed transaction hash nor released',
+    );
+    const allocations = await poolModule.query('select address from nonce_allocations where address = $1', [key]);
+    expect(allocations.rows).toEqual([]);
+    const rolledBack = await poolModule.query('select nonce from nonce_outstanding where address = $1', [key]);
+    expect(rolledBack.rows).toEqual([]);
+
+    const responses = await Promise.all([
+      asUser(user, '/v1/wallet/sign', { tx: tx() }),
+      asUser(user, '/v1/wallet/sign', { tx: tx() }),
+    ]);
+    const signed = responses.map((response) => {
+      expect(response.statusCode).toBe(200);
+      return response.json() as { signed_tx: `0x${string}`; nonce: number };
+    }).sort((a, b) => a.nonce - b.nonce);
+    expect(signed.map((body) => body.nonce)).toEqual([7, 8]);
+    for (const body of signed) {
+      expect(parseTransaction(body.signed_tx).nonce).toBe(body.nonce);
+      expect((await recoverTransactionAddress({ serializedTransaction: body.signed_tx })).toLowerCase()).toBe(key);
+    }
+    const outstanding = await poolModule.query(
+      'select nonce::text, tx_hash from nonce_outstanding where address = $1 order by nonce_outstanding.nonce',
+      [key],
+    );
+    expect(outstanding.rows).toEqual(signed.map((body) => ({ nonce: String(body.nonce), tx_hash: keccak256(body.signed_tx) })));
   });
 });
