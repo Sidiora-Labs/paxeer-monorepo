@@ -444,9 +444,14 @@ pub(crate) struct NativeDisclosureV1Wire {
 }
 
 impl NativeDisclosureV1Wire {
-    pub(crate) fn into_request(self, id: RequestId) -> Result<layerx_agent_api::identity::NativeDisclosureRequestV1, Rejection> {
-        if self.variant != "native_disclosure_v1" || self.canonical_bytes.is_empty()
-            || self.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES * 2 {
+    pub(crate) fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::NativeDisclosureRequestV1, Rejection> {
+        if self.variant != "native_disclosure_v1"
+            || self.canonical_bytes.is_empty()
+            || self.canonical_bytes.len() > layerx_wire::limits::MAX_MESSAGE_BYTES * 2
+        {
             return Err(malformed(id));
         }
         Ok(layerx_agent_api::identity::NativeDisclosureRequestV1 {
@@ -494,7 +499,10 @@ pub(crate) struct NativeEffectPrepareV1Wire {
 }
 
 impl NativeEffectPrepareV1Wire {
-    pub(crate) fn into_request(self, id: RequestId) -> Result<layerx_agent_api::identity::NativeEffectPrepareRequestV1, Rejection> {
+    pub(crate) fn into_request(
+        self,
+        id: RequestId,
+    ) -> Result<layerx_agent_api::identity::NativeEffectPrepareRequestV1, Rejection> {
         self.typed("native_effect_v1", id)
     }
 
@@ -1573,7 +1581,7 @@ pub(crate) fn policy_dry_run_request(
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProofBundleWire {
     target: String,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ProofBundleWire {
@@ -1589,7 +1597,7 @@ impl ProofBundleWire {
         Ok(ReadRequest {
             selector: layerx_agent_api::prepare::CanonicalBytes::new(bytes)
                 .map_err(|_| malformed(id))?,
-            requested_verification_level: export_level(&self.requested_verification_level, id)?,
+            requested_rung: export_level(&self.requested_rung, id)?,
         })
     }
 }
@@ -1604,7 +1612,7 @@ pub(crate) struct ExportOfflineWire {
     #[serde(default)]
     agent: Option<String>,
     fact_set: Vec<String>,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ExportOfflineWire {
@@ -1619,26 +1627,15 @@ impl ExportOfflineWire {
                 .into_iter()
                 .map(|fact| text(fact, id, FactRef::new))
                 .collect::<Result<_, _>>()?,
-            requested_verification_level: export_level(&self.requested_verification_level, id)?,
+            requested_rung: export_level(&self.requested_rung, id)?,
         })
         .map_err(|_| malformed(id))
     }
 }
 
 /// The export level spelling is the envelope's level name; any other text is malformed.
-fn export_level(text: &str, id: RequestId) -> Result<layerx_agent_api::verify::Level, Rejection> {
-    use layerx_agent_api::verify::Level;
-    [
-        Level::Unverified,
-        Level::SequencerSigned,
-        Level::BatchIncluded,
-        Level::StateProven,
-        Level::CheckpointFinalised,
-        Level::SettlementAnchored,
-    ]
-    .into_iter()
-    .find(|level| crate::agent_rpc_dispatch::level_name(*level) == text)
-    .ok_or_else(|| malformed(id))
+fn export_level(text: &str, id: RequestId) -> Result<layerx_agent_api::verify::Rung, Rejection> {
+    layerx_agent_api::verify::Rung::from_name(text).ok_or_else(|| malformed(id))
 }
 
 fn dimensions_value(dimensions: &CapabilityDimensions) -> Value {
@@ -2231,7 +2228,7 @@ pub(crate) type ProgramDeployWire = ProgramLifecycleWire;
 pub(crate) type ProgramUpgradeWire = ProgramLifecycleWire;
 pub(crate) type ProgramWindDownWire = ProgramLifecycleWire;
 
-const REQUESTED_VERIFICATION: &str = "sequencer-signed";
+const REQUESTED_VERIFICATION: &str = "submitted";
 
 fn requested_verification(value: &str, id: RequestId) -> Result<(), Rejection> {
     if value == REQUESTED_VERIFICATION {
@@ -2245,12 +2242,12 @@ fn requested_verification(value: &str, id: RequestId) -> Result<(), Rejection> {
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProgramDiscoverWire {
     program_id: String,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ProgramDiscoverWire {
     pub(crate) fn into_request(self, id: RequestId) -> Result<[u8; 32], Rejection> {
-        requested_verification(&self.requested_verification_level, id)?;
+        requested_verification(&self.requested_rung, id)?;
         hex32(&self.program_id, id)
     }
 }
@@ -2259,12 +2256,12 @@ impl ProgramDiscoverWire {
 #[serde(deny_unknown_fields)]
 pub(crate) struct ProgramActivityWire {
     activity_id: String,
-    requested_verification_level: String,
+    requested_rung: String,
 }
 
 impl ProgramActivityWire {
     pub(crate) fn into_request(self, id: RequestId) -> Result<[u8; 32], Rejection> {
-        requested_verification(&self.requested_verification_level, id)?;
+        requested_verification(&self.requested_rung, id)?;
         hex32(&self.activity_id, id)
     }
 }
@@ -3050,7 +3047,7 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
         },
     ] {
         let bytes = target.encode().expect("canonical selector");
-        let value = json!({"target": lower_hex(bytes.as_bytes()), "requested_verification_level": "BatchIncluded"});
+        let value = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted"});
         let request = decode_wire::<ProofBundleWire>(value.as_object().expect("object"), id)
             .expect("wire")
             .into_request(id)
@@ -3062,15 +3059,14 @@ fn proof_bundle_wire_keeps_native_selector_bytes_and_refuses_aliases() {
             lower_hex(bytes.as_bytes()) + "00",
             "000103".to_owned() + &"00".repeat(32),
         ] {
-            let malformed =
-                json!({"target": invalid, "requested_verification_level": "BatchIncluded"});
+            let malformed = json!({"target": invalid, "requested_rung": "receipted"});
             assert!(
                 decode_wire::<ProofBundleWire>(malformed.as_object().expect("object"), id)
                     .and_then(|wire| wire.into_request(id))
                     .is_err()
             );
         }
-        let unknown = json!({"target": lower_hex(bytes.as_bytes()), "requested_verification_level": "BatchIncluded", "authority": "caller"});
+        let unknown = json!({"target": lower_hex(bytes.as_bytes()), "requested_rung": "receipted", "authority": "caller"});
         assert!(decode_wire::<ProofBundleWire>(unknown.as_object().expect("object"), id).is_err());
     }
 }
