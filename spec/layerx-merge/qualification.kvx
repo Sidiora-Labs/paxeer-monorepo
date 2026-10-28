@@ -8980,3 +8980,42 @@ observed = "Attempt 16 (d74f4338e) edited src/modules/programs/sandbox.c and tes
 assumption = "The candidate is rebased without the kernel edits; the next attempt locates the exact kernel return site and either completes the fixture through the product path or records a kernel defect without editing src/."
 severity = "minor"
 
+[finding.18.1131.1.1]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/support/mod.rs:431"
+symbol = "StartupConfig"
+observed = "Attempt 1 (97dfaa25f) ported the two scoped files, but every layerx-agentd test target fails to build because tests/support/mod.rs:431-446 still sets expected_protocol_version and sequencer_authority_source, fields 5609ec802 (9.12.3) replaced with expected_chain_id and receipt_key_source."
+assumption = "Pre-existing at main; the task now touches tests/support/mod.rs and do_5 ports the literal."
+severity = "major"
+
+[finding.18.1132.1.1]
+task = "18.1132.1"
+file = "services/human/crates/layerx-human-service/src/activity/detail.rs:293"
+symbol = "rung_level"
+observed = "Attempts 1 and 2 (c27162cb3) ported both scoped files, but cargo build -p layerx-human-service --tests fails on the seven activity-module errors 18.1119.1 fixes, while 18.1119.1 required this task for its test support; the two tasks required each other."
+assumption = "18.1119.1 now carries the test-support port (do_7) and 18.1132.1 requires 18.1119.1, keeping its evidence_node test port."
+severity = "major"
+
+[finding.9.5.7.1]
+task = "9.5.7"
+file = "services/agent/crates/layerx-agentd/tests/native_routes_rpc.rs:9"
+symbol = "live_route"
+observed = "Attempt 1 (51c3d34be) builds, but native_receipt_route_serves_a_signed_receipt reads LAYERX_AGENT_NODE_RPC_URL and LAYERX_TEST_NATIVE_RECEIPT_HASH and panics with MissingVariable in an isolated qualification run."
+assumption = "do_7 makes the test serve its own local JSON-RPC responder; both assertions stay."
+severity = "major"
+
+[finding.18.1129.1.2]
+task = "18.1129.1"
+file = "services/interop/crates/layerx-x402/src/buyer.rs:403"
+symbol = "unhex"
+observed = "Attempts 1 to 4 fail the same 22 of 35 payment tests at main: unhex requires a 0x prefix while model.rs validates bare 64-hex assets, so every exact capture is refused with EvidenceMismatch, and the seller's evidence (seller.rs:353-357) carries no logs."
+assumption = "Issue #1133 / task 18.1133.1 fixes layerx-x402; 18.1129.1 requires it and re-records afterwards."
+severity = "major"
+
+[finding.5.55.5.7]
+task = "5.55.5"
+file = "daemon/committed-fixture/vector_v4_test.go:50"
+symbol = "TestVectorV4CommittedVerifies"
+observed = "Attempt 9 (9834674cb, base 183480b86 without 07d11e56d of 18.1126.1) halts the recorder with a consensus panic 'validator 8B91CA3C2C046956F1AD6AA1CD53460C3028ECFC not in committee' before the vector is recorded, so the vector stays the placeholder."
+assumption = "Attempt 10 runs on a base containing 18.1126.1; if the panic persists it is a new node defect to file, not a fixture change."
+severity = "major"
