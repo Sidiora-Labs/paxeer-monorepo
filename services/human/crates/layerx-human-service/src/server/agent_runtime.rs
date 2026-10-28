@@ -4054,13 +4054,13 @@ impl crate::approvals::ApprovalBoundary for AgentRuntime {
         let decode=|reader:&mut Reader| -> Result<crate::approvals::VerifiedBudgetAfter,AgentBoundaryError> {
             if reader.u16()?!=2 || reader.fixed::<32>()?!=hold.approval_id
                 || reader.fixed::<32>()?!=hold.canonical_bytes_digest {return Err(AgentBoundaryError::CorruptResponse)};
-            let remaining=reader.u128()?;let level=match reader.u8()? {
-                4=>Level::CheckpointFinalised,5=>Level::SettlementAnchored,
+            let remaining=reader.u128()?;let rung=match reader.u8()? {
+                4|5=>layerx_types::rung::Rung::Committed,
                 _=>return Err(AgentBoundaryError::CorruptResponse)};
             let evidence_digest=reader.fixed()?;let observed_at_sequence=reader.u64()?;let asset=reader.fixed::<32>()?;
             if evidence_digest==[0;32] || asset==[0;32] || observed_at_sequence!=at_sequence {
                 return Err(AgentBoundaryError::CorruptResponse)};
-            reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,level,evidence_digest,observed_at_sequence})
+            reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,rung,evidence_digest,observed_at_sequence})
         };
         decode(&mut reader).map_err(map_approval_error)
     }
