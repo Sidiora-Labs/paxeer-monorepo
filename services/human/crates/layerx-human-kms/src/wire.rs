@@ -28,6 +28,8 @@ pub(crate) enum Operation {
     EvmWallet,
     /// Version 3, operations 7 through 10 and 12: the existing JSON payload.
     Evm,
+    /// Version 3, operation 11: an EVM plan and bank recipient/amount disclosure.
+    /// Returns the signed type-2 transaction bytes.
     AuthorizeSend,
     ExportPrimary,
     /// The read-only movement executor probe: admitted only for the

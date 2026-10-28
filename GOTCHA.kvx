@@ -10230,3 +10230,16 @@ detail = "layerx-x402's seller accepts PaymentExact or PaymentDrawn while the bu
 [gotcha.2093]
 title = "The layerx full image build needs more disk than its native stage"
 detail = "docker build of layerx-chain fails in the paxd Go compile with ENOSPC after the native target built; free the build host's warm caches and dangling images before the full build, or build on a larger disk (18.849.1)."
+
+[gotcha.2094]
+title = "Two tasks that build the same image must be sequenced, not run side by side"
+detail = "18.849.1 repairs the layerx image build context and 18.869.1 verifies by building the same image; every 18.869.1 attempt failed in a step 18.849.1 owns (the builder's Go step cannot find tests/testutil/sample, which modules/epoch/module_simulation.go:15 imports) and spent its limit there. When a verify_cmd builds an artefact another pending task is repairing, add that task to requires before relaunching."
+
+[gotcha.2095]
+title = "A task that touches a test file must compile that target in its gate"
+detail = "9.6.2 added tx_hash, nonce and rung as None to the fixture of layerx-agentd tests/audit_coverage.rs and verified only audit_record_v3; the file's reconstruction test still passed IdempotencyKey and asserted two removed fields, so every all-targets build of the daemon failed afterwards (#1158). A touched test file belongs in the task's build_cmd as --test <target>."
+
+[gotcha.2096]
+title = "A task gated on a whole test target inherits that target's pre-existing failures"
+detail = "18.1156.1 (--test provider) and 18.1157.1 (--test buyer --test seller) both failed their first attempt on failures older than the issue they fix: native_setup.rs E0004 (recorded since gotcha.906) and 19 buyer tests still offering layerx:beta networks. Before gating an issue task on a whole target, check the target's last recorded result at head (qualification.kvx, GOTCHA.kvx, the last attempt that built it) and either fold the repair into the task or narrow the gate to the task's tests while another task owns the rest (#1159, #1160)."
+
