@@ -9748,3 +9748,57 @@ area = "agent daemon dependents"
 symptom = "cargo build of layerx-human-service, layerx-human-test-support, layerx-explorer-index, layerx-mcp, layerx-platform-cli, layerx-agentd-host and the human providers fails at main with E0560 on ReadRequest and HistorySelector."
 cause = "71550012a reshaped layerx-agent-api; the callers in layerx-agentd (agent_rpc_adapters.rs, human_runtime.rs, export.rs, read/proof_bundle.rs) were not ported and these crates depend on layerx-agentd. layerx-intents, layerx-human-kms, layerx-platform-authority and layerx-platform-agent-boundary fail only under cargo test (dev-dependency)."
 do = "Tasks whose gate compiles one of those crates require 9.1.8; never patch the daemon callers inside a dependent task."
+
+[gotcha.2007]
+area = "code graph symbols"
+symptom = "cg spec done reports a Rust method as not defined in the graph although it exists, when its impl header elides a lifetime (impl Foo<'_>)."
+cause = "At f93cce7 the graph records such an impl under the name _ (ast_systems.c:510-516 takes the name leaf of the generic type), so Type::method cannot find its container."
+do = "Name the symbol bare, or write the impl header with a named lifetime, until the graph fix lands."
+
+[gotcha.2008]
+area = "code graph symbols"
+symptom = "cg spec done reports Type::method as not defined in the graph when a type and method with the same names exist in two crates."
+cause = "qualified_path_score (spec.c:3787-3862) refuses a tie at the best score instead of preferring the task's touched files."
+do = "Use a symbol that is unique in the repository, or the bare method name when it is unique, until the graph fix lands."
+
+[gotcha.2009]
+area = "code graph symbols"
+symptom = "Every Elixir symbol of an explorer task fails cg spec done with not defined in the graph even when verify passes."
+cause = "cg at f93cce7 has no Elixir extractor (lang.c:146-182 lists no .ex or .exs), so no Elixir module or function is in the graph."
+do = "Elixir tasks cannot carry graph-checked symbols until an extractor exists; keep the identifiers in the do steps and tests."
+
+[gotcha.2010]
+area = "programs module"
+symptom = "Programs registerAccount, setExitRoute, deprecate and transfer calls fail with LXP_ERR_MODULE_DISABLED (-103) on the hosted kernel while sandbox and storage-retirement activities pass."
+cause = "lxp_kernel.c:6757-6762 and :4985-4988 gate LX_PROGRAMS_ACCOUNT and LX_PROGRAMS_WIND_DOWN on kernel->observe_commit, whose only installer lost its caller when 1.15.1 made the state feed optional."
+do = "Tasks that exercise those activities require 18.1073.1; do not map -103 onto an expected error."
+
+[gotcha.2011]
+area = "custody fixture"
+symptom = "Four layerx-agentd lib tests fail with Decode(MalformedPayload) or Activity on tests/fixtures/custody/daemon-light-credit-receipt."
+cause = "modules/layerxledger/types/payload_transfer.go:84-85 appends network id and protocol version to every send payload since 0991c9602; the fixture from 5ff0d17cd predates that layout and decode_activity_send demands the suffix."
+do = "Re-capture the fixture from the current encoder; never relax the decoder's suffix check."
+
+[gotcha.2012]
+area = "cargo lock"
+symptom = "Every --locked cargo command in services/platform exits 101 'the lock file needs to be updated' although no manifest changed in the task."
+cause = "eb194b27c removed layerx-paxeer-client and layerx-intents from two ramp manifests without running cargo update, so Cargo.lock still lists them under those packages; removing a dependency changes the lock as much as adding one."
+do = "Run cargo update --workspace in the same change as any manifest dependency removal and commit the lock; 18.1083.1 repairs the platform lock."
+
+[gotcha.2013]
+area = "node --test"
+symptom = "A script-style test file reports every registered test ok and then fails with 'A resource generated asynchronous activity after the test ended' and no line number."
+cause = "Top-level assertions after an await run once the registered tests have finished; node --test attributes the throw to the file, not the line."
+do = "Run the compiled file directly with node and an uncaughtException handler that prints the stack to find the failing top-level line; keep the whole-file gate."
+
+[gotcha.2014]
+area = "system docs generator"
+symptom = "tools/docs/gen-system-docs.sh exits 'rpc: cannot resolve service sequencerReceiptAPI'."
+cause = "gen_system_docs.py:67 CTOR and :81 match only New\w+ constructors while rpc/server.go:199 builds the service with newSequencerReceiptAPI."
+do = "Widen both patterns to [Nn]ew\w+ (18.1071.1); do not hand-edit docs/system pages."
+
+[gotcha.2015]
+area = "search-front bring-up test"
+symptom = "search-front.test.sh fails config_exit with JSONDecodeError on empty output, config_matches_template and config_refuses_unset."
+cause = "Since 288a967c2 the x-websearch config example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS and has no note key; fixture_env predates both."
+do = "Set the three variables in fixture_env and assert only that the rendered config has no note key (18.1070.1)."
