@@ -5759,8 +5759,8 @@ fix = "ProcessProposal REJECTs any EVM tx unless the test stores block params be
 
 [gotcha.1237]
 area = "node/app.go"
-symptom = "NewTestWrapper/TestAppOpts cannot inject node config keys."
-fix = "tests read config through ReadActivationHeight(viper) and apply it with SetActivationHeight."
+symptom = "NewTestWrapper/TestAppOpts cannot inject a sequencing activation height through node config, and no such node config key exists."
+fix = "The sequencing height is chain state: the merge plan writes it with SequencerKeeper.SetActivationHeight(ctx, H+1) (node/upgrades.go:509) and App.Sequenced reads it (node/app.go:3359); tests apply the merge plan or call app.SequencerKeeper.SetActivationHeight on the test app context."
 
 [gotcha.1238]
 area = "node/app.go"
@@ -10067,3 +10067,27 @@ area = "interop x402 fixtures"
 symptom = "After re-recording client-exchange.json most x-websearch payment tests fail with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload."
 cause = "The recorder's sequencer metadata (sequencerId, firstBatchNumber, lastBatchNumber in gateway/buyer.json) was fed into configure_with as the server's accepted receipt-key window, narrowing it to one batch."
 do = "The server fixture keeps key_id hex(&receipt_key_id()), first_height 0, last_height u64::MAX; buyer.json metadata builds only the buyer-side SequencerAuthorization in tests."
+
+[gotcha.2060]
+area = "task graph"
+symptom = "Two tasks on one crate required each other and neither could build: the crate's lib fix needed the test-support crate to compile its tests, and the test-support port's gate built every test target of the crate (18.1119.1 and 18.1132.1)."
+cause = "cargo build -p <crate> --tests compiles every integration test target, so a gate on the whole crate cannot pass while any one test target is broken by another task."
+do = "Put a test-support port in the touches of the task that fixes the crate, and gate a follow-up test task on its single --test target; never let two pending tasks require each other."
+
+[gotcha.2061]
+area = "agent test support"
+symptom = "Every layerx-agentd test target fails to build with E0560 on StartupConfig fields expected_protocol_version and sequencer_authority_source."
+cause = "5609ec802 (9.12.3) replaced those fields with expected_chain_id and receipt_key_source and ported only src and its own tests; tests/support/mod.rs:431-446 still builds the old literal."
+do = "A task that changes a pub struct compiles cargo build -p <crate> --tests in its gate; until then, port tests/support/mod.rs in the task that first needs the test targets (18.1131.1)."
+
+[gotcha.2062]
+area = "agent native routes"
+symptom = "native_routes_rpc.rs panics with MissingVariable(LAYERX_AGENT_NODE_RPC_URL) in an isolated qualification run."
+cause = "The planned test reads a live node URL and a real receipt hash from the environment instead of serving a local responder."
+do = "Planned agent tests serve their own 127.0.0.1 JSON-RPC responder (tests/handshake_gate.rs:36-88) and sign their own fixtures; no gate reads a live node from the environment."
+
+[gotcha.2063]
+area = "x402 evidence"
+symptom = "The x-websearch payment suite fails 22 of 35 tests at main with EvidenceMismatch and SettlementMismatch whatever the recorded fixtures contain."
+cause = "layerx-x402 buyer.rs:403 unhex requires a 0x prefix while model.rs:322-335 validates bare 64-hex assets, and seller.rs:353-357 emits evidence without the logs LayerXEvidence requires (issue #1133)."
+do = "Fix the crate (18.1133.1) before re-recording any exchange; a fixture re-recording cannot pass while the buyer refuses the seller's own format."
