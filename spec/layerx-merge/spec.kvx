@@ -143910,7 +143910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.12.1]
 title = "Add a gas station client for sponsored onboarding batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "11.0.2", "9.1.8", "18.1119.1"]
