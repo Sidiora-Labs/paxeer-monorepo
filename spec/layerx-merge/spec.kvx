@@ -131653,7 +131653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.8.2]
 title = "Retire agent-boundary program deployment submission and read deployment proofs from the chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.8.1", "9.1.8", "18.1083.1"]
@@ -157108,7 +157108,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.25.1]
 title = "Serve transfer of program value legs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8", "13.25.4", "13.25.5", "18.1073.1"]
