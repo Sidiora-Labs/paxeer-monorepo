@@ -63,6 +63,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       assert {:ok, _body} = OpenApiSpex.cast_value(response, schema, spec)
       assert_received {:rpc_call, "pax_sequencerReceipt", [^hash]}
       assert_received {:rpc_call, "px_getReceiptKeys", []}
+      assert_received {:rpc_call, "eth_getTransactionReceipt", [^hash]}
       refute_received {:rpc_call, _method, _params}
     end
 
@@ -112,6 +113,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
       assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/transactions/#{hash}/signature"), 404)
       assert_received {:rpc_call, "pax_sequencerReceipt", [^hash]}
       assert_received {:rpc_call, "px_getReceiptKeys", []}
+      assert_received {:rpc_call, "eth_getTransactionReceipt", [^hash]}
       refute_received {:rpc_call, _method, _params}
     end
 
@@ -146,7 +148,12 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionSignatureControllerTest do
   defp serve_rpc(hash, answer, keys) do
     bypass = Bypass.open()
     test_pid = self()
-    results = %{"pax_sequencerReceipt" => {[hash], answer}, "px_getReceiptKeys" => {[], keys}}
+
+    results = %{
+      "pax_sequencerReceipt" => {[hash], answer},
+      "px_getReceiptKeys" => {[], keys},
+      "eth_getTransactionReceipt" => {[hash], nil}
+    }
 
     Bypass.expect(bypass, "POST", "/", fn conn ->
       {:ok, body, conn} = Conn.read_body(conn)
