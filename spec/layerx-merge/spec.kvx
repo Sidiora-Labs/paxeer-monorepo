@@ -98117,7 +98117,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.5]
 title = "Shared host conformance: idempotency keys are per DID across ledger and auth"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4", "2.14.6"]
@@ -117539,7 +117539,7 @@ do_6 = "The first attempt stopped with an incomplete V4 vector because the recor
 
 [task.5.55.6]
 title = "Let the standby cross commits and serve the sequencer base fee"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 14
 requires = []
