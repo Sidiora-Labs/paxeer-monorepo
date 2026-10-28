@@ -14,6 +14,7 @@ use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_sdk::rpc::{Commitment, RpcClient, RpcError};
 use layerx_sdk::rpc_verification::ReceiptPolicy;
 use layerx_sdk::wallet::{PaymentOptions, Wallet};
+use layerx_types::clock::ClockError;
 use layerx_types::result::{KnownResult, Retriability};
 use serde_json::{json, Value};
 
@@ -53,6 +54,14 @@ fn listener(
     methods: Vec<&'static str>,
     refusal: Option<(&'static str, &'static str)>,
 ) -> (RpcClient, JoinHandle<Vec<Value>>) {
+    listener_with_rungs(methods, refusal, vec!["receipted"])
+}
+
+fn listener_with_rungs(
+    methods: Vec<&'static str>,
+    refusal: Option<(&'static str, &'static str)>,
+    rungs: Vec<&'static str>,
+) -> (RpcClient, JoinHandle<Vec<Value>>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("loopback listener");
     let endpoint = format!(
         "http://{}/rpc",
@@ -62,6 +71,7 @@ fn listener(
     let server = thread::spawn(move || {
         let mut requests = Vec::new();
         let mut submitted = None;
+        let mut rungs = rungs.into_iter();
         for method in methods {
             let deadline = Instant::now() + Duration::from_secs(10);
             let mut socket = loop {
@@ -120,7 +130,13 @@ fn listener(
                 "pax_sequencerReceipt" => {
                     let hash = submitted.as_ref().expect("submitted first");
                     assert_eq!(request["params"], json!([hash]));
-                    json!({"txHash": hash, "rung": "included", "status": "0x0", "returnData": error_data(refusal.expect("receipt revert").1)})
+                    let rung = rungs.next().expect("sequencer rung");
+                    if let Some((at, reason)) = refusal {
+                        assert_eq!(at, method);
+                        json!({"txHash": hash, "rung": rung, "status": "0x0", "returnData": error_data(reason)})
+                    } else {
+                        json!({"txHash": hash, "rung": rung, "status": "0x1"})
+                    }
                 }
                 _ => panic!("unexpected method"),
             };
@@ -336,5 +352,85 @@ fn submitted_revert_maps_through_the_registry() {
         }
         let requests = server.join().expect("RPC peer");
         assert_eq!(requests.last().expect("request")["method"], at);
+    }
+}
+
+#[test]
+fn receipted_rung_waits_on_to_committed() {
+    for (commitment, rungs) in [
+        (
+            Commitment::Batched,
+            vec!["submitted", "receipted", "committed"],
+        ),
+        (Commitment::Executed, vec!["submitted", "receipted"]),
+    ] {
+        let mut methods = preparation();
+        methods.push("eth_sendRawTransaction");
+        methods.extend(vec!["pax_sequencerReceipt"; rungs.len()]);
+        let expected_requests = methods.len();
+        let (rpc, server) = listener_with_rungs(methods, None, rungs);
+        let signer = signer();
+        let policy = policy();
+        let wallet = Wallet {
+            rpc: &rpc,
+            signer: &signer,
+            policy: &policy,
+            native_asset: [3; 32],
+        };
+        let mut options = options();
+        options.commitment = commitment;
+        options.wait_timeout = Duration::from_secs(2);
+        // The RPC verifier requires an explicit clock; reaching its refusal proves delegation.
+        assert!(matches!(
+            run(wallet.open_account([3; 32], &options)),
+            Err(RpcError::Clock(ClockError::Unavailable))
+        ));
+        let requests = server.join().expect("RPC peer");
+        assert_eq!(requests.len(), expected_requests);
+        assert_eq!(
+            requests.last().expect("committed or receipted answer")["method"],
+            "pax_sequencerReceipt"
+        );
+    }
+}
+
+#[test]
+fn receipted_rung_revert_maps_through_the_registry() {
+    for commitment in [Commitment::Executed, Commitment::Batched] {
+        let reason = "LXP_INSUFFICIENT_BALANCE: insufficient balance";
+        let mut methods = preparation();
+        methods.extend(["eth_sendRawTransaction", "pax_sequencerReceipt"]);
+        let (rpc, server) = listener(methods, Some(("pax_sequencerReceipt", reason)));
+        let signer = signer();
+        let policy = policy();
+        let wallet = Wallet {
+            rpc: &rpc,
+            signer: &signer,
+            policy: &policy,
+            native_asset: [3; 32],
+        };
+        let mut options = options();
+        options.commitment = commitment;
+        options.wait_timeout = Duration::from_secs(2);
+        match run(wallet.open_account([3; 32], &options)) {
+            Err(RpcError::Reverted {
+                code,
+                reason: actual,
+                result,
+                retriability,
+            }) => {
+                assert_eq!(code, "LXP_INSUFFICIENT_BALANCE");
+                assert_eq!(actual, reason);
+                assert_eq!(result, KnownResult::from_revert_reason(reason));
+                assert!(result.is_some());
+                assert_eq!(retriability, Retriability::Retriable);
+            }
+            _ => panic!("receipted revert must be classified before commitment verification"),
+        }
+        let requests = server.join().expect("RPC peer");
+        assert_eq!(
+            requests.last().expect("receipt request")["method"],
+            "pax_sequencerReceipt"
+        );
     }
 }
