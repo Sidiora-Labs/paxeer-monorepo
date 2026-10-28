@@ -42,8 +42,10 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/explorer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/gateway"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/indexer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/markets"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/portal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/source"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
@@ -113,6 +115,136 @@ type orderParams struct {
 type sent struct {
 	hash  common.Hash
 	block uint64
+}
+
+func TestEndToEndChainMarkets(t *testing.T) {
+	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
+		t.Fatalf("TestEndToEndChainMarkets requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
+	}
+	e := setupE2E(t)
+	ctx, cancel := context.WithTimeout(context.Background(), waitShort)
+	defer cancel()
+	metrics, err := telemetry.New(config.Indexer)
+	if err != nil {
+		t.Fatalf("telemetry: %v", err)
+	}
+	runCtx, stop := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- markets.Run(runCtx, e.db, e.client, time.Minute, metrics) }()
+	t.Cleanup(func() {
+		stop()
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("markets.Run = %v, want context.Canceled", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("markets.Run did not stop")
+		}
+	})
+	var height int64
+	for {
+		var refreshed bool
+		var block sql.NullInt64
+		if err := e.db.QueryRowContext(ctx, `SELECT count(*) > 0 AND bool_and(source = 'chain' AND refreshed_block IS NOT NULL)
+  AND min(refreshed_block) = max(refreshed_block), min(refreshed_block) FROM perps.markets`).Scan(&refreshed, &block); err != nil {
+			t.Fatalf("read markets refresh: %v", err)
+		}
+		if refreshed && block.Valid {
+			height = block.Int64
+			break
+		}
+		select {
+		case err := <-done:
+			done <- err
+			t.Fatalf("markets.Run returned before refreshing: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("markets.Run did not refresh all markets within %s: %v", waitShort, ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
+
+	perps := mustABI(t, perpsabi.ABI)
+	at := big.NewInt(height)
+	call := func(method string, args ...any) []any {
+		t.Helper()
+		input, err := perps.Pack(method, args...)
+		if err != nil {
+			t.Fatalf("pack %s: %v", method, err)
+		}
+		raw, err := e.client.CallContract(ctx, ethereum.CallMsg{To: &perpsPrecompile, Data: input}, at)
+		if err != nil {
+			t.Fatalf("call %s at %d: %v", method, height, err)
+		}
+		out, err := perps.Unpack(method, raw)
+		if err != nil {
+			t.Fatalf("unpack %s: %v", method, err)
+		}
+		return out
+	}
+	out := call("totalMarkets")
+	if len(out) != 1 {
+		t.Fatalf("totalMarkets returned %d outputs, want 1", len(out))
+	}
+	total, ok := out[0].(*big.Int)
+	if !ok || total == nil || !total.IsUint64() || total.Sign() == 0 || total.Uint64() > markets.MaxMarkets {
+		t.Fatalf("invalid totalMarkets: %v", out[0])
+	}
+	want := make(map[string]string, total.Uint64())
+	for id := uint64(0); id < total.Uint64(); id++ {
+		var decoded struct {
+			Config struct {
+				MarketId             *big.Int
+				Symbol               string
+				Name                 string
+				OracleSymbol         string
+				SzDecimals           uint8
+				PxDecimals           uint8
+				TickSize             *big.Int
+				LotSize              *big.Int
+				MaxLeverage          *big.Int
+				TierClass            uint8
+				ImpactNotionalUsd    *big.Int
+				OiCapUsd             *big.Int
+				FundingCapPpmPerHour *big.Int
+				Enabled              bool
+				ListedAt             uint64
+			}
+		}
+		if err := perps.Methods["getMarketConfig"].Outputs.Copy(&decoded, call("getMarketConfig", new(big.Int).SetUint64(id))); err != nil {
+			t.Fatalf("decode getMarketConfig(%d): %v", id, err)
+		}
+		cfg := decoded.Config
+		if cfg.MarketId == nil || !cfg.MarketId.IsUint64() || cfg.MarketId.Uint64() != id || cfg.Symbol == "" {
+			t.Fatalf("getMarketConfig(%d) returned market_id %v, symbol %q", id, cfg.MarketId, cfg.Symbol)
+		}
+		want[cfg.MarketId.String()] = cfg.Symbol
+	}
+
+	routes, err := rest.NewMarkets(e.db, nil)
+	if err != nil {
+		t.Fatalf("rest.NewMarkets: %v", err)
+	}
+	mux := http.NewServeMux()
+	routes.Register(mux)
+	var body struct {
+		Markets []rest.MarketRecord `json:"markets"`
+	}
+	getJSON(t, serve(t, mux)+"/api/markets", &body)
+	if uint64(len(body.Markets)) != total.Uint64() {
+		t.Fatalf("GET /api/markets lists %d markets, totalMarkets at %d is %s", len(body.Markets), height, total)
+	}
+	seen := make(map[string]bool, len(body.Markets))
+	for _, record := range body.Markets {
+		symbol, ok := want[record.MarketID]
+		if !ok || record.Symbol != symbol {
+			t.Fatalf("GET /api/markets record market_id %q symbol %q, getMarketConfig wants %q (known id: %t)", record.MarketID, record.Symbol, symbol, ok)
+		}
+		if seen[record.MarketID] {
+			t.Fatalf("GET /api/markets repeats market_id %s", record.MarketID)
+		}
+		seen[record.MarketID] = true
+	}
 }
 
 func TestEndToEnd(t *testing.T) {
