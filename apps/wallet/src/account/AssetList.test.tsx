@@ -40,7 +40,13 @@ async function render(scenario: Scenario): Promise<Mounted> {
 
 async function asset_list_shows_one_bank_balance_per_denom(): Promise<void> {
   const balances: Balances = {
-    account: OWNER,
+    account: {
+      evm_address: OWNER as `0x${string}`,
+      pax_address: null,
+      layerx_did: null,
+      layerx_account: null,
+      bound: false,
+    },
     height: '1000',
     balances: [
       { denom: 'apax', amount: '1234567890123456789' },
