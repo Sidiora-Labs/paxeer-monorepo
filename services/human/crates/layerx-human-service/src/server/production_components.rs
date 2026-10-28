@@ -3896,24 +3896,14 @@ impl ProductionComponents {
             .native_fee_policy()
             .map_err(agent_failure)?;
         let native_fee_budget = native_fee_consent(&request.body, &fee_policy)?;
-        let activity_types = request
-            .body
-            .get("activity_types")
-            .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| ApiFailure::invalid_request(Some("activity_types")))?
-            .iter()
-            .map(|value| {
-                let value = value
-                    .as_u64()
-                    .and_then(|value| u32::try_from(value).ok())
-                    .ok_or_else(|| ApiFailure::invalid_request(Some("activity_types")))?;
-                layerx_types::payload::ActivityType::from_u32(value)
-                    .map_err(|_| ApiFailure::invalid_request(Some("activity_types")))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
+        let purpose = text_field(&request.body, "purpose")?;
+        let activity_types = self
+            .agent_purpose_catalog
+            .activity_types(purpose)
+            .map_err(|error| agent_creation_failure(&error))?;
         let creation = CreateAgentRequest::new(
             text_field(&request.body, "name")?,
-            text_field(&request.body, "purpose")?,
+            purpose,
             amount,
             text_field(limit, "currency")?,
         )
