@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from 'next/font/google';
 import type { JSX } from 'react';
 
 import { Providers } from '@/components/bridge/providers';
+
+import { THEME_INIT } from './theme-init';
 import './globals.css';
 
 const geistSans = Geist({
@@ -30,9 +32,6 @@ export const viewport: Viewport = {
     { media: '(prefers-color-scheme: dark)', color: '#121317' },
   ],
 };
-
-/** Applies the stored dx theme before first paint (the dx ThemeProvider resolves after mount). */
-const THEME_INIT = `try{var t=localStorage.getItem("dx-theme")||"system";var d=t==="dark"||(t==="system"&&window.matchMedia("(prefers-color-scheme: dark)").matches);document.documentElement.classList.toggle("dark",d);if(localStorage.getItem("dx-accent")==="dx-gradient")document.documentElement.classList.add("accent-dx-gradient");}catch(e){}`;
 
 export default function RootLayout({ children }: LayoutProps<'/'>): JSX.Element {
   return (

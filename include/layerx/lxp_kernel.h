@@ -63,6 +63,18 @@ typedef struct lxp_module_account_snapshot {
     lxp_u128 maximum_balance;
 } lxp_module_account_snapshot;
 
+typedef struct lxp_applied_transfer_leg {
+    uint8_t from[32];
+    uint8_t to[32];
+    uint8_t asset_id[32];
+    lxp_u128 amount;
+} lxp_applied_transfer_leg;
+
+typedef struct lxp_applied_transfers {
+    lxp_applied_transfer_leg legs[LXP_MAX_TRANSFER_SET_LEGS];
+    size_t count;
+} lxp_applied_transfers;
+
 typedef struct lxp_ledger_admission_facts {
     uint8_t actor[32];
     uint8_t verified_key[32];
@@ -194,6 +206,7 @@ struct lxp_module_ctx {
         LXP_MAX_TRANSFER_SET_LEGS * 2U + 1U];
     size_t transfer_snapshot_count;
     bool transfer_applied;
+    lxp_applied_transfers applied_transfers;
     /* The live allowance the executing authority draws against. Every
      * principal-sourced transfer set the module emits presents it to the
      * ledger; the pre-charge scope is kept so an unwind restores it. A
@@ -277,6 +290,7 @@ typedef struct lxp_kernel {
     uint64_t pending_batch_last_sequence;
     uint32_t pending_batch_publication_index;
     void *module_runtime[LXP_MODULE_RESERVED_COUNT + 1U];
+    lxp_applied_transfers *applied_transfers_out;
     uint8_t current_state_root[32];
     struct lxp_capacity_ledger *capacity;
 } lxp_kernel;
@@ -422,6 +436,7 @@ typedef struct lxp_kernel_execution {
     lxp_byte_span *replay_witness_out;
     lxp_byte_span *replay_metadata_proof_out;
     bool binding_authority;
+    lxp_applied_transfers applied_transfers;
 } lxp_kernel_execution;
 #define lxp_kernel_execution lxp_kernel_execution
 
