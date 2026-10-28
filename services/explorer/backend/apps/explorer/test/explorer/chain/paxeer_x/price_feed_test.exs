@@ -128,6 +128,53 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   end
 
   describe "reads" do
+    test "latest_per_market and market_updates skip failed submissions and refused observations", %{update: update} do
+      [older, newer] = Enum.map([10, 11], &insert(:block, number: &1))
+      observation = hd(update.observations)
+      accepted = %{update | observations: [observation]}
+
+      refused = %{
+        update
+        | hash: "0x" <> String.duplicate("ab", 32),
+          index: 0,
+          observations: [%{observation | accepted: false, index_price: observation.index_price + 1}]
+      }
+
+      failed = %{
+        update
+        | hash: "0x" <> String.duplicate("cd", 32),
+          index: 1,
+          status: 0,
+          observations: [%{observation | accepted: true, index_price: observation.index_price + 2}]
+      }
+
+      assert {:ok, 1} = PriceFeed.replace_block_updates(older, [accepted])
+      assert {:ok, 2} = PriceFeed.replace_block_updates(newer, [refused, failed])
+      assert 1 == PriceFeed.upsert_markets([%{market_id: 0, symbol: "BTC", chainflow_symbol: "BTC"}])
+
+      assert [{%PriceMarket{market_id: 0}, %PriceObservation{block_number: 10, accepted: true} = latest}] =
+               PriceFeed.latest_per_market()
+
+      assert to_string(latest.update_hash) == accepted.hash
+      assert latest.update.status == 1
+      assert Decimal.equal?(latest.index_price, observation.index_price)
+
+      assert [%PriceObservation{block_number: 10, accepted: true} = historical] =
+               PriceFeed.market_updates(0, %PagingOptions{page_size: 10})
+
+      assert historical.update_hash == latest.update_hash
+      assert historical.update.status == 1
+      assert Decimal.equal?(historical.index_price, observation.index_price)
+
+      assert [%{status: 0}, %{status: 1}, %{status: 1}] = PriceFeed.list_updates(%PagingOptions{page_size: 10})
+
+      assert %PriceUpdate{status: 1, observations: [%PriceObservation{accepted: false}]} =
+               PriceFeed.update_by_hash(refused.hash)
+
+      assert %PriceUpdate{status: 0, observations: [%PriceObservation{accepted: true}]} =
+               PriceFeed.update_by_hash(failed.hash)
+    end
+
     test "hide submissions of non-consensus blocks", %{update: update} do
       block = insert(:block, consensus: false)
       {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
