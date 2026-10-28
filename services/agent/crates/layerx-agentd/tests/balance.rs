@@ -1,363 +1,154 @@
-use std::fs;
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread;
-use std::time::Duration;
+use std::io::{BufRead, BufReader};
+use std::process::{Child, Command, Stdio};
+use std::time::{Duration, Instant};
 
-use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_agentd::node_rpc::NodeRpcConfig;
 use layerx_agentd::read::balance;
-use layerx_client::evidence::RootSelector;
-use layerx_client::head::Head;
-use layerx_client::lni::framing::{read_frame, write_frame};
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
-use layerx_client::read::{ReadContext, ReadError, Requested};
-use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::{build_proof, Proof};
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::{batch_header_digest, receipt_digest};
-use sha2::{Digest as _, Sha256};
+use serde_json::{json, Value};
 
-static NEXT_SOCKET: AtomicU64 = AtomicU64::new(1);
+pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+    result.unwrap_or_else(|error| panic!("{error:?}"))
+}
 
-struct SocketPath(PathBuf);
+pub struct Node {
+    child: Child,
+    pub config: NodeRpcConfig,
+}
 
-impl SocketPath {
-    fn new(label: &str) -> Self {
-        let sequence = NEXT_SOCKET.fetch_add(1, Ordering::Relaxed);
-        Self(std::env::temp_dir().join(format!(
-            "layerx-agentd-balance-{label}-{}-{sequence}.sock",
-            std::process::id()
-        )))
+impl Node {
+    pub fn start() -> Self {
+        Self::with_options(&[])
+    }
+
+    pub fn with_options(options: &[&str]) -> Self {
+        let executable = std::env::var_os("LAYERX_TEST_ANVIL").unwrap_or_else(|| "anvil".into());
+        let mut child = must(
+            Command::new(executable)
+                .args([
+                    "--host",
+                    "127.0.0.1",
+                    "--port",
+                    "0",
+                    "--chain-id",
+                    "125",
+                    "--no-mining",
+                ])
+                .args(options)
+                .stdout(Stdio::piped())
+                .stderr(Stdio::inherit())
+                .spawn(),
+        );
+        let stdout = child
+            .stdout
+            .take()
+            .unwrap_or_else(|| panic!("anvil stdout"));
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        std::thread::spawn(move || {
+            let mut sent = false;
+            for line in BufReader::new(stdout).lines() {
+                let line = must(line);
+                if !sent {
+                    if let Some(address) = line.strip_prefix("Listening on ") {
+                        let _ = sender.send(format!("http://{address}/"));
+                        sent = true;
+                    }
+                }
+            }
+        });
+        let config = NodeRpcConfig {
+            url: String::new(),
+            chain_id: 125,
+            deadline: Duration::from_secs(2),
+        };
+        let mut node = Self { child, config };
+        node.config.url = must(receiver.recv_timeout(Duration::from_secs(10)));
+        node
+    }
+
+    pub fn rpc(&self, method: &str, params: Value) -> Value {
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(2)))
+            .build()
+            .into();
+        let mut response = must(
+            agent
+                .post(&self.config.url)
+                .send_json(json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params})),
+        );
+        let response: Value = must(response.body_mut().read_json());
+        assert!(response.get("error").is_none(), "{method}: {response}");
+        response
+            .get("result")
+            .unwrap_or_else(|| panic!("{method}: {response}"))
+            .clone()
+    }
+
+    pub fn funded() -> Self {
+        let node = Self::start();
+        node.rpc(
+            "anvil_setBalance",
+            json!([format!("0x{}", "11".repeat(20)), "0x384"]),
+        );
+        node.rpc("anvil_mine", json!(["0x28"]));
+        assert_eq!(node.rpc("eth_blockNumber", json!([])), "0x28");
+        node
     }
 }
 
-impl Drop for SocketPath {
+impl Drop for Node {
     fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
+        let _ = self.child.kill();
+        let _ = self.child.wait();
     }
-}
-
-fn limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: 1024 * 1024,
-        maximum_connections: 1,
-        maximum_streams: 4,
-        maximum_queued_bytes: 2 * 1024 * 1024,
-        deadline: Duration::from_secs(2),
-    }
-}
-
-fn header_bytes(state_root: [u8; 32], receipt_root: [u8; 32], sequencer_id: [u8; 32]) -> Vec<u8> {
-    let mut encoder = Encoder::new(354);
-    assert_eq!(
-        encoder.structure_header_version(0x1701, layerx_wire::limits::PROTOCOL_VERSION),
-        Ok(())
-    );
-    assert_eq!(encoder.u8(15), Ok(()));
-    for field in 1..=15 {
-        assert_eq!(encoder.tag(field, 15), Ok(()));
-        match field {
-            1 => assert_eq!(encoder.u16(layerx_wire::limits::PROTOCOL_VERSION), Ok(())),
-            2 => assert_eq!(encoder.u32(77), Ok(())),
-            3 => assert_eq!(encoder.u64(2), Ok(())),
-            4 => assert_eq!(encoder.u64(7), Ok(())),
-            5 => assert_eq!(encoder.u64(10), Ok(())),
-            6 => assert_eq!(encoder.u64(12), Ok(())),
-            7 => assert_eq!(encoder.bytes(&[1; 32], 32), Ok(())),
-            8 => assert_eq!(encoder.bytes(&state_root, 32), Ok(())),
-            9 => assert_eq!(encoder.bytes(&[0x51; 32], 32), Ok(())),
-            10 => assert_eq!(encoder.bytes(&receipt_root, 32), Ok(())),
-            11 => assert_eq!(encoder.bytes(&[3; 32], 32), Ok(())),
-            12 => assert_eq!(encoder.bytes(&[4; 32], 32), Ok(())),
-            13 => assert_eq!(encoder.bytes(&[5; 32], 32), Ok(())),
-            14 => assert_eq!(encoder.u64(1_000), Ok(())),
-            15 => assert_eq!(encoder.bytes(&sequencer_id, 32), Ok(())),
-            _ => panic!("unreachable header field"),
-        }
-    }
-    encoder.finish()
-}
-
-fn encode_path(bytes: &mut Vec<u8>, proof: &Proof) {
-    bytes.extend_from_slice(&proof.leaf_index().to_be_bytes());
-    bytes.extend_from_slice(&proof.leaf_count().to_be_bytes());
-    bytes.push(
-        u8::try_from(proof.siblings().len())
-            .unwrap_or_else(|error| panic!("proof length: {error}")),
-    );
-    for sibling in proof.siblings() {
-        bytes.extend_from_slice(sibling);
-    }
-}
-
-fn state_leaf(key: &[u8], value: &[u8]) -> [u8; 32] {
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(b"LXP/v1/state-leaf\0");
-    bytes.extend_from_slice(
-        &u32::try_from(key.len())
-            .unwrap_or_else(|_| panic!("state key length"))
-            .to_be_bytes(),
-    );
-    bytes.extend_from_slice(
-        &u32::try_from(value.len())
-            .unwrap_or_else(|_| panic!("state value length"))
-            .to_be_bytes(),
-    );
-    bytes.extend_from_slice(key);
-    bytes.extend_from_slice(value);
-    Sha256::digest(bytes).into()
-}
-
-fn state_node(left: [u8; 32], right: [u8; 32]) -> [u8; 32] {
-    let mut bytes = Vec::with_capacity(82);
-    bytes.extend_from_slice(b"LXP/v1/state-node\0");
-    bytes.extend_from_slice(&left);
-    bytes.extend_from_slice(&right);
-    Sha256::digest(bytes).into()
-}
-
-fn account_value(account: [u8; 32], asset: [u8; 32]) -> Vec<u8> {
-    let name = format!("module:programs:value:{}", "11".repeat(32));
-    let mut value = Vec::new();
-    value.extend_from_slice(
-        &u16::try_from(name.len())
-            .unwrap_or_else(|_| panic!("account name length"))
-            .to_be_bytes(),
-    );
-    value.extend_from_slice(name.as_bytes());
-    value.push(13);
-    value.extend_from_slice(&0x12_34_56_u128.to_be_bytes());
-    value.extend_from_slice(&asset);
-    value.push(1);
-    value.extend_from_slice(&7_u64.to_be_bytes());
-    value.extend_from_slice(&3_u64.to_be_bytes());
-    value.extend_from_slice(&[0, 1]);
-    value.extend_from_slice(&[0; 32]);
-    value.push(0);
-    assert_eq!(account, [0x11; 32]);
-    value
-}
-
-fn receipt_bytes(
-    activity_id: [u8; 32],
-    resulting_state_root: [u8; 32],
-    signature: Option<[u8; 64]>,
-) -> Vec<u8> {
-    let mut encoder = Encoder::new(4_096);
-    assert_eq!(
-        encoder.structure_header_version(0x5201, layerx_wire::limits::PROTOCOL_VERSION),
-        Ok(())
-    );
-    assert_eq!(encoder.u16(layerx_wire::limits::PROTOCOL_VERSION), Ok(()));
-    assert_eq!(encoder.bytes(&activity_id, 32), Ok(()));
-    assert_eq!(encoder.u64(12), Ok(()));
-    assert_eq!(encoder.bytes(&[0x21; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&resulting_state_root, 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x22; 32], 32), Ok(()));
-    assert_eq!(encoder.i32(0), Ok(()));
-    assert_eq!(encoder.sequence_length(0, 512), Ok(()));
-    assert_eq!(encoder.u128(1), Ok(()));
-    assert_eq!(encoder.bytes(&[0x23; 32], 32), Ok(()));
-    assert_eq!(encoder.u16(1), Ok(()));
-    assert_eq!(encoder.u32(1), Ok(()));
-    assert_eq!(encoder.u32(1), Ok(()));
-    assert_eq!(encoder.u8(1), Ok(()));
-    assert_eq!(encoder.bytes(&[0x24; 32], 32), Ok(()));
-    assert_eq!(encoder.u128(25), Ok(()));
-    assert_eq!(encoder.bytes(&[0x25; 32], 32), Ok(()));
-    assert_eq!(encoder.u128(100), Ok(()));
-    assert_eq!(encoder.u128(75), Ok(()));
-    assert_eq!(encoder.u64(1), Ok(()));
-    assert_eq!(encoder.bytes(&[0x26; 32], 32), Ok(()));
-    assert_eq!(encoder.u128(10), Ok(()));
-    assert_eq!(encoder.u128(35), Ok(()));
-    assert_eq!(encoder.bytes(&[0x27; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x28; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[0x29; 32], 32), Ok(()));
-    assert_eq!(encoder.u64(1_000), Ok(()));
-    assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
-    if let Some(signature) = signature {
-        assert_eq!(encoder.bytes(&signature, 64), Ok(()));
-    }
-    encoder.finish()
-}
-
-fn fixture() -> (Vec<u8>, Vec<u8>, SequencerAuthorization, [u8; 32], [u8; 32]) {
-    let account = [0x11; 32];
-    let asset = [0x22; 32];
-    let value = account_value(account, asset);
-    let mut account_key = [0_u8; 33];
-    account_key[0] = 4;
-    account_key[1..].copy_from_slice(&account);
-    let account_leaf = state_leaf(&account_key, &value);
-    let mut other_account_key = [0xff; 33];
-    other_account_key[0] = 4;
-    let other_account_leaf = state_leaf(&other_account_key, b"other-account");
-    let account_root = state_node(account_leaf, other_account_leaf);
-    let account_proof = Proof::new(0, 2, vec![other_account_leaf])
-        .unwrap_or_else(|error| panic!("account proof: {error:?}"));
-
-    let account_tree_leaf = state_leaf(b"account-tree", &account_root);
-    let sequence_leaf = state_leaf(b"sequence", &13_u64.to_be_bytes());
-    let universal_root = state_node(account_tree_leaf, sequence_leaf);
-    let account_tree_proof = Proof::new(0, 2, vec![sequence_leaf])
-        .unwrap_or_else(|error| panic!("account-tree proof: {error:?}"));
-
-    let universal_leaf = state_leaf(&0_u16.to_be_bytes(), &universal_root);
-    let module_leaf = state_leaf(&1_u16.to_be_bytes(), &[0x61; 32]);
-    let resulting_state_root = state_node(universal_leaf, module_leaf);
-    let universal_root_proof = Proof::new(0, 2, vec![module_leaf])
-        .unwrap_or_else(|error| panic!("universal proof: {error:?}"));
-
-    let key = SigningKey::from_bytes(&[0x41; 32]);
-    let sequencer_id = key.verifying_key().to_bytes();
-    let unsigned_receipt = receipt_bytes([0x71; 32], resulting_state_root, None);
-    let receipt_digest = receipt_digest(&unsigned_receipt)
-        .unwrap_or_else(|error| panic!("receipt digest: {error:?}"));
-    let receipt = receipt_bytes(
-        [0x71; 32],
-        resulting_state_root,
-        Some(key.sign(&receipt_digest).to_bytes()),
-    );
-    let (receipt_proof, receipt_root) = build_proof(&[receipt.as_slice()], 0)
-        .unwrap_or_else(|error| panic!("receipt proof: {error:?}"));
-    let header = header_bytes(resulting_state_root, receipt_root, sequencer_id);
-    let digest =
-        batch_header_digest(&header).unwrap_or_else(|error| panic!("header digest: {error:?}"));
-    let signature = key.sign(&digest).to_bytes();
-
-    let mut proof = Vec::new();
-    proof.extend_from_slice(&1_u16.to_be_bytes());
-    proof.push(2);
-    proof.push(1);
-    proof.extend_from_slice(&account);
-    proof.extend_from_slice(&account_root);
-    proof.extend_from_slice(&universal_root);
-    proof.extend_from_slice(&resulting_state_root);
-    encode_path(&mut proof, &account_proof);
-    encode_path(&mut proof, &account_tree_proof);
-    encode_path(&mut proof, &universal_root_proof);
-    proof.extend_from_slice(
-        &u32::try_from(receipt.len())
-            .unwrap_or_else(|_| panic!("receipt length"))
-            .to_be_bytes(),
-    );
-    proof.extend_from_slice(&receipt);
-    encode_path(&mut proof, &receipt_proof);
-    proof.extend_from_slice(&1_u16.to_be_bytes());
-    proof.extend_from_slice(&sequencer_id);
-    proof.extend_from_slice(&sequencer_id);
-    proof.extend_from_slice(&7_u64.to_be_bytes());
-    proof.extend_from_slice(&7_u64.to_be_bytes());
-    proof.extend_from_slice(
-        &u32::try_from(header.len())
-            .unwrap_or_else(|_| panic!("header length"))
-            .to_be_bytes(),
-    );
-    proof.extend_from_slice(&header);
-    proof.extend_from_slice(&signature);
-    proof.push(0);
-    (
-        value,
-        proof,
-        SequencerAuthorization::new(sequencer_id, sequencer_id, 7, 7),
-        account,
-        asset,
-    )
-}
-
-fn context(requested: VerificationLevel, authorization: SequencerAuthorization) -> ReadContext {
-    ReadContext {
-        interface_version: Version::V1_2,
-        correlation_id: 44,
-        expected_protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-        expected_network_id: 77,
-        requested: Requested::new(requested),
-        head: Head {
-            chain_sequence: 20,
-            sealed_batch: 7,
-            finalised_checkpoint: [0x71; 32],
-        },
-        handshake_sequencer_key: authorization.public_key(),
-        sequencer_authorization: authorization,
-        root_selector: RootSelector::Latest,
-    }
-}
-
-fn request(stream: &mut UnixStream) -> u64 {
-    let frame =
-        read_frame(stream, 1024 * 1024).unwrap_or_else(|error| panic!("request frame: {error:?}"));
-    let envelope =
-        decode_envelope(&frame).unwrap_or_else(|error| panic!("request envelope: {error:?}"));
-    assert_eq!(envelope.message_tag, 7);
-    envelope.correlation_id
-}
-
-fn respond(stream: &mut UnixStream, correlation_id: u64, payload: &[u8], proof: &[u8]) {
-    let response = encode_envelope(Envelope {
-        version: Version::V1_0,
-        message_tag: 8,
-        correlation_id,
-        canonical_payload: payload,
-        proof_material: proof,
-    })
-    .unwrap_or_else(|error| panic!("response envelope: {error:?}"));
-    write_frame(stream, &response, 1024 * 1024)
-        .unwrap_or_else(|error| panic!("response frame: {error:?}"));
 }
 
 #[test]
 fn proven_balance_carries_identity_bytes_level_and_all_freshness_coordinates() {
-    let socket = SocketPath::new("height-unavailable");
-    let _listener =
-        UnixListener::bind(&socket.0).unwrap_or_else(|error| panic!("listener: {error}"));
-    let (_, _, authorization, account, asset) = fixture();
-    let gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&socket.0, &gate, limits())
-        .unwrap_or_else(|error| panic!("connect: {error:?}"));
-    for requested in [VerificationLevel::STATE_PROVEN] {
-        let error = balance(
-            &mut transport,
-            account,
-            asset,
-            context(requested, authorization),
-        )
-        .expect_err("height-addressed balances are unavailable");
-        assert_eq!(
-            error.class,
-            layerx_agent_api::error::ErrorClass::UnavailableCapability
-        );
-        assert_eq!(error.reason.as_str(), "unavailable_capability.read.balance");
-    }
+    let node = Node::funded();
+    let value = must(balance(&node.config, [0x11; 20], Some(40)));
+    assert_eq!(value.account, [0x11; 20]);
+    assert_eq!(value.amount.value(), 900);
+    assert_eq!(value.canonical_bytes, 900_u128.to_be_bytes());
+    assert_eq!(value.achieved_rung, None);
+    assert_eq!(value.freshness.chain_head, 40);
+    assert_eq!(value.freshness.value_height, 40);
+    assert_eq!(value.freshness.relative_to.tag(), "0x28");
+    node.rpc(
+        "anvil_setBalance",
+        json!([format!("0x{}", "11".repeat(20)), "0x385"]),
+    );
+    node.rpc("anvil_mine", json!(["0x1"]));
+    assert_eq!(
+        must(balance(&node.config, [0x11; 20], Some(40)))
+            .amount
+            .value(),
+        900
+    );
+    assert_eq!(
+        must(balance(&node.config, [0x11; 20], Some(41)))
+            .amount
+            .value(),
+        901
+    );
 }
 
 #[test]
 fn hostile_asserted_level_cannot_raise_evidence_and_missing_proof_is_named() {
-    let socket = SocketPath::new("height-unavailable");
-    let _listener =
-        UnixListener::bind(&socket.0).unwrap_or_else(|error| panic!("listener: {error}"));
-    let (_, _, authorization, account, asset) = fixture();
-    let gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&socket.0, &gate, limits())
-        .unwrap_or_else(|error| panic!("connect: {error:?}"));
-    for requested in [
-        VerificationLevel::CHECKPOINT_FINALISED,
-        VerificationLevel::STATE_PROVEN,
-    ] {
-        let error = balance(
-            &mut transport,
-            account,
-            asset,
-            context(requested, authorization),
-        )
-        .expect_err("height-addressed balances are unavailable");
-        assert_eq!(
-            error.class,
-            layerx_agent_api::error::ErrorClass::UnavailableCapability
-        );
-        assert_eq!(error.reason.as_str(), "unavailable_capability.read.balance");
-    }
+    let node = Node::funded();
+    let mut wrong_chain = node.config.clone();
+    wrong_chain.chain_id = 126;
+    let error = balance(&wrong_chain, [0x11; 20], None).expect_err("another chain must be refused");
+    assert_eq!(error.reason.as_str(), "read.chain_id_mismatch");
+    node.rpc(
+        "anvil_setBalance",
+        json!([
+            format!("0x{}", "11".repeat(20)),
+            "0x100000000000000000000000000000000"
+        ]),
+    );
+    let started = Instant::now();
+    let error = balance(&node.config, [0x11; 20], None)
+        .expect_err("amount exceeding the protocol width must be refused");
+    assert_eq!(error.reason.as_str(), "read.amount_overflow");
+    assert!(started.elapsed() < Duration::from_secs(10));
 }
