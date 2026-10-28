@@ -174063,7 +174063,7 @@ qualification = "UNRUN"
 
 [task.18.830.1]
 title = "Issue #830: Keep a keyed forced-exit total per account and asset instead of scanning every claim"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.906.1"]
@@ -174365,7 +174365,7 @@ qualification = "UNRUN"
 
 [task.18.1017.1]
 title = "Issue #1017: Align the capabilities controller tests with the four live surface keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175772,7 +175772,7 @@ qualification = "UNRUN"
 
 [task.18.881.1]
 title = "Issue #881: Assert every price-update broadcast end to end and keep the realtime subscriber alive on a failing event"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177223,7 +177223,7 @@ qualification = "UNRUN"
 
 [task.18.701.1]
 title = "Issue #701: Render the native settlement rungs on the transaction Overview badge"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177311,7 +177311,7 @@ qualification = "UNRUN"
 
 [task.18.771.1]
 title = "Issue #771: Probe the exchange and bridge surfaces with view calls instead of eth_getCode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177738,7 +177738,7 @@ qualification = "UNRUN"
 
 [task.18.772.1]
 title = "Issue #772: Decode the v6.12.0 perpetuals events emitted at 0x1015"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177928,7 +177928,7 @@ qualification = "UNRUN"
 
 [task.18.873.1]
 title = "Issue #873: Keep advertising price_feed after scanned-block compaction empties the scanned table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
