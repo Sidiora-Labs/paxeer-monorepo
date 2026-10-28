@@ -174277,7 +174277,7 @@ qualification = "UNRUN"
 
 [task.18.970.1]
 title = "Issue #970: Validate candidate manifests against the service catalogue, not the gate registry"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
