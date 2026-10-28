@@ -10333,3 +10333,12 @@ detail = "CustodySigner returns Kms(Refused) from require_record_binding, seal_r
 title = "eip155 syntax is not LayerX identity"
 detail = "validate_network accepts every eip155:<decimal> network; is_layerx_network must match the LayerX network eip155:125 (decision.822) exactly, or external chains such as eip155:8453 are treated as LayerX offers (18.1162.1 attempt 3)."
 
+[gotcha.2116]
+title = "An EVM transaction's chain_id is a network word too"
+detail = "send::digest refuses a transaction whose chain_id is not the configured network; fixtures written for a local chain (31337) fail with status byte 1 exactly like a wrong native network word. And since 10.11.3 the KMS needs LAYERX_HUMAN_KMS_ATTESTOR_CONFIG_FILE and LAYERX_HUMAN_KMS_EVM_ASSERTION_FILE for any EVM operation, or it answers Unavailable (#1168)."
+
+
+[gotcha.2117]
+title = "A sandbox fixture that pre-seeds the settlement sequence trips a kernel invariant"
+detail = "The fee account is seeded at the identity sequence the host reads; the kernel reads expected_sequence from the payload (sandbox.c:236-241) and checks it at :686-690. Seeding the global sequence instead turned a -208 escrow refusal into LXP_FATAL_INVARIANT (13.27.1 attempt 22)."
+

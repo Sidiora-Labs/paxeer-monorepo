@@ -9723,3 +9723,19 @@ symbol = "require_record_binding"
 observed = "Attempt 9 (8f741f744) built the producer-signed binding flow; authorize_kernel_send at wallet_identity_e2e.rs:276 returned Kms(Refused) with no quorum code, a local CustodySigner refusal, after every attestor node reached Done."
 assumption = "The refusal is the binding digest or seal identity check; do_7 names the branches and the key must be created under the principal the binding token resolves to."
 severity = "minor"
+
+[finding.18.1156.1.4]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/src/store.rs:52"
+symbol = "EvmAttestor::load"
+observed = "Attempt 6 (38c4b4a46) rewrote the 33 network words; 12 provider tests still fail: status 1 from send::digest for EVM transactions with chain_id 31337 (:861, :1360) and Kms(Unavailable) from the EVM operations because no attestor signer is configured (issue #1168, 23ebd9073)."
+assumption = "do_7 and do_8 complete the target in this task; #1168 and #1159 close by hand when it publishes."
+severity = "major"
+
+[finding.13.27.1.5]
+task = "13.27.1"
+file = "src/modules/programs/sandbox.c:417"
+symbol = "layerx_programs_sandbox"
+observed = "Attempt 22 (83e97ad0e): after 18.1163.1 the -208 escrow refusal is gone; the candidate re-seeded the fee account to the upcoming global sequence and sandboxExecute then reverted with LXP_FATAL_INVARIANT at an unnamed sandbox.c site; the zero-asset test passes."
+assumption = "The fixture must keep the host-read identity sequence (do_6); the fatal site is to be named by the harness diagnostic before any further change."
+severity = "major"
