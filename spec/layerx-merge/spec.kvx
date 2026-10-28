@@ -144787,7 +144787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.2]
 title = "Prove the layerx-intents precompile event router is retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["10.21.1", "11.0.3", "11.30.1", "9.1.7", "9.1.8", "18.1119.1"]
