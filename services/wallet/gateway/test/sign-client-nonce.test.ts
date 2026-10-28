@@ -147,6 +147,7 @@ describe('/v1/wallet/sign after migration 019', () => {
     latestCount = 7;
     const before = Date.now();
     const signed = await asUser(user, '/v1/wallet/sign', { tx: tx(9) });
+    const after = Date.now();
     expect(signed.statusCode).toBe(200);
     const body = signed.json() as { signed_tx: `0x${string}`; nonce: number; broadcast_deadline: string };
     expect(body.nonce).toBe(9);
@@ -154,6 +155,7 @@ describe('/v1/wallet/sign after migration 019', () => {
     expect((await recoverTransactionAddress({ serializedTransaction: body.signed_tx })).toLowerCase()).toBe(address.toLowerCase());
     const { BROADCAST_GRACE_MS } = await import('../src/chain.js');
     expect(Date.parse(body.broadcast_deadline)).toBeGreaterThanOrEqual(before + BROADCAST_GRACE_MS);
+    expect(Date.parse(body.broadcast_deadline)).toBeLessThanOrEqual(after + BROADCAST_GRACE_MS + 1_000);
     const { rows } = await poolModule.query<{ nonce: string; tx_hash: string }>(
       'select nonce::text as nonce, tx_hash from nonce_outstanding where address = $1', [address.toLowerCase()]);
     expect(rows).toEqual([{ nonce: '9', tx_hash: keccak256(body.signed_tx) }]);

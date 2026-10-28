@@ -30,34 +30,12 @@ func endOfBlock(a *app.App, ctx sdk.Context, b *Batch, results []*abci.ExecTxRes
 			err = fmt.Errorf("%w: %v", ErrSealPanicked, r)
 		}
 	}()
+	blockEvents, endBlock, err := a.CompleteBlock(ctx, b.Height, results, evmMsgs)
+	if err != nil {
+		return nil, abci.ResponseEndBlock{}, err
+	}
 	events = append(events, b.BeginBlockEvents...)
-	events = append(events, a.MidBlock(ctx, b.Height)...)
-
-	if a.GigaExecutorEnabled {
-		ctx.GigaMultiStore().WriteGiga()
-	}
-
-	a.EvmKeeper.SetTxResults(results)
-	a.EvmKeeper.SetMsgs(evmMsgs)
-
-	events = append(events, a.BankKeeper.WriteDeferredBalances(ctx)...)
-
-	var evmTotalGasUsed int64
-	for _, result := range results {
-		if result.EvmTxInfo != nil {
-			evmTotalGasUsed += result.GasUsed
-		}
-	}
-
-	endBlock = a.EndBlock(ctx, b.Height, evmTotalGasUsed)
-
-	feeCtx := ctx.WithEventManager(sdk.NewEventManager())
-	if err := a.EvmKeeper.RouteCollectedFeeTokens(feeCtx); err != nil {
-		return nil, abci.ResponseEndBlock{}, fmt.Errorf("route collected fee tokens: %w", err)
-	}
-	endBlock.Events = append(endBlock.Events, sdk.MarkEventsToIndex(feeCtx.EventManager().ABCIEvents(), a.IndexEvents)...)
-
-	events = append(events, endBlock.Events...)
+	events = append(events, blockEvents...)
 	return events, endBlock, nil
 }
 

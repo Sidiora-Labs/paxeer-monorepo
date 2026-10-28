@@ -11,6 +11,7 @@ use layerx_paxai_worker::{
         Route, ServiceError, StatusChallenge, WorkerBinding, STATUS_PATH,
     },
     discovery::spki_sha256,
+    metrics::Metrics,
 };
 use layerx_programs_ai_market::{
     queries::parse_hex32,
@@ -112,11 +113,13 @@ struct Startup(&'static str);
 struct Service {
     binding: WorkerBinding,
     key: SigningKey,
+    metrics: Metrics,
 }
 
 struct Response {
     status: u16,
     body: Vec<u8>,
+    content_type: &'static str,
 }
 
 fn hex32(text: &str) -> Result<[u8; 32], Startup> {
@@ -170,6 +173,7 @@ fn load(path: &str) -> Result<(Service, Arc<ServerConfig>, String), Startup> {
     let service = Service {
         binding: signed.binding(),
         key,
+        metrics: Metrics::default(),
     };
     Ok((service, Arc::new(tls), config.listen))
 }
@@ -184,11 +188,19 @@ fn refusal(error: ServiceError, request: Presence<RequestId>) -> Response {
     Response {
         status,
         body: error.body(request).to_vec(),
+        content_type: "application/octet-stream",
     }
 }
 
 impl Service {
     fn dispatch(&self, method: &str, path: &str, body: &[u8]) -> Response {
+        if method == "GET" && path == "/metrics" {
+            return Response {
+                status: 200,
+                body: self.metrics.render().into_bytes(),
+                content_type: "text/plain; version=0.0.4",
+            };
+        }
         if method != "POST" {
             return refusal(ServiceError::NotFound, Presence::Absent);
         }
@@ -205,7 +217,11 @@ impl Service {
         let signed = StatusChallenge::decode(body)
             .and_then(|challenge| sign_status(&self.binding, &challenge, &self.key));
         match signed {
-            Ok(body) => Response { status: 200, body },
+            Ok(body) => Response {
+                status: 200,
+                body,
+                content_type: "application/octet-stream",
+            },
             Err(error) => refusal(error, Presence::Absent),
         }
     }
@@ -223,7 +239,7 @@ impl Service {
     }
 }
 
-/// Reads one `POST` request with a `Content-Length` body of at most one envelope.
+/// Reads one request with a `Content-Length` body of at most one envelope.
 fn read_request(stream: &mut impl Read) -> Result<(String, String, Vec<u8>), Response> {
     let malformed = || refusal(ServiceError::NonCanonical, Presence::Absent);
     let mut head = Vec::new();
@@ -292,10 +308,12 @@ fn serve(
         Ok((method, path, body)) => service.dispatch(&method, &path, &body),
         Err(response) => response,
     };
+    service.metrics.record(response.status);
     let head = format!(
-        "HTTP/1.1 {} {}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "HTTP/1.1 {} {}\r\nContent-Type: {}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         response.status,
         reason(response.status),
+        response.content_type,
         response.body.len()
     );
     stream.write_all(head.as_bytes())?;
