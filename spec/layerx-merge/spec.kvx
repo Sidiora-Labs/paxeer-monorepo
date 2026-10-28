@@ -93850,7 +93850,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.5]
 title = "Register the Programs module with the storage-retirement activity set in the hosted kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["1.23.4", "13.22.4"]
