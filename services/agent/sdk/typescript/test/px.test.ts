@@ -814,6 +814,166 @@ assert.equal(unifiedPage.items[1]!.assetMetadata?.denom, "ulxp");
 assert.equal(unifiedPage.items[1]!.assetMetadata?.symbol, "LXP");
 assert.equal(unifiedPage.items[3]!.assetMetadata, null);
 
+function history_boundary_rows_decode(): void {
+  const MAX_U256 = (1n << 256n) - 1n;
+  const first = {
+    id: "explorer:1",
+    height_or_seq: "10",
+    chain: "paxeer",
+    kind: "native_transfer",
+    direction: "out",
+    account: EVE,
+    counterparty: EVM,
+    asset: "evm:native",
+    amount: MAX_U256.toString(),
+    tx_hash: `0x${"12".repeat(32)}`,
+    ordinal: "0",
+    final: false,
+    decoded: { position: "10" },
+    asset_metadata: {
+      asset: "evm:native",
+      chain: "paxeer",
+      kind: "native",
+      address: null,
+      denom: null,
+      symbol: null,
+      decimals: 18,
+      native_id: null,
+      pointer: null,
+      metadata: {},
+    },
+    blockHeight: 10,
+    txIndex: 0,
+    logIndex: 0,
+    side: "paxeer",
+  };
+  const layerx = {
+    ...first,
+    id: "2",
+    height_or_seq: "11",
+    chain: "layerx",
+    kind: "asset_transfer",
+    direction: "in",
+    account: ACCOUNT,
+    counterparty: UNJOINED,
+    asset: NATIVE,
+    amount: "7",
+    tx_hash: `0x${"34".repeat(32)}`,
+    ordinal: "1",
+    final: true,
+    decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
+    asset_metadata: {
+      asset: NATIVE,
+      chain: "layerx",
+      kind: "native",
+      address: null,
+      denom: "ulxp",
+      symbol: "LXP",
+      decimals: 6,
+      native_id: NATIVE,
+      pointer: EVM,
+      metadata: { display: { name: "LayerX asset", tags: ["native", "LXP"] } },
+    },
+    blockHeight: 11,
+    txIndex: 1,
+    logIndex: 1,
+    side: "layerx",
+  };
+  const items = [
+    first,
+    layerx,
+    {
+      ...first,
+      id: "explorer:3",
+      height_or_seq: "12",
+      amount: "2",
+      asset_metadata: null,
+      blockHeight: 12,
+      txIndex: 2,
+      logIndex: 2,
+    },
+    {
+      ...first,
+      id: "4",
+      height_or_seq: "13",
+      amount: "3",
+      counterparty: null,
+      blockHeight: 13,
+      txIndex: 3,
+      logIndex: 3,
+    },
+  ];
+  const document = {
+    account: identities,
+    accounts: [
+      { side: "paxeer", account: EVE },
+      { side: "layerx", account: ACCOUNT },
+    ],
+    items,
+    next_cursor: "000000000000000d0000000300000003",
+  };
+  const page = decodeUnifiedHistoryPage(document);
+  assert.deepEqual(page.account, identities);
+  assert.deepEqual(page.accounts, document.accounts);
+  assert.deepEqual(
+    page.items.map((row) => row.id),
+    ["explorer:1", "2", "explorer:3", "4"],
+  );
+  assert.deepEqual(
+    page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
+    [
+      [10, 0, 0],
+      [11, 1, 1],
+      [12, 2, 2],
+      [13, 3, 3],
+    ],
+  );
+  assert.equal(page.items[0]!.amount, MAX_U256);
+  assert.deepEqual(page.items[1], {
+    id: "2",
+    heightOrSeq: 11n,
+    chain: "layerx",
+    kind: "asset_transfer",
+    direction: "in",
+    account: ACCOUNT,
+    counterparty: UNJOINED,
+    asset: NATIVE,
+    amount: 7n,
+    txHash: `0x${"34".repeat(32)}`,
+    ordinal: 1n,
+    final: true,
+    decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
+    assetMetadata: {
+      asset: NATIVE,
+      chain: "layerx",
+      kind: "native",
+      address: null,
+      denom: "ulxp",
+      symbol: "LXP",
+      decimals: 6,
+      nativeId: NATIVE,
+      pointer: EVM,
+      metadata: { display: { name: "LayerX asset", tags: ["native", "LXP"] } },
+    },
+    blockHeight: 11,
+    txIndex: 1,
+    logIndex: 1,
+    side: "layerx",
+  });
+  assert.equal(page.items[2]!.assetMetadata, null);
+  assert.equal(page.items[3]!.counterparty, null);
+  assert.equal(page.nextCursor, document.next_cursor);
+  assert.throws(
+    () =>
+      decodeUnifiedHistoryPage({
+        ...document,
+        items: [{ ...first, amount: (1n << 256n).toString() }, ...items.slice(1)],
+      }),
+    /^Error: Invalid history decimal$/,
+  );
+}
+test(history_boundary_rows_decode);
+
 const paxeerPage = decodePaxeerHistoryPage(recordedPaxeer);
 assert.equal(paxeerPage.account, EVE);
 assert.equal(paxeerPage.nextCursor, null);
