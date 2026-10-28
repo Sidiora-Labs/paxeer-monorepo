@@ -9688,3 +9688,9 @@ summary = "Normalize appended spec EOF before staged whitespace checks; do not l
 
 [gotcha.1996]
 text = "A source-only diff reader cannot discard everything after the first cfg(test): test modules can appear before production functions, and inserted test blocks can make unchanged production definitions look deleted. Inspect actual Git diff hunks and surrounding definitions before drawing source conclusions."
+
+[gotcha.1997]
+area = "paxd native builds"
+symptom = "go build -o reuses an existing paxd binary after only its native archives change; make -n stops at the native archives missing error on a fresh checkout."
+cause = "Go's link action ID ignores the contents of -l native archives; chain.mk:90 refuses to compute their digest until both archives exist, including during make -n."
+do = "Build paxd-native-libs before a dry run and stamp NativeArchiveDigest into the link flags so native archive changes force relinking."
