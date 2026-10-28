@@ -9941,3 +9941,16 @@ symptom = "A task whose build_cmd runs cargo build -p <crate> --tests fails on a
 cause = "--tests compiles every test target of the crate, so one stale target outside the task's touches turns the task's build step red."
 do = "Name the targets the task owns (--lib --test <name>); give the stale target its own task and let crate-wide builds require it."
 
+[gotcha.2039]
+area = "image contexts"
+symptom = "docker build fails in the native stage with 'failed to calculate checksum of /src/programs/vendor/<crate>/<file>' for a file that is tracked and present on disk."
+cause = "A suffix-based secret exclusion (programs/vendor/**/*.der, *.pem, *.crt, *.p12, *.key) drops fixtures that the crate's .cargo-checksum.json lists, and cargo verifies vendored sources against that manifest."
+do = "Keep the exclusions; re-include the checksum-listed files by explicit path after the block (the last matching line decides) and test both directions against the manifests."
+
+
+[gotcha.2040]
+area = "spec tasks"
+symptom = "A migration task worded as 'change only import paths and call names' fails on every attempt with unresolved paths or invented modules."
+cause = "The source uses an API family with no counterpart in the target module (LNI FrameTransport, read::ReadContext, evidence verifiers, batch::lookup -> SignedBatchHeader versus layerx_client::rpc), so no rename satisfies the step."
+do = "Before writing a rename task, check that every called item has a same-shaped twin in the target; otherwise specify a real port, a deletion, or supersede the task by the one that deletes the file."
+

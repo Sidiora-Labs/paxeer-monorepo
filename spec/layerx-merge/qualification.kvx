@@ -8703,3 +8703,59 @@ symbol = "ActivityType::new"
 observed = "Attempt 1 (16ea64b79) failed its build step with E0277 in tests/disclosure_call.rs, a target the task does not touch and which does not compile at main since b6f48e079 (PayloadError is not an std::error::Error; issue #1115)."
 assumption = "The build_cmd now builds only the library and the disclosure target; task 18.1115.1 repairs the disclosure_call target and 9.35.1 requires it."
 severity = "minor"
+
+[finding.18.875.1.2]
+task = "18.875.1"
+file = "services/explorer/backend/apps/explorer/priv/repo/migrations/20261022000002_tune_paxeer_x_price_feed_tables.exs"
+symbol = "up"
+observed = "Attempt 6 (8b2cba05c) passes the verify_cmd (1 test, 0 failures) and is refused only by the symbol check 'TunePaxeerXPriceFeedTables.up not defined in the graph'; attempts 2-4 were refused the same way."
+assumption = "The graph indexes Elixir functions by bare name (as 46580130d applied to 18.877.1); the symbols now read up and the test name, and attempt 7 carries 8b2cba05c unchanged."
+severity = "minor"
+
+[finding.18.869.1.2]
+task = "18.869.1"
+file = "docker/paxeer/Dockerfile.paxd-node.dockerignore:72"
+symbol = "programs/vendor/**/*.der"
+observed = "Attempts 6 and 7 (2a00ad490) build the native stage until cargo's vendored-source verification fails on programs/vendor/ed25519-dalek-2.2.0/tests/examples/pkcs8-v2.der (attempt 6: pubkey.der), a tracked, checksum-listed file that the secret-pattern block from 18.867.1 drops from both image contexts (116 manifest files in 13 crates; issue #1116)."
+assumption = "The candidate is complete for do_1 and do_2; task 18.1116.1 re-includes the checksum-listed fixtures by explicit path while keeping the 18.867.1 patterns and guard, and 18.869.1 requires it."
+severity = "major"
+
+[finding.5.55.5.4]
+task = "5.55.5"
+file = "tests/fixtures/custody/daemon-committed/vectors/vector-v4-committed.json"
+symbol = "recordV4"
+observed = "Attempts 2-5 (ddd481b3b) fail at vector_v4_test.go:50 because the recorded vector is still the placeholder (positive.name canonical-receipt-reference, settlement null): the recorder halted on the standby refusal of issue #1109 and attempt 5 ran on a base without 18.1109.1."
+assumption = "18.1109.1 is on main (eb972fa97); attempt 6 rebases ddd481b3b, re-records the vector with no code change and runs the gate once."
+severity = "minor"
+
+[finding.8.98.5.1]
+task = "8.98.5"
+file = "services/platform/hosted/core/src/lib.rs:429"
+symbol = "FrameTransport"
+observed = "Attempt 3 (c4ffdd2f1) invents layerx_client::rpc::transport, rpc::evidence::RootSelector and VerifiedEffectiveAsset, none of which exist; core's custody reads take an LNI FrameTransport, read::ReadContext and the evidence verifiers, which layerx_client::rpc (account, module_state, batch, submit, evidence::ProofBundle) does not offer, and nothing was retired at main."
+assumption = "wiring.J44.20 is not a rename for core; the task waits in j4420_mapping_ruling for the owner to specify a real port to rpc::account and rpc::module_state over SequencerEndpoint or a deferral while 8.18.1 keeps LAYERX_CORE_LNI_SOCKET; 9.25.1, 9.25.2 and 9.24.7 now require it so the modules it uses are not deleted first."
+severity = "major"
+
+[finding.8.98.7.1]
+task = "8.98.7"
+file = "services/platform/hosted/gateway/tests/local/funding.rs:216"
+symbol = "lookup"
+observed = "Attempt 3 (889080e2c) placed the scan test under tests/local/tests/ and built the local harness package, which no gate can compile; funding.rs calls batch::lookup(&mut transport, ..) -> SignedBatchHeader, evidence::register_finality_evidence and submit::submit_signed with an LNI transport, and rpc::batch::lookup(endpoint, height) -> SequencerBlock is a different function."
+assumption = "Superseded by 8.19.5, which deletes funding.rs and retired_client_modules_w2.rs; removed from 9.24.3 requires."
+severity = "minor"
+
+[finding.8.98.8.1]
+task = "8.98.8"
+file = "services/platform/hosted/gateway/tests/local/registry_runtime.rs:160"
+symbol = "lookup"
+observed = "Attempt 3 (d6ff1123c) shows the same placement and build errors as 8.98.7; registry_runtime.rs opens an LNI Uds transport, performs the handshake and reads header.canonical_bytes() from a SignedBatchHeader that rpc::batch::lookup does not return."
+assumption = "Superseded by 8.19.5, which deletes registry_runtime.rs and retired_client_modules.rs; removed from 9.24.3 requires."
+severity = "minor"
+
+[finding.8.98.10.1]
+task = "8.98.10"
+file = "services/platform/hosted/node/tests/probe/src/main.rs:14"
+symbol = "HeadTracker"
+observed = "Attempt 4 (ab5eed4c9) writes a correct scan test that honestly fails at tests/retired_client_modules.rs:40: the probe is an LNI client by design (lni::transport::Uds, handshake::perform, head::HeadTracker, caps::CapsDiscovery, read::did_accounts, evidence::RootSelector) and layerx_client::rpc, sequencer and px carry none of these."
+assumption = "The task waits in j4420_mapping_ruling for the owner to either delete the probe alongside 8.19.2 or re-specify it as a JSON-RPC probe over SequencerEndpoint and PxEndpoint; 9.25.1, 9.25.2 and 9.24.7 now require it."
+severity = "major"
