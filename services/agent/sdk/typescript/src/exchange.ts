@@ -20,7 +20,9 @@ export type PrecompileAbiErrorCode =
   | "data_length"
   | "non_canonical_word"
   | "invalid_string"
-  | "malformed_wallet_answer";
+  | "malformed_wallet_answer"
+  | "approve_reverted"
+  | "approve_not_mined";
 
 export class PrecompileAbiError extends Error {
   readonly code: PrecompileAbiErrorCode;
