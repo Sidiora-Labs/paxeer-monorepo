@@ -105728,7 +105728,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.4]
 title = "End-to-end: GraphQL markets equal the chain market config and tiers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["3.42.9", "3.54.1", "5.98.2"]
@@ -174648,7 +174648,7 @@ qualification = "UNRUN"
 
 [task.18.832.1]
 title = "Issue #832: Drop the stale perps-keeper inventory row and read feeder bin targets from cargo metadata"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1056.1"]
