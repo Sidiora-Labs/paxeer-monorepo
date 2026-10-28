@@ -127,6 +127,12 @@ CREATE TABLE IF NOT EXISTS explorer_accounts(
     account TEXT PRIMARY KEY,
     imported_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS explorer_progress(
+    account TEXT NOT NULL,
+    feed TEXT NOT NULL,
+    next_query TEXT,
+    PRIMARY KEY(account, feed)
+);
 CREATE TABLE IF NOT EXISTS cursors(
     chain TEXT PRIMARY KEY,
     position INTEGER NOT NULL,
@@ -1517,6 +1523,42 @@ impl Store {
             .is_some())
     }
 
+    /// The saved next-page query for an unfinished explorer feed.
+    ///
+    /// # Errors
+    /// Returns [`IndexError::Store`] on SQLite failure.
+    pub fn explorer_progress(
+        &self,
+        account: &str,
+        feed: &str,
+    ) -> Result<Option<String>, IndexError> {
+        let connection = self.lock()?;
+        Ok(connection
+            .query_row(
+                "SELECT next_query FROM explorer_progress WHERE account = ?1 AND feed = ?2",
+                params![account, feed],
+                |row| row.get::<_, Option<String>>(0),
+            )
+            .optional()?
+            .flatten())
+    }
+
+    pub(crate) fn explorer_feed_complete(
+        &self,
+        account: &str,
+        feed: &str,
+    ) -> Result<bool, IndexError> {
+        let connection = self.lock()?;
+        Ok(connection
+            .query_row(
+                "SELECT 1 FROM explorer_progress WHERE account = ?1 AND feed = ?2 AND next_query IS NULL",
+                params![account, feed],
+                |_| Ok(()),
+            )
+            .optional()?
+            .is_some())
+    }
+
     /// Persists the explorer rows of `account` (idempotently) and, when
     /// `complete`, records that its explorer history is imported in full.
     ///
@@ -1526,6 +1568,7 @@ impl Store {
         &self,
         account: &str,
         rows: &[(u64, TransferRow)],
+        progress: &[(&str, Option<String>)],
         complete: bool,
     ) -> Result<(), IndexError> {
         let mut connection = self.lock()?;
@@ -1556,7 +1599,17 @@ impl Store {
                 ],
             )?;
         }
+        for (feed, next_query) in progress {
+            transaction.execute(
+                "INSERT OR REPLACE INTO explorer_progress(account, feed, next_query) VALUES (?1, ?2, ?3)",
+                params![account, feed, next_query],
+            )?;
+        }
         if complete {
+            transaction.execute(
+                "DELETE FROM explorer_progress WHERE account = ?1",
+                params![account],
+            )?;
             transaction.execute(
                 "INSERT OR REPLACE INTO explorer_accounts(account, imported_at) VALUES (?1, ?2)",
                 params![account, now()],
