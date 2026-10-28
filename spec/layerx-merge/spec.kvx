@@ -184255,7 +184255,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1142.1]
 title = "Issue #1142: Issue #1142: Build the reclaim test's agent context with the nonce field the reclaim contract now carries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
