@@ -377,6 +377,9 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
       if(c.kind==='sponsored_batch'){
         if(c.account.toLowerCase()!==sw.row.address.toLowerCase()||BigInt(c.quote.deadline)<=BigInt(Math.floor(Date.now()/1000))||BigInt(c.quote.tokenAmount)>BigInt(c.quote.maxTokenAmount)) throw new RouteRefusal(403,'consent_mismatch',{error:'consent_mismatch'});
       }else if(BigInt(c.nonce)!==BigInt(await rpc.getTransactionCount(sw.row.address as Hex,'latest'))) throw new RouteRefusal(409,'authorization_nonce_changed',{error:'authorization_nonce_changed'});
+      if (c.kind === 'eip7702_authorization' && !env.WALLET_AUTHORIZATION_DELEGATES.includes(c.address.toLowerCase())) {
+        throw new RouteRefusal(403, 'delegate_not_allowed', { error: 'delegate_not_allowed' });
+      }
       const digest=constructionDigest(c);const signed=await signConstruction(sw,req,{kind:'eth_sign_digest',digest,construction:c},digest);
       if(c.kind==='sponsored_batch'&&BigInt(c.quote.deadline)<=BigInt(Math.floor(Date.now()/1000)))throw new RouteRefusal(403,'consent_expired',{error:'consent_expired'});
       if(c.kind==='eip7702_authorization'&&BigInt(c.nonce)!==BigInt(await rpc.getTransactionCount(sw.row.address as Hex,'latest')))throw new RouteRefusal(409,'authorization_nonce_changed',{error:'authorization_nonce_changed'});
