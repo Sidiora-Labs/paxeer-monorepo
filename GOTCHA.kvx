@@ -10007,3 +10007,9 @@ area = "programs host"
 symptom = "Every exitValue through the precompile refuses with LXP_CONTEXT_MISMATCH from lxp_ctx_ledger_execution_sequence while the same flow passes in the kernel suites."
 cause = "The ledger admission binds the caller's payment account by runtime->occupancy_asset_id (lxp_kernel.c:497); kernel fixtures and snapshot nodes set that field, the host node in modules/lxphost/host.go never does, so the WIND_DOWN admission can never bind through the host (issue #1124)."
 do = "When a kernel check passes in tests/ but fails through the precompile, diff the host node construction in host.go against the kernel fixture that passes; fields the fixture sets by hand are the suspects."
+
+[gotcha.2050]
+area = "kernel programs"
+symptom = "Sandbox EXECUTE host admission refuses with LXP_ERR_NON_CANONICAL (seen as LXP_FATAL_INVARIANT before 18.1122.1) although lease, escrow and fee schedule are all consistent."
+cause = "layerx_programs_sandbox_lifecycle_length/_byte (src/modules/programs/sandbox.c:509-530) compare the raw token with the outer sandbox pointer, while admit_host (host_ffi.rs:538) legitimately holds the inner CALL token that every other sandbox accessor resolves through sandbox_for_call (issue #1125)."
+do = "Any new kernel accessor that takes a sandbox token must resolve it with sandbox_for_call so both the outer and the call token identify the active sandbox; the FUND/ACTIVATE lifecycle tests never exercise the call-token path, so add an EXECUTE-side case when touching these accessors."

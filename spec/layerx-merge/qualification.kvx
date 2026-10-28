@@ -8855,3 +8855,35 @@ symbol = "Trust::snapshot"
 observed = "Attempt 1 changed nothing because the pinned-key snapshot must return layerx_client::handover::SequencerHistory, which only from_genesis_artifact can build, and read ChainReceipts.keys (chain_receipt.rs:28), which has no accessor; both live outside the declared touches."
 assumption = "touches widened to handover.rs and chain_receipt.rs with a do step bounding the additions to a validated constructor and a read accessor."
 severity = "minor"
+
+[finding.13.27.1.2]
+task = "13.27.1"
+file = "src/modules/programs/sandbox.c:509-530"
+symbol = "layerx_programs_sandbox_lifecycle_length"
+observed = "Attempt 15 unmasked the LXP_FATAL_INVARIANT of finding 13.27.1.1: host admission (host_ffi.rs:538 lifecycle_field(token, 8)) passes the inner CALL token, and the two lifecycle accessors refuse any token other than the outer sandbox pointer with LXP_ERR_NON_CANONICAL, so no SANDBOX_EXECUTE is ever admitted (issue #1125)."
+assumption = "Task 18.1125.1 resolves both accessors through sandbox_for_call; 13.27.1 requires it and 18.1122.1 and keeps its fixture (fee limit 1,000,000) unchanged."
+severity = "major"
+
+[finding.17.5.1.2]
+task = "17.5.1"
+file = "Makefile:3013"
+symbol = "workspace-build"
+observed = "Attempt 4 failed in make workspace-build on layerx-human-service (src/activity/mod.rs:602, :672 read the pre-051d11e3a Cursor shape), a crate 17.5.1 cannot touch and that task 18.1119.1 ports."
+assumption = "17.5.1 now requires 18.1119.1 and is relaunched on a main that carries the port; the gate test stays unchanged."
+severity = "minor"
+
+[finding.17.5.2.2]
+task = "17.5.2"
+file = "Makefile:3013"
+symbol = "workspace-build"
+observed = "Attempt 4 failed in make workspace-build on the same layerx-human-service break as finding 17.5.1.2."
+assumption = "17.5.2 now requires 18.1119.1 and is relaunched on a main that carries the port; the gate test stays unchanged."
+severity = "minor"
+
+[finding.18.974.1.1]
+task = "18.974.1"
+file = "services/human/crates/layerx-human-service/src/activity/detail.rs:293"
+symbol = "rung_level"
+observed = "18.1119.1 do_2 replaces the removed rung_level call at detail.rs:293 with an inline rung-to-level mapping, while 18.974.1 do_2 as written required that call to remain, so the two tasks contradicted each other on the same line."
+assumption = "18.974.1 runs after 18.1119.1, hoists the inline mapping into rung_level in mod.rs and calls it from detail.rs:293 (detail.rs added to its touches); issue #974 keeps its scope."
+severity = "minor"
