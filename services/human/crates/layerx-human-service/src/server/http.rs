@@ -216,6 +216,9 @@ impl<B: HumanApiComponents> Router<B> {
             Err(_) => return error_response(&trace, &ApiFailure::invalid_request(None)),
         };
         let operation = matched.operation;
+        if operation.retired() {
+            return error_response(&trace, &ApiFailure::operation_retired());
+        }
         if operation.name == "version" {
             return self.version_response(&trace, public_rate_key);
         }
@@ -1134,6 +1137,7 @@ const fn reason(status: u16) -> &'static str {
         403 => "Forbidden",
         404 => "Not Found",
         409 => "Conflict",
+        410 => "Gone",
         429 => "Too Many Requests",
         503 => "Service Unavailable",
         _ => "Error",
