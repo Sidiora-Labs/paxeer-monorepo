@@ -157421,7 +157421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.4]
 title = "Serve retireStorage with the retirement certificate request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
@@ -173345,7 +173345,7 @@ qualification = "UNRUN"
 
 [task.18.672.1]
 title = "Issue #672: Keep the requested block number and time in historical debug_traceCall"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174405,7 +174405,7 @@ qualification = "UNRUN"
 
 [task.18.691.1]
 title = "Issue #691: Retarget the launchpad runtime-docs and chart-rebuild operator commands to the split repository layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176096,7 +176096,7 @@ qualification = "UNRUN"
 
 [task.18.677.1]
 title = "Issue #677: Qualify native surface pools discovered from factory receipts without a beacon slot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
