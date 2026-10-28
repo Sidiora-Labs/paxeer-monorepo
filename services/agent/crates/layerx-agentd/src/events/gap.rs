@@ -1,15 +1,13 @@
-//! Explicit global-sequence gaps, core backfill reports and retention loss.
+//! Explicit block-height gaps, history backfill reports and retention loss.
 
 use std::fmt::{Display, Formatter};
 
+use crate::read::{history, Cursor, HistoryLimits, HistoryReadError};
 use layerx_agent_api::subscription::SubscriptionTarget;
-use layerx_client::head::Head;
 use layerx_client::lni::transport::FrameTransport;
-use layerx_client::stream::{
-    subscribe, Cursor as ClientCursor, StreamConfig, StreamError, StreamItem,
-};
+use layerx_client::read::{HistoryKind, ReadContext};
 
-use super::ingestion::durable_event;
+use super::ingestion::{decode_log, durable_event, durable_sequences};
 use super::subscription::{Continuity, Store as SubscriptionStore, SubscriptionError};
 use crate::session::{SessionRegistry, Token};
 use crate::tenant::{Operation, TenantObservability};
@@ -22,21 +20,33 @@ pub struct Gap {
     pub observed_sequence: u64,
 }
 
+impl Gap {
+    pub fn between_heads(previous: u64, observed: u64) -> Option<Self> {
+        let expected = previous.checked_add(1)?;
+        (observed > expected).then_some(Self {
+            missing_first: expected,
+            missing_last: observed.saturating_sub(1),
+            observed_sequence: observed,
+        })
+    }
+}
+
 /// Exact core bytes recovered for one missing sequence.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecoveredEvent {
     pub global_sequence: u64,
     pub canonical_bytes: Vec<u8>,
+    pub position: Cursor,
 }
 
 /// Why a real core backfill did not restore the entire interval.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BackfillFailure {
     RangeExceedsBound {
         required: u64,
         maximum: u32,
     },
-    Stream(StreamError),
+    History(HistoryReadError),
     CoreReportedGap {
         missing_first: u64,
         missing_last: u64,
@@ -63,10 +73,10 @@ impl BackfillReport {
     #[must_use]
     pub fn recovered_through(&self) -> Option<u64> {
         match self {
-            Self::Recovered { events, .. }
-            | Self::Incomplete {
+            Self::Recovered { gap, .. } => Some(gap.missing_last),
+            Self::Incomplete {
                 recovered: events, ..
-            } => events.last().map(|event| event.global_sequence),
+            } => events.last().map(|event| event.position.block_height),
         }
     }
 }
@@ -209,78 +219,99 @@ fn detect_inner(
     Ok(Some(gap))
 }
 
-/// Uses the real `layerx-client` stream contract to request exactly the
-/// missing range from the core boundary under explicit record limits.
 pub fn attempt_backfill(
     transport: &mut dyn FrameTransport,
     gap: Gap,
-    head: Head,
-    config: StreamConfig,
+    context: ReadContext,
+    limits: HistoryLimits,
     maximum_records: u32,
 ) -> BackfillReport {
-    let required = gap
-        .missing_last
-        .saturating_sub(gap.missing_first)
-        .saturating_add(1);
-    if maximum_records == 0 || required > u64::from(maximum_records) {
-        return BackfillReport::Incomplete {
-            gap,
-            recovered: Vec::new(),
-            failure: BackfillFailure::RangeExceedsBound {
-                required,
-                maximum: maximum_records,
-            },
-        };
-    }
-    let cursor = ClientCursor::new(gap.missing_first, head);
-    let mut stream = match subscribe(transport, cursor, config) {
-        Ok(value) => value,
-        Err(error) => {
+    let mut recovered = Vec::new();
+    let mut cursor = None;
+    let mut read = 0_u32;
+    loop {
+        let remaining = maximum_records.saturating_sub(read);
+        if remaining == 0 || gap.missing_first > gap.missing_last {
             return BackfillReport::Incomplete {
                 gap,
-                recovered: Vec::new(),
-                failure: BackfillFailure::Stream(error),
+                recovered,
+                failure: BackfillFailure::RangeExceedsBound {
+                    required: u64::from(read) + 1,
+                    maximum: maximum_records,
+                },
             };
         }
-    };
-    let mut recovered = Vec::new();
-    for _ in 0..required {
-        match stream.next_item() {
-            Ok(StreamItem::Event(event)) => recovered.push(RecoveredEvent {
-                global_sequence: event.global_sequence,
-                canonical_bytes: event.canonical_bytes().to_vec(),
-            }),
-            Ok(StreamItem::Gap(missing)) => {
-                return BackfillReport::Incomplete {
-                    gap,
-                    recovered,
-                    failure: BackfillFailure::CoreReportedGap {
-                        missing_first: missing.missing_first,
-                        missing_last: missing.missing_last,
-                    },
-                };
-            }
+        let page_limits = HistoryLimits {
+            maximum_items: limits
+                .maximum_items
+                .min(u16::try_from(remaining).unwrap_or(u16::MAX)),
+            ..limits
+        };
+        let page = match history(
+            transport,
+            gap.missing_first,
+            gap.missing_last,
+            cursor,
+            page_limits,
+            context,
+        ) {
+            Ok(page) => page,
             Err(error) => {
                 return BackfillReport::Incomplete {
                     gap,
                     recovered,
-                    failure: BackfillFailure::Stream(error),
+                    failure: BackfillFailure::History(error),
+                }
+            }
+        };
+        if page.height < gap.missing_last {
+            return BackfillReport::Incomplete {
+                gap,
+                recovered,
+                failure: BackfillFailure::Incomplete,
+            };
+        }
+        read += u32::try_from(page.items.len()).unwrap_or(u32::MAX);
+        for item in page.items {
+            if item.kind != HistoryKind::Event {
+                continue;
+            }
+            let event = decode_log(&item.canonical, layerx_types::rung::Rung::Receipted);
+            if !event.is_ok_and(|event| {
+                Cursor {
+                    block_height: event.block_height,
+                    tx_index: event.tx_index,
+                    log_index: event.log_index,
+                } == item.position
+            }) {
+                return BackfillReport::Incomplete {
+                    gap,
+                    recovered,
+                    failure: BackfillFailure::History(HistoryReadError::Malformed),
                 };
             }
+            recovered.push(RecoveredEvent {
+                global_sequence: item.position.block_height,
+                canonical_bytes: item.canonical,
+                position: item.position,
+            });
         }
-    }
-    if recovered.first().map(|event| event.global_sequence) != Some(gap.missing_first)
-        || recovered.last().map(|event| event.global_sequence) != Some(gap.missing_last)
-    {
-        return BackfillReport::Incomplete {
-            gap,
-            recovered,
-            failure: BackfillFailure::Incomplete,
-        };
-    }
-    BackfillReport::Recovered {
-        gap,
-        events: recovered,
+        match page.next_cursor {
+            Some(next) if cursor.is_none_or(|previous| next > previous) => cursor = Some(next),
+            None => {
+                return BackfillReport::Recovered {
+                    gap,
+                    events: recovered,
+                }
+            }
+            _ => {
+                return BackfillReport::Incomplete {
+                    gap,
+                    recovered,
+                    failure: BackfillFailure::Incomplete,
+                }
+            }
+        }
     }
 }
 
@@ -358,23 +389,31 @@ fn apply_backfill_inner(
             let tenant = crate::store::TenantId::new(target.scope.tenant.as_str())
                 .map_err(|_| GapError::DurableEvent)?;
             let durable_store = subscriptions.durable()?;
-            for (offset, recovered) in events.iter().enumerate() {
-                let offset = u64::try_from(offset).map_err(|_| GapError::MismatchedReport)?;
-                let expected = gap
-                    .missing_first
-                    .checked_add(offset)
-                    .ok_or(GapError::MismatchedReport)?;
-                if recovered.global_sequence != expected {
+            let sequences =
+                durable_sequences(&durable_store, &tenant).map_err(|_| GapError::DurableEvent)?;
+            let mut previous = None;
+            for recovered in events {
+                if !(gap.missing_first..=gap.missing_last)
+                    .contains(&recovered.position.block_height)
+                    || previous.is_some_and(|position| recovered.position <= position)
+                {
                     return Err(GapError::MismatchedReport);
                 }
-                let durable = durable_event(&durable_store, &tenant, recovered.global_sequence)
-                    .map_err(|_| GapError::DurableEvent)?;
-                if durable.canonical_bytes != recovered.canonical_bytes {
+                previous = Some(recovered.position);
+                let mut found = false;
+                for &sequence in &sequences {
+                    let durable = durable_event(&durable_store, &tenant, sequence)
+                        .map_err(|_| GapError::DurableEvent)?;
+                    if durable.position() == Some(recovered.position)
+                        && durable.canonical_bytes == recovered.canonical_bytes
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
                     return Err(GapError::DurableEvent);
                 }
-            }
-            if events.last().map(|event| event.global_sequence) != Some(gap.missing_last) {
-                return Err(GapError::MismatchedReport);
             }
             drop(durable_store);
             subscriptions.clear_gap_inner(target)?;
