@@ -142,6 +142,28 @@ fn recorded_entry(rung: Rung) -> Result<(ActivityEntry, ReceiptActual), FeedErro
 }
 
 #[test]
+fn checkpoint_evidence_level_follows_the_finality_rung() {
+    for (rung, level) in [
+        (Rung::Receipted, Level::BatchIncluded),
+        (Rung::Committed, Level::CheckpointFinalised),
+    ] {
+        let (entry, actual) =
+            recorded_entry(rung).unwrap_or_else(|error| panic!("feed entry: {error}"));
+        assert_eq!(entry.rung(), rung);
+        let reference = FinalityReference::new([0x77; 32], rung)
+            .unwrap_or_else(|error| panic!("finality reference: {error}"));
+        let detail = EntryDetail::assemble(&entry, vec![actual], Some(reference))
+            .unwrap_or_else(|error| panic!("entry detail: {error}"));
+        assert_eq!(detail.finality(), Some(reference));
+        assert_eq!(detail.evidence().len(), 2);
+        assert_eq!(detail.evidence()[0].kind(), EvidenceKind::Receipt);
+        assert_eq!(detail.evidence()[0].level(), level);
+        assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
+        assert_eq!(detail.evidence()[1].level(), level);
+    }
+}
+
+#[test]
 fn receipted_entry_detail_is_not_final() {
     for rung in [Rung::Submitted, Rung::Receipted] {
         if rung == Rung::Submitted {
