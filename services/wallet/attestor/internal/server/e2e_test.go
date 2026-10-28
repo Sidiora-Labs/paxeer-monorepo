@@ -1104,6 +1104,21 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 			t.Fatalf("%s: authorization signature does not recover the key over the recomputed digest (%v)", r.NodeID, err)
 		}
 	}
+	unlistedDelegate := common.HexToAddress("0x4444444444444444444444444444444444444444")
+	unlistedDigest, err := evm.AuthorizationDigest(big.NewInt(testChainID), unlistedDelegate, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unlistedConstruction := &ConstructionJSON{Kind: policy.KindAuthorization, ChainID: "125", Address: unlistedDelegate.Hex(), Nonce: "3"}
+	unlistedResults := c.callAll(t, c.nodes, PathSign, func(*testNode) any {
+		return SignRequest{SessionID: "sign-unlisted-authorization", KeyID: "evm-key", Kind: KindEthSignDigest, Signers: c.ids, Digest: unlistedDigest.Hex(), Construction: unlistedConstruction}
+	}, fresh())
+	for i, r := range unlistedResults {
+		e := expectError(t, c.nodes[i].id+": unlisted authorization delegate", r, CodePolicyDenied)
+		if e.PolicyCode != policy.CodeDelegateNotAllowed {
+			t.Fatalf("%s: unlisted authorization delegate: policy code %s", c.nodes[i].id, e.PolicyCode)
+		}
+	}
 	for _, r := range sign("sign-bare-digest", SignRequest{KeyID: "evm-key", Kind: KindEthSignDigest, Digest: authDigest.Hex()}, fresh()) {
 		expectError(t, "bare digest", r, CodeSessionBadRequest)
 	}
