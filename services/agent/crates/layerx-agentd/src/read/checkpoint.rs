@@ -2,12 +2,11 @@
 
 use std::collections::BTreeSet;
 
-use layerx_proof::inclusion::{
-    verify_activity, verify_state, InclusionError, SequencerAuthorization,
-};
-use layerx_proof::merkle::Proof;
+use layerx_agent_api::proof::ProofBundleTarget;
+use layerx_client::sequencer::{AccountProof, SequencerEndpoint, SequencerError};
 use layerx_types::rung::Rung;
-use layerx_types::verify::VerificationLevel;
+
+use crate::receipt::TransactionReceiptEvidence;
 use sha2::{Digest as _, Sha256};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -175,37 +174,77 @@ pub struct ServedCheckpoint {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ProofBundleKind {
     Activity,
+    Receipt,
     State,
 }
 
+#[derive(Clone, Copy)]
 pub struct ProofBundleRequest<'a> {
-    pub kind: ProofBundleKind,
-    pub canonical_leaf_bytes: &'a [u8],
-    pub proof: &'a Proof,
-    pub named_root: [u8; 32],
-    pub header_bytes: &'a [u8],
-    pub header_signature: [u8; 64],
-    pub authorization: &'a SequencerAuthorization,
+    pub target: ProofBundleTarget,
+    pub requested_rung: Rung,
+    pub raw_transaction: &'a [u8],
+    pub receipt: &'a TransactionReceiptEvidence,
+    pub receipt_public_key: &'a [u8],
+    pub receipt_proof: &'a [Vec<u8>],
+    pub receipts_root: [u8; 32],
+    pub chain_id: &'a str,
+    pub header: &'a CheckpointHeader,
+    pub commit: Option<&'a BlockCommit>,
+    pub validators: &'a [CommitValidator],
+    pub account_proof: Option<&'a AccountProof>,
+}
+
+impl ProofBundleRequest<'_> {
+    pub fn acquire(
+        &self,
+        endpoint: &SequencerEndpoint,
+    ) -> Result<ServedProofBundle, CheckpointReadError> {
+        super::proof_bundle_owner::acquire_at_committed_block(endpoint, self)
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ServedProofBundle {
+    pub format: &'static str,
     pub kind: ProofBundleKind,
-    pub canonical_leaf_bytes: Vec<u8>,
-    pub proof_bytes: Vec<u8>,
-    pub named_root: [u8; 32],
-    pub batch_number: u64,
-    pub signed_header_digest: [u8; 32],
-    pub verification_level: VerificationLevel,
+    pub raw_transaction: Vec<u8>,
+    pub receipt: TransactionReceiptEvidence,
+    pub receipt_proof: Vec<Vec<u8>>,
+    pub receipts_root: [u8; 32],
+    pub block_header: CheckpointHeader,
+    pub checkpoint: Option<ServedCheckpoint>,
+    pub validator_set: Vec<CommitValidator>,
+    pub account_proof: Option<AccountProof>,
+    pub state_root: Option<[u8; 32]>,
+    pub verification_level: Rung,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CheckpointReadError {
     UnavailableCapability(layerx_agent_api::error::ApiError),
     Commit,
-    Inclusion(InclusionError),
+    NotCommitted,
+    InvalidProof,
     RootMismatch,
+    TargetMismatch,
+    BelowRequestedRung,
     Arithmetic,
+    Rpc(SequencerError),
+}
+
+impl CheckpointReadError {
+    pub const fn reason(&self) -> &'static str {
+        match self {
+            Self::UnavailableCapability(_) => "read.unavailable",
+            Self::NotCommitted => "read.not_committed",
+            Self::Commit => "read.commit",
+            Self::InvalidProof | Self::RootMismatch => "read.invalid_proof",
+            Self::TargetMismatch => "read.target_mismatch",
+            Self::BelowRequestedRung => "read.below_requested_rung",
+            Self::Arithmetic => "read.proof_size",
+            Self::Rpc(_) => "read.unavailable",
+        }
+    }
 }
 
 pub(crate) fn serve_checkpoint(
@@ -336,35 +375,12 @@ fn merkle_hash(items: &[Vec<u8>]) -> [u8; 32] {
     hash.finalize().into()
 }
 
-/// Verifies and serves one inclusion proof with its signed-header root provenance.
+/// Verifies receipt-root inclusion and, for accounts, the committed state root.
 ///
 /// # Errors
-///
-/// Returns the inclusion failure when the proof or signed header does not verify, `RootMismatch`
-/// when the header commits a different root than the named one, and `Arithmetic` when the
-/// sibling count exceeds its encoded bound.
+/// Refuses substituted receipts, roots, accounts, invalid commits and insufficient rungs.
 pub fn proof_bundle(
     request: &ProofBundleRequest<'_>,
 ) -> Result<ServedProofBundle, CheckpointReadError> {
-    let _ = request;
-    Err(CheckpointReadError::UnavailableCapability(
-        layerx_agent_api::error::ApiError::unavailable_capability(
-            layerx_agent_api::error::RequestId(0),
-            "read.proof_bundle",
-        )
-        .expect("static operation name"),
-    ))
-}
-
-fn encode_proof(proof: &Proof) -> Result<Vec<u8>, CheckpointReadError> {
-    let sibling_count =
-        u32::try_from(proof.siblings().len()).map_err(|_| CheckpointReadError::Arithmetic)?;
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(&proof.leaf_index().to_be_bytes());
-    bytes.extend_from_slice(&proof.leaf_count().to_be_bytes());
-    bytes.extend_from_slice(&sibling_count.to_be_bytes());
-    for sibling in proof.siblings() {
-        bytes.extend_from_slice(sibling);
-    }
-    Ok(bytes)
+    super::proof_bundle_owner::verify_bundle(request)
 }
