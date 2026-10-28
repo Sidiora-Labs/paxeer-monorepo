@@ -176635,7 +176635,7 @@ qualification = "UNRUN"
 
 [task.18.700.1]
 title = "Issue #700: Assert the three native identities in the account-binding tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179419,7 +179419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1067.1]
 title = "Issue #1067: Give the gateway starter-credit test fixture the Faucet.claim_amount the binary requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
@@ -179775,7 +179775,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1088.1]
 title = "Issue #1088: Prove the Rust sequencer receipt vector consumers accept the regenerated conformance vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.997.1"]
