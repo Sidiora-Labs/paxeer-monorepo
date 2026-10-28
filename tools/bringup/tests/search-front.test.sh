@@ -36,9 +36,12 @@ fixture_env=(
 	X_WEBSEARCH_USDL_ASSET_ID=0404040404040404040404040404040404040404040404040404040404040404
 	X_WEBSEARCH_USDL_PRICE=1000000000000000
 	X_WEBSEARCH_GATEWAY_ENDPOINT=https://api-mainnet-beta.paxeer.network/rpc
+	X_WEBSEARCH_RECEIPT_KEY_ID=test-receipt-key
+	X_WEBSEARCH_RECEIPT_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_SEQUENCER_ID=0505050505050505050505050505050505050505050505050505050505050505
 	X_WEBSEARCH_SEQUENCER_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_EVM_ENDPOINT=https://api15.paxeer.network/
+	X_WEBSEARCH_PAYER_ADDRESS=0x1111111111111111111111111111111111111111
 )
 
 status=0
@@ -69,9 +72,8 @@ check config_matches_template 'env "${fixture_env[@]}" python3 - "$repo_root/ser
 import json, os, re, sys
 template = json.load(open(sys.argv[1]))
 rendered = json.load(open(sys.argv[2]))
-assert "note" in template and "note" not in rendered
+assert "note" not in rendered
 assert "REPLACE_WITH" not in open(sys.argv[1]).read()
-template.pop("note")
 def walk(want, got):
     if isinstance(want, dict):
         assert isinstance(got, dict) and set(want) == set(got)

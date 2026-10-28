@@ -9802,3 +9802,9 @@ area = "search-front bring-up test"
 symptom = "search-front.test.sh fails config_exit with JSONDecodeError on empty output, config_matches_template and config_refuses_unset."
 cause = "Since 288a967c2 the x-websearch config example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS and has no note key; fixture_env predates both."
 do = "Set the three variables in fixture_env and assert only that the rendered config has no note key (18.1070.1)."
+
+[gotcha.2016]
+area = "spec acceptance contracts"
+symptom = "An acceptance cites a contract anchor that does not exist (contracts/sequencer.md#receipt-key-pin-and-rotation) or a section unrelated to the task (contracts/agent-ts-sdk.md#history for a Rust receipt-vector proof)."
+cause = "Contract strings were copied from a sibling acceptance of the same owner instead of the section heading; sequencer.md anchors the section as <a id='receipt-key-pin'>."
+do = "Resolve the anchor against the contract file (<a id> or heading) before writing it and cite the section that defines the behaviour under test (18.997.1, 18.1088.1)."
