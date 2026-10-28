@@ -184031,7 +184031,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.876.1]
 title = "Issue #876: Ship a 30-day price-feed retention default in the backend environment template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184155,7 +184155,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.929.1]
 title = "Issue #929: Raise every repository Go toolchain pin from 1.25.6 to the 1.25.8 that sdk/cosmovisor requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
