@@ -5,7 +5,7 @@ use layerx_agentd::read::{AvailabilityReadError, NativeReadError};
 use native_routes_rpc::{assert_receipt, endpoint, live_route, must};
 
 #[test]
-fn real_daemon_availability_refusals() {
+fn native_rpc_availability_refusals() {
     let (mut route, config) = live_route();
     assert_receipt(&mut route, &config);
     let client = endpoint(&config);
