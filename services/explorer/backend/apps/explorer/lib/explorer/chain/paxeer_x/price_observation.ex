@@ -28,6 +28,7 @@ defmodule Explorer.Chain.PaxeerX.PriceObservation do
     field(:index_price, :decimal, null: false)
     field(:mark_price, :decimal, null: false)
     field(:source_timestamp_ms, :integer, null: false)
+    field(:accepted, :boolean, null: false)
 
     belongs_to(:update, PriceUpdate,
       foreign_key: :update_hash,

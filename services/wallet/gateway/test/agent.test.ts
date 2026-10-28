@@ -569,6 +569,40 @@ describe('agent request signing', () => {
       expect(res.json()).toMatchObject({ error: 'agent_request_malformed' });
     });
 
+    const unservedPrecompileTests = {
+      async 'refuses a signed scheduler deposit to the unserved precompile without signing'() {
+        const before = await poolModule.query(
+          'select count(*) from wallet_signatures where principal_did = $1',
+          [agent.did],
+        );
+        const res = await signedPost(agent, '/v1/agent/precompiles/scheduler/schedule', {
+          target: '0x000000000000000000000000000000000000dEaD',
+          execute_at_block: '100',
+          gas_limit: '100000',
+          deposit_wei: '1000',
+        });
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toMatchObject({
+          error: 'precompile_not_served',
+          message: 'the node does not serve the scheduler precompile',
+          precompile: 'scheduler',
+          address: precompilesModule.PRECOMPILE_ADDRESSES.scheduler,
+          retryable: false,
+        });
+        expect(res.headers['retry-after']).toBe('3600');
+        const after = await poolModule.query(
+          'select count(*) from wallet_signatures where principal_did = $1',
+          [agent.did],
+        );
+        expect(after.rows).toEqual(before.rows);
+      },
+    };
+
+    it(
+      unservedPrecompileTests['refuses a signed scheduler deposit to the unserved precompile without signing'],
+      unservedPrecompileTests['refuses a signed scheduler deposit to the unserved precompile without signing'],
+    );
+
     it.each([
       ['POST', '/v1/agent/precompiles/scheduler/schedule', {
         target: '0x000000000000000000000000000000000000dEaD',

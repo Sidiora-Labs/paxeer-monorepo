@@ -12,7 +12,9 @@ use layerx_agent_api::subscription::{
     SubscriptionScope, SubscriptionTarget, TenantObject,
 };
 use layerx_agent_api::Sequence;
-use layerx_agentd::events::subscription::{Continuity, Store as SubscriptionStore, SubscriptionError};
+use layerx_agentd::events::subscription::{
+    Continuity, Store as SubscriptionStore, SubscriptionError,
+};
 use layerx_agentd::identity::{
     register, CoreIdentity, IdentityError, IdentityRecord, IdentityResolver, ProtocolAuthority,
 };
