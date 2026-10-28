@@ -24,7 +24,6 @@ const {
 const { buildOpenPosition, ladderCloid } =
   require("../src/core/perps/calls") as typeof import("../src/core/perps/calls");
 const { planOrder } = require("../src/core/perps/positionWrites") as typeof import("../src/core/perps/positionWrites");
-const { COLLATERAL_TOKENS } = require("../src/core/perps/config") as typeof import("../src/core/perps/config");
 
 const PERPS: Address = "0x0000000000000000000000000000000000001015";
 const E18 = 10n ** 18n;
@@ -202,14 +201,11 @@ describe("time in force", () => {
           assert.equal(order.acceptablePrice, (isLong ? 95_475n : 94_525n) * E18);
           assert.equal(order.deadline, BigInt(REFERENCE_SECONDS + 60));
 
-          const writes = await planOrder(plan.calls, { allowance: async () => 0n, native: new Set<Address>() });
-          assert.equal(writes.length, 2);
-          assert.deepEqual(writes[0], {
-            address: COLLATERAL_TOKENS.usdl.address,
-            functionName: "approve",
-            args: [PERPS, 100_000_000n],
-          });
-          const call = writes[1];
+          const writes = await planOrder(plan.calls);
+          assert.equal(writes.some((step) => step.functionName === "approve"), false);
+          assert.deepEqual(writes, plan.calls);
+          assert.equal(writes.length, 1);
+          const call = writes[0];
           assert.equal(call.functionName, "placeOrder");
           assert.strictEqual(call, plan.calls[0]);
           const decoded = decodeFunctionData({ abi: call.abi, data: encodeFunctionData(call) });
