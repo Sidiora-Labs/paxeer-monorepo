@@ -117,7 +117,11 @@ impl SubscriptionFilter {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Cursor(pub Sequence);
+pub struct Cursor {
+    pub block_height: u64,
+    pub tx_index: u32,
+    pub log_index: u32,
+}
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct SubscriptionCreate {

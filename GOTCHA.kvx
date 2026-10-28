@@ -9954,3 +9954,116 @@ symptom = "A migration task worded as 'change only import paths and call names' 
 cause = "The source uses an API family with no counterpart in the target module (LNI FrameTransport, read::ReadContext, evidence verifiers, batch::lookup -> SignedBatchHeader versus layerx_client::rpc), so no rename satisfies the step."
 do = "Before writing a rename task, check that every called item has a same-shaped twin in the target; otherwise specify a real port, a deletion, or supersede the task by the one that deletes the file."
 
+[gotcha.2041]
+area = "agent evidence"
+symptom = "A custody evidence authenticator answers Activity for a well-formed record while the same activity decodes with an explicit registry in a test."
+cause = "The daemon derived the activity ordinal from receipt.operation(), the ledger operation byte of lxp_receipt (0 for module receipts), so ActivityType::new rejected it as ZeroOrdinal."
+do = "Take the activity kind from the activity encoding (field 3, module << 16 | ordinal) and check its module against receipt.module_id(); never treat receipt.operation as an ordinal."
+
+[gotcha.2042]
+area = "programs kernel"
+symptom = "A test of the programs transfer (0x00090005) expects a Kind-2 monetary transfer effect in the receipt and finds none."
+cause = "src/modules/programs/transfer.c:239-243 calls lxp_ctx_emit_transfer_set, which appends no effect (only lxp_ctx_emit_monetary_transfer_set does), then lxp_ctx_emit_event(LX_PROGRAMS_EVENT_TRANSFERRED, transfer_set_root, 32)."
+do = "Read the transfer set root from the Kind-3 event with code 5 (Receipt.Events) and assert that no Kind-2 effect is present."
+
+[gotcha.2043]
+area = "evm keeper"
+symptom = "A test expects a merge precompile to be withheld after the merge plan is done because one of its gate modules is missing from the version map, but the keeper serves it."
+cause = "customPrecompileActivationLookup (modules/evm/keeper/keeper.go) answers true for any address whose plan is active at the height before consulting the module list; the list gates only a store where the plan was never done."
+do = "Assert every gated address served at and above the done height and withheld below it; prove the module rule with no done height."
+
+[gotcha.2044]
+area = "qualification"
+symptom = "A crate that could not compile for one recorded reason starts compiling after the fix and immediately fails on different errors that several done tasks introduced."
+cause = "Tasks whose gates could not compile the crate were landed while it was broken (layerx-human-service after 71550012a: 10.2.1 removed rung_level, 10.2.5 added a caller, the agent API renamed the ReceiptReference::Verified field); their gates never met the merged code."
+do = "When an unblocking fix lands, build the family crates once at the merged revision before its tasks start again, and keep them waiting until that build is green."
+
+[gotcha.2045]
+area = "agent sdk"
+symptom = "A caller of Wallet::execute expects a VerifiedRpcReceipt and gets a 32-byte array."
+cause = "Since 0a296da5e Wallet::execute submits the prepared payment and returns the activity hash; the receipt comes from Wallet::wait_for(hash, commitment, wait_timeout), which the SDK high-level methods (send, create, open_account) call themselves."
+do = "After execute, call wait_for with the options commitment and wait_timeout to obtain the VerifiedRpcReceipt; do not change the caller contract to the hash."
+
+[gotcha.2046]
+area = "agent api"
+symptom = "A consumer of layerx_agent_api::subscription::Cursor fails to compile with no field 0 on type Cursor."
+cause = "051d11e3a (task 9.11.1) reshaped Cursor from a newtype over Sequence into { block_height: u64, tx_index: u32, log_index: u32 }; consumers outside the daemon, such as layerx-human-service src/activity/mod.rs:602 and :672, still read .0 .0."
+do = "Derive the scalar a consumer stores from block_height and commit all three fields in big-endian order to any digest; the daemon's human_runtime.rs shows the pattern."
+
+[gotcha.2047]
+area = "kernel programs"
+symptom = "A programs sandbox EXECUTE reverts with LXP_FATAL_INVARIANT although nothing in the kernel is broken."
+cause = "src/modules/programs/sandbox.c:427 rewrites any status to LXP_FATAL_INVARIANT while the guest savepoint is active, and the Rust runtime seals the savepoint only on the success and terminal-failure paths, so every refusal between admission and the seal (host_ffi.rs admit_host, ffi_call.rs:2905) is reported as fatal (issue #1122)."
+do = "Treat LXP_FATAL_INVARIANT from sandboxExecute as a masked pre-seal refusal; unmask it by instrumenting admit_host and the sandbox branch of ffi_call.rs until 18.1122.1 lands."
+
+[gotcha.2048]
+area = "programs precompile"
+symptom = "A 0x101D view that is in abi.json, gas.go and LayerXPrograms.sol reverts with LXP_PRECOMPILE_UNKNOWN_METHOD."
+cause = "Handlers only reach the method table through register() in an init block (submit.go:43); view_accounts.go defined getProgramAccountById, getAccountProfile and getValueAccount without one, and its tests called the handler functions directly instead of dispatching (issue #1123)."
+do = "Register every handler of a new view file in its init and test it through the precompile call path (ABI pack, Submit or evm call, unpack); compare `func ...Handler(` definitions against register() calls before claiming a view is served."
+
+[gotcha.2049]
+area = "programs host"
+symptom = "Every exitValue through the precompile refuses with LXP_CONTEXT_MISMATCH from lxp_ctx_ledger_execution_sequence while the same flow passes in the kernel suites."
+cause = "The ledger admission binds the caller's payment account by runtime->occupancy_asset_id (lxp_kernel.c:497); kernel fixtures and snapshot nodes set that field, the host node in modules/lxphost/host.go never does, so the WIND_DOWN admission can never bind through the host (issue #1124)."
+do = "When a kernel check passes in tests/ but fails through the precompile, diff the host node construction in host.go against the kernel fixture that passes; fields the fixture sets by hand are the suspects."
+
+[gotcha.2050]
+area = "kernel programs"
+symptom = "Sandbox EXECUTE host admission refuses with LXP_ERR_NON_CANONICAL (seen as LXP_FATAL_INVARIANT before 18.1122.1) although lease, escrow and fee schedule are all consistent."
+cause = "layerx_programs_sandbox_lifecycle_length/_byte (src/modules/programs/sandbox.c:509-530) compare the raw token with the outer sandbox pointer, while admit_host (host_ffi.rs:538) legitimately holds the inner CALL token that every other sandbox accessor resolves through sandbox_for_call (issue #1125)."
+do = "Any new kernel accessor that takes a sandbox token must resolve it with sandbox_for_call so both the outer and the call token identify the active sandbox; the FUND/ACTIVATE lifecycle tests never exercise the call-token path, so add an EXECUTE-side case when touching these accessors."
+
+[gotcha.2051]
+area = "node sequencer"
+symptom = "A standby refuses the group at the first replicated ledger activity that reads kernel state written by an earlier block ('replayed receipt differs from stored receipt'), while plain transfers replay fine."
+cause = "node/sequencer/standby_role.go:135 installs no sequencer source, so the standby commits every block through the consensus re-execution path (node/app.go:2375-2420) while the primary commits the sealed layer it executed (node/app.go:1784-1818); the two paths can leave different kernel rows behind (issue #1126)."
+do = "Treat the standby's commit path as part of the replication contract: a standby test must commit through the real path and replicate a kernel activity that depends on a prior block, as 18.1126.1 adds."
+
+[gotcha.2052]
+area = "agent api"
+symptom = "A qualification's dependency check fails with E0423 in layerx-agent-api/tests/stream.rs although the task touched nothing in that crate."
+cause = "The 051d11e3a Cursor reshape ported the library and its downstream callers but not the crate's own tests/stream.rs, so the crate's test target has been dead since (issue #1127)."
+do = "When a pub type of a crate is reshaped, the reshaping task's gate must compile that crate's own test targets (cargo build -p <crate> --tests), not only its library."
+
+[gotcha.2053]
+area = "human service"
+symptom = "record_agent_event refuses a simulated receipted delivery with UnverifiedReceipt, or a level assertion expects Level::SequencerSigned for receipted evidence."
+cause = "Decision 907 and Level::rung (agent-api error.rs:153-160) map SequencerSigned to Submitted and BatchIncluded to Receipted; the human-service tests still carry the pre-2f3a411de mapping Receipted = SequencerSigned (issue #1128)."
+do = "Receipted evidence is Level::BatchIncluded; a verified fixture carries VerificationLevel::BATCH_INCLUDED. Never reintroduce a Receipted-to-SequencerSigned mapping."
+
+[gotcha.2054]
+area = "agent daemon tests"
+symptom = "A layerx-agentd test using tests/support/real_authority.rs panics 'build/bin/layerxd is not built' (or layerx-genesis-build)."
+cause = "The real-node harness (real_authority.rs:1003-1008) needs the node binaries from build/bin (or LAYERX_TEST_NATIVE_BIN_DIR) and must run as root; a crate-only cargo build never produces them."
+do = "A task whose gate drives real_authority must put 'make -C . layerxd layerx-genesis-build' in its build_cmd before the crate build."
+
+[gotcha.2055]
+area = "interop x402"
+symptom = "layerx-mcp or x-websearch buyer tests fail every settlement with SettlementMismatch / EvidenceMismatch against a recorded exchange."
+cause = "LayerXEvidence (layerx-x402 buyer.rs:61-74) is deny_unknown_fields and requires logs; the recorded tests/fixtures/client-exchange.json predates that shape and carries no logs or sequencer id (issue #1129)."
+do = "When the buyer evidence shape changes, re-record client-exchange.json with X_WEBSEARCH_RECORD_EXCHANGE (payment.rs:3082, :3214) and publish the sequencer id, public key and batch window in gateway/buyer.json in the same change."
+
+[gotcha.2056]
+area = "programs host"
+symptom = "A programs deploy or call through the precompile harness or an lxphost test chain is refused LXP_ERR_VERSION_UNSUPPORTED before the activity runs."
+cause = "Since e1c81cc5a (#1124) modules/lxphost/host.go:545-558 resolves the fee schedule's occupancy asset for every programs activity and refuses when the store carries no progfee/active/v1 record; the kernel's own path (lxp_kernel.c:393) tolerates the absence, so fixtures written before never seeded one (issue #1130)."
+do = "Every fixture that executes a programs activity seeds a version-1 LXFR1 record at progfee/active/v1 and progfee/history/v1/1 (shape: method_call_test.go:103-114). A host-side rule change must run the precompile and lxphost program suites once at the merged revision."
+
+[gotcha.2057]
+area = "programs transfer"
+symptom = "A 0x101D transfer leg whose source is a program account reverts LXP_AUTH_SCOPE whoever calls it."
+cause = "transfer.c:41-54 principal_authorizes_from admits only the principal's own id or an agent account whose owner DID is the principal (lx_account_read.c:11-13); program accounts are neither."
+do = "Do not write tests that debit program accounts through the transfer method until req.13292 ac_2 is ruled; fund program accounts from the caller's accounts and move program value through program-executed paths."
+
+[gotcha.2058]
+area = "agent daemon tests"
+symptom = "Every layerx-agentd integration test target and every layerx-human-service test target fails to compile with E0432 unresolved import layerx_agentd::boot::handshake_gate."
+cause = "70ce262d3 (9.12.2) replaced the LNI handshake gate with Gate::readiness_gate(&NodeRpc) (eth_chainId + px_getReceiptKeys) and ported only its own tests; the shared test support of both workspaces and the pay2 harness still import the old function (issue #1131)."
+do = "Readiness in fixtures comes from a local JSON-RPC responder (tests/handshake_gate.rs:36-88 pattern) plus gate.readiness_gate; LNI status and capability assertions use layerx_client::lni::handshake::perform directly. A task that removes or renames a pub fn compiles every dependent test target (cargo test -p <crate> --no-run for each workspace that imports it) inside its gate."
+
+[gotcha.2059]
+area = "interop x402 fixtures"
+symptom = "After re-recording client-exchange.json most x-websearch payment tests fail with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload."
+cause = "The recorder's sequencer metadata (sequencerId, firstBatchNumber, lastBatchNumber in gateway/buyer.json) was fed into configure_with as the server's accepted receipt-key window, narrowing it to one batch."
+do = "The server fixture keeps key_id hex(&receipt_key_id()), first_height 0, last_height u64::MAX; buyer.json metadata builds only the buyer-side SequencerAuthorization in tests."

@@ -408,6 +408,9 @@ lxp_result lxp_programs_sandbox_execute(
     if (status == LXP_OK)
         status = lxp_programs_call_execute(ctx, &inner, authority, value->call,
                                            effects);
+    if (status != LXP_OK && !lxp_result_is_fatal(status) &&
+        value->guest_savepoint.active)
+        (void)lxp_module_savepoint_discard(ctx, &value->guest_savepoint);
     if (!lxp_result_is_fatal(status) && value->usage_result.published) {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind)
@@ -424,7 +427,8 @@ lxp_result lxp_programs_sandbox_execute(
     if (status == LXP_OK && !value->usage_result.published)
         status = LXP_FATAL_INVARIANT;
     if (status == LXP_OK) status = emit_usage_receipt(value);
-    if (value->guest_savepoint.active) status = LXP_FATAL_INVARIANT;
+    if (status == LXP_OK && value->guest_savepoint.active)
+        status = LXP_FATAL_INVARIANT;
     {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind) {
@@ -506,8 +510,8 @@ lxp_result layerx_programs_call_sandbox_guest_seal(uint64_t token,
 lxp_result layerx_programs_sandbox_lifecycle_length(
     uint64_t token, uint16_t section)
 {
-    programs_sandbox_activity *value = (programs_sandbox_activity *)(uintptr_t)token;
-    if (value == NULL || value != active_sandbox || section > 13U)
+    programs_sandbox_activity *value = sandbox_for_call(token);
+    if (value == NULL || section > 13U)
         return LXP_ERR_NON_CANONICAL;
     if (section <= 2U)
         return value->lifecycle_length[section] > (uint32_t)INT32_MAX ?
@@ -523,11 +527,11 @@ lxp_result layerx_programs_sandbox_lifecycle_length(
 lxp_result layerx_programs_sandbox_lifecycle_byte(
     uint64_t token, uint16_t section, uint32_t offset)
 {
-    programs_sandbox_activity *value = (programs_sandbox_activity *)(uintptr_t)token;
+    programs_sandbox_activity *value = sandbox_for_call(token);
     const uint8_t *bytes;
     uint32_t length;
     uint8_t scalar[8];
-    if (value == NULL || value != active_sandbox || section > 13U)
+    if (value == NULL || section > 13U)
         return LXP_ERR_NON_CANONICAL;
     if (section <= 2U) {
         bytes = value->lifecycle[section];

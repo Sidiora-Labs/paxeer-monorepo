@@ -364,7 +364,7 @@ export async function isTxKnown(hash: Hex): Promise<boolean> {
 /**
  * Encode an arbitrary function call from a human method signature + string args.
  * Supports the generic allowance-and-call route: e.g.
- *   encodeCall('depositUSDL(uint256,bytes32)', ['250000000', '0xabc…'])
+ *   encodeCall('transfer(address,uint256)', ['0x0000000000000000000000000000000000000001', '250000000'])
  * Numeric/bytes/address args are coerced to the types viem expects. Throws on a
  * malformed signature or arg (surfaced as invalid_request, never a silent send).
  */

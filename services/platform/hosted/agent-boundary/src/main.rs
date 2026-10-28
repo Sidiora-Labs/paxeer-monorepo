@@ -1,4 +1,5 @@
 mod artifacts;
+mod chain_receipt;
 mod deployment;
 mod head_attestation;
 #[cfg(test)]
@@ -75,6 +76,7 @@ struct Config {
     lni_socket: PathBuf,
     lni_deadline: Duration,
     node: NodeEndpoint,
+    chain_receipts: chain_receipt::ChainReceipts,
     node_token: Zeroizing<String>,
     state_dir: PathBuf,
     protocol_network_id: u32,
@@ -604,6 +606,14 @@ fn config() -> Result<Config, String> {
         node: node_endpoint(
             &env::var("LAYERX_AGENT_BOUNDARY_NODE_URL")
                 .map_err(|_| "LAYERX_AGENT_BOUNDARY_NODE_URL is required")?,
+        )?,
+        chain_receipts: chain_receipt::ChainReceipts::from_config(
+            &env::var("LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL")
+                .map_err(|_| "LAYERX_AGENT_BOUNDARY_CHAIN_RPC_URL is required")?,
+            &PathBuf::from(
+                env::var("LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE")
+                    .map_err(|_| "LAYERX_AGENT_BOUNDARY_RECEIPT_KEYS_FILE is required")?,
+            ),
         )?,
         node_token: read_secret("LAYERX_AGENT_BOUNDARY_NODE_BEARER_TOKEN_FILE")?,
         state_dir,
@@ -1805,23 +1815,26 @@ fn submit_route(config: &Config, request: &Request, route: Route) -> Response {
     resolve_record(config, &key_digest, &mut record, &decoded, &request.body)
 }
 
-fn receipt_route(config: &Config, activity_text: &str, plane: Plane) -> Response {
-    let Some(activity) = parse_hex32(activity_text) else {
+fn receipt_route(config: &Config, transaction_text: &str, plane: Plane) -> Response {
+    let Some(transaction) = parse_hex32(
+        transaction_text
+            .strip_prefix("0x")
+            .unwrap_or(transaction_text),
+    ) else {
         return refusal(400, "invalid_activity_id", None);
     };
-    match with_session(config, |session| {
-        lookup_receipt(session, activity, ReceiptWaitMode::Immediate)
-    }) {
-        Ok(Lookup::Present { receipt, .. }) => {
-            let body = serde_json::json!({"activity_id": hex(&activity), "receipt": hex(&receipt)});
+    match config.chain_receipts.lookup(transaction) {
+        Ok(Some(receipt)) => {
+            let body =
+                serde_json::json!({"activity_id": hex(&transaction), "receipt": hex(&receipt)});
             if plane == Plane::Gateway {
                 ok(serde_json::json!({"result": body}).to_string())
             } else {
                 ok(body.to_string())
             }
         }
-        Ok(Lookup::Absent) => refusal(404, "receipt_not_found", None),
-        Err(failure) => failure.response(),
+        Ok(None) => refusal(404, "receipt_not_found", None),
+        Err(_) => refusal(503, "node_unavailable", Some(5)),
     }
 }
 
