@@ -10295,3 +10295,17 @@ detail = "10.14.1 asked the human service to write the balance rung byte (0, 1, 
 title = "The identity provider admits a wallet DID only through a producer-signed binding token"
 detail = "open_or_create_by_assertion(token, binding, now) takes a producer-signed binding (three dot-separated parts), never DID text, and verify_binding refuses Unavailable when the verifier has no with_binding_producer_key or the state has no pinned binding tenant; wallet_identity_e2e.rs:982 passed Some(&did) and burned 18.1151.1 a8 on 'assertion principal unavailable'. Follow tests/principal_store.rs of layerx-human-identity-provider (:140-200, :470-500) for the producer key, the tenant and the binding mint."
 
+[gotcha.2108]
+title = "Conformance vectors are copied from the recorder's output, never assembled"
+detail = "11.14.3 a1 built its committed vector's receipt bytes and the verifier refused an effect of kind 0; the recorder's receipt in daemon/committed-fixture/vectors/vector-v4-committed.json decodes to kinds 1, 3, 3 (layout: 6-byte prefix, u32-length-prefixed 32-byte arrays, raw u64/u32 scalars, per effect a 6-byte header, kind, monetary, root, u32 length and body). A vector task names the recorded file and fields as its source; an InvalidReceipt on bytes nobody recorded means the bytes were invented."
+
+
+[gotcha.2109]
+title = "The SDK committed verifier needs two commits; a vector with one cannot pass it"
+detail = "sdk/platform/go VerifyCommittedReceipt takes the execution block (header H, its commit, the transaction and batch proofs against H.data_hash) and the following block (NextHeader H+1 with LastBlockID == hash(H), its commit and validators, the result proof against H+1.last_results_hash). The recorder wrote only the commit of H+1 and its own test (chain types, no SDK call) could not notice; 8.47.7 a1 paired the H+1 commit with header H and failed. Issue #1164 / 18.1164.1. A recorder's test must call the consumer's verifier, or the consumer's verifier inputs must be listed in the vector's contract."
+
+
+[gotcha.2110]
+title = "A refusal test that outlives the rule it refuses is a contradiction to rule on, not a failure to chase"
+detail = "After is_layerx_network admitted eip155 again, two layerx-x402 seller tests contradicted the model's own documented contract (per-asset payee accepted when its asset matches; any payTo not derived from extra.layerx.account refused); the implementer stopped as told. The orchestrator rules by the documented contract (model.rs doc comments plus the decision that renamed the network), lists each flipped assertion in a do item, and records the ruling as a finding for the owner. Never let the implementer pick which side of a contradiction to keep."
+
