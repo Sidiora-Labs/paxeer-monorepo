@@ -184622,7 +184622,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1150.1]
 title = "Issue #1150: Recover a positioned chain log in the approval stream's restore-after-gap fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1143.1"]
@@ -184769,7 +184769,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1155.1]
 title = "Issue #1155: layerx-human-service approvals and decide tests still set a level field VerifiedBudgetAfter no longer has"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
