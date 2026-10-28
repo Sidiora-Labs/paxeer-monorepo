@@ -14,4 +14,4 @@ function wallet_interface_has_no_sign_custody(): void {
   expect('signCustody' in wallet).toBe(false);
 }
 
-test(wallet_interface_has_no_sign_custody);
+test('wallet_interface_has_no_sign_custody', wallet_interface_has_no_sign_custody);

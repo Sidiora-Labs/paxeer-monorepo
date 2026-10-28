@@ -335,7 +335,7 @@ async function provider_refuses_the_retired_custody_methods() {
   expect(seen).toHaveLength(before);
 }
 
-test(provider_refuses_the_retired_custody_methods);
+test('provider_refuses_the_retired_custody_methods', provider_refuses_the_retired_custody_methods);
 
 async function provider_paxeer_signCustody_is_refused_before_any_request() {
   const p = await connected();
