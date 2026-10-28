@@ -749,7 +749,7 @@ const recordedUnified = (
   }
 ).result;
 const EVE = `0x${"ee".repeat(20)}`;
-const CURSOR = "0000000000000000000000000000000c";
+const CURSOR = "000000000000000c0000000100000000";
 const recordedRows = recordedUnified.items;
 const { accounts: _accounts, ...recordedEnvelope } = recordedUnified;
 const recordedPaxeer = {
