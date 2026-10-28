@@ -21,6 +21,44 @@ export function decodeAddressArg(data: string, argIndex: number): string | null 
   return `0x${slot.slice(24).toLowerCase()}`;
 }
 
+export function decodeUintArg(data: string, argIndex: number): bigint | null {
+  const start = 2 + 8 + 64 * argIndex;
+  const end = start + 64;
+  if (data.length < end) return null;
+  const slot = data.slice(start, end);
+  if (!/^[0-9a-fA-F]{64}$/.test(slot)) return null;
+  return BigInt(`0x${slot}`);
+}
+
+export function decodeMoverCounterparty(
+  selector: string,
+  data: string,
+): { counterparty: string | null; isApprove: boolean; known: boolean } {
+  switch (selector.toLowerCase()) {
+    case ERC20_APPROVE_SELECTOR:
+    case '0x39509351':
+    case '0x3177029f':
+    case '0xcae9ca51':
+    case '0xa22cb465':
+      return { counterparty: decodeAddressArg(data, 0), isApprove: true, known: true };
+    case ERC20_TRANSFER_SELECTOR:
+    case '0x1296ee62':
+    case '0x4000aea0':
+      return { counterparty: decodeAddressArg(data, 0), isApprove: false, known: true };
+    case ERC20_TRANSFER_FROM_SELECTOR:
+    case '0x42842e0e':
+    case '0xb88d4fde':
+    case '0xf242432a':
+    case '0x2eb2c2d6':
+      return { counterparty: decodeAddressArg(data, 1), isApprove: false, known: true };
+    case '0xac9650d8':
+    case '0x5ae401dc':
+      return { counterparty: null, isApprove: false, known: true };
+    default:
+      return { counterparty: null, isApprove: false, known: false };
+  }
+}
+
 /**
  * Agent policy engine (v2).
  *
@@ -55,6 +93,7 @@ export type AgentDenyCode =
   | 'ADDRESS_DENYLISTED'
   | 'CONTRACT_NOT_ALLOWLISTED'
   | 'WITHDRAWAL_NOT_ALLOWLISTED'
+  | 'COUNTERPARTY_UNDECODED'
   | 'NATIVE_TRANSFER_BLOCKED'
   | 'APPROVE_CAP'
   | 'TOKEN_VALUE_CAP'
@@ -73,8 +112,8 @@ export interface AgentTxIntent {
   data?: string;
   /**
    * Structured annotations from high-level routes (transfer/approve). When
-   * absent for a raw tx, the engine decodes ERC-20 transfer/approve calldata
-   * itself to apply token + withdrawal + approve gates.
+   * absent for a raw tx, the engine decodes asset-moving calldata itself.
+   * Known movers always use the decoded counterparty for policy checks.
    */
   tokenContract?: string | null;
   tokenRecipient?: string | null;
@@ -237,24 +276,27 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
   }
   const to = intent.to.toLowerCase();
 
-  // Decode selector + ERC-20 transfer/approve operands when not provided.
+  // Decode selector + asset-moving operands from calldata.
   let selector: string | null = null;
   let tokenContract = intent.tokenContract?.toLowerCase() ?? null;
   let tokenRecipient = intent.tokenRecipient?.toLowerCase() ?? null;
   let tokenAmount = intent.tokenAmount ?? null;
   let isApprove = intent.isApprove ?? false;
+  let mover: ReturnType<typeof decodeMoverCounterparty> | null = null;
 
   if (!isEmptyData) {
     if (data.length < 10) {
       return deny('INVALID_TX_SHAPE', 'tx.data must be empty or contain a 4-byte selector');
     }
     selector = data.slice(0, 10);
-    // Auto-decode the common ERC-20 movers so token/withdrawal gates apply even
+    mover = decodeMoverCounterparty(selector, data);
+    // Auto-decode known movers so token/withdrawal gates apply even
     // on a raw sign/send (not just the high-level helper routes).
-    if (intent.tokenContract === undefined) {
+    if (intent.tokenContract === undefined || mover.known) {
       if (selector === ERC20_TRANSFER_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 0);
+        tokenAmount = intent.tokenAmount ?? decodeUintArg(data, 1);
       } else if (selector === ERC20_APPROVE_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 0);
@@ -262,6 +304,11 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
       } else if (selector === ERC20_TRANSFER_FROM_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 1);
+        tokenAmount = intent.tokenAmount ?? decodeUintArg(data, 2);
+      } else if (mover.known) {
+        tokenContract = to;
+        tokenRecipient = mover.counterparty;
+        isApprove = mover.isApprove;
       }
     }
   }
@@ -291,13 +338,18 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
   }
 
   // 5. Withdrawal allowlist — any recipient that can RECEIVE funds (native
-  //    transfer target, ERC-20 transfer recipient, or approve spender) must be
+  //    transfer target, token recipient, spender or operator) must be
   //    on the allowlist when withdrawal_allowlist_only is set.
   if (eff.withdrawalAllowlistOnly) {
+    if (mover?.known && mover.counterparty === null) {
+      return deny('COUNTERPARTY_UNDECODED', 'known asset-moving call has no decodable counterparty', {
+        selector,
+      });
+    }
     const recipientNeedingAllow: string | null =
       value > 0n && isEmptyData
         ? to // bare native transfer → funds go to `to`
-        : tokenRecipient ?? null; // erc-20 transfer recipient / approve spender
+        : tokenRecipient ?? null; // token recipient / spender / operator
     if (recipientNeedingAllow && !idx.withdrawalAllowlist.has(recipientNeedingAllow)) {
       return deny(
         'WITHDRAWAL_NOT_ALLOWLISTED',
@@ -324,9 +376,20 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
   }
 
   // 8. Per-rule token cap (allow-token rule's max_value_wei = per-tx ceiling).
-  if (tokenContract && tokenAmount !== null && idx.allowTokenCaps.has(tokenContract)) {
+  if (tokenContract && idx.allowTokenCaps.has(tokenContract)) {
     const cap = idx.allowTokenCaps.get(tokenContract);
-    if (cap !== null && cap !== undefined && tokenAmount > cap) {
+    if (
+      cap !== null &&
+      cap !== undefined &&
+      tokenAmount === null &&
+      (selector === ERC20_TRANSFER_SELECTOR || selector === ERC20_TRANSFER_FROM_SELECTOR)
+    ) {
+      return deny('INVALID_TX_SHAPE', 'token transfer has no decodable amount', {
+        token: tokenContract,
+        selector,
+      });
+    }
+    if (cap !== null && cap !== undefined && tokenAmount !== null && tokenAmount > cap) {
       return deny('TOKEN_VALUE_CAP', 'token amount exceeds the per-tx cap for this token', {
         token: tokenContract,
         amount: tokenAmount.toString(),

@@ -833,6 +833,26 @@ func TestShippedPolicyAllowsWalletSDKWrites(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, h.tx(t, feetoken, big.NewInt(0), setDenom), h.ledger), CodeAllowed)
 }
 
+func TestShippedPolicyRefusesUsdlApproveToListedPrecompile(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	erc20, err := evm.PrecompileABI("erc20")
+	if err != nil {
+		t.Fatal(err)
+	}
+	spender := common.HexToAddress("0x0000000000000000000000000000000000001018")
+	usdl := common.HexToAddress("0x85FcD13735F4309833A503EE804ea32395851479")
+	approve, err := erc20.Pack("approve", spender, big.NewInt(50_000_000))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	expect(t, h.policy.Evaluate(testAccount, h.tx(t, usdl, big.NewInt(0), approve), h.ledger), CodeSelectorNotAllowed)
+}
+
 func TestShippedPolicyAllowsPerpsApproveThenDeposit(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
@@ -1215,6 +1235,24 @@ func TestShippedPolicySponsoredFeeAndPaymasterDelegation(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, setCode(common.HexToAddress(friend)), h.ledger), CodeDelegateNotAllowed)
 }
 
+func TestSetCodeRefusesALaterUnlistedAuthorization(t *testing.T) {
+	h := newHarness(t)
+	to := common.HexToAddress(friend)
+	allowed := common.HexToAddress("0x4444444444444444444444444444444444444444")
+	tx := &evm.Transaction{
+		Type: 4, ChainID: chainID, To: &to, Value: big.NewInt(0),
+		Authorizations: []types.SetCodeAuthorization{
+			{ChainID: *uint256.NewInt(125), Address: allowed, Nonce: 1},
+			{ChainID: *uint256.NewInt(125), Address: common.HexToAddress(friend), Nonce: 2},
+		},
+	}
+	req := Request{Kind: KindEVMTransaction, View: tx}
+	expect(t, h.policy.Evaluate(testAccount, req, h.ledger), CodeDelegateNotAllowed)
+
+	tx.Authorizations[1].Address = allowed
+	expect(t, h.policy.Evaluate(testAccount, req, h.ledger), CodeAllowed)
+}
+
 func TestTrustedSpenderNearMaxApprovalRefused(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -1290,6 +1328,43 @@ func TestTrustedSpenderNearMaxPermitRefused(t *testing.T) {
 				t.Fatalf("trusted permit recorded spends: decision %+v, ledger %+v", decision.Spends, h.ledger.spends)
 			}
 		})
+	}
+}
+
+func permitDataTo(t *testing.T, spender, value string) *evm.TypedData {
+	t.Helper()
+	body := `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit","domain":{"name":"Sidiora","version":"1","chainId":125,"verifyingContract":"` + sidiora + `"},"message":{"owner":"` + testAccount + `","spender":"` + spender + `","value":"` + value + `","nonce":"0","deadline":"4102444800"}}`
+	typed, err := evm.DecodeTypedData([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return typed
+}
+
+func TestShippedPolicyTrustedSpenderPermit(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	const trusted = "0x0000000000000000000000000000000000001017"
+	permit := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permitDataTo(t, trusted, "100000000")}, h.ledger)
+	expect(t, permit, CodeAllowed)
+	if len(permit.Spends) != 0 {
+		t.Fatalf("trusted SID permit counted %+v against a cap", permit.Spends)
+	}
+	unlimited := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permitDataTo(t, trusted, maxUint256.String())}, h.ledger)
+	expect(t, unlimited, CodeUnlimitedApproval)
+	if len(unlimited.Spends) != 0 {
+		t.Fatalf("refused trusted SID permit recorded capped spends %+v", unlimited.Spends)
+	}
+	spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(common.HexToAddress(sidiora)), h.now.Add(-SpendWindow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spent.Sign() != 0 {
+		t.Fatalf("trusted SID permits recorded %s of capped spend, want zero", spent)
 	}
 }
 

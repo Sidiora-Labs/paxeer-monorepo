@@ -1,4 +1,4 @@
-use layerx_paxeer_client::{FinalityReport, FinalityTracker, TransactionHash};
+use layerx_client::sequencer::SequencerReceipt;
 use layerx_types::{payload::ModuleRegistry, rung::Rung};
 
 use crate::clients::{
@@ -383,9 +383,10 @@ fn provider_transition(result: ProviderResult) -> (WorkflowStage, TransitionEvid
 pub struct InventoryRebalancer<'a> {
     pub journal: &'a mut Journal,
     pub custody: &'a PaxeerCustodyClient,
+    pub layerx: &'a LayerxClient,
 }
 
-impl InventoryRebalancer<'_> {
+impl<'InventoryRebalancer> InventoryRebalancer<'InventoryRebalancer> {
     /// # Errors
     /// Returns [`RampError::Conflict`] when the idempotency key has different terms,
     /// [`RampError::Paxeer`] when custody broadcast fails, and
@@ -396,7 +397,7 @@ impl InventoryRebalancer<'_> {
         amount: u128,
         idempotency_key: [u8; 32],
         now: u64,
-    ) -> Result<(String, TransactionHash), RampError> {
+    ) -> Result<(String, [u8; 32]), RampError> {
         if !self.journal.health().ready {
             return Err(RampError::Journal);
         }
@@ -409,16 +410,15 @@ impl InventoryRebalancer<'_> {
         self.journal
             .plan_paxeer(idempotency_key, asset, amount, now)?;
         let submission = self.custody.broadcast(asset, amount, idempotency_key)?;
-        let transaction = TransactionHash::from_hex(&submission.transaction_hash)
-            .map_err(|_| RampError::Paxeer)?;
+        let transaction = custody_transaction_hash(&submission.transaction_hash)?;
         self.journal.observe_paxeer(
             idempotency_key,
             PaxeerObservation {
                 operation_id: &submission.operation_id,
-                transaction_hash: transaction.bytes(),
-                stage: "broadcast_unknown",
+                transaction_hash: transaction,
+                rung: Rung::Submitted,
                 block_hash: None,
-                confirmations: 0,
+                block_height: None,
             },
             now,
         )?;
@@ -433,7 +433,7 @@ impl InventoryRebalancer<'_> {
         &mut self,
         idempotency_key: [u8; 32],
         now: u64,
-    ) -> Result<(String, TransactionHash), RampError> {
+    ) -> Result<(String, [u8; 32]), RampError> {
         if !self.journal.health().ready {
             return Err(RampError::Journal);
         }
@@ -444,7 +444,8 @@ impl InventoryRebalancer<'_> {
             .ok_or(RampError::Paxeer)?;
         match (&snapshot.operation_id, snapshot.transaction_hash) {
             (Some(operation), Some(transaction)) => {
-                return Ok((operation.clone(), TransactionHash::new(transaction)));
+                self.poll(idempotency_key, operation, transaction, now)?;
+                return Ok((operation.clone(), transaction));
             }
             (None, None) => {}
             _ => return Err(RampError::Paxeer),
@@ -452,19 +453,19 @@ impl InventoryRebalancer<'_> {
         let submission =
             self.custody
                 .reconcile(snapshot.asset, snapshot.amount, idempotency_key)?;
-        let transaction = TransactionHash::from_hex(&submission.transaction_hash)
-            .map_err(|_| RampError::Paxeer)?;
+        let transaction = custody_transaction_hash(&submission.transaction_hash)?;
         self.journal.observe_paxeer(
             idempotency_key,
             PaxeerObservation {
                 operation_id: &submission.operation_id,
-                transaction_hash: transaction.bytes(),
-                stage: "broadcast_unknown",
+                transaction_hash: transaction,
+                rung: Rung::Submitted,
                 block_hash: None,
-                confirmations: 0,
+                block_height: None,
             },
             now,
         )?;
+        self.poll(idempotency_key, &submission.operation_id, transaction, now)?;
         Ok((submission.operation_id, transaction))
     }
 
@@ -476,28 +477,53 @@ impl InventoryRebalancer<'_> {
         &mut self,
         idempotency_key: [u8; 32],
         operation_id: &str,
-        tracker: &mut FinalityTracker,
+        transaction_hash: [u8; 32],
         now: u64,
-    ) -> Result<FinalityReport, RampError> {
+    ) -> Result<Option<SequencerReceipt>, RampError> {
+        if !self.journal.health().ready {
+            return Err(RampError::Journal);
+        }
         let snapshot = self
             .journal
             .paxeer(&idempotency_key)
             .ok_or(RampError::Paxeer)?;
         if snapshot.operation_id.as_deref() != Some(operation_id)
-            || snapshot.transaction_hash != Some(tracker.transaction().bytes())
+            || snapshot.transaction_hash != Some(transaction_hash)
         {
             return Err(RampError::Conflict);
         }
-        let report = tracker.poll();
-        self.journal.observe_paxeer(
-            idempotency_key,
-            PaxeerObservation::from_finality(operation_id, &report),
-            now,
-        )?;
-        Ok(report)
+        let receipt = self
+            .layerx
+            .sequencer
+            .sequencer_receipt(&transaction_hash)
+            .map_err(|_| RampError::Paxeer)?;
+        if let Some(receipt) = &receipt {
+            self.journal.observe_paxeer(
+                idempotency_key,
+                PaxeerObservation::from_sequencer_receipt(operation_id, receipt),
+                now,
+            )?;
+        }
+        Ok(receipt)
     }
 }
 
 fn hex_id(value: &[u8; 32]) -> String {
     crate::clients::hex(value)
+}
+
+fn custody_transaction_hash(value: &str) -> Result<[u8; 32], RampError> {
+    let digits = value.strip_prefix("0x").ok_or(RampError::Paxeer)?;
+    if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(RampError::Paxeer);
+    }
+    let mut hash = [0; 32];
+    for (byte, pair) in hash.iter_mut().zip(digits.as_bytes().chunks_exact(2)) {
+        let text = std::str::from_utf8(pair).map_err(|_| RampError::Paxeer)?;
+        *byte = u8::from_str_radix(text, 16).map_err(|_| RampError::Paxeer)?;
+    }
+    if hash == [0; 32] {
+        return Err(RampError::Paxeer);
+    }
+    Ok(hash)
 }

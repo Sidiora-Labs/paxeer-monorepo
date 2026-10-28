@@ -1,5 +1,5 @@
 import { BinaryReader, BinaryWriter } from "@bufbuild/protobuf/wire";
-import { Params } from "./params";
+import { Params } from "./params.js";
 export const AddressAssociation = {
     $type: "paxprotocol.paxchain.evm.AddressAssociation",
     encode(message, writer = new BinaryWriter()) {

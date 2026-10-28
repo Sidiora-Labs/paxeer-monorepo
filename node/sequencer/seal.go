@@ -30,34 +30,12 @@ func endOfBlock(a *app.App, ctx sdk.Context, b *Batch, results []*abci.ExecTxRes
 			err = fmt.Errorf("%w: %v", ErrSealPanicked, r)
 		}
 	}()
+	blockEvents, endBlock, err := a.CompleteBlock(ctx, b.Height, results, evmMsgs)
+	if err != nil {
+		return nil, abci.ResponseEndBlock{}, err
+	}
 	events = append(events, b.BeginBlockEvents...)
-	events = append(events, a.MidBlock(ctx, b.Height)...)
-
-	if a.GigaExecutorEnabled {
-		ctx.GigaMultiStore().WriteGiga()
-	}
-
-	a.EvmKeeper.SetTxResults(results)
-	a.EvmKeeper.SetMsgs(evmMsgs)
-
-	events = append(events, a.BankKeeper.WriteDeferredBalances(ctx)...)
-
-	var evmTotalGasUsed int64
-	for _, result := range results {
-		if result.EvmTxInfo != nil {
-			evmTotalGasUsed += result.GasUsed
-		}
-	}
-
-	endBlock = a.EndBlock(ctx, b.Height, evmTotalGasUsed)
-
-	feeCtx := ctx.WithEventManager(sdk.NewEventManager())
-	if err := a.EvmKeeper.RouteCollectedFeeTokens(feeCtx); err != nil {
-		return nil, abci.ResponseEndBlock{}, fmt.Errorf("route collected fee tokens: %w", err)
-	}
-	endBlock.Events = append(endBlock.Events, sdk.MarkEventsToIndex(feeCtx.EventManager().ABCIEvents(), a.IndexEvents)...)
-
-	events = append(events, endBlock.Events...)
+	events = append(events, blockEvents...)
 	return events, endBlock, nil
 }
 
@@ -90,7 +68,8 @@ func BatchFields(b *Batch) SequenceBatchFields {
 // SealBatch applies msg as tx 0 of b with DeliverSequenceBatch, runs the end-of-block steps over
 // b in ProcessBlock order and returns L_N with the encoded tx 0. It refuses a msg whose fields
 // differ from BatchFields(b). The steps run on a branch of b.Store that is written only when
-// every step succeeds, so on any error b.Store is unchanged.
+// every step succeeds, so on any error b.Store is unchanged. The stored historical header
+// remains provisional until FinalizeBlocker supplies the decided consensus header.
 func SealBatch(a *app.App, b *Batch, msg seqtypes.MsgSequenceBatch) (*SealedLayer, []byte, error) {
 	if a == nil {
 		return nil, nil, errors.New("sequencer: nil app")

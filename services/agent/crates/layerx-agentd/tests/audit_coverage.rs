@@ -90,6 +90,9 @@ fn entry(class: EventClass) -> Entry {
         submitted_bytes: (class == EventClass::Submission)
             .then(|| protect_payload(&config(), 10, 10, b"exact-canonical-signed-activity")),
         receipt_id: (class == EventClass::TerminalOutcome).then_some([7; 32]),
+        tx_hash: None,
+        nonce: None,
+        rung: None,
     }
 }
 

@@ -58,9 +58,10 @@ pub struct CapturedSettlement {
     pub rung: String,
 }
 
+/// Receipt evidence carried by the seller's `layerx` settlement extension.
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields, rename_all = "camelCase")]
-struct LayerXEvidence {
+pub struct LayerXEvidence {
     receipt: String,
     receipt_digest: String,
     verification_level: String,
@@ -401,9 +402,17 @@ fn expected_purpose(accepted: &PaymentRequirements) -> Result<Option<String>, X4
 }
 
 fn unhex(value: &str) -> Result<Vec<u8>, X402Error> {
-    let digits = value
-        .strip_prefix("0x")
-        .ok_or(X402Error::EvidenceMismatch)?;
+    let digits = match value.strip_prefix("0x") {
+        Some(digits) => digits,
+        None if value.len() == 64
+            && value
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)) =>
+        {
+            value
+        }
+        None => return Err(X402Error::EvidenceMismatch),
+    };
     if digits.len() % 2 != 0 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(X402Error::EvidenceMismatch);
     }

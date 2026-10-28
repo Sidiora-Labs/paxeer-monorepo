@@ -17,13 +17,13 @@ import { decodeJsonRpcResponse, type RpcParam } from "./rpc.js";
 const MAX_RESPONSE_BYTES = 9 * 1024 * 1024;
 const MAX_REQUEST_BYTES = 1024 * 1024;
 const DEFAULT_TIMEOUT_MS = 30_000;
-const MAX_U128 = 340282366920938463463374607431768211455n;
+const MAX_U256 = (1n << 256n) - 1n;
 const MAX_U64 = 18446744073709551615n;
 const EVM_ADDRESS = /^0x[0-9a-f]{40}$/u;
 const HEX32 = /^[0-9a-f]{64}$/u;
 const DID = /^did:layerx:[0-9a-f]{64}$/u;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
-const HEX_QUANTITY = /^0x[0-9a-f]{1,32}$/u;
+const HEX_QUANTITY = /^0x[0-9a-f]{1,64}$/u;
 
 /** The joined asset ceiling the gateway answers within. */
 export const PX_MAXIMUM_JOINED_ASSETS = 1024;
@@ -305,7 +305,7 @@ export function pxQuantity(value: unknown): bigint {
     : DECIMAL.test(text)
       ? BigInt(text)
       : null;
-  if (parsed === null || parsed > MAX_U128)
+  if (parsed === null || parsed > MAX_U256)
     throw new Error("Invalid gateway quantity");
   return parsed;
 }

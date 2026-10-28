@@ -4984,7 +4984,7 @@ static lxp_result kernel_prepare_serial_activity_batch(
     runtime = kernel->module_runtime[LXP_MODULE_PROGRAMS];
     if ((activity->activity_type == LX_PROGRAMS_ACCOUNT ||
          activity->activity_type == LX_PROGRAMS_WIND_DOWN) &&
-        (runtime == NULL || kernel->observe_commit == NULL))
+        runtime == NULL)
         return LXP_ERR_MODULE_DISABLED;
     batch = calloc(1U, sizeof(*batch));
     storage = malloc(LXP_KERNEL_PREPARE_ARENA_BYTES);
@@ -6757,8 +6757,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
         (activity->payload.bytes[34U] & 1U) != 0U;
     if (programs_state_activity &&
         (!lxp_protocol_version_uses_occupancy(activity->protocol_version) ||
-         kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL ||
-         kernel->observe_commit == NULL))
+         kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL))
         return LXP_ERR_MODULE_DISABLED;
     if (programs_call) {
         programs_runtime = (const lx_programs_transfer_runtime *)

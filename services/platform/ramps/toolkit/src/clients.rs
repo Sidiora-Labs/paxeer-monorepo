@@ -1416,12 +1416,14 @@ impl PaxeerCustodyClient {
         {
             return Err(RampError::Paxeer);
         }
-        parse_custody_transaction_hash(&submission.transaction_hash)?;
+        parse_transaction_hash(&submission.transaction_hash)?;
         Ok(submission)
     }
 }
 
-fn parse_custody_transaction_hash(value: &str) -> Result<[u8; 32], RampError> {
+/// # Errors
+/// Returns [`RampError::Paxeer`] unless the value is a 0x-prefixed 32-byte hexadecimal hash.
+pub fn parse_transaction_hash(value: &str) -> Result<[u8; 32], RampError> {
     let digits = value.strip_prefix("0x").ok_or(RampError::Paxeer)?;
     if digits.len() != 64 || !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
         return Err(RampError::Paxeer);
@@ -2306,7 +2308,6 @@ pub fn verify_recovery_settlement(
     provider: &ProviderClient,
     layerx: &LayerxClient,
     custody: &PaxeerCustodyClient,
-    _tracker_config: &layerx_paxeer_client::TrackerConfig,
 ) -> Result<(), RampError> {
     use crate::journal::WorkflowStage;
     let chain_id = layerx.sequencer.chain_id().map_err(|_| RampError::Paxeer)?;
@@ -2416,7 +2417,7 @@ pub fn verify_recovery_settlement(
     for snapshot in projection.paxeer_transfers() {
         let current =
             custody.reconcile(snapshot.asset, snapshot.amount, snapshot.idempotency_key)?;
-        let transaction = parse_custody_transaction_hash(&current.transaction_hash)?;
+        let transaction = parse_transaction_hash(&current.transaction_hash)?;
         if snapshot
             .operation_id
             .as_ref()

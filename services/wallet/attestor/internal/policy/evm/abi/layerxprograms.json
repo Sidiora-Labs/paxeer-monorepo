@@ -1145,5 +1145,565 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "event",
+    "name": "ProgramDeployed",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "codeHash",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramUpgraded",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "oldCodeHash",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "newCodeHash",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "RegistryRead",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramTransferred",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "transferSetRoot",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramGuestEvent",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "principal",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "activityId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "framePath",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "depth",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "eventIndex",
+        "type": "uint32",
+        "internalType": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "topicLength",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "topicDigest",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "dataLength",
+        "type": "uint32",
+        "internalType": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "dataDigest",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramCallOutcome",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "principal",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "activityId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "framePath",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "depth",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "runtimeVersion",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "abiVersion",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "feeScheduleVersion",
+        "type": "uint32",
+        "internalType": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "meteringVersion",
+        "type": "uint32",
+        "internalType": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "terminalResult",
+        "type": "int32",
+        "internalType": "int32",
+        "indexed": false
+      },
+      {
+        "name": "transferSetRoot",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "callGraphDigest",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "terminalDetailDigest",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "eventEnvelopeDigest",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramAccountRegistered",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "assetId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "seedDigest",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "seedLength",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "registeredSequence",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ExitRouteSet",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "assetId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "destination",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramDeprecated",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "priorStatus",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "targetStatus",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "principal",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "exitProgram",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "deadline",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "sequence",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "accountCount",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "liveCount",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "accountRoot",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramTombstoned",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "priorStatus",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "targetStatus",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "principal",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "exitProgram",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "deadline",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "sequence",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "accountCount",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "liveCount",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "accountRoot",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "ProgramValueExited",
+    "inputs": [
+      {
+        "name": "programId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "accountId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      },
+      {
+        "name": "transferSetRoot",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SandboxUsageReceipt",
+    "inputs": [
+      {
+        "name": "activityId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "expectedSequence",
+        "type": "uint64",
+        "internalType": "uint64",
+        "indexed": false
+      },
+      {
+        "name": "chunkIndex",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "chunkCount",
+        "type": "uint16",
+        "internalType": "uint16",
+        "indexed": false
+      },
+      {
+        "name": "receiptLength",
+        "type": "uint32",
+        "internalType": "uint32",
+        "indexed": false
+      },
+      {
+        "name": "chunk",
+        "type": "bytes",
+        "internalType": "bytes",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "SandboxDestroyed",
+    "inputs": [
+      {
+        "name": "leaseId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "part",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "terminalFrame",
+        "type": "bytes",
+        "internalType": "bytes",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "StorageRetired",
+    "inputs": [
+      {
+        "name": "activityId",
+        "type": "bytes32",
+        "internalType": "bytes32",
+        "indexed": true
+      },
+      {
+        "name": "frameIndex",
+        "type": "uint8",
+        "internalType": "uint8",
+        "indexed": false
+      },
+      {
+        "name": "frame",
+        "type": "bytes",
+        "internalType": "bytes",
+        "indexed": false
+      }
+    ],
+    "anonymous": false
   }
 ]

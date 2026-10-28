@@ -352,6 +352,7 @@ type Destination struct {
 	// arguments rather than the address the call is sent to.
 	Counterparty bool
 	Recipient    bool
+	Spender      bool
 }
 
 type Spend struct {
@@ -605,6 +606,9 @@ func checkDestination(effective *compiled, destination Destination) (Decision, b
 		return denied(CodeSelectorNotAllowed, "precompile %s has no allowed methods", address.Hex()), false
 	}
 	if destination.Counterparty {
+		if destination.Spender && !effective.trusted[address] {
+			return denied(CodeSelectorNotAllowed, "spender %s is not trusted", address.Hex()), false
+		}
 		return Decision{}, true
 	}
 	if len(destination.Selector) != 4 || !allowed[[4]byte(destination.Selector)] {
@@ -678,6 +682,7 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 			err = recipient("to", true)
 		case "approve":
 			if err = recipient("spender", false); err == nil {
+				out.Destinations[len(out.Destinations)-1].Spender = true
 				spender := out.Destinations[len(out.Destinations)-1].Address
 				spend.Spender = &spender
 			}
@@ -906,7 +911,7 @@ func inspectTypedData(ctx Context, view any) (Inspection, error) {
 		}
 		spend.Spender = &spender
 		out.Spends = append(out.Spends, spend)
-		out.Destinations = append(out.Destinations, Destination{Address: spender, Precompile: evm.IsPrecompile(spender), Counterparty: true})
+		out.Destinations = append(out.Destinations, Destination{Address: spender, Precompile: evm.IsPrecompile(spender), Counterparty: true, Spender: true})
 	}
 	return out, nil
 }

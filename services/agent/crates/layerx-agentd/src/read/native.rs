@@ -30,6 +30,7 @@ const MAX_AVAILABILITY_BYTES: usize = 96 * 1024;
 
 #[derive(Debug)]
 pub enum NativeReadError {
+    UnavailableCapability(layerx_agent_api::error::ApiError),
     InvalidRequest,
     CursorMismatch,
     ResultTooLarge,
@@ -259,45 +260,24 @@ impl NativeReadRoute {
     /// # Errors
     /// Refuses malformed selectors, unavailable node evidence and all verification failures.
     pub fn read(&mut self, path: &str) -> Result<Value, NativeReadError> {
-        let path = path
+        let operation = match path
             .strip_prefix("/v1/reads/")
-            .ok_or(NativeReadError::InvalidRequest)?;
-        let (kind, selector) = path
-            .split_once('/')
-            .ok_or(NativeReadError::InvalidRequest)?;
-        self.deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(10))
-            .map_err(|_| NativeReadError::Unavailable)?;
-        self.client
-            .reconnect()
-            .map_err(NativeReadError::Connection)?;
-        self.refresh_history()?;
-        if self.sequencer_history.is_some() {
-            self.client
-                .reconnect()
-                .map_err(NativeReadError::Connection)?;
-        }
-        let correlation = self.next_id()?;
-        let registry = self
-            .client
-            .preparation_state(&self.actor, correlation)
-            .map_err(NativeReadError::Preparation)?
-            .module_registry;
-        let value = match kind {
-            "receipt" => self.proof(digest(selector)?, true, &registry)?,
-            "proof" => self.proof(digest(selector)?, false, &registry)?,
-            "checkpoint" => self.checkpoint(number(selector)?)?,
-            "availability" => self.availability(number(selector)?)?,
-            "history" => self.history(selector, &registry)?,
+            .and_then(|path| path.split_once('/'))
+        {
+            Some(("receipt", _)) => "read.receipt",
+            Some(("proof", _)) => "read.proof_bundle",
+            Some(("checkpoint", _)) => "read.checkpoint",
+            Some(("availability", _)) => "read.availability",
+            Some(("history", _)) => "read.history",
             _ => return Err(NativeReadError::InvalidRequest),
         };
-        if serde_json::to_vec(&value)
-            .map_err(|_| NativeReadError::Verification)?
-            .len()
-            > MAX_RESULT_BYTES
-        {
-            return Err(NativeReadError::ResultTooLarge);
-        }
-        Ok(value)
+        Err(NativeReadError::UnavailableCapability(
+            layerx_agent_api::error::ApiError::unavailable_capability(
+                layerx_agent_api::error::RequestId(self.correlation),
+                operation,
+            )
+            .expect("static operation name"),
+        ))
     }
 
     fn proof(

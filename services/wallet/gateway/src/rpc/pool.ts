@@ -3,14 +3,13 @@ import {
   custom,
   defineChain,
   type Chain,
-  keccak256,
   type Hex,
   type PublicClient,
   parseTransaction,
   recoverTransactionAddress,
 } from 'viem';
 import { env } from '../env.js';
-import { BROADCAST_GRACE_MS } from '../chain.js';
+import { BROADCAST_GRACE_MS, transactionHash } from '../chain.js';
 
 export type EndpointState = 'unknown' | 'healthy' | 'lagging' | 'down';
 
@@ -68,22 +67,29 @@ export class TransactionRejectedError extends RpcResponseError {
 }
 
 /**
- * A node refused a broadcast because another transaction holds the sender's nonce: the chain passed
- * it and our transaction is known on no member (nonce too low), or another transaction at that nonce
- * is pooled (replacement underpriced). The caller prepares again, so nothing is ever silently replaced.
+ * A broadcast was refused and every member reports a latest count at or below the nonce, or another
+ * transaction at that nonce is pooled (replacement underpriced). With consumed=true, every member reports
+ * a latest count past the nonce and no member knows our hash. The caller prepares again.
  */
 export class NonceConflictError extends RpcResponseError {
-  constructor(code: number, message: string, data: unknown, readonly member: number | null = null, readonly members = 0) {
+  private readonly nonceConsumed: boolean;
+  constructor(code: number, message: string, data: unknown, readonly member: number | null = null,
+    readonly members = 0, consumed = false, readonly nonce: number | null = null) {
     super(code, message, data);
     this.name = 'NonceConflictError';
+    this.nonceConsumed = consumed;
+  }
+
+  get consumed(): boolean {
+    return this.nonceConsumed;
   }
 }
 
 /**
- * A node answered nonce too low, no member knows our hash and the chain's latest count is past our
- * nonce, or the reads needed to classify the refusal failed: our own transaction may have mined on a
- * member whose transaction index is off or lagging, so the outcome is unknown. The caller polls
- * eth_getTransactionReceipt by this hash and never prepares again.
+ * A node answered nonce too low and no member knows our hash, but latest counts disagree about whether
+ * the nonce was consumed, or a member could not answer the count or hash lookup. Classification read
+ * failures also leave the outcome unknown: the caller polls eth_getTransactionReceipt by this hash
+ * and never prepares again.
  */
 export class BroadcastOutcomeUnknownError extends RpcResponseError {
   constructor(code: number, message: string, data: unknown, readonly hash: Hex, readonly nonce: number,
@@ -179,8 +185,8 @@ export class RpcPool {
   private readonly chain: Chain;
   private timer: NodeJS.Timeout | null = null;
   private client: PublicClient | null = null;
-  /** When each member started failing every request, cleared by its next answer. */
-  private readonly failingSince = new Map<string, number>();
+  /** When each member started failing a method, cleared by its next answer to that method. */
+  private readonly failingSince = new Map<string, Map<string, number>>();
 
   constructor(opts: RpcPoolOptions) {
     if (opts.urls.length === 0) throw new Error('RpcPool needs at least one URL');
@@ -344,7 +350,7 @@ export class RpcPool {
   /**
    * Ask every pool member and the node that accepted the broadcast for the transaction by hash. Known
    * anywhere is known. Otherwise not known needs an answer from every member that still counts and at
-   * least one answer: a member that has failed every request for longer than the broadcast grace period
+   * least one answer: a member that has failed transaction lookups for longer than the broadcast grace period
    * drops out, so a dead member holds a wallet's nonces for at most that long, and a member that failed
    * more recently is named as unreachable, so a partition is never read as not known.
    */
@@ -355,8 +361,23 @@ export class RpcPool {
     const failed = urls.map((_, i) => i).filter((i) => answers[i]!.status === 'rejected');
     const now = Date.now();
     const unreachable = known ? [] : failed.length === urls.length ? failed
-      : failed.filter((i) => now - (this.failingSince.get(urls[i]!) ?? now) <= BROADCAST_GRACE_MS);
+      : failed.filter((i) => now - (this.failingSince.get(urls[i]!)?.get('eth_getTransactionByHash') ?? now) <= BROADCAST_GRACE_MS);
     return { known, unreachable, members: urls.length };
+  }
+
+  async latestCountsEverywhere(address: `0x${string}`, member: string | null): Promise<{
+    counts: bigint[]; unreachable: number[];
+  }> {
+    const urls = [...new Set([...this.endpoints.map((ep) => ep.url), ...(member === null ? [] : [member])])];
+    const answers = await Promise.allSettled(urls.map(async (url) =>
+      BigInt((await this.post(url, 'eth_getTransactionCount', [address, 'latest'])) as string)));
+    const counts: bigint[] = [];
+    const unreachable: number[] = [];
+    answers.forEach((answer, i) => {
+      if (answer.status === 'fulfilled') counts.push(answer.value);
+      else unreachable.push(i);
+    });
+    return { counts, unreachable };
   }
 
   /** lookupTransaction() as a boolean; throws when no member knows it and some member did not answer. */
@@ -384,14 +405,15 @@ export class RpcPool {
   /**
    * sendRawTransaction(), also naming the sequencer that accepted the transaction; an idempotent
    * answer returns the keccak of the signed bytes as the hash. Each call sends once to the sequencer. Nonce too low is
-   * success when our hash is known on any member; known on none, it is a BroadcastOutcomeUnknownError
-   * when classification reads fail or the sender's latest count is past our nonce (ours may have mined unindexed) and a
-   * NonceConflictError otherwise; replacement underpriced is a NonceConflictError; any other refusal is
-   * a TransactionRejectedError.
+   * success when our hash is known on any member. Otherwise, unanimous latest counts at or below our
+   * nonce mean NonceConflictError; unanimous counts past it mean NonceConflictError with consumed=true.
+   * Either requires complete count and hash answers; split counts, unreachable members or failed
+   * classification reads mean BroadcastOutcomeUnknownError. Replacement underpriced is a
+   * NonceConflictError; any other refusal is a TransactionRejectedError.
    */
   async sendRawTransactionVia(signed: Hex): Promise<{ hash: Hex; member: string | null }> {
     const member = this.sequencerEndpoint();
-    const hash = keccak256(signed);
+    const hash = transactionHash(signed);
     try {
       const result = (await this.post(member, 'eth_sendRawTransaction', [signed])) as Hex;
       return { hash: result, member };
@@ -401,32 +423,48 @@ export class RpcPool {
       const members = this.endpoints.length;
       if (NONCE_TOO_LOW.test(err.message)) {
         const nonce = parseTransaction(signed).nonce ?? 0;
-        let latest: number;
+        let lookup: TransactionLookup;
+        let counts: bigint[];
+        let unreachable: number[];
         try {
-          if (await this.transactionKnown(hash, member)) return { hash, member };
+          lookup = await this.lookupTransaction(hash, member);
+          if (lookup.known) return { hash, member };
           const from = await recoverTransactionAddress({ serializedTransaction: signed as Parameters<typeof recoverTransactionAddress>[0]['serializedTransaction'] });
-          latest = await this.getTransactionCount(from, 'latest');
+          ({ counts, unreachable } = await this.latestCountsEverywhere(from, member));
         } catch {
-          throw new BroadcastOutcomeUnknownError(err.code, err.message, err.data, hash, nonce, err.memberIndex, members);
+          const asked = new Set([...this.endpoints.map((ep) => ep.url), member]).size;
+          throw new BroadcastOutcomeUnknownError(err.code, err.message, err.data, hash, nonce, err.memberIndex, asked);
         }
-        if (latest > nonce) {
-          throw new BroadcastOutcomeUnknownError(err.code, err.message, err.data, hash, nonce, err.memberIndex, members);
+        if (counts.length > 0 && unreachable.length === 0 && lookup.unreachable.length === 0) {
+          if (counts.every((latest) => latest <= BigInt(nonce))) {
+            throw new NonceConflictError(err.code, err.message, err.data, err.memberIndex, lookup.members, false, nonce);
+          }
+          if (counts.every((latest) => latest > BigInt(nonce))) {
+            throw new NonceConflictError(err.code, err.message, err.data, err.memberIndex, lookup.members, true, nonce);
+          }
         }
-        throw new NonceConflictError(err.code, err.message, err.data, err.memberIndex, members);
+        throw new BroadcastOutcomeUnknownError(err.code, err.message, err.data, hash, nonce, err.memberIndex, lookup.members);
       }
       if (REPLACEMENT_UNDERPRICED.test(err.message)) throw new NonceConflictError(err.code, err.message, err.data, err.memberIndex, members);
       throw new TransactionRejectedError(err.code, err.message, err.data);
     }
   }
 
-  /** One request to one member, recording when the member started failing every request. */
+  /** One request to one member, recording when the member started failing this method. */
   private async post(url: string, method: string, params: unknown[]): Promise<unknown> {
     try {
       const result = await this.postOnce(url, method, params);
-      this.failingSince.delete(url);
+      const failures = this.failingSince.get(url);
+      failures?.delete(method);
+      if (failures?.size === 0) this.failingSince.delete(url);
       return result;
     } catch (err) {
-      if (!this.failingSince.has(url)) this.failingSince.set(url, Date.now());
+      let failures = this.failingSince.get(url);
+      if (!failures) {
+        failures = new Map<string, number>();
+        this.failingSince.set(url, failures);
+      }
+      if (!failures.has(method)) failures.set(method, Date.now());
       throw err;
     }
   }
