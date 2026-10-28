@@ -12,7 +12,7 @@ import getQueryParamString from 'lib/router/getQueryParamString';
 import useSocketBuffer from 'lib/socket/useSocketBuffer';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import PaxeerXFeedMarketUpdatesTable from 'ui/paxeerX/feed/PaxeerXFeedMarketUpdatesTable';
-import useFeedSocket from 'ui/paxeerX/feed/useFeedSocket';
+import useFeedSocket, { FEED_HISTORY_BUFFER_LIMIT } from 'ui/paxeerX/feed/useFeedSocket';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import Pagination from 'ui/shared/pagination/Pagination';
@@ -65,7 +65,7 @@ const PaxeerXFeedMarket = () => {
     });
   }, [ id, queryClient ]);
 
-  const { push, hoverProps } = useSocketBuffer<MarketUpdate>({ onFlush: handleFlush });
+  const { push, hoverProps } = useSocketBuffer<MarketUpdate>({ onFlush: handleFlush, limit: FEED_HISTORY_BUFFER_LIMIT });
 
   const handleNewUpdate: SocketMessage.PaxeerXFeedMarketNewUpdate['handler'] = React.useCallback((payload) => {
     push(payload);
