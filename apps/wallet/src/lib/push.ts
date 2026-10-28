@@ -44,7 +44,8 @@ export async function getServiceWorkerRegistration(): Promise<ServiceWorkerRegis
   if (!('serviceWorker' in navigator)) return null;
   try {
     const existing = await navigator.serviceWorker.getRegistration('/wallet/');
-    const registration = existing || await navigator.serviceWorker.register('/wallet/sw.js', { scope: '/wallet/' });
+    const registration =
+      existing || (await navigator.serviceWorker.register('/wallet/sw.js', { scope: '/wallet/' }));
     if (registration.active) return registration;
     return await navigator.serviceWorker.ready;
   } catch {
@@ -135,25 +136,56 @@ export async function showLocalNotification(
 
 // ── Backend Communication ───────────────────────────────────────────────────
 
-let _walletAddress: string | null = null;
+let pushWallet: { address: string; signMessage: (text: string) => Promise<string> } | null = null;
+
+export function pushOwnershipMessage(
+  endpoint: string,
+  walletAddress: string,
+  issuedAt: number
+): string {
+  return JSON.stringify({
+    action: 'paxport:push-subscribe',
+    endpoint,
+    walletAddress: walletAddress.toLowerCase(),
+    issuedAt,
+  });
+}
 
 /** Set the active wallet address for push subscription association. */
-export function setWalletAddressForPush(address: string): void {
-  _walletAddress = address;
+export function setWalletAddressForPush(
+  address: string,
+  signMessage: (text: string) => Promise<string>
+): void {
+  pushWallet = { address, signMessage };
+}
+
+export function clearWalletAddressForPush(): void {
+  pushWallet = null;
 }
 
 async function sendSubscriptionToServer(subscription: PushSubscription): Promise<void> {
   try {
+    const wallet = pushWallet;
+    if (!wallet) throw new Error('Push subscription requires a connected wallet');
     const subJson = subscription.toJSON();
-    await fetch(`${PUSH_API_BASE}/subscribe`, {
+    const endpoint = subscription.endpoint;
+    const issuedAt = Math.floor(Date.now() / 1_000);
+    const signature = await wallet.signMessage(
+      pushOwnershipMessage(endpoint, wallet.address, issuedAt)
+    );
+    if (pushWallet !== wallet) throw new Error('Push subscription wallet changed while signing');
+    const response = await fetch(`${PUSH_API_BASE}/subscribe`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        endpoint: subJson.endpoint,
+        endpoint,
         keys: subJson.keys,
-        walletAddress: _walletAddress || 'unknown',
+        walletAddress: wallet.address,
+        signature,
+        issuedAt,
       }),
     });
+    if (!response.ok) throw new Error(`Push subscription refused (${response.status})`);
   } catch (err) {
     console.warn('[Push] Failed to send subscription to server:', err);
   }
@@ -174,7 +206,7 @@ async function removeSubscriptionFromServer(subscription: PushSubscription): Pro
 /** Update the server that this subscription is still active (heartbeat). */
 export async function heartbeat(): Promise<void> {
   const sub = await getCurrentSubscription();
-  if (!sub || !_walletAddress) return;
+  if (!sub || !pushWallet) return;
   // Re-upsert refreshes lastActiveAt on the server
   await sendSubscriptionToServer(sub);
 }
