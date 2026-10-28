@@ -508,6 +508,64 @@ def test_protobuf_queries():
     assert (P.pb_get(inner, 3), P.pb_get(inner, 4)) == (9, 3)
 
 
+def test_sidecar_cadence_refuses_missing_blocks():
+    start = 100
+    end = start + P.SIDECAR_BLOCKS - 1
+    validators = {"0x" + f"{i:040x}" for i in range(1, 5)}
+    first_validator = min(validators)
+    first_only = {start: validators}
+    try:
+        P.sidecar_cadence(first_only, start, end)
+        raise AssertionError("four submissions in one block passed the cadence check")
+    except P.CheckFailed as exc:
+        assert f"at {start + 1}:" in str(exc)
+        assert first_validator in str(exc)
+
+    explicit_empty = {height: set() for height in range(start, end + 1)}
+    explicit_empty[start] = set(validators)
+    try:
+        P.sidecar_cadence(explicit_empty, start, end)
+        raise AssertionError("nine explicitly empty blocks passed the cadence check")
+    except P.CheckFailed as exc:
+        assert f"at {start + 1}:" in str(exc)
+        assert first_validator in str(exc)
+
+    per_block = {height: set(validators) for height in range(start, end + 1)}
+    missing_height = start + 5
+    per_block[missing_height].remove(first_validator)
+    try:
+        P.sidecar_cadence(per_block, start, end)
+        raise AssertionError("one validator missing one block passed the cadence check")
+    except P.CheckFailed as exc:
+        assert f"at {missing_height}:" in str(exc)
+        assert f"missing validators ['{first_validator}']" in str(exc)
+
+    per_block[missing_height].add(first_validator)
+    assert P.sidecar_cadence(per_block, start, end) == {
+        validator: P.SIDECAR_BLOCKS for validator in validators
+    }
+
+    replacement = "0x" + f"{5:040x}"
+    substituted = {
+        height: set(block_validators)
+        for height, block_validators in per_block.items()
+    }
+    substituted[start].remove(first_validator)
+    substituted[start].add(replacement)
+    try:
+        P.sidecar_cadence(substituted, start, end)
+        raise AssertionError("a different set of four validators passed the cadence check")
+    except P.CheckFailed as exc:
+        assert f"at {start}:" in str(exc)
+        assert f"missing validators ['{first_validator}']" in str(exc)
+
+    try:
+        P.sidecar_cadence(per_block, start, end - 1)
+        raise AssertionError("fewer than SIDECAR_BLOCKS submissions passed")
+    except P.CheckFailed as exc:
+        assert f"validator {first_validator} submitted {P.SIDECAR_BLOCKS - 1}" in str(exc)
+
+
 def test_module_addresses():
     for name in ("launchpad", "perps", "spot"):
         address = P.module_address(name)

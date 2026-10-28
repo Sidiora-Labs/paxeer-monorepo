@@ -1,4 +1,4 @@
-import { Flex, Text } from '@chakra-ui/react';
+import { Text } from '@chakra-ui/react';
 import React from 'react';
 
 import type { PaxeerXActivityItem } from 'types/api/paxeerX';
@@ -18,11 +18,6 @@ export interface Props {
   isLoading?: boolean;
 }
 
-const SIDE_LABELS: Record<PaxeerXActivityItem['side'], string> = {
-  chain: 'Chain',
-  kernel: 'Kernel',
-};
-
 const ActivityListItem = ({ item, isLoading }: Props) => {
   const amount = item.amount === null ?
     null :
@@ -31,10 +26,7 @@ const ActivityListItem = ({ item, isLoading }: Props) => {
   return (
     <TableRow data-activity={ item.hash }>
       <TableCell verticalAlign="middle">
-        <Flex flexDirection="column" rowGap={ 1 } alignItems="flex-start">
-          <ScanMethodChip method={ activityKindLabel(item.kind) } isLoading={ isLoading }/>
-          <Skeleton loading={ isLoading } color="text.secondary" textStyle="xs">{ SIDE_LABELS[item.side] }</Skeleton>
-        </Flex>
+        <ScanMethodChip method={ activityKindLabel(item.kind) } isLoading={ isLoading }/>
       </TableCell>
       <TableCell verticalAlign="middle">
         <TxEntity
