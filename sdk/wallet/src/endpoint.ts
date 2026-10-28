@@ -3,6 +3,7 @@ import type {
   AccountBalances,
   AnchorHead,
   AssetMap,
+  AssetPage,
   Balances,
   Capabilities,
   ChainAccount,
@@ -64,6 +65,10 @@ export class EndpointClient {
 
   async listAssets(): Promise<AssetMap> {
     return decodeAssetMap(await this.rpc.call('px_listAssets', []));
+  }
+
+  async listBankAssets(): Promise<AssetPage> {
+    return decodeBankAssetPage(await this.rpc.call('px_listAssets', []));
   }
 
   async getRouteCatalogue(): Promise<RouteCatalogue> {
@@ -306,6 +311,34 @@ export function decodeAssetMap(value: unknown): AssetMap {
     return { asset_id: asset.asset_id, layerx: record(asset.layerx, 'joined asset layerx'), paxeer: decodeCustody(asset.paxeer) };
   });
   return { assets, joined_limit: joinedLimit(doc.joined_limit) };
+}
+
+function decodeBankAssetPage(value: unknown): AssetPage {
+  const doc = record(value, 'bank asset page');
+  if (typeof doc.height !== 'string' || DECIMAL.exec(doc.height)?.[0] !== doc.height) fail('bank asset page height');
+  if (!Array.isArray(doc.assets)) fail('bank asset page assets');
+  const assets = doc.assets.map((entry): AssetPage['assets'][number] => {
+    const asset = record(entry, 'bank asset');
+    const text = (key: string): string => {
+      const field = asset[key];
+      if (typeof field !== 'string') fail(`bank asset ${key}`);
+      return field;
+    };
+    if (typeof asset.decimals !== 'number' || !Number.isInteger(asset.decimals) || asset.decimals < 0 || asset.decimals > 36) {
+      fail('bank asset decimals');
+    }
+    if (typeof asset.supply !== 'string' || DECIMAL.exec(asset.supply)?.[0] !== asset.supply) fail('bank asset supply');
+    return {
+      asset_id: text('asset_id'),
+      denom: text('denom'),
+      kind: text('kind'),
+      name: text('name'),
+      symbol: text('symbol'),
+      decimals: asset.decimals,
+      supply: asset.supply,
+    };
+  });
+  return { height: doc.height, assets, joined_limit: joinedLimit(doc.joined_limit) };
 }
 
 function decodeBankBalances(value: unknown): Balances {

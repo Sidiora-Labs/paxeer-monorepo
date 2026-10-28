@@ -1,6 +1,7 @@
 import { gasStation, GasStationError, ModuleError, type GasSubmissionStore, type SponsoredSubmissionEvidence } from "@paxeer/wallet";
 import { sidioraAccountDid, sidioraStationMetadata } from "./gas-station.ts";
 import { windowWalletProvider } from "./provider.ts";
+import { ethTransactionReceipt, type GatewayReceipt } from "./gateway.ts";
 import { copyEntry } from "../../copy/runtime.ts";
 import { parseFeeAmount } from "../auth/native-fee-budget.ts";
 import {
@@ -10,8 +11,12 @@ import {
 } from "./sdk.ts";
 
 export type PrecompileSendOutcome =
-  | Readonly<{ outcome: "sent"; transactionHash: string }>
+  | Readonly<{ outcome: "sent"; transactionHash: string; receipt?: GatewayReceipt }>
+  | Readonly<{ outcome: "reverted"; transactionHash: string; receipt: GatewayReceipt }>
   | Readonly<{ outcome: "cancelled" | "rejected" | "unavailable" | "failed"; detail?: string }>;
+
+export const RECEIPT_POLL_LIMIT = 20;
+export const RECEIPT_POLL_INTERVAL_MS = 500;
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 const USER_REJECTED_REQUEST = 4001;
@@ -50,7 +55,11 @@ export async function connectWalletAccount(): Promise<string | undefined> {
 }
 
 /** Sends one SDK-built precompile call through the Paxeer wallet. */
-export async function sendWalletPrecompileCall(from: string, build: () => PrecompileCall): Promise<PrecompileSendOutcome> {
+export async function sendWalletPrecompileCall(
+  from: string,
+  build: () => PrecompileCall,
+  sleep: (milliseconds: number) => Promise<void> = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds)),
+): Promise<PrecompileSendOutcome> {
   const wallet = windowWalletProvider();
   if (wallet === undefined) {
     return { outcome: "unavailable" };
@@ -82,6 +91,13 @@ export async function sendWalletPrecompileCall(from: string, build: () => Precom
       return await sendWalletSponsoredBatch(quoted.value, consent ? review.identity : undefined);
     }
     const transactionHash = await sendPrecompileCall(wallet, from, build());
+    for (let attempt = 0; attempt < RECEIPT_POLL_LIMIT; attempt += 1) {
+      if (attempt > 0) await sleep(RECEIPT_POLL_INTERVAL_MS);
+      const receipt = await ethTransactionReceipt(transactionHash);
+      if (receipt !== undefined) {
+        return { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
+      }
+    }
     return { outcome: "sent", transactionHash };
   } catch (error) {
     return walletSendFailure(error);
@@ -159,9 +175,12 @@ function sponsoredContextKey(account: string): string {
   return SPONSORED_CONTEXT + account.toLowerCase();
 }
 
-function statusOutcome(report: SponsoredSubmissionEvidence): PrecompileSendOutcome {
-  if (report.status === "cancelled" || report.status === "reverted") return { outcome: "rejected" };
-  return report.tx_hash === null ? { outcome: "unavailable" } : { outcome: "sent", transactionHash: report.tx_hash };
+async function statusOutcome(report: SponsoredSubmissionEvidence): Promise<PrecompileSendOutcome> {
+  if (report.status === "cancelled") return { outcome: "rejected" };
+  if (report.tx_hash === null) return { outcome: report.status === "reverted" ? "rejected" : "unavailable" };
+  const receipt = await ethTransactionReceipt(report.tx_hash);
+  if (receipt === undefined) return report.status === "reverted" ? { outcome: "rejected" } : { outcome: "sent", transactionHash: report.tx_hash };
+  return { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash: report.tx_hash, receipt };
 }
 
 function sameCalls(calls: readonly PrecompileCall[], call: PrecompileCall): boolean {
@@ -199,7 +218,7 @@ export async function resumeWalletSponsoredSubmission(account: string, call?: Pr
     const report = await module.resume(retained.batch, retained.relayerSignature);
     if (report.status !== "pending") store.removeItem(sponsoredContextKey(account));
     if (call !== undefined && !sameCalls(retained.batch.calls, call)) return report.status === "pending" ? { outcome: "unavailable" } : undefined;
-    return statusOutcome(report);
+    return await statusOutcome(report);
   } catch (error) { return walletSendFailure(error); }
 }
 
@@ -218,7 +237,7 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
       const digest = sponsoredBatchDigest(pending.batch);
       const expected = sponsoredBatchDigest(snapshot.batch);
       if (!digest.ok || !expected.ok || digest.value !== expected.value || pending.relayerSignature.toLowerCase() !== snapshot.relayerSignature.toLowerCase()) return { outcome: "rejected" };
-      return statusOutcome(await module.resume(pending.batch, pending.relayerSignature));
+      return await statusOutcome(await module.resume(pending.batch, pending.relayerSignature));
     }
     const key = sponsoredContextKey(snapshot.batch.account);
     const context = { version: 1, account: snapshot.batch.account.toLowerCase(), chainId: snapshot.batch.chainId.toString(),
@@ -233,7 +252,9 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
         return current !== undefined && current.identity === consentIdentity && digest.ok && consent.batchDigest === digest.value;
       },
     });
-    return { outcome: "sent", transactionHash };
+    const receipt = await ethTransactionReceipt(transactionHash);
+    return receipt === undefined ? { outcome: "sent", transactionHash }
+      : { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
   } catch (error) {
     return walletSendFailure(error);
   }

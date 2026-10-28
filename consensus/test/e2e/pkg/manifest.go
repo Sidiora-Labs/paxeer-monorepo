@@ -30,7 +30,9 @@ type Manifest struct {
 	// specifying an empty set will start with no validators in genesis, and
 	// the application must return the validator set in InitChain via the
 	// setting validator_update.0 (see below).
-	Validators *map[string]int64 `toml:"validators"`
+	Validators      *map[string]int64 `toml:"validators"`
+	LeaderPin       []string          `toml:"leader_pin"`
+	LeaderPinHeight int64             `toml:"leader_pin_height"`
 
 	// ValidatorUpdates is a map of heights to validator names and their power,
 	// and will be returned by the ABCI application. For example, the following

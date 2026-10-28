@@ -285,6 +285,50 @@
             },
             "pending"
           ]
+        },
+        {
+          "method": "eth_call",
+          "params": [
+            {
+              "to": "0x000000000000000000000000000000000000101a",
+              "data": "0x3f050cbc0000000000000000000000006813eb9362372eef6200f3b1dbc3f819671cba695c1d0a93e4b7f2682c9e1f0473ad5b6e8f1027c3d49a5b6e7f80912a3b4c5d6e"
+            },
+            "pending"
+          ],
+          "result": "0x326e2d726f0d3ebf6947a81d9aa0670d7288222c287b3ed3888ef0d269fc9c3f"
+        },
+        {
+          "method": "eth_call",
+          "params": [
+            {
+              "to": "0x000000000000000000000000000000000000101a",
+              "data": "0x3f050cbc0000000000000000000000006813eb9362372eef6200f3b1dbc3f819671cba696d2e1ba4f5c80379ad0f2e1584be6c7f90213d4e5ab6c7d8e9f0a1b2c3d4e5f6"
+            },
+            "pending"
+          ],
+          "result": "0xaa2573f5596af385f01a80e858a558139c4b809e3ef840ee89e53a5e9fd68d40"
+        },
+        {
+          "method": "eth_call",
+          "params": [
+            {
+              "to": "0x000000000000000000000000000000000000101a",
+              "data": "0x3f050cbc0000000000000000000000006813eb9362372eef6200f3b1dbc3f819671cba697e3f2cb506d9148abe1f3f2695cf7d80a1324e5f6bc7d8e9fa0b1c2d3e4f5061"
+            },
+            "pending"
+          ],
+          "result": "0xce6c219caadc7760c474a6fbe2807b11c1dd918bc0ae4ea840276787ec78a775"
+        },
+        {
+          "method": "eth_call",
+          "params": [
+            {
+              "to": "0x000000000000000000000000000000000000101a",
+              "data": "0x3f050cbc0000000000000000000000006813eb9362372eef6200f3b1dbc3f819671cba698f403dc617ea259bcf204f37a6d08e91b2435f607cd8e9fa0b1c2d3e4f506172"
+            },
+            "pending"
+          ],
+          "result": "0xa3d1382f3b106b1f0a145574d4c57e6967ba4bea7a73d17895167fea5dc1d136"
         }
       ]
     }
@@ -402,6 +446,20 @@
         "name": "reverted"
       }
     ],
-    "source": "precompiles/layerxledger/abi.json; independent ABI words, big-endian integers and right-padded dynamic bytes"
+    "source": "precompiles/layerxledger/abi.json; independent ABI words, big-endian integers and right-padded dynamic bytes",
+    "receiverAddress": "0x6813eb9362372eef6200f3b1dbc3f819671cba69",
+    "receiverAccounts": {
+      "SID": "326e2d726f0d3ebf6947a81d9aa0670d7288222c287b3ed3888ef0d269fc9c3f",
+      "PAX": "aa2573f5596af385f01a80e858a558139c4b809e3ef840ee89e53a5e9fd68d40",
+      "USDC": "ce6c219caadc7760c474a6fbe2807b11c1dd918bc0ae4ea840276787ec78a775",
+      "USDL": "a3d1382f3b106b1f0a145574d4c57e6967ba4bea7a73d17895167fea5dc1d136"
+    },
+    "receiverPurpose": "27c30b4ab5fb5bbb67fc5575ca58b27a0f693b0ce702d5c74e21a908eb36036e",
+    "transaction": {
+      "chainId": 1337,
+      "firstNonce": 7,
+      "gasPrice": "1",
+      "gasLimit": 210000
+    }
   }
 }

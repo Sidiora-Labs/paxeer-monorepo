@@ -2,8 +2,8 @@ use layerx_paxeer_client::{FinalityReport, FinalityTracker, TransactionHash};
 use layerx_types::payload::ModuleRegistry;
 
 use crate::clients::{
-    ComplianceClient, ComplianceOutcome, LayerxClient, LayerxSubmission, PaxeerCustodyClient,
-    ProviderCallback, ProviderClient, ProviderResult, ProviderState, callback_evidence_digest,
+    callback_evidence_digest, ComplianceClient, ComplianceOutcome, LayerxClient, LayerxSubmission,
+    PaxeerCustodyClient, ProviderCallback, ProviderClient, ProviderResult, ProviderState,
 };
 use crate::journal::{
     Journal, OrderSnapshot, PaxeerObservation, ProviderCallbackWrite, TransitionEvidence,
@@ -181,26 +181,6 @@ impl RampEngine<'_> {
         account_sequence: u64,
         now: u64,
     ) -> Result<(), RampError> {
-        self.submit_payment(order_digest, account_sequence, now, None)
-    }
-
-    pub fn submit_native_receive(
-        &mut self,
-        order_digest: [u8; 32],
-        canonical_payload: &[u8],
-        account_sequence: u64,
-        now: u64,
-    ) -> Result<(), RampError> {
-        self.submit_payment(order_digest, account_sequence, now, Some(canonical_payload))
-    }
-
-    fn submit_payment(
-        &mut self,
-        order_digest: [u8; 32],
-        account_sequence: u64,
-        now: u64,
-        canonical_payload: Option<&[u8]>,
-    ) -> Result<(), RampError> {
         self.acquire(order_digest, now)?;
         let snapshot = self.snapshot(order_digest)?;
         let expected = snapshot.stage;
@@ -213,18 +193,9 @@ impl RampEngine<'_> {
             return Err(RampError::IllegalTransition);
         }
         let order = snapshot.order;
-        let prepared = match canonical_payload {
-            Some(payload) => self.layerx.prepare_native_receive(
-                &order,
-                payload,
-                account_sequence,
-                now,
-                self.registry,
-            )?,
-            None => self
-                .layerx
-                .prepare_payment(&order, account_sequence, now, self.registry)?,
-        };
+        let prepared = self
+            .layerx
+            .prepare_payment(&order, account_sequence, now, self.registry)?;
         let mut planned = TransitionEvidence::empty();
         planned.activity_id = Some(prepared.activity_id());
         planned.canonical_activity = Some(prepared.canonical_activity().to_vec());
@@ -328,7 +299,7 @@ impl RampEngine<'_> {
                 canonical_activity,
             } => {
                 let mut evidence = TransitionEvidence::empty();
-                evidence.activity_id = Some(verified.activity_id);
+                evidence.activity_id = Some(verified.tx_hash);
                 evidence.canonical_activity = canonical_activity;
                 evidence.receipt_digest = Some(verified.receipt_digest);
                 (WorkflowStage::LayerxVerified, evidence)

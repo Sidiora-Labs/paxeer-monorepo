@@ -363,6 +363,79 @@ func TestSpotLeaderboardProjection(t *testing.T) {
 	})
 }
 
+func TestStreamItemsSingleFold(t *testing.T) {
+	db := openDB(t)
+	client, tk := spotNode(t)
+	users, err := NewSpotUsers(db, client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := time.Now().UTC().Add(-time.Hour).Truncate(time.Second)
+	spotScenario(t, db, tk, base)
+	mux := spotMux(users)
+	userPath := "/v1/users/" + spotUserHex
+	var positions spotPositionsBody
+	var summary spotPnlBody
+	var legs spotClosedLegsBody
+	var trades spotTradesBody
+	spotGet(t, mux, userPath+"/positions", http.StatusOK, &positions)
+	spotGet(t, mux, userPath+"/pnl/summary", http.StatusOK, &summary)
+	spotGet(t, mux, userPath+"/closed-legs", http.StatusOK, &legs)
+	spotGet(t, mux, userPath+"/trades", http.StatusOK, &trades)
+	if len(positions.Positions) != 2 || len(legs.Items) != 2 || len(trades.Items) != 4 {
+		t.Fatalf("scenario: %d positions, %d closed legs, %d trades", len(positions.Positions), len(legs.Items), len(trades.Items))
+	}
+	spotEqual(t, "realized profit", summary.RealizedUsd, e6(t, "30"))
+	spotEqual(t, "trade count", summary.TradeCount, 4)
+	spotEqual(t, "closed leg count", summary.ClosedLegCount, 2)
+
+	for _, c := range []struct {
+		name                 string
+		block                int64
+		trade, position, leg int
+		fullyClosed          bool
+	}{
+		{"partial_close", 11, 2, 0, 1, false},
+		{"full_close", 15, 0, 1, 0, true},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			payload, err := json.Marshal(spotFactPayload{Table: "spot_swaps", Block: strconv.FormatInt(c.block, 10), User: &spotUserHex})
+			if err != nil {
+				t.Fatal(err)
+			}
+			before := users.board.folds.Load()
+			items, err := users.StreamItems(context.Background(), delivery.Envelope{EventID: "single-fold", Payload: payload})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if folds := users.board.folds.Load() - before; folds != 1 {
+				t.Fatalf("StreamItems folded the account %d times, want 1", folds)
+			}
+			if len(items) != 4 {
+				t.Fatalf("StreamItems returned %d items, want 4: %+v", len(items), items)
+			}
+			spotEqual(t, "fully closed", legs.Items[c.leg].FullyClosed, c.fullyClosed)
+			for i, want := range []struct {
+				stream string
+				data   any
+			}{
+				{"trade", trades.Items[c.trade]},
+				{"position", positions.Positions[c.position]},
+				{"pnl", summary},
+				{"closed-leg", legs.Items[c.leg]},
+			} {
+				data, err := json.Marshal(want.data)
+				if err != nil {
+					t.Fatal(err)
+				}
+				spotEqual(t, fmt.Sprintf("stream item %d", i), items[i], SpotStreamItem{
+					Stream: want.stream, Address: spotUserHex, Data: json.RawMessage(data),
+				})
+			}
+		})
+	}
+}
+
 func TestSpotUsersREST(t *testing.T) {
 	db := openDB(t)
 	dbOnly := spotMux(&SpotUsers{db: db})
