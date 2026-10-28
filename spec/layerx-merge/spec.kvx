@@ -179797,7 +179797,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1076.1]
 title = "Issue #1076: Align the retired, launchpad and market ABI explorer tests with the expanded perps log decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180166,9 +180166,10 @@ capabilities = []
 interfaces = []
 do_1 = "In services/human/crates/layerx-human-service/src/activity/mod.rs:615-617 and :648-650 destructure ReceiptReference::Verified { receipt_ref, rung } as layerx-agent-api declares it (services/agent/crates/layerx-agent-api/src/stream.rs:204) and use rung directly where the code called verification_level.rung()."
 do_2 = "In services/human/crates/layerx-human-service/src/activity/detail.rs:293 replace the call to the removed rung_level with the rung convention the module uses since 2f3a411de (rung_code at mod.rs:1374): carry the finality rung in EvidenceLink.level with the type tests/detail_rungs.rs and tests/activity_rungs.rs expect, changing the field's type and the Level import at detail.rs:6 only if those tests require the rung code."
-do_3 = "Change nothing outside the two files; the crate's existing detail and activity integration tests are the proof and run unchanged."
+do_3 = "Change nothing outside the two source files and the four test files; the crate's existing detail and activity integration tests are the proof and their assertions run unchanged."
+do_4 = "The crate's integration tests construct the variant with the retired field too (tests/activity.rs:664, tests/activity_rungs.rs:31, tests/detail.rs:177 and :257, tests/detail_rungs.rs:123): rename those constructors to ReceiptReference::Verified { receipt_ref, rung } with the same values, and change nothing else in the four test files; every assertion stays as written."
 symbols = []
-touches = ["services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/activity/detail.rs"]
+touches = ["services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/activity/detail.rs", "services/human/crates/layerx-human-service/tests/activity.rs", "services/human/crates/layerx-human-service/tests/activity_rungs.rs", "services/human/crates/layerx-human-service/tests/detail.rs", "services/human/crates/layerx-human-service/tests/detail_rungs.rs"]
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
