@@ -516,14 +516,14 @@ fn verify_sequencer_receipt(
     let payment = payments.next().ok_or(TapError::ReceiptMismatch)?;
     if payments.next().is_some()
         || payment.topics().len() != 4
-        || payment.topics()[3] != payment_reference
+        || payment.topics()[1] != payment_reference
         || payment.data().len() != 64
         || payment.data()[32..48] != [0; 16]
     {
         return Err(TapError::ReceiptMismatch);
     }
-    let from = payment.topics()[1];
-    let to = payment.topics()[2];
+    let from = payment.topics()[2];
+    let to = payment.topics()[3];
     let asset = payment.data()[..32]
         .try_into()
         .map_err(|_| TapError::ReceiptMismatch)?;

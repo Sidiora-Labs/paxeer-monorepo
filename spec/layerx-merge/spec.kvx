@@ -181377,7 +181377,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.745.1]
 title = "Issue #745: Drop the retired LayerX vault and sequencer sync settings from the wallet README"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181593,7 +181593,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.761.1]
 title = "Issue #761: Document MARKET_PROXY_ORIGIN as the candle proxy variable and drop the unused PERPS_CANDLE_URL"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181624,7 +181624,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.812.1]
 title = "Issue #812: Accept explorer-imported row ids in the wallet SDK history decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181654,7 +181654,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.844.1]
 title = "Issue #844: Scale the wallet launchpad USDL leg by six decimals and label it USDL"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181684,7 +181684,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.845.1]
 title = "Issue #845: Point wallet Sidiora swaps at the generation 2 launchpad surfaces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182270,7 +182270,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1041.1]
 title = "Issue #1041: Turn the retained custody signing and preparation provider tests into refusal tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182333,7 +182333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1045.1]
 title = "Issue #1045: Run the tuple-width regression test in the agent SDK test script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182363,7 +182363,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1047.1]
 title = "Issue #1047: Decode PaymentExact in native topic order in Visa TAP"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
