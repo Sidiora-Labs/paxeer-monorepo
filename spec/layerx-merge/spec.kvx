@@ -183811,7 +183811,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1001.2]
 title = "Issue #1001: Answer pax_sequencerReceipt in the gateway TestChain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
