@@ -216,13 +216,19 @@ impl<'Wallet> Wallet<'Wallet> {
             let rung = result["rung"].as_str().ok_or(RpcError::InvalidResponse)?;
             if !matches!(
                 rung,
-                "submitted" | "included" | "executed" | "batched" | "committed" | "finalised"
+                "submitted"
+                    | "receipted"
+                    | "included"
+                    | "executed"
+                    | "batched"
+                    | "committed"
+                    | "finalised"
             ) {
                 return Err(RpcError::InvalidResponse);
             }
             if matches!(
                 rung,
-                "included" | "executed" | "batched" | "committed" | "finalised"
+                "receipted" | "included" | "executed" | "batched" | "committed" | "finalised"
             ) {
                 crate::rpc::check_transaction_revert(&result)?;
                 if commitment == Commitment::Executed
