@@ -185145,7 +185145,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1165.1]
 title = "Issue #1165: Derive agent creation's activity types from the purpose preset instead of an undeclared request field"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1172.1"]
