@@ -6,8 +6,11 @@ accepts and each decoder refuses what the kernel refuses.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
+from .exchange import PrecompileAbiError, PrecompileCall, encode_signature_call
+from .generated.precompile_writes import SPOT_PRECOMPILES, SPOT_WRITES
 from .perps import TradingPayloadError, _Layout, decode_trading_activity
 
 SPOT_MODULE_ID = 10
@@ -94,3 +97,15 @@ def build_spot_activity(activity: SpotActivity) -> tuple[int, bytes]:
 def decode_spot_activity(activity_type: int, payload: bytes) -> SpotActivity:
     """Decodes and validates kernel payload bytes of a spot activity."""
     return decode_trading_activity(SPOT_ACTIVITIES, SPOT_MODULE_ID, activity_type, payload)  # type: ignore[return-value]
+
+
+def spot_call(contract: str, signature: str, values: Sequence[object], value: int = 0) -> PrecompileCall:
+    """Build a PECOR spot precompile write by contract key and canonical signature."""
+    if contract not in SPOT_PRECOMPILES:
+        raise PrecompileAbiError("invalid_value", f"{contract} is not a spot precompile")
+    payable = SPOT_WRITES[contract].get(signature)
+    if payable is None:
+        raise PrecompileAbiError("invalid_value", f"{signature} is not a {contract} write")
+    if not isinstance(value, int) or value < 0 or (value and not payable):
+        raise PrecompileAbiError("invalid_value", f"{signature} value")
+    return PrecompileCall(SPOT_PRECOMPILES[contract], encode_signature_call(signature, values), value)

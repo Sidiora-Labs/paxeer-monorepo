@@ -248,14 +248,13 @@ fn rebalance_presentation_reports_rung() {
 fn readiness_reports_sequencer_chain_id() {
     let workspace = Workspace::new();
     let config = workspace.config("127.0.0.1:0".parse().expect("listener address"));
-    assert_ne!(
-        config["layerx"]["chain_id"],
-        config["paxeer"]["rpc_chain_id"]
-    );
-    let (status, body) = reference::rebalance_route_test_response(config, |_| {}, "/readyz");
+    assert_eq!(config["layerx"]["chain_id"], 125);
+    assert!(config["paxeer"].get("rpc_chain_id").is_none());
+    let (status, body) =
+        reference::rebalance_route_test_response(config.clone(), |_| {}, "/readyz");
     assert_eq!(status, 200, "{body}");
     assert_eq!(body["ready"], true);
-    assert_eq!(body["chain_id"], 125);
+    assert_eq!(body["chain_id"], config["layerx"]["chain_id"]);
     for field in [
         "agreement",
         "endpoint_agreement",

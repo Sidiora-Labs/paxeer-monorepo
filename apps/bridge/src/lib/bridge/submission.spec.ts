@@ -12,7 +12,7 @@ const token = {
 };
 const amount = 1234567890123456789n;
 
-function planDepositSkipsApproveWhenAllowanceCovers() {
+function planDepositSkipsApproveWhenAllowanceCovers(): void {
   for (const allowance of [ amount, amount + 1n ]) {
     const plan = planDeposit({ asset: token, amount, allowance, vault, recipient });
     expect(plan).toEqual([ {
@@ -24,7 +24,7 @@ function planDepositSkipsApproveWhenAllowanceCovers() {
   }
 }
 
-function planDepositApprovesTheExactAmount() {
+function planDepositApprovesTheExactAmount(): void {
   for (const allowance of [ 0n, amount - 1n ]) {
     const plan = planDeposit({ asset: token, amount, allowance, vault, recipient });
     expect(plan).toEqual([ {
@@ -41,7 +41,7 @@ function planDepositApprovesTheExactAmount() {
   }
 }
 
-function planDepositUsesDepositNativeForTheNativeAsset() {
+function planDepositUsesDepositNativeForTheNativeAsset(): void {
   for (const allowance of [ 0n, amount ]) {
     const plan = planDeposit({
       asset: { address: zeroAddress, isNative: true },

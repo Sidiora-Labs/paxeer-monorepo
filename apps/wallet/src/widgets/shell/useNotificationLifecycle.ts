@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useWalletState } from '@/providers/WalletProvider';
+import { useCallback, useEffect } from 'react';
+import { useWalletActions, useWalletState } from '@/providers/WalletProvider';
 import {
   startNotificationTriggers,
   stopNotificationTriggers,
@@ -18,6 +18,11 @@ import { useTxCountQuery } from '@/lib/queries/txCount';
  */
 export function useNotificationLifecycle(): void {
   const { activeAccount } = useWalletState();
+  const { getSigner } = useWalletActions();
+  const signMessage = useCallback(
+    async (text: string) => (await getSigner()).signMessage(text),
+    [getSigner]
+  );
   const address = activeAccount?.address ? activeAccount.address : undefined;
 
   const { data: txCount } = useTxCountQuery(address);
@@ -27,9 +32,9 @@ export function useNotificationLifecycle(): void {
       stopNotificationTriggers();
       return;
     }
-    startNotificationTriggers(address);
+    startNotificationTriggers(address, signMessage);
     return () => stopNotificationTriggers();
-  }, [address]);
+  }, [address, signMessage]);
 
   useEffect(() => {
     if (txCount !== undefined && address) {
