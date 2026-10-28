@@ -174879,7 +174879,7 @@ qualification = "UNRUN"
 
 [task.18.990.1]
 title = "Issue #990: Declare the format of every programme data table and validate the full table inventory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1072.1"]
@@ -175453,7 +175453,7 @@ qualification = "UNRUN"
 
 [task.18.698.1]
 title = "Issue #698: Ignore throttle completions that the current guard did not issue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1055.1"]
