@@ -9977,3 +9977,9 @@ area = "qualification"
 symptom = "A crate that could not compile for one recorded reason starts compiling after the fix and immediately fails on different errors that several done tasks introduced."
 cause = "Tasks whose gates could not compile the crate were landed while it was broken (layerx-human-service after 71550012a: 10.2.1 removed rung_level, 10.2.5 added a caller, the agent API renamed the ReceiptReference::Verified field); their gates never met the merged code."
 do = "When an unblocking fix lands, build the family crates once at the merged revision before its tasks start again, and keep them waiting until that build is green."
+
+[gotcha.2045]
+area = "agent sdk"
+symptom = "A caller of Wallet::execute expects a VerifiedRpcReceipt and gets a 32-byte array."
+cause = "Since 0a296da5e Wallet::execute submits the prepared payment and returns the activity hash; the receipt comes from Wallet::wait_for(hash, commitment, wait_timeout), which the SDK high-level methods (send, create, open_account) call themselves."
+do = "After execute, call wait_for with the options commitment and wait_timeout to obtain the VerifiedRpcReceipt; do not change the caller contract to the hash."

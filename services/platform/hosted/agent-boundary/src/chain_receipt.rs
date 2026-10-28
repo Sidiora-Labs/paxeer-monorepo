@@ -15,6 +15,11 @@ const MAX_KEYS_BYTES: u64 = 256 * 1024;
 const MAX_RESPONSE_BYTES: u64 = 4 * 1024 * 1024;
 const TIMEOUT: Duration = Duration::from_secs(15);
 
+pub(super) struct ChainReceipt {
+    pub(super) transaction_hash: [u8; 32],
+    pub(super) bytes: Vec<u8>,
+}
+
 pub(super) struct ChainReceipts {
     host: String,
     authority: String,
@@ -203,6 +208,14 @@ impl ChainReceipts {
     }
 
     pub(super) fn lookup(&self, transaction: [u8; 32]) -> Result<Option<Vec<u8>>, String> {
+        self.lookup_receipt(transaction)
+            .map(|receipt| receipt.map(|receipt| receipt.bytes))
+    }
+
+    pub(super) fn lookup_receipt(
+        &self,
+        transaction: [u8; 32],
+    ) -> Result<Option<ChainReceipt>, String> {
         let deadline = Instant::now() + TIMEOUT;
         let connect_deadline = Instant::now() + super::CONNECT_TIMEOUT;
         let mut connected = None;
@@ -314,7 +327,10 @@ impl ChainReceipts {
         {
             return Err("chain RPC signed identity mismatch".to_owned());
         }
-        Ok(Some(bytes))
+        Ok(Some(ChainReceipt {
+            transaction_hash: transaction,
+            bytes,
+        }))
     }
 }
 
