@@ -173622,7 +173622,7 @@ qualification = "UNRUN"
 
 [task.18.877.1]
 title = "Issue #877: Delete re-scanned price feed rows below the watermark and keep each market's newest price under retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
