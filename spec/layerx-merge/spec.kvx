@@ -184964,7 +184964,7 @@ do_10 = "Attempt 7 (dc8dac988) left ten tests failing after the fixture gained t
 
 [task.18.1157.1]
 title = "Issue #1157: x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1162.1"]
