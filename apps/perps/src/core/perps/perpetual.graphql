@@ -14,6 +14,12 @@ scalar DateTime
     marketId: Int!
     name: String!
     symbol: String!
+    oracleSymbol: String!
+    szDecimals: Int
+    pxDecimals: Int
+    tickSize: BigDecimal
+    lotSize: BigDecimal
+    tierClass: Int
     maxLeverage: BigDecimal
     enabled: Boolean!
     createdAt: DateTime

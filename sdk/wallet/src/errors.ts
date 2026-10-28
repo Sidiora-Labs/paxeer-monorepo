@@ -35,8 +35,7 @@ export type UnauthorizedReason =
   | 'account_mismatch'
   | 'missing_construction'
   | 'unknown_construction'
-  | 'digest_mismatch'
-  | 'custody_not_supported';
+  | 'digest_mismatch';
 
 export class UnauthorizedError extends ProviderRpcError {
   constructor(

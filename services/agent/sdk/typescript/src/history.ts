@@ -10,7 +10,7 @@ export const HISTORY_MAXIMUM_ACCOUNTS = 16;
 const MAX_U256 = (1n << 256n) - 1n;
 const MAX_U64 = 18446744073709551615n;
 const DECIMAL = /^(0|[1-9][0-9]*)$/u;
-const ROW_ID = /^[1-9][0-9]*$/u;
+const ROW_ID = /^(?:explorer:)?[1-9][0-9]*$/u;
 const CURSOR = /^[0-9a-f]{32}$/u;
 const KIND = /^[a-z0-9_]{1,64}$/u;
 const HEX32 = /^[0-9a-f]{64}$/u;
@@ -43,7 +43,7 @@ export interface HistoryAssetMetadata {
 }
 
 export interface HistoryRow {
-  readonly id: bigint;
+  readonly id: string;
   readonly heightOrSeq: bigint;
   readonly chain: HistoryChain;
   readonly kind: string;
@@ -212,8 +212,12 @@ export function decodeHistoryRow(value: unknown, unified: boolean): HistoryRow {
   const kind = row.kind;
   if (typeof kind !== "string" || !KIND.test(kind))
     throw new Error("Invalid history kind");
-  const id = decimal(row.id, MAX_U64);
-  if (id === 0n || !ROW_ID.test(row.id as string))
+  const id = row.id;
+  if (
+    typeof id !== "string" ||
+    !ROW_ID.test(id) ||
+    BigInt(id.startsWith("explorer:") ? id.slice(9) : id) > MAX_U64
+  )
     throw new Error("Invalid history row id");
   const txHash = row.tx_hash;
   if (
@@ -322,7 +326,7 @@ function nextCursor(
   const last = items[items.length - 1];
   if (
     last === undefined ||
-    cursor <=
+    cursor <
       historyCursor(BigInt(last.blockHeight), last.txIndex, last.logIndex)
   )
     throw new Error("Invalid history cursor");

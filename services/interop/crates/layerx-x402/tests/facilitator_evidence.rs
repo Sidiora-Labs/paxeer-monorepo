@@ -205,14 +205,13 @@ fn facilitator_settles_receipted_evidence() {
     let log = &evidence.logs[0];
     let mut topics = log.topics().to_vec();
     let payee = array(&format!("0x{}", request.payment_requirements.pay_to));
-    replace(&mut evidence.signed_receipt, &topics[2], &payee);
-    topics[2] = payee;
+    let recorded_topics = topics.concat();
+    topics = vec![topics[0], identity.idempotency_key, topics[1], payee];
     replace(
         &mut evidence.signed_receipt,
-        &topics[3],
-        &identity.idempotency_key,
+        &recorded_topics,
+        &topics.concat(),
     );
-    topics[3] = identity.idempotency_key;
     evidence.logs = vec![SequencerLog::new(
         log.address(),
         topics,
@@ -276,9 +275,32 @@ fn facilitator_settles_receipted_evidence() {
     // produce a successful settlement or advance the gateway record.
     let mut corrupt = evidence.clone();
     corrupt.signed_receipt[signature_start] ^= 1;
+    let mut legacy = evidence.clone();
+    let log = &legacy.logs[0];
+    let native_topics = log.topics().to_vec();
+    let mut topics = native_topics.clone();
+    topics[1..].rotate_left(1);
+    replace(
+        &mut legacy.signed_receipt,
+        &native_topics.concat(),
+        &topics.concat(),
+    );
+    legacy.logs = vec![SequencerLog::new(
+        log.address(),
+        topics,
+        log.data().to_vec(),
+        log.log_index(),
+    )];
+    let digest = canonical_receipt_digest(&legacy.signed_receipt)
+        .unwrap_or_else(|error| panic!("legacy receipt digest: {error}"));
+    legacy.signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
+    let verified = verify_sequencer_signature(&legacy.signed_receipt, keys.as_slice())
+        .unwrap_or_else(|error| panic!("legacy signature: {error:?}"));
+    assert!(verify_logs(&verified, legacy.logs.clone()).is_ok());
     for (evidence, keys) in [
         (evidence.clone(), recorded_keys),
         (corrupt, keys.clone()),
+        (legacy, keys.clone()),
         (recorded_evidence(&case), receipt_keys(&case)),
     ] {
         let (facilitator, mut gateway, principal, trace) = context();

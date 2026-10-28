@@ -420,6 +420,7 @@ done
     printf 'LOCAL_NODE_RPC=%q\n' "$EVM"
     printf 'LOCAL_NODE_KEY=%q\n' "0x$KEY"
     printf 'PERPS_DATA_TEST_RPC=%q\n' "$EVM"
+    printf 'PERPS_DATA_TEST_COMET=%q\n' "http://127.0.0.1:$RPC_PORT"
     printf 'NEXT_PUBLIC_PERPS_GATEWAY_URL=%q\n' "$GATEWAY"
 } > "$NODE_HOME/localnode.env"
 cp "$NODE_HOME/localnode.env" "$ENV_OUT"

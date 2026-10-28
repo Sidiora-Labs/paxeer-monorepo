@@ -116,9 +116,9 @@ pub fn decode_ledger_payment(log: &SequencerLog) -> Option<LedgerPayment> {
     let amount = u128::from_be_bytes(log.data[48..64].try_into().ok()?);
     if exact {
         Some(LedgerPayment::Exact {
-            from: *first,
-            to: *second,
-            reference: *third,
+            from: *second,
+            to: *third,
+            reference: *first,
             asset,
             amount,
         })

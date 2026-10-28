@@ -15,6 +15,7 @@ import { ActivityFeed, activitySide } from "../_markets/activity-feed";
 import { SurfaceCapabilityGate } from "../_markets/capability";
 import {
   LAUNCHPAD_DECIMALS,
+  LAUNCHPAD_PRICE_DECIMALS,
   firstParam,
   formatUnits,
   isEvmAddress,
@@ -102,7 +103,7 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
               cells: [
                 `${market.name} (${market.symbol})`,
                 shortId(market.token),
-                formatUnits(market.price, LAUNCHPAD_DECIMALS),
+                formatUnits(market.price, LAUNCHPAD_PRICE_DECIMALS),
                 formatUnits(market.totalSupply, LAUNCHPAD_DECIMALS),
                 formatUnits(market.tokenReserve, LAUNCHPAD_DECIMALS),
                 formatUnits(market.cumulativeVolume, LAUNCHPAD_DECIMALS),
