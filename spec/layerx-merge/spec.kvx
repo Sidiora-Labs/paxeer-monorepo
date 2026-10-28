@@ -172352,7 +172352,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -172552,7 +172552,7 @@ title = "Issue #849: Build the layerx chain image with its native-library Rust s
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1106.1"]
+requires = ["18.1106.1", "18.1141.1"]
 reqs = ["18849.1"]
 capabilities = []
 interfaces = []
@@ -176978,7 +176978,7 @@ title = "Issue #869: Build the layerx image and pin the paxd-node runtime to Ubu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1116.1", "18.1106.1"]
+requires = ["18.1116.1", "18.1106.1", "18.1141.1"]
 reqs = ["18869.1", "18869.2"]
 capabilities = []
 interfaces = []
@@ -178980,7 +178980,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179417,6 +179417,7 @@ ac_1 = "cargo test -p layerx-agent-api --test stream compiles and passes with th
 [req.181129]
 title = "Re-record the x-websearch client exchange with the x402 buyer's log evidence"
 ac_1 = "Every PAYMENT-RESPONSE in client-exchange.json carries logs and height-keyed receipts under a sequencer id that gateway/buyer.json publishes with its public key and batch window, Buyer::capture_settlement accepts each recorded settlement, and the payment tests pass unchanged."
+ac_2 = "The seller offers PAX into the receiver's DID main account and every other asset into its sub-account, the recorded grants and receipts are issued from the configured payer's ledger account, and the whole payment test target passes."
 
 [req.181130]
 title = "Seed the active programs fee record in the layerxprograms harness and the lxphost program fixtures"
@@ -179718,6 +179719,10 @@ ac_1 = "go vet of modules/launchpad/keeper and modules/launchpad/simulation succ
 [req.181138]
 title = "The agentd handshake gate and readiness test targets compile and pass against the current startup configuration"
 ac_1 = "cargo test -p layerx-agentd --test handshake_gate --test readiness_node_rpc compiles and passes with the fixture built from the StartupConfig fields 5609ec802 defines, with no change under src/."
+
+[req.181141]
+title = "Issue #1141: Add the golang.org/x/net go.mod hash the module graph needs so the chain binary builds in read-only module mode"
+ac_1 = "GOFLAGS=-mod=readonly go vet ./modules/epoch/ and the test compile of modules/epoch succeed at main because go.sum carries the go.mod hash of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3, with no other change."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180655,6 +180660,14 @@ contract = "contracts/services.md#embedded-wallet-gateway"
 test = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
 qualification = "UNRUN"
 
+[acceptance.18.1141.1]
+feature = "18"
+req = "181141.1"
+scenario = "Given main, when modules/epoch is vetted and its tests compiled in read-only module mode, then the module graph loads with every go.mod hash present and both commands exit 0."
+contract = "contracts/tools-ops.md#makefile-graph"
+test = ""
+qualification = "UNRUN"
+
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
 status = "done"
@@ -181573,9 +181586,13 @@ capabilities = []
 interfaces = []
 do_1 = "Run the exchange recorder of services/interop/crates/x-websearch/tests/payment.rs (X_WEBSEARCH_RECORD_EXCHANGE, :3082 and :3214-3215) against the replayed gateway recordings so that services/interop/crates/x-websearch/tests/fixtures/client-exchange.json carries, in every PAYMENT-RESPONSE extensions.layerx, the logs field layerx-x402 LayerXEvidence requires (services/interop/crates/layerx-x402/src/buyer.rs:61-74: exactly one PaymentExact log from the 0x101a payment precompile whose topic 1 is the idempotency key and topic 2 the payer) and receipts keyed by height under one pinned sequencer id, the shape services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json already records."
 do_2 = "Publish in services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json, beside sequencerPublicKey, the sequencerId the recorded receipts are keyed under and the firstBatchNumber and lastBatchNumber of the key window, so a buyer-side test can build the SequencerAuthorization that Buyer::capture_settlement (buyer.rs:239-243) verifies; if the replayed gateway recordings yield receipts under a sequencer id whose public key no fixture holds, stop and report the inconsistent fixture by path instead of inventing a key."
-do_3 = "Keep every payment.rs test that replays client-exchange.json passing with its assertions unchanged; if the recorder needs a fix to emit the current evidence shape, make it in payment.rs only."
+do_3 = "Keep every payment.rs assertion unchanged. The recorder regenerates every gateway recording from the in-file keys and byte-compares them in the_gateway_recording_is_reproduced_by_the_real_signers (tests/payment.rs:3080-3095), so the re-recording rewrites buyer.json, metered.json, pending.json and client-exchange.json together, and exact.json or refusals.json only where their bytes change; no live chain or external key is involved."
+do_5 = "The metered steps fail with grant_payer_mismatch because the harness offers the EVM payer address PAYER (tests/payment.rs:63-64, :564-566, sent as LAYERX-PAYER-ADDRESS at :3152-3155) whose ledger account the accountId replay answers from payer_account_rules (:77-87, :162) as payer_account(asset) (:66-75), while the recorded grants and receipts are still issued from the ed25519 payer DID's account (account(&payer_did, asset) at :2805, :2836, :2852, :2883; account_id(&wallet_account(text(&buyer, '/payerDid'), &asset)) at :1282 and :3279). Issue every recorded grant and receipt from payer_account(asset) instead, and replace the third derivation account_id(&wallet_account(harness.payer()?, &asset)) at :1223, :3819, :3890 and the payer half of :1251-1260 with payer_account(&asset), so the recorded exchange, the replay rules and src/payment.rs ledger_account (:135-153) agree with what modules/lxphost/accountmap.go:53-60 derives on the chain."
+do_6 = "Keep the grant_payer_mismatch assertion of the_configured_payer_address_is_offered_and_drawn_from (:1888-1896) by feeding it an explicitly foreign grant: sign one with from = the ed25519 payer DID's account and register its 0x423fe4b2 rule exactly as :1897-1915 does for the matching grant, since the harness grant now belongs to the configured payer."
+do_7 = "Issue #1140: offer and settle PAX into the DID main accounts. In src/payment.rs:1304 build the offer's extra.layerx.account as agent:<receiver did>:main when the asset is PAX and as the :asset:<id> sub-account otherwise, and derive the payer's PAX account the same way wherever ledger_account or the receiver account of a metered draw is built for PAX, matching the x402 model's documented account forms (services/interop/crates/layerx-x402/src/model.rs:196 and :239-302) and pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own (tests/payment.rs:1234-1260); every other asset keeps its sub-account. Record this before re-recording so the fixtures carry the main-account form."
+do_8 = "Order of work: do_5 to do_7 first, then one X_WEBSEARCH_RECORD_EXCHANGE=1 run of the_gateway_recording_is_reproduced_by_the_real_signers and the_client_exchange_matches_the_recording, which rewrites the recordings, then the verify_cmd once; commit the rewritten fixtures with the code."
 symbols = ["RECORD_VARIABLE", "LayerXEvidence", "Buyer::capture_settlement"]
-touches = ["services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json", "services/interop/crates/x-websearch/tests/payment.rs"]
+touches = ["services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json", "services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/refusals.json"]
 tests = ["services/interop/crates/x-websearch/tests/payment.rs::delivery_recovers_the_recorded_receipted_settlement", "services/interop/crates/x-websearch/tests/payment.rs::exact_receipts_settle_in_each_asset"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --tests"
@@ -183801,6 +183818,38 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the fixture; both test targets return to failing compilation on the removed fields."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1141.1]
+title = "Issue #1141: Issue #1141: Add the golang.org/x/net go.mod hash the module graph needs so the chain binary builds in read-only module mode"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181141.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add to go.sum the go.mod hash line of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3, which golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 (go.sum:2128) requires through github.com/99designs/keyring v1.2.1 (go.mod:7, replaced at go.mod:287), by running go mod download golang.org/x/net and keeping every other go.sum line as it is."
+do_2 = "Change no go.mod line and no source file; the gate is a read-only module mode vet and test compile of modules/epoch, whose module_simulation.go:15 imports the keyring."
+symbols = []
+touches = ["go.sum"]
+tests = []
+planned_paths = []
+build_cmd = "GOFLAGS=-mod=readonly go vet ./modules/epoch/"
+verify_cmd = "GOFLAGS=-mod=readonly go test -count=1 -run '^$' ./modules/epoch/"
+max_builds
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert go.sum; read-only module mode builds return to refusing the missing go.mod hash."
+stop_condition
+path_policy
+evidence_policy
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2

@@ -9204,3 +9204,27 @@ observed = "Attempt 7 (4039a22e0) built the native stage and failed the full ima
 assumption = "do_5 now names the re-include; no other interop member is missing from the context."
 severity = "major"
 
+[finding.18.1129.1.2]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/payment.rs:2805"
+symbol = "payer_account"
+observed = "Attempts 1 to 6 could not re-record because the harness offers the EVM payer address (bad892c80) while the recorder still issues grants and receipts from the ed25519 payer DID's account, so every metered step is refused with grant_payer_mismatch; the recorder regenerates all five gateway recordings from in-file keys, so the repair rewrites metered.json and pending.json too."
+assumption = "do_5 to do_8 and the widened touches carry the fix; no external authority is needed."
+severity = "major"
+
+[finding.18.1129.1.3]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/src/payment.rs:1304"
+symbol = "PaymentRequirements"
+observed = "pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own fails at tests/payment.rs:1259 because b22e895a6 (11.34.3) made the seller name the PAX account :asset:<id> while the x402 model, the spec notation and the test require the DID main account (issue #1140)."
+assumption = "Folded into this task as do_7, since the recordings must be regenerated after the account form is restored."
+severity = "major"
+
+[finding.18.869.1.3]
+task = "18.869.1"
+file = "go.sum:2128"
+symbol = "module_simulation"
+observed = "Attempt 10 (75673db2b) built the paxd-node image and failed the layerx image's builder stage: go.sum lacks the go.mod hash of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 that the keyring dependency of modules/epoch requires (issue #1141)."
+assumption = "Task 18.1141.1 adds the hash; 18.869.1 and 18.849.1 require it."
+severity = "major"
+

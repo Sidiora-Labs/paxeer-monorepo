@@ -10127,3 +10127,12 @@ area = "task gates"
 symptom = "A type-check that passes for every other task of the same app fails with hundreds of errors in files the task never touched, or with missing workspace modules."
 cause = "Each app resolves dependencies through its own manager (apps/explorer yarn, apps/bridge pnpm, apps/web npm, the wallet gateway pnpm) and apps/explorer generates its Chakra recipe types in a postinstall step that a reinstall without scripts loses."
 do = "Copy the gate prefix from a done task of the same app; never reinstall dependencies inside an attempt; for apps/explorer run yarn chakra:typegen before tsc when node_modules changed."
+
+[gotcha.2070]
+title = "x-websearch payment harness: the payer address and the grant issuer must derive the same ledger account"
+detail = "tests/payment.rs offers an EVM payer address and answers accountId for it from payer_account_rules, but the recorder issued grants and receipts from the ed25519 payer DID's account, so every metered step returned grant_payer_mismatch and re-recording was impossible. When the harness payer changes form, every issuer of recorded grants and receipts changes with it, and the recorder regenerates all gateway recordings together."
+
+[gotcha.2071]
+title = "go.sum can lack a go.mod hash that only read-only module mode notices"
+detail = "GOFLAGS=-mod=mod builds (the sandboxed gates) add missing go.sum lines silently; the chain image's builder stage runs read-only and fails on the missing golang.org/x/net go.mod hash the replaced keyring still pulls in. Gate a go.sum repair with GOFLAGS=-mod=readonly."
+
