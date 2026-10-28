@@ -100,7 +100,7 @@ fn reclaim_request(journey: &str, key: u8, mechanism: ReclaimMechanism) -> Recla
                 .unwrap_or_else(|error| panic!("authority: {error:?}")),
             custody_key: KeyId::new("human-primary")
                 .unwrap_or_else(|error| panic!("custody key: {error}")),
-            account_sequence: ACCOUNT_SEQUENCE,
+            nonce: ACCOUNT_SEQUENCE,
             not_before: 995,
             not_after: 1_010,
             fee_limit: 7,

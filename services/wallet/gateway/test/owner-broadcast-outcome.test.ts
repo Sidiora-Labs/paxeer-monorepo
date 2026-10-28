@@ -3,7 +3,7 @@ import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { keccak256, parseTransaction, recoverTransactionAddress, type Hex } from 'viem';
-import { afterAll, beforeAll, expect, test } from 'vitest';
+import { afterAll, beforeAll, beforeEach, expect, test } from 'vitest';
 import { newAgentKey, startIdentityProvider, type IdentityProvider } from './support/identity.js';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 
@@ -17,6 +17,7 @@ const latestCounts = new Map<string, number>();
 const broadcasts: Hex[] = [];
 const lookups: Hex[] = [];
 let broadcastError = 'nonce too low';
+let hashLookupFails = false;
 
 beforeAll(async () => {
   rpcServer = createServer(async (req, res) => {
@@ -47,7 +48,8 @@ beforeAll(async () => {
       }
       case 'eth_getTransactionByHash':
         lookups.push(body.params[0]!);
-        result = null;
+        if (hashLookupFails) error = { code: -32000, message: 'transaction lookup unavailable' };
+        else result = null;
         break;
       default: error = { code: -32601, message: 'method not found' };
     }
@@ -83,7 +85,13 @@ afterAll(async () => {
   });
 }, 120_000);
 
+beforeEach(() => {
+  broadcastError = 'nonce too low';
+  hashLookupFails = false;
+});
+
 async function fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt(): Promise<void> {
+  hashLookupFails = true;
   const ownerId = randomUUID();
   const agent = newAgentKey('owner-broadcast');
   const agents = await import('../src/db/agents.js');
@@ -136,5 +144,47 @@ async function fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt(): 
   }
 }
 
+async function fundAndSweepAnswerAConsumedNonceWith409NonceConsumed(): Promise<void> {
+  const ownerId = randomUUID();
+  const agent = newAgentKey('owner-consumed-nonce');
+  const agents = await import('../src/db/agents.js');
+  const wallets = await import('../src/db/wallets.js');
+  await agents.upsertPrincipalOnVerify({
+    did: agent.did, label: 'owner-consumed-nonce', keyFingerprint: agent.publicKeyHex.slice(0, 16),
+    publicKey: agent.publicKeyHex,
+  });
+  expect(await agents.claimPrincipal(agent.did, ownerId)).toBe(true);
+  const { wallet: ownerWallet } = await wallets.provisionWalletForUser(ownerId);
+  const { wallet: agentWallet } = await wallets.provisionWalletForUser(wallets.agentWalletUserId(agent.did), 'agent');
+  await agents.setPrincipalWallet(agent.did, agentWallet.id);
+  const authorization = `Bearer ${await idp.mintUserToken(ownerId)}`;
+
+  for (const route of ['fund', 'sweep'] as const) {
+    const sender = route === 'fund' ? ownerWallet : agentWallet;
+    const recipient = route === 'fund' ? agentWallet : ownerWallet;
+    const countBefore = broadcasts.length;
+    const response = await app.inject({
+      method: 'POST', url: `/v1/agents/${encodeURIComponent(agent.did)}/${route}`,
+      headers: { authorization }, payload: { amount: '1' },
+    });
+    expect(response.statusCode, response.body).toBe(409);
+    expect(response.json()).toEqual({
+      error: 'nonce_consumed', retry: 'prepare', nonce: 0, member: null, members: 1,
+    });
+    expect(broadcasts).toHaveLength(countBefore + 1);
+    const raw = broadcasts[countBefore]!;
+    const hash = keccak256(raw);
+    expect(lookups).toContain(hash);
+    expect(parseTransaction(raw)).toMatchObject({ to: recipient.address.toLowerCase(), value: 1n, nonce: 0 });
+    expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(sender.address.toLowerCase());
+    const outstanding = await database.query(
+      'select nonce::text, tx_hash from nonce_outstanding where address = $1', [sender.address.toLowerCase()],
+    );
+    expect(outstanding.rows).toEqual([{ nonce: '0', tx_hash: hash }]);
+  }
+}
+
 test('fund and sweep answer an unknown broadcast outcome with 202 poll_receipt',
   fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt);
+test('fund and sweep answer a consumed nonce with 409 nonce_consumed',
+  fundAndSweepAnswerAConsumedNonceWith409NonceConsumed);

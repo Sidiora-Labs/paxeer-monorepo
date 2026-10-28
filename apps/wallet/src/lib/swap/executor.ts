@@ -11,9 +11,6 @@ import {
   buy as sidioraBuy,
   sell as sidioraSell,
   approveRouter as sidioraApproveRouter,
-  quoteBuy as sidioraQuoteBuy,
-  quoteSell as sidioraQuoteSell,
-  quoteMultihop as sidioraQuoteMultihop,
 } from '@/lib/swap/sdk';
 import { toCentralSwapAddress, isSidioraToken } from './constants';
 import type { SwapQuote, SwapParams } from './types';
@@ -129,20 +126,17 @@ async function executeSidioraSwap(
   const dl = BigInt(Math.floor(Date.now() / 1000) + (params.deadline ?? 300));
   const amountIn = BigInt(quote.amountIn);
   const slipBps = params.slippageBps;
+  const minOut = (BigInt(quote.amountOut) * BigInt(10000 - slipBps)) / 10000n;
   const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
 
   let tx: ethers.TransactionResponse;
   if (isSidioraToken(quote.tokenIn)) {
     // Sell: Sidiora token → USDL
     await sidioraApproveRouter(quote.tokenIn.address, signer);
-    const q = await sidioraQuoteSell(pool, amountIn, signer.provider ?? undefined);
-    const minOut = (q.amountOut * BigInt(10000 - slipBps)) / BigInt(10000);
     tx = await router.sell(pool, amountIn, minOut, dl);
   } else {
     // Buy: USDL → Launchpad
     await sidioraApproveRouter(TOKENS.USDL.address, signer);
-    const q = await sidioraQuoteBuy(pool, amountIn, signer.provider ?? undefined);
-    const minOut = (q.amountOut * BigInt(10000 - slipBps)) / BigInt(10000);
     tx = await router.buy(pool, amountIn, minOut, dl);
   }
   return awaitSwapReceipt(tx);
@@ -159,13 +153,7 @@ async function executeSidioraMultihop(
   const amountIn = BigInt(quote.amountIn);
   const slipBps = params.slippageBps;
   await sidioraApproveRouter(quote.tokenIn.address, signer);
-  const q = await sidioraQuoteMultihop(
-    quote.tokenIn.address,
-    quote.tokenOut.address,
-    amountIn,
-    signer.provider ?? undefined
-  );
-  const minOut = (q.amountOut * BigInt(10000 - slipBps)) / BigInt(10000);
+  const minOut = (BigInt(quote.amountOut) * BigInt(10000 - slipBps)) / 10000n;
   const router = new ethers.Contract(CONTRACTS.Router, SIDIORA_ROUTER_ABI, signer);
   const tx = await router.swapTokenToToken(
     quote.tokenIn.address,

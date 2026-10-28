@@ -1199,7 +1199,7 @@ MUTATIONS = {
         "      - name: Install the pinned Go toolchain\n"
         "        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0\n"
         "        with:\n"
-        "          go-version: '1.25.6'\n\n",
+        "          go-version: '1.25.8'\n\n",
         "",
         1,
     ),

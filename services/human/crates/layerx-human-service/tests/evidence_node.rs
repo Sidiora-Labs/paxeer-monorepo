@@ -1,7 +1,7 @@
 use layerx_human_test_support as support;
 
 use ed25519_dalek::{Signer as _, SigningKey};
-use layerx_agentd::boot::handshake_gate;
+use layerx_client::lni::handshake::{perform, HandshakeConfig};
 use layerx_client::lni::schema::{Capability, Version};
 use layerx_client::submit::{submit_signed, Submission, SubmissionContext, SubmitError};
 use layerx_crypto::SignatureMessage;
@@ -109,12 +109,27 @@ fn advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission() {
     let (socket_path, server) = support::serve_evidence_node(node, "durable-handshake");
     let mut transport = support::connect_evidence_node(&socket_path);
 
-    let status = handshake_gate(&mut gate, &mut transport)
-        .unwrap_or_else(|error| panic!("handshake gate: {error:?}"));
-    assert!(status.writes_ready);
-    assert!(status
-        .available_capabilities
-        .contains(&Capability::AuthenticatedDurableSubmit));
+    let (node, readiness_server) = support::connect_readiness_node(&receipt_signer);
+    gate.readiness_gate(&node)
+        .unwrap_or_else(|error| panic!("readiness gate: {error:?}"));
+    readiness_server
+        .join()
+        .unwrap_or_else(|_| panic!("readiness node panicked"));
+    let handshake = perform(
+        &mut transport,
+        &HandshakeConfig {
+            built_interface_version: Version::V1_3,
+            expected_protocol_version: PROTOCOL_VERSION,
+            expected_network_id: EVIDENCE_NETWORK_ID,
+        },
+        None,
+    )
+    .unwrap_or_else(|error| panic!("evidence handshake: {error:?}"));
+    let available_capabilities = handshake.capabilities().available();
+    let writes_ready = available_capabilities.contains(&Capability::Submit)
+        && available_capabilities.contains(&Capability::AuthenticatedDurableSubmit);
+    assert!(writes_ready);
+    assert!(available_capabilities.contains(&Capability::AuthenticatedDurableSubmit));
     assert!(gate.evidence_authority().is_ok());
 
     let first = signed_activity(&registry, b"did:layerx:actor", actor_key, &actor, 1, 0x11);
@@ -184,8 +199,22 @@ fn authentication_refusals_are_typed_and_consume_no_admission_capacity() {
     let admission_directory = node.journal().directory().to_path_buf();
     let (socket_path, server) = support::serve_evidence_node(node, "refused-handshake");
     let mut transport = support::connect_evidence_node(&socket_path);
-    handshake_gate(&mut gate, &mut transport)
-        .unwrap_or_else(|error| panic!("handshake gate: {error:?}"));
+    let (node, readiness_server) = support::connect_readiness_node(&receipt_signer);
+    gate.readiness_gate(&node)
+        .unwrap_or_else(|error| panic!("readiness gate: {error:?}"));
+    readiness_server
+        .join()
+        .unwrap_or_else(|_| panic!("readiness node panicked"));
+    perform(
+        &mut transport,
+        &HandshakeConfig {
+            built_interface_version: Version::V1_3,
+            expected_protocol_version: PROTOCOL_VERSION,
+            expected_network_id: EVIDENCE_NETWORK_ID,
+        },
+        None,
+    )
+    .unwrap_or_else(|error| panic!("evidence handshake: {error:?}"));
 
     let forged = signed_activity(
         &registry,

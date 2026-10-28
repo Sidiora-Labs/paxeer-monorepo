@@ -1781,6 +1781,13 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 		<-completion
 	}
 
+	if source, ok := app.sequencerSource.(interface {
+		SealForFinalize(height int64, txs [][]byte) error
+	}); ok {
+		if err := source.SealForFinalize(req.Header.Height, req.Txs); err != nil {
+			return nil, err
+		}
+	}
 	sealed, err := app.sealedBlockForFinalize()
 	if err != nil {
 		return nil, err

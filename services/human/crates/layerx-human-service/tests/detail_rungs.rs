@@ -6,13 +6,12 @@ use layerx_agent_api::subscription::{
 };
 use layerx_agent_api::track::ReceiptRef;
 use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
 use layerx_human_service::activity::detail::{
     DetailError, EvidenceKind, FinalityReference, ReceiptActual,
 };
 use layerx_human_service::activity::{
-    ActivityEntry, ActivityKind, ActivityStatus, AgentActivity, EntryDetail, Feed, PendingStatus,
-    VerifiedStatus,
+    ActivityEntry, ActivityKind, ActivityStatus, AgentActivity, EntryDetail, Feed, FeedError,
+    PendingStatus, VerifiedStatus,
 };
 use layerx_human_service::notify::ActivityEntryId;
 use layerx_human_test_support as support;
@@ -102,7 +101,7 @@ fn verified_receipt() -> VerifiedReceipt {
     receipt
 }
 
-fn recorded_entry(level: Level) -> (ActivityEntry, ReceiptActual) {
+fn recorded_entry(rung: Rung) -> Result<(ActivityEntry, ReceiptActual), FeedError> {
     let root = support::directory("activity-detail-rungs");
     let tenancy = support::tenancy(&[("alice", "tenant-a")]);
     let (mut store, _) =
@@ -116,11 +115,15 @@ fn recorded_entry(level: Level) -> (ActivityEntry, ReceiptActual) {
     let delivery = EventDelivery::new(
         EventIdentity::new([1; 32]),
         receipt.canonical_bytes().to_vec(),
-        ApiCursor(Sequence(1)),
+        ApiCursor {
+            block_height: 1,
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::Verified {
             receipt_ref: ReceiptRef::new(actual.reference())
                 .unwrap_or_else(|error| panic!("receipt reference: {error:?}")),
-            verification_level: level,
+            rung,
         },
     )
     .unwrap_or_else(|error| panic!("delivery: {error:?}"));
@@ -133,62 +136,92 @@ fn recorded_entry(level: Level) -> (ActivityEntry, ReceiptActual) {
         VerifiedStatus::Done,
     )
     .unwrap_or_else(|error| panic!("activity: {error}"));
-    let entry = Feed::record_agent_event(&mut scope, &activity, &delivery, 2)
-        .unwrap_or_else(|error| panic!("feed entry: {error}"));
+    let entry = Feed::record_agent_event(&mut scope, &activity, &delivery, 2);
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
-    (entry, actual)
+    entry.map(|entry| (entry, actual))
+}
+
+#[test]
+fn checkpoint_evidence_level_follows_the_finality_rung() {
+    for (rung, level) in [
+        (Rung::Receipted, Level::BatchIncluded),
+        (Rung::Committed, Level::CheckpointFinalised),
+    ] {
+        let (entry, actual) =
+            recorded_entry(rung).unwrap_or_else(|error| panic!("feed entry: {error}"));
+        assert_eq!(entry.rung(), rung);
+        let reference = FinalityReference::new([0x77; 32], rung)
+            .unwrap_or_else(|error| panic!("finality reference: {error}"));
+        let detail = EntryDetail::assemble(&entry, vec![actual], Some(reference))
+            .unwrap_or_else(|error| panic!("entry detail: {error}"));
+        assert_eq!(detail.finality(), Some(reference));
+        assert_eq!(detail.evidence().len(), 2);
+        assert_eq!(detail.evidence()[0].kind(), EvidenceKind::Receipt);
+        assert_eq!(detail.evidence()[0].level(), level);
+        assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
+        assert_eq!(detail.evidence()[1].level(), level);
+    }
 }
 
 #[test]
 fn receipted_entry_detail_is_not_final() {
-    for level in [
-        Level::SequencerSigned,
-        Level::BatchIncluded,
-        Level::StateProven,
-    ] {
-        let (entry, actual) = recorded_entry(level);
-        assert_eq!(entry.rung(), Rung::Receipted);
-        let reference = FinalityReference::new([0x77; 32], Rung::Receipted)
-            .unwrap_or_else(|error| panic!("pending finality: {error}"));
-        assert_eq!(reference.rung(), Rung::Receipted);
-        assert!(!reference.is_final());
-        for finality in [None, Some(reference)] {
-            let detail = EntryDetail::assemble(&entry, vec![actual.clone()], finality)
-                .unwrap_or_else(|error| panic!("receipted detail: {error}"));
-            assert_eq!(detail.rung(), Rung::Receipted);
-            assert!(!detail.is_final());
-            assert_eq!(detail.status(), ActivityStatus::Done);
-            assert_eq!(detail.finality(), finality);
-            assert_eq!(detail.evidence()[0].level(), level);
-            if finality.is_some() {
-                assert_eq!(detail.evidence().len(), 2);
-                assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
-                assert_eq!(detail.evidence()[1].level(), Level::SequencerSigned);
-                assert!(!detail
-                    .finality()
-                    .unwrap_or_else(|| panic!("missing finality"))
-                    .is_final());
-            } else {
-                assert_eq!(detail.evidence().len(), 1);
+    for rung in [Rung::Submitted, Rung::Receipted] {
+        if rung == Rung::Submitted {
+            assert!(matches!(
+                recorded_entry(rung),
+                Err(FeedError::UnverifiedReceipt)
+            ));
+            let reference = FinalityReference::new([0x77; 32], rung)
+                .unwrap_or_else(|error| panic!("submitted finality: {error}"));
+            assert_eq!(reference.rung(), rung);
+            assert!(!reference.is_final());
+        } else {
+            let (entry, actual) =
+                recorded_entry(rung).unwrap_or_else(|error| panic!("feed entry: {error}"));
+            assert_eq!(entry.rung(), Rung::Receipted);
+            let reference = FinalityReference::new([0x77; 32], Rung::Receipted)
+                .unwrap_or_else(|error| panic!("pending finality: {error}"));
+            assert_eq!(reference.rung(), Rung::Receipted);
+            assert!(!reference.is_final());
+            for finality in [None, Some(reference)] {
+                let detail = EntryDetail::assemble(&entry, vec![actual.clone()], finality)
+                    .unwrap_or_else(|error| panic!("receipted detail: {error}"));
+                assert_eq!(detail.rung(), Rung::Receipted);
+                assert!(!detail.is_final());
+                assert_eq!(detail.status(), ActivityStatus::Done);
+                assert_eq!(detail.finality(), finality);
+                assert_eq!(detail.evidence()[0].level(), Level::BatchIncluded);
+                if finality.is_some() {
+                    assert_eq!(detail.evidence().len(), 2);
+                    assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
+                    assert_eq!(detail.evidence()[1].level(), Level::BatchIncluded);
+                    assert!(!detail
+                        .finality()
+                        .unwrap_or_else(|| panic!("missing finality"))
+                        .is_final());
+                } else {
+                    assert_eq!(detail.evidence().len(), 1);
+                }
             }
+            let committed = FinalityReference::new([0x77; 32], Rung::Committed)
+                .unwrap_or_else(|error| panic!("committed reference: {error}"));
+            assert_eq!(
+                EntryDetail::assemble(&entry, vec![actual], Some(committed)),
+                Err(DetailError::UnjustifiedFinalityEvidence)
+            );
+            assert_eq!(
+                FinalityReference::new([0; 32], Rung::Receipted),
+                Err(DetailError::InvalidFinalityEvidence)
+            );
         }
-        let committed = FinalityReference::new([0x77; 32], Rung::Committed)
-            .unwrap_or_else(|error| panic!("committed reference: {error}"));
-        assert_eq!(
-            EntryDetail::assemble(&entry, vec![actual], Some(committed)),
-            Err(DetailError::UnjustifiedFinalityEvidence)
-        );
-        assert_eq!(
-            FinalityReference::new([0; 32], Rung::Receipted),
-            Err(DetailError::InvalidFinalityEvidence)
-        );
     }
 }
 
 #[test]
 fn committed_entry_detail_is_final() {
-    for level in [Level::CheckpointFinalised, Level::SettlementAnchored] {
-        let (entry, actual) = recorded_entry(level);
+    for rung in [Rung::Committed] {
+        let (entry, actual) =
+            recorded_entry(rung).unwrap_or_else(|error| panic!("feed entry: {error}"));
         assert_eq!(entry.rung(), Rung::Committed);
         let reference = FinalityReference::new([0x77; 32], Rung::Committed)
             .unwrap_or_else(|error| panic!("committed finality: {error}"));
@@ -205,7 +238,7 @@ fn committed_entry_detail_is_final() {
             .unwrap_or_else(|| panic!("missing finality"))
             .is_final());
         assert_eq!(detail.evidence().len(), 2);
-        assert_eq!(detail.evidence()[0].level(), level);
+        assert_eq!(detail.evidence()[0].level(), Level::CheckpointFinalised);
         assert_eq!(detail.evidence()[1].kind(), EvidenceKind::Checkpoint);
         assert_eq!(detail.evidence()[1].level(), Level::CheckpointFinalised);
         assert_eq!(

@@ -115,6 +115,7 @@ export interface LaunchpadMarket {
   readonly tokenReserve: bigint;
   readonly realQuoteBalance: bigint;
   readonly cumulativeVolume: bigint;
+  readonly currentFeeBps: bigint;
   readonly price: bigint;
 }
 
@@ -123,7 +124,7 @@ export type LaunchpadMarketRow = LaunchpadMarket | Readonly<{ pool: string; unav
 export const LAUNCHPAD_READ_CONCURRENCY = 8;
 
 export interface LaunchpadConfig {
-  readonly quoteDenom: string;
+  readonly quoteSymbol: string;
   readonly creationFee: bigint;
   readonly minFeeBps: bigint;
   readonly maxFeeBps: bigint;
@@ -204,6 +205,7 @@ async function launchpadMarket(pool: string, feeRights: string, block: bigint): 
     tokenReserve: readUint(stats.tokenReserve, "tokenReserve"),
     realQuoteBalance: readUint(stats.realUsdl, "realUsdl"),
     cumulativeVolume: readUint(stats.cumulativeVolume, "cumulativeVolume"),
+    currentFeeBps: readUint(stats.currentFeeBps, "currentFeeBps"),
     price: readUint(stats.price, "price"),
   };
 }
@@ -248,7 +250,14 @@ export async function launchpadConfig(): Promise<LaunchpadConfig> {
     viewUint(LAUNCHPAD_PRECOMPILE, "maxFeeBps"),
     viewUint(LAUNCHPAD_PRECOMPILE, "baseFeeBps"),
   ]);
-  return { quoteDenom: await viewString(usdl, "symbol"), creationFee, minFeeBps, maxFeeBps, baseFeeBps };
+  return { quoteSymbol: await viewString(usdl, "symbol"), creationFee, minFeeBps, maxFeeBps, baseFeeBps };
+}
+
+export class NoLaunchpadPoolError extends RangeError {
+  constructor(token: string) {
+    super(`no launchpad pool trades ${token}`);
+    this.name = "NoLaunchpadPoolError";
+  }
 }
 
 export interface LaunchpadQuote {
@@ -261,7 +270,7 @@ export interface LaunchpadQuote {
 export async function launchpadQuote(token: string, side: "buy" | "sell", amountIn: bigint): Promise<LaunchpadQuote> {
   const pool = await viewAddress(LAUNCHPAD_PRECOMPILE, "getPoolByToken", ["address"], [token]);
   if (pool === ZERO_ADDRESS) {
-    throw new RangeError(`no launchpad pool trades ${token}`);
+    throw new NoLaunchpadPoolError(token);
   }
   const result = await view(
     LAUNCHPAD_PRECOMPILE,

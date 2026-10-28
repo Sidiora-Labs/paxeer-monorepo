@@ -308,10 +308,25 @@ func (r *Replicator) replicate(ctx context.Context, frames []wal.Frame, maxSeq u
 		gap.GapFrom, gap.GapTo = r.retainedSeqs(len(r.retained) - len(frames))
 		frames = r.window()
 	}
-	ack, err := r.exchange(ctx, frames)
-	if err == nil && ack.Status == AckGap && !fresh {
+	var ack Ack
+	var err error
+	for {
+		if err = ctx.Err(); err != nil {
+			break
+		}
+		ack, err = r.exchange(ctx, frames)
+		if err != nil || ack.Status != AckGap {
+			break
+		}
+		if ack.GapFrom == ack.LastSeq+1 && ack.GapTo == ack.LastSeq {
+			continue
+		}
+		if fresh {
+			break
+		}
 		gap = ack
-		ack, err = r.exchange(ctx, r.window())
+		frames = r.window()
+		fresh = true
 	}
 	if err != nil {
 		r.dropConn()
@@ -548,6 +563,7 @@ func (c *standbyCursor) advance(e wal.Entry) {
 // Standby is the hot standby: it appends and syncs every replicated group to its own WAL,
 // re-executes it in seq order and only then acknowledges it.
 type Standby struct {
+	recvMu             sync.Mutex
 	mu                 sync.Mutex
 	wal                *wal.WAL
 	exec               wal.Executor
@@ -748,6 +764,8 @@ func (s *Standby) serveConn(conn net.Conn) {
 // standby WAL, re-executed in order, and acknowledged. A WAL or execution failure stops the
 // standby: it refuses every later group.
 func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
+	s.recvMu.Lock()
+	defer s.recvMu.Unlock()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	defer func() {
@@ -784,10 +802,25 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	if len(fresh) == 0 {
 		return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 	}
+	s.mu.Unlock()
+	committed := true
 	for _, e := range fresh {
 		if open, ok := e.(*wal.Open); ok && !s.waitForCommit(open.Height-1) {
-			return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: s.cur.lastSeq + 1, GapTo: s.cur.lastSeq}
+			committed = false
+			break
 		}
+	}
+	s.mu.Lock()
+	if s.leader {
+		s.refusal = fmt.Errorf("%w: standby holds leadership at epoch %d", ErrFenced, s.cur.leaseEpoch)
+		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq, Epoch: s.cur.leaseEpoch}
+	}
+	if s.failed != nil {
+		s.refusal = fmt.Errorf("sequencer: standby stopped: %w", s.failed)
+		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
+	}
+	if !committed {
+		return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: s.cur.lastSeq + 1, GapTo: s.cur.lastSeq}
 	}
 	if err := s.persist(fresh); err != nil {
 		s.failed = err
@@ -805,6 +838,10 @@ func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	return Ack{Status: AckOK, LastSeq: s.cur.lastSeq}
 }
 
+func standbyCommitWait(replicationTimeout time.Duration) time.Duration {
+	return replicationTimeout / 4
+}
+
 func (s *Standby) waitForCommit(height uint64) bool {
 	host, ok := s.exec.(interface{ LastBlockHeight() int64 })
 	if !ok {
@@ -817,7 +854,7 @@ func (s *Standby) waitForCommit(height uint64) bool {
 	if committed() {
 		return true
 	}
-	ctx, cancel := context.WithTimeout(s.ctx, s.replicationTimeout)
+	ctx, cancel := context.WithTimeout(s.ctx, standbyCommitWait(s.replicationTimeout))
 	defer cancel()
 	tick := time.NewTicker(time.Millisecond)
 	defer tick.Stop()

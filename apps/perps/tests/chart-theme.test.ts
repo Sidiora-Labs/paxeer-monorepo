@@ -83,26 +83,27 @@ test("chart theme plans select existing custom stylesheets and the typed base th
   );
 });
 
-test("only changed custom styles rebuild; repeated themes and both built-in directions do not", () => {
-  for (const previous of themes) {
-    for (const next of themes) {
-      const builtIn = ["dark", "light"];
-      const expected =
-        previous === next
-          ? "none"
-          : builtIn.includes(previous) && builtIn.includes(next)
-            ? "runtime"
-            : "rebuild";
-      assert.equal(
-        chartThemeTransition(previous, next),
-        expected,
-        `${previous} -> ${next}`,
-      );
+const chartThemeTests = {
+  "every theme change that swaps the custom stylesheet rebuilds the chart"() {
+    for (const previous of themes) {
+      for (const next of themes) {
+        assert.equal(
+          chartThemeTransition(previous, next),
+          previous === next ? "none" : "rebuild",
+          `${previous} -> ${next}`,
+        );
+      }
     }
-  }
-  assert.equal(chartThemeTransition(undefined, "dark"), "none");
-  assert.equal(chartThemeTransition(undefined, "greenify"), "rebuild");
-});
+    assert.equal(chartThemeTransition(undefined, "dark"), "none");
+    assert.equal(chartThemeTransition(undefined, "greenify"), "rebuild");
+  },
+};
+
+test(
+  chartThemeTests[
+    "every theme change that swaps the custom stylesheet rebuilds the chart"
+  ],
+);
 
 test("saved chart state remains opaque and is restored only for its captured market", () => {
   const state = Object.freeze({});

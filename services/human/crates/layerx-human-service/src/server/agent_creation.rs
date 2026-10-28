@@ -12,7 +12,7 @@ use layerx_crypto::signer::Signer as _;
 use layerx_intents::{Intent, IntentKind, SessionGrant};
 use layerx_sdk::Client;
 use layerx_types::payload::ModuleRegistry;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -445,6 +445,12 @@ impl<'a> ProductionAgentCreation<'a> {
                 ReceiptLookup::Absent => return Err(AgentFailure::Unavailable),
             },
         };
+        if receipt.tx_hash != activity_id
+            || receipt.receipt_hash != <[u8; 32]>::from(Sha256::digest(&receipt.canonical_bytes))
+            || receipt.rung < layerx_types::rung::Rung::Receipted
+        {
+            return Err(AgentFailure::Refused("creation receipt metadata differs"));
+        }
         Ok(ProtocolEvidence {
             actor: self.actor.as_str().as_bytes().to_vec(),
             owner_public_key: public_key,
@@ -453,8 +459,10 @@ impl<'a> ProductionAgentCreation<'a> {
             action_key,
             activity_id: observation.activity_id,
             receipt_bytes: receipt.canonical_bytes,
-            authorized_batch: receipt.authorised_batch,
-            verification_level: receipt.verification_level,
+            tx_hash: receipt.tx_hash,
+            receipt_hash: receipt.receipt_hash,
+            block_height: receipt.block_height,
+            rung: receipt.rung,
         })
     }
 
@@ -523,7 +531,7 @@ impl<'a> ProductionAgentCreation<'a> {
         expected_operation: u8,
         finalized_at: u64,
     ) -> Result<super::agent_runtime::AgentFinalizationEvidence, AgentFailure> {
-        if evidence.verification_level < VerificationLevel::CHECKPOINT_FINALISED {
+        if evidence.rung != Rung::Committed {
             return Err(AgentFailure::Refused(
                 "lifecycle receipt is not checkpoint-finalized",
             ));
@@ -537,15 +545,10 @@ impl<'a> ProductionAgentCreation<'a> {
             AgentFailure::Refused("lifecycle receipt does not prove successful action")
         })?;
         let verified = evidence.verify_outcome(kind)?;
-        if evidence.verification_level < verified.level() {
-            return Err(AgentFailure::Refused(
-                "lifecycle receipt is not checkpoint-finalized",
-            ));
-        }
-        let protocol = verified.receipt().protocol().ok_or(AgentFailure::Refused(
+        let protocol = verified.protocol().ok_or(AgentFailure::Refused(
             "lifecycle receipt is not protocol material",
         ))?;
-        if protocol.activity_id() != evidence.activity_id
+        if protocol.activity_id() != evidence.tx_hash
             || protocol.module_id() != expected_module as u16
             || protocol.operation() != 0
             || protocol.result_code() != 0
@@ -557,9 +560,9 @@ impl<'a> ProductionAgentCreation<'a> {
         Ok(super::agent_runtime::AgentFinalizationEvidence {
             action_key: evidence.action_key,
             activity_id: protocol.activity_id(),
-            receipt_digest: sha2::Sha256::digest(verified.canonical_bytes()).into(),
+            receipt_digest: sha2::Sha256::digest(&evidence.receipt_bytes).into(),
             observed_sequence: protocol.global_sequence(),
-            verification: evidence.verification_level.wire_rank(),
+            verification: evidence.rung.wire_rank(),
             finalized_at,
         })
     }
@@ -670,7 +673,7 @@ impl ProductionAgentCreation<'_> {
             action_key,
             object_id: grant_id,
             observed_sequence: installed.observed_head_sequence,
-            verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+            rung: Rung::Committed,
             receipt_digest: finalization.receipt_digest,
         })
     }
@@ -720,24 +723,17 @@ impl AgentCreationContract for ProductionAgentCreation<'_> {
             .runtime
             .capability_install(&install)
             .map_err(map_boundary)?;
-        let verification_level = match rank {
-            0 => VerificationLevel::UNVERIFIED,
-            1 => VerificationLevel::SEQUENCER_SIGNED,
-            2 => VerificationLevel::BATCH_INCLUDED,
-            3 => VerificationLevel::STATE_PROVEN,
-            4 => VerificationLevel::CHECKPOINT_FINALISED,
-            5 => VerificationLevel::SETTLEMENT_ANCHORED,
-            _ => {
-                return Err(AgentFailure::Refused(
-                    "capability verification level is invalid",
-                ));
-            }
+        let rung = match rank {
+            0 => Rung::Submitted,
+            1 => Rung::Receipted,
+            2 => Rung::Committed,
+            _ => return Err(AgentFailure::Refused("capability rung is invalid")),
         };
         let evidence = AgentEvidence {
             action_key: request.action_key,
             object_id,
             observed_sequence,
-            verification_level,
+            rung,
             receipt_digest,
         };
         if evidence.object_id != request.capability_id

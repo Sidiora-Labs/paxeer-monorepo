@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
+import { createServer, type Server } from "node:http";
+import { createServer as createSecureServer } from "node:https";
 import { registerHooks } from "node:module";
 import test from "node:test";
+import { getCACertificates, setDefaultCACertificates } from "node:tls";
 import { fileURLToPath } from "node:url";
 import ts from "typescript";
 
 import { BANNED_VOCABULARY, copyEntries } from "../copy/catalog.ts";
 import { copyEntry } from "../copy/runtime.ts";
 import type { SidioraGasQuote } from "../src/api/gas-station.ts";
+import type { SequencerReceiptAnswer, SponsoredAdapterRequest } from "@paxeer/wallet";
 
 registerHooks({
   resolve(specifier, context, nextResolve) {
@@ -241,7 +245,7 @@ function walletWindow(answer: (method: string, params: readonly unknown[]) => un
       return answer(method, params);
     },
   };
-  Object.assign(globalThis, { window: { paxeer, localStorage: new MemoryStorage(), sessionStorage: new MemoryStorage(), confirm: () => true } });
+  Object.assign(globalThis, { window: { ethereum: paxeer, localStorage: new MemoryStorage(), sessionStorage: new MemoryStorage(), confirm: () => true } });
   return methods;
 }
 
@@ -277,12 +281,12 @@ test("a write never resumes another call's retained sponsored submission as its 
   try {
     const review = wallet.sidioraQuotePresentation(quoted);
     assert.ok(review);
-    assert.deepEqual(await wallet.sendWalletSponsoredBatch(quoted, review.identity), { outcome: "sent", transactionHash: approveHash });
-    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, writeCall), { outcome: "unavailable" });
-    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, approveCall), { outcome: "sent", transactionHash: approveHash });
+    assert.deepEqual(await wallet.sendWalletSponsoredBatch(quoted, review.identity), { outcome: "unconfirmed", transactionHash: approveHash });
+    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, writeCall), { outcome: "failed", detail: wallet.SPONSORED_SUBMISSION_PENDING });
+    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, approveCall), { outcome: "unconfirmed", transactionHash: approveHash });
     assert.equal(wallet.chooseWalletFee("sidiora", "2.1"), true);
     methods.length = 0;
-    assert.deepEqual(await wallet.sendWalletPrecompileCall(account, () => writeCall), { outcome: "unavailable" });
+    assert.deepEqual(await wallet.sendWalletPrecompileCall(account, () => writeCall), { outcome: "failed", detail: wallet.SPONSORED_SUBMISSION_PENDING });
     assert.ok(!methods.includes("eth_estimateGas"));
     assert.ok(!methods.includes("paxeer_submitSponsored"));
   } finally {
@@ -291,34 +295,182 @@ test("a write never resumes another call's retained sponsored submission as its 
   }
 });
 
-test("the launchpad refuses an approve under the sponsored SID fee before sending anything", async () => {
-  const launchpad = await import("../src/app/launchpad/launchpad-client.tsx");
+async function sponsored_pending_submission_is_not_reported_as_a_missing_wallet() {
   const { SendOutcome } = await import("../src/app/_markets/send-outcome.tsx");
-  const account = `0x${"11".repeat(20)}`;
+  assert.equal(wallet.SPONSORED_SUBMISSION_PENDING, "an earlier sponsored submission is still pending; try again once it settles");
+  const html = renderToStaticMarkup(createElement(SendOutcome, {
+    outcome: { outcome: "failed", detail: wallet.SPONSORED_SUBMISSION_PENDING },
+  }));
+  assert.ok(html.includes(wallet.SPONSORED_SUBMISSION_PENDING));
+  assert.ok(!html.includes("No Paxeer wallet is connected."));
+}
+
+test(sponsored_pending_submission_is_not_reported_as_a_missing_wallet);
+
+async function launchpad_sponsored_fee_sends_the_approve_then_the_write(): Promise<void> {
+  const launchpad = await import("../src/app/launchpad/launchpad-client.tsx");
+  const { launchpadApproveCall } = await import("../../../services/agent/sdk/typescript/src/launchpad.ts");
+  const { privateKeyToAccount } = await import("viem/accounts");
+  const signer = privateKeyToAccount(`0x${"0b".repeat(32)}`);
+  const relayer = privateKeyToAccount(`0x${"0c".repeat(32)}`);
+  const account = signer.address.toLowerCase();
   const usdl = `0x${"88".repeat(20)}`;
-  const methods = walletWindow(async (method, params) => {
-    if (method !== "eth_call") throw new Error(`unexpected ${method}`);
-    const call = params[0] as { to: string };
-    return call.to.toLowerCase() === usdl ? ZERO_WORD : `0x${"0".repeat(24)}${usdl.slice(2)}`;
-  });
-  const writes: unknown[] = [];
+  const fixture = quoteFixture();
+  const recorded = JSON.parse(readFileSync(new URL("../../../sdk/wallet/test/fixtures/sequencer-receipt.json", import.meta.url), "utf8")) as { committed: SequencerReceiptAnswer };
+  const approveHash = recorded.committed.txHash;
+  const writeHash = `0x${"bb".repeat(32)}`;
+  const order = { pool: `0x${"99".repeat(20)}`, amountIn: 5_000_000n, minOut: 1n, deadline: 2_000_000_000n };
+  const approveCall = launchpadApproveCall(usdl, order.amountIn);
+  const writeCall = sdk.launchpadBuyCall(order);
+  const submissions: SponsoredAdapterRequest[] = [];
+  const quotedCalls: unknown[] = [];
+  const consents: string[] = [];
   const approving: boolean[] = [];
+  const events: string[] = [];
+  let receiptChecks = 0;
+  const methods = walletWindow(async (method, params) => {
+    switch (method) {
+      case "eth_accounts": return [account];
+      case "eth_chainId": return `0x${fixture.batch.chainId.toString(16)}`;
+      case "eth_getCode": return `0xef0100${fixture.paymaster.slice(2)}`;
+      case "eth_call": {
+        const call = params[0] as { to: string };
+        if (call.to.toLowerCase() === usdl) return ZERO_WORD;
+        if (call.to.toLowerCase() === account) return `0x${submissions.length.toString(16).padStart(64, "0")}`;
+        assert.equal(call.to.toLowerCase(), sdk.LAUNCHPAD_PRECOMPILE.toLowerCase());
+        return `0x${"0".repeat(24)}${usdl.slice(2)}`;
+      }
+      case "eth_estimateGas": return "0x5208";
+      case "eth_gasPrice": return "0x1";
+      case "eth_getTransactionCount": return `0x${submissions.length.toString(16)}`;
+      case "eth_sign": return signer.sign({ hash: params[1] as `0x${string}` });
+      case "eth_getTransactionReceipt":
+        assert.deepEqual(params, [approveHash]);
+        receiptChecks += 1;
+        events.push(receiptChecks === 1 ? "approve-pending" : "approve-mined");
+        return receiptChecks === 1 ? null : { status: "0x1", transactionHash: approveHash };
+      case "paxeer_submitSponsored": {
+        const request = params[0] as SponsoredAdapterRequest;
+        assert.deepEqual(approving, submissions.length === 0 ? [true] : [true, false]);
+        submissions.push(request);
+        events.push(submissions.length === 1 ? "approve" : "write");
+        return { status: "pending", tx_hash: submissions.length === 1 ? approveHash : writeHash, station: null };
+      }
+      case "paxeer_sponsoredStatus":
+        if (receiptChecks === 0) {
+          assert.equal(submissions.length, 1);
+          return { status: "pending", tx_hash: approveHash, station: null };
+        }
+        assert.equal(receiptChecks, 2);
+        if (submissions.length === 2) {
+          return { status: "pending", tx_hash: writeHash, station: null };
+        }
+        assert.equal(submissions.length, 1);
+        return {
+          status: "confirmed", tx_hash: approveHash,
+          station: {
+            state: "completed", deadline: fixture.batch.quote.deadline.toString(),
+            submission: { sponsorNonce: "0", transactionHash: approveHash }, replacement: null,
+            completion: { outcome: "included", transactionHash: approveHash, blockNumber: "1000", sidCollected: "2000001", paxSpent: "21000" },
+          },
+        };
+      case "pax_sequencerReceipt":
+        assert.deepEqual(params, [approveHash]);
+        return recorded.committed;
+      default: throw new Error(`unexpected ${method}`);
+    }
+  });
+  window.confirm = (message) => {
+    consents.push(String(message));
+    return true;
+  };
+  const cert = readFileSync(new URL("./fixtures/localhost-cert.pem", import.meta.url), "utf8");
+  const key = readFileSync(new URL("./fixtures/localhost-key.pem", import.meta.url), "utf8");
+  const quoteServer = createSecureServer({ cert, key }, async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += String(chunk);
+    const document = JSON.parse(body) as { account: string; nonce: string; calls: unknown[]; maxTokenAmount: string; gasCost: string };
+    assert.equal(request.url, "/quote");
+    assert.equal(document.account, account);
+    assert.equal(document.nonce, quotedCalls.length.toString());
+    assert.equal(document.maxTokenAmount, "2100000");
+    assert.equal(document.gasCost, "21000");
+    quotedCalls.push(document.calls);
+    const quote = {
+      ...fixture.batch.quote, sponsor: relayer.address.toLowerCase(),
+      quoteNonce: BigInt(quotedCalls.length), gasCost: BigInt(document.gasCost),
+    };
+    const digest = sdk.gasQuoteDigest(fixture.batch.chainId, account, quote);
+    assert.ok(digest.ok);
+    const relayerSignature = await relayer.sign({ hash: digest.value as `0x${string}` });
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ quote, relayerSignature, feeDenom: "sidiora" }, (_key, value: unknown) => typeof value === "bigint" ? value.toString() : value));
+  });
+  const gateway = createServer(async (request, response) => {
+    let body = "";
+    for await (const chunk of request) body += String(chunk);
+    const document = JSON.parse(body) as { id: string; method: string; params: unknown[] };
+    assert.ok(["px_resolveAccount", "eth_getTransactionReceipt"].includes(document.method));
+    if (document.method === "px_resolveAccount") assert.deepEqual(document.params, [account]);
+    else assert.ok([approveHash, writeHash].includes(String(document.params[0])));
+    const result = document.method === "px_resolveAccount"
+      ? { bound: true, evm_address: account, layerx_did: `did:layerx:${"55".repeat(32)}`, layerx_account: "55".repeat(32) }
+      : null;
+    response.writeHead(200, { "content-type": "application/json" });
+    response.end(JSON.stringify({ jsonrpc: "2.0", id: document.id, result }));
+  });
+  async function listen(server: Server): Promise<number> {
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(0, "127.0.0.1", resolve);
+    });
+    const address = server.address();
+    assert.ok(address !== null && typeof address !== "string");
+    return address.port;
+  }
+  const environment = {
+    PAXEER_GAS_STATION_QUOTE_URL: "",
+    PAXEER_GAS_STATION_CHAIN_ID: fixture.batch.chainId.toString(),
+    PAXEER_GAS_STATION_SPONSOR: relayer.address,
+    PAXEER_GAS_STATION_PAYMASTER: fixture.paymaster,
+    LAYERX_GATEWAY_URL: "",
+  };
+  const previous = Object.fromEntries(Object.keys(environment).map((name) => [name, process.env[name]]));
+  const previousCertificates = getCACertificates("default");
   try {
+    environment.PAXEER_GAS_STATION_QUOTE_URL = `https://127.0.0.1:${await listen(quoteServer)}/quote`;
+    environment.LAYERX_GATEWAY_URL = `http://127.0.0.1:${await listen(gateway)}`;
+    setDefaultCACertificates([...previousCertificates, cert]);
+    Object.assign(process.env, environment);
     assert.equal(wallet.chooseWalletFee("sidiora", "2.1"), true);
-    const order = { pool: `0x${"99".repeat(20)}`, amountIn: 5_000_000n, minOut: 1n, deadline: 2_000_000_000n };
     const outcome = await launchpad.sendWithApproval(account, { kind: "buy", order }, () => {
-      writes.push(order);
-      return sdk.launchpadBuyCall(order);
+      assert.equal(receiptChecks, 2);
+      return writeCall;
     }, (active) => approving.push(active));
-    assert.deepEqual(outcome, { outcome: "failed", detail: launchpad.SPONSORED_APPROVE_UNSUPPORTED });
-    assert.deepEqual(writes, []);
-    assert.ok(methods.every((method) => method === "eth_call"));
-    assert.ok(!approving.includes(true));
-    const html = renderToStaticMarkup(createElement(SendOutcome, { outcome }));
-    assert.doesNotMatch(html, /Sent\./u);
-    assert.ok(html.includes(launchpad.SPONSORED_APPROVE_UNSUPPORTED));
+    assert.deepEqual(outcome, { outcome: "sent", transactionHash: writeHash });
+    const expected = [approveCall, writeCall].map((call) => [{ ...call, value: call.value.toString() }]);
+    assert.deepEqual(quotedCalls, expected);
+    assert.deepEqual(submissions.map((request) => request.construction.calls), expected);
+    assert.deepEqual(submissions.map((request) => request.construction.quote.quoteNonce), ["1", "2"]);
+    assert.equal(consents.length, 2);
+    assert.equal(methods.filter((method) => method === "paxeer_submitSponsored").length, 2);
+    assert.deepEqual(events, ["approve", "approve-pending", "approve-mined", "write"]);
+    assert.deepEqual(approving, [true, false]);
+    assert.ok(!methods.includes("eth_sendTransaction"));
   } finally {
     wallet.chooseWalletFee("paxeer", "");
     delete (globalThis as { window?: unknown }).window;
+    for (const [name, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[name];
+      else process.env[name] = value;
+    }
+    setDefaultCACertificates(previousCertificates);
+    await Promise.all([quoteServer, gateway].map((server) => new Promise<void>((resolve, reject) => {
+      if (!server.listening) return resolve();
+      server.close((error) => error === undefined ? resolve() : reject(error));
+      server.closeAllConnections();
+    })));
   }
-});
+}
+
+test(launchpad_sponsored_fee_sends_the_approve_then_the_write);
