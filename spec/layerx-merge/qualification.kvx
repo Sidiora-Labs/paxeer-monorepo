@@ -8477,3 +8477,35 @@ symbol = "decode_activity_send"
 observed = "Attempt 11 ports the daemon (254 of 258 lib tests) but the four custody tests fail with Disclosure(Decode(MalformedPayload)); the fixture directory has no README and the tree has no generator, so do_6 as written could not be followed."
 assumption = "do_6 now names the ten files, the writers (payload_transfer.go:84-85 suffix, LXDC3 framing of disclosure.rs:1403) and the honest stop; the tests stay unchanged."
 severity = "major"
+
+[finding.18.776.1.2]
+task = "18.776.1"
+file = "tools/bringup/check-live.test.sh:1471"
+symbol = "check_live_indexer_passing"
+observed = "Attempt 6: the harness aborts at the real kernel-node readiness stage (:1471), which needs root, unshare and the PAXEER_X_RUNTIME_ARTIFACTS, PAXEER_X_RUNTIME_CLIENT_MANIFEST and PAXEER_X_KERNEL_ARTIFACTS variables, so the indexer cases at :2457-2473 never run (issue #1100); check_live_edge_* report route=unknown and check_live_agent_public_* process=none on the same host."
+assumption = "do_5 moves the stage and its two consumer cases to the end of the file; the edge and agent-public cases are environment-dependent and stay as written."
+severity = "major"
+
+[finding.18.1076.1.1]
+task = "18.1076.1"
+file = "services/explorer/deploy/tools/mix-in-builder.sh:10"
+symbol = "run_necessary_background_migrations"
+observed = "Attempts 1-3: one wrapper run naming apps/indexer and apps/explorer paths passes the explorer suite and then fails apps/indexer/test/test_helper.exs:25 with DBConnection.OwnershipError in Explorer.TestHelper.run_necessary_background_migrations/0 against the already-migrated sidecar (issue #1098)."
+assumption = "The verify runs the wrapper once per app; the wrapper fix is task 18.1098.1."
+severity = "major"
+
+[finding.18.1078.1.1]
+task = "18.1078.1"
+file = "services/platform/tools/dependency-policy.sh:27"
+symbol = "banned"
+observed = "Attempt 5: with layerx-paxeer-client and layerx-intents moved to the ramp edge the no-argument run still exits 1 naming libsqlite3-sys and rusqlite, which services/platform/hosted/indexer/Cargo.toml:25 depends on (issue #1099)."
+assumption = "The sqlite pair joins the ramp-edge ban; the hosted indexer keeps its embedded store."
+severity = "major"
+
+[finding.18.911.1.3]
+task = "18.911.1"
+file = "tools/qualification/paxeer-x/program_market_attestation.py:147"
+symbol = "source_identity"
+observed = "Attempt 6: the dirty path under SOURCE_PATHS was the task's own uncommitted edit of tests/programs/test_market_attestation.c; the driver accepts only a closure committed at HEAD."
+assumption = "The build gate now runs with the candidate committed at HEAD; the implementation is unchanged."
+severity = "minor"

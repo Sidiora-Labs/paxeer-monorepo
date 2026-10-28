@@ -9802,3 +9802,27 @@ area = "search-front bring-up test"
 symptom = "search-front.test.sh fails config_exit with JSONDecodeError on empty output, config_matches_template and config_refuses_unset."
 cause = "Since 288a967c2 the x-websearch config example renders receipt_keys and payment.payer_address from X_WEBSEARCH_RECEIPT_KEY_ID, X_WEBSEARCH_RECEIPT_PUBLIC_KEY and X_WEBSEARCH_PAYER_ADDRESS and has no note key; fixture_env predates both."
 do = "Set the three variables in fixture_env and assert only that the rendered config has no note key (18.1070.1)."
+
+[gotcha.2016]
+area = "spec acceptance contracts"
+symptom = "An acceptance cites a contract anchor that does not exist (contracts/sequencer.md#receipt-key-pin-and-rotation) or a section unrelated to the task (contracts/agent-ts-sdk.md#history for a Rust receipt-vector proof)."
+cause = "Contract strings were copied from a sibling acceptance of the same owner instead of the section heading; sequencer.md anchors the section as <a id='receipt-key-pin'>."
+do = "Resolve the anchor against the contract file (<a id> or heading) before writing it and cite the section that defines the behaviour under test (18.997.1, 18.1088.1)."
+
+[gotcha.2017]
+area = "bring-up test harness"
+symptom = "tools/bringup/check-live.test.sh reports no stand-in case after check_live_kernel_app_volumeless and prints a kernel-readiness evidence line with exit_code 1."
+cause = "The real kernel-node stage at :1471 needs root, unshare and the PAXEER_X_RUNTIME_* artifact variables and exits the harness when they are absent, so the cases after :1520 never run (#1100)."
+do = "Run the harness where the kernel artifacts exist, or move the stage after the stand-in cases (18.776.1 do_5); never give the readiness script a fallback."
+
+[gotcha.2018]
+area = "explorer test wrapper"
+symptom = "mix-in-builder.sh test with paths from two umbrella apps fails 'Background migrations failed' (DBConnection.OwnershipError) in the second app's test helper."
+cause = "One sidecar database serves one mix test run; the second app's test helper re-runs the background migrations against the already-migrated database (#1098)."
+do = "Run the wrapper once per app until 18.1098.1 lands; never put paths of two apps in one invocation."
+
+[gotcha.2019]
+area = "paxeer-x attestation gate"
+symptom = "program_market_attestation.py --begin-build exits 'producer source closure is dirty or contains untracked inputs' although git status shows only the task's own edits."
+cause = "source_identity() (:147) runs git status over SOURCE_PATHS and treats any modified tracked file, including the implementation under qualification, as a dirty closure."
+do = "Commit the implementation so HEAD carries it before running the attestation build or verify; the gate accepts only a clean tree at HEAD."

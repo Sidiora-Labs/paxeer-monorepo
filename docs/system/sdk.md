@@ -32,11 +32,13 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `WalletRequest` | interface | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `autoBindLayerX` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `bindNonceCall` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
+| `bindTransaction` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `bindTransactionRequest` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `boundDidCall` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `checksumAddress` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `decodeBindNonce` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `decodeBoundDid` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
+| `decodeLayerXDid` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `deriveFromBrowserWallet` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `deriveFromMnemonic` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `deriveFromSeed` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
@@ -44,9 +46,13 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `keyDerivationHash` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `keyDerivationRequest` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `keyDerivationTypedData` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
+| `layerXBindMessage` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
+| `layerXDidCall` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `normalizeWalletSignature` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `planLayerXBind` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `readLayerXBindState` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
+| `requireLayerXBinding` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
+| `sendBoundLayerXCall` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `signBindTransaction` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `slip10Ed25519` | function | `services/agent/sdk/typescript/src/account-derivation.ts` |
 | `AGENT_DAEMON_RPC_PATH` | const | `services/agent/sdk/typescript/src/agent-http.ts` |
@@ -86,6 +92,15 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `decodeBridgeEvent` | function | `services/agent/sdk/typescript/src/bridge.ts` |
 | `sendBridgeIn` | const | `services/agent/sdk/typescript/src/bridge.ts` |
 | `sendBridgeOut` | const | `services/agent/sdk/typescript/src/bridge.ts` |
+| `Eip1559AccessListEntry` | interface | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `Eip1559Transaction` | interface | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `SignedEip1559Transaction` | interface | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `decodeRawEip1559` | function | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `eip1559SigningHash` | function | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `encodeUnsignedEip1559` | function | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `keccak256` | function | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `recoverEip1559Sender` | function | `services/agent/sdk/typescript/src/evm-transaction.ts` |
+| `AbiArgument` | type | `services/agent/sdk/typescript/src/exchange.ts` |
 | `DecodedPrecompileEvent` | interface | `services/agent/sdk/typescript/src/exchange.ts` |
 | `EXCHANGE_EVENTS` | const | `services/agent/sdk/typescript/src/exchange.ts` |
 | `LAYERX_EXCHANGE_PRECOMPILE` | const | `services/agent/sdk/typescript/src/exchange.ts` |
@@ -98,6 +113,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `PrecompileEventInput` | interface | `services/agent/sdk/typescript/src/exchange.ts` |
 | `PrecompileEventSpec` | interface | `services/agent/sdk/typescript/src/exchange.ts` |
 | `PrecompileLog` | interface | `services/agent/sdk/typescript/src/exchange.ts` |
+| `PrecompileWrite` | re-export | `services/agent/sdk/typescript/src/exchange.ts` |
 | `abiEventTopic` | function | `services/agent/sdk/typescript/src/exchange.ts` |
 | `abiSelector` | function | `services/agent/sdk/typescript/src/exchange.ts` |
 | `abiSignature` | function | `services/agent/sdk/typescript/src/exchange.ts` |
@@ -113,6 +129,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `exchangeWithdrawMarginCall` | function | `services/agent/sdk/typescript/src/exchange.ts` |
 | `precompileEventSignature` | function | `services/agent/sdk/typescript/src/exchange.ts` |
 | `precompileTransactionRequest` | function | `services/agent/sdk/typescript/src/exchange.ts` |
+| `precompileWriteCall` | function | `services/agent/sdk/typescript/src/exchange.ts` |
 | `sendExchangeCancelOrder` | const | `services/agent/sdk/typescript/src/exchange.ts` |
 | `sendExchangeDepositMargin` | const | `services/agent/sdk/typescript/src/exchange.ts` |
 | `sendExchangeDepositMarginToken` | const | `services/agent/sdk/typescript/src/exchange.ts` |
@@ -139,6 +156,8 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `SignedGasQuote` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `SponsoredBatch` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `SponsoredConsent` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
+| `SponsoredGasBatchStatus` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
+| `SponsoredGasSubmission` | interface | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `assembleEip7702Authorization` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `discoverSponsoredNonce` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `eip7702AuthorizationDigest` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
@@ -147,6 +166,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `readNativeFeePreference` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `requestGasQuote` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `requestGasSubmissionStatus` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
+| `requestSponsoredGasBatchStatus` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `retryGasSubmission` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `sponsoredBatchCall` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
 | `sponsoredBatchDigest` | function | `services/agent/sdk/typescript/src/gas-station.ts` |
@@ -184,12 +204,12 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `NativePrepareResultV1` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `NativePurposeV1` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Operation` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
+| `Rung` | enum | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Sequence` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `StructuredActivityDisclosure` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `SubmissionState` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `TimestampSeconds` | type | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `Transport` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
-| `VerificationLevel` | enum | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `VerifiedRead` | interface | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `decodeNativeApprovalListResult` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
 | `decodeNativeApprovalResult` | function | `services/agent/sdk/typescript/src/generated/client.ts` |
@@ -215,6 +235,7 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `PROGRAM_ABI_V2` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V3` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_ABI_V4` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
+| `PROGRAM_ABI_V5` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `PROGRAM_OUTCOME_TAGS` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `REQUIRED_NONZERO_CHECKS` | const | `services/agent/sdk/typescript/src/generated/receipt.ts` |
 | `ReceiptFailureCode` | enum | `services/agent/sdk/typescript/src/generated/receipt.ts` |
@@ -233,13 +254,11 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `decodeHistoryAssetMetadata` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `decodeHistoryPage` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `decodeHistoryRow` | function | `services/agent/sdk/typescript/src/history.ts` |
-| `decodeLayerxHistoryPage` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `decodePaxeerHistoryPage` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `decodeUnifiedHistoryPage` | function | `services/agent/sdk/typescript/src/history.ts` |
+| `historyAccount` | function | `services/agent/sdk/typescript/src/history.ts` |
+| `historyCursor` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `historyParams` | function | `services/agent/sdk/typescript/src/history.ts` |
-| `layerxHistoryAccount` | function | `services/agent/sdk/typescript/src/history.ts` |
-| `paxeerHistoryAccount` | function | `services/agent/sdk/typescript/src/history.ts` |
-| `unifiedHistoryAccount` | function | `services/agent/sdk/typescript/src/history.ts` |
 | `HUMAN_ERROR_CODES` | const | `services/agent/sdk/typescript/src/intent.ts` |
 | `HUMAN_RETRIABILITIES` | const | `services/agent/sdk/typescript/src/intent.ts` |
 | `HumanErrorCode` | type | `services/agent/sdk/typescript/src/intent.ts` |
@@ -269,23 +288,31 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `decodeIntentSubmission` | function | `services/agent/sdk/typescript/src/intent.ts` |
 | `encodePlanIntentRequest` | function | `services/agent/sdk/typescript/src/intent.ts` |
 | `encodeSubmitPlanRequest` | function | `services/agent/sdk/typescript/src/intent.ts` |
-| `LAUNCHPAD_EVENTS` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
-| `LAUNCHPAD_PRECOMPILE` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `LAUNCHPAD_EVENTS` | re-export | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `LAUNCHPAD_PRECOMPILE` | re-export | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `LAUNCHPAD_WRITES` | re-export | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `LaunchpadNftWrite` | type | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `LaunchpadSpend` | type | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `LaunchpadSwapOrder` | interface | `services/agent/sdk/typescript/src/launchpad.ts` |
-| `LaunchpadTokenWrite` | type | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `LaunchpadWrite` | type | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `decodeLaunchpadEvent` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `launchpadApproval` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `launchpadApproveCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `launchpadBuyCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `launchpadCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `launchpadClaimFeesCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `launchpadCreateMarketCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `launchpadNftCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `launchpadSellCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `launchpadSetFeeStrategyCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
-| `launchpadTokenCall` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `sendLaunchpadBuy` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `sendLaunchpadClaimFees` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `sendLaunchpadCreateMarket` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `sendLaunchpadNftWrite` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `sendLaunchpadSell` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `sendLaunchpadSetFeeStrategy` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
-| `sendLaunchpadTokenWrite` | const | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `sendLaunchpadWithApproval` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
+| `waitLaunchpadApproval` | function | `services/agent/sdk/typescript/src/launchpad.ts` |
 | `MirrorCandidate` | interface | `services/agent/sdk/typescript/src/mirror.ts` |
 | `MirrorLag` | type | `services/agent/sdk/typescript/src/mirror.ts` |
 | `MirrorObservation` | interface | `services/agent/sdk/typescript/src/mirror.ts` |
@@ -313,22 +340,32 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `ExecutableMirrorVerification` | interface | `services/agent/sdk/typescript/src/node-mirror.ts` |
 | `LocalMirrorExecutableVerifier` | class | `services/agent/sdk/typescript/src/node-mirror.ts` |
 | `decodeMirrorProcessResult` | function | `services/agent/sdk/typescript/src/node-mirror.ts` |
-| `EncodedActivity` | interface | `services/agent/sdk/typescript/src/perps.ts` |
 | `PERPS_ACTIVITY_TYPES` | const | `services/agent/sdk/typescript/src/perps.ts` |
+| `PERPS_EVENTS` | re-export | `services/agent/sdk/typescript/src/perps.ts` |
 | `PERPS_MODULE_ID` | const | `services/agent/sdk/typescript/src/perps.ts` |
+| `PERPS_PRECOMPILE` | re-export | `services/agent/sdk/typescript/src/perps.ts` |
+| `PERPS_WRITES` | re-export | `services/agent/sdk/typescript/src/perps.ts` |
 | `PerpsActivity` | type | `services/agent/sdk/typescript/src/perps.ts` |
 | `PerpsActivityName` | type | `services/agent/sdk/typescript/src/perps.ts` |
 | `PerpsMarket` | interface | `services/agent/sdk/typescript/src/perps.ts` |
+| `PerpsOpenPosition` | interface | `services/agent/sdk/typescript/src/perps.ts` |
+| `PerpsWrite` | type | `services/agent/sdk/typescript/src/perps.ts` |
 | `TradeSide` | type | `services/agent/sdk/typescript/src/perps.ts` |
 | `TradingId` | type | `services/agent/sdk/typescript/src/perps.ts` |
 | `TradingPayloadError` | class | `services/agent/sdk/typescript/src/perps.ts` |
 | `TradingPayloadErrorCode` | type | `services/agent/sdk/typescript/src/perps.ts` |
 | `TradingReader` | class | `services/agent/sdk/typescript/src/perps.ts` |
 | `TradingWriter` | class | `services/agent/sdk/typescript/src/perps.ts` |
-| `buildPerpsActivity` | function | `services/agent/sdk/typescript/src/perps.ts` |
 | `decodePerpsActivity` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `decodePerpsEvent` | function | `services/agent/sdk/typescript/src/perps.ts` |
 | `encodePerpsActivity` | function | `services/agent/sdk/typescript/src/perps.ts` |
 | `perpsActivityType` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `perpsCall` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `perpsCancelOrderCall` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `perpsClosePositionCall` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `perpsDepositCall` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `perpsOpenPositionCall` | function | `services/agent/sdk/typescript/src/perps.ts` |
+| `perpsWithdrawCall` | function | `services/agent/sdk/typescript/src/perps.ts` |
 | `AGENT_OPERATIONS` | const | `services/agent/sdk/typescript/src/production.ts` |
 | `CallOptions` | interface | `services/agent/sdk/typescript/src/production.ts` |
 | `HUMAN_OPERATIONS` | const | `services/agent/sdk/typescript/src/production.ts` |
@@ -397,7 +434,6 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `PX_METHODS` | const | `services/agent/sdk/typescript/src/px.ts` |
 | `PxAccountBalances` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxAccountJoin` | interface | `services/agent/sdk/typescript/src/px.ts` |
-| `PxAnchorHead` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxAssetBalance` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxAssetEntry` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxAssetTable` | interface | `services/agent/sdk/typescript/src/px.ts` |
@@ -409,18 +445,22 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `PxPaxeerAccount` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxPaxeerAssetBalance` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxPaxeerHead` | interface | `services/agent/sdk/typescript/src/px.ts` |
+| `PxReceiptKeyEntry` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `PxResolvedIdentities` | interface | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxAccountBalances` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxAccountJoin` | function | `services/agent/sdk/typescript/src/px.ts` |
-| `decodePxAnchorHead` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxAssetBalance` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxAssetTable` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxCustodyAsset` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxNetworkHead` | function | `services/agent/sdk/typescript/src/px.ts` |
+| `decodePxReceiptKeys` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `decodePxResolvedIdentities` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `pxAccountKey` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `pxOptionalQuantity` | function | `services/agent/sdk/typescript/src/px.ts` |
 | `pxQuantity` | function | `services/agent/sdk/typescript/src/px.ts` |
+| `LXP_RETRYABLE` | const | `services/agent/sdk/typescript/src/revert.ts` |
+| `RevertReasonError` | class | `services/agent/sdk/typescript/src/revert.ts` |
+| `decodeRevertReason` | function | `services/agent/sdk/typescript/src/revert.ts` |
 | `AssetListSnapshot` | interface | `services/agent/sdk/typescript/src/rpc.ts` |
 | `AssetMetadata` | interface | `services/agent/sdk/typescript/src/rpc.ts` |
 | `AssetSnapshot` | interface | `services/agent/sdk/typescript/src/rpc.ts` |
@@ -441,13 +481,17 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `walletAccount` | function | `services/agent/sdk/typescript/src/rpc.ts` |
 | `SPOT_ACTIVITY_TYPES` | const | `services/agent/sdk/typescript/src/spot.ts` |
 | `SPOT_MODULE_ID` | const | `services/agent/sdk/typescript/src/spot.ts` |
+| `SPOT_PRECOMPILES` | re-export | `services/agent/sdk/typescript/src/spot.ts` |
+| `SPOT_WRITES` | re-export | `services/agent/sdk/typescript/src/spot.ts` |
 | `SpotActivity` | type | `services/agent/sdk/typescript/src/spot.ts` |
+| `SpotContract` | type | `services/agent/sdk/typescript/src/spot.ts` |
 | `SpotOrderKind` | type | `services/agent/sdk/typescript/src/spot.ts` |
 | `SpotTimeInForce` | type | `services/agent/sdk/typescript/src/spot.ts` |
-| `buildSpotActivity` | function | `services/agent/sdk/typescript/src/spot.ts` |
+| `SpotWrite` | type | `services/agent/sdk/typescript/src/spot.ts` |
 | `decodeSpotActivity` | function | `services/agent/sdk/typescript/src/spot.ts` |
 | `encodeSpotActivity` | function | `services/agent/sdk/typescript/src/spot.ts` |
 | `spotActivityType` | function | `services/agent/sdk/typescript/src/spot.ts` |
+| `spotCall` | function | `services/agent/sdk/typescript/src/spot.ts` |
 | `ResumableStream` | class | `services/agent/sdk/typescript/src/stream.ts` |
 | `StreamCursor` | type | `services/agent/sdk/typescript/src/stream.ts` |
 | `StreamEvent` | interface | `services/agent/sdk/typescript/src/stream.ts` |
@@ -456,10 +500,11 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `streamCursor` | function | `services/agent/sdk/typescript/src/stream.ts` |
 | `AuthorizedReceiptBatch` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `BatchHeader` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `CheckpointAttestation` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `CheckpointCertificate` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `CheckpointVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
-| `CheckpointVerificationInput` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `CometBlockId` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `CometCommitSignature` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `CometValidator` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `CommittedReceiptEvidence` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `CommittedReceiptVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `DEFAULT_PROTOCOL_VERSION` | const | `services/agent/sdk/typescript/src/verifier.ts` |
 | `GuarantorKey` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `InclusionKind` | type | `services/agent/sdk/typescript/src/verifier.ts` |
@@ -476,6 +521,11 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `STATE_COMMITMENT_PROTOCOL_VERSION` | const | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SelectableProtocolVersion` | type | `services/agent/sdk/typescript/src/verifier.ts` |
 | `SequencerAuthorization` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `SequencerReceiptKey` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `SequencerReceiptRefusal` | type | `services/agent/sdk/typescript/src/verifier.ts` |
+| `SequencerReceiptVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
+| `SequencerReceiptVerificationError` | class | `services/agent/sdk/typescript/src/verifier.ts` |
+| `SubmittedReceiptVerification` | interface | `services/agent/sdk/typescript/src/verifier.ts` |
 | `decodeBatchHeader` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `decodeProgramReceiptOutcome` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `isSelectableProtocolVersion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
@@ -483,13 +533,13 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `protocolVersionUsesOccupancy` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `selectedProtocolVersion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `supportedProgramGuestAbi` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyBatchInclusion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
-| `verifyCheckpoint` | function | `services/agent/sdk/typescript/src/verifier.ts` |
+| `verifyCommittedReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyMerkleInclusion` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyNativeProgramReceiptOutcomeV5` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyProgramLifecycleReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `verifyReceiptOutcome` | function | `services/agent/sdk/typescript/src/verifier.ts` |
+| `verifySequencerReceipt` | function | `services/agent/sdk/typescript/src/verifier.ts` |
 | `NativeTokenRegistration` | interface | `services/agent/sdk/typescript/src/wallet.ts` |
 | `VerifiedWalletReceipt` | interface | `services/agent/sdk/typescript/src/wallet.ts` |
 | `WalletExecutionOptions` | interface | `services/agent/sdk/typescript/src/wallet.ts` |
@@ -525,11 +575,16 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `decodePayerGrant` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `decodeWebContent` | function | `services/agent/sdk/typescript/src/web-search.ts` |
 | `webContentBytes` | function | `services/agent/sdk/typescript/src/web-search.ts` |
-| `bindReceiveActivity` | function | `services/agent/sdk/typescript/src/x402/activity.ts` |
+| `ExpectedDrawTransaction` | interface | `services/agent/sdk/typescript/src/x402/activity.ts` |
+| `bindDrawTransaction` | function | `services/agent/sdk/typescript/src/x402/activity.ts` |
+| `GrantDrawRpc` | interface | `services/agent/sdk/typescript/src/x402/draw.ts` |
 | `PreparedGrantDraws` | class | `services/agent/sdk/typescript/src/x402/draw.ts` |
+| `GrantDraw` | interface | `services/agent/sdk/typescript/src/x402/grant.ts` |
 | `GrantOffer` | interface | `services/agent/sdk/typescript/src/x402/grant.ts` |
+| `decodeGrantDraw` | function | `services/agent/sdk/typescript/src/x402/grant.ts` |
 | `validateGrantDraw` | function | `services/agent/sdk/typescript/src/x402/grant.ts` |
 | `AssetRegistration` | interface | `services/agent/sdk/typescript/src/x402/receive.ts` |
+| `LAYERX_LEDGER_PRECOMPILE` | const | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `PayerGrant` | interface | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `Receive` | interface | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `ReceiverAuthorization` | interface | `services/agent/sdk/typescript/src/x402/receive.ts` |
@@ -542,7 +597,10 @@ Entry point `services/agent/sdk/typescript/src/index.ts`.
 | `encodeGrantRevoke` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `encodeReceive` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `grantAuthorizationMessage` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
+| `issueGrantCall` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
+| `openAccountCall` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `receiveAuthorizationMessage` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
+| `registerAssetCall` | function | `services/agent/sdk/typescript/src/x402/receive.ts` |
 | `XWEB_API_LIMITS` | const | `services/agent/sdk/typescript/src/xweb-api.ts` |
 | `XWEB_API_VERSION` | const | `services/agent/sdk/typescript/src/xweb-api.ts` |
 | `XWEB_DEFAULT_MAX_PAYLOAD_BYTES` | const | `services/agent/sdk/typescript/src/xweb-api.ts` |
@@ -704,7 +762,6 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `ProtocolReceipt`
 - `PxAccountBalances`
 - `PxAccountJoin`
-- `PxAnchorHead`
 - `PxAssetBalance`
 - `PxAssetEntry`
 - `PxAssetTable`
@@ -724,6 +781,7 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `ResumableStream`
 - `RetryClass`
 - `RpcCheckpointAuthority`
+- `Rung`
 - `SdkErrorCode`
 - `SdkTelemetry`
 - `SecretBytes`
@@ -743,7 +801,6 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `TimestampSeconds`
 - `Transport`
 - `UnifiedHistoryPage`
-- `VerificationLevel`
 - `VerifiedProgramReceipt`
 - `VerifiedRead`
 - `WEB_CONTENT_DOMAIN`
@@ -785,6 +842,7 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `XWebEnvelopeRandomness`
 - `XWebPrecompileCall`
 - `XWebSealedEnvelope`
+- `ai_market`
 - `bind_receive_activity`
 - `build_xweb_api_request`
 - `content_digest`
@@ -796,14 +854,12 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `decode_human_error`
 - `decode_intent_plan`
 - `decode_intent_submission`
-- `decode_layerx_history_page`
 - `decode_native_capability_set`
 - `decode_native_program_call`
 - `decode_paxeer_history_page`
 - `decode_payer_grant`
 - `decode_px_account_balances`
 - `decode_px_account_join`
-- `decode_px_anchor_head`
 - `decode_px_asset_balance`
 - `decode_px_asset_table`
 - `decode_px_custody_asset`
@@ -832,15 +888,15 @@ Package `layerx_sdk`, entry point `services/agent/sdk/python/layerx_sdk/__init__
 - `encode_xweb_credential`
 - `grant_authorization_message`
 - `grant_payment_header`
+- `history_account`
+- `history_cursor`
 - `history_params`
-- `layerx_history_account`
 - `layerx_sdk_py_package`
 - `narrow_native_capability_set`
 - `parse_amount`
 - `parse_budget_limit`
 - `parse_sequence`
 - `parse_timestamp_seconds`
-- `paxeer_history_account`
 - `payment_commitment`
 - `payment_payer`
 - `payment_purpose`
