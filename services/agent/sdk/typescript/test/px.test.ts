@@ -66,8 +66,8 @@ for (const refused of [
   "1.5",
   "007",
   "0xgg",
-  `0x${"f".repeat(33)}`,
-  "340282366920938463463374607431768211456",
+  `0x${"f".repeat(65)}`,
+  (1n << 256n).toString(),
   1.5,
   -1,
   null,
@@ -118,6 +118,183 @@ const balances = {
   ],
   joined_limit: 16,
 };
+
+function px_amounts_decode_up_to_uint256() {
+  const sdkPackage = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  assert.ok(
+    sdkPackage.scripts.test
+      .split(" && ")
+      .includes("node dist/test/ai-market.test.js"),
+  );
+  const amounts = [0n, 1n << 128n, 1n << 200n, (1n << 256n) - 1n];
+  const accepted = amounts.flatMap((amount) =>
+    [amount.toString(), `0x${amount.toString(16)}`].map((quantity) => ({
+      quantity,
+      expected: amount.toString(),
+      balances: {
+        ...balances,
+        balances: [
+          {
+            ...balances.balances[0]!,
+            custody: { ...custody, custody_cap: quantity },
+            paxeer: { denom: "ulxp", amount: quantity },
+          },
+        ],
+      },
+      assets: {
+        assets: [
+          {
+            asset_id: NATIVE,
+            layerx: null,
+            paxeer: { ...custody, custody_cap: quantity },
+          },
+        ],
+        joined_limit: 16,
+      },
+    })),
+  );
+  for (const entry of accepted) {
+    const expected = BigInt(entry.expected);
+    assert.equal(pxQuantity(entry.quantity), expected);
+    const row = decodePxAccountBalances(entry.balances).balances[0]!;
+    assert.equal(row.paxeer?.amount, expected);
+    assert.equal(row.custody?.custodyCap, expected);
+    assert.equal(
+      decodePxAssetTable(entry.assets).assets[0]!.paxeer?.custodyCap,
+      expected,
+    );
+  }
+
+  const overflow = 1n << 256n;
+  const invalidQuantities = [overflow.toString(), `0x${overflow.toString(16)}`];
+  const invalidBalances = invalidQuantities.flatMap((quantity) => [
+    {
+      ...balances,
+      balances: [
+        {
+          ...balances.balances[0]!,
+          paxeer: { denom: "ulxp", amount: quantity },
+        },
+      ],
+    },
+    {
+      ...balances,
+      balances: [
+        {
+          ...balances.balances[0]!,
+          custody: { ...custody, custody_cap: quantity },
+        },
+      ],
+    },
+  ]);
+  const invalidAssets = invalidQuantities.map((quantity) => ({
+    assets: [
+      {
+        asset_id: NATIVE,
+        layerx: null,
+        paxeer: { ...custody, custody_cap: quantity },
+      },
+    ],
+    joined_limit: 16,
+  }));
+  const invalidCounts = [
+    (1n << 64n).toString(),
+    `0x${(1n << 64n).toString(16)}`,
+  ].map((joined_limit) => ({ ...balances, joined_limit }));
+  for (const value of invalidQuantities)
+    assert.throws(() => pxQuantity(value), {
+      message: "Invalid gateway quantity",
+    });
+  for (const value of invalidBalances)
+    assert.throws(() => decodePxAccountBalances(value), {
+      message: "Invalid gateway quantity",
+    });
+  for (const value of invalidAssets)
+    assert.throws(() => decodePxAssetTable(value), {
+      message: "Invalid gateway quantity",
+    });
+  for (const value of invalidCounts)
+    assert.throws(() => decodePxAccountBalances(value), {
+      message: "Invalid gateway count",
+    });
+  assert.equal(
+    decodePxAccountBalances({
+      ...balances,
+      joined_limit: ((1n << 64n) - 1n).toString(),
+    }).joinedLimit,
+    (1n << 64n) - 1n,
+  );
+
+  const script = `
+import json
+import sys
+from layerx_sdk.px import px_quantity, decode_px_account_balances, decode_px_asset_table
+
+document = json.load(sys.stdin)
+decoded = []
+for entry in document["accepted"]:
+    row = decode_px_account_balances(entry["balances"]).balances[0]
+    asset = decode_px_asset_table(entry["assets"]).assets[0].paxeer
+    decoded.append([str(px_quantity(entry["quantity"])), str(row.paxeer.amount), str(row.custody.custody_cap), str(asset.custody_cap)])
+    assert px_quantity(int(entry["expected"])) == int(entry["expected"])
+errors = []
+for group, decoder in [("invalidQuantities", px_quantity), ("invalidBalances", decode_px_account_balances), ("invalidAssets", decode_px_asset_table), ("invalidCounts", decode_px_account_balances)]:
+    for value in document[group]:
+        try:
+            decoder(value)
+        except ValueError as error:
+            errors.append(str(error))
+        else:
+            raise AssertionError("invalid gateway input accepted")
+try:
+    px_quantity(1 << 256)
+except ValueError as error:
+    assert str(error) == "invalid-px-quantity"
+else:
+    raise AssertionError("uint256 overflow accepted")
+print(json.dumps({"decoded": decoded, "errors": errors}))
+`;
+  const result = spawnSync("python3", ["-B", "-c", script], {
+    env: {
+      ...process.env,
+      PYTHONPATH: fileURLToPath(new URL("../../../python/", import.meta.url)),
+      PYTHONDONTWRITEBYTECODE: "1",
+    },
+    input: JSON.stringify({
+      accepted,
+      invalidQuantities,
+      invalidBalances,
+      invalidAssets,
+      invalidCounts,
+    }),
+    encoding: "utf8",
+    timeout: 30_000,
+    maxBuffer: 1024 * 1024,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    decoded: accepted.map(({ expected }) => [
+      expected,
+      expected,
+      expected,
+      expected,
+    ]),
+    errors: [
+      ...new Array<string>(
+        invalidQuantities.length +
+          invalidBalances.length +
+          invalidAssets.length,
+      ).fill("invalid-px-quantity"),
+      ...invalidCounts.map(() => "invalid-px-count"),
+    ],
+  });
+}
+
+await test(px_amounts_decode_up_to_uint256);
 
 const decoded = decodePxAccountBalances(balances);
 assert.equal(decoded.account.evmAddress, EVM);
