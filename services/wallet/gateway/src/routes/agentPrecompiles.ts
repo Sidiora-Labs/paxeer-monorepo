@@ -10,6 +10,7 @@ import {
   PrecompileNotServedError,
   ensureServed,
   eip712,
+  precompileAddressBook,
   scheduler,
   streams,
   teeAttestor,
@@ -415,6 +416,6 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
 
   // Expose the precompile address book for client convenience.
   app.get('/v1/agent/precompiles', { preHandler: requireAgent }, async (_req, reply) => {
-    return reply.send({ addresses: PRECOMPILE_ADDRESSES, tee_families: TEE_FAMILIES });
+    return reply.send(precompileAddressBook());
   });
 }

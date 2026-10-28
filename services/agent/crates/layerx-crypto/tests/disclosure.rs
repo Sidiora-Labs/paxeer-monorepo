@@ -11,6 +11,7 @@ use layerx_crypto::signer::{sign_disclosed, LocalSigner, SignError, Signer};
 use layerx_crypto::SignatureMessage;
 use layerx_wire::hash::Domain;
 use layerx_wire::limits::PROTOCOL_VERSION;
+use sha2::{Digest as _, Sha256};
 
 struct NoopWake;
 
@@ -71,14 +72,63 @@ fn bridge_deposit_credit_discloses_and_signs_the_exact_compiled_semantics() {
         panic!("canonical bridge credit disclosure rejected");
     };
     assert_eq!(disclosure.activity_type.value(), 0x0008_0001);
-    assert_eq!(disclosure.counterparties[0].account, [0x11; 32]);
+    let mut payer = [0; 32];
+    payer[12..].fill(0x11);
+    assert_eq!(disclosure.counterparties.len(), 2);
+    assert_eq!(disclosure.counterparties[0].role, CounterpartyRole::Payer);
+    assert_eq!(disclosure.counterparties[0].account, payer);
+    assert_eq!(
+        disclosure.counterparties[1].role,
+        CounterpartyRole::Recipient
+    );
     assert_eq!(disclosure.counterparties[1].account, [0x22; 32]);
     assert_eq!(disclosure.asset, [0x33; 32]);
     assert_eq!(disclosure.amounts[0].value, 25);
-    assert_eq!(disclosure.idempotency_key, [0x71; 32]);
+    let mut nullifier = Sha256::new();
+    nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+    nullifier.update([0x41; 32]);
+    assert_eq!(disclosure.idempotency_key, nullifier.finalize()[..]);
     assert_eq!(disclosure.reencode(), Ok(canonical.clone()));
     let signer = LocalSigner::new([0xa5; 32]);
     assert!(ready(sign_disclosed(&signer, &canonical, &disclosure, &registry)).is_ok());
+}
+
+#[test]
+fn recorded_custody_credit_discloses_the_signed_activity() {
+    let recorded = include_bytes!(
+        "../../../../../tests/fixtures/custody/daemon-light-credit-receipt/activity"
+    );
+    assert_eq!(recorded.len(), 1821);
+    let registry = support::bridge_registry();
+    let activity = layerx_wire::activity::decode_signed(recorded, &registry)
+        .unwrap_or_else(|error| panic!("recorded activity: {error:?}"));
+    assert_eq!(activity.network_id(), 77);
+    assert_eq!(activity.protocol_version(), 3);
+    assert_eq!(activity.signature().map(<[u8]>::len), Some(64));
+    let payload = activity.payload();
+    assert_eq!(payload.len(), 1495);
+    assert_eq!(
+        payload,
+        include_bytes!("../../../../../tests/fixtures/custody/daemon-light-credit-receipt/credit")
+    );
+    assert_eq!(payload, &recorded[257..257 + payload.len()]);
+    assert_eq!(&payload[..5], b"LXDC3");
+    let canonical = layerx_wire::activity::encode_unsigned(&activity)
+        .unwrap_or_else(|error| panic!("recorded unsigned activity: {error:?}"));
+    let disclosure = bind(&canonical, &registry)
+        .unwrap_or_else(|error| panic!("recorded credit disclosure: {error:?}"));
+    let mut payer = [0; 32];
+    payer[12..].copy_from_slice(&payload[171..191]);
+    assert_eq!(disclosure.counterparties[0].account, payer);
+    assert_eq!(disclosure.counterparties[1].account, payload[107..139]);
+    assert_eq!(disclosure.asset, payload[75..107]);
+    assert_eq!(disclosure.amounts[0].value.to_be_bytes(), payload[191..207]);
+    let mut nullifier = Sha256::new();
+    nullifier.update(b"LX:DEPOSIT:NULLIFIER:v1");
+    nullifier.update(&payload[43..75]);
+    assert_eq!(disclosure.idempotency_key, nullifier.finalize()[..]);
+    assert_eq!(disclosure.idempotency_key, activity.idempotency_key());
+    assert_eq!(disclosure.reencode(), Ok(canonical));
 }
 
 #[test]
