@@ -127,6 +127,47 @@ func TestFinalizeBlockHaltsOnBadBatchSignature(t *testing.T) {
 	requireSequencerState(t, w, 0, zeroSeqHash)
 }
 
+func TestFinalizeBlockHaltsOnBatchTxMismatch(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		toSeq    uint64
+		flipLast bool
+		flipRoot bool
+		reason   string
+	}{
+		{name: "lastSeqHash", toSeq: 2, flipLast: true, reason: "lastSeqHash differs from activity id chain"},
+		{name: "sequence count", toSeq: 3, reason: "activity id count is 2, want 3"},
+		{name: "txRoot", toSeq: 2, flipRoot: true, reason: "txRoot differs from activity id root"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			w := newSequencedProposalWrapper(t)
+			tx1, hash1 := evmTransfer(t, w, utils.NewSigner(), utils.NewSigner().EvmAddress)
+			tx2, hash2 := evmTransfer(t, w, utils.NewSigner(), utils.NewSigner().EvmAddress)
+			ids := [][32]byte{[32]byte(hash1), [32]byte(hash2)}
+			root := seqtypes.TxRoot(ids)
+			last := seqtypes.SeqHash(seqtypes.SeqHash([32]byte{}, 1, ids[0]), 2, ids[1])
+			if tc.flipLast {
+				last[0] ^= 1
+			}
+			if tc.flipRoot {
+				root[0] ^= 1
+			}
+			batch := signedBatchAt(t, 2, sequencerKeySeed, 1, tc.toSeq, zeroSeqHash, last[:], root[:], sequencerKeyID)
+			decoded, err := app.DecodeSequenceBatch(batch)
+			require.NoError(t, err)
+			require.NoError(t, decoded.VerifySignature(sequencedChainID, [32]byte(sequencerPublicKey())))
+
+			results, err := processBlock(w, [][]byte{batch, tx1, tx2})
+			require.ErrorIs(t, err, app.ErrSequencedBlockHalt)
+			require.ErrorIs(t, err, seqtypes.ErrInvalidSequenceBatch)
+			require.Contains(t, err.Error(), "height 2")
+			require.Contains(t, err.Error(), tc.reason)
+			require.Nil(t, results)
+			requireSequencerState(t, w, 0, zeroSeqHash)
+		})
+	}
+}
+
 func TestSequencedReadsKeeperActivationHeight(t *testing.T) {
 	w := newSequencerWrapper(t, time.Now().UTC(), secp256k1.GenPrivKey().PubKey(), false)
 	t.Cleanup(func() { require.NoError(t, w.App.Close()) })

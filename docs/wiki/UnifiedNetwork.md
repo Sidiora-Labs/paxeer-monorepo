@@ -51,15 +51,15 @@ Events: `LayerXBound(evm, didPublicKey, nonce)` and `LayerXUnbound(evm, didPubli
 
 ### LayerXCustody — `0x0000000000000000000000000000000000001013`
 
-Native LayerX custody. Funds are held by the `layerxcustody` module account and leave it only against verified LayerX evidence: a sequencer-signed withdrawal receipt included in a finalized batch, or a native state proof of a balance under the latest finalized state root plus the account authority's recipient signature. Declared in `precompiles/layerxcustody/LayerXCustody.sol`:
+Native LayerX custody. Funds are held by the `layerxcustody` module account and leave it only against verified LayerX evidence: a sequencer-signed withdrawal receipt included in a finalized batch, or a native state proof of a balance plus the account authority's recipient signature. Forced exits prove against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards. Declared in `precompiles/layerxcustody/LayerXCustody.sol`:
 
 | Method | Purpose |
 |--------|---------|
-| `deposit(beneficiary) → depositId` | Custody `msg.value` of the native coin for a LayerX account. |
-| `depositToken(pointer, amount, beneficiary) → depositId` | Custody a bank denom addressed by its registered ERC20 pointer. |
+| `deposit(beneficiary) → depositId` | Custody `msg.value` of the native coin for a LayerX account; once the exit checkpoint is set, deposits are refused. |
+| `depositToken(pointer, amount, beneficiary) → depositId` | Custody a bank denom addressed by its registered ERC20 pointer; once the exit checkpoint is set, deposits are refused. |
 | `requestWithdrawal(receipt, proof, header, headerSignature) → claimId, availableAt` | Verify a withdrawal and queue its claim; payable after the withdrawal delay. |
 | `finaliseWithdrawal(receipt, proof, header, headerSignature) → claimId` | Re-verify a withdrawal and pay the recipient the receipt names. Queues the claim first when it was never requested. |
-| `requestForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId, availableAt` | Prove a whole balance under the latest finalized state root and queue its exit. |
+| `requestForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId, availableAt` | Prove a whole balance against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards; queue its exit. |
 | `executeForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId` | Pay a forced exit, queueing it first when it was never requested. |
 
 View methods: `depositCount`, `depositNonce`, `getDeposit`, `getDepositByIndex`, `getClaim`, `nullifierStatus`, `getAsset`, `assetByPointer`, `nativeAssetId`, `exitEligible`.
@@ -140,22 +140,35 @@ signing specification.
 ### Launchpad — `0x0000000000000000000000000000000000001017`
 
 A native token-launch AMM local to Paxeer — it does not touch LayerX
-evidence. Each market is a fixed-supply, 6-decimal `tokenfactory` denom
-priced against a quote denom on a virtual-reserve constant-product curve;
-`token` is the denom's ERC20 pointer. Declared in
-`precompiles/launchpad/Launchpad.sol`:
+evidence. Each market has a token, a pool quoted in USDL on a
+virtual-reserve constant-product curve, and a creator NFT identified by
+`nftId` for fee management. Declared in
+`precompiles/launchpad/Launchpad.sol` and `precompiles/launchpad/abi.json`:
 
 | Method | Purpose |
 |--------|---------|
-| `createMarket(name, symbol, feeStrategy) → token, denom` | Launch a new fixed-supply market. |
-| `buy(token, quoteIn, minOut, recipient, deadline) → amountOut` | Buy along the curve. |
-| `sell(token, amountIn, minOut, recipient, deadline) → amountOut` | Sell along the curve. |
-| `claimFees` / `executeBurn` / `executeAirdrop` / `claimAirdrop` / `executeLpRewards` | Distribute accumulated fees per the market's chosen fee strategy. |
-| `pause(token)` / `unpause(token)` | Governance-only trading halt. |
+| `createMarket(name, symbol, feeStrategy, optical) → tokenAddr, poolAddr, nftId` | Launch a token, its USDL pool and its creator NFT. |
+| `createMarketWithPermit(name, symbol, feeStrategy, optical, permit) → tokenAddr, poolAddr, nftId` | Create a market using a permit for the USDL creation fee. |
+| `buy(pool, usdlAmountIn, minTokensOut, deadline) → amountOut` | Buy tokens from the pool with USDL. |
+| `buyWithPermit(pool, usdlAmountIn, minTokensOut, deadline, permit) → amountOut` | Buy using a USDL permit. |
+| `sell(pool, tokenAmountIn, minUsdlOut, deadline) → amountOut` | Sell tokens to the pool for USDL. |
+| `sellWithPermit(pool, tokenAmountIn, minUsdlOut, deadline, permit) → amountOut` | Sell using a token permit. |
+| `swapTokenForToken(tokenIn, tokenOut, amountIn, minAmountOut, deadline) → amountOut, intermediateUsdl` | Swap between tokens through USDL. |
+| `swapTokenForTokenWithPermit(tokenIn, tokenOut, amountIn, minAmountOut, deadline, permit) → amountOut, intermediateUsdl` | Swap using an input-token permit. |
+| `claimFees(nftId) → amount` | Claim accumulated fees for the creator NFT's pool. |
+| `executeBurn(nftId) → amount` | Execute the pool's burn fee strategy. |
+| `executeAirdrop(nftId) → amount` | Trigger the pool's airdrop fee strategy. |
+| `claimAirdrop(nftId) → amount` | Claim an airdrop from the creator NFT's pool. |
+| `executeLpRewards(nftId) → amount` | Execute the pool's liquidity-provider rewards fee strategy. |
+| `setFeeStrategy(nftId, newStrategy)` | Change the fee strategy for the creator NFT's pool. |
 
-View methods include `quoteBuy`, `quoteSell`, `getReserves`, `getPrice`,
-`getMarket(s)` and `getConfig`. This constant-product curve is a Paxeer EVM
-feature; it is not the LayerX kernel module described in
+View methods include `getPoolCount()`, `getAllPools(offset, limit)`,
+`getPoolStats(pool)`, `getPoolByToken(token)`, `getPoolPrice(pool)`,
+`getMarketCap(pool)`, `quoteExactInput(pool, amountIn, isBuy)` and
+`quoteMultihop(tokenIn, tokenOut, amountIn)`.
+
+This constant-product curve is a Paxeer EVM feature; it is not the LayerX
+kernel module described in
 [Roadmap 8.5](Roadmap.md#85-constant-product-swap), which remains
 unimplemented on the LayerX side.
 
@@ -177,8 +190,8 @@ One EVM address has at most one DID, and one DID has at most one EVM address. Ge
 
 The `layerxcustody` module (in `modules/layerxcustody/`) holds funds in a module account. Coins enter through `deposit` or `depositToken`. They leave only through proof-carrying claims:
 
-- **Withdrawals** — a sequencer-signed receipt proving a LayerX withdrawal, included in a finalized batch via `requestWithdrawal`. After the withdrawal delay, `finaliseWithdrawal` pays the recipient.
-- **Forced exits** — a state proof of the entire balance under the latest finalized state root, plus the recipient's signature, via `requestForcedExit`. After the delay, `executeForcedExit` pays out.
+- **Withdrawals** — a sequencer-signed receipt proving a LayerX withdrawal, included in a finalized batch via `requestWithdrawal`. After the withdrawal delay, `finaliseWithdrawal` pays the recipient. Once the exit checkpoint is set, withdrawals included in batches after the checkpoint are refused.
+- **Forced exits** — a state proof of the entire balance, plus the recipient's signature, via `requestForcedExit`. Forced exits prove against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards. After the delay, `executeForcedExit` pays out.
 - **Emergency exits** — a special fast path when the custody module enters emergency mode.
 
 Nullifiers prevent double-spending. Every claim is bound to a nullifier; a nullifier can be reserved, consumed, or cancelled but never reopened.

@@ -84,6 +84,10 @@ export function custodyRefusal(error: unknown): ExecResult | null {
     return { status: 503, body: { error: 'nonce_unresolved', nonce: error.nonce, unreachable: error.unreachable, members: error.memberCount } };
   }
   if (error instanceof NonceConflictError) {
+    if (error.consumed) {
+      return { status: 409, body: { error: 'nonce_consumed', retry: 'prepare', nonce: error.nonce,
+        member: error.member, members: error.members } };
+    }
     return { status: 409, body: { error: 'nonce_conflict', detail: error.message, retry: 'prepare', member: error.member, members: error.members } };
   }
   if (error instanceof BroadcastOutcomeUnknownError) {
@@ -182,6 +186,23 @@ export async function executeAgentTransaction(args: {
   const chainId = tx.chainId ?? env.HYPERPAXEER_CHAIN_ID;
   const valueWei = tx.value ?? 0n;
 
+  const recordTransactionSignature = async (txHash: Hex | null): Promise<void> => {
+    await logSignature({
+      user_id: wallet.user_id,
+      wallet_id: wallet.id,
+      address: wallet.address,
+      kind: 'transaction',
+      to_address: tx.to ?? null,
+      value_wei: valueWei,
+      chain_id: chainId,
+      request_hash: audit.request_hash,
+      tx_hash: txHash,
+      ip: audit.ip,
+      user_agent: audit.user_agent,
+      principal_did: ctx.did,
+    });
+  };
+
   let txHash: Hex | null = null;
   let signedTx: Hex | null = null;
   let receipt: SequencerReceiptResult | null = null;
@@ -225,6 +246,7 @@ export async function executeAgentTransaction(args: {
       if (custodyBudgetReservationId) await releaseCustodyBudgetReservation(custodyBudgetReservationId, ctx.did);
       else await releaseBudget(decision.reservedBudgetId, decision.reservedValueWei);
     }
+    if (signedTx !== null && txHash) await recordTransactionSignature(txHash);
     const refused = custodyRefusal(err);
     if (refused) return refused;
     const detail = (err as Error).message;
@@ -235,20 +257,7 @@ export async function executeAgentTransaction(args: {
     };
   }
 
-  await logSignature({
-    user_id: wallet.user_id,
-    wallet_id: wallet.id,
-    address: wallet.address,
-    kind: 'transaction',
-    to_address: tx.to ?? null,
-    value_wei: valueWei,
-    chain_id: chainId,
-    request_hash: audit.request_hash,
-    tx_hash: txHash,
-    ip: audit.ip,
-    user_agent: audit.user_agent,
-    principal_did: ctx.did,
-  });
+  await recordTransactionSignature(txHash);
 
   return {
     status: 200,

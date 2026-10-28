@@ -12,8 +12,6 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesControllerTest do
   @head_quantity "0x16C1320"
 
   @code_addresses [
-    "0x0000000000000000000000000000000000001013",
-    "0x0000000000000000000000000000000000001014",
     "0x0000000000000000000000000000000000001015",
     "0x0000000000000000000000000000000000001016",
     "0x0000000000000000000000000000000000001017"
@@ -25,52 +23,52 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.CapabilitiesControllerTest do
 
   @bytecode "0x60806040523480156100105760006000fd"
 
-  @surfaces ~w(addr custody anchor exchange bridge launchpad)
+  @surfaces ~w(addr exchange bridge launchpad)
 
-  describe "/api/v2/paxeer-x/capabilities" do
-    test "reports every surface absent while nothing has probed the node", %{conn: conn} do
-      response =
-        conn
-        |> get("/api/v2/paxeer-x/capabilities")
-        |> json_response(200)
+  test "reports every surface absent while nothing has probed the node", %{conn: conn} do
+    response =
+      conn
+      |> get("/api/v2/paxeer-x/capabilities")
+      |> json_response(200)
 
-      for surface <- @surfaces do
-        assert response[surface] == false
-      end
+    for surface <- @surfaces do
+      assert response[surface] == false
     end
+  end
 
-    test "answers with the six surfaces and nothing else", %{conn: conn} do
-      response =
-        conn
-        |> get("/api/v2/paxeer-x/capabilities")
-        |> json_response(200)
+  test "answers with the four surfaces and checked_at", %{conn: conn} do
+    response =
+      conn
+      |> get("/api/v2/paxeer-x/capabilities")
+      |> json_response(200)
 
-      assert Enum.sort(Map.keys(response)) == Enum.sort(@surfaces)
-    end
+    assert Enum.sort(Map.keys(response) -- ["price_feed"]) == Enum.sort(["checked_at" | @surfaces])
+    refute Map.has_key?(response, "custody")
+    refute Map.has_key?(response, "anchor")
+  end
 
-    test "reports the surfaces of the last probe", %{conn: conn} do
-      set_mox_global()
+  test "reports the surfaces of the last probe", %{conn: conn} do
+    set_mox_global()
 
-      stub(EthereumJSONRPC.Mox, :json_rpc, fn
-        %{method: "eth_blockNumber"}, _options ->
-          {:ok, @head}
+    stub(EthereumJSONRPC.Mox, :json_rpc, fn
+      %{method: "eth_blockNumber"}, _options ->
+        {:ok, @head}
 
-        requests, _options when is_list(requests) ->
-          {:ok, Enum.map(requests, &answer/1)}
-      end)
+      requests, _options when is_list(requests) ->
+        {:ok, Enum.map(requests, &answer/1)}
+    end)
 
-      start_supervised!(Capabilities)
+    start_supervised!(Capabilities)
 
-      assert {:ok, _snapshot} = Capabilities.refresh()
+    assert {:ok, _snapshot} = Capabilities.refresh()
 
-      response =
-        conn
-        |> get("/api/v2/paxeer-x/capabilities")
-        |> json_response(200)
+    response =
+      conn
+      |> get("/api/v2/paxeer-x/capabilities")
+      |> json_response(200)
 
-      for surface <- @surfaces do
-        assert response[surface] == true
-      end
+    for surface <- @surfaces do
+      assert response[surface] == true
     end
   end
 

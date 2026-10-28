@@ -94,11 +94,61 @@ fn every_registry_is_active_with_real_sorted_package_identities() {
     assert!(package("pypi").contains(&"layerx-sdk".to_owned()));
     assert_eq!(
         package("go-modules"),
-        vec!["github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go"]
+        vec!["github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"]
     );
     assert!(package("maven-central").contains(&"com.sidiora.layerx:layerx-sdk".to_owned()));
     assert_eq!(package("swiftpm"), vec!["LayerXSDK"]);
     assert_eq!(package("nuget"), vec!["LayerX.Sdk"]);
+}
+
+#[test]
+fn go_module_release_tags_the_module_directory() {
+    let declarations = registries_declarations(&committed_manifest())
+        .expect("committed registry manifest must parse");
+    let registry = declarations
+        .registries
+        .iter()
+        .find(|registry| registry.name == "go-modules")
+        .expect("Go module registry missing");
+    let manifest = read("../../../sdk/platform/go/go.mod");
+    let module = manifest
+        .lines()
+        .next()
+        .and_then(|line| line.strip_prefix("module "))
+        .expect("Go SDK manifest must start with its module declaration");
+    assert_eq!(
+        module,
+        "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
+    );
+    assert_eq!(registry.packages, vec![module]);
+    assert!(module.ends_with("/sdk/platform/go"));
+
+    let source = committed_workflow();
+    let document = workflow::parse(&source).expect("committed workflow must parse");
+    let job = document
+        .path(&["jobs", "publish-go-modules"])
+        .expect("Go module publication job missing");
+    assert_eq!(
+        job.path(&["env", "LAYERX_RELEASE_PACKAGES"])
+            .and_then(workflow::Node::as_str),
+        Some(module)
+    );
+    let steps = job
+        .get("steps")
+        .expect("Go module publication steps missing")
+        .items();
+    let signing = steps
+        .iter()
+        .filter_map(|step| step.get("run").and_then(workflow::Node::as_str))
+        .find(|script| script.contains("git tag -s"))
+        .expect("Go module signed tag publication missing");
+    assert!(signing.contains("tag=sdk/platform/go/v$LAYERX_RELEASE_VERSION"));
+    assert!(signing.contains("git tag -s \"$tag\""));
+    assert!(signing.contains("repository=${LAYERX_RELEASE_PACKAGES%/sdk/platform/go}"));
+    assert!(signing.contains(
+        "git push \"https://x-access-token:$LAYERX_RELEASE_GO_TAG_TOKEN@$repository.git\" \"refs/tags/sdk/platform/go/v$LAYERX_RELEASE_VERSION\""
+    ));
+    assert!(!source.contains("platform/sdk/go"));
 }
 
 #[test]
