@@ -185547,7 +185547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1175.1]
 title = "Issue #1175: Serialize the committed block number and hash in x402 seller settlement responses"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -185578,7 +185578,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1178.1]
 title = "Issue #1178: Bind the portable receipt's raw transaction through the wrapped block transaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
