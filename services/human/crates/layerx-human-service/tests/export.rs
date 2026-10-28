@@ -5,9 +5,6 @@ use std::fmt::Write as _;
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
-use layerx_agentd::export::build as build_agent_export;
 use layerx_human_service::activity::{
     verification_status, ActivityKind, AgentActivity, EvidenceBundle, EvidenceExport, ExportError,
     Feed, FilterDraft, PendingStatus, ReceiptAuthority, UnverifiedReason, VerifiedStatus,
@@ -24,10 +21,12 @@ use layerx_intents::vectors::{
     batch_header, batch_header_signing_digest, receipt as receipt_vector, receipt_signing_digest,
 };
 use layerx_proof::checkpoint::SettlementDomain;
+use layerx_proof::export::verify as verify_offline_export;
 use layerx_proof::export::{InclusionFact, InclusionKind, OfflineExport, ReceiptFact};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::{build_proof, encode_proof};
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 fn result<T, E: std::fmt::Debug>(value: Result<T, E>, label: &str) -> T {
@@ -210,10 +209,14 @@ fn record_export_activity(
         EventDelivery::new(
             EventIdentity::new([0x41; 32]),
             artifact.receipts[0].canonical_receipt_bytes.clone(),
-            Cursor(Sequence(1)),
+            Cursor {
+                block_height: 1,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::Verified {
                 receipt_ref: result(ReceiptRef::new(reference), "receipt reference"),
-                verification_level: Level::SequencerSigned,
+                rung: Rung::Receipted,
             },
         ),
         "event delivery",
@@ -237,7 +240,11 @@ fn record_export_activity(
         EventDelivery::new(
             EventIdentity::new([0x42; 32]),
             b"unrelated approval event".to_vec(),
-            Cursor(Sequence(2)),
+            Cursor {
+                block_height: 2,
+                tx_index: 0,
+                log_index: 0,
+            },
             ReceiptReference::None,
         ),
         "unrelated delivery",
@@ -304,15 +311,15 @@ fn filtered_statement_and_evidence_are_offline_verifiable_and_redacted() {
         ),
         "evidence bundle",
     );
-    let agent_verified = result(
-        build_agent_export(bundle.protocol_evidence()[0].clone(), settlement_domain()),
-        "agent offline verification of bundle",
+    let independently_verified = result(
+        verify_offline_export(&bundle.protocol_evidence()[0], settlement_domain()),
+        "independent offline verification of bundle",
     );
     assert_eq!(report.entries(), 1);
     assert_eq!(report.verified_receipts(), 1);
     assert_eq!(report.verified_inclusions(), 1);
-    assert_eq!(agent_verified.local_verification.verified_receipts, 1);
-    assert_eq!(agent_verified.local_verification.verified_inclusions, 1);
+    assert_eq!(independently_verified.verified_receipts, 1);
+    assert_eq!(independently_verified.verified_inclusions, 1);
     assert_eq!(bundle.protocol_evidence(), std::slice::from_ref(&artifact));
     assert!(matches!(
         result(EvidenceExport::new(feed, 64), "bounded exporter").evidence(
