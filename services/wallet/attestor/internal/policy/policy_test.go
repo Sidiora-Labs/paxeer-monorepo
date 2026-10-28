@@ -1293,6 +1293,43 @@ func TestTrustedSpenderNearMaxPermitRefused(t *testing.T) {
 	}
 }
 
+func permitDataTo(t *testing.T, spender, value string) *evm.TypedData {
+	t.Helper()
+	body := `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit","domain":{"name":"Sidiora","version":"1","chainId":125,"verifyingContract":"` + sidiora + `"},"message":{"owner":"` + testAccount + `","spender":"` + spender + `","value":"` + value + `","nonce":"0","deadline":"4102444800"}}`
+	typed, err := evm.DecodeTypedData([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return typed
+}
+
+func TestShippedPolicyTrustedSpenderPermit(t *testing.T) {
+	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := newHarness(t)
+	h.policy = New(doc)
+	const trusted = "0x0000000000000000000000000000000000001017"
+	permit := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permitDataTo(t, trusted, "100000000")}, h.ledger)
+	expect(t, permit, CodeAllowed)
+	if len(permit.Spends) != 0 {
+		t.Fatalf("trusted SID permit counted %+v against a cap", permit.Spends)
+	}
+	unlimited := h.policy.Evaluate(testAccount, Request{Kind: KindTypedData, View: permitDataTo(t, trusted, maxUint256.String())}, h.ledger)
+	expect(t, unlimited, CodeUnlimitedApproval)
+	if len(unlimited.Spends) != 0 {
+		t.Fatalf("refused trusted SID permit recorded capped spends %+v", unlimited.Spends)
+	}
+	spent, err := h.ledger.Spent(AccountKey(testAccount), TokenAsset(common.HexToAddress(sidiora)), h.now.Add(-SpendWindow))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if spent.Sign() != 0 {
+		t.Fatalf("trusted SID permits recorded %s of capped spend, want zero", spent)
+	}
+}
+
 func TestShippedPolicySIDCapIsSponsoredFeeOnly(t *testing.T) {
 	doc, err := LoadFile(filepath.Join("..", "..", "..", "deploy", "attestor-policy.json"))
 	if err != nil {
