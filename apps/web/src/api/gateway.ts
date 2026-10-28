@@ -113,9 +113,12 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
   return document.result;
 }
 
-export async function ethCall(call: Readonly<{ to: string; data: string; from?: string }>): Promise<string> {
+export async function ethCall(
+  call: Readonly<{ to: string; data: string; from?: string }>,
+  block?: bigint,
+): Promise<string> {
   const request = call.from === undefined ? { to: call.to, data: call.data } : { from: call.from, to: call.to, data: call.data };
-  const result = await rpc("eth_call", [request, "latest"]);
+  const result = await rpc("eth_call", [request, block === undefined ? "latest" : `0x${block.toString(16)}`]);
   if (typeof result !== "string" || !DATA.test(result)) {
     throw new GatewayUnavailableError("eth_call answered malformed data");
   }

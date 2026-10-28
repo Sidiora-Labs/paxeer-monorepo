@@ -7,6 +7,7 @@ import {
   launchpadMarkets,
   type LaunchpadConfig,
   type LaunchpadMarket,
+  type LaunchpadMarketRow,
 } from "../../api/precompiles";
 import { ExplorerPanel, ExplorerTable } from "../../kit/explorer";
 import { LabelValue } from "../../kit/money";
@@ -58,7 +59,7 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
   }
   let config: LaunchpadConfig | undefined;
   let count = 0n;
-  let markets: readonly LaunchpadMarket[] = [];
+  let markets: readonly LaunchpadMarketRow[] = [];
   let problem: string | undefined;
   try {
     [config, count, markets] = await Promise.all([
@@ -98,28 +99,37 @@ export default async function LaunchpadPage({ searchParams }: Readonly<{ searchP
           <ExplorerTable
             caption="Launchpad markets"
             columns={["Market", "Token", "Price", "Supply", "Reserve", "Volume", "Fee strategy", "State"]}
-            rows={markets.map((market) => ({
-              id: market.token,
-              cells: [
-                `${market.name} (${market.symbol})`,
-                shortId(market.token),
-                formatUnits(market.price, LAUNCHPAD_PRICE_DECIMALS),
-                formatUnits(market.totalSupply, LAUNCHPAD_DECIMALS),
-                formatUnits(market.tokenReserve, LAUNCHPAD_DECIMALS),
-                formatUnits(market.cumulativeVolume, LAUNCHPAD_DECIMALS),
-                FEE_STRATEGIES[Number(market.feeStrategy)] ?? market.feeStrategy.toString(),
-                <Badge key="state" variant={market.paused ? "warning" : "success"}>
-                  {market.paused ? "Paused" : "Trading"}
-                </Badge>,
-              ],
-            }))}
+            rows={markets.map((market) => "unavailable" in market
+              ? {
+                  id: market.pool,
+                  cells: [
+                    <span key="pool" title={market.unavailable}>{market.pool}</span>,
+                    "—", "—", "—", "—", "—", "—",
+                    <Badge key="state" variant="warning">Unavailable</Badge>,
+                  ],
+                }
+              : {
+                  id: market.token,
+                  cells: [
+                    `${market.name} (${market.symbol})`,
+                    shortId(market.token),
+                    formatUnits(market.price, LAUNCHPAD_PRICE_DECIMALS),
+                    formatUnits(market.totalSupply, LAUNCHPAD_DECIMALS),
+                    formatUnits(market.tokenReserve, LAUNCHPAD_DECIMALS),
+                    formatUnits(market.cumulativeVolume, LAUNCHPAD_DECIMALS),
+                    FEE_STRATEGIES[Number(market.feeStrategy)] ?? market.feeStrategy.toString(),
+                    <Badge key="state" variant={market.paused ? "warning" : "success"}>
+                      {market.paused ? "Paused" : "Trading"}
+                    </Badge>,
+                  ],
+                })}
           />
         )}
       </ExplorerPanel>
       <LaunchpadActions
         account={account}
         quoteDenom={config?.quoteDenom ?? "quote"}
-        markets={markets.map((market) => ({
+        markets={markets.filter((market): market is LaunchpadMarket => !("unavailable" in market)).map((market) => ({
           token: market.token,
           pool: market.pool,
           label: `${market.name} (${market.symbol})`,
