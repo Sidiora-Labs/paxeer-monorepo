@@ -185207,7 +185207,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1167.1]
 title = "Issue #1167: Carry the operation byte of module-12 receipts in the committed proof verifier"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
