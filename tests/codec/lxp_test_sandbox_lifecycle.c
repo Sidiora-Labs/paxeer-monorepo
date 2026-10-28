@@ -251,6 +251,61 @@ static int fixture_destroy(sandbox_fixture *f)
     return 0;
 }
 
+static int sandbox_execute_lifecycle_accepts_call_token(void)
+{
+    static const uint8_t entrypoint[] = "layerx_call";
+    sandbox_fixture *f = calloc(1U, sizeof(*f));
+    const size_t arena_capacity = sizeof(lxp_programs_occupancy_bridge) +
+                                  sizeof(lxp_receipt) + 2U * sizeof(f->arena_bytes);
+    uint8_t *arena_bytes = malloc(arena_capacity);
+    programs_sandbox_activity value = {0};
+    uint8_t payload[50U + LX_PROGRAMS_CALL_BUDGET_FIELDS * 8U +
+                    sizeof(entrypoint) - 1U] = {0};
+    uint64_t tokens[2], unrelated;
+    size_t offset = 32U;
+
+    LXP_CASE_CHECK(f != NULL && arena_bytes != NULL && fixture_init(f) == 0);
+    LXP_CASE_CHECK(lxp_arena_init(&f->arena, arena_bytes, arena_capacity) == LXP_OK);
+    f->ctx.protocol_version = LXP_PROTOCOL_VERSION_OCCUPANCY;
+    (void)memcpy(payload, f->host, 32U);
+    payload[offset + 1U] = LX_PROGRAMS_GUEST_ABI_V2_VERSION; offset += 2U;
+    payload[offset + 1U] = (uint8_t)(sizeof(entrypoint) - 1U); offset += 2U;
+    offset += 14U + LX_PROGRAMS_CALL_BUDGET_FIELDS * 8U;
+    (void)memcpy(payload + offset, entrypoint, sizeof(entrypoint) - 1U);
+    LXP_CASE_CHECK(lxp_programs_call_decode(&f->ctx, payload, sizeof(payload),
+                                             &value.call) == LXP_OK);
+    value.operation = SANDBOX_EXECUTE;
+    value.ctx = &f->ctx;
+    tokens[0] = (uint64_t)(uintptr_t)value.call;
+    tokens[1] = (uint64_t)(uintptr_t)&value;
+    unrelated = (uint64_t)(uintptr_t)&f->activity;
+    LXP_CASE_CHECK(value.call != NULL && tokens[0] != tokens[1]);
+    for (size_t i = 0U; i < 32U; ++i)
+        f->ctx.activity_id[i] = (uint8_t)(i + 1U);
+    active_sandbox = &value;
+    for (size_t token = 0U; token < 2U; ++token) {
+        LXP_CASE_CHECK(layerx_programs_sandbox_lifecycle_length(tokens[token],
+                                                                8U) == 32);
+        for (uint32_t i = 0U; i < 32U; ++i)
+            LXP_CASE_CHECK(layerx_programs_sandbox_lifecycle_byte(tokens[token],
+                                    8U, i) == f->ctx.activity_id[i]);
+    }
+    LXP_CASE_CHECK(layerx_programs_sandbox_lifecycle_length(unrelated, 8U) ==
+                    LXP_ERR_NON_CANONICAL);
+    LXP_CASE_CHECK(layerx_programs_sandbox_lifecycle_byte(unrelated, 8U, 0U) ==
+                    LXP_ERR_NON_CANONICAL);
+    active_sandbox = NULL;
+    for (size_t token = 0U; token < 2U; ++token) {
+        LXP_CASE_CHECK(layerx_programs_sandbox_lifecycle_length(tokens[token],
+                                        8U) == LXP_ERR_NON_CANONICAL);
+        LXP_CASE_CHECK(layerx_programs_sandbox_lifecycle_byte(tokens[token],
+                                        8U, 0U) == LXP_ERR_NON_CANONICAL);
+    }
+    LXP_CASE_CHECK(fixture_destroy(f) == 0);
+    free(arena_bytes);
+    return 0;
+}
+
 static int sandbox_fund_activate_native(void)
 {
     sandbox_fixture *f = calloc(1U, sizeof(*f));
@@ -461,6 +516,8 @@ static int sandbox_execute_refusal_propagates(void)
 int main(int argc, char **argv)
 {
     const lxp_kernel_case cases[] = {
+        { "sandbox_execute_lifecycle_accepts_call_token",
+          sandbox_execute_lifecycle_accepts_call_token },
         { "sandbox_fund_activate_native", sandbox_fund_activate_native },
         { "sandbox_stage_begin_accepts_lifecycle",
           sandbox_stage_begin_accepts_lifecycle },
