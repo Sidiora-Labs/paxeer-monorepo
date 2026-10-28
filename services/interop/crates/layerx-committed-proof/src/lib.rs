@@ -76,6 +76,230 @@ pub fn verify_header(
     Ok(header.hash())
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CommittedProof {
+    pub header: header::Header,
+    pub commit: commit::Commit,
+    pub execution_header: header::Header,
+    pub batch_transaction: Vec<u8>,
+    pub batch_total: u64,
+    pub batch_index: u64,
+    pub batch_aunts: Vec<[u8; 32]>,
+    pub signed_receipt: Vec<u8>,
+    pub activity_ids: Vec<[u8; 32]>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CommittedBlock {
+    pub number: u64,
+    pub hash: [u8; 32],
+}
+
+pub mod committed {
+    use super::{commit::verify_commit, header::Validator, merkle, verify_header, ProofError};
+    pub use super::{CommittedBlock, CommittedProof};
+    use sha2::{Digest, Sha256};
+
+    /// Establish batch inclusion for a digest already authenticated by receipt verification.
+    /// The committed successor header authenticates the execution header through LastBlockID.
+    /// This namespace preserves the existing receipt-view verifier at the crate root.
+    ///
+    /// # Errors
+    /// Returns an error for invalid commits, header links, receipt bindings or batch proofs.
+    pub fn verify_committed(
+        receipt_digest: [u8; 32],
+        proof: &CommittedProof,
+        set: &[Validator],
+        chain_id: &str,
+    ) -> Result<CommittedBlock, ProofError> {
+        let header = &proof.header;
+        let execution = &proof.execution_header;
+        if chain_id.is_empty()
+            || chain_id.len() > 50
+            || header.chain_id != chain_id
+            || execution.chain_id != chain_id
+            || execution.height <= 0
+            || execution.height.checked_add(1) != Some(header.height)
+            || execution.next_validators_hash.as_slice() != header.validators_hash
+        {
+            return Err(ProofError::InvalidCommit);
+        }
+        for time in [header.time, execution.time] {
+            if !(-62_135_596_800..=253_402_300_799).contains(&time.seconds)
+                || time.nanos >= 1_000_000_000
+            {
+                return Err(ProofError::InvalidCommit);
+            }
+        }
+        let header_hash = verify_header(header, set)?;
+        verify_commit(
+            chain_id,
+            set,
+            header_hash,
+            header.height as u64,
+            &proof.commit,
+        )?;
+        let block = CommittedBlock {
+            number: execution.height as u64,
+            hash: execution.hash(),
+        };
+        if header.last_block_id.hash.as_slice() != block.hash {
+            return Err(ProofError::InvalidCommit);
+        }
+        if proof.batch_index != 0
+            || proof.batch_total > i64::MAX as u64
+            || proof.batch_total.checked_sub(1) != Some(proof.activity_ids.len() as u64)
+        {
+            return Err(ProofError::InvalidProof);
+        }
+        let data_hash = execution
+            .data_hash
+            .as_slice()
+            .try_into()
+            .map_err(|_| ProofError::InvalidProof)?;
+        merkle::verify_proof(
+            data_hash,
+            proof.batch_total,
+            proof.batch_index,
+            &Sha256::digest(&proof.batch_transaction),
+            &proof.batch_aunts,
+        )?;
+        verify_batch(receipt_digest, proof, block.number)?;
+        Ok(block)
+    }
+
+    fn verify_batch(
+        digest: [u8; 32],
+        proof: &CommittedProof,
+        block_number: u64,
+    ) -> Result<(), ProofError> {
+        const DOMAIN: &[u8] = b"PAXEER/v1/sequence-batch\0";
+        let batch = proof
+            .batch_transaction
+            .strip_prefix(DOMAIN)
+            .filter(|body| body.len() == 216)
+            .ok_or(ProofError::InvalidProof)?;
+        let mut reader = super::ReceiptReader(batch);
+        let height = u64::from_be_bytes(reader.fixed()?);
+        let first = u64::from_be_bytes(reader.fixed()?);
+        let last = u64::from_be_bytes(reader.fixed()?);
+        let previous = reader.fixed::<32>()?;
+        let resulting = reader.fixed::<32>()?;
+        let root = reader.fixed::<32>()?;
+        if height != block_number
+            || first == 0
+            || last
+                .checked_sub(first)
+                .and_then(|count| count.checked_add(1))
+                != Some(proof.activity_ids.len() as u64)
+        {
+            return Err(ProofError::InvalidProof);
+        }
+        let receipt = receipt_position(digest, &proof.signed_receipt)?;
+        if receipt.height == 0
+            || receipt.height > height
+            || !(first..=last).contains(&receipt.sequence)
+        {
+            return Err(ProofError::InvalidProof);
+        }
+        let mut activities_hash = Sha256::new();
+        let mut sequence_hash = previous;
+        for (index, activity) in proof.activity_ids.iter().enumerate() {
+            let sequence = first + index as u64;
+            let before = sequence_hash;
+            let mut chain = Sha256::new();
+            chain.update(b"PAXEER/v1/sequence\0");
+            chain.update(before);
+            chain.update(sequence.to_be_bytes());
+            chain.update(activity);
+            sequence_hash = chain.finalize().into();
+            activities_hash.update(activity);
+            if sequence == receipt.sequence
+                && (*activity != receipt.activity
+                    || before != receipt.previous
+                    || sequence_hash != receipt.resulting)
+            {
+                return Err(ProofError::ReceiptSequenceMismatch);
+            }
+        }
+        if <[u8; 32]>::from(activities_hash.finalize()) != root || sequence_hash != resulting {
+            return Err(ProofError::RootMismatch);
+        }
+        Ok(())
+    }
+
+    struct ReceiptPosition {
+        activity: [u8; 32],
+        sequence: u64,
+        previous: [u8; 32],
+        resulting: [u8; 32],
+        height: u64,
+    }
+
+    fn receipt_position(digest: [u8; 32], receipt: &[u8]) -> Result<ReceiptPosition, ProofError> {
+        if receipt.len() > 1_048_576 {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let unsigned_length = receipt
+            .len()
+            .checked_sub(69)
+            .ok_or(ProofError::InvalidReceipt)?;
+        let (unsigned, signature) = receipt.split_at(unsigned_length);
+        if signature[..5] != [1, 0, 0, 0, 64] {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let mut hash = Sha256::new();
+        hash.update(b"LXP/v1/receipt\0");
+        hash.update(unsigned);
+        hash.update([0]);
+        if <[u8; 32]>::from(hash.finalize()) != digest {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let mut reader = super::ReceiptReader(unsigned);
+        if reader.take(6)? != [0, 2, 0x52, 1, 0, 2] {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let activity = reader.array()?;
+        let sequence = u64::from_be_bytes(reader.fixed()?);
+        let previous = reader.array()?;
+        let resulting = reader.array()?;
+        reader.array::<32>()?;
+        if u32::from_be_bytes(reader.fixed()?) > 1 {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let effects = u32::from_be_bytes(reader.fixed()?);
+        if effects == 0 || effects > 512 {
+            return Err(ProofError::InvalidReceipt);
+        }
+        for _ in 0..effects {
+            reader.take(8)?;
+            reader.array::<32>()?;
+            let length = u32::from_be_bytes(reader.fixed()?);
+            if length > 256 {
+                return Err(ProofError::InvalidReceipt);
+            }
+            reader.take(length as usize)?;
+        }
+        reader.take(16)?;
+        let batch_id = reader.array::<32>()?;
+        if batch_id[..24] != [0; 24] {
+            return Err(ProofError::InvalidReceipt);
+        }
+        let height = u64::from_be_bytes(
+            batch_id[24..]
+                .try_into()
+                .map_err(|_| ProofError::InvalidReceipt)?,
+        );
+        Ok(ReceiptPosition {
+            activity,
+            sequence,
+            previous,
+            resulting,
+            height,
+        })
+    }
+}
+
 /// Verify a canonical signed receipt and return its domain-separated digest.
 ///
 /// Pins are `(key id, Ed25519 public key, first height, last height)`, with inclusive
