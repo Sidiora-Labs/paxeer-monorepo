@@ -212,23 +212,25 @@ type testNodeConfig struct {
 }
 
 type testCluster struct {
-	ca       *testCA
-	nodes    []*testNode
-	client   *http.Client
-	idp      *identityProvider
-	ids      []string
-	peers    []transport.Peer
-	configs  []testNodeConfig
-	registry *lxwire.Registry
-	ceremony bool
-	doc      *policy.Document
-	tune     func(*Options)
-	operator *testCA
-	opClient *http.Client
-	clients  *ClientAuthorities
-	kernel   *lx.Document
-	nonceURL string
-	nonceRPC *http.Client
+	ca              *testCA
+	nodes           []*testNode
+	client          *http.Client
+	idp             *identityProvider
+	ids             []string
+	peers           []transport.Peer
+	configs         []testNodeConfig
+	registry        *lxwire.Registry
+	ceremony        bool
+	doc             *policy.Document
+	tune            func(*Options)
+	operator        *testCA
+	opClient        *http.Client
+	clients         *ClientAuthorities
+	kernel          *lx.Document
+	nonceURL        string
+	nonceRPC        *http.Client
+	importMu        sync.Mutex
+	importInventory *nativeInventoryAuthority
 }
 
 const kernelTestPolicy = `{"version":1,"defaults":{"modules":{"asset":[5]},"caps":{"native":{"per_operation":"6000000","daily":"8000000"}}}}`
@@ -564,18 +566,122 @@ func expectError(t *testing.T, label string, r apiResult, code string) Error {
 
 func importKey(t *testing.T, c *testCluster, keyID string, curve dealer.Curve, secret *big.Int, account string) []KeyResponse {
 	t.Helper()
-	bundles, _, err := dealer.Split(curve, secret, c.ids)
+	c.importMu.Lock()
+	defer c.importMu.Unlock()
+	bundles, publicKey, err := dealer.Split(curve, secret, c.ids)
 	if err != nil {
 		t.Fatal(err)
 	}
+	publicBytes, err := publicKeyBytes(curve, publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.importInventory == nil {
+		authorityKey, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		authorityPublic, err := x509.MarshalPKIXPublicKey(&authorityKey.PublicKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		c.importInventory = &nativeInventoryAuthority{
+			key: authorityKey, path: filepath.Join(dir, "inventory.jwt"), public: filepath.Join(dir, "authority.pem"), cluster: c,
+		}
+		writeTestPEM(t, c.importInventory.public, "PUBLIC KEY", authorityPublic)
+		previous := c.tune
+		c.tune = func(o *Options) {
+			if previous != nil {
+				previous(o)
+			}
+			pins := map[string]string{}
+			for _, peer := range c.peers {
+				pins[peer.ID] = peer.SPKISHA256
+			}
+			inventory, err := NewInventory(c.importInventory.path, c.importInventory.public, "native-corpus", "tenant-a", o.Store, pins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Inventory = inventory
+		}
+	}
+	c.importInventory.keys = append(c.importInventory.keys, InventoryKey{
+		KeyID: keyID, Curve: curveName(curve), PublicKey: hex.EncodeToString(publicBytes), Owner: testOwner,
+		Operations: []string{"import", "refresh", "sign"},
+	})
+	c.importInventory.publish(t)
 	byNode := map[string]ShareBundleJSON{}
 	for _, b := range bundles {
 		byNode[b.ParticipantID] = EncodeBundle(b)
 	}
 	results := c.callAll(t, c.nodes, PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
+		return ImportRequest{
+			CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner,
+			PublicKey: hex.EncodeToString(publicBytes), Participants: c.ids, Threshold: dealer.Threshold,
+			Account: account, Share: byNode[n.id],
+		}
 	}, "")
 	return decodeOK[KeyResponse](t, "import "+keyID, results)
+}
+
+func (c *testCluster) publishImportEpoch(t *testing.T, keyID string, epoch uint64) {
+	t.Helper()
+	c.importMu.Lock()
+	defer c.importMu.Unlock()
+	for i := range c.importInventory.keys {
+		if c.importInventory.keys[i].KeyID == keyID {
+			c.importInventory.keys[i].Epoch = epoch
+			c.importInventory.publish(t)
+			return
+		}
+	}
+	t.Fatalf("no approved import inventory for %s", keyID)
+}
+
+func TestImportNamesTheMissingCeremonyID(t *testing.T) {
+	c := newTestCluster(t, 5, true)
+	bundles, publicKey, err := dealer.Split(dealer.Secp256k1, big.NewInt(424242), c.ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicBytes, err := publicKeyBytes(dealer.Secp256k1, publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := ImportRequest{
+		SessionID: "import-missing-ceremony", KeyID: "missing-ceremony", Owner: testOwner,
+		PublicKey: hex.EncodeToString(publicBytes), Participants: c.ids, Threshold: dealer.Threshold,
+		Share: EncodeBundle(bundles[0]),
+	}
+	for _, tc := range []struct{ name, ceremonyID string }{
+		{"missing", ""},
+		{"slash", "bad/ceremony"},
+		{"too long", strings.Repeat("c", 129)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req.CeremonyID = tc.ceremonyID
+			raw, err := json.Marshal(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &body); err != nil {
+				t.Fatal(err)
+			}
+			if tc.name == "missing" {
+				delete(body, "ceremony_id")
+			}
+			result := c.call(t, c.nodes[0], PathImport, body, "")
+			if result.status != http.StatusBadRequest {
+				t.Fatalf("status %d, want %d: %s", result.status, http.StatusBadRequest, result.body)
+			}
+			refusal := expectError(t, "invalid ceremony id", result, CodeSessionBadRequest)
+			if refusal.Message != "ceremony_id must be 1 to 128 characters without a slash" {
+				t.Fatalf("unexpected ceremony refusal: %q", refusal.Message)
+			}
+		})
+	}
 }
 
 func kernelActivityFor(t *testing.T, signer ed25519.PrivateKey, sequence uint64) ([]byte, []byte) {
@@ -876,7 +982,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 		go func(i int, keyID string) {
 			defer wg.Done()
 			results := c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-				return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID}
+				return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID, CeremonyID: "metrics-ceremony", ImportSessionID: "import-" + keyID, ExpectedEpoch: new(uint64)}
 			}, "")
 			for j, r := range results {
 				if r.status != http.StatusOK {
@@ -895,6 +1001,9 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 	wg.Wait()
 	if t.Failed() {
 		t.FailNow()
+	}
+	for _, keyID := range []string{"evm-key", "lx-key"} {
+		c.publishImportEpoch(t, keyID, 1)
 	}
 	for i, set := range refreshed {
 		for _, r := range set {
@@ -1038,7 +1147,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 			t.Fatalf("stale bind nonce: policy code %s", e.PolicyCode)
 		}
 	}
-	gatewayOnRefresh := c.callAs(t, c.client, c.nodes[0], PathRefresh, RefreshRequest{SessionID: "refresh-by-gateway", KeyID: "evm-key"}, "")
+	gatewayOnRefresh := c.callAs(t, c.client, c.nodes[0], PathRefresh, RefreshRequest{SessionID: "refresh-by-gateway", KeyID: "evm-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-evm-key", ExpectedEpoch: new(uint64)}, "")
 	if gatewayOnRefresh.status != http.StatusForbidden {
 		t.Fatalf("gateway identity on refresh: status %d", gatewayOnRefresh.status)
 	}
@@ -1279,8 +1388,9 @@ func TestOperatorVerificationInTheCeremonyWindow(t *testing.T) {
 	importKey(t, c, "verify-lx", dealer.Ed25519, edScalar, address.Hex())
 	for _, keyID := range []string{"verify-evm", "verify-lx"} {
 		decodeOK[KeyResponse](t, "refresh "+keyID, c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-			return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID}
+			return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID, CeremonyID: "metrics-ceremony", ImportSessionID: "import-" + keyID, ExpectedEpoch: new(uint64)}
 		}, ""))
+		c.publishImportEpoch(t, keyID, 1)
 	}
 	secpMsg := policy.VerificationMessage("verify-evm", secpPub, "import-verify-evm")
 	edMsg := policy.VerificationMessage("verify-lx", edPub, "import-verify-lx")

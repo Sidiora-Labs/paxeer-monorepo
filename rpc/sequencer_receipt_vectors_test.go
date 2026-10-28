@@ -22,6 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	seqnode "github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
@@ -534,6 +535,27 @@ func seqVecCaseOf(id, vector, description string, signed seqVecSigned, raw []byt
 	}
 }
 
+func installSeqVecReceiptKey(t *testing.T, chain *seqReceiptChain9005, pin seqVecPin) {
+	t.Helper()
+	height := chain.latest + 1
+	ctx := chain.writeCtx9005(height)
+	existing, err := chain.keeper.ReceiptKeys(ctx)
+	require.NoError(t, err)
+	keys := make(seqkeeper.ReceiptKeys, 0, len(existing)+1)
+	for _, key := range existing {
+		keys = append(keys, seqkeeper.ReceiptKeyEntry{
+			KeyId: bytes.Clone(key.KeyId[:]), PublicKey: bytes.Clone(key.PublicKey[:]),
+			FirstHeight: key.FirstHeight, LastHeight: key.LastHeight,
+		})
+	}
+	keys = append(keys, seqkeeper.ReceiptKeyEntry{
+		KeyId: bytes.Clone(pin.KeyID[:]), PublicKey: bytes.Clone(pin.PublicKey),
+		FirstHeight: pin.FirstHeight, LastHeight: pin.LastHeight,
+	})
+	require.NoError(t, chain.keeper.SetReceiptKeys(ctx, keys))
+	chain.commit9005(height)
+}
+
 func TestSequencerReceiptVectors(t *testing.T) {
 	dir := t.TempDir()
 	public := [32]byte(ed25519.NewKeyFromSeed(seqVecReceiptSeed).Public().(ed25519.PublicKey))
@@ -543,6 +565,7 @@ func TestSequencerReceiptVectors(t *testing.T) {
 	extended := loadSeqVecKey(t, dir, verify.SequencerAuthorization{SequencerID: seqVecKeyID, PublicKey: public, FirstBatchNumber: seqVecLastHeight + 1, LastBatchNumber: 2 * seqVecLastHeight})
 
 	chain := newSeqReceiptChain9005(t)
+	installSeqVecReceiptKey(t, chain, pin)
 	source := &seqVecSource{sends: map[common.Hash]*evmrpc.SequencerSend{}}
 	port := startSeqReceiptServer9005(t, app.Setup(t, false, false, false), chain.ctxProvider,
 		evmrpc.SequencerReceiptOption{Source: source, Keeper: &chain.keeper})
@@ -583,15 +606,37 @@ func TestSequencerReceiptVectors(t *testing.T) {
 		signed := b.receipt(key, keyID, signedTx, tx, slot, false)
 		return seqVecCaseOf("", "", "", signed, signed.raw, seqVecServe(t, port, source, signed), next.prev, pin)
 	}
+	refusedCase := func(key *seqnode.ReceiptKey, keyID [32]byte, tx seqVecTx, slot seqVecSlot, reason string) seqVecCase {
+		signedTx := b.signTx(tx)
+		signed := b.receipt(key, keyID, signedTx, tx, slot, false)
+		source.put(signed.activity, signed.send)
+		_, rpcErr := callSeqReceipt9005(t, port, evmrpc.SequencerReceiptMethod, signed.activity)
+		require.NotNil(t, rpcErr)
+		require.Equal(t, -32000, rpcErr.Code)
+		require.Contains(t, rpcErr.Message, seqkeeper.ErrReceiptKeyNotPinned.Error())
+		require.Contains(t, rpcErr.Message, reason)
+
+		authorized := b.receipt(primary, seqVecKeyID, signedTx, tx, next, false)
+		answer := seqVecEdit(t, seqVecServe(t, port, source, authorized), func(r *evmrpc.SequencerReceiptResult) {
+			r.KeyID = keyID
+			r.Height = hexutil.Uint64(slot.height)
+			r.Timestamp = hexutil.Uint64(seqVecTimeBase + slot.height*seqVecBlockMs)
+			r.Receipt = signed.signed
+		})
+		var result evmrpc.SequencerReceiptResult
+		require.NoError(t, json.Unmarshal(answer, &result))
+		require.NoError(t, result.Verify())
+		return seqVecCaseOf("", "", "", signed, signed.raw, answer, next.prev, pin)
+	}
 
 	refuse("V3-key-not-pinned", "receipt signed under a keyId outside the pinned ReceiptKeys",
-		nextCase(rogue, seqVecRogueKeyID, seqVecTransfer(5, 2), next),
+		refusedCase(rogue, seqVecRogueKeyID, seqVecTransfer(5, 2), next, fmt.Sprintf("is not in the list at height %d", next.height)),
 		seqVecRefusal{refusedAt: "R3", err: errSeqVecKeyID, verifier: "SequencerSignature"})
 
 	outOfRange := next
 	outOfRange.height = seqVecLastHeight + 1
 	refuse("V3-height-outside-key-range", "receipt at a height above the pinned key's lastHeight",
-		nextCase(extended, seqVecKeyID, seqVecTransfer(5, 3), outOfRange),
+		refusedCase(extended, seqVecKeyID, seqVecTransfer(5, 3), outOfRange, fmt.Sprintf("excludes height %d", outOfRange.height)),
 		seqVecRefusal{refusedAt: "R3", err: errSeqVecHeight, verifier: "SequencerSignature"})
 
 	sentTx := b.signTx(seqVecTransfer(5, 4))

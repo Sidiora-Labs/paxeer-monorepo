@@ -3,6 +3,9 @@
 # newMergePrecompiles in precompiles/setup.go skips unregistered constructors;
 # the registrar packages have no production imports at HEAD (including teeattestor).
 
+[meta]
+format_version = 1
+
 [address.0x1012]
 plan = "v6.9"
 modules = ["layerxanchor"]
