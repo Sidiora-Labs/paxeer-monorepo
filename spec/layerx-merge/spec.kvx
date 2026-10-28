@@ -143836,7 +143836,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.5]
 title = "Authorize sends as EIP-1559 transactions and retire the kernel send signers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["10.11.3", "10.11.4", "9.1.7", "9.1.8", "18.1119.1"]
@@ -184862,7 +184862,7 @@ do_4 = "In services/interop/crates/layerx-x402/tests/buyer.rs port the fixtures 
 
 [task.18.1158.1]
 title = "Issue #1158: layerx-agentd audit_coverage test still reconstructs the version-2 audit session and fails to compile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
