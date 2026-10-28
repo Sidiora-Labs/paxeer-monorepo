@@ -143490,7 +143490,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.7.1]
 title = "Bind intent legs to pending-tag nonces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.13.3", "9.1.8", "18.1119.1"]
