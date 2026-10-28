@@ -138478,7 +138478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.2]
 title = "Page account history by block-position cursor through px_getHistory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.1.1", "9.12.1", "9.1.8"]
@@ -138699,7 +138699,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.6.1]
 title = "Produce offline exports v2 without settlement certificates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.5.5", "9.1.1", "9.1.8", "9.27.2"]
@@ -139014,7 +139014,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.11.1]
 title = "Persist subscription cursors as block-position triples"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.0.1", "9.1.8"]
@@ -158354,7 +158354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.10]
 title = "Prove 0x101D calls in one block give the same result under parallel and sequential execution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["13.24.1", "13.25.1", "13.32.2", "18.1073.1"]
@@ -174243,7 +174243,7 @@ qualification = "UNRUN"
 
 [task.18.944.1]
 title = "Issue #944: Assert the merge precompile gate test's version-map precondition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180188,7 +180188,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1120.1]
 title = "Issue #1120: Surface the standby's refusal reason and make it acknowledge the recorder's openAccount groups"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
