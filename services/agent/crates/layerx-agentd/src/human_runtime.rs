@@ -15749,7 +15749,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         out.text(record.scope.agent.as_str())?;
         out.text(record.scope.capability.as_str())?;
         out.text(record.subscription_id.as_str())?;
-        out.text(&record.last_acknowledged.0 .0.to_string())?;
+        out.text(&crate::events::subscription::Cursor::from(record.last_acknowledged).to_string())?;
         out.u8(0);
         match pending_backfill {
             None => out.u8(0),
@@ -17889,7 +17889,9 @@ pub(crate) fn subscription_create_digest(
     for class in filter.result_classes.values() {
         digest.update(class.raw().to_be_bytes());
     }
-    digest.update(request.start.0 .0.to_be_bytes());
+    digest.update(request.start.block_height.to_be_bytes());
+    digest.update(request.start.tx_index.to_be_bytes());
+    digest.update(request.start.log_index.to_be_bytes());
     text(&mut digest, request.delivery_target.as_str().as_bytes());
     digest.finalize().into()
 }
@@ -19293,8 +19295,8 @@ fn encode_subscription_record(
     for class in filter.result_classes.values() {
         out.fixed(&class.raw().to_be_bytes());
     }
-    out.text(&record.start.0 .0.to_string())?;
-    out.text(&record.last_acknowledged.0 .0.to_string())?;
+    out.text(&crate::events::subscription::Cursor::from(record.start).to_string())?;
+    out.text(&crate::events::subscription::Cursor::from(record.last_acknowledged).to_string())?;
     out.text(record.delivery_target.as_str())?;
     out.u8(u8::from(record.paused));
     Ok(())
