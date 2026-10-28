@@ -10159,3 +10159,7 @@ detail = "layerx-human-kms tests/support/attestor_cluster.rs gained ureq calls (
 [gotcha.2077]
 title = "symbols must name only what the task defines, uniquely within the indexed workspace"
 detail = "cg spec done resolves every symbols entry after the gate passes: Operation::retired matched two definitions (api-gen lib.rs:33 and the service) and Rung lives in another crate the index does not resolve from the task's crate; 10.0.2 attempt 5 and 10.2.2 attempt 7 lost a passed gate to it. Leave shared method names and foreign types out of symbols."
+
+[gotcha.2078]
+title = "Two repairs inside one crate's test targets must not both build --tests"
+detail = "18.1143.1 (four agentd test files' cursor fixtures) built -p layerx-agentd --tests, which also compiles the seventeen targets whose shared support module 18.1131.1 is porting, while 18.1131.1 requires 18.1143.1; neither could pass. A repair task builds only the test targets it touches; the task that owns the shared module is the one that builds --tests."
