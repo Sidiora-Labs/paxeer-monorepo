@@ -158229,7 +158229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.6]
 title = "Prove an EVM out-of-gas before submit leaves the kernel untouched"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.24.1", "13.22.4", "18.1073.1"]
@@ -178568,7 +178568,7 @@ qualification = "UNRUN"
 
 [task.18.874.1]
 title = "Issue #874: Keep the price feed scanned watermark monotonic under concurrent compaction"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
