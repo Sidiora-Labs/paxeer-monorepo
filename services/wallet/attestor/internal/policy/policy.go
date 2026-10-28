@@ -351,6 +351,7 @@ type Destination struct {
 	// Counterparty marks a spender or recipient named in the call's
 	// arguments rather than the address the call is sent to.
 	Counterparty bool
+	Recipient    bool
 }
 
 type Spend struct {
@@ -593,6 +594,9 @@ func checkDestination(effective *compiled, destination Destination) (Decision, b
 	if effective.allow != nil && !effective.allow[address] {
 		return denied(CodeDestinationBlocked, "destination %s is not on the allow list", address.Hex()), false
 	}
+	if destination.Recipient && destination.Precompile {
+		return denied(CodeDestinationBlocked, "recipient %s is a precompile", address.Hex()), false
+	}
 	allowed, listed := effective.selectors[address]
 	if !listed && !destination.Precompile {
 		return Decision{}, true
@@ -654,12 +658,12 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		out.Spends = append(out.Spends, Spend{Asset: TokenAsset(asset), Amount: amount})
 		return nil
 	}
-	recipient := func(arg string) error {
+	recipient := func(arg string, isRecipient bool) error {
 		address, ok := call.Args[arg].(common.Address)
 		if !ok {
 			return refuse(CodeDecodeError, "%s.%s argument %s is malformed", call.Destination, call.Method, arg)
 		}
-		out.Destinations = append(out.Destinations, Destination{Address: address, Precompile: evm.IsPrecompile(address), Counterparty: true})
+		out.Destinations = append(out.Destinations, Destination{Address: address, Precompile: evm.IsPrecompile(address), Counterparty: true, Recipient: isRecipient})
 		return nil
 	}
 	switch {
@@ -671,9 +675,9 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		spend := Spend{Asset: TokenAsset(to), Amount: amount}
 		switch call.Method {
 		case "transfer", "transferFrom":
-			err = recipient("to")
+			err = recipient("to", true)
 		case "approve":
-			if err = recipient("spender"); err == nil {
+			if err = recipient("spender", false); err == nil {
 				spender := out.Destinations[len(out.Destinations)-1].Address
 				spend.Spender = &spender
 			}
@@ -724,7 +728,7 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		err = token("collateralToken", "collateralAmount")
 	case call.Destination == "layerxbridge" && call.Method == "bridgeOut":
 		if err = token("asset", "amount"); err == nil {
-			err = recipient("recipient")
+			err = recipient("recipient", true)
 		}
 	}
 	if err != nil {
