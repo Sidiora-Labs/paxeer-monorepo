@@ -184939,7 +184939,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1161.1]
 title = "Issue #1161: Port the offline export bounds test to the v2 trust source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
