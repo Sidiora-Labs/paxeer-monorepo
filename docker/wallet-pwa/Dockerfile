@@ -110,6 +110,7 @@ COPY --from=builder --chown=nextjs:nodejs /src/apps/wallet/public ./apps/wallet/
 COPY --from=builder --chown=nextjs:nodejs /src/apps/wallet/.next/static ./apps/wallet/.next/static
 COPY --chown=nextjs:nodejs apps/wallet/deployment/nginx.conf /etc/nginx/nginx.conf
 COPY --chown=nextjs:nodejs --chmod=0755 apps/wallet/deployment/start-wallet.sh /app/start-wallet.sh
+COPY --chown=nextjs:nodejs --chmod=0755 apps/wallet/deployment/render-edge-trust.sh /app/render-edge-trust.sh
 
 USER nextjs
 EXPOSE 3001
