@@ -148344,7 +148344,7 @@ title = "Publish committed-rung vectors recorded from a local chain"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["11.2.4", "5.55.5"]
+requires = ["11.2.4", "5.55.5", "18.1167.1"]
 reqs = ["11035.1"]
 capabilities = ["11.14.4"]
 interfaces = ["interface.11.fmt-spec-committed-vectors-j47"]
@@ -172379,7 +172379,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -179006,7 +179006,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1166.1", "18.1167.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179864,6 +179864,18 @@ ac_1 = "layerx_programs_call_transfer_apply resolves an unbound principal to its
 [req.181164]
 title = "Issue #1164: committed-fixture recorder omits the execution header's commit that the SDK committed verifier requires"
 ac_1 = "vector-v4-committed.json carries settlement.execution_commit, the Comet commit of the execution header, bound to that header and to header H+1's last_commit_hash, and TestVectorV4CommittedVerifies proves both commits."
+
+[req.181165]
+title = "Derive agent creation's activity types from the purpose preset instead of an undeclared request field"
+ac_1 = "A request conforming to AgentCreateRequest reaches agent creation with activity types derived from its purpose preset, a body carrying activity_types is refused by the route as undeclared, the schema is unchanged, and the agent_create and agent_evidence_rungs targets pass."
+
+[req.181166]
+title = "Call the compatibility matrix with node client version strings in the daemon's migration test"
+ac_1 = "tests/migration.rs compiles against compat::verify's string node client version and its compatibility matrix test passes."
+
+[req.181167]
+title = "Carry the operation byte of module-12 receipts in the committed proof verifier"
+ac_1 = "verify_receipted accepts the operation byte the node writes in module-12 receipts, keeps every other refusal, and the receipted conformance cases plus the new carried-byte case pass."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -181033,6 +181045,30 @@ contract = "contracts/rpc.md#namespace-debug"
 test = "daemon/committed-fixture/vector_v4_test.go::TestVectorV4CommittedVerifies"
 qualification = "UNRUN"
 
+[acceptance.18.1165.1]
+feature = "18"
+req = "181165.1"
+scenario = "Given the public AgentCreateRequest schema, when the documented three-field body is posted, then creation proceeds with the preset's programs call activity type and a body carrying activity_types is refused as undeclared."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-service/tests/agent_create.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1166.1]
+feature = "18"
+req = "181166.1"
+scenario = "Given compat::verify taking the node client version string, when the migration test target builds and runs, then its compatibility matrix test passes with a supported and an unsupported client string."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-agentd/tests/migration.rs::published_compatibility_matrix_accepts_only_the_supported_complete_tuple"
+qualification = "UNRUN"
+
+[acceptance.18.1167.1]
+feature = "18"
+req = "181167.1"
+scenario = "Given a module-12 receipt whose operation byte is 0, when verify_receipted runs, then the structural decode passes and only the signature or view checks can refuse it."
+contract = "contracts/interop-deploy.md#deploy-workspace"
+test = "services/interop/crates/layerx-committed-proof/tests/receipted.rs"
+qualification = "UNRUN"
+
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
 status = "done"
@@ -182013,7 +182049,7 @@ title = "Issue #1131: Port the agentd real-authority test support and the pay2 q
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1138.1", "18.1143.1", "18.1154.1", "18.1158.1", "18.1161.1"]
+requires = ["18.1138.1", "18.1143.1", "18.1154.1", "18.1158.1", "18.1161.1", "18.1166.1"]
 reqs = ["181131.1"]
 capabilities = []
 interfaces = []
@@ -184740,6 +184776,7 @@ do_3 = "In the same file's receipt builder (fn receipt, :580-644) complete the R
 do_4 = "In services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs split the inventory bookkeeping of generate_key (:593-692) into two public helpers the service-driven test can call around the service's own key creation: approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) pushes the {key_id, epoch: 0, curve, public_key: '', owner, operations: ['generate']} entry (:600-604) and publishes the inventory (:577); approve_sign(&mut self, key_id: &str, public_key: &[u8]) sets that entry's public_key to the hex of the key and its operations to ['sign'] (:686-690) and publishes. generate_key keeps its behaviour by calling both; every other test of the support file is unchanged."
 do_5 = "In wallet_identity_e2e.rs, before kms.create_owned_key (:971), compute the key id the service posts to the attestors: attestor_key_id (src/server/production_components.rs:8472) formats 'lx-' followed by the lowercase hex of the first 16 bytes of PrincipalKeyBinding::digest() of the binding Keystore::binding (src/custody/mod.rs:944-955) builds for (principal_id, custody_key(), KeyClass::HumanPrimary). Make Keystore::binding pub (a visibility change only, the one source edit of this task) and call keystore.binding(..).digest() in the test rather than copying identity_bytes; then call cluster.approve_generate(&key_id, 'ed25519', SUBJECT), because the attestor's Inventory.Check (services/wallet/attestor/internal/server/authority.go:125-165) refuses an unlisted key with key_invalid_share, which attestor_refusal (production_components.rs:8409-8419) surfaces as KmsError::Refused — the failure both qualification runs hit at :979. After create_owned_key returns the public key call cluster.approve_sign(&key_id, &public_key) so the kernel send signed through the attestors (sign.go:380, :773) passes the same check. Keep every assertion of the test."
 do_6 = "open_or_create_by_assertion (services/human/crates/layerx-human-identity-provider/src/assertion.rs:539-556) takes a producer-signed wallet binding token as its second argument, never DID text, and verify_binding (:391-399) refuses Unavailable without a producer key and a binding tenant; wallet_identity_e2e.rs:982 passes Some(&did). Configure the verifier at :911 with with_binding_producer_key (:380) over a test producer key, pin the binding tenant and mint the binding for (SUBJECT, did, tenant) exactly as tests/principal_store.rs:140-200 and :470-500 of the identity provider do, pass that token at :982, and keep the assertions resolved.did() == Some(did) and the rest of the test as written."
+do_7 = "authorize_kernel_send (src/server/production_components.rs:8630-8658) returning CustodyError::Kms(KmsError::Refused) with last_refusal_code() None is a local refusal inside CustodySigner::authorize_send, never a quorum decision: the branches are require_record_binding (src/custody/mod.rs:958-968, the stored record's binding digest differs from PrincipalKeyBinding::new(identity_bytes(principal, key, class), network_id, class, provider_reference)), seal_refusal (:270-279) and the secret-maximum guard (:250-255). Match the principal and key id wallet_identity_e2e.rs:262-270 passes against the ones create_owned_key stored; if the binding token of do_6 resolves a different principal, create the key under the principal the service resolves from the token. Never relax the binding check; name the firing branch in the summary."
 
 [task.18.1152.1]
 title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"
@@ -184990,7 +185027,7 @@ requires = []
 reqs = ["181162.1"]
 capabilities = []
 interfaces = []
-do_1 = "In services/interop/crates/layerx-x402/src/model.rs make is_layerx_network (:189-193) true for every network validate_network (src/seller.rs:411-423) accepts, eip155:<decimal chain id>, per decision.822; LAYERX_NETWORK_NAMESPACE (:19) names the eip155 namespace. validate (:179-183) then reaches layerx_terms for a LayerX offer again, so a payTo not derived from extra.layerx.account is refused with ProfileMismatch, and layerx_facts (:224-229) accepts eip155 offers. Keep the non-eip155 branch as written."
+do_1 = "In services/interop/crates/layerx-x402/src/model.rs make is_layerx_network (:189-193) true exactly for the LayerX network eip155:125, decision.822's beta network: replace LAYERX_NETWORK_NAMESPACE (:19) with pub const LAYERX_NETWORK: &str = 'eip155:125' and compare the whole network string. Every other eip155 chain is an external network: validate (:179-183) takes the non-LayerX branch and layerx_facts (:224-229) returns UnsupportedOffer, so the external case at tests/seller.rs:626-637 (eip155:8453: ProfileMismatch, then UnsupportedOffer) stays as written, while validate_network (src/seller.rs:411-423) keeps accepting any eip155:<decimal> syntactically. Keep the non-eip155 branch as written."
 do_2 = "In services/interop/crates/layerx-x402/tests/seller.rs extend the two expected settlement strings (:1076-1087 and :1111-1120) with the logs array exactly as settled (src/seller.rs:359-365, d20d224d8) emits it, in its position and form; the receipt the tests settle yields the logs the expected string lists."
 do_3 = "Change no assertion outside the two tests do_5 names. If a seller test still fails after do_1 and do_5, stop and record the test and the observed value instead of changing the assertion."
 do_4 = "Issue #1162."
@@ -185067,6 +185104,99 @@ gate_kind = "planned"
 sandbox_profile = "go"
 owner_role = "fm-node-runtime"
 rollback = "Revert the three files; the vector returns to carrying the commit of header H+1 only."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1165.1]
+title = "Issue #1165: Derive agent creation's activity types from the purpose preset instead of an undeclared request field"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181165.1"]
+capabilities = []
+interfaces = []
+do_1 = "execute_agent_create (services/human/crates/layerx-human-service/src/server/production_components.rs:3899-3920) requires body.activity_types, which type.AgentCreateRequest (services/human/schema/human-api/agents.kvx:50-53) does not declare and the schema-validated route (src/server/http.rs:213-248, src/server/schema.rs:330) refuses as undeclared. Remove the body read and derive the activity types from the purpose preset: add PurposePresetCatalog::activity_types(&self, id: &str) -> Result<Vec<ActivityType>, AgentCreationError> to src/agents/create.rs returning the programs call activity type (layerx_types::programs_activity::activity_type with the LX_PROGRAMS_CALL ordinal that services/agent/crates/layerx-types/src/programs_activity.rs mirrors) for a preset whose call_selectors are non-empty and refusing an unknown purpose exactly as call_selectors (:250) does; pass the result to with_activity_types."
+do_2 = "Change nothing in services/human/schema/human-api/agents.kvx: AgentCreateRequest keeps exactly name, purpose and monthly_limit with the optional native_fee_budget, as its simplicity contract states."
+do_3 = "services/human/crates/layerx-human-service/tests/agent_create.rs:108-120 still writes the preset key activity_types, which PurposePresetCatalog::from_json refuses since a5edae038 replaced it with call_selectors; port the fixture to call_selectors as tests/agent_evidence_rungs.rs:58 does, and the uses of request.activity_types (:307, :336-337, :395, :409) to the derived activity types."
+do_4 = "Add a test to tests/agent_create.rs that submits the documented three-field body through the schema-validated agents route and reaches creation without invalid_request(activity_types), and that the same body with an activity_types field is refused by the route as undeclared."
+do_5 = "Issue #1165."
+symbols = ["PurposePresetCatalog::activity_types"]
+touches = ["services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/agents/create.rs", "services/human/crates/layerx-human-service/tests/agent_create.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/agent_create.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create --test agent_evidence_rungs"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test agent_create --test agent_evidence_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the handler, the catalog method and the test file; creation returns to requiring the undeclared field."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1166.1]
+title = "Issue #1166: Call the compatibility matrix with node client version strings in the daemon's migration test"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181166.1"]
+capabilities = []
+interfaces = []
+do_1 = "services/agent/crates/layerx-agentd/tests/migration.rs:242-257 (published_compatibility_matrix_accepts_only_the_supported_complete_tuple) passes layerx_client::lni::schema::Version where compat::verify (src/compat.rs:46-50) has taken the node's web3_clientVersion as &str since 70ce262d3. Replace Version::V1_0 with a supported client string built from the matrix row's node_interface_major as tests/readiness_node_rpc.rs:58-60 does (paxd/v<major>.0.0/linux-amd64/go1.25) and Version { major: 2, minor: 0 } with a client string whose major is outside the matrix, keeping Err(CompatibilityError::UnsupportedNodeInterface); keep the contract and SDK refusals and drop the unused Version import."
+do_2 = "Change nothing under services/agent/crates/layerx-agentd/src and no other test; relax no assertion."
+do_3 = "Issue #1166."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/migration.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/migration.rs::published_compatibility_matrix_accepts_only_the_supported_complete_tuple"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test migration"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test migration -- --exact published_compatibility_matrix_accepts_only_the_supported_complete_tuple"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; the daemon's all-targets test build returns to failing on the four call sites."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1167.1]
+title = "Issue #1167: Carry the operation byte of module-12 receipts in the committed proof verifier"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181167.1"]
+capabilities = []
+interfaces = []
+do_1 = "verify_receipted (services/interop/crates/layerx-committed-proof/src/lib.rs:159-167) refuses a receipt whose byte after the zero parameter version is outside 1..=3. The Go codec reads that byte as Operation (layerxproof/codec/receipt.go:93, :454) and constrains it only for module-1 supply receipts (:333-339) and the withdrawal ordinal (layerxproof/verify/withdrawal.go:16); the node writes 0 there in a module-12 receipt (daemon/committed-fixture/vectors/vector-v4-committed.json positive.receipt) while sdk/platform/conformance/fixtures/sequencer-receipt-v1.json carries 2. Carry the byte without constraining it, exactly as the codec does; keep every other refusal (module trailer, parameter version, effect kinds, signature, view) as written."
+do_2 = "In tests/receipted.rs add a case that takes a verifying V1 conformance receipt, sets its operation byte to 0 and asserts verify_receipted returns Err(ProofError::UnpinnedReceiptSignature) rather than Err(ProofError::InvalidReceipt): the byte is carried and the signature check is what refuses the altered bytes."
+do_3 = "Change nothing under sdk/platform/conformance and nothing in the Go codec; every V1 and V3 conformance case keeps its expected outcome."
+do_4 = "Issue #1167."
+symbols = ["verify_receipted"]
+touches = ["services/interop/crates/layerx-committed-proof/src/lib.rs", "services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
+tests = ["services/interop/crates/layerx-committed-proof/tests/receipted.rs"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --test receipted"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert lib.rs and the test; the verifier returns to refusing node-written receipts at the operation byte."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
