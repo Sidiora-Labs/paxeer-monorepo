@@ -8382,10 +8382,24 @@ struct AttestorKmsState {
     last_refusal: Mutex<Option<String>>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttestorSendDisclosure {
+    recipient: [u8; 20],
+    denom: String,
+    amount: [u8; 32],
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AttestorSendAuthorization {
+    authorization: crate::custody::EvmPlanAuthorization,
+    disclosure: AttestorSendDisclosure,
+}
+
 struct AttestorSignedSend {
-    authorization: crate::custody::SendPlanAuthorization,
-    fee_limit: u128,
-    signed: layerx_human_kms::attestor::SignedSend,
+    request: AttestorSendAuthorization,
+    raw_transaction: Vec<u8>,
 }
 
 const ATTESTOR_SEND_OPERATION: u8 = 11;
@@ -8677,35 +8691,85 @@ impl AttestorKms {
         if key_id != attestor_key_id(binding) {
             return Err(KmsError::Integrity);
         }
-        let authorization: crate::custody::SendPlanAuthorization =
+        let request: AttestorSendAuthorization =
             serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
+        let authorization = &request.authorization;
+        let transaction = &authorization.transaction;
+        let now = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .map_err(|_| KmsError::Unavailable)?
+            .sample(Duration::from_secs(1))
+            .map_err(|_| KmsError::Unavailable)?
+            .unix_seconds();
+        let mut bank = [0; 20];
+        bank[18..].copy_from_slice(&[0x10, 0x01]);
         if authorization.binding_digest != binding.digest()
-            || authorization.network != binding.network_id()
+            || transaction.chain_id != u64::from(binding.network_id())
+            || authorization.plan_id == [0; 32]
+            || authorization.action_key == [0; 32]
+            || authorization.principal.is_empty()
+            || authorization.principal.len() > 128
+            || authorization.tenant.is_empty()
+            || authorization.tenant.len() > 128
+            || authorization.wallet == [0; 20]
+            || authorization.not_before > now
+            || authorization.not_after < now
+            || authorization.not_after <= authorization.not_before
+            || transaction.to != bank
+            || transaction.value != [0; 32]
+            || transaction.gas_limit < 21_000
+            || transaction.max_fee_per_gas == 0
+            || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+            || transaction.calldata.len() > 524_288
+            || request.disclosure.recipient == [0; 20]
+            || request.disclosure.denom.is_empty()
+            || request.disclosure.amount == [0; 32]
         {
             return Err(KmsError::Refused);
         }
-        let fee_limit = match *self
-            .inner
-            .send_fee_limit
-            .lock()
-            .map_err(|_| KmsError::Unavailable)?
-        {
-            Some((action_key, fee_limit)) if action_key == authorization.action_key => fee_limit,
-            _ => return Err(KmsError::Refused),
+        let call = layerx_crypto::evm_transaction::Eip1559Call {
+            chain_id: transaction.chain_id,
+            nonce: transaction.nonce,
+            max_priority_fee_per_gas: transaction.max_priority_fee_per_gas.into(),
+            max_fee_per_gas: transaction.max_fee_per_gas.into(),
+            gas_limit: transaction.gas_limit,
+            to: transaction.to,
+            data: transaction.calldata.clone(),
         };
+        let disclosed = layerx_crypto::disclosure::call::bind_call(&call, authorization.wallet)
+            .map_err(|_| KmsError::Refused)?;
+        match disclosed
+            .construct_method()
+            .map_err(|_| KmsError::Refused)?
         {
-            let sends = self.inner.sends.lock().map_err(|_| KmsError::Unavailable)?;
-            if let Some(previous) = sends.get(&authorization.action_key) {
-                return if previous.authorization == authorization && previous.fee_limit == fee_limit
-                {
-                    Ok(previous.signed.authorization().signature().to_vec())
-                } else {
-                    Err(KmsError::Conflict)
-                };
-            }
-            if sends.len() >= ATTESTOR_SEND_CACHE_LIMIT {
-                return Err(KmsError::Unavailable);
-            }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                from,
+                to,
+                denom,
+                amount,
+            }) if from == authorization.wallet
+                && to == request.disclosure.recipient
+                && denom == request.disclosure.denom
+                && amount == request.disclosure.amount => {}
+            _ => return Err(KmsError::Refused),
+        }
+        let mut sends = self.inner.sends.lock().map_err(|_| KmsError::Unavailable)?;
+        if let Some(previous) = sends.get(&authorization.action_key) {
+            return if previous.request == request {
+                Ok(previous.raw_transaction.clone())
+            } else {
+                Err(KmsError::Conflict)
+            };
+        }
+        if sends.len() >= ATTESTOR_SEND_CACHE_LIMIT {
+            return Err(KmsError::Unavailable);
+        }
+        if sends.values().any(|previous| {
+            let prior = &previous.request.authorization;
+            prior.wallet == authorization.wallet
+                && prior.transaction.chain_id == transaction.chain_id
+                && prior.transaction.nonce >= transaction.nonce
+        }) {
+            return Err(KmsError::Conflict);
         }
         let assertion = self
             .inner
@@ -8714,88 +8778,44 @@ impl AttestorKms {
             .map_err(|_| KmsError::Unavailable)?
             .remove(&owner)
             .ok_or(KmsError::Authentication)?;
-        let debit = layerx_crypto::send::SendDebit {
-            from: authorization.from,
-            to: authorization.to,
-            asset: authorization.asset,
-            amount: authorization.amount,
-            source_sequence: authorization.sequence,
-            idempotency_key: authorization.idempotency_key,
-            expires_at: authorization.expires_at,
-            context_hash: authorization.context,
-            conditions: Vec::new(),
-            authorization_kind: layerx_types::intent::SendAuthorizationKind::Owner as u8,
-            network_id: authorization.network,
-            protocol_version: authorization.protocol,
-        };
-        let actor = format!("did:layerx:{}", hex_bytes(&public_key));
-        let options = layerx_crypto::send::EnvelopeOptions {
-            actor: &actor,
-            public_key,
-            protocol_version: authorization.protocol,
-            network_id: authorization.network,
-            identity_sequence: authorization.sequence,
-            idempotency_key: authorization.idempotency_key,
-            fee_limit,
-            not_before: authorization.not_before,
-            not_after: authorization.not_after,
-        };
-        // The approval binding comes from the authorized plan and the stored key owner: both
-        // signing stages carry the same principal and expiry and their own boundary session.
-        let authorization_session = layerx_human_kms::attestor::new_session_id("authorization")
-            .map_err(|error| attestor_kms_failure(&error))?;
-        let activity_session = layerx_human_kms::attestor::new_session_id("activity")
-            .map_err(|error| attestor_kms_failure(&error))?;
-        let approval = layerx_human_kms::attestor::SendApproval {
-            principal: &owner,
-            authorization_session: &authorization_session,
-            activity_session: &activity_session,
-            expires_at: authorization.expires_at.min(authorization.not_after),
-        };
-        let signed = self
+        if assertion_subject(assertion.as_str()).ok().as_deref() != Some(owner.as_str()) {
+            return Err(KmsError::Authentication);
+        }
+        let signer = self
             .signer(&key_id, public_key, binding.network_id())
-            .and_then(|signer| {
-                signer.sign_send(&debit, &options, &approval, || {
-                    Ok(assertion.as_str().to_owned())
-                })
-            })
+            .and_then(|signer| signer.with_public_wallet(&owner, assertion.as_str()))
             .map_err(|error| {
                 self.refused(&error);
                 attestor_kms_failure(&error)
             })?;
-        let signature = signed.authorization().signature().to_vec();
-        self.inner
-            .sends
-            .lock()
-            .map_err(|_| KmsError::Unavailable)?
-            .insert(
-                authorization.action_key,
-                AttestorSignedSend {
-                    authorization,
-                    fee_limit,
-                    signed,
-                },
-            );
-        Ok(signature)
-    }
-
-    fn signed_send(
-        &self,
-        request: &ProviderSignRequest<'_>,
-    ) -> Result<Option<[u8; 64]>, CustodyError> {
-        let mut sends = self
-            .inner
-            .sends
-            .lock()
-            .map_err(|_| CustodyError::Kms(KmsError::Unavailable))?;
-        let found = sends.iter().find_map(|(action_key, send)| {
-            (send.signed.canonical() == request.canonical_bytes()
-                && send.signed.disclosure() == request.disclosure())
-            .then_some(*action_key)
-        });
-        Ok(found
-            .and_then(|action_key| sends.remove(&action_key))
-            .map(|send| *send.signed.activity().signature()))
+        if signer.evm_address() != authorization.wallet {
+            return Err(KmsError::Refused);
+        }
+        let unsigned = layerx_human_kms::attestor::unsigned_evm_transaction(&call);
+        let mut signature = signer
+            .sign_evm_transaction(&unsigned, call.chain_id)
+            .map_err(|error| {
+                self.refused(&error);
+                attestor_kms_failure(&error)
+            })?;
+        signature[64] += 27;
+        let signature = layerx_crypto::signer::AgentSignature::new(signature)
+            .map_err(|_| KmsError::InvalidResponse)?;
+        if layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| KmsError::InvalidResponse)?
+            != authorization.wallet
+        {
+            return Err(KmsError::Integrity);
+        }
+        let raw_transaction = layerx_crypto::evm_transaction::assemble(&call, &signature);
+        sends.insert(
+            authorization.action_key,
+            AttestorSignedSend {
+                request,
+                raw_transaction: raw_transaction.clone(),
+            },
+        );
+        Ok(raw_transaction)
     }
 
     fn sign_now(
@@ -8810,9 +8830,6 @@ impl AttestorKms {
             || !layerx_crypto::ct::eq_fixed(&public_key, &request.expected_public_key())
         {
             return Err(CustodyError::Kms(KmsError::Integrity));
-        }
-        if let Some(signature) = self.signed_send(&request)? {
-            return Ok(signature);
         }
         let assertion = self
             .inner
