@@ -8551,3 +8551,12 @@ symbol = "mix-in-builder"
 observed = "Attempt 4 ran the pre-split three-path gate: the explorer app passed 19 of 19 (market_event_test fixed) and the indexer app failed 'Background migrations failed' as the second app of one invocation (issue #1098)."
 assumption = "The split gate from 14919f32b runs the indexer and explorer files in separate invocations; the candidate is carried unchanged."
 severity = "minor"
+
+[finding.18.783.1.1]
+task = "18.783.1"
+file = "docs/wiki/PublicRpc.md"
+symbol = "px_getAccount"
+observed = "Attempt 6 passed its gate and failed ten graph checks because the task listed served RPC method names (px_getAccount, px_getBalances and eight more) as symbols; they are documentation subjects, not code identifiers, so no resolver can find them."
+assumption = "The symbol list is cleared; the task touches three documentation pages and its gate stays as written."
+severity = "minor"
+
