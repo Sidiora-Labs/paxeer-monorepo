@@ -180333,7 +180333,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1123.1]
 title = "Issue #1123: Register the getProgramAccountById, getAccountProfile and getValueAccount views of the programs precompile"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -180363,7 +180363,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1124.1]
 title = "Issue #1124: Set the host node's occupancy asset from the fee schedule before the kernel binds a wind-down ledger admission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
