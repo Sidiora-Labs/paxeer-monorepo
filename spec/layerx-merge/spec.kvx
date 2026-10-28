@@ -142685,7 +142685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.0.2]
 title = "Refuse retired human-api operations with operation-retired before dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.15.2", "10.4.4", "14.10.1", "9.1.8", "18.1119.1"]
@@ -142966,7 +142966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.2]
 title = "Render approvals with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.0.1", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -184160,7 +184160,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1105.1]
 title = "Issue #1105: Default the market attestation driver's native include path to -Iinclude and pin it with a focused test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
