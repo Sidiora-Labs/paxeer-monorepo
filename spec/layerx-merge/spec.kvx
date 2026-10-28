@@ -134386,7 +134386,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.4]
 title = "Ship ramp example configuration and container environment for the merged chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 11
 requires = ["8.30.1", "8.31.2", "18.1083.1"]
@@ -172664,7 +172664,7 @@ qualification = "UNRUN"
 
 [task.18.941.1]
 title = "Issue #941: Relink loadtest after native archive changes and build the archives before it links"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174973,7 +174973,7 @@ qualification = "UNRUN"
 
 [task.18.694.1]
 title = "Issue #694: Stop presenting a capped daily PnL read as All-time performance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1052.1"]
@@ -175197,7 +175197,7 @@ qualification = "UNRUN"
 
 [task.18.880.1]
 title = "Issue #880: Give the search-front deploy step a runnable upstream and edge registration path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1070.1"]
@@ -175918,7 +175918,7 @@ qualification = "UNRUN"
 
 [task.18.948.1]
 title = "Issue #948: Send a complete ceremony import from the attestor server test helper and name the refused ceremony id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176014,7 +176014,7 @@ qualification = "UNRUN"
 
 [task.18.997.1]
 title = "Issue #997: Authorize the receipt-vector signer in the serving chain state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176731,7 +176731,7 @@ qualification = "UNRUN"
 
 [task.18.788.1]
 title = "Issue #788: Decode agent SDK gateway amounts up to uint256 and run the AI market test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1069.1"]
@@ -178465,7 +178465,7 @@ qualification = "UNRUN"
 
 [task.18.825.1]
 title = "Issue #825: Restore the SDK history decode tests for the u256 bound, LayerX rows, null fields and next_cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.747.1", "18.1069.1"]
@@ -179687,7 +179687,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1077.1]
 title = "Issue #1077: Drop the retired Paxeer RPC fields from the reference ramp route test fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
@@ -179746,7 +179746,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1083.1]
 title = "Issue #1083: Refresh services/platform/Cargo.lock after the ramp manifests dropped the retired Paxeer crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
