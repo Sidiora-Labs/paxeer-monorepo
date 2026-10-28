@@ -4,7 +4,7 @@
 
 Source: the `rpc.API` registrations in `rpc/server.go` (HTTP and WebSocket) and the exported methods of each registered service type, named `<namespace>_<method>` as the JSON-RPC server derives them. The `test` namespace is only served on non-live chain ids; operators can deny methods by configuration.
 
-Total methods: 99
+Total methods: 103
 
 ## debug
 
@@ -35,17 +35,14 @@ Total methods: 99
 | `eth_accounts` | call | InfoAPI | `rpc/info.go` |
 | `eth_blobBaseFee` | call | InfoAPI | `rpc/info.go` |
 | `eth_blockNumber` | call | InfoAPI | `rpc/info.go` |
-| `eth_calculateGasUsedRatio` | call | InfoAPI | `rpc/info.go` |
 | `eth_call` | call | SimulationAPI | `rpc/simulate.go` |
 | `eth_chainId` | call | InfoAPI | `rpc/info.go` |
-| `eth_cleanup` | call | FilterAPI | `rpc/filter.go` |
 | `eth_coinbase` | call | InfoAPI | `rpc/info.go` |
 | `eth_createAccessList` | call | SimulationAPI | `rpc/simulate.go` |
 | `eth_estimateGas` | call | SimulationAPI | `rpc/simulate.go` |
 | `eth_estimateGasAfterCalls` | call | SimulationAPI | `rpc/simulate.go` |
 | `eth_feeHistory` | call | InfoAPI | `rpc/info.go` |
 | `eth_gasPrice` | call | InfoAPI | `rpc/info.go` |
-| `eth_gasPriceHelper` | call | InfoAPI | `rpc/info.go` |
 | `eth_getBalance` | call | StateAPI | `rpc/state.go` |
 | `eth_getBlockByHash` | call | BlockAPI | `rpc/block.go` |
 | `eth_getBlockByNumber` | call | BlockAPI | `rpc/block.go` |
@@ -56,6 +53,9 @@ Total methods: 99
 | `eth_getLogs` | call | FilterAPI | `rpc/filter.go` |
 | `eth_getNonce` | call | StateAPI | `rpc/state.go` |
 | `eth_getProof` | call | StateAPI | `rpc/state.go` |
+| `eth_getRawTransactionByBlockHashAndIndex` | call | RawTransactionAPI | `rpc/raw_tx_index.go` |
+| `eth_getRawTransactionByBlockNumberAndIndex` | call | RawTransactionAPI | `rpc/raw_tx_index.go` |
+| `eth_getRawTransactionByHash` | call | RawTransactionAPI | `rpc/raw_tx.go` |
 | `eth_getStorageAt` | call | StateAPI | `rpc/state.go` |
 | `eth_getTransactionByBlockHashAndIndex` | call | TransactionAPI | `rpc/tx.go` |
 | `eth_getTransactionByBlockNumberAndIndex` | call | TransactionAPI | `rpc/tx.go` |
@@ -63,11 +63,17 @@ Total methods: 99
 | `eth_getTransactionCount` | call | TransactionAPI | `rpc/tx.go` |
 | `eth_getTransactionErrorByHash` | call | TransactionAPI | `rpc/tx.go` |
 | `eth_getTransactionReceipt` | call | TransactionAPI | `rpc/tx.go` |
+| `eth_getUncleByBlockHashAndIndex` | call | UncleAPI | `rpc/uncle.go` |
+| `eth_getUncleByBlockNumberAndIndex` | call | UncleAPI | `rpc/uncle.go` |
+| `eth_getUncleCountByBlockHash` | call | UncleAPI | `rpc/uncle_count.go` |
+| `eth_getUncleCountByBlockNumber` | call | UncleAPI | `rpc/uncle_count.go` |
 | `eth_getVMError` | call | TransactionAPI | `rpc/tx.go` |
 | `eth_logs` | subscription | SubscriptionAPI | `rpc/subscribe.go` |
 | `eth_maxPriorityFeePerGas` | call | InfoAPI | `rpc/info.go` |
 | `eth_newHeads` | subscription | SubscriptionAPI | `rpc/subscribe.go` |
+| `eth_newPendingTransactions` | subscription | SendAPI | `rpc/send.go` |
 | `eth_sendRawTransaction` | call | SendAPI | `rpc/send.go` |
+| `eth_sendRawTransactionSync` | call | SendAPI | `rpc/send_sync.go` |
 | `eth_sendTransaction` | call | SendAPI | `rpc/send.go` |
 | `eth_sign` | call | TransactionAPI | `rpc/tx.go` |
 | `eth_signTransaction` | call | SendAPI | `rpc/send.go` |
@@ -77,15 +83,15 @@ Total methods: 99
 
 | Method | Kind | Service type | Source |
 |---|---|---|---|
+| `net_listening` | call | NetAPI | `rpc/net.go` |
+| `net_peerCount` | call | NetAPI | `rpc/net_peers.go` |
 | `net_version` | call | NetAPI | `rpc/net.go` |
 
 ## pax
 
 | Method | Kind | Service type | Source |
 |---|---|---|---|
-| `pax_asRawJSON` | call | PaxDebugAPI | `rpc/tracers.go` |
 | `pax_associate` | call | AssociationAPI | `rpc/association.go` |
-| `pax_cleanup` | call | FilterAPI | `rpc/filter.go` |
 | `pax_getBlockByHash` | call | PaxBlockAPI | `rpc/block.go` |
 | `pax_getBlockByHashExcludeTraceFail` | call | PaxBlockAPI | `rpc/block.go` |
 | `pax_getBlockByNumber` | call | PaxBlockAPI | `rpc/block.go` |
@@ -96,12 +102,10 @@ Total methods: 99
 | `pax_getCosmosTx` | call | AssociationAPI | `rpc/association.go` |
 | `pax_getEVMAddress` | call | AssociationAPI | `rpc/association.go` |
 | `pax_getEvmTx` | call | AssociationAPI | `rpc/association.go` |
-| `pax_getLogs` | call | FilterAPI | `rpc/filter.go` |
+| `pax_getFilterChanges` | call | PaxFilterAPI | `rpc/pax_filter.go` |
+| `pax_getFilterLogs` | call | PaxFilterAPI | `rpc/pax_filter.go` |
+| `pax_getLogs` | call | PaxFilterAPI | `rpc/pax_filter.go` |
 | `pax_getPaxAddress` | call | AssociationAPI | `rpc/association.go` |
-| `pax_getRawBlock` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_getRawHeader` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_getRawReceipts` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_getRawTransaction` | call | PaxDebugAPI | `rpc/tracers.go` |
 | `pax_getTransactionByBlockHashAndIndex` | call | PaxTransactionAPI | `rpc/tx.go` |
 | `pax_getTransactionByBlockNumberAndIndex` | call | PaxTransactionAPI | `rpc/tx.go` |
 | `pax_getTransactionByHash` | call | PaxTransactionAPI | `rpc/tx.go` |
@@ -110,15 +114,13 @@ Total methods: 99
 | `pax_getTransactionReceipt` | call | PaxTransactionAPI | `rpc/tx.go` |
 | `pax_getTransactionReceiptExcludeTraceFail` | call | PaxTransactionAPI | `rpc/tx.go` |
 | `pax_getVMError` | call | PaxTransactionAPI | `rpc/tx.go` |
+| `pax_newBlockFilter` | call | PaxFilterAPI | `rpc/pax_filter.go` |
+| `pax_newFilter` | call | PaxFilterAPI | `rpc/pax_filter.go` |
+| `pax_sequencerReceipt` | call | SequencerReceiptAPI | `rpc/sequencer_receipt.go` |
 | `pax_sign` | call | PaxTransactionAPI | `rpc/tx.go` |
-| `pax_traceBlockByHash` | call | PaxDebugAPI | `rpc/tracers.go` |
 | `pax_traceBlockByHashExcludeTraceFail` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_traceBlockByNumber` | call | PaxDebugAPI | `rpc/tracers.go` |
 | `pax_traceBlockByNumberExcludeTraceFail` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_traceCall` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_traceStateAccess` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_traceTransaction` | call | PaxDebugAPI | `rpc/tracers.go` |
-| `pax_traceTransactionProfile` | call | PaxDebugAPI | `rpc/trace_profile.go` |
+| `pax_uninstallFilter` | call | PaxFilterAPI | `rpc/pax_filter.go` |
 
 ## pax2
 
@@ -143,9 +145,11 @@ Total methods: 99
 | Method | Kind | Service type | Source |
 |---|---|---|---|
 | `txpool_content` | call | TxPoolAPI | `rpc/txpool.go` |
+| `txpool_status` | call | TxPoolAPI | `rpc/txpool.go` |
 
 ## web3
 
 | Method | Kind | Service type | Source |
 |---|---|---|---|
 | `web3_clientVersion` | call | Web3API | `rpc/web3.go` |
+| `web3_sha3` | call | Web3API | `rpc/web3.go` |

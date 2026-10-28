@@ -6,7 +6,6 @@ import {
   encodeFunctionData,
   getAddress,
   hexToBytes,
-  keccak256,
   parseAbi,
   recoverTransactionAddress,
   serializeTransaction,
@@ -16,6 +15,9 @@ import {
 import { publicKeyToAddress } from 'viem/accounts';
 import { AttestorClient } from '../attestor/client.js';
 import { RpcPool, RpcResponseError } from '../rpc/pool.js';
+import { transactionHash } from '../chain.js';
+
+export { transactionHash } from '../chain.js';
 
 export const ADDR_PRECOMPILE = '0x0000000000000000000000000000000000001004' as const;
 export const BIND_DOMAIN = 'LX:PAXEER-BIND:v1';
@@ -265,10 +267,6 @@ export async function signTransactionWithAttestors(
     throw new AttestorUnavailable('attestor transaction signature recovers another address');
   }
   return signed;
-}
-
-export function transactionHash(raw: Hex): Hex {
-  return keccak256(raw);
 }
 
 export interface ChainReceipt {

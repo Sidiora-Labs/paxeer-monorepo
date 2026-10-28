@@ -31,7 +31,11 @@ export type LaunchpadWrite = keyof typeof LAUNCHPAD_WRITES;
 
 /** Builds a call of any launchpad write a direct call to the precompile resolves, by canonical signature. */
 export function launchpadCall(method: LaunchpadWrite, args: readonly AbiArgument[], value = 0n): PrecompileCall {
-  return precompileWriteCall(LAUNCHPAD_PRECOMPILE, method, LAUNCHPAD_WRITES[method], args, value);
+  const write = LAUNCHPAD_WRITES[method];
+  if (write === undefined) {
+    throw new PrecompileAbiError("invalid_value", `launchpad has no ${method}`);
+  }
+  return precompileWriteCall(LAUNCHPAD_PRECOMPILE, method, write, args, value);
 }
 
 /** A Router swap: `amountIn` is the USDL paid in for a buy and the tokens sold for a sell; the Router pays the caller. */

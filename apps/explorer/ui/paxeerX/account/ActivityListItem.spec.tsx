@@ -2,9 +2,11 @@
 
 import React from 'react';
 
+import type { PaxeerXActivityItem } from 'types/api/paxeerX';
+
 import * as paxeerXMock from 'mocks/paxeerX/unifiedAccount';
 import { TableBody, TableRoot } from 'toolkit/chakra/table';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 import { screen } from 'vitest/lib';
 
 import ActivityListItem from './ActivityListItem';
@@ -20,16 +22,31 @@ const renderItem = (item: typeof transfer) => render(
   </TableRoot>,
 );
 
+function activity_row_renders_native_item_without_side() {
+  const item: PaxeerXActivityItem = {
+    kind: transfer.kind,
+    hash: transfer.hash,
+    block_number: transfer.block_number,
+    ordinal: transfer.ordinal,
+    status: transfer.status,
+    timestamp: transfer.timestamp,
+    asset: transfer.asset,
+    amount: transfer.amount,
+    counterparty: transfer.counterparty,
+  };
+  const { container } = renderItem(item);
+  const row = container.querySelector(`[data-activity="${ item.hash }"]`) as HTMLElement;
+
+  expect(item).not.toHaveProperty('side');
+  expect(row).toBeTruthy();
+  expect(row.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Token transfer');
+  expect(row.querySelector('td:first-child')?.textContent).toBe('Token transfer');
+  expect(screen.queryByText('Chain')).toBeNull();
+  expect(screen.queryByText('Kernel')).toBeNull();
+}
+
 describe('ActivityListItem', () => {
-  it('names the action on a method chip and the side of the network under it', () => {
-    const { container } = renderItem(transfer);
-
-    const row = container.querySelector(`[data-activity="${ transfer.hash }"]`) as HTMLElement;
-
-    expect(row).toBeTruthy();
-    expect(row.querySelector('[data-scan-method]')?.getAttribute('data-scan-method')).toBe('Token transfer');
-    expect(row.querySelector('td:first-child')?.textContent).toBe('Token transferChain');
-  });
+  test(activity_row_renders_native_item_without_side);
 
   it('links the transaction and the block it sits in', () => {
     const { container } = renderItem(transfer);

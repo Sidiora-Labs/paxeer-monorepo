@@ -162,7 +162,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential
+          sudo apt-get install -y build-essential libssl-dev
 
       - name: Verify Go installation
         run: |
@@ -172,6 +172,12 @@ jobs:
 
       - name: Download Go dependencies
         run: go mod download
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+
+      - name: Build native libraries
+        run: make paxd-native-libs
 
       - name: Run make -f chain.mk install
         run: make -f chain.mk install
@@ -200,6 +206,9 @@ jobs:
       - name: Install system dependencies
         run: |
           xcode-select --version || xcode-select --install
+          brew install openssl@3
+          echo "CFLAGS=-I$(brew --prefix openssl@3)/include" >> "$GITHUB_ENV"
+          echo "LDFLAGS=-L$(brew --prefix openssl@3)/lib" >> "$GITHUB_ENV"
 
       - name: Verify Go installation
         run: |
@@ -209,6 +218,12 @@ jobs:
 
       - name: Download Go dependencies
         run: go mod download
+
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
+
+      - name: Build native libraries
+        run: make paxd-native-libs
 
       - name: Run make -f chain.mk install
         run: make -f chain.mk install

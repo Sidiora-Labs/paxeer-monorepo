@@ -46,7 +46,7 @@ LAUNCHPAD_WRITES: dict[str, bool] = {
     "sellWithPermit(address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))": False,
     "swapTokenForToken(address,address,uint256,uint256,uint256)": False,
     "swapTokenForTokenWithPermit(address,address,uint256,uint256,uint256,(uint256,uint256,uint8,bytes32,bytes32))": False,
-    "upgradeToAndCall(address,bytes)": True,
+    "upgradeToAndCall(address,bytes)": False,
     "createMarketFor(address,string,string,uint8,address)": False,
     "initialize(address,address,address,address,address,address,address,address,address)": False,
     "initialize(address,address,address)": False,

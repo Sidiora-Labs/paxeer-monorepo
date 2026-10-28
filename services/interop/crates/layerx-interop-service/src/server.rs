@@ -1354,8 +1354,7 @@ impl FacilitatorPlane for X402SettlePlane {
         request: FacilitatorPaymentRequest,
         _trace: &TraceId,
     ) -> Result<FacilitatorSettlementOutcome, X402Error> {
-        match verified_x402_transfer_reference(&request, self.observed_at, request.idempotency_key)
-        {
+        match verified_x402_transfer(&request, self.observed_at) {
             Ok(_) => (),
             Err(reason) => {
                 return Ok(FacilitatorSettlementOutcome::Refused {
@@ -4943,11 +4942,10 @@ mod tests {
     }
 
     fn x402_settlement_fixture(
-        principal: &PrincipalId,
+        _principal: &PrincipalId,
         stable_identity: [u8; 32],
     ) -> X402TestResult<(FacilitatorRequest, Value, Vec<SequencerAuthorization>)> {
         use layerx_interop_gateway::evidence::canonical_receipt_digest;
-        use layerx_x402::facilitator::SettlementIdentity;
 
         fn replace(bytes: &mut [u8], old: &[u8], new: &[u8]) {
             assert_eq!(old.len(), new.len());
@@ -4970,12 +4968,6 @@ mod tests {
             .as_mut()
             .ok_or("profile required")?["layerx"]["commitment"] = json!("receipted");
         request.payment_payload.accepted = request.payment_requirements.clone();
-        let identity = SettlementIdentity::derive(
-            principal,
-            &request,
-            stable_identity,
-            SettlementStep::Single,
-        )?;
         let raw_text = recorded.payment_payload.payload["layerxTransaction"]
             .as_str()
             .ok_or("raw transaction")?;
@@ -4987,7 +4979,7 @@ mod tests {
         replace(
             &mut transaction.data,
             &old_transfer.reference,
-            &identity.idempotency_key,
+            &stable_identity,
         );
         let raw = transaction.sign(&[0x3b; 32])?;
         let (_, sender, tx_hash) = decode_pay_exact(&raw)?;
@@ -5010,7 +5002,7 @@ mod tests {
         replace(
             &mut receipt,
             &[old_transfer.from, old_transfer.to, old_transfer.reference].concat(),
-            &[identity.idempotency_key, old_transfer.from, recipient].concat(),
+            &[stable_identity, old_transfer.from, recipient].concat(),
         );
         replace(&mut receipt, &old_hash, &tx_hash);
         if old_sender != sender {
@@ -5023,8 +5015,7 @@ mod tests {
         receipt_json["txHash"] = json!(format!("0x{}", hex(&tx_hash)));
         receipt_json["from"] = json!(format!("0x{}", hex(&sender)));
         receipt_json["receipt"] = json!(format!("0x{}", hex(&receipt)));
-        receipt_json["logs"][0]["topics"][1] =
-            json!(format!("0x{}", hex(&identity.idempotency_key)));
+        receipt_json["logs"][0]["topics"][1] = json!(format!("0x{}", hex(&stable_identity)));
         receipt_json["logs"][0]["topics"][2] = json!(format!("0x{}", hex(&old_transfer.from)));
         receipt_json["logs"][0]["topics"][3] = json!(format!("0x{}", hex(&recipient)));
         request.payment_payload.payload = json!({
@@ -5045,6 +5036,93 @@ mod tests {
             1999,
         )];
         Ok((request, receipt_json, keys))
+    }
+
+    #[test]
+    fn x402_verified_payment_settles_with_the_same_reference() -> X402TestResult {
+        use layerx_x402::facilitator::SettlementIdentity;
+
+        let trace = TraceId::mint([0x77; 16]);
+        let principal = PrincipalId::new("principal-x402-reference")?;
+        let stable_identity = [0x78; 32];
+        let observed_at = 1_750_000_000_000;
+        let (request, receipt, keys) = x402_settlement_fixture(&principal, stable_identity)?;
+        let identity = SettlementIdentity::derive(
+            &principal,
+            &request,
+            stable_identity,
+            SettlementStep::Single,
+        )?;
+        assert_ne!(identity.idempotency_key, stable_identity);
+        let payment = FacilitatorPaymentRequest {
+            payment_payload: request.payment_payload,
+            payment_requirements: request.payment_requirements,
+            idempotency_key: identity.idempotency_key,
+            request_digest: identity.request_digest,
+            settlement_step: SettlementStep::Single,
+        };
+        let (transfer, tx_hash) = verified_x402_transfer(&payment, observed_at)?;
+        assert_eq!(transfer.reference, stable_identity);
+        let raw = payment.payment_payload.payload["layerxTransaction"]
+            .as_str()
+            .ok_or("raw transaction")?;
+        let raw = decode_hex(raw.strip_prefix("0x").ok_or("raw prefix")?, MAX_BODY)?;
+        let redis = X402RedisProcess::start()?;
+        let (relay, server) = payment_relay(&redis, &raw, &receipt, keys)?;
+        let mut plane = X402SettlePlane {
+            relay,
+            receipt_hex: None,
+            activity_id: None,
+            unavailable: false,
+            observed_at,
+        };
+        assert!(matches!(
+            plane.settle(payment.clone(), &trace)?,
+            FacilitatorSettlementOutcome::Pending { transaction }
+                if transaction == format!("0x{}", hex(&tx_hash))
+        ));
+        assert!(matches!(
+            plane.settle(payment.clone(), &trace)?,
+            FacilitatorSettlementOutcome::Executed(evidence)
+                if evidence.transaction_hash == tx_hash
+        ));
+        server
+            .join()
+            .map_err(|_| "payment relay fixture panicked")??;
+        assert!(plane
+            .relay
+            .recorded_evidence(&hex(&stable_identity))?
+            .is_none());
+
+        let (wrong_reference, _, _) =
+            x402_settlement_fixture(&principal, identity.idempotency_key)?;
+        let mut mismatched = payment;
+        mismatched.payment_payload = wrong_reference.payment_payload;
+        mismatched.payment_payload.payload["layerxIdempotencyKey"] = json!(hex(&stable_identity));
+        assert_eq!(
+            verified_x402_transfer(&mismatched, observed_at),
+            Err("protocol_idempotency_mismatch")
+        );
+        let raw = mismatched.payment_payload.payload["layerxTransaction"]
+            .as_str()
+            .ok_or("raw transaction")?;
+        let raw = decode_hex(raw.strip_prefix("0x").ok_or("raw prefix")?, MAX_BODY)?;
+        let (transfer, sender, _) = decode_pay_exact(&raw)?;
+        assert_eq!(transfer.reference, identity.idempotency_key);
+        assert!(matches!(
+            plane.settle(mismatched, &trace)?,
+            FacilitatorSettlementOutcome::Refused {
+                reason: "protocol_idempotency_mismatch",
+                ..
+            }
+        ));
+        assert_eq!(
+            plane
+                .relay
+                .relay(&hex(&identity.idempotency_key), &raw, sender),
+            Err(RelayError::TransactionReplacementRefused)
+        );
+        Ok(())
     }
 
     fn x402_loopback_settlement(

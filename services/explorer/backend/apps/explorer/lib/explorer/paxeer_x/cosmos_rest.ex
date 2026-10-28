@@ -25,7 +25,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
   @rounds 2
   @retry_delay_ms 200
   @max_body_bytes 33_554_432
-  @http_options [recv_timeout: 5_000, timeout: 2_000, follow_redirect: false]
+  @http_options [recv_timeout: 30_000, timeout: 2_000, follow_redirect: false]
   @max_int64 9_223_372_036_854_775_807
   @max_int32 2_147_483_647
 
@@ -39,6 +39,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
           | {:malformed, String.t()}
 
   @type observation :: %{
+          optional(:accepted) => boolean(),
           market_id: non_neg_integer(),
           sequence: non_neg_integer(),
           index_price: non_neg_integer(),
@@ -274,7 +275,31 @@ defmodule Explorer.PaxeerX.CosmosRest do
         with %{} <- result,
              {:ok, code} <- integer(Map.get(result, "code", 0), nil),
              {:ok, gas_used} <- integer(Map.get(result, "gas_used", "0"), @max_int64) do
-          {:cont, {:ok, [Map.merge(submission, %{status: if(code == 0, do: 1, else: 0), gas_used: gas_used}) | acc]}}
+          refused_attributes =
+            for %{"type" => "pricefeed_observation_refused", "attributes" => attributes} <- result["events"] || [],
+                %{"key" => key, "value" => value} <- attributes,
+                into: MapSet.new(),
+                do: {key, value}
+
+          observations =
+            Enum.map(submission.observations, fn observation ->
+              market_id = Integer.to_string(observation.market_id)
+
+              refused? =
+                MapSet.member?(refused_attributes, {"market_id", market_id}) or
+                  MapSet.member?(refused_attributes, {Base.encode64("market_id"), Base.encode64(market_id)})
+
+              Map.put(observation, :accepted, code == 0 and not refused?)
+            end)
+
+          update =
+            Map.merge(submission, %{
+              status: if(code == 0, do: 1, else: 0),
+              gas_used: gas_used,
+              observations: observations
+            })
+
+          {:cont, {:ok, [update | acc]}}
         else
           {:error, _} = error -> {:halt, error}
           _ -> {:halt, {:error, {:malformed, "execution result is not an object"}}}
@@ -373,7 +398,7 @@ defmodule Explorer.PaxeerX.CosmosRest do
   # greater than the current height.
   defp node_error(status, body, url) do
     cond do
-      body =~ "is not available" -> {:error, {:height_unavailable, url}}
+      body =~ ~r/height \d+ is not available, lowest height is \d+/ -> {:error, {:height_unavailable, url}}
       body =~ ~r/must be less than or equal to|greater than the current height/ -> {:error, {:height_ahead, url}}
       true -> {:error, {:http_status, status, url}}
     end

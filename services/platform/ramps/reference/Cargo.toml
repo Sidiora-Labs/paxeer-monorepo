@@ -7,7 +7,6 @@ license.workspace = true
 
 [dependencies]
 layerx-ramp-toolkit = { path = "../toolkit" }
-layerx-paxeer-client.workspace = true
 layerx-types.workspace = true
 layerx-wire.workspace = true
 native-tls.workspace = true

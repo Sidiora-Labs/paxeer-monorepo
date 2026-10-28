@@ -40,6 +40,10 @@ struct Chain {
 impl Chain {
     fn start(journal: PathBuf) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        Self::listen(journal, listener)
+    }
+
+    fn listen(journal: PathBuf, listener: TcpListener) -> Self {
         let address = listener.local_addr().unwrap();
         listener.set_nonblocking(true).unwrap();
         let state = Arc::new(Mutex::new(ChainState {
@@ -70,6 +74,7 @@ impl Chain {
                 state.requests.push(request.clone());
                 let result = match request["method"].as_str().unwrap() {
                     "eth_chainId" => json!("0x7d"),
+                    "eth_blockNumber" => json!("0x0"),
                     "eth_call" => {
                         assert_eq!(
                             request["params"][0]["to"],
@@ -642,6 +647,66 @@ fn testnet_fund_replays_the_journaled_transaction() {
             .count(),
         2
     );
+}
+
+#[test]
+fn readyz_and_funding_recover_after_startup_chain_outage() {
+    let reserved = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = reserved.local_addr().unwrap();
+    drop(reserved);
+    let key = "startup-outage";
+    let mut harness = Harness::with_chain(key, false, Some(address));
+    let core_pid = harness.core.as_ref().unwrap().id();
+
+    for _ in 0..2 {
+        let (status, document) = harness.readiness();
+        assert_eq!(status, 503);
+        assert_eq!(document["error"]["code"], "node_unavailable");
+        assert_eq!(
+            document["funding"],
+            json!({"ready": false, "reason": "chain_unavailable"})
+        );
+        let (status, refusal) = harness.fund(key, 123_456);
+        assert_eq!(status, 503);
+        assert_eq!(refusal["error"]["code"], "treasury_unavailable");
+        assert_eq!(refusal["error"]["retry_after_seconds"], 5);
+    }
+
+    let mut digest = Sha256::new();
+    digest.update(b"fund-canonical\0");
+    digest.update(key.as_bytes());
+    let journal = harness
+        .root
+        .join("state/journal")
+        .join(format!("{}.json", hex_encode(&digest.finalize())));
+    harness.chain = Some(Chain::listen(journal, TcpListener::bind(address).unwrap()));
+
+    let (status, document) = harness.readiness();
+    assert_eq!(status, 503);
+    assert_eq!(document["error"]["code"], "node_unavailable");
+    assert_eq!(
+        document["funding"],
+        json!({
+            "ready": true,
+            "chain_id": 125,
+            "latest_block": 0,
+            "sender": "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf",
+        })
+    );
+    let (status, pending) = harness.fund(key, 123_456);
+    assert_eq!(status, 202);
+    assert_eq!(pending["funding_id"], "funding-8109");
+    assert_eq!(pending["state"], "pending");
+    let state = harness.chain().state.lock().unwrap();
+    assert_eq!(state.submissions.len(), 1);
+    assert_transfer(&state.submissions[0]);
+    assert_eq!(
+        pending["transaction_id"],
+        format!("0x{}", hex_encode(&transaction_hash(&state.submissions[0])))
+    );
+    drop(state);
+    assert_eq!(harness.core.as_ref().unwrap().id(), core_pid);
+    assert!(harness.core.as_mut().unwrap().try_wait().unwrap().is_none());
 }
 
 struct ReadinessChain {

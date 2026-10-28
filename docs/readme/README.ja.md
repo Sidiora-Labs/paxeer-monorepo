@@ -36,7 +36,7 @@
 
 Paxeer X Network は、二つの実行ドメインを持つ一つのネットワークです。Paxeer X チェーン（`paxd`、Go、EVM チェーン ID 125）と、自律エージェントのための決定的な実行・会計ドメインである LayerX カーネル（`layerxd`、C17）から成ります。公式サイト: [paxeer.network](https://paxeer.network/)。ドキュメント: [docs.paxeer.app](https://docs.paxeer.app/)。
 
-Paxeer X チェーンは Tendermint コンセンサス上で EVM を実行し、`layerxcustody`、`layerxexchange`、`layerxbridge`、`launchpad` の各モジュールを備えています。コントラクトはこれらに `0x1013`、`0x1015`、`0x1016`、`0x1017` のプリコンパイルを通じてアクセスします。LayerX カーネルはエージェントのアクティビティを決定的に実行・会計処理し、アクティビティごとに署名付きレシートを返します。カーネルのチェックポイントは `0x1014` の `layerxAnchor` プリコンパイルを通じてチェーン上で決済されます。
+Paxeer X チェーンは Tendermint コンセンサス上で EVM を実行し、`layerxcustody`、`layerxexchange`、`layerxbridge`、`launchpad` の各モジュールを備えています。コントラクトは `layerxCustody`（`0x1013`）、`perps`（`0x1015`）、`layerxBridge`（`0x1016`）、`launchpad`（`0x1017`）の各プリコンパイルを通じてネイティブモジュールにアクセスします。`node/app.go` で構築される v6.12.0 のセットは、このアップグレードが有効になると提供され、`0x1015` では `layerxExchange` よりも `perps` が優先されます。LayerX カーネルはエージェントのアクティビティを決定的に実行・会計処理し、アクティビティごとに署名付きレシートを返します。カーネルのチェックポイントは `0x1014` の `layerxAnchor` プリコンパイルを通じてチェーン上で決済されます。
 
 このリポジトリは、Sidiora Labs による Paxeer X Network のモノレポです。Paxeer X チェーンと LayerX カーネルを一つのリポジトリにまとめています。同じ場所に置くことで、カーネル、チェーン、コントラクト、開発者向け機能を一か所で監査できます。各サブシステムは、それぞれ独自のビルド、リリース、デプロイ、信頼の境界を保ちます。基準となる仕様は [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx) で、[`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md) として描画されています。リリースノートは [`CHANGELOG.md`](../../CHANGELOG.md) にあります。
 
@@ -167,7 +167,7 @@ flowchart TB
     occ("OCC parallel executor")
     pAnchor{{"layerxAnchor<br/>0x1014"}}
     pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
+    pExch{{"perps<br/>0x1015"}}
     pBridge{{"layerxBridge<br/>0x1016"}}
     pLaunch{{"launchpad<br/>0x1017"}}
     mCustody["layerxcustody module"]

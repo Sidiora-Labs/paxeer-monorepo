@@ -89,6 +89,9 @@ func (AppModule) LegacyQuerierHandler(_ *codec.LegacyAmino) sdk.Querier { return
 
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	if err := cfg.RegisterMigration(types.ModuleName, 1, keeper.NewMigrator(am.keeper).Migrate1to2); err != nil {
+		panic(fmt.Sprintf("failed to register x/%s migration 1 to 2: %v", types.ModuleName, err))
+	}
 }
 
 func (am AppModule) RegisterInvariants(registry sdk.InvariantRegistry) {
@@ -115,7 +118,7 @@ func (am AppModule) ExportGenesisStream(ctx sdk.Context, cdc codec.JSONCodec) <-
 	return ch
 }
 
-func (AppModule) ConsensusVersion() uint64 { return 1 }
+func (AppModule) ConsensusVersion() uint64 { return 2 }
 
 func (am AppModule) GenerateGenesisState(simState *module.SimulationState) {
 	simState.GenState[types.ModuleName] = simState.Cdc.MustMarshalJSON(types.DefaultGenesis())

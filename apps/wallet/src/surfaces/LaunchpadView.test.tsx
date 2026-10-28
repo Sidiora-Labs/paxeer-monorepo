@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, beforeEach, describe, expect, it, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, test, vi } from 'vitest';
 import {
   LAUNCHPAD_EVENTS,
   LAUNCHPAD_PRECOMPILE,
@@ -9,6 +9,7 @@ import {
   launchpadCreateMarketCall,
 } from '@sidiora/layerx-sdk';
 import { launchpad } from '@paxeer/wallet';
+import * as walletModules from '@paxeer/wallet';
 import { LaunchpadView } from './LaunchpadView';
 import {
   SurfaceChain,
@@ -41,6 +42,80 @@ const send = (container: HTMLElement) =>
   container.querySelector<HTMLButtonElement>('[data-action="send"]');
 
 describe('LaunchpadView', () => {
+  async function launchpad_view_refuses_a_deadline_that_is_not_a_positive_whole_number_of_minutes() {
+    const fixture = callFixtures().launchpad.buy as { pool: string; minOut: string };
+    const now = () => 1_800_000_000_123;
+    const factory = vi.spyOn(walletModules, 'launchpad');
+    try {
+      mounted = await mountSurface(chain, <LaunchpadView sidRate={null} now={now} />);
+      const { container } = mounted;
+      const result = factory.mock.results.find((entry) => entry.type === 'return');
+      if (!result || result.type !== 'return') throw new Error('no launchpad module');
+      const buy = vi.spyOn(result.value, 'buy');
+      const sell = vi.spyOn(result.value, 'sell');
+
+      await typeInto(container, 'deadlineMinutes', '');
+      await typeInto(container, 'pool', fixture.pool);
+      await typeInto(container, 'amountIn', '1');
+      await typeInto(container, 'minOut', fixture.minOut);
+      for (const minutes of ['', '0', '-5', '1.5']) {
+        await typeInto(container, 'deadlineMinutes', minutes);
+        expect(text(container, '[data-role="build-error"]')).toBe(
+          'the deadline must be a positive whole number of minutes'
+        );
+        expect(container.querySelector('[data-role="preview"]')).toBeNull();
+        expect(send(container)?.disabled).toBe(true);
+        await click(send(container), 'disabled send');
+        expect(buy).not.toHaveBeenCalled();
+        expect(sell).not.toHaveBeenCalled();
+        expect(chain.sent).toHaveLength(0);
+      }
+
+      await typeInto(container, 'deadlineMinutes', '10');
+      const order = {
+        pool: fixture.pool,
+        amountIn: 1_000_000_000_000_000_000n,
+        minOut: BigInt(fixture.minOut),
+        deadline: BigInt(Math.floor(now() / 1000) + 600),
+      };
+      expect(buy).toHaveBeenCalledExactlyOnceWith(order);
+      expect(buy.mock.results[0]?.value).toEqual(launchpadBuyCall(order));
+      expect(container.querySelector('[data-role="build-error"]')).toBeNull();
+      expect(container.querySelector('[data-role="preview"]')).not.toBeNull();
+      await until(() => send(container)?.disabled === false, 'send enabled');
+
+      await typeInto(container, 'deadlineMinutes', '');
+      await click(radio(container, 'Launchpad action', 'Sell'), 'sell action');
+      for (const minutes of ['', '0', '-5', '1.5']) {
+        await typeInto(container, 'deadlineMinutes', minutes);
+        expect(text(container, '[data-role="build-error"]')).toBe(
+          'the deadline must be a positive whole number of minutes'
+        );
+        expect(container.querySelector('[data-role="preview"]')).toBeNull();
+        expect(send(container)?.disabled).toBe(true);
+        await click(send(container), 'disabled send');
+        expect(buy).toHaveBeenCalledExactlyOnceWith(order);
+        expect(sell).not.toHaveBeenCalled();
+        expect(chain.sent).toHaveLength(0);
+      }
+
+      await typeInto(container, 'deadlineMinutes', '10');
+      expect(sell).toHaveBeenCalledExactlyOnceWith({
+        pool: fixture.pool,
+        amountIn: 1n,
+        minOut: BigInt(fixture.minOut) * 10n ** 18n,
+        deadline: order.deadline,
+      });
+      expect(container.querySelector('[data-role="build-error"]')).toBeNull();
+      expect(container.querySelector('[data-role="preview"]')).not.toBeNull();
+      await until(() => send(container)?.disabled === false, 'sell send enabled');
+    } finally {
+      vi.restoreAllMocks();
+    }
+  }
+
+  test(launchpad_view_refuses_a_deadline_that_is_not_a_positive_whole_number_of_minutes);
+
   it('launchpad_view_buys_through_the_module_and_shows_the_decoded_swap', async () => {
     const fixture = callFixtures().launchpad.buy as {
       pool: string;

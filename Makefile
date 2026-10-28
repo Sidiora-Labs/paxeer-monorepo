@@ -2868,13 +2868,13 @@ paxd-version-check:
 		fi && \
 		echo "paxd-version-check: $$got"
 
-paxeer-lint:
+paxeer-lint: paxeer-tools-install
 	$(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) lint
 
 paxeer-test:
 	GOPROXY=off $(PAXEER_MAKE) test
 
-paxeer-ci:
+paxeer-ci: paxeer-tools-install
 	GOPROXY=off $(PAXEER_MAKE) GOLANGCI_LINT=$(PAXEER_GOLANGCI_LINT) ci
 
 workspace-inventory-check:
@@ -3152,7 +3152,7 @@ programs-build:
 
 .PHONY: programs-release-build
 $(PROGRAMS_RELEASE_RUNTIME_LIB) programs-release-build:
-	cd programs && $(PROGRAMS_WORKSPACE_CARGO) build --locked --release -p layerx-programs-sandbox --features layerx-programs-sandbox/host-ffi --manifest-path '$(PROGRAMS_DIR)/Cargo.toml'
+	cd programs && $(PROGRAMS_WORKSPACE_CARGO) build --locked --release --config 'profile.release.panic="unwind"' -p layerx-programs-sandbox --features layerx-programs-sandbox/host-ffi --manifest-path '$(PROGRAMS_DIR)/Cargo.toml'
 
 programs-lint: programs-module-boundaries
 	cd programs && $(PROGRAMS_CARGO) clippy --locked --workspace --all-targets --features layerx-programs-sandbox/host-ffi -- -D warnings

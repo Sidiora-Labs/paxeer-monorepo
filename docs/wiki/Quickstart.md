@@ -29,7 +29,7 @@ The script is `services/platform/hosted/tests/beta-cluster.sh`. Its usage names 
 `down`, and `render` (`services/platform/hosted/tests/beta-cluster.sh:4-7`). `main`
 dispatches `up`, `down`, `render`, and `images`; any other first argument
 prints that usage block to stderr and exits `64`
-(`services/platform/hosted/tests/beta-cluster.sh:1341-1362`). There is no `export`
+(`services/platform/hosted/tests/beta-cluster.sh:3813-3843`). There is no `export`
 subcommand.
 
 Make:
@@ -40,31 +40,31 @@ make platform-beta-cluster-up
 
 That runs `bash services/platform/hosted/tests/beta-cluster.sh up $(PLATFORM_BETA_CLUSTER_FLAGS)`
 (`services/platform/Makefile.inc:184-185`). The only `up` flag the script accepts is
-`--boundary-checks` (`services/platform/hosted/tests/beta-cluster.sh:1351-1358`).
+`--boundary-checks` (`services/platform/hosted/tests/beta-cluster.sh:3829`).
 
-`up` calls `beta_cluster_up` (`services/platform/hosted/tests/beta-cluster.sh:1236-1290,
-1358`). After images, cluster, CA, secrets, render, trusted-boundary apply,
+`up` calls `beta_cluster_up` (`services/platform/hosted/tests/beta-cluster.sh:3598-3743,
+3833`). After images, cluster, CA, secrets, render, trusted-boundary apply,
 Paxeer contract deploy, identity provisioning, and port-forwards, it writes
 the env file, writes cluster identity, and waits until testnet `GET /readyz`
 has `state == "ready"`, every journey `ready == true`, every dependency
 `ready == true`, four journeys, and the developer-plane deployments are
-ready (`services/platform/hosted/tests/beta-cluster.sh:1065-1076, 1284-1287`). On
+ready (`services/platform/hosted/tests/beta-cluster.sh:2983-2992, 3735-3738`). On
 success it prints, on stderr via `log`:
 
 - `every journey ready:` followed by the comma-joined `.journeys[].journey`
   values from `build/beta-cluster/readyz.json`
-  (`services/platform/hosted/tests/beta-cluster.sh:102, 1287`)
+  (`services/platform/hosted/tests/beta-cluster.sh:292, 3738`)
 - `environment exported to` plus `build/beta-cluster/env`
-  (`services/platform/hosted/tests/beta-cluster.sh:55, 61, 1288`)
+  (`services/platform/hosted/tests/beta-cluster.sh:201, 207, 3739`)
 
 `identity_write` prints `beta-cluster: cluster identity` and then each
 identity line prefixed `beta-cluster:   `
-(`services/platform/hosted/tests/beta-cluster.sh:1177-1178`). Those lines include
+(`services/platform/hosted/tests/beta-cluster.sh:3126-3127`). Those lines include
 `cluster_mode`, `cluster_name`, `revision`, `sequencer_public_key`,
 `sequencer_id`, `node_network_id`, `node_asset_id`, `paxeer_chain_id`,
 `paxeer_guarantor_bond`, `paxeer_checkpoint_registry`, `test_source_did`,
 `test_destination_did`, `faucet_host`, `developer_host`
-(`services/platform/hosted/tests/beta-cluster.sh:1149-1172`).
+(`services/platform/hosted/tests/beta-cluster.sh:3095-3121`).
 
 Render without applying:
 
@@ -73,10 +73,10 @@ bash services/platform/hosted/tests/beta-cluster.sh render
 ```
 
 prints `rendered manifests under` `$MANIFESTS_DIR` `and beta CA under`
-`$CA_DIR` `(nothing applied)` (`services/platform/hosted/tests/beta-cluster.sh:1320-1338`).
+`$CA_DIR` `(nothing applied)` (`services/platform/hosted/tests/beta-cluster.sh:3773-3795`).
 
 Default host ports are testnet `19443`, gateway `19444`, faucet `19445`
-(`services/platform/hosted/tests/beta-cluster.sh:81-83`). `up` binds
+(`services/platform/hosted/tests/beta-cluster.sh:229-231`). `up` binds
 `TESTNET_URL=https://localhost:$TESTNET_PORT`,
 `GATEWAY_URL=https://localhost:$GATEWAY_PORT`,
 the private-network faucet at `https://localhost:$FAUCET_PORT`,
@@ -87,22 +87,22 @@ the private-network faucet at `https://localhost:$FAUCET_PORT`,
 `PAXEER_OBSERVER_URL=https://localhost:19452`,
 `IDENTITY_URL=https://localhost:19451`,
 `HUMAN_URL=https://localhost:19453`
-(`services/platform/hosted/tests/beta-cluster.sh:1258-1266`). Port-forwards are
+(`services/platform/hosted/tests/beta-cluster.sh:3649-3661`). Port-forwards are
 Paxeer-boundary `19449`, Paxeer-observer-boundary `19452`, identity
 `19451`, testnet, gateway, faucet, developer `19450`, pending-core
 `19446`, and agent-boundary `19447`
-(`services/platform/hosted/tests/beta-cluster.sh:1268-1283`). Human is forwarded on `19453` to port `9443`. There is no agentd port-forward.
+(`services/platform/hosted/tests/beta-cluster.sh:3636-3637, 3674, 3703-3718`). Human is forwarded on `19453` to port `9443`. There is no agentd port-forward.
 
 The kind cluster name defaults to `layerx-beta`
-(`services/platform/hosted/tests/beta-cluster.sh:11, 73`). Paxeer EVM chain id is
-`125` (`services/platform/hosted/tests/beta-cluster.sh:96`).
+(`services/platform/hosted/tests/beta-cluster.sh:18, 219`). Paxeer EVM chain id is
+`125` (`services/platform/hosted/tests/beta-cluster.sh:274`).
 
 ---
 
 ## 2. Exported endpoints
 
 `up` writes `build/beta-cluster/env` from `env_write`
-(`services/platform/hosted/tests/beta-cluster.sh:61, 1110-1142, 1284`). There is no
+(`services/platform/hosted/tests/beta-cluster.sh:207, 3037-3088, 3735`). There is no
 separate export step. Source it:
 
 ```sh
@@ -260,7 +260,7 @@ operating-system-credential-store}` by default, or
 `kind` is `auth.saved`.
 `--environment` optional; else current (`tools/platform/cli/src/main.rs:1421-1449`).
 Bring-up mints that token as `ses_` plus 32 hex, `.`, 64 hex when the source
-is identity-provisioning (`services/platform/hosted/tests/beta-cluster.sh:1020-1026`).
+is identity-provisioning (`services/platform/hosted/tests/beta-cluster.sh:2698-2705`).
 
 Bind the hosted profile. `name` must be `emulator`, `beta`, or `production`
 (`tools/platform/cli/src/config.rs:121-126`). `--endpoint`, `--network-id`, and one
@@ -268,7 +268,7 @@ of `--sequencer-trust-anchor` / `--sequencer-trust-anchor-file` must be
 supplied together or omitted together (`tools/platform/cli/src/emulator.rs:751-791`).
 The anchor is 32-byte hex Ed25519 (`tools/platform/cli/src/emulator.rs:821-824`).
 `up` writes `sequencer_public_key` into `build/beta-cluster/identity`
-(`services/platform/hosted/tests/beta-cluster.sh:1157`). For `beta`, sequencer
+(`services/platform/hosted/tests/beta-cluster.sh:3103`). For `beta`, sequencer
 identity is not probed (`tools/platform/cli/src/main.rs:771-805`).
 
 ```sh
@@ -510,7 +510,7 @@ JSON includes `ok`, `key.id`, `key.secret`, `key.authorization_scheme`
 `signer_public_key` must be in the session allow-list or the gateway returns
 `403 signer_not_owned` (`services/platform/hosted/gateway/src/main.rs:2308-2313`).
 Bring-up puts `$LAYERX_TEST_SOURCE_PUBLIC_KEY` on the smoke principal
-(`services/platform/hosted/tests/beta-cluster.sh:1012-1014`).
+(`services/platform/hosted/tests/beta-cluster.sh:2684-2686`).
 
 Hosted activity POST body used by the CLI toolset is `{"activity": <hex>}`
 with `Idempotency-Key` (`tools/platform/cli/src/toolset.rs:341-344`). Gateway
@@ -607,7 +607,7 @@ curl --fail --silent --show-error --max-time 10 --cacert "$LAYERX_TEST_CA_FILE" 
 When the node `eth_chainId` equals the configured chain id, the 200 body is
 `status` `ready`, `service` `paxeer-boundary`, `chain_id` (decimal)
 (`services/platform/hosted/paxeer/src/main.rs:466-469`). Bring-up sets that chain id
-to `125` (`services/platform/hosted/tests/beta-cluster.sh:96`;
+to `125` (`services/platform/hosted/tests/beta-cluster.sh:274`;
 `services/platform/hosted/paxeer/deployment.yaml:42`).
 
 ```sh
@@ -662,7 +662,7 @@ runs `bash services/platform/hosted/tests/beta-cluster.sh down`
 (`services/platform/Makefile.inc:187-188`). `down` stops port-forwards, deletes the
 kind cluster when mode is kind or absent, removes labeled images, deletes
 `build/beta-cluster`, and unless `LAYERX_BETA_KEEP_TOOLS=1` removes pinned
-kind/kubectl/calico downloads (`services/platform/hosted/tests/beta-cluster.sh:1292-1317`).
-It prints `teardown complete` (`services/platform/hosted/tests/beta-cluster.sh:1317`).
+kind/kubectl/calico downloads (`services/platform/hosted/tests/beta-cluster.sh:3745-3771`).
+It prints `teardown complete` (`services/platform/hosted/tests/beta-cluster.sh:3770`).
 
 [Home](Home.md)

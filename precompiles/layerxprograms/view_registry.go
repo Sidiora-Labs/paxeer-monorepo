@@ -1,6 +1,7 @@
 package layerxprograms
 
 import (
+	"crypto/sha256"
 	"errors"
 	"fmt"
 
@@ -95,8 +96,16 @@ func getStateHeadHandler(ctx sdk.Context, p *PrecompileExecutor, call callContex
 		return nil, registryReadError(err, "getStateHead")
 	}
 	head, err := p.host.ReadProgramStateHead(ctx, id)
-	if err != nil {
+	if errors.Is(err, lxphost.Code(-7)) {
+		head = emptyStateHead()
+	} else if err != nil {
 		return nil, registryReadError(err, "getStateHead")
 	}
 	return programsABI.Methods["getStateHead"].Outputs.Pack(head)
+}
+
+func emptyStateHead() []byte {
+	manifest := []byte{0, 1, 0, 0, 0, 0}
+	digest := sha256.Sum256(manifest)
+	return append(manifest, digest[:]...)
 }

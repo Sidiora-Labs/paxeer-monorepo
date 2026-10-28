@@ -2093,50 +2093,6 @@ service mirror-publisher 4021 \
 	"$genesis_files $run/node/layerxd.lni.sock $mirror_run/config.json /run/mirror-signer/signer.sock" - - -- \
 	/usr/local/bin/layerx-mirror-publisher "$mirror_run/config.json"
 
-# The kernel perps oracle feeder, full profile only: it signs its activities
-# with the oracle key and submits them on the LNI socket, so the prepare
-# renders its feeder.json with lni_socket pinned to layerxd's socket.
-if [ "$kernel_profile" = full ]; then
-	feeder_config=${LAYERX_FEEDER_CONFIG:-$layerx/oracle-feeder/feeder.json}
-	feeder_key=${LAYERX_FEEDER_ORACLE_KEY_FILE:-$keys/oracle-feeder/oracle.key}
-	feeder_readyz=${LAYERX_FEEDER_READYZ_ADDR:-127.0.0.1:9458}
-	unset LAYERX_FEEDER_CONFIG LAYERX_FEEDER_ORACLE_KEY_FILE LAYERX_FEEDER_READYZ_ADDR
-	install -d -o 0 -g 4020 -m 0750 "$layerx/oracle-feeder"
-	install -d -o 4021 -g 4020 -m 0700 "$layerx/oracle-feeder/state"
-	install -d -o 0 -g 0 -m 0700 "$keys/oracle-feeder"
-
-	oracle_feeder_prepare() {
-		install -d -o 4021 -g 4020 -m 0700 "$run/oracle-feeder" || return 1
-		python3 - "$feeder_config" "$run/node/layerxd.lni.sock" "$run/oracle-feeder/feeder.json" <<'PY_FEEDER' || return 1
-import json
-import os
-import sys
-
-source, socket, target = sys.argv[1:]
-with open(source, encoding="utf-8") as handle:
-    config = json.load(handle)
-if not isinstance(config, dict):
-    raise SystemExit("feeder config is not a JSON object")
-config["lni_socket"] = socket
-with open(target + ".new", "w", encoding="utf-8") as handle:
-    json.dump(config, handle)
-os.chown(target + ".new", 4021, 4020)
-os.chmod(target + ".new", 0o400)
-os.replace(target + ".new", target)
-PY_FEEDER
-		install -o 4021 -g 4020 -m 0400 "$feeder_key" "$run/oracle-feeder/oracle.key"
-	}
-
-	service oracle-feeder 4021 "$genesis_files $run/node/layerxd.lni.sock $feeder_config $feeder_key" \
-		oracle_feeder_prepare - -- \
-		env \
-		LAYERX_FEEDER_CONFIG="$run/oracle-feeder/feeder.json" \
-		LAYERX_FEEDER_ORACLE_KEY_FILE="$run/oracle-feeder/oracle.key" \
-		LAYERX_FEEDER_STATE_DIR="$layerx/oracle-feeder/state" \
-		LAYERX_FEEDER_READYZ_ADDR="$feeder_readyz" \
-		/usr/local/bin/layerx-oracle-feeder
-fi
-
 relay_archive_prepare() {
     local config_dir sequencer_id sequencer_public genesis_digest
     openssl verify -CAfile "$tls/relay-archive/ca.pem" -purpose sslserver "$tls/relay-archive/cert.pem" >/dev/null || return 1

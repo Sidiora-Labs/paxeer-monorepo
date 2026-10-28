@@ -21,6 +21,7 @@ contract XWebConsumerTest is Test {
 
     event Asked(uint64 indexed requestId, uint8 kind, bytes payload, uint64 callbackGas);
     event Answered(uint64 indexed requestId, bytes32 contentDigest, uint32 fullLength, bytes response);
+    event Refunded(uint64 indexed requestId, address indexed payer, uint256 amount);
 
     function setUp() public {
         consumer = new XWebConsumer();
@@ -44,6 +45,52 @@ contract XWebConsumerTest is Test {
         assertEq(ask(7), 7);
         assertTrue(consumer.issued(7));
         assertFalse(consumer.issued(8));
+    }
+
+    function test_RefundForwardsTheFeeToThePayer() public {
+        address payer = makeAddr("payer");
+        address caller = makeAddr("refund caller");
+        vm.deal(payer, 2 * FEE);
+        vm.prank(payer);
+        assertEq(ask(7), 7);
+        assertEq(consumer.payer(7), payer);
+        assertEq(consumer.paid(7), FEE);
+        uint256 balanceBefore = payer.balance;
+
+        vm.mockCall(XWEB_PRECOMPILE_ADDRESS, abi.encodeCall(IXWeb.refund, (uint64(7))), bytes(""));
+        vm.deal(address(consumer), FEE + 123);
+        vm.expectCall(XWEB_PRECOMPILE_ADDRESS, abi.encodeCall(IXWeb.refund, (uint64(7))));
+        vm.expectEmit(true, true, false, true, address(consumer));
+        emit Refunded(7, payer, FEE);
+        vm.prank(caller);
+        consumer.refund(7);
+
+        assertEq(payer.balance, balanceBefore + FEE);
+        assertEq(caller.balance, 0);
+        assertEq(address(consumer).balance, 123);
+        assertEq(consumer.payer(7), address(0));
+        assertEq(consumer.paid(7), 0);
+    }
+
+    function test_RefundRefusesAnUnknownOrRefundedRequest() public {
+        vm.expectRevert(abi.encodeWithSelector(XWebConsumer.NotRefundable.selector, uint64(8)));
+        consumer.refund(8);
+
+        address payer = makeAddr("payer");
+        vm.deal(payer, FEE);
+        vm.prank(payer);
+        ask(7);
+        vm.mockCall(XWEB_PRECOMPILE_ADDRESS, abi.encodeCall(IXWeb.refund, (uint64(7))), bytes(""));
+        vm.deal(address(consumer), FEE);
+        vm.expectCall(XWEB_PRECOMPILE_ADDRESS, abi.encodeCall(IXWeb.refund, (uint64(7))));
+        consumer.refund(7);
+        assertEq(payer.balance, FEE);
+
+        vm.expectRevert(abi.encodeWithSelector(XWebConsumer.NotRefundable.selector, uint64(7)));
+        consumer.refund(7);
+        assertEq(payer.balance, FEE);
+        assertEq(consumer.payer(7), address(0));
+        assertEq(consumer.paid(7), 0);
     }
 
     function test_PrecompileDeliversTheAnswerOnce() public {
@@ -158,23 +205,16 @@ contract XWebApiTest is Test {
     }
 
     function test_EncodesTheMajorityVectorWithSelectorsAndEnvelopes() public pure {
-        bytes memory payload = XWebApi.get(PRICE_URL)
-            .header("Accept", "application/json")
-            .select("/data/price")
-            .select("/data/asset")
-            .withCredential(ENVELOPE_ATTESTOR_1_API_KEY)
-            .withCredential(ENVELOPE_ATTESTOR_2_API_KEY)
-            .encode();
+        bytes memory payload = XWebApi.get(PRICE_URL).header("Accept", "application/json").select("/data/price")
+            .select("/data/asset").withCredential(ENVELOPE_ATTESTOR_1_API_KEY)
+            .withCredential(ENVELOPE_ATTESTOR_2_API_KEY).encode();
         assertEq(payload, GET_MAJORITY_SELECT);
     }
 
     function test_EncodesTheSingleLevelPostVector() public pure {
         bytes memory payload = XWebApi.post("https://paxeer.app/api/v1/quote", bytes('{"asset":"SID","amount":"1"}'))
-            .header("Content-Type", "application/json")
-            .select("/quote/amount")
-            .withCredential(ENVELOPE_ATTESTOR_1_TWO_HEADERS)
-            .single(ATTESTOR_1)
-            .encode();
+            .header("Content-Type", "application/json").select("/quote/amount")
+            .withCredential(ENVELOPE_ATTESTOR_1_TWO_HEADERS).single(ATTESTOR_1).encode();
         assertEq(payload, POST_SINGLE_CREDENTIAL);
     }
 
@@ -183,11 +223,8 @@ contract XWebApiTest is Test {
     }
 
     function test_EncodesTheExampleConsumerVector() public pure {
-        bytes memory payload = XWebApi.get(PRICE_URL)
-            .select("/data/price")
-            .withCredential(ENVELOPE_ATTESTOR_1_API_KEY)
-            .single(ATTESTOR_1)
-            .encode();
+        bytes memory payload = XWebApi.get(PRICE_URL).select("/data/price").withCredential(ENVELOPE_ATTESTOR_1_API_KEY)
+            .single(ATTESTOR_1).encode();
         assertEq(payload, EXAMPLE_CONSUMER);
     }
 
@@ -206,6 +243,21 @@ contract XWebApiTest is Test {
 
         vm.expectRevert(bytes("only xweb"));
         consumer.onXWebResponse(11, bytes32(0), 5, "0");
+    }
+
+    function test_ApiConsumerRefusesAFeeOtherThanTheQuote() public {
+        ApiConsumer consumer = new ApiConsumer();
+        vm.mockCall(XWEB_PRECOMPILE_ADDRESS, abi.encodeCall(IXWeb.fee, ()), abi.encode(FEE));
+        vm.deal(address(this), 2 * FEE);
+        vm.deal(address(consumer), FEE);
+
+        vm.expectRevert(abi.encodeWithSelector(ApiConsumer.WrongFee.selector, FEE + 1, FEE));
+        consumer.askPrice{value: FEE + 1}(ENVELOPE_ATTESTOR_1_API_KEY, ATTESTOR_1);
+        vm.expectRevert(abi.encodeWithSelector(ApiConsumer.WrongFee.selector, FEE - 1, FEE));
+        consumer.askPrice{value: FEE - 1}(ENVELOPE_ATTESTOR_1_API_KEY, ATTESTOR_1);
+
+        assertEq(address(this).balance, 2 * FEE);
+        assertEq(address(consumer).balance, FEE);
     }
 
     function test_RefusesAFieldOverTheUint16Length() public {

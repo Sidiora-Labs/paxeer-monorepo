@@ -9,11 +9,11 @@ use layerx_agent_api::identity::{
     ActivityType, AgentDid, Asset, CapabilityId, ExplicitSet, TenantId as ApiTenantId,
 };
 use layerx_agent_api::read::{AccountRef, ModuleRef};
+use layerx_agent_api::subscription::CursorAcknowledgement;
 use layerx_agent_api::subscription::{
     Cursor as ApiCursor, DeliveryTarget, SubscriptionCreate, SubscriptionFilter, SubscriptionId,
     SubscriptionRecord, SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::{subscription::CursorAcknowledgement, Sequence};
 use layerx_types::result::ResultCode;
 
 use crate::session::{SessionCredential, SessionRegistry, Token};
@@ -26,13 +26,48 @@ use crate::tenant::{
 };
 use layerx_types::ids::Did;
 
-const RECORD_MAGIC: &[u8; 4] = b"LXS2";
+const RECORD_MAGIC: &[u8; 4] = b"LXS3";
+const PREVIOUS_RECORD_MAGIC: &[u8; 4] = b"LXS2";
 const LEGACY_RECORD_MAGIC: &[u8; 4] = b"LXSB";
 
 /// Durable subscription position. The value is the next stream cursor after
 /// acknowledged delivery, not a locally inferred protocol sequence.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
-pub struct Cursor(pub u64);
+pub struct Cursor {
+    pub block_height: u64,
+    pub tx_index: u32,
+    pub log_index: u32,
+}
+
+impl Display for Cursor {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            formatter,
+            "({}, {}, {})",
+            self.block_height, self.tx_index, self.log_index
+        )
+    }
+}
+
+impl Cursor {
+    fn successor(self) -> Option<Self> {
+        if let Some(log_index) = self.log_index.checked_add(1) {
+            return Some(Self { log_index, ..self });
+        }
+        if let Some(tx_index) = self.tx_index.checked_add(1) {
+            return Some(Self {
+                tx_index,
+                log_index: 0,
+                ..self
+            });
+        }
+        self.block_height.checked_add(1).map(|block_height| Self {
+            block_height,
+            tx_index: 0,
+            log_index: 0,
+        })
+    }
+}
 
 /// Durable continuity state that prevents delivery from crossing an
 /// unresolved gap or an expired retention window.
@@ -63,13 +98,21 @@ pub enum Termination {
 
 impl From<ApiCursor> for Cursor {
     fn from(value: ApiCursor) -> Self {
-        Self(value.0 .0)
+        Self {
+            block_height: value.block_height,
+            tx_index: value.tx_index,
+            log_index: value.log_index,
+        }
     }
 }
 
 impl From<Cursor> for ApiCursor {
     fn from(value: Cursor) -> Self {
-        Self(Sequence(value.0))
+        Self {
+            block_height: value.block_height,
+            tx_index: value.tx_index,
+            log_index: value.log_index,
+        }
     }
 }
 
@@ -96,6 +139,7 @@ pub enum SubscriptionError {
     CursorRegressed { current: Cursor, received: Cursor },
     SequenceExhausted,
     Corrupt,
+    CursorResetRequired,
     Authorization(AuthorizationError),
     AuthorizationRequired,
     Durable(StoreError),
@@ -113,17 +157,18 @@ impl Display for SubscriptionError {
             Self::CursorOutOfOrder { expected, received } => write!(
                 formatter,
                 "delivery cursor {} arrived out of order; expected {}",
-                received.0, expected.0
+                received, expected
             ),
             Self::CursorNeverDelivered { cursor } => {
-                write!(formatter, "cursor {} was never delivered", cursor.0)
+                write!(formatter, "cursor {} was never delivered", cursor)
             }
             Self::CursorRegressed { current, received } => write!(
                 formatter,
                 "cursor {} precedes acknowledged cursor {}",
-                received.0, current.0
+                received, current
             ),
             Self::SequenceExhausted => formatter.write_str("subscription cursor is exhausted"),
+            Self::CursorResetRequired => formatter.write_str("subscription.cursor_reset_required"),
             Self::Corrupt => formatter.write_str("durable subscription record is corrupt"),
             Self::Authorization(error) => {
                 write!(formatter, "subscription authorization failed: {error:?}")
@@ -199,7 +244,7 @@ impl Store {
     }
 
     /// Restores every subscription owned by `tenant` from durable state shared with the
-    /// runtime owner, applying the same decode, legacy migration and integrity checks as `open`.
+    /// runtime owner, applying the same decode and integrity checks as `open`.
     ///
     /// # Errors
     ///
@@ -227,22 +272,13 @@ impl Store {
         tenant: &TenantId,
     ) -> Result<BTreeMap<String, DurableRecord>, SubscriptionError> {
         let mut records = BTreeMap::new();
-        let mut legacy_migrations = Vec::new();
         for object_id in durable.list_object_ids(tenant, ObjectKind::Subscription) {
             let key = TenantKey::new(tenant.clone(), ObjectKind::Subscription, object_id.clone())?;
             let stored = durable.get(&key).ok_or(SubscriptionError::Corrupt)?;
             if stored.class() != StorageClass::LocalOnly {
                 return Err(SubscriptionError::Corrupt);
             }
-            let (mut record, legacy_without_session) = decode_record(stored.bytes())?;
-            if legacy_without_session {
-                record.public.paused = true;
-                record.delivered_unacknowledged.clear();
-                if record.termination.is_none() {
-                    record.termination = Some(Termination::SessionRevoked);
-                }
-                legacy_migrations.push((key, encode_record(&record)?));
-            }
+            let record = decode_record(stored.bytes())?;
             let id = record.public.subscription_id.as_str().to_owned();
             if object_id != id.as_bytes()
                 || record.public.scope.tenant.as_str() != tenant.as_str()
@@ -250,9 +286,6 @@ impl Store {
             {
                 return Err(SubscriptionError::Corrupt);
             }
-        }
-        for (key, bytes) in legacy_migrations {
-            durable.put_local(key, bytes)?;
         }
         Ok(records)
     }
@@ -464,13 +497,13 @@ impl Store {
         Ok(self.target_inner(target)?.public.clone())
     }
 
-    /// Records one strictly consecutive delivered cursor durably so a later
+    /// Records one strictly increasing delivered cursor durably so a later
     /// acknowledgement cannot claim an unseen position.
     ///
     /// # Errors
     ///
-    /// Returns `Paused` while delivery is stopped, `CursorOutOfOrder` for a cursor that does
-    /// not immediately follow the last delivery, `SequenceExhausted` at the cursor ceiling,
+    /// Returns `Paused` while delivery is stopped, `CursorOutOfOrder` for a cursor that
+    /// does not follow the last delivery, `SequenceExhausted` at the cursor ceiling,
     /// `NotFound` outside the exact live scope, or the `Durable` persist failure.
     pub fn mark_delivered(
         &mut self,
@@ -492,13 +525,10 @@ impl Store {
             return Err(SubscriptionError::Paused);
         }
         if cursor <= record.current_delivery {
-            let expected = Cursor(
-                record
-                    .current_delivery
-                    .0
-                    .checked_add(1)
-                    .ok_or(SubscriptionError::SequenceExhausted)?,
-            );
+            let expected = record
+                .current_delivery
+                .successor()
+                .ok_or(SubscriptionError::SequenceExhausted)?;
             return Err(SubscriptionError::CursorOutOfOrder {
                 expected,
                 received: cursor,
@@ -1289,11 +1319,11 @@ fn encode_record(record: &DurableRecord) -> Result<Vec<u8>, SubscriptionError> {
         }
     }
     push_string(&mut bytes, record.public.delivery_target.as_str())?;
-    bytes.extend_from_slice(&record.public.start.0 .0.to_be_bytes());
-    bytes.extend_from_slice(&record.public.last_acknowledged.0 .0.to_be_bytes());
+    encode_cursor(&mut bytes, Cursor::from(record.public.start));
+    encode_cursor(&mut bytes, Cursor::from(record.public.last_acknowledged));
     push_len(&mut bytes, record.delivered_unacknowledged.len())?;
     for cursor in &record.delivered_unacknowledged {
-        bytes.extend_from_slice(&cursor.0.to_be_bytes());
+        encode_cursor(&mut bytes, *cursor);
     }
     bytes.push(u8::from(record.public.paused));
     encode_continuity(&mut bytes, record.continuity);
@@ -1348,11 +1378,27 @@ fn encode_filter(
     Ok(())
 }
 
-fn decode_record(bytes: &[u8]) -> Result<(DurableRecord, bool), SubscriptionError> {
+fn encode_cursor(bytes: &mut Vec<u8>, cursor: Cursor) {
+    bytes.extend_from_slice(&cursor.block_height.to_be_bytes());
+    bytes.extend_from_slice(&cursor.tx_index.to_be_bytes());
+    bytes.extend_from_slice(&cursor.log_index.to_be_bytes());
+}
+
+fn decode_cursor(decoder: &mut Decoder<'_>) -> Result<Cursor, SubscriptionError> {
+    Ok(Cursor {
+        block_height: decoder.u64()?,
+        tx_index: decoder.u32()?,
+        log_index: decoder.u32()?,
+    })
+}
+
+fn decode_record(bytes: &[u8]) -> Result<DurableRecord, SubscriptionError> {
     let mut decoder = Decoder::new(bytes);
-    let has_session_binding = match decoder.take(4)? {
-        value if value == RECORD_MAGIC => true,
-        value if value == LEGACY_RECORD_MAGIC => false,
+    match decoder.take(4)? {
+        value if value == RECORD_MAGIC => {}
+        value if value == PREVIOUS_RECORD_MAGIC || value == LEGACY_RECORD_MAGIC => {
+            return Err(SubscriptionError::CursorResetRequired)
+        }
         _ => return Err(SubscriptionError::Corrupt),
     };
     let subscription_id =
@@ -1361,38 +1407,34 @@ fn decode_record(bytes: &[u8]) -> Result<(DurableRecord, bool), SubscriptionErro
     let agent = AgentDid::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
     let capability =
         CapabilityId::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
-    let session = if has_session_binding {
-        match decoder.byte()? {
-            0 => None,
-            1 => {
-                let mut session_id = [0_u8; 32];
-                session_id.copy_from_slice(decoder.take(32)?);
-                let mut token_id = [0_u8; 32];
-                token_id.copy_from_slice(decoder.take(32)?);
-                let generation = decoder.u64()?;
-                if token_id == [0; 32] || generation == 0 {
-                    return Err(SubscriptionError::Corrupt);
-                }
-                Some(SessionCredential::new(
-                    TenantId::new(tenant.as_str()).map_err(|_| SubscriptionError::Corrupt)?,
-                    crate::session::SessionId(session_id),
-                    token_id,
-                    generation,
-                ))
+    let session = match decoder.byte()? {
+        0 => None,
+        1 => {
+            let mut session_id = [0_u8; 32];
+            session_id.copy_from_slice(decoder.take(32)?);
+            let mut token_id = [0_u8; 32];
+            token_id.copy_from_slice(decoder.take(32)?);
+            let generation = decoder.u64()?;
+            if token_id == [0; 32] || generation == 0 {
+                return Err(SubscriptionError::Corrupt);
             }
-            _ => return Err(SubscriptionError::Corrupt),
+            Some(SessionCredential::new(
+                TenantId::new(tenant.as_str()).map_err(|_| SubscriptionError::Corrupt)?,
+                crate::session::SessionId(session_id),
+                token_id,
+                generation,
+            ))
         }
-    } else {
-        None
+        _ => return Err(SubscriptionError::Corrupt),
     };
     let delivery_target =
         DeliveryTarget::new(decoder.string()?).map_err(|_| SubscriptionError::Corrupt)?;
-    let start = ApiCursor(Sequence(decoder.u64()?));
-    let last_acknowledged = ApiCursor(Sequence(decoder.u64()?));
+    let start = ApiCursor::from(decode_cursor(&mut decoder)?);
+    let last_acknowledged = ApiCursor::from(decode_cursor(&mut decoder)?);
     let delivered_count = decoder.len()?;
     let mut delivered_unacknowledged = BTreeSet::new();
     for _ in 0..delivered_count {
-        if !delivered_unacknowledged.insert(Cursor(decoder.u64()?)) {
+        if !delivered_unacknowledged.insert(decode_cursor(&mut decoder)?) {
             return Err(SubscriptionError::Corrupt);
         }
     }
@@ -1427,25 +1469,22 @@ fn decode_record(bytes: &[u8]) -> Result<(DurableRecord, bool), SubscriptionErro
     {
         return Err(SubscriptionError::Corrupt);
     }
-    Ok((
-        DurableRecord {
-            public: SubscriptionRecord {
-                subscription_id,
-                scope,
-                filter,
-                start,
-                last_acknowledged,
-                delivery_target,
-                paused: paused == 1,
-            },
-            delivered_unacknowledged,
-            current_delivery: Cursor::from(last_acknowledged),
-            continuity,
-            termination,
-            session,
+    Ok(DurableRecord {
+        public: SubscriptionRecord {
+            subscription_id,
+            scope,
+            filter,
+            start,
+            last_acknowledged,
+            delivery_target,
+            paused: paused == 1,
         },
-        !has_session_binding,
-    ))
+        delivered_unacknowledged,
+        current_delivery: Cursor::from(last_acknowledged),
+        continuity,
+        termination,
+        session,
+    })
 }
 
 fn encode_continuity(bytes: &mut Vec<u8>, continuity: Continuity) {

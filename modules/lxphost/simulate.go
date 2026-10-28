@@ -79,7 +79,7 @@ static int32_t lxphost_simulate(lxphost_node *node, uint32_t network_id,
                                 uint64_t batch_number, uint64_t timestamp_ms,
                                 uint64_t timestamp_window, uint64_t sequence,
                                 uint32_t parameter_version, uint64_t gas_limit,
-                                bool binding_authority,
+                                bool binding_authority, lxp_u128 fee_balance,
                                 lxp_kernel_prepared_batch **batch_out)
 {
     const lxp_module_registration *registration;
@@ -110,8 +110,12 @@ static int32_t lxphost_simulate(lxphost_node *node, uint32_t network_id,
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;
+    execution->fee_balance = fee_balance;
     execution->gas_limit = gas_limit;
     execution->arena = &node->arena;
+    if (node->envelope.activity.activity_type != LX_PROGRAMS_CALL)
+        return lxp_kernel_execute_activity(&node->kernel,
+            &node->envelope.activity, execution, &node->receipt);
     status = lxp_kernel_batch_snapshot_create(
         &node->kernel, &node->identities, execution->verified_receipts,
         execution, &snapshot);
@@ -141,6 +145,16 @@ import (
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
+
+func lxphost_simulate(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool, batch **C.lxp_kernel_prepared_batch) error {
+	balance, err := fee_balance(node)
+	if err != nil {
+		return err
+	}
+	return result(C.lxphost_simulate(node, C.uint32_t(cfg.NetworkID), C.uint64_t(branch.batchNumber),
+		C.uint64_t(branch.timestampMs), C.uint64_t(cfg.TimestampWindowMs), C.uint64_t(branch.sequence),
+		C.uint32_t(cfg.ParameterVersion), C.uint64_t(cfg.GasLimit), C.bool(bindingAuthority), balance, batch))
+}
 
 // Simulate returns the kernel's hypothetical receipt without publishing state.
 func (h *Host) Simulate(ctx sdk.Context, activity Activity, authority KernelAuthority) (Receipt, error) {
@@ -202,9 +216,7 @@ func (h *Host) Simulate(ctx sdk.Context, activity Activity, authority KernelAuth
 	}
 	var batch *C.lxp_kernel_prepared_batch
 	defer func() { C.lxp_kernel_prepared_batch_destroy(batch) }()
-	if err := result(C.lxphost_simulate(private.node, C.uint32_t(h.cfg.NetworkID), C.uint64_t(branch.batchNumber),
-		C.uint64_t(branch.timestampMs), C.uint64_t(h.cfg.TimestampWindowMs), C.uint64_t(branch.sequence),
-		C.uint32_t(h.cfg.ParameterVersion), C.uint64_t(h.cfg.GasLimit), C.bool(bindingAuthority), &batch)); err != nil {
+	if err := lxphost_simulate(private.node, h.cfg, branch, bindingAuthority, &batch); err != nil {
 		return Receipt{}, err
 	}
 	var outcome lxphost_outcome

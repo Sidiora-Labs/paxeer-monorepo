@@ -340,6 +340,7 @@ type VaultBalanceRecord {
   tokenAddress: String!
   vaultType: Int!
   vaultTypeName: String
+  "For vaultType 0, the aggregate collateral held by the perps module across all accounts, in USDL."
   newBalance: BigDecimal!
   delta: BigDecimal!
   isIncrease: Boolean!

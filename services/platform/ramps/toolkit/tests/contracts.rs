@@ -11,6 +11,7 @@ use layerx_ramp_toolkit::{
     CreateOrder, OperatorIdentity, QuoteTerms, RampDirection, RampError, RampOrder,
     EXTERNAL_CUSTODY_LABEL,
 };
+use layerx_types::rung::Rung;
 
 const WORKER: &str = "test-worker";
 const CALLBACK_ID: &str = "provider-callback-1";
@@ -27,6 +28,7 @@ fn order(direction: RampDirection, customer: &str) -> RampOrder {
             order_id: "order-1".to_owned(),
             quote_id: "quote-1".to_owned(),
             payer_grant,
+            payer_grant_purpose: (direction == RampDirection::OffRamp).then_some([6; 32]),
         },
         QuoteTerms {
             quote_id: "quote-1".to_owned(),
@@ -222,7 +224,7 @@ fn payment_direction_selects_direct_send_or_customer_grant() {
     assert_eq!(send.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
     assert_eq!(draw.to, layerx_ramp_toolkit::evm::LEDGER_ADDRESS);
     assert_eq!(&send.data[..4], &[0x78, 0xea, 0x11, 0xdb]);
-    assert_eq!(&draw.data[100..132], &[7; 32]);
+    assert_eq!(&draw.data[4..36], &[7; 32]);
     assert_eq!(
         compile_operator_send(&off_ramp),
         Err(RampError::InvalidOrder)
@@ -428,7 +430,6 @@ struct RecoveryAuthority {
     provider: layerx_ramp_toolkit::clients::ProviderClient,
     layerx: layerx_ramp_toolkit::clients::LayerxClient,
     custody: layerx_ramp_toolkit::clients::PaxeerCustodyClient,
-    tracker: layerx_paxeer_client::TrackerConfig,
 }
 
 impl RecoveryAuthority {
@@ -504,13 +505,6 @@ impl RecoveryAuthority {
             vault_id: field(custody_config, "vault_id"),
             signer_key_handle: field(custody_config, "signer_key_handle"),
         };
-        let tracker = layerx_paxeer_client::TrackerConfig {
-            endpoints: Vec::new(),
-            minimum_endpoint_agreement: 0,
-            required_confirmations: 0,
-            poll_cadence: Duration::from_secs(1),
-            delayed_after_polls: 0,
-        };
         fn protected_input<T: serde::de::DeserializeOwned>(name: &str) -> T {
             let path = std::env::var_os(name)
                 .unwrap_or_else(|| panic!("required protected real recovery input: {name}"));
@@ -547,7 +541,6 @@ impl RecoveryAuthority {
             provider,
             layerx,
             custody,
-            tracker,
         }
     }
 
@@ -631,7 +624,6 @@ impl RecoveryAuthority {
                 &self.provider,
                 &self.layerx,
                 &self.custody,
-                &self.tracker,
             )
         })
     }
@@ -762,7 +754,6 @@ fn assert_callback_recovery(fault: WriteFault, label: &str) {
                 &authority.provider,
                 &authority.layerx,
                 &authority.custody,
-                &authority.tracker,
             )
         });
         assert_eq!(denied, Err(RampError::OrderBinding));
@@ -910,9 +901,9 @@ fn replaying_the_journal_reproduces_identical_projection() {
             PaxeerObservation {
                 operation_id: "paxeer-op-1",
                 transaction_hash: [6; 32],
-                stage: "broadcast_unknown",
+                rung: Rung::Submitted,
                 block_hash: None,
-                confirmations: 0,
+                block_height: None,
             },
             1_006,
         )
@@ -1054,48 +1045,79 @@ fn paxeer_observations_preserve_inclusion_and_confirmation_history() {
     journal
         .plan_paxeer([5; 32], [1; 32], 10, 1)
         .unwrap_or_else(|error| panic!("plan: {error:?}"));
-    let observe = |stage, block_hash, confirmations| PaxeerObservation {
+    let observe = |rung, block_hash, block_height| PaxeerObservation {
         operation_id: "operation-1",
         transaction_hash: [6; 32],
-        stage,
+        rung,
         block_hash,
-        confirmations,
+        block_height,
     };
     journal
-        .observe_paxeer([5; 32], observe("confirming", Some([7; 32]), 2), 2)
-        .unwrap_or_else(|error| panic!("included: {error:?}"));
+        .observe_paxeer([5; 32], observe(Rung::Submitted, None, None), 2)
+        .unwrap_or_else(|error| panic!("submitted: {error:?}"));
+    journal
+        .observe_paxeer([5; 32], observe(Rung::Receipted, None, None), 3)
+        .unwrap_or_else(|error| panic!("receipted: {error:?}"));
     let before = journal_bytes(&path);
     for observation in [
-        observe("confirming", Some([7; 32]), 1),
-        observe("final", Some([8; 32]), 3),
-        observe("unknown_stage", Some([7; 32]), 2),
-        observe("missing", None, 0),
-        observe("displaced", Some([8; 32]), 0),
-        observe("displaced", Some([7; 32]), 1),
-        observe("displaced", None, 0),
+        observe(Rung::Submitted, None, None),
+        observe(Rung::Committed, Some([0; 32]), Some(42)),
+        observe(Rung::Committed, Some([7; 32]), Some(0)),
+        observe(Rung::Committed, Some([7; 32]), None),
+        observe(Rung::Committed, None, Some(42)),
+        observe(Rung::Receipted, Some([7; 32]), None),
+        observe(Rung::Receipted, None, Some(42)),
     ] {
-        assert!(journal.observe_paxeer([5; 32], observation, 3).is_err());
+        assert!(journal.observe_paxeer([5; 32], observation, 4).is_err());
         assert_eq!(journal_bytes(&path), before);
     }
     journal
-        .observe_paxeer([5; 32], observe("final", Some([7; 32]), 3), 3)
-        .unwrap_or_else(|error| panic!("final: {error:?}"));
-    assert!(journal
-        .observe_paxeer([5; 32], observe("confirming", Some([7; 32]), 4), 4)
-        .is_err());
+        .observe_paxeer(
+            [5; 32],
+            observe(Rung::Committed, Some([7; 32]), Some(42)),
+            5,
+        )
+        .unwrap_or_else(|error| panic!("committed: {error:?}"));
+    let committed = journal.paxeer(&[5; 32]).cloned();
+    let before = journal_bytes(&path);
+    for observation in [
+        observe(Rung::Submitted, None, None),
+        observe(Rung::Receipted, None, None),
+        observe(Rung::Committed, Some([8; 32]), Some(42)),
+        observe(Rung::Committed, Some([7; 32]), Some(43)),
+        observe(Rung::Committed, Some([7; 32]), Some(41)),
+        PaxeerObservation {
+            operation_id: "other-operation",
+            ..observe(Rung::Committed, Some([7; 32]), Some(42))
+        },
+        PaxeerObservation {
+            transaction_hash: [8; 32],
+            ..observe(Rung::Committed, Some([7; 32]), Some(42))
+        },
+    ] {
+        assert_eq!(
+            journal.observe_paxeer([5; 32], observation, 6),
+            Err(RampError::Conflict)
+        );
+        assert_eq!(journal_bytes(&path), before);
+        assert_eq!(journal.paxeer(&[5; 32]), committed.as_ref());
+    }
     journal
-        .observe_paxeer([5; 32], observe("displaced", Some([7; 32]), 0), 4)
-        .unwrap_or_else(|error| panic!("reorg: {error:?}"));
-    journal
-        .observe_paxeer([5; 32], observe("confirming", Some([8; 32]), 1), 5)
-        .unwrap_or_else(|error| panic!("new inclusion: {error:?}"));
+        .observe_paxeer(
+            [5; 32],
+            observe(Rung::Committed, Some([7; 32]), Some(42)),
+            7,
+        )
+        .unwrap_or_else(|error| panic!("same committed evidence: {error:?}"));
     drop(journal);
     let reopened = open_journal(&path);
     let recovered = reopened
         .paxeer(&[5; 32])
         .unwrap_or_else(|| panic!("recovered operation"));
-    assert_eq!(recovered.block_hash, Some([8; 32]));
-    assert_eq!(recovered.confirmations, 1);
+    assert_eq!(Some(recovered), committed.as_ref());
+    assert_eq!(recovered.rung, Some(Rung::Committed));
+    assert_eq!(recovered.block_hash, Some([7; 32]));
+    assert_eq!(recovered.block_height, Some(42));
     drop(reopened);
     remove_journal(&path);
 }

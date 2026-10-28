@@ -22,6 +22,13 @@ import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
 
 export type LaunchpadAction = 'buy' | 'sell' | 'create' | 'claim';
 
+export function parseDeadlineMinutes(text: string): number {
+  if (!/^[1-9][0-9]*$/.test(text)) {
+    throw new RangeError('the deadline must be a positive whole number of minutes');
+  }
+  return Number(text);
+}
+
 const ACTIONS: readonly { value: LaunchpadAction; label: string }[] = [
   { value: 'buy', label: 'Buy' },
   { value: 'sell', label: 'Sell' },
@@ -61,7 +68,7 @@ export function LaunchpadView({ sidRate, legs, now = Date.now }: LaunchpadViewPr
             pool,
             amountIn: buying ? parseUnits(amountIn, 18) : BigInt(amountIn),
             minOut: buying ? BigInt(minOut) : parseUnits(minOut, 18),
-            deadline: BigInt(Math.floor(now() / 1000) + Number(deadlineMinutes) * 60),
+            deadline: BigInt(Math.floor(now() / 1000) + parseDeadlineMinutes(deadlineMinutes) * 60),
           };
           return buying
             ? { tx: surfaceModule.buy(order), spend: { kind: 'buy', order } }

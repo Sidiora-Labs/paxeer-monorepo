@@ -6,4 +6,7 @@ export async function register(): Promise<void> {
   await import("./core/network/gateway");
   if (process.env.MARKET_PROXY_ORIGIN) parseMarketProxyOrigin(process.env.MARKET_PROXY_ORIGIN);
   parseStatusPageUrl(process.env.NEXT_PUBLIC_STATUS_PAGE_URL);
+  if (process.env.NEXT_RUNTIME === "nodejs" || process.env.NEXT_RUNTIME === undefined) {
+    await import("../sentry.server.config");
+  }
 }

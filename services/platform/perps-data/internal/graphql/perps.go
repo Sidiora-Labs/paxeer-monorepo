@@ -1600,9 +1600,9 @@ FROM perps.mark_prices WHERE market_id = $1::numeric ORDER BY `+newest+` LIMIT $
 		})
 }
 
-// VaultBalanceHistory merges the collateral balances of deposits and
-// withdrawals (vaultType 0) and the insurance balances of draws (vaultType 1),
-// both in USDL.
+// VaultBalanceHistory merges the aggregate collateral held by the perps module
+// across all accounts (vaultType 0) and the insurance balances of draws
+// (vaultType 1), both in USDL.
 func (r *Resolver) VaultBalanceHistory(ctx context.Context, args struct {
 	TokenAddress *string
 	VaultType    *int32
@@ -1617,9 +1617,12 @@ func (r *Resolver) VaultBalanceHistory(ctx context.Context, args struct {
 	return collect(ctx, r.DB, "vaultBalanceHistory", `SELECT row_id, `+hexSQL("$1::bytea")+`, vault_type, vault_type_name,
     new_balance::text, amount::text, is_increase, block, `+hexSQL("tx_hash")+`, block_time
 FROM (
-    SELECT row_id, 0 AS vault_type, 'collateral' AS vault_type_name, new_balance, amount, kind = 'deposited' AS is_increase,
+    SELECT row_id, 0 AS vault_type, 'collateral' AS vault_type_name,
+        SUM(CASE kind WHEN 'deposited' THEN amount WHEN 'withdrawn' THEN -amount ELSE 0 END)
+            OVER (ORDER BY block, tx_index, log_index, sub ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS new_balance,
+        amount, kind = 'deposited' AS is_increase,
         block, tx_index, log_index, sub, tx_hash, block_time
-    FROM perps.collateral_events WHERE new_balance IS NOT NULL
+    FROM perps.collateral_events
     UNION ALL
     SELECT row_id, 1, 'insurance', new_balance, amount, false, block, tx_index, log_index, sub, tx_hash, block_time
     FROM perps.insurance_events WHERE kind = 'draw' AND new_balance IS NOT NULL AND amount IS NOT NULL

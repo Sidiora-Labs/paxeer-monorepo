@@ -342,6 +342,53 @@ func TestQuotesQuoteClosePosition(t *testing.T) {
 	require.Nil(t, branch.KVStore(env.perpsKey).Get(perpstypes.PositionKey(*uint256.NewInt(7))))
 }
 
+func TestQuotesQuotePartialCloseAtUnalignedMark(t *testing.T) {
+	e := newPositionsEnv(t, 100_000_000)
+	id := e.open()
+	e.cancelAsk()
+	e.rest(e.ctx(), positionsBidderC, true, 61_000)
+	e.setMark(new(big.Int).Add(positionsE18(61_000), big.NewInt(1)))
+	before, ok := e.position(positionsTraderA)
+	require.True(t, ok)
+	collateralBefore := e.collateral(positionsTraderA)
+	settledBefore, _ := e.perpsLogs("TradeSettled")
+
+	ret := e.mustCall(positionsTraderA, "quotePartialClose", id, positionsE18(500))
+	out, err := e.perpsABI.Methods["quotePartialClose"].Outputs.Unpack(ret)
+	require.NoError(t, err)
+	require.Len(t, out, 4)
+	exitPrice, closedPnl, fee, payout := out[0].(*big.Int), out[1].(*big.Int), out[2].(*big.Int), out[3].(*big.Int)
+	require.Equal(t, positionsE18(61_000), exitPrice)
+	require.Equal(t, wordBig(fixedWord(t, "0.2248155")), fee)
+	quoted, ok := e.position(positionsTraderA)
+	require.True(t, ok)
+	require.Equal(t, before, quoted)
+	require.Equal(t, collateralBefore, e.collateral(positionsTraderA))
+	settledAfterQuote, _ := e.perpsLogs("TradeSettled")
+	require.Len(t, settledAfterQuote, len(settledBefore))
+
+	e.mustCall(positionsTraderA, "partialClose", id, positionsE18(500))
+
+	after, ok := e.position(positionsTraderA)
+	require.True(t, ok)
+	require.Equal(t, positionsWord(t, "8310000000000000"), after.SizeBase)
+	logs, fields := e.perpsLogs("TradeSettled")
+	settled := 0
+	for i := len(settledBefore); i < len(logs); i++ {
+		if logs[i].Topics[2] != positionsAddressTopic(positionsTraderA) {
+			continue
+		}
+		require.Equal(t, exitPrice, fields[i]["executionPrice"])
+		require.Equal(t, closedPnl, fields[i]["grossPnl"])
+		require.Equal(t, fee, fields[i]["totalFeesUsd"])
+		require.Equal(t, payout, fields[i]["netPayoutTokens"])
+		settled++
+	}
+	require.Equal(t, 1, settled)
+	collateralAfter := e.collateral(positionsTraderA)
+	require.Equal(t, payout, new(big.Int).Sub(collateralAfter.ToBig(), collateralBefore.ToBig()))
+}
+
 func TestQuotesQuotePartialCloseMatchesExecution(t *testing.T) {
 	env := newQuotesEnv(t, 61_000)
 	env.rest(true, usdWord(61_000), "1")

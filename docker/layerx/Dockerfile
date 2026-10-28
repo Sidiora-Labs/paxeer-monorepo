@@ -84,7 +84,8 @@ RUN --mount=type=cache,target=/go/pkg/mod \
       -X ${VERSION_PKG}.AppName=paxd \
       -X ${VERSION_PKG}.Version=${PAX_CHAIN_VERSION} \
       -X ${VERSION_PKG}.Commit=${PAX_CHAIN_REF:-unknown} \
-      -X '${VERSION_PKG}.BuildTags=${BUILD_TAGS}'" && \
+      -X '${VERSION_PKG}.BuildTags=${BUILD_TAGS}' \
+      -X ${VERSION_PKG}.NativeArchiveDigest=$(cat build/liblayerx.a programs/target/release/liblayerx_programs_sandbox.a | sha256sum | cut -d' ' -f1)" && \
     go build -tags "${BUILD_TAGS}" -ldflags "${LDFLAGS}" ${GO_BUILD_ARGS} -o /go/bin/paxd ./daemon/paxd
 
 FROM docker.io/rust:1.91.1-bookworm@sha256:c1e5f19e773b7878c3f7a805dd00a495e747acbdc76fb2337a4ebf0418896b33 AS x-websearch

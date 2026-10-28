@@ -17,6 +17,8 @@ import (
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/rootmulti"
+	storev2_rootmulti "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/storev2/rootmulti"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/tasks"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -281,6 +283,31 @@ func (app *App) Commit(ctx context.Context) (res *abci.ResponseCommit, err error
 	defer span.End()
 	start := time.Now()
 	res, err = app.BaseApp.Commit(ctx)
+	if err == nil {
+		logStore := func(name string, hash []byte) {
+			logger.Info("committed store", "height", app.LastBlockHeight(), "store", name, "hash", fmt.Sprintf("%X", hash))
+		}
+		switch rs := app.CommitMultiStore().(type) {
+		case *rootmulti.Store:
+			for _, store := range rs.LastCommitInfo().StoreInfos {
+				logStore(store.Name, store.CommitId.Hash)
+			}
+		case *storev2_rootmulti.Store:
+			snapshot := rs.SnapshotSCStore()
+			if snapshot == nil {
+				logger.Error("committed store hashes unavailable: SC snapshot unsupported", "height", app.LastBlockHeight())
+				break
+			}
+			for _, store := range snapshot.LastCommitInfo().StoreInfos {
+				logStore(store.Name, store.CommitId.Hash)
+			}
+			if releaser, ok := snapshot.(interface{ ReleaseSnapshotRefs() error }); ok {
+				if releaseErr := releaser.ReleaseSnapshotRefs(); releaseErr != nil {
+					logger.Error("release committed store hash snapshot", "height", app.LastBlockHeight(), "err", releaseErr)
+				}
+			}
+		}
+	}
 	elapsed := time.Since(start)
 	// legacy: telemetry.MeasureSince in cosmos/baseapp/abci.go TODO(PLT-327)
 	appMetrics.commitDuration.Record(ctx, elapsed.Seconds())

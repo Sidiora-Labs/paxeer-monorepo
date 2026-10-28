@@ -61,28 +61,80 @@ const (
 // recomputed from the stored facts for every key the rows touch. Market stats
 // are also refreshed when their previous window is more than 24 hours old, and
 // keeper_cycles and spot_token_seen are written from the rows of the block,
-// and perps.leaderboard refolds the accounts of PositionOpened, PositionClosed
-// or TradeSettled rows and ranks each window as of the block time
+// and perps.leaderboard refolds touched and expired accounts and ranks each
+// window as of the block time
 // (contracts/data-services.md section 18).
 func Project(ctx context.Context, tx *sql.Tx, rows []decode.Row) error {
-	board, err := project(ctx, tx, rows)
+	_, err := project(ctx, tx, rows)
 	if err != nil {
 		return err
 	}
 	if err := FoldSpotBoard(ctx, tx, rows); err != nil {
 		return err
 	}
-	if !board {
-		return nil
+	var at time.Time
+	if len(rows) != 0 {
+		at = rows[0].Common().BlockTime
+	} else {
+		err := tx.QueryRowContext(ctx, `SELECT time FROM perps.blocks ORDER BY number DESC LIMIT 1`).Scan(&at)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("store: leaderboard head time: %w", err)
+		}
 	}
 	var accounts set[common.Address]
 	for _, row := range rows {
 		switch row.(type) {
-		case decode.PositionOpenedRow, decode.PositionClosedRow, decode.TradeSettledRow:
+		case decode.PositionOpenedRow, decode.PositionClosedRow, decode.TradeSettledRow,
+			decode.LiquidationRow, decode.ADLExecutedRow:
 			accounts.add(row.Common().Account)
 		}
 	}
-	return rebuildLeaderboard(ctx, tx, rows[0].Common().BlockTime, accounts.list...)
+	expired, err := expiredLeaderboardAccounts(ctx, tx, at)
+	if err != nil {
+		return err
+	}
+	for _, account := range expired {
+		accounts.add(account)
+	}
+	if len(accounts.list) == 0 {
+		return nil
+	}
+	return rebuildLeaderboard(ctx, tx, at, accounts.list...)
+}
+
+func expiredLeaderboardAccounts(ctx context.Context, tx *sql.Tx, at time.Time) ([]common.Address, error) {
+	rows, err := tx.QueryContext(ctx, `WITH windows ("window", since) AS (
+    VALUES ('7d', $1::timestamptz - interval '168 hours'),
+           ('30d', $1::timestamptz - interval '720 hours')
+)
+SELECT DISTINCT b.account FROM perps.leaderboard b JOIN windows w USING ("window")
+WHERE NOT EXISTS (
+    SELECT 1 FROM perps.position_events c
+    WHERE c.account = b.account AND c.kind = 'closed' AND c.block_time > w.since AND c.block_time <= $1
+) AND NOT EXISTS (
+    SELECT 1 FROM perps.trade_settlements s
+    WHERE s.account = b.account AND s.block_time > w.since AND s.block_time <= $1
+)
+ORDER BY b.account`, at.UTC())
+	if err != nil {
+		return nil, fmt.Errorf("store: select expired leaderboard accounts: %w", err)
+	}
+	defer rows.Close()
+	var accounts []common.Address
+	for rows.Next() {
+		var account []byte
+		if err := rows.Scan(&account); err != nil {
+			return nil, fmt.Errorf("store: scan expired leaderboard account: %w", err)
+		}
+		accounts = append(accounts, common.BytesToAddress(account))
+	}
+	if err := errors.Join(rows.Err(), rows.Close()); err != nil {
+		return nil, fmt.Errorf("store: read expired leaderboard accounts: %w", err)
+	}
+	return accounts, nil
 }
 
 const leaderboardUpsertSQL = `WITH closes AS (
@@ -226,8 +278,11 @@ func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
 		cycle.seen = cycle.seen || endBlock
 		switch r := row.(type) {
 		case decode.CollateralDepositedRow, decode.CollateralWithdrawnRow, decode.CollateralTransferredRow,
-			decode.PositionModifiedRow, decode.ADLExecutedRow:
+			decode.PositionModifiedRow:
 			margin.add(f.Account)
+		case decode.ADLExecutedRow:
+			margin.add(f.Account)
+			board = true
 		case decode.PositionOpenedRow:
 			margin.add(f.Account)
 			board = true
@@ -241,6 +296,7 @@ func project(ctx context.Context, tx *sql.Tx, rows []decode.Row) (bool, error) {
 		case decode.LiquidationRow:
 			margin.add(f.Account)
 			stats.add(f.Account)
+			board = true
 			if endBlock {
 				cycle.liquidations++
 			}

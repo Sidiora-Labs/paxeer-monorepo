@@ -1,18 +1,19 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https';
-import type { AddressInfo } from 'node:net';
+import { Agent, request, createServer as createHttpsServer, type Server as HttpsServer } from 'node:https';
+import { connect, createServer as createNetServer, type AddressInfo, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createHash, createPublicKey, generateKeyPairSync, randomUUID, sign, verify, X509Certificate } from 'node:crypto';
+import { createHash, createPublicKey, generateKeyPairSync, randomBytes, randomUUID, sign, verify, X509Certificate } from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { SignJWT, exportJWK, generateKeyPair, type KeyLike } from 'jose';
 import {
   keccak256,
   parseTransaction,
+  recoverAddress,
   recoverMessageAddress,
   recoverTransactionAddress,
   recoverTypedDataAddress,
@@ -22,6 +23,8 @@ import {
 } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import type { EvmReviewResult } from '../src/attestor/client.js';
+import type { WalletInventory } from '../src/agent/authority.js';
+import { buildAttestor, makePki } from './e2e/attestors.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, 'fixtures', 'attestor');
@@ -363,6 +366,7 @@ function configureReviewInventory(): void {
   process.env.ATTESTOR_CLIENT_CERT_FILE = join(tlsDir, 'client.crt');
   process.env.ATTESTOR_CLIENT_KEY_FILE = join(tlsDir, 'client.key');
   process.env.ATTESTOR_CA_FILE = join(tlsDir, 'ca.crt');
+  process.env.WALLET_AUTHORIZATION_DELEGATES = ` , ${walletFixture.address}, `;
 }
 
 function newClient(): InstanceType<ClientModule['AttestorClient']> {
@@ -656,12 +660,12 @@ describe('signing routes', () => {
   let nonces: InstanceType<typeof import('../src/nonce/store.js')['NonceStore']>;
   let client: InstanceType<ClientModule['AttestorClient']>;
 
-  async function buildApp(limits: { client: number; account: number }): Promise<FastifyInstance> {
+  async function buildApp(limits: { client: number; account: number }, attestors = client): Promise<FastifyInstance> {
     const Fastify = (await import('fastify')).default;
     const app = Fastify({ logger: false });
     await app.register(signMod.signRoutes, {
       pool: getPool(),
-      attestors: client,
+      attestors,
       rpc,
       nonces,
       limiter: new auditMod.RateLimiter({ pool: getPool(), clientPerMinute: limits.client, accountPerMinute: limits.account }),
@@ -832,6 +836,198 @@ describe('signing routes', () => {
       await app.close();
     }
   });
+
+  async function refusesUnlistedEip7702DelegateBeforeSigningAndSignsListedOne(): Promise<void> {
+    const { WALLET_AUTHORIZATION_DELEGATES, env } = await import('../src/env.js');
+    expect(WALLET_AUTHORIZATION_DELEGATES.parse(undefined)).toEqual([]);
+    expect(WALLET_AUTHORIZATION_DELEGATES.safeParse('0x1234').success).toBe(false);
+    expect(env.WALLET_AUTHORIZATION_DELEGATES).toEqual([walletFixture.address.toLowerCase()]);
+    const ids = attestorNodes.map((node) => node.nodeId);
+    const pki = makePki(ids);
+    const work = mkdtempSync(join(tmpdir(), 'gateway-authorization-'));
+    const children: ChildProcess[] = [];
+    const proxies: ReturnType<typeof createNetServer>[] = [];
+    const sockets = new Set<Socket>();
+    const traffic = ids.map(() => 0);
+    const logs: string[][] = ids.map(() => []);
+    const inventoryFile = process.env.WALLET_CUSTODY_INVENTORY_FILE!;
+    const originalInventory = readFileSync(inventoryFile, 'utf8');
+    const originalPayload = JSON.parse(Buffer.from(originalInventory.split('.')[1]!, 'base64url').toString('utf8')) as WalletInventory;
+    let sequence = BigInt(originalPayload.sequence);
+    const publishInventory = (payload: WalletInventory): void => {
+      const header = originalInventory.split('.')[0]!;
+      const body = Buffer.from(JSON.stringify({ ...payload, sequence: String(++sequence) })).toString('base64url');
+      const signature = sign('sha256', Buffer.from(`${header}.${body}`), { key: tls.clientKey, dsaEncoding: 'ieee-p1363' });
+      writeFileSync(inventoryFile, `${header}.${body}.${signature.toString('base64url')}`);
+    };
+    const operator = new Agent({ ca: readFileSync(pki.caFile), cert: readFileSync(pki.operatorCert), key: readFileSync(pki.operatorKey) });
+    const gateway = new Agent({ ca: readFileSync(pki.caFile), cert: readFileSync(pki.clientCert), key: readFileSync(pki.clientKey) });
+    async function call<T>(agent: Agent, url: string, body?: unknown): Promise<{ status: number; body: T }> {
+      return new Promise((resolve, reject) => {
+        const req = request(url, { agent, method: body === undefined ? 'GET' : 'POST', timeout: 180_000,
+          headers: { 'content-type': 'application/json' } }, (res) => {
+          const chunks: Buffer[] = [];
+          res.on('data', (chunk: Buffer) => chunks.push(chunk));
+          res.on('error', reject);
+          res.on('end', () => {
+            try { resolve({ status: res.statusCode!, body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as T }); }
+            catch (error) { reject(error); }
+          });
+        });
+        req.on('error', reject);
+        req.on('timeout', () => req.destroy(new Error('authorization attestor request timed out')));
+        req.end(body === undefined ? undefined : JSON.stringify(body));
+      });
+    }
+    let realClient: InstanceType<ClientModule['AttestorClient']> | undefined;
+    let app: FastifyInstance | undefined;
+    try {
+      const userId = randomUUID();
+      const keyId = `wallet:${userId}:standard:secp256k1:0`;
+      const members = ids.map((id) => ({ id, spki_sha256: pki.node(id).pin }));
+      publishInventory({ ...originalPayload, members,
+        keys: [{ key_id: keyId, owner: userId, curve: 'secp256k1', epoch: 0, public_key: '', operations: ['generate'] }] });
+      const policyFile = join(work, 'policy.json');
+      writeFileSync(policyFile, JSON.stringify({ version: 1, defaults: {
+        chain_id: 125, kinds: ['eth_sign_digest', 'eip7702_authorization'], rate_per_minute: 600,
+        caps: { native: { per_transaction: '1000000', daily: '10000000' } },
+        authorization_delegates: [walletFixture.address],
+      } }));
+      const authorityPublic = join(work, 'authority.pub');
+      writeFileSync(authorityPublic, createPublicKey(tls.clientKey).export({ format: 'pem', type: 'spki' }));
+      const reservations = await Promise.all(Array.from({ length: ids.length * 2 }, async () => {
+        const server = createNetServer();
+        await new Promise<void>((resolve, reject) => {
+          server.once('error', reject);
+          server.listen(0, '127.0.0.1', resolve);
+        });
+        return server;
+      }));
+      const ports = reservations.map((server) => (server.address() as AddressInfo).port);
+      await Promise.all(reservations.map((server) => new Promise<void>((resolve) => server.close(() => resolve()))));
+      const bin = buildAttestor(work);
+      for (const [i, id] of ids.entries()) {
+        const nodeKey = join(work, `${id}.key`);
+        const dataDir = join(work, id);
+        mkdirSync(dataDir);
+        writeFileSync(nodeKey, randomBytes(32).toString('hex'), { mode: 0o600 });
+        const others = ids.filter((peer) => peer !== id);
+        const child = spawn(bin, [], { env: {
+          PATH: process.env.PATH, HOME: process.env.HOME,
+          ATTESTOR_NODE_ID: id, ATTESTOR_REGION: `region-${i + 1}`,
+          ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i * 2]}`,
+          ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i * 2 + 1]}`,
+          ATTESTOR_PEERS: others.map((peer) => `${peer}=127.0.0.1:${ports[ids.indexOf(peer) * 2 + 1]}`).join(','),
+          ATTESTOR_PEER_PINS: others.map((peer) => `${peer}=${pki.node(peer).pin}`).join(','),
+          ATTESTOR_NODE_KEY_FILE: nodeKey, ATTESTOR_DATA_DIR: dataDir, ATTESTOR_CHAIN_ID: '125',
+          ATTESTOR_JWKS_URL: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+          ATTESTOR_JWT_ISSUER: `${supabaseUrl}/auth/v1`, ATTESTOR_JWT_AUDIENCE: 'authenticated',
+          ATTESTOR_POLICY_FILE: policyFile, ATTESTOR_RPC_URL: rpcUrl,
+          ATTESTOR_TLS_CERT_FILE: pki.node(id).cert, ATTESTOR_TLS_KEY_FILE: pki.node(id).key,
+          ATTESTOR_TLS_CA_FILE: pki.caFile, ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
+          ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: authorityPublic,
+          ATTESTOR_AUTHORITY_ISSUER: `${supabaseUrl}/auth/v1`, ATTESTOR_AUTHORITY_TENANT: originalPayload.tenant,
+          ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: authorityPublic, ATTESTOR_INVENTORY_FILE: inventoryFile,
+        }, stdio: ['ignore', 'pipe', 'pipe'] });
+        children.push(child);
+        child.stdout!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
+        child.stderr!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
+        const proxy = createNetServer((socket) => {
+          const upstream = connect(ports[i * 2]!, '127.0.0.1');
+          for (const connection of [socket, upstream]) {
+            sockets.add(connection);
+            connection.on('close', () => sockets.delete(connection));
+            connection.on('error', () => { socket.destroy(); upstream.destroy(); });
+          }
+          socket.on('data', (chunk: Buffer) => { traffic[i]! += chunk.length; });
+          socket.pipe(upstream).pipe(socket);
+        });
+        proxies.push(proxy);
+        await new Promise<void>((resolve, reject) => {
+          proxy.once('error', reject);
+          proxy.listen(0, '127.0.0.1', resolve);
+        });
+      }
+      const endpoints = proxies.map((proxy) => `https://127.0.0.1:${(proxy.address() as AddressInfo).port}`);
+      const deadline = Date.now() + 60_000;
+      for (const [i, endpoint] of endpoints.entries()) {
+        for (;;) {
+          if (children[i]!.exitCode !== null) throw new Error(logs[i]!.join(''));
+          const health = await call<{ reachable_peers: number }>(gateway, `${endpoint}/health`).catch(() => null);
+          if (health?.body.reachable_peers === 4) break;
+          if (Date.now() >= deadline) throw new Error(`authorization attestor not ready: ${logs[i]!.join('')}`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      const sessionId = randomUUID();
+      const generated = await Promise.all(endpoints.map((endpoint) => call<{ address: Hex; public_key: string; epoch: number; refreshed: boolean }>(
+        gateway, `${endpoint}/v1/keys/generate`, { session_id: sessionId, key_id: keyId, owner: userId, curve: 'secp256k1' },
+      )));
+      expect(generated.map((answer) => answer.status)).toEqual(ids.map(() => 200));
+      const key = generated[0]!.body;
+      expect(generated.every((answer) => answer.body.public_key === key.public_key && answer.body.address === key.address
+        && answer.body.epoch === key.epoch)).toBe(true);
+      publishInventory({ ...originalPayload, members,
+        keys: [{ key_id: keyId, owner: userId, curve: 'secp256k1', epoch: key.epoch, public_key: key.public_key, operations: ['sign', 'refresh'] }] });
+      if (generated.some((answer) => !answer.body.refreshed)) {
+        const refreshId = randomUUID();
+        const refreshed = await Promise.all(endpoints.map((endpoint) => call<{ public_key: string; epoch: number; refreshed: boolean }>(operator,
+          `${endpoint}/v1/keys/refresh`, { session_id: refreshId, key_id: keyId })));
+        expect(refreshed.every((answer) => answer.status === 200 && answer.body.refreshed)).toBe(true);
+        expect(refreshed.every((answer) => answer.body.public_key === key.public_key && answer.body.epoch === key.epoch + 1)).toBe(true);
+        publishInventory({ ...originalPayload, members,
+          keys: [{ key_id: keyId, owner: userId, curve: 'secp256k1', epoch: refreshed[0]!.body.epoch,
+            public_key: key.public_key, operations: ['sign', 'refresh'] }] });
+      }
+      await getPool().query(`insert into wallets(user_id,address,chain_id,attestor_key_id,migrated_at)
+        values($1,$2,125,$3,now())`, [userId, key.address, keyId]);
+      realClient = new clientMod.AttestorClient({ endpoints,
+        tls: { ca: readFileSync(pki.caFile), cert: readFileSync(pki.clientCert), key: readFileSync(pki.clientKey) },
+        quorum: 3, healthIntervalMs: 60_000, timeoutMs: 30_000 });
+      await realClient.refreshHealth();
+      app = await buildApp({ client: 100, account: 100 }, realClient);
+      const headers = { authorization: `Bearer ${await mintToken(userId)}` };
+      const construction = { kind: 'eip7702_authorization' as const, chainId: '125', nonce: String(routeInputs.nonce),
+        address: walletFixture.address };
+      const before = [...traffic];
+      const refused = await app.inject({ method: 'POST', url: '/v1/wallet/sign-digest', headers,
+        payload: { construction: { ...construction, address: '0x1111111111111111111111111111111111111111' } } });
+      expect(refused.statusCode, refused.body).toBe(403);
+      expect(refused.json()).toMatchObject({ error: 'delegate_not_allowed' });
+      expect(traffic).toEqual(before);
+      expect(attestorNodes.every((node) => node.received.length === 0)).toBe(true);
+      const signed = await app.inject({ method: 'POST', url: '/v1/wallet/sign-digest', headers, payload: { construction } });
+      expect(signed.statusCode, signed.body).toBe(200);
+      const signature = signed.json<{ signature: Hex; address: string }>();
+      expect(signature.signature).toMatch(/^0x[0-9a-f]{130}$/i);
+      expect(signature.address).toBe(key.address);
+      expect(await recoverAddress({ hash: clientMod.constructionDigest(construction), signature: signature.signature })).toBe(key.address);
+      expect(traffic.some((bytes, i) => bytes > before[i]!)).toBe(true);
+    } finally {
+      await app?.close();
+      realClient?.stop();
+      gateway.destroy();
+      operator.destroy();
+      for (const socket of sockets) socket.destroy();
+      await Promise.all(proxies.map((proxy) => new Promise<void>((resolve) => proxy.close(() => resolve()))));
+      await Promise.all(children.map(async (child) => {
+        if (child.exitCode !== null || child.signalCode !== null) return;
+        const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+        child.kill('SIGTERM');
+        const timer = setTimeout(() => child.kill('SIGKILL'), 10_000);
+        await exited;
+        clearTimeout(timer);
+      }));
+      publishInventory(originalPayload);
+      rmSync(work, { recursive: true, force: true });
+      rmSync(pki.dir, { recursive: true, force: true });
+    }
+  }
+  it(
+    'refuses an unlisted EIP-7702 delegate before signing and signs a listed one',
+    refusesUnlistedEip7702DelegateBeforeSigningAndSignsListedOne,
+    600_000,
+  );
 
   it('maps attestor refusals to typed HTTP responses and audits them', async () => {
     const app = await buildApp({ client: 100, account: 100 });

@@ -36,6 +36,7 @@ defmodule Explorer.PaxeerX.CosmosRestTest do
     assert Enum.map(observations, & &1.market_id) == Enum.to_list(0..17)
 
     assert hd(observations) == %{
+             accepted: true,
              market_id: 0,
              sequence: 63_784,
              index_price: 82_830_900_000_000_000_000_000,
@@ -70,6 +71,55 @@ defmodule Explorer.PaxeerX.CosmosRestTest do
 
     assert {:ok, [%{status: 0, gas_used: 41}]} =
              CosmosRest.block_price_updates([context.rest_url], [context.rpc_url], @height)
+  end
+
+  test "decode_price_updates marks observations refused by the module as not accepted" do
+    body = Jason.decode!(fixture("block_txs.json"))
+
+    assert {:ok, [submission]} =
+             CosmosRest.decode_block_txs(%{"txs" => body["txs"], "raw" => body["block"]["data"]["txs"]})
+
+    failed_submission = %{submission | index: 1}
+
+    for encode <- [&Function.identity/1, &Base.encode64/1] do
+      refusal = %{
+        "type" => "pricefeed_observation_refused",
+        "attributes" => [
+          %{"key" => encode.("reason"), "value" => encode.("sequence")},
+          %{"key" => encode.("market_id"), "value" => encode.("2")}
+        ]
+      }
+
+      results = [
+        %{
+          "code" => 0,
+          "events" => [
+            %{
+              "type" => "pricefeed_observation",
+              "attributes" => [%{"key" => encode.("market_id"), "value" => encode.("0")}]
+            },
+            refusal
+          ]
+        },
+        %{"code" => 5, "events" => []}
+      ]
+
+      assert {:ok, [successful, failed]} =
+               CosmosRest.decode_price_updates([submission, failed_submission], results, 2)
+
+      assert successful.status == 1
+
+      assert Enum.map(successful.observations, &{&1.market_id, &1.accepted}) ==
+               Enum.map(0..17, &{&1, &1 != 2})
+
+      assert failed.status == 0
+      assert length(failed.observations) == 18
+      assert Enum.all?(failed.observations, &(&1.accepted == false))
+    end
+
+    assert {:ok, [successful]} = CosmosRest.decode_price_updates([submission], [%{}], 1)
+    assert length(successful.observations) == 18
+    assert Enum.all?(successful.observations, &(&1.accepted == true))
   end
 
   test "refuses execution results that do not line up with the block's transactions", context do
@@ -124,6 +174,24 @@ defmodule Explorer.PaxeerX.CosmosRestTest do
     assert {:ok, []} = CosmosRest.fetch_block_results(urls, @empty_height)
     assert {:ok, []} = CosmosRest.fetch_block_results(urls, @empty_height)
     assert :counters.get(failing_calls, 1) == 1
+  end
+
+  test "reports a proxy page that mentions is not available as an http status", context do
+    Bypass.expect(context.rest, "GET", "/cosmos/tx/v1beta1/txs/block/#{@height}", fn conn ->
+      Plug.Conn.resp(conn, 502, "service is not available")
+    end)
+
+    rest_url = context.rest_url
+
+    assert {:error, {:http_status, 502, ^rest_url}} =
+             CosmosRest.fetch_block_txs([rest_url], @height)
+
+    Bypass.expect(context.rpc, "GET", "/block_results", fn conn ->
+      Plug.Conn.resp(conn, 200, rpc_error(@pruned))
+    end)
+
+    rpc_url = context.rpc_url
+    assert {:error, {:height_unavailable, ^rpc_url}} = CosmosRest.fetch_block_results([rpc_url], @height)
   end
 
   test "reports a height every node has pruned as unavailable", context do

@@ -19,6 +19,23 @@ const SDK_LX: &str = include_str!("../../../../../sdk/wallet/src/index.ts");
 const SDK_GAS: &str = include_str!("../../../../../sdk/wallet/src/modules/gas-station.ts");
 const ARCHIVE: &str = include_str!("../../../../../services/platform/relay_archive/runtime.py");
 
+#[test]
+fn served_catalogue_lists_px_register_and_no_retired_lx_routes() {
+    let routes = unified_service_catalogue()["routes"]
+        .as_array()
+        .expect("production routes");
+    for route in routes {
+        assert_ne!(route["path"], "lx_register", "retired route: {route}");
+        assert_ne!(route["path"], "lx_getHistory", "retired route: {route}");
+    }
+    assert!(routes.iter().any(|route| {
+        route["id"] == "kernel:POST:px_register" && route["path"] == "px_register"
+    }));
+    assert!(routes.iter().any(|route| {
+        route["id"] == "indexer:POST:px_getHistory" && route["path"] == "px_getHistory"
+    }));
+}
+
 fn operation(method: &str, target: &str, source: &str) {
     let entry = unified_service_route(method, target).expect("actual unified service operation");
     assert_eq!(entry["service"], "wallet-gateway");

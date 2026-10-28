@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { perfdbQuery, perfdbRest } from "@/core/perfdb/client";
 import { parseWei } from "@/ui/utils/format";
 
+export const DAILY_PNL_LIMIT = 90;
+
 // ── Types ────────────────────────────────────────────────────────────
 export interface DailyPnl {
   date: string; // ISO date string, e.g. "2024-01-15"
@@ -41,6 +43,7 @@ export interface DailyPnlResult {
   rows: DailyPnl[];
   /** Rows dropped for a missing date or a null/unparseable pnl, volume or trades. */
   skippedDays: number;
+  historyCapped: boolean;
 }
 
 function isExactWei(v: unknown): v is string {
@@ -67,7 +70,11 @@ function isComplete(r: GatewayDailyPnl | null): r is DailyPnl {
 function completeAscending(list: (GatewayDailyPnl | null)[] | null | undefined, source: string): DailyPnlResult {
   if (!Array.isArray(list)) throw new Error(`PerfDB ${source} returned no daily PnL list`);
   const rows = list.filter(isComplete).sort((a, b) => a.date.localeCompare(b.date));
-  return { rows, skippedDays: list.length - rows.length };
+  return {
+    rows,
+    skippedDays: list.length - rows.length,
+    historyCapped: source === "GraphQL" && list.length >= DAILY_PNL_LIMIT,
+  };
 }
 
 /**
@@ -76,7 +83,10 @@ function completeAscending(list: (GatewayDailyPnl | null)[] | null | undefined, 
  */
 export async function fetchDailyPnl(addr: string): Promise<DailyPnlResult> {
   try {
-    const gqlRes = await perfdbQuery<DailyPnlQueryResponse>(USER_DAILY_PNL_QUERY, { address: addr, limit: 90 });
+    const gqlRes = await perfdbQuery<DailyPnlQueryResponse>(USER_DAILY_PNL_QUERY, {
+      address: addr,
+      limit: DAILY_PNL_LIMIT,
+    });
     return completeAscending(gqlRes?.userDailyPnl, "GraphQL");
   } catch {
     const restRes = await perfdbRest<DailyPnlRestResponse | (GatewayDailyPnl | null)[] | null>(`/v2/user/${addr}/daily-pnl`);
@@ -88,11 +98,13 @@ export async function fetchDailyPnl(addr: string): Promise<DailyPnlResult> {
 export function useDailyPnl(address: string | undefined): {
   dailyPnl: DailyPnl[];
   skippedDays: number;
+  historyCapped: boolean;
   isLoading: boolean;
   error: Error | null;
 } {
   const [dailyPnl, setDailyPnl] = useState<DailyPnl[]>([]);
   const [skippedDays, setSkippedDays] = useState(0);
+  const [historyCapped, setHistoryCapped] = useState(false);
   const [isLoading, setIsLoading] = useState<boolean>(Boolean(address));
   const [error, setError] = useState<Error | null>(null);
 
@@ -100,6 +112,7 @@ export function useDailyPnl(address: string | undefined): {
     if (!address) {
       setDailyPnl([]);
       setSkippedDays(0);
+      setHistoryCapped(false);
       setIsLoading(false);
       setError(null);
       return;
@@ -113,6 +126,7 @@ export function useDailyPnl(address: string | undefined): {
           if (cancelled) return;
           setDailyPnl(result.rows);
           setSkippedDays(result.skippedDays);
+          setHistoryCapped(result.historyCapped);
           setError(null);
         },
         (err: unknown) => {
@@ -120,6 +134,7 @@ export function useDailyPnl(address: string | undefined): {
           setError(err instanceof Error ? err : new Error(String(err)));
           setDailyPnl([]);
           setSkippedDays(0);
+          setHistoryCapped(false);
         },
       )
       .finally(() => {
@@ -130,5 +145,5 @@ export function useDailyPnl(address: string | undefined): {
     };
   }, [address]);
 
-  return { dailyPnl, skippedDays, isLoading, error };
+  return { dailyPnl, skippedDays, historyCapped, isLoading, error };
 }

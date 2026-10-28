@@ -1,0 +1,58 @@
+name: Wallet Go tests
+
+on:
+  pull_request:
+    paths:
+      - 'services/wallet/attestor/**'
+      - 'services/wallet/ceremony/**'
+      - 'precompiles/**/abi.json'
+      - 'precompiles/perps/abi/abi.json'
+      - 'precompiles/common/erc20_abi.json'
+      - '.github/workflows/wallet-go-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'services/wallet/attestor/**'
+      - 'services/wallet/ceremony/**'
+      - 'precompiles/**/abi.json'
+      - 'precompiles/perps/abi/abi.json'
+      - 'precompiles/common/erc20_abi.json'
+      - '.github/workflows/wallet-go-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  attestor:
+    name: Attestor
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/wallet/attestor
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: services/wallet/attestor/go.mod
+          cache-dependency-path: services/wallet/attestor/go.sum
+      - name: Test attestor (including TestABICopiesMatchRepository)
+        run: go test ./...
+
+  ceremony:
+    name: Ceremony
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/wallet/ceremony
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: services/wallet/ceremony/go.mod
+          cache-dependency-path: services/wallet/ceremony/go.sum
+      - name: Test ceremony
+        run: go test ./...

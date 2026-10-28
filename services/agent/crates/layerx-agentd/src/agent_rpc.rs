@@ -2,7 +2,8 @@
 //! session authorization ordering ahead of any owner effect.
 
 use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retriability};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::verify::RungStatus as VerificationStatus;
 use serde::Deserialize;
 
 use crate::agent_rpc_dispatch::{
@@ -432,36 +433,20 @@ pub fn refusal(status: u16, class: ErrorClass, reason: &'static str) -> AgentRpc
     }
 }
 
-const fn level_name(level: Level) -> &'static str {
-    match level {
-        Level::Unverified => "Unverified",
-        Level::SequencerSigned => "SequencerSigned",
-        Level::BatchIncluded => "BatchIncluded",
-        Level::StateProven => "StateProven",
-        Level::CheckpointFinalised => "CheckpointFinalised",
-        Level::SettlementAnchored => "SettlementAnchored",
-    }
+const fn level_name(level: Rung) -> &'static str {
+    level.name()
 }
 
-const LEVELS: [(&str, Level); 12] = [
-    ("Unverified", Level::Unverified),
-    ("SequencerSigned", Level::SequencerSigned),
-    ("BatchIncluded", Level::BatchIncluded),
-    ("StateProven", Level::StateProven),
-    ("CheckpointFinalised", Level::CheckpointFinalised),
-    ("SettlementAnchored", Level::SettlementAnchored),
-    ("unverified", Level::Unverified),
-    ("sequencer-signed", Level::SequencerSigned),
-    ("batch-included", Level::BatchIncluded),
-    ("state-proven", Level::StateProven),
-    ("checkpoint-finalised", Level::CheckpointFinalised),
-    ("settlement-anchored", Level::SettlementAnchored),
+const LEVELS: [(&str, Rung); 3] = [
+    ("submitted", Rung::Submitted),
+    ("receipted", Rung::Receipted),
+    ("committed", Rung::Committed),
 ];
 
 /// `None` when the request declares no level; `Some(None)` when the declared level is not a
 /// level name.
-fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Option<Option<Level>> {
-    let value = request.get("requested_verification_level")?;
+fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Option<Option<Rung>> {
+    let value = request.get("requested_rung")?;
     Some(value.as_str().and_then(|name| {
         LEVELS
             .into_iter()
@@ -472,18 +457,18 @@ fn requested_level(request: &serde_json::Map<String, serde_json::Value>) -> Opti
 fn verification_json(
     request_id: RequestId,
     status: Option<&VerificationStatus>,
-    requested: Option<Option<Level>>,
+    requested: Option<Option<Rung>>,
 ) -> Result<serde_json::Value, Rejection> {
     let Some(status) = status else {
         return match requested {
             None => Ok(serde_json::json!({
                 "state": "achieved",
-                "level": level_name(Level::Unverified),
+                "rung": level_name(Rung::Submitted),
             })),
-            Some(Some(requested)) if requested > Level::Unverified => Ok(serde_json::json!({
+            Some(Some(requested)) if requested > Rung::Submitted => Ok(serde_json::json!({
                 "state": "unverified",
                 "requested": level_name(requested),
-                "achieved": level_name(Level::Unverified),
+                "achieved": level_name(Rung::Submitted),
                 "reason": "owner_payload_carries_no_level",
             })),
             Some(_) => Err(Rejection::new(
@@ -496,9 +481,9 @@ fn verification_json(
     match status {
         VerificationStatus::Achieved(level) => Ok(serde_json::json!({
             "state": "achieved",
-            "level": level_name(*level),
+            "rung": level_name(*level),
         })),
-        VerificationStatus::Unverified {
+        VerificationStatus::Below {
             requested,
             achieved,
             reason,
@@ -534,7 +519,7 @@ fn rejected(rejection: &Rejection) -> AgentRpcResponse {
 pub fn success_body(
     request_id: RequestId,
     dispatched: &Dispatched,
-    requested: Option<Option<Level>>,
+    requested: Option<Option<Rung>>,
 ) -> Result<AgentRpcResponse, Rejection> {
     let verification_status =
         verification_json(request_id, dispatched.verification.as_ref(), requested)?;
@@ -692,7 +677,7 @@ fn authorized_on_surface<A: HumanAuthorityBoundary>(
 
 fn respond(
     request_id: RequestId,
-    requested: Option<Option<Level>>,
+    requested: Option<Option<Rung>>,
     result: Result<Dispatched, Rejection>,
 ) -> AgentRpcResponse {
     match result.and_then(|dispatched| success_body(request_id, &dispatched, requested)) {
@@ -999,7 +984,7 @@ pub fn handle_human_native_send_prepare<A: HumanAuthorityBoundary>(
 fn level_request(name: &str) -> serde_json::Map<String, serde_json::Value> {
     let mut request = serde_json::Map::new();
     request.insert(
-        String::from("requested_verification_level"),
+        String::from("requested_rung"),
         serde_json::Value::String(String::from(name)),
     );
     request
@@ -1007,29 +992,25 @@ fn level_request(name: &str) -> serde_json::Map<String, serde_json::Value> {
 
 #[test]
 fn requested_level_accepts_each_declared_kebab_case_spelling() {
-    for (name, level) in [
-        ("unverified", Level::Unverified),
-        ("sequencer-signed", Level::SequencerSigned),
-        ("batch-included", Level::BatchIncluded),
-        ("state-proven", Level::StateProven),
-        ("checkpoint-finalised", Level::CheckpointFinalised),
-        ("settlement-anchored", Level::SettlementAnchored),
-    ] {
-        assert_eq!(requested_level(&level_request(name)), Some(Some(level)));
+    for rung in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
+        assert_eq!(
+            requested_level(&level_request(rung.name())),
+            Some(Some(rung))
+        );
     }
 }
 
 #[test]
-fn requested_level_keeps_each_camel_case_spelling() {
-    for (name, level) in [
-        ("Unverified", Level::Unverified),
-        ("SequencerSigned", Level::SequencerSigned),
-        ("BatchIncluded", Level::BatchIncluded),
-        ("StateProven", Level::StateProven),
-        ("CheckpointFinalised", Level::CheckpointFinalised),
-        ("SettlementAnchored", Level::SettlementAnchored),
+fn requested_level_refuses_retired_camel_case_spellings() {
+    for name in [
+        "Unverified",
+        "SequencerSigned",
+        "BatchIncluded",
+        "StateProven",
+        "CheckpointFinalised",
+        "SettlementAnchored",
     ] {
-        assert_eq!(requested_level(&level_request(name)), Some(Some(level)));
+        assert_eq!(requested_level(&level_request(name)), Some(None));
     }
 }
 
@@ -1057,8 +1038,8 @@ fn requested_level_refuses_an_unknown_spelling() {
 #[test]
 fn requested_level_parses_the_program_activity_default() {
     assert_eq!(
-        requested_level(&level_request("sequencer-signed")),
-        Some(Some(Level::SequencerSigned))
+        requested_level(&level_request("submitted")),
+        Some(Some(Rung::Submitted))
     );
 }
 
@@ -1201,17 +1182,23 @@ pub struct McpOwnerEnvironment {
 }
 
 pub fn mcp_owner_environment<A: HumanAuthorityBoundary>(
-    owner: &SharedAgentOwner<A>, request_id: RequestId,
+    owner: &SharedAgentOwner<A>,
+    request_id: RequestId,
     credential: &SessionCredential,
 ) -> Result<McpOwnerEnvironment, Rejection> {
     let envelope = Envelope {
-        request_id, operation:Operation::ReadModuleState, idempotency_key:None,
-        request:serde_json::Map::new(), credential:Some(credential.clone()),
+        request_id,
+        operation: Operation::ReadModuleState,
+        idempotency_key: None,
+        request: serde_json::Map::new(),
+        credential: Some(credential.clone()),
     };
     let (permit, _, bound, control) = authorized_on_surface(owner, &envelope, Surface::Mcp)?;
     let context = agent_rpc_peer::from_resolved(&control, &permit, bound)
         .map_err(|error| authorization_rejection(request_id, &error))?;
-    owner.lock().and_then(|mut guard| guard.rpc_mcp_owner_environment(&context))
+    owner
+        .lock()
+        .and_then(|mut guard| guard.rpc_mcp_owner_environment(&context))
         .map_err(|error| crate::agent_rpc_dispatch::owner_error(request_id, error))
 }
 
@@ -1303,4 +1290,20 @@ pub fn decode_mcp_local_grant_config(
 
 pub fn mcp_control_refusal(request_id: RequestId, error: &SessionControlError) -> AgentRpcResponse {
     rejected(&authorization_rejection(request_id, error))
+}
+
+#[test]
+fn idempotent_replay_keeps_protocol_rejection_distinct_from_conflict() {
+    let error = ApiError::idempotent_replay(RequestId(302));
+    assert_eq!(error.class, ErrorClass::CoreRejection);
+    assert_eq!(
+        error.protocol_result_code.map(|code| code.raw()),
+        Some(-302)
+    );
+    assert_eq!(error.retriability, Retriability::Terminal);
+    assert_eq!(error.reason.as_str(), "idempotent_replay");
+    assert_ne!(error.class, ErrorClass::IdempotencyConflict);
+    let response = mcp_api_refusal(&error);
+    let value: serde_json::Value = serde_json::from_slice(&response.body).expect("error envelope");
+    assert_eq!(value["protocol_result_code"], -302);
 }
