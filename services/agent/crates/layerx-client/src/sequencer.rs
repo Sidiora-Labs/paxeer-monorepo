@@ -196,6 +196,8 @@ pub struct SequencerBlock {
     pub timestamp: u64,
     /// Root the header commits over the block's transactions.
     pub transactions_root: [u8; 32],
+    /// Root the header commits over the block's receipts.
+    pub receipts_root: [u8; 32],
     /// The signed transactions in block index order, each in the encoding
     /// `eth_sendRawTransaction` takes.
     pub transactions: Vec<Vec<u8>>,
@@ -493,6 +495,16 @@ impl SequencerEndpoint {
         } else {
             Err(SequencerError::Malformed)
         }
+    }
+
+    /// The node's current block height.
+    ///
+    /// # Errors
+    /// Transport and refusal failures as [`SequencerError`];
+    /// [`SequencerError::Malformed`] for an invalid or overflowing quantity.
+    pub fn block_number(&self) -> Result<u64, SequencerError> {
+        let result = self.call("eth_blockNumber", &json!([]))?;
+        quantity_u64(&result).ok_or(SequencerError::Malformed)
     }
 
     /// The committed block at `height` with full transactions; `None` when the
@@ -921,6 +933,7 @@ fn decode_block(value: &Value, height: u64) -> Option<SequencerBlock> {
         parent_hash: fields.fixed("parentHash")?,
         timestamp: fields.u64("timestamp")?,
         transactions_root: fields.fixed("transactionsRoot")?,
+        receipts_root: fields.fixed("receiptsRoot")?,
         transactions,
     })
 }
