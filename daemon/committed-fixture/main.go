@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -42,7 +43,12 @@ type node struct {
 	consensusAddress string
 	client           *rpc.Client
 	ctx              context.Context
-	standby          bool
+	isStandby        bool
+	standby          *node
+	standbyPrepared  bool
+	bootstrapped     bool
+	stopProcess      func()
+	processDone      <-chan struct{}
 	observer         bool
 	standbyAddress   string
 	gasPrice         *big.Int
@@ -181,11 +187,37 @@ func (n *node) command(args ...string) ([]byte, error) {
 }
 
 func prepareHome(ctx context.Context, paxd string) (_ *node, err error) {
-	return prepareNodeHome(ctx, paxd, false)
+	n, err := prepareNodeHome(ctx, paxd, false, "")
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		if err != nil {
+			os.RemoveAll(n.home)
+		}
+	}()
+	n.standby, err = prepareNodeHome(ctx, paxd, true, n.home)
+	if err != nil {
+		return nil, err
+	}
+	if bytes.Equal(n.receiptPublicKey, n.standby.receiptPublicKey) {
+		return nil, errors.New("standby requires its own receipt key")
+	}
+	genesis, err := os.ReadFile(filepath.Join(n.home, "config", "genesis.json"))
+	if err != nil {
+		return nil, err
+	}
+	if err := os.WriteFile(filepath.Join(n.standby.home, "config", "genesis.json"), genesis, 0600); err != nil {
+		return nil, err
+	}
+	if err := n.configure(); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
-func prepareNodeHome(ctx context.Context, paxd string, standby bool) (_ *node, err error) {
-	home, err := os.MkdirTemp("", "pax-committed-fixture-")
+func prepareNodeHome(ctx context.Context, paxd string, standby bool, parent string) (_ *node, err error) {
+	home, err := os.MkdirTemp(parent, "pax-committed-fixture-")
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +226,7 @@ func prepareNodeHome(ctx context.Context, paxd string, standby bool) (_ *node, e
 			os.RemoveAll(home)
 		}
 	}()
-	n := &node{home: home, paxd: paxd, ctx: ctx, standby: standby, receiptKeyFile: filepath.Join(home, "config", "receipt-key.hex")}
+	n := &node{home: home, paxd: paxd, ctx: ctx, isStandby: standby, receiptKeyFile: filepath.Join(home, "config", "receipt-key.hex")}
 	mode := "validator"
 	if standby {
 		mode = "full"
@@ -249,9 +281,6 @@ func prepareNodeHome(ctx context.Context, paxd string, standby bool) (_ *node, e
 		if _, err = n.command(args...); err != nil {
 			return nil, err
 		}
-	}
-	if err = n.configure(); err != nil {
-		return nil, err
 	}
 	return n, nil
 }
@@ -326,13 +355,13 @@ func (n *node) configureGenesis() error {
 }
 
 func (n *node) configure() error {
-	listeners := make([]net.Listener, 0, 5)
+	listeners := make([]net.Listener, 0, 6)
 	defer func() {
 		for _, listener := range listeners {
 			listener.Close()
 		}
 	}()
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 6; i++ {
 		listener, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			return err
@@ -342,15 +371,19 @@ func (n *node) configure() error {
 	n.rpcURL = "http://" + listeners[0].Addr().String()
 	n.p2pAddress = listeners[2].Addr().String()
 	n.consensusAddress = listeners[1].Addr().String()
+	if n.standby != nil {
+		n.standbyAddress = listeners[3].Addr().String()
+		n.standby.standbyAddress = n.standbyAddress
+	}
 	role := "primary"
-	if n.standby {
+	if n.isStandby {
 		role = "standby"
 	}
 	if err := editTOML(filepath.Join(n.home, "config", "app.toml"), func(cfg map[string]any) {
 		cfg["sequencer"] = map[string]any{
 			"enable": !n.observer, "mode": "sequential", "role": role,
 			"wal-dir": filepath.Join(n.home, "data", "sequencer-wal"), "receipt-key-file": n.receiptKeyFile,
-			"standby-address": n.standbyAddress, "replication-timeout": "1s",
+			"standby-address": n.standbyAddress, "replication-timeout": "5s",
 			"wal-retain-blocks": int64(2), "nonce-queue-max-per-sender": int64(64),
 			"nonce-queue-max-total": int64(1024), "lease-duration": "3s",
 		}
@@ -358,40 +391,44 @@ func (n *node) configure() error {
 		evm["http_enabled"], evm["http_address"] = !n.observer, "127.0.0.1"
 		evm["http_port"], evm["ws_enabled"] = listeners[0].Addr().(*net.TCPAddr).Port, false
 		grpc := cfg["grpc"].(map[string]any)
-		grpc["enable"], grpc["address"] = true, listeners[3].Addr().String()
+		grpc["enable"], grpc["address"] = true, listeners[4].Addr().String()
 		cfg["grpc-web"].(map[string]any)["enable"] = false
-		cfg["api"].(map[string]any)["address"] = "tcp://" + listeners[4].Addr().String()
+		cfg["api"].(map[string]any)["address"] = "tcp://" + listeners[5].Addr().String()
 	}); err != nil {
 		return err
 	}
-	return editTOML(filepath.Join(n.home, "config", "config.toml"), func(cfg map[string]any) {
+	if err := editTOML(filepath.Join(n.home, "config", "config.toml"), func(cfg map[string]any) {
 		cfg["rpc"].(map[string]any)["laddr"] = "tcp://" + listeners[1].Addr().String()
 		cfg["consensus"].(map[string]any)["unsafe-commit-timeout-override"] = "10s"
 		p2p := cfg["p2p"].(map[string]any)
 		p2p["allow-duplicate-ip"] = true
 		p2p["laddr"], p2p["seeds"], p2p["persistent-peers"], p2p["pex"] = "tcp://"+listeners[2].Addr().String(), "", "", false
-	})
+	}); err != nil {
+		return err
+	}
+	if n.standby != nil {
+		if err := n.standby.configure(); err != nil {
+			return err
+		}
+		primaryID, err := tmconfig.DefaultConfig().SetRoot(n.home).LoadNodeKeyID()
+		if err != nil {
+			return err
+		}
+		return editTOML(filepath.Join(n.standby.home, "config", "config.toml"), func(cfg map[string]any) {
+			cfg["p2p"].(map[string]any)["persistent-peers"] = string(primaryID) + "@" + n.p2pAddress
+		})
+	}
+	return nil
 }
 
 func (n *node) prepareStandby() (_ *node, err error) {
-	s, err := prepareNodeHome(n.ctx, n.paxd, true)
-	if err != nil {
-		return nil, err
+	s := n.standby
+	if s == nil {
+		return nil, errors.New("primary has no prepared standby home")
 	}
-	defer func() {
-		if err != nil {
-			os.RemoveAll(s.home)
-		}
-	}()
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return nil, err
+	if n.standbyPrepared {
+		return s, nil
 	}
-	n.standbyAddress = listener.Addr().String()
-	if err := listener.Close(); err != nil {
-		return nil, err
-	}
-	s.standby, s.standbyAddress = true, n.standbyAddress
 	var validator struct {
 		PubKey struct {
 			Value []byte `json:"value"`
@@ -461,24 +498,13 @@ func (n *node) prepareStandby() (_ *node, err error) {
 		if err := os.WriteFile(filepath.Join(peer.home, "config", "genesis.json"), append(data, '\n'), 0600); err != nil {
 			return nil, err
 		}
-		if err := peer.configure(); err != nil {
-			return nil, err
-		}
 	}
-	primaryID, err := tmconfig.DefaultConfig().SetRoot(n.home).LoadNodeKeyID()
-	if err != nil {
-		return nil, err
-	}
-	if err := editTOML(filepath.Join(s.home, "config", "config.toml"), func(cfg map[string]any) {
-		cfg["p2p"].(map[string]any)["persistent-peers"] = string(primaryID) + "@" + n.p2pAddress
-	}); err != nil {
-		return nil, err
-	}
+	n.standbyPrepared = true
 	return s, nil
 }
 
 func (n *node) prepareObserver(standby *node) (_ *node, err error) {
-	o, err := prepareNodeHome(n.ctx, n.paxd, true)
+	o, err := prepareNodeHome(n.ctx, n.paxd, true, "")
 	if err != nil {
 		return nil, err
 	}
@@ -567,6 +593,7 @@ func (n *node) bootstrap(peers ...*node) error {
 			}
 		}
 	}
+	n.bootstrapped = true
 	return nil
 }
 
@@ -583,7 +610,38 @@ func editTOML(path string, edit func(map[string]any)) error {
 	return os.WriteFile(path, data.Bytes(), 0600)
 }
 
-func (n *node) start() (func(), error) {
+func (n *node) start() (_ func(), err error) {
+	if n.stopProcess != nil {
+		return nil, errors.New("paxd already started")
+	}
+	var stopStandby func()
+	if n.standby != nil {
+		if !n.bootstrapped {
+			if _, err := n.prepareStandby(); err != nil {
+				return nil, err
+			}
+			if err := n.bootstrap(n.standby); err != nil {
+				return nil, err
+			}
+		}
+		stopStandby = n.standby.stopProcess
+		if stopStandby == nil {
+			stopStandby, err = n.standby.start()
+			if err != nil {
+				return nil, err
+			}
+		}
+		defer func() {
+			if err != nil {
+				stopStandby()
+			}
+		}()
+		if n.gasPrice == nil {
+			if err := n.prime(); err != nil {
+				return nil, fmt.Errorf("prime prepared sequencer home: %w", err)
+			}
+		}
+	}
 	log, err := os.OpenFile(filepath.Join(n.home, "paxd.log"), os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0600)
 	if err != nil {
 		return nil, err
@@ -595,23 +653,30 @@ func (n *node) start() (func(), error) {
 		return nil, err
 	}
 	done := make(chan struct{})
+	n.processDone = done
 	var processErr error
 	go func() {
 		processErr = cmd.Wait()
 		close(done)
 	}()
+	var stopOnce sync.Once
 	stop := func() {
-		if n.client != nil {
-			n.client.Close()
-		}
-		cmd.Process.Signal(os.Interrupt)
-		select {
-		case <-done:
-		case <-time.After(5 * time.Second):
-			cmd.Process.Kill()
-			<-done
-		}
-		log.Close()
+		stopOnce.Do(func() {
+			if n.client != nil {
+				n.client.Close()
+			}
+			cmd.Process.Signal(os.Interrupt)
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				cmd.Process.Kill()
+				<-done
+			}
+			log.Close()
+			if stopStandby != nil {
+				stopStandby()
+			}
+		})
 	}
 	n.client, err = rpc.DialContext(n.ctx, n.rpcURL)
 	if err != nil {
@@ -625,7 +690,7 @@ func (n *node) start() (func(), error) {
 	var lastErr error
 	for {
 		probe, cancel := context.WithTimeout(ctx, time.Second)
-		if n.standby || n.observer {
+		if n.isStandby || n.observer {
 			address := n.standbyAddress
 			if n.observer {
 				address = n.consensusAddress
@@ -641,12 +706,13 @@ func (n *node) start() (func(), error) {
 		}
 		cancel()
 		if lastErr == nil {
+			n.stopProcess = stop
 			return stop, nil
 		}
 		select {
 		case <-done:
 			stop()
-			return nil, fmt.Errorf("paxd exited before readiness: %v", processErr)
+			return nil, fmt.Errorf("paxd exited before readiness: %v (last RPC error: %v)", processErr, lastErr)
 		case <-ctx.Done():
 			stop()
 			return nil, fmt.Errorf("wait for pax_sequencerReceipt: %w (last RPC error: %v)", ctx.Err(), lastErr)
