@@ -173431,7 +173431,7 @@ qualification = "UNRUN"
 
 [task.18.764.1]
 title = "Issue #764: Make an unchanged GuarantorBond custodied value sync a no-op so a USDL donation cannot block a vault release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173836,7 +173836,7 @@ qualification = "UNRUN"
 
 [task.18.765.1]
 title = "Issue #765: Let reserve reconciliation tolerate a custody surplus from unsolicited vault transfers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175014,7 +175014,7 @@ qualification = "UNRUN"
 
 [task.18.767.1]
 title = "Issue #767: Make the CW20 pointer deploy script deploy contracts that exist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
