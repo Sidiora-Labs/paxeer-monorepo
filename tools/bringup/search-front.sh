@@ -14,7 +14,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
 	cat <<'EOF'
-usage: tools/bringup/search-front.sh names | render | config | deploy
+usage: tools/bringup/search-front.sh names | render | config | deploy <service-host>
 
 The search front of search.paxeer.network: the Railway service configured by
 services/interop/deploy/search-front/railway.env.example and built from
@@ -29,9 +29,10 @@ names     asks every RPC_HOSTS destination over ssh which apiN site its nginx
           destination does not answer or serves no apiN site.
 
 render    prints the upstream list that nginx includes at http level: a
-          comment line, the split_clients block on $xweb_client (the edge's
-          X-Real-IP, else Fly-Client-IP) that pins $xweb_node to one serving
-          name for every client, and the map that admits it. The pin is
+          comment line, the split_clients block on $xweb_client (the rightmost
+          X-Forwarded-For hop outside LAYERX_TRUSTED_PROXIES) that pins
+          $xweb_node to one serving name for every client, and the map that
+          admits it. The pin is
           SEARCH_FRONT_PRIMARY when its bounded typed /readyz contract is
           valid, else SEARCH_FRONT_BACKUP when its contract is valid, else
           SEARCH_FRONT_PRIMARY unadmitted, so readiness and search paths
@@ -45,10 +46,11 @@ config    prints the serving sidecar configuration of
           dropped. Exits 1 naming every unset or empty variable, never a
           value.
 
-deploy    retired: exits 2 and points to the Railway deployment inputs.
-          Configure the Railway service using
-          services/interop/deploy/search-front/railway.env.example and
-          docker/search-front/Dockerfile; this script does not deploy it.
+deploy <service-host>
+          prints two lines: SEARCH_FRONT_UPSTREAMS=<base64 of render output>
+          to set on the search-front service, then
+          tools/bringup/edge.sh register search.paxeer.network <service-host>
+          to register that service with the edge.
 
 Environment:
   BRINGUP_HOSTS_FILE   the private host map, as tools/bringup/check-live.sh
@@ -59,7 +61,7 @@ Environment:
   SEARCH_FRONT_READINESS_TIMEOUT seconds per HTTPS readiness probe, default 5
 
 Exits 1 when a destination or configuration step fails; 2 on a usage
-error, a host map lacking a role, or the retired deploy command.
+error or a host map lacking a role.
 EOF
 }
 
@@ -272,17 +274,15 @@ case "$mode" in
 	usage
 	exit 0
 	;;
-deploy)
-	echo "search-front: deploy is retired; use services/interop/deploy/search-front/railway.env.example and docker/search-front/Dockerfile for the Railway service" >&2
-	exit 2
-	;;
-names | render | config) ;;
+names | render | config | deploy) ;;
 *)
 	usage >&2
 	exit 2
 	;;
 esac
-if [ "$#" -ne 1 ]; then
+expected_args=1
+[ "$mode" != deploy ] || expected_args=2
+if [ "$#" -ne "$expected_args" ]; then
 	usage >&2
 	exit 2
 fi
@@ -290,6 +290,7 @@ fi
 tools=(timeout)
 [ "$mode" != names ] || tools+=(ssh sort)
 [ "$mode" = names ] || tools+=(python3)
+[ "$mode" != deploy ] || tools+=(base64)
 for tool in "${tools[@]}"; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		echo "search-front: $tool is required" >&2
@@ -304,4 +305,9 @@ names)
 	;;
 render) search_front_render ;;
 config) search_front_config ;;
+deploy)
+	upstreams="$(search_front_render | base64 -w0)"
+	printf 'SEARCH_FRONT_UPSTREAMS=%s\n' "$upstreams"
+	printf 'tools/bringup/edge.sh register %s %s\n' "$search_front_host" "$2"
+	;;
 esac
