@@ -146279,7 +146279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.98.3]
 title = "Migrate the layerx-human-movement-provider callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.2", "10.4.1", "9.1.8", "18.1119.1"]
@@ -153571,7 +153571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.1]
 title = "Carry the optional leg tx_hash in SDK intent bindings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.24.2", "10.0.2"]
@@ -182132,7 +182132,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.760.1]
 title = "Issue #760: Stop asking for a USDL approval before placeOrder opens, adds size or places orders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182780,7 +182780,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1039.1]
 title = "Issue #1039: Assert the registered Treasury refusal sentinel through the error chain, not one unwrap level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1137.1"]
@@ -184097,7 +184097,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1081.1]
 title = "Issue #1081: Point the explorer OpenAPI test at the archive anchor and receipt paths the router serves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
