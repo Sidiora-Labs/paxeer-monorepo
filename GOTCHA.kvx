@@ -10091,3 +10091,15 @@ area = "x402 evidence"
 symptom = "The x-websearch payment suite fails 22 of 35 tests at main with EvidenceMismatch and SettlementMismatch whatever the recorded fixtures contain."
 cause = "layerx-x402 buyer.rs:403 unhex requires a 0x prefix while model.rs:322-335 validates bare 64-hex assets, and seller.rs:353-357 emits evidence without the logs LayerXEvidence requires (issue #1133)."
 do = "Fix the crate (18.1133.1) before re-recording any exchange; a fixture re-recording cannot pass while the buyer refuses the seller's own format."
+
+[gotcha.2064]
+area = "container images"
+symptom = "docker build of docker/layerx/Dockerfile fails in the builder stage with curl 502 on every retry, whatever the Dockerfile change under test."
+cause = "The stage downloads three libwasmvm libraries from an external host that is down (issue #1106) although the same libraries, with matching pinned digests, are in the tree and docker/paxeer/Dockerfile.paxd-node already copies them from the context."
+do = "Never fetch at image build time what the checkout carries; copy from the context and verify against the pinned digest file. A gate that reaches an external host is blocked by that host, so file the host as an issue and gate the image tasks on the context fix."
+
+[gotcha.2065]
+area = "gateway e2e"
+symptom = "Every test of test/e2e/gateway.e2e.test.ts fails in beforeAll with 503 sponsor_unconfigured at the provisioning call."
+cause = "5f5f66995 retired the gateway sponsor key (decision.1206) and the fixture still writes SPONSOR_PRIVATE_KEY_FILE, a variable nothing reads; the top-up branch stays until 12.6.3 replaces it with the station-sponsored bind."
+do = "When a task retires an input, grep the test fixtures for the variable in the same task; an e2e that provisions needs the replacement path on main, so gate it on that task instead of relaunching."
