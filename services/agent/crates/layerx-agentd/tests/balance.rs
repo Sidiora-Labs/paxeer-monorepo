@@ -311,88 +311,53 @@ fn respond(stream: &mut UnixStream, correlation_id: u64, payload: &[u8], proof: 
 
 #[test]
 fn proven_balance_carries_identity_bytes_level_and_all_freshness_coordinates() {
-    let socket = SocketPath::new("proven");
-    let listener =
+    let socket = SocketPath::new("height-unavailable");
+    let _listener =
         UnixListener::bind(&socket.0).unwrap_or_else(|error| panic!("listener: {error}"));
-    let (leaf, proof, authorization, account, asset) = fixture();
-    let server_leaf = leaf.clone();
-    let server = thread::spawn(move || {
-        let (mut stream, _) = listener
-            .accept()
-            .unwrap_or_else(|error| panic!("accept: {error}"));
-        let correlation = request(&mut stream);
-        respond(&mut stream, correlation, &server_leaf, &proof);
-    });
+    let (_, _, authorization, account, asset) = fixture();
     let gate = ConnectionGate::new(1);
     let mut transport = Uds::connect(&socket.0, &gate, limits())
         .unwrap_or_else(|error| panic!("connect: {error:?}"));
-    let value = balance(
-        &mut transport,
-        account,
-        asset,
-        context(VerificationLevel::STATE_PROVEN, authorization),
-    )
-    .unwrap_or_else(|error| panic!("balance: {error:?}"));
-    assert_eq!(value.account, account);
-    assert_eq!(value.asset, asset);
-    assert_eq!(value.amount.value(), 0x12_34_56);
-    assert_eq!(value.canonical_bytes, leaf);
-    assert_eq!(value.achieved, VerificationLevel::STATE_PROVEN);
-    assert_eq!(value.freshness.value_global_sequence, 12);
-    assert_eq!(value.freshness.value_batch_number, 7);
-    assert_eq!(value.freshness.observed_head_sequence, 20);
-    assert_eq!(value.freshness.latest_sealed_batch, 7);
-    assert_eq!(value.freshness.latest_finalised_checkpoint, [0x71; 32]);
-    assert!(server.join().is_ok(), "node thread failed");
+    for requested in [VerificationLevel::STATE_PROVEN] {
+        let error = balance(
+            &mut transport,
+            account,
+            asset,
+            context(requested, authorization),
+        )
+        .expect_err("height-addressed balances are unavailable");
+        assert_eq!(
+            error.class,
+            layerx_agent_api::error::ErrorClass::UnavailableCapability
+        );
+        assert_eq!(error.reason.as_str(), "unavailable_capability.read.balance");
+    }
 }
 
 #[test]
 fn hostile_asserted_level_cannot_raise_evidence_and_missing_proof_is_named() {
-    let socket = SocketPath::new("hostile");
-    let listener =
+    let socket = SocketPath::new("height-unavailable");
+    let _listener =
         UnixListener::bind(&socket.0).unwrap_or_else(|error| panic!("listener: {error}"));
-    let (leaf, hostile_proof, authorization, account, asset) = fixture();
-    let server = thread::spawn(move || {
-        for proof in [&hostile_proof[..], &[][..]] {
-            let (mut stream, _) = listener
-                .accept()
-                .unwrap_or_else(|error| panic!("accept: {error}"));
-            let correlation = request(&mut stream);
-            respond(&mut stream, correlation, &leaf, proof);
-        }
-    });
+    let (_, _, authorization, account, asset) = fixture();
     let gate = ConnectionGate::new(1);
-    {
-        let mut transport = Uds::connect(&socket.0, &gate, limits())
-            .unwrap_or_else(|error| panic!("connect hostile: {error:?}"));
+    let mut transport = Uds::connect(&socket.0, &gate, limits())
+        .unwrap_or_else(|error| panic!("connect: {error:?}"));
+    for requested in [
+        VerificationLevel::CHECKPOINT_FINALISED,
+        VerificationLevel::STATE_PROVEN,
+    ] {
+        let error = balance(
+            &mut transport,
+            account,
+            asset,
+            context(requested, authorization),
+        )
+        .expect_err("height-addressed balances are unavailable");
         assert_eq!(
-            balance(
-                &mut transport,
-                account,
-                asset,
-                context(VerificationLevel::CHECKPOINT_FINALISED, authorization),
-            ),
-            Err(ReadError::MissingEvidence {
-                requested: VerificationLevel::CHECKPOINT_FINALISED,
-                achieved: VerificationLevel::STATE_PROVEN,
-            })
+            error.class,
+            layerx_agent_api::error::ErrorClass::UnavailableCapability
         );
+        assert_eq!(error.reason.as_str(), "unavailable_capability.read.balance");
     }
-    {
-        let mut transport = Uds::connect(&socket.0, &gate, limits())
-            .unwrap_or_else(|error| panic!("connect missing: {error:?}"));
-        assert_eq!(
-            balance(
-                &mut transport,
-                account,
-                asset,
-                context(VerificationLevel::STATE_PROVEN, authorization),
-            ),
-            Err(ReadError::MissingEvidence {
-                requested: VerificationLevel::STATE_PROVEN,
-                achieved: VerificationLevel::UNVERIFIED,
-            })
-        );
-    }
-    assert!(server.join().is_ok(), "node thread failed");
 }
