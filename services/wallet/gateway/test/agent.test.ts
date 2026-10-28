@@ -4,9 +4,12 @@ import type { FastifyInstance } from 'fastify';
 import { verifyMessage } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
 import { newAgentKey, startIdentityProvider, type AgentKey, type IdentityProvider } from './support/identity.js';
+import { startCustodyAuthority } from './support/custody.js';
 
 let idp: IdentityProvider;
 let pg: EphemeralPostgres;
+let custody: Awaited<ReturnType<typeof startCustodyAuthority>>;
+let precompilesModule: typeof import('../src/precompiles.js');
 let app: FastifyInstance;
 let verifyModule: typeof import('../src/agent/verify.js');
 let agentsModule: typeof import('../src/routes/agents.js');
@@ -19,12 +22,15 @@ beforeAll(async () => {
   process.env.AGENT_JWT_SECRET = randomBytes(32).toString('hex');
   process.env.LOG_LEVEL = 'error';
   process.env.RPC_URLS = `${idp.url}/rpc`;
+  custody = await startCustodyAuthority(idp, process.env.RPC_URLS);
+  Object.assign(process.env, custody.env);
   pg = await startPostgres();
   const index = await import('../src/index.js');
   verifyModule = await import('../src/agent/verify.js');
   agentsModule = await import('../src/routes/agents.js');
   policyModule = await import('../src/policy/agent.js');
   poolModule = await import('../src/db/pool.js');
+  precompilesModule = await import('../src/precompiles.js');
   app = await index.buildApp();
   await app.ready();
 }, 120_000);
@@ -33,6 +39,7 @@ afterAll(async () => {
   await app?.close();
   await poolModule?.closePool();
   await pg?.stop();
+  await custody?.stop();
   await idp?.stop();
 }, 120_000);
 
@@ -375,35 +382,58 @@ describe('agent request signing', () => {
       expect(res.json()).toMatchObject({ error: 'agent_request_malformed' });
     });
 
-    it('refuses a signed scheduler deposit to the unserved precompile without signing', async () => {
-      const res = await signedPost(agent, '/v1/agent/precompiles/scheduler/schedule', {
+    it.each([
+      ['POST', '/v1/agent/precompiles/scheduler/schedule', {
         target: '0x000000000000000000000000000000000000dEaD',
         execute_at_block: '100',
         gas_limit: '100000',
         deposit_wei: '1000',
-      });
+      }, 'scheduler', 'signed'],
+      ['POST', '/v1/agent/precompiles/scheduler/cancel', { job_id: '1' }, 'scheduler', 'signed'],
+      ['POST', '/v1/agent/precompiles/scheduler/reschedule', { job_id: '1', new_block: '200' }, 'scheduler', 'signed'],
+      ['GET', '/v1/agent/precompiles/scheduler/job/1', undefined, 'scheduler', 'token'],
+      ['GET', '/v1/agent/precompiles/scheduler/pending', undefined, 'scheduler', 'token'],
+      ['POST', '/v1/agent/precompiles/streams/open', {
+        payee: '0x000000000000000000000000000000000000dEaD',
+        token: '0x0000000000000000000000000000000000000000',
+        rate_per_second: '1',
+        cap: '1000',
+      }, 'streams', 'signed'],
+      ['POST', '/v1/agent/precompiles/streams/settle', { stream_id: '1' }, 'streams', 'signed'],
+      ['POST', '/v1/agent/precompiles/streams/close', { stream_id: '1' }, 'streams', 'signed'],
+      ['POST', '/v1/agent/precompiles/streams/update-rate', { stream_id: '1', new_rate: '2' }, 'streams', 'signed'],
+      ['GET', '/v1/agent/precompiles/streams/stream/1', undefined, 'streams', 'token'],
+      ['GET', '/v1/agent/precompiles/streams/accrued/1', undefined, 'streams', 'token'],
+      ['POST', '/v1/agent/precompiles/eip712/domain-separator', {
+        name: 'Agent', version: '1', chain_id: '125', verifying_contract: '0x000000000000000000000000000000000000dEaD',
+      }, 'eip712', 'token'],
+      ['POST', '/v1/agent/precompiles/eip712/hash-typed-data', {
+        domain_separator: `0x${'11'.repeat(32)}`, struct_hash: `0x${'22'.repeat(32)}`,
+      }, 'eip712', 'token'],
+      ['POST', '/v1/agent/precompiles/eip712/recover', {
+        domain_separator: `0x${'11'.repeat(32)}`, struct_hash: `0x${'22'.repeat(32)}`, signature: `0x${'33'.repeat(65)}`,
+      }, 'eip712', 'token'],
+      ['POST', '/v1/agent/precompiles/tee/verify', { family: 'intel_tdx', quote: '0x1234' }, 'teeAttestor', 'token'],
+      ['POST', '/v1/agent/precompiles/tee/verify', {
+        family: 'intel_tdx', quote: '0x1234', expected_report_data: `0x${'44'.repeat(32)}`,
+      }, 'teeAttestor', 'token'],
+      ['POST', '/v1/agent/precompiles/tee/root-count', { family: 'intel_tdx' }, 'teeAttestor', 'token'],
+      ['POST', '/v1/agent/precompiles/tee/root-of', { family: 'intel_tdx', index: '0' }, 'teeAttestor', 'token'],
+    ] as const)('refuses the unserved precompile route %s %s', async (method, url, payload, precompile, credential) => {
+      const res = credential === 'signed'
+        ? await signedPost(agent, url, payload)
+        : await app.inject({
+            method,
+            url,
+            headers: { authorization: `Bearer ${token}` },
+            ...(payload === undefined ? {} : { payload }),
+          });
       expect(res.statusCode).toBe(503);
       expect(res.json()).toMatchObject({
         error: 'precompile_not_served',
-        precompile: 'scheduler',
-        address: '0x0000000000000000000000000000000000000905',
+        precompile,
+        address: precompilesModule.PRECOMPILE_ADDRESSES[precompile],
       });
-    });
-
-    it.each([
-      ['GET', '/v1/agent/precompiles/scheduler/pending', undefined, 'scheduler'],
-      ['GET', '/v1/agent/precompiles/streams/accrued/1', undefined, 'streams'],
-      ['POST', '/v1/agent/precompiles/eip712/hash-typed-data', { domain_separator: `0x${'11'.repeat(32)}`, struct_hash: `0x${'22'.repeat(32)}` }, 'eip712'],
-      ['POST', '/v1/agent/precompiles/tee/root-count', { family: 'intel_tdx' }, 'teeAttestor'],
-    ] as const)('refuses the read %s %s of an unserved precompile', async (method, url, payload, precompile) => {
-      const res = await app.inject({
-        method,
-        url,
-        headers: { authorization: `Bearer ${token}` },
-        ...(payload === undefined ? {} : { payload }),
-      });
-      expect(res.statusCode).toBe(503);
-      expect(res.json()).toMatchObject({ error: 'precompile_not_served', precompile });
     });
   });
 });

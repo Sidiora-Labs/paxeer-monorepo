@@ -105635,7 +105635,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.54.1]
 title = "End-to-end: /api/markets serves every chain market by id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["3.42.5", "3.41.4", "5.98.2"]
@@ -117408,7 +117408,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.2]
 title = "Record and re-verify the V1 receipted-positive vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3", "5.1.3", "5.55.6"]
@@ -157389,7 +157389,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.3]
 title = "Serve sandboxActivate for a funded lease"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
@@ -157421,7 +157421,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.4]
 title = "Serve retireStorage with the retirement certificate request"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
@@ -172789,7 +172789,7 @@ qualification = "UNRUN"
 
 [task.18.671.1]
 title = "Issue #671: Require every sidecar to submit in every block of the rehearsal cadence window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172832,7 +172832,7 @@ qualification = "UNRUN"
 
 [task.18.684.1]
 title = "Issue #684: Seed positions with cost-basis size so open interest counts their base size"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172971,7 +172971,7 @@ qualification = "UNRUN"
 
 [task.18.811.1]
 title = "Issue #811: Refuse Bonded and Attested market offers and leases until they can be challenged"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173015,7 +173015,7 @@ qualification = "UNRUN"
 
 [task.18.827.1]
 title = "Issue #827: Drop the removed layerx-oracle-feeder binary from the kernel image"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173058,7 +173058,7 @@ qualification = "UNRUN"
 
 [task.18.856.1]
 title = "Issue #856: Guard SDK write lookups, mark launchpad writes non-payable and keep the 17-id ADL codec assertion"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173345,7 +173345,7 @@ qualification = "UNRUN"
 
 [task.18.672.1]
 title = "Issue #672: Keep the requested block number and time in historical debug_traceCall"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173431,7 +173431,7 @@ qualification = "UNRUN"
 
 [task.18.764.1]
 title = "Issue #764: Make an unchanged GuarantorBond custodied value sync a no-op so a USDL donation cannot block a vault release"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173517,7 +173517,7 @@ qualification = "UNRUN"
 
 [task.18.828.1]
 title = "Issue #828: Stop the kernel image from supervising the retired oracle feeder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173836,7 +173836,7 @@ qualification = "UNRUN"
 
 [task.18.765.1]
 title = "Issue #765: Let reserve reconciliation tolerate a custody surplus from unsolicited vault transfers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174017,7 +174017,7 @@ qualification = "UNRUN"
 
 [task.18.906.1]
 title = "Issue #906: Seed the custody forced-exit checkpoint key on in-place upgrade"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174405,7 +174405,7 @@ qualification = "UNRUN"
 
 [task.18.691.1]
 title = "Issue #691: Retarget the launchpad runtime-docs and chart-rebuild operator commands to the split repository layout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174457,7 +174457,7 @@ qualification = "UNRUN"
 
 [task.18.724.1]
 title = "Issue #724: Cap paxai-worker connections and bound each request by one deadline"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174509,7 +174509,7 @@ qualification = "UNRUN"
 
 [task.18.784.1]
 title = "Issue #784: Serve px_register and drop the retired lx_register and lx_getHistory routes from the route catalogue"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174552,7 +174552,7 @@ qualification = "UNRUN"
 
 [task.18.802.1]
 title = "Issue #802: Run the agent route refusal cases against a genuine custody authority and cover every unserved precompile route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174604,7 +174604,7 @@ qualification = "UNRUN"
 
 [task.18.816.1]
 title = "Issue #816: Key the gateway public read budget by client address under the global cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174751,7 +174751,7 @@ qualification = "UNRUN"
 
 [task.18.907.1]
 title = "Issue #907: Build the native libraries and install paxd before the ETH blocktests run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175014,7 +175014,7 @@ qualification = "UNRUN"
 
 [task.18.767.1]
 title = "Issue #767: Make the CW20 pointer deploy script deploy contracts that exist"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175057,7 +175057,7 @@ qualification = "UNRUN"
 
 [task.18.785.1]
 title = "Issue #785: List every served gateway method in the published-schema test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175151,7 +175151,7 @@ qualification = "UNRUN"
 
 [task.18.833.1]
 title = "Issue #833: Refuse a starter credit whose amount differs from the faucet claim amount before funding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175641,7 +175641,7 @@ qualification = "UNRUN"
 
 [task.18.818.1]
 title = "Issue #818: Count unknown-outcome and timed-out agent sends toward the daily value cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175684,7 +175684,7 @@ qualification = "UNRUN"
 
 [task.18.834.1]
 title = "Issue #834: Reissue stored starter credits at the current amount under their grant id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175727,7 +175727,7 @@ qualification = "UNRUN"
 
 [task.18.867.1]
 title = "Issue #867: Keep secret exclusions in force for programs/vendor in the layerx and paxd-node image contexts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176096,7 +176096,7 @@ qualification = "UNRUN"
 
 [task.18.677.1]
 title = "Issue #677: Qualify native surface pools discovered from factory receipts without a beacon slot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176149,7 +176149,7 @@ qualification = "UNRUN"
 
 [task.18.787.1]
 title = "Issue #787: Propagate column decode failures from the indexer transfer document"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176340,7 +176340,7 @@ qualification = "UNRUN"
 
 [task.18.868.1]
 title = "Issue #868: Install OpenSSL, Rust 1.91.1 and the native libraries in every job that builds paxd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176778,7 +176778,7 @@ qualification = "UNRUN"
 
 [task.18.806.1]
 title = "Issue #806: Answer outcome unknown when nonce-too-low classification cannot complete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176822,7 +176822,7 @@ qualification = "UNRUN"
 
 [task.18.820.1]
 title = "Issue #820: Release the Go SDK under the module path of its sdk/platform/go directory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177264,7 +177264,7 @@ qualification = "UNRUN"
 
 [task.18.732.1]
 title = "Issue #732: Serve indexed history for accounts whose explorer feed exceeds the page budget"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177394,7 +177394,7 @@ qualification = "UNRUN"
 
 [task.18.807.1]
 title = "Issue #807: Name RPC pool members by index in wallet gateway failure details"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177520,7 +177520,7 @@ qualification = "UNRUN"
 
 [task.18.916.1]
 title = "Issue #916: Refuse near-maximum approvals to trusted spenders in the attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177691,7 +177691,7 @@ qualification = "UNRUN"
 
 [task.18.704.1]
 title = "Issue #704: Report the protocol collateral vault balance, not the last account balance, as perps TVL"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177779,7 +177779,7 @@ qualification = "UNRUN"
 
 [task.18.790.1]
 title = "Issue #790: Refuse MultiSender overpayment and correct the launchpad web env file path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177873,7 +177873,7 @@ qualification = "UNRUN"
 
 [task.18.824.1]
 title = "Issue #824: Accept history pages whose rows past the limit share the limit row's position"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178226,7 +178226,7 @@ qualification = "UNRUN"
 
 [task.18.715.1]
 title = "Issue #715: Check the sequence batch range, txRoot and lastSeqHash against the block's transactions in FinalizeBlock"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178269,7 +178269,7 @@ qualification = "UNRUN"
 
 [task.18.747.1]
 title = "Issue #747: Decode explorer-imported history row ids in the TypeScript and Python SDKs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178365,7 +178365,7 @@ qualification = "UNRUN"
 
 [task.18.791.1]
 title = "Issue #791: Correct the stale Quickstart bring-up citations and list the v7.0 merge precompiles in the README"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178512,7 +178512,7 @@ qualification = "UNRUN"
 
 [task.18.846.1]
 title = "Issue #846: Document the current 0x1017 Launchpad surface in the wiki"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178598,7 +178598,7 @@ qualification = "UNRUN"
 
 [task.18.889.1]
 title = "Issue #889: Rewrite the hosted webhooks and dashboard deployment docs for the env-init packaging"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

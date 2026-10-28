@@ -2775,7 +2775,6 @@ human 4020 - /run/human-private/service=4020:4020:700
 human-tls 4020 - /run/human-private/service=4020:4020:700,/data/tls/human=4020:4020
 mirror-signer 4021 genesis /run/mirror-signer=4021:4020:700
 mirror-publisher 4021 genesis /run/mirror-publisher=4021:4020:700
-oracle-feeder 4021 genesis /run/layerx/oracle-feeder=4021:4020:700,/data/layerx/oracle-feeder/state=4021:4020:700
 relay-archive 4020 genesis /data/layerx/relay-archive=4020:4020:2700,/data/tls/relay-archive=4020:4020
 ROSTER
 }
