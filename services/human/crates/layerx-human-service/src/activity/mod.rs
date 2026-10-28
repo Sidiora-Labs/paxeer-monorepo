@@ -1361,6 +1361,15 @@ fn decode_cursor(bytes: &[u8]) -> Result<CursorFields, FeedError> {
     })
 }
 
+const fn rung_level(rung: Rung) -> layerx_agent_api::verify::Level {
+    use layerx_agent_api::verify::Level;
+    match rung {
+        Rung::Submitted => Level::Unverified,
+        Rung::Receipted => Level::BatchIncluded,
+        Rung::Committed => Level::CheckpointFinalised,
+    }
+}
+
 const fn rung_code(rung: Rung) -> u8 {
     match rung {
         Rung::Submitted => 0,

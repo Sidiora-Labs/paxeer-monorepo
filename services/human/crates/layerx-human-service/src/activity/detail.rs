@@ -290,11 +290,7 @@ impl EntryDetail {
                 kind: EvidenceKind::Checkpoint,
                 path: format!("/explorer/checkpoints/{reference}"),
                 reference,
-                level: match finality.rung() {
-                    Rung::Submitted => Level::Unverified,
-                    Rung::Receipted => Level::BatchIncluded,
-                    Rung::Committed => Level::CheckpointFinalised,
-                },
+                level: super::rung_level(finality.rung()),
             });
         }
         let refusal_money_left = match status {
