@@ -2,10 +2,11 @@ use ed25519_dalek::{Signer as _, SigningKey};
 #[path = "../../../../../../tests/support/lxgb_metadata.rs"]
 mod lxgb_metadata;
 
-use layerx_agentd::boot::{handshake_gate, Gate, GateError};
+use layerx_agentd::boot::{Gate, GateError};
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
 use layerx_client::lni::handshake::{perform, HandshakeConfig};
 use layerx_client::lni::refusal::decode_core_refusal;
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
+use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
 use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_programs::hex;
 use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
@@ -20,6 +21,7 @@ use sha2::{Digest as _, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Debug;
 use std::fs;
+use std::io::{BufRead, BufReader, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
 use std::os::unix::process::CommandExt;
@@ -1393,12 +1395,165 @@ fn submit_calls(
     retained
 }
 
+fn handshake_gate(transport: &mut Uds, fixture: &Fixture, batch: u64) {
+    let handshake = must(
+        perform(
+            transport,
+            &HandshakeConfig {
+                built_interface_version: Version::V1_4,
+                expected_protocol_version: fixture.scope.protocol_version,
+                expected_network_id: fixture.scope.network_id,
+            },
+            None,
+        ),
+        "authority LNI handshake",
+    );
+    let status = handshake.node();
+    assert_eq!(status.protocol_version, fixture.scope.protocol_version);
+    assert_eq!(status.network_id, fixture.scope.network_id);
+    assert_eq!(status.latest_sealed_batch, batch);
+    assert_eq!(status.authorised_sequencer_key, fixture.sequencer_key);
+    assert_eq!(
+        status.role,
+        layerx_client::lni::handshake::NodeRole::Sequencer
+    );
+    assert!(handshake.capabilities().contains(Capability::Submit));
+    assert!(handshake
+        .capabilities()
+        .contains(Capability::AuthenticatedDurableSubmit));
+}
+
+pub(super) struct ReadinessNode {
+    pub(super) config: NodeRpcConfig,
+    listener: TcpListener,
+}
+
+impl ReadinessNode {
+    pub(super) fn new() -> Self {
+        let chain_id = must(
+            std::env::var("LAYERX_TEST_PAXEER_CHAIN_ID"),
+            "real isolated Paxeer chain id is required",
+        );
+        let chain_id = must(chain_id.parse::<u64>(), "canonical Paxeer chain id");
+        assert_ne!(chain_id, 0);
+        let listener = must(TcpListener::bind("127.0.0.1:0"), "readiness listener");
+        let config = NodeRpcConfig {
+            url: format!(
+                "http://{}/",
+                must(listener.local_addr(), "readiness address")
+            ),
+            chain_id,
+            deadline: Duration::from_secs(2),
+        };
+        must(
+            listener.set_nonblocking(true),
+            "readiness nonblocking listener",
+        );
+        Self { config, listener }
+    }
+}
+
+fn readiness_gate(
+    authority_gate: &mut Gate,
+    fixture: &Fixture,
+    batch: u64,
+    readiness_node: &ReadinessNode,
+) -> Result<(), GateError> {
+    let config = &readiness_node.config;
+    let chain_id = config.chain_id;
+    let listener = must(
+        readiness_node.listener.try_clone(),
+        "readiness listener clone",
+    );
+    let keys = serde_json::json!([{
+        "keyId": format!("0x{}", hex::encode(&fixture.sequencer_id)),
+        "publicKey": format!("0x{}", hex::encode(&fixture.sequencer_key)),
+        "firstHeight": format!("0x{batch:x}"),
+        "lastHeight": format!("0x{batch:x}"),
+    }]);
+    let server = thread::spawn(move || {
+        for (method, result) in [
+            ("eth_chainId", serde_json::json!(format!("0x{chain_id:x}"))),
+            ("px_getReceiptKeys", keys),
+        ] {
+            let expires = Instant::now() + Duration::from_secs(5);
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < expires, "missing {method} request");
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("readiness accept: {error}"),
+                }
+            };
+            must(
+                stream.set_read_timeout(Some(Duration::from_secs(2))),
+                "readiness read timeout",
+            );
+            must(
+                stream.set_write_timeout(Some(Duration::from_secs(2))),
+                "readiness write timeout",
+            );
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line), "readiness header"), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(must(
+                        value.trim().parse::<usize>(),
+                        "readiness content length",
+                    ));
+                }
+            }
+            let length = length.expect("readiness content length required");
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            must(reader.read_exact(&mut body), "readiness request body");
+            let request: serde_json::Value =
+                must(serde_json::from_slice(&body), "readiness request JSON");
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["method"], method);
+            assert_eq!(request["params"], serde_json::json!([]));
+            let answer =
+                serde_json::json!({"jsonrpc": "2.0", "id": request["id"], "result": result})
+                    .to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()), "readiness response");
+            must(stream.flush(), "readiness flush");
+        }
+    });
+    let result = NodeRpc::connect(config)
+        .map_err(GateError::from)
+        .and_then(|node| {
+            authority_gate.readiness_gate(&node).map(|status| {
+                assert_eq!(status.chain_id, chain_id);
+                assert!(status.receipt_keys.iter().any(|key| {
+                    key.key_id == fixture.sequencer_id
+                        && key.public_key == fixture.sequencer_key
+                        && key.first_height <= batch
+                        && batch <= key.last_height
+                }));
+            })
+        });
+    must(server.join(), "readiness server");
+    result?;
+    assert_eq!(authority_gate.guard_write(|| ()), Ok(()));
+    assert!(authority_gate.evidence_authority().is_ok());
+    Ok(())
+}
+
 struct RestartContext<'a> {
     paths: &'a NodePaths,
     environment: &'a BTreeMap<&'static str, String>,
     gate: &'a ConnectionGate,
     retained: &'a [(Vec<u8>, Submitted)],
     policy: super::TestAuthorityPolicy<'a>,
+    readiness_node: &'a ReadinessNode,
 }
 
 fn restart_authority(
@@ -1414,7 +1569,6 @@ fn restart_authority(
     let root = &fixture.root;
     let scope = fixture.scope;
     let replica_port = fixture.replica_port;
-    let sequencer_key = fixture.sequencer_key;
     let paths = context.paths;
     let node_dir = &paths.directory;
     let socket = &paths.socket;
@@ -1466,12 +1620,13 @@ fn restart_authority(
         Uds::connect(socket, gate, lni_limits()),
         "restart authority transport",
     );
-    let status = handshake_gate(authority_gate, &mut transport)?;
-    assert_eq!(status.protocol_version, scope.protocol_version);
-    assert_eq!(status.network_id, scope.network_id);
-    assert_eq!(status.latest_sealed_batch, policy.handshake_batch);
-    assert_eq!(status.authorised_sequencer_key, sequencer_key);
-    assert!(status.writes_ready);
+    handshake_gate(&mut transport, fixture, policy.handshake_batch);
+    readiness_gate(
+        authority_gate,
+        fixture,
+        policy.handshake_batch,
+        context.readiness_node,
+    )?;
     assert!(authority_gate.evidence_authority().is_ok());
     Ok(())
 }
@@ -1482,6 +1637,7 @@ pub(super) fn authorize(
     policy: super::TestAuthorityPolicy<'_>,
     expected_sequencer_id: Option<[u8; 32]>,
     restart_config: Option<&layerx_agentd::config::StartupConfig>,
+    readiness_node: &ReadinessNode,
 ) -> Result<(), GateError> {
     let _guard = FIXTURE_LOCK
         .lock()
@@ -1497,16 +1653,16 @@ pub(super) fn authorize(
         Uds::connect(&paths.socket, &gate, lni_limits()),
         "fresh authority handshake transport",
     );
-    let result = handshake_gate(authority_gate, &mut transport).map(|status| {
-        assert_eq!(status.protocol_version, fixture.scope.protocol_version);
-        assert_eq!(status.network_id, fixture.scope.network_id);
-        assert_eq!(status.latest_sealed_batch, policy.handshake_batch);
-        assert_eq!(status.authorised_sequencer_key, fixture.sequencer_key);
-        assert!(status.writes_ready);
-    });
+    handshake_gate(&mut transport, &fixture, policy.handshake_batch);
+    let result = readiness_gate(
+        authority_gate,
+        &fixture,
+        policy.handshake_batch,
+        readiness_node,
+    );
     drop(transport);
     if let Some(config) = restart_config {
-        result?;
+        result.clone()?;
         restart_authority(
             &fixture,
             authority_gate,
@@ -1519,6 +1675,7 @@ pub(super) fn authorize(
                 gate: &gate,
                 retained: &retained,
                 policy,
+                readiness_node,
             },
         )?;
     }
