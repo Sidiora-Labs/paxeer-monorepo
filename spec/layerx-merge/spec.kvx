@@ -143124,7 +143124,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.7]
 title = "Carry transaction hashes, receipt hashes, block heights and rungs in receipt material"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.1.6", "9.1.8", "18.1119.1"]
@@ -143788,7 +143788,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.4]
 title = "Retire the LXKP authorize-recipient operation and the KMS settlement recipient"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.11.3", "9.1.7", "9.1.8", "18.1119.1"]
@@ -184387,7 +184387,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1147.1]
 title = "Issue #1147: Give layerx-human-service the ureq development dependency its wallet identity test needs through the shared KMS attestor test support"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
