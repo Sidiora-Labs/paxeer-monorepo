@@ -97,6 +97,53 @@ pub fn verify_receipted(
     prev_seq_hash: [u8; 32],
     keys: &[([u8; 32], [u8; 32], u64, u64)],
 ) -> Result<[u8; 32], ProofError> {
+    verify_receipt(
+        raw_transaction,
+        signed_receipt,
+        receipt_json,
+        prev_seq_hash,
+        keys,
+        ReceiptRung::Receipted,
+    )
+}
+
+/// Verify a committed receipt view using the block hash returned by [`verify_header`].
+/// The view's block number must equal the signed receipt's height.
+///
+/// # Errors
+/// Returns the same errors as [`verify_receipted`], including
+/// [`ProofError::ReceiptViewMismatch`] for inconsistent block fields or rung.
+pub fn verify_committed(
+    raw_transaction: &[u8],
+    signed_receipt: &[u8],
+    receipt_json: &[u8],
+    prev_seq_hash: [u8; 32],
+    keys: &[([u8; 32], [u8; 32], u64, u64)],
+    block_hash: [u8; 32],
+) -> Result<[u8; 32], ProofError> {
+    verify_receipt(
+        raw_transaction,
+        signed_receipt,
+        receipt_json,
+        prev_seq_hash,
+        keys,
+        ReceiptRung::Committed(block_hash),
+    )
+}
+
+enum ReceiptRung {
+    Receipted,
+    Committed([u8; 32]),
+}
+
+fn verify_receipt(
+    raw_transaction: &[u8],
+    signed_receipt: &[u8],
+    receipt_json: &[u8],
+    prev_seq_hash: [u8; 32],
+    keys: &[([u8; 32], [u8; 32], u64, u64)],
+    expected_rung: ReceiptRung,
+) -> Result<[u8; 32], ProofError> {
     if raw_transaction.is_empty()
         || raw_transaction.len() > 1_048_576
         || signed_receipt.len() > 1_048_576
@@ -206,7 +253,7 @@ pub fn verify_receipted(
     if from[..12] != [0; 12] || to[..12] != [0; 12] {
         return Err(ProofError::InvalidReceipt);
     }
-    let expected = serde_json::json!({
+    let mut expected = serde_json::json!({
         "rung": "receipted",
         "txHash": receipt_hex(&activity),
         "nonce": format!("0x{nonce:x}"),
@@ -221,6 +268,11 @@ pub fn verify_receipted(
         "signingKey": receipt_hex(signing_key),
         "receipt": receipt_hex(signed_receipt),
     });
+    if let ReceiptRung::Committed(block_hash) = expected_rung {
+        expected["rung"] = "committed".into();
+        expected["blockNumber"] = format!("0x{height:x}").into();
+        expected["blockHash"] = receipt_hex(&block_hash).into();
+    }
     verify_receipt_view(
         receipt_json,
         expected,
