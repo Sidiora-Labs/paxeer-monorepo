@@ -9851,3 +9851,19 @@ symbol = "VerifyPortableReceipt"
 observed = "Attempt 5 (eb1b99ca7) passed V1-V4 and failed only TestVectorV5PortableRoundTrips/committed at the raw-transaction check: :137 requires rawTransaction to byte-equal the block transaction, which verify.go:1091 (keccak of the EVM bytes) and committed.go:126-131 (wrapper unwrapped and proven as a leaf) make impossible for any wrapped transaction since 046c9c4c1."
 assumption = "The fixture bytes are right; task 18.1178.1 (issue #1178) rebinds the portable check through committedEVMTransaction and rewraps the synthetic committed fixture, and 8.47.7 requires it with only a README reword left."
 severity = "major"
+
+[finding.13.27.1.7]
+task = "13.27.1"
+file = "programs/crates/layerx-programs-runtime/src/ffi_call.rs:2796"
+symbol = "layerx_programs_call_begin"
+observed = "Attempt 24 (b58b6019d) built and failed TestProgramsSandboxExecuteEmitsUsage with LXP_NON_CANONICAL from the sandbox guest-ABI gate at ffi_call.rs:2796-2803: the inner call payload came from programsCallFixture (method_call_test.go:145,153), an ABI-v1 program and call, while a sandboxed call must carry guest ABI 2-5; admit_host never ran."
+assumption = "do_7 wrongly pointed at the ABI-v1 fixture; a new step deploys an ABI-v2 program in the test and encodes the inner call with abiVersion 2, with no kernel or host change."
+severity = "minor"
+
+[finding.18.1172.1.2]
+task = "18.1172.1"
+file = "services/human/crates/layerx-human-service/tests/support/withdraw_native.rs:353"
+symbol = "ReceiptMaterial"
+observed = "Attempt 3 (05c5107ff) failed the build at a shared support module outside touches whose ReceiptMaterial literal lacks the four fields landed by 10.13.1; cargo build --tests compiles it into the withdraw test target."
+assumption = "Every test and support file of the crate with an unported ReceiptMaterial, VerifiedBudgetAfter or ReceiptReference::Verified literal is now in touches (scan recorded in do_5)."
+severity = "minor"

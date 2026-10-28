@@ -10402,3 +10402,7 @@ detail = "When a programs guest ends in terminal failure the receipt result_code
 title = "Portable committed bundles carry two transaction encodings"
 detail = "In a committed portable receipt rawTransaction is the signed EVM transaction (keccak256 == activity id, sdk/platform/go/verify.go:1091) and receiptInclusion.transaction is the Cosmos block transaction wrapping it (sha256 leaf under data_hash, committed.go:131); a check that compares the two for byte equality (portable_receipt.go:137 before task 18.1178.1) can never pass, and a synthetic fixture must wrap its EVM bytes before using them as the block transaction."
 
+[gotcha.2132]
+title = "A sandboxed program call must carry guest ABI 2 or later"
+detail = "layerx_programs_call_begin (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2796-2803) refuses an inner call whose abi_version is outside ABI_V2..ABI_V5 with NON_CANONICAL when a sandbox context is active, before any admission runs; a Go test that reuses programsCallFixture's ABI-v1 program and payload (method_call_test.go:145,153) inside sandboxExecute fails there (13.27.1 attempt 24). Deploy an ABI-v2 program (bank_parity_test.go:23-39) and encode the call with abiVersion 2."
+
