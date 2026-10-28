@@ -148437,7 +148437,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.14.6]
 title = "Add the committed rung case to the x402 sequenced settlement vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["11.4.2"]
