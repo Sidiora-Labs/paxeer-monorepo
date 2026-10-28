@@ -387,8 +387,7 @@ defmodule Explorer.Chain.PaxeerX.StatusTest do
       sealed_height: sealed_height
     }
 
-    %AnchorRow{}
-    |> AnchorRow.changeset(attributes)
+    Ecto.Changeset.cast(%AnchorRow{}, attributes, Map.keys(attributes))
     |> Repo.insert!()
   end
 end

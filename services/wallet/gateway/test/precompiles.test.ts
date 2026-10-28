@@ -1,5 +1,7 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { createServer } from 'node:http';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it, test, vi } from 'vitest';
 import { toFunctionSelector, toFunctionSignature, type Abi } from 'viem';
 import {
@@ -161,6 +163,78 @@ describe('agent ABI selectors', () => {
   );
 });
 
+function goSources(): string[] {
+  const root = fileURLToPath(new URL('../../../../', import.meta.url));
+  function walk(directory: string): string[] {
+    return readdirSync(join(root, directory), { withFileTypes: true }).flatMap((entry) => {
+      const path = join(directory, entry.name);
+      if (entry.isDirectory()) {
+        return ['.git', 'node_modules', 'target'].includes(entry.name) ? [] : walk(path);
+      }
+      return entry.isFile() && path.endsWith('.go') && !path.endsWith('_test.go') ? [path] : [];
+    });
+  }
+  return walk('');
+}
+
+function goImports(source: string): string[] {
+  const imports: string[] = [];
+  const tokens = /\/\/|\/\*|["'`]|[A-Za-z_]\w*|[()]/g;
+  let importing = false;
+  let block = false;
+  let match: RegExpExecArray | null;
+  while ((match = tokens.exec(source)) !== null) {
+    const token = match[0];
+    if (token === '//' || token === '/*') {
+      const end = source.indexOf(token === '//' ? '\n' : '*/', tokens.lastIndex);
+      tokens.lastIndex = end < 0 ? source.length : end + (token === '//' ? 1 : 2);
+    } else if (token === '"' || token === "'" || token === '`') {
+      const start = tokens.lastIndex;
+      let end = start;
+      while (end < source.length && source[end] !== token) {
+        end += source[end] === '\\' && token !== '`' ? 2 : 1;
+      }
+      if (importing && token !== "'") {
+        imports.push(source.slice(start, end));
+        if (!block) importing = false;
+      }
+      tokens.lastIndex = end + 1;
+    } else if (token === 'import') {
+      importing = true;
+    } else if (importing && token === '(') {
+      block = true;
+    } else if (token === ')') {
+      importing = false;
+      block = false;
+    }
+  }
+  return imports;
+}
+
+const unservedPrecompileTests = {
+  'lists every 0x09xx route while no node package links a layerxagent precompile'() {
+    const routePackages = {
+      orob: 'orob',
+      clearing: 'clearing',
+      oracle: null,
+      pofq: 'pofq',
+      scheduler: 'scheduler',
+      streams: null,
+      teeAttestor: 'teeattestor',
+      eip712: 'eip712',
+    } as const;
+    const imports = goSources()
+      .filter((file) => !file.startsWith('precompiles/layerxagent/'))
+      .flatMap((file) => goImports(readRepositoryFile(file)));
+    for (const key of Object.keys(routePackages) as (keyof typeof routePackages)[]) {
+      const pkg = routePackages[key];
+      const linked =
+        pkg !== null && imports.some((path) => path.endsWith(`/precompiles/layerxagent/${pkg}`));
+      expect(UNSERVED_PRECOMPILES.has(key), key).toBe(!linked);
+    }
+  },
+};
+
 describe('unserved agent precompiles', () => {
   it('lists the agent routes whose constructor package is not linked by the node', () => {
     const agentKeys = routeKeys.filter(
@@ -175,6 +249,11 @@ describe('unserved agent precompiles', () => {
     );
     expect([...UNSERVED_PRECOMPILES].sort()).toEqual(unlinkedKeys.sort());
   });
+
+  it(
+    unservedPrecompileTests['lists every 0x09xx route while no node package links a layerxagent precompile'],
+    unservedPrecompileTests['lists every 0x09xx route while no node package links a layerxagent precompile'],
+  );
 
   it('refuses to build a scheduler deposit or a stream to an unserved address', () => {
     expect(() =>

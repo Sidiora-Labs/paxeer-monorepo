@@ -70,8 +70,9 @@ function refuseUnserved(key: keyof typeof PRECOMPILE_ADDRESSES) {
     } catch (err) {
       if (!(err instanceof PrecompileNotServedError)) throw err;
     }
-    void reply.code(503).send({
+    void reply.code(503).header('Retry-After', '3600').send({
       error: 'precompile_not_served',
+      retryable: false,
       message: `the node does not serve the ${key} precompile`,
       precompile: key,
       address: PRECOMPILE_ADDRESSES[key],
