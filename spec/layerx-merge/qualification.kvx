@@ -8679,3 +8679,19 @@ symbol = "TestMergePrecompileGate"
 observed = "Attempt 6 deleted layerxagent from the version map and from the upgrade store key and called SetModuleVersionMap, yet GetModuleVersionMap still answered layerxagent 0x1 and the NotContains precondition failed."
 assumption = "SetModuleVersionMap writes the entries it is given and deletes nothing; the direct store delete did not reach the keeper's store, so the next attempt removes the entry through the keeper's own store service or asserts the gate on an app built without the agent module."
 severity = "major"
+
+[finding.18.877.1.1]
+task = "18.877.1"
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex"
+symbol = "compact_scanned_blocks"
+observed = "Attempt 3 (fbc3631fa) passed its two tests and the done record refused three symbols written as PriceFeed.compact_scanned_blocks, PriceFeed.delete_expired_updates and PriceFeed.oldest_updates_query as not defined in the graph."
+assumption = "The graph indexes Elixir functions by bare name (GOTCHA 1998); the symbols are rewritten and the candidate continues unchanged."
+severity = "minor"
+
+[finding.18.865.1.1]
+task = "18.865.1"
+file = "services/explorer/deploy/tools/mix-in-builder.sh"
+symbol = "mix-in-builder"
+observed = "Attempt 1 (1eb86b67e) ran the indexer test to 0 failures and the block_scout_web channel test then failed with DBConnection.OwnershipError because one wrapper invocation ran two umbrella apps (issue #1098)."
+assumption = "The gate now runs one wrapper invocation per app; the candidate continues unchanged."
+severity = "minor"

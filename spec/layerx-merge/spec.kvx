@@ -173576,7 +173576,7 @@ do_1 = "In PriceFeed.compact_scanned_blocks (services/explorer/backend/apps/expl
 do_2 = "In PriceFeed.delete_expired_updates (price_feed.ex:369) and oldest_updates_query (price_feed.ex:390), never delete a submission that holds the newest consensus observation of any market, so latest_per_market (price_feed.ex:81) still returns a price for a market whose last observation is older than the retention window."
 do_3 = "In services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs add refute plan =~ Sort Key to the unfiltered list_updates plan test (:157-175) and a market-filtered list_updates_query plan test, both run on a seeded and ANALYZEd table through Ecto.Adapters.SQL.explain without the enable_seqscan and enable_bitmapscan settings of the explain helper (:344-348)."
 do_4 = "Write the tests compaction deletes scanned rows re-inserted at or below the watermark (describe scanned watermark) and retention keeps the newest submission of every market (describe delete_expired_updates/2) in price_feed_test.exs, asserting no scanned row at or below the watermark remains after compaction and that latest_per_market still returns the 40-day-old observation of a market with no newer one."
-symbols = ["PriceFeed.compact_scanned_blocks", "PriceFeed.delete_expired_updates", "PriceFeed.oldest_updates_query"]
+symbols = ["compact_scanned_blocks", "delete_expired_updates", "oldest_updates_query"]
 touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs"]
 tests = ["services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::scanned watermark compaction deletes scanned rows re-inserted at or below the watermark", "services/explorer/backend/apps/explorer/test/explorer/chain/paxeer_x/price_feed_test.exs::delete_expired_updates/2 retention keeps the newest submission of every market"]
 planned_paths = []
@@ -174720,7 +174720,7 @@ touches = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/
 tests = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::a rescanned height publishes nothing new", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs::a backfilled height is not pushed as a new block"]
 planned_paths = []
 build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
-verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs --only 'test:test a rescanned height publishes nothing new' --only 'test:test a backfilled height is not pushed as a new block'"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs --only 'test:test a rescanned height publishes nothing new' && services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs --only 'test:test a backfilled height is not pushed as a new block'"
 gate_kind = "planned"
 sandbox_profile = "elixir"
 owner_role = "fm-web-explorer-bridge"
