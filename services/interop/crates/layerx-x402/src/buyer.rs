@@ -3,6 +3,12 @@
 
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
+use layerx_committed_proof::{
+    commit::{BlockIdFlag, Commit, CommitSig},
+    committed::verify_committed,
+    header::{BlockId, ConsensusVersion, Header, PartSetHeader, Timestamp, Validator},
+    CommittedProof,
+};
 use layerx_interop_gateway::evidence::canonical_receipt_digest;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_proof::inclusion::SequencerAuthorization;
@@ -77,6 +83,189 @@ pub struct LayerXEvidence {
     block_hash: Option<String>,
     #[serde(default)]
     purpose_hash: Option<String>,
+    #[serde(default)]
+    proof: Option<Value>,
+}
+
+struct ProofValue<'a>(&'a Value);
+
+impl<'a> ProofValue<'a> {
+    fn field(&self, name: &str) -> Self {
+        Self(&self.0[name])
+    }
+
+    fn text(&self) -> Result<&'a str, X402Error> {
+        self.0.as_str().ok_or(X402Error::EvidenceMismatch)
+    }
+
+    fn bytes(&self) -> Result<Vec<u8>, X402Error> {
+        unhex(self.text()?)
+    }
+
+    fn fixed<const N: usize>(&self) -> Result<[u8; N], X402Error> {
+        self.bytes()?
+            .try_into()
+            .map_err(|_| X402Error::EvidenceMismatch)
+    }
+
+    fn unsigned(&self) -> Result<u64, X402Error> {
+        self.0.as_u64().ok_or(X402Error::EvidenceMismatch)
+    }
+
+    fn signed(&self) -> Result<i64, X402Error> {
+        self.0.as_i64().ok_or(X402Error::EvidenceMismatch)
+    }
+
+    fn array(&self) -> Result<&'a [Value], X402Error> {
+        self.0
+            .as_array()
+            .map(Vec::as_slice)
+            .ok_or(X402Error::EvidenceMismatch)
+    }
+
+    fn timestamp(&self) -> Result<Timestamp, X402Error> {
+        Ok(Timestamp {
+            seconds: self.field("seconds").signed()?,
+            nanos: self
+                .field("nanos")
+                .unsigned()?
+                .try_into()
+                .map_err(|_| X402Error::EvidenceMismatch)?,
+        })
+    }
+
+    fn block_id(&self) -> Result<BlockId, X402Error> {
+        Ok(BlockId {
+            hash: self.field("hash").bytes()?,
+            part_set_header: PartSetHeader {
+                total: self
+                    .field("parts")
+                    .field("total")
+                    .unsigned()?
+                    .try_into()
+                    .map_err(|_| X402Error::EvidenceMismatch)?,
+                hash: self.field("parts").field("hash").bytes()?,
+            },
+        })
+    }
+
+    fn header(&self) -> Result<Header, X402Error> {
+        Ok(Header {
+            version: ConsensusVersion {
+                block: self.field("version").field("block").unsigned()?,
+                app: self.field("version").field("app").unsigned()?,
+            },
+            chain_id: self.field("chain_id").text()?.to_owned(),
+            height: self.field("height").signed()?,
+            time: self.field("time").timestamp()?,
+            last_block_id: self.field("last_block_id").block_id()?,
+            last_commit_hash: self.field("last_commit_hash").bytes()?,
+            data_hash: self.field("data_hash").bytes()?,
+            validators_hash: self.field("validators_hash").fixed()?,
+            next_validators_hash: self.field("next_validators_hash").bytes()?,
+            consensus_hash: self.field("consensus_hash").bytes()?,
+            app_hash: self.field("app_hash").bytes()?,
+            last_results_hash: self.field("last_results_hash").bytes()?,
+            evidence_hash: self.field("evidence_hash").bytes()?,
+            proposer_address: self.field("proposer_address").bytes()?,
+        })
+    }
+
+    fn commit(&self) -> Result<Commit, X402Error> {
+        Ok(Commit {
+            height: self.field("height").unsigned()?,
+            round: self
+                .field("round")
+                .signed()?
+                .try_into()
+                .map_err(|_| X402Error::EvidenceMismatch)?,
+            block_id: self.field("block_id").block_id()?,
+            signatures: self
+                .field("signatures")
+                .array()?
+                .iter()
+                .map(|value| {
+                    let vote = Self(value);
+                    Ok(CommitSig {
+                        block_id_flag: match vote.field("block_id_flag").unsigned()? {
+                            1 => BlockIdFlag::Absent,
+                            2 => BlockIdFlag::Commit,
+                            3 => BlockIdFlag::Nil,
+                            _ => return Err(X402Error::EvidenceMismatch),
+                        },
+                        validator_address: vote.field("validator_address").bytes()?,
+                        timestamp: vote.field("timestamp").timestamp()?,
+                        signature: if vote.0.get("signature") == Some(&Value::Null) {
+                            None
+                        } else {
+                            Some(vote.field("signature").fixed()?)
+                        },
+                    })
+                })
+                .collect::<Result<_, X402Error>>()?,
+        })
+    }
+}
+
+fn verify_committed_evidence(
+    value: &Value,
+    receipt: &[u8],
+    digest: [u8; 32],
+    number: &str,
+    hash: &str,
+) -> Result<(), X402Error> {
+    let value = ProofValue(value);
+    let batch = value.field("batchProof");
+    let execution_header = value.field("executionHeader").header()?;
+    if batch.field("leafEncoding").text()? != "sha256-tx"
+        || batch.field("rootHash").bytes()? != execution_header.data_hash
+    {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    let proof = CommittedProof {
+        header: value.field("header").header()?,
+        commit: value.field("commit").commit()?,
+        execution_header,
+        batch_transaction: batch.field("data").bytes()?,
+        batch_total: batch.field("total").unsigned()?,
+        batch_index: batch.field("index").unsigned()?,
+        batch_aunts: batch
+            .field("aunts")
+            .array()?
+            .iter()
+            .map(|aunt| ProofValue(aunt).fixed())
+            .collect::<Result<_, _>>()?,
+        signed_receipt: receipt.to_vec(),
+        activity_ids: value
+            .field("activityIds")
+            .array()?
+            .iter()
+            .map(|id| ProofValue(id).fixed())
+            .collect::<Result<_, _>>()?,
+    };
+    let validators = value
+        .field("validators")
+        .array()?
+        .iter()
+        .map(|validator| {
+            let validator = ProofValue(validator);
+            Ok(Validator {
+                pub_key: validator.field("pub_key").fixed()?,
+                voting_power: validator.field("voting_power").signed()?,
+            })
+        })
+        .collect::<Result<Vec<_>, X402Error>>()?;
+    let block = verify_committed(digest, &proof, &validators, value.field("chainId").text()?)
+        .map_err(|_| X402Error::EvidenceMismatch)?;
+    let number = number
+        .strip_prefix("0x")
+        .ok_or(X402Error::EvidenceMismatch)?;
+    if u64::from_str_radix(number, 16).map_err(|_| X402Error::EvidenceMismatch)? != block.number
+        || unhex(hash)?.as_slice() != block.hash
+    {
+        return Err(X402Error::EvidenceMismatch);
+    }
+    Ok(())
 }
 
 #[derive(Debug, Deserialize)]
@@ -273,18 +462,20 @@ impl Buyer {
         let evidence: LayerXEvidence = serde_json::from_value(evidence_value)
             .map_err(|_| fail(X402Error::EvidenceMismatch))?;
         let valid_rung = match evidence.verification_level.as_str() {
-            "receipted" => !has_block_fields,
+            "receipted" => !has_block_fields && evidence.proof.is_none(),
             "committed" => match (
                 evidence.block_number.as_deref(),
                 evidence.block_hash.as_deref(),
             ) {
                 (Some(number), Some(hash)) => {
-                    number.strip_prefix("0x").is_some_and(|digits| {
-                        !digits.is_empty()
-                            && digits.len() <= 16
-                            && (digits == "0" || !digits.starts_with('0'))
-                            && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
-                    }) && hash.len() == 66
+                    evidence.proof.is_some()
+                        && number.strip_prefix("0x").is_some_and(|digits| {
+                            !digits.is_empty()
+                                && digits.len() <= 16
+                                && (digits == "0" || !digits.starts_with('0'))
+                                && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+                        })
+                        && hash.len() == 66
                         && hash.starts_with("0x")
                         && hash.as_bytes()[2..]
                             .iter()
@@ -393,6 +584,25 @@ impl Buyer {
             || response.transaction != format!("0x{}", hex(&protocol.activity_id()))
         {
             return Err(fail(X402Error::EvidenceMismatch));
+        }
+        if evidence.verification_level == "committed" {
+            verify_committed_evidence(
+                evidence
+                    .proof
+                    .as_ref()
+                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+                &canonical_receipt,
+                receipt_digest,
+                evidence
+                    .block_number
+                    .as_deref()
+                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+                evidence
+                    .block_hash
+                    .as_deref()
+                    .ok_or_else(|| fail(X402Error::EvidenceMismatch))?,
+            )
+            .map_err(fail)?;
         }
         Ok(CapturedSettlement {
             transaction_hash: protocol.activity_id(),
