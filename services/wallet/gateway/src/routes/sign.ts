@@ -31,7 +31,7 @@ import {
   lxSigningPreimage,
 } from '../attestor/client.js';
 import { BroadcastOutcomeUnknownError, NonceConflictError, outcomeUnknownBody, RpcPool, RpcResponseError, sharedRpcPool } from '../rpc/pool.js';
-import { NonceBelowLatestError, NonceOutstandingError, NonceStore, NonceUnresolvedError, broadcastReserved, sharedNonceStore } from '../nonce/store.js';
+import { NonceBelowLatestError, NonceOutstandingError, NonceStore, NonceUnresolvedError, broadcastReserved, nonceUnresolvedBody, sharedNonceStore } from '../nonce/store.js';
 import { BROADCAST_GRACE_MS } from '../chain.js';
 import {
   RateLimitedError,
@@ -287,7 +287,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
       if (err instanceof RouteRefusal) return refuse(err.status, err.code, err.body, err.headers);
       if(err instanceof CustodyAuthorityError) return refuse(503,err.code,{error:err.code,replication_pending:true});
       if (err instanceof NonceUnresolvedError) {
-        return refuse(503, 'nonce_unresolved', { error: 'nonce_unresolved', nonce: err.nonce, unreachable: err.unreachable, members: err.memberCount });
+        return refuse(503, 'nonce_unresolved', nonceUnresolvedBody(err));
       }
       if (err instanceof NonceBelowLatestError) {
         return refuse(409, 'nonce_below_latest', { error: 'nonce_below_latest', nonce: err.nonce, latest: err.latest });
