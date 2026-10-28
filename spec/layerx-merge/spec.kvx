@@ -117570,7 +117570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.5]
 title = "Record and re-verify the V4 committed vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3", "5.55.2", "18.1074.1", "18.1109.1", "18.1120.1", "18.1126.1", "18.1144.1"]
@@ -158395,7 +158395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.9]
 title = "Prove 0x101D value account views equal bank balances of the same accounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.28.2", "13.25.1", "18.1073.1", "18.1123.1", "18.1130.1"]
