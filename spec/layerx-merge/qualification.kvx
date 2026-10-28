@@ -9819,3 +9819,27 @@ symbol = "verify_receipted"
 observed = "Attempt 5 (1f0a0d60b) built, and verify failed at committed_vectors.rs:322 with ReceiptViewMismatch: the recorded view carries blockHash, blockNumber and rung committed, the expected view of lib.rs:210-223 carries rung receipted and no block fields; signingKey matches after 18.1167.1."
 assumption = "The node's view is canonical; task 18.1176.1 (issue #1176) adds verify_committed for the committed rung and this task now requires it."
 severity = "major"
+
+[finding.18.987.1.2]
+task = "18.987.1"
+file = "services/human/tools/schema-check/src/lib.rs:2398"
+symbol = "check_compatibility"
+observed = "Attempts 1-5 (last 56c87f814) failed identically at compatibility_rows.rs:103: the test expected compatibility-row-missing for each of 1.8, 1.9 and 1.10, the checker reports only the first missing minor (1.8) plus unrecorded-schema-version 1.10, as task 10.16.3 do_1, req.1016 ac_1 and acceptance.10.20.1 specify."
+assumption = "The landed 10.16.3 rule stands; do_2, ac_1 and the scenario now expect one 1.8 violation plus one unrecorded 1.<minor> violation, which strengthens the head test without touching the checker."
+severity = "minor"
+
+[finding.18.1110.1.2]
+task = "18.1110.1"
+file = "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:570"
+symbol = "native_provider_and_sdk_real_cluster"
+observed = "Attempt 5 (c67079b4a) built and passed every Go assertion; the Rust consumer failed at :584 expecting StepUpMismatch for a grant with expires_at_ms - 1, which validate_native_local_grant (attestor.rs:1912) refuses as InvalidEvidence before the step-up compare (signer.rs:994); the same mutation sits in native_send_purpose.rs:589 (gotcha 740)."
+assumption = "The validator is right; task 18.1177.1 (issue #1177) changes both fixtures to mutate owner_public_key and this task requires it."
+severity = "major"
+
+[finding.18.911.1.8]
+task = "18.911.1"
+file = "tests/programs/test_market_attestation.c:1101-1105"
+symbol = "main"
+observed = "Attempt 15 (54078c924) built and failed at the first market call of every model with -3 = STATUS_BOUNDS, before register(); independently, do_4 kept the model 1 and model 2 acceptances that register (lib.rs:309) and open (:343) refuse by design since 18.811.1 (finding 18.911.1.7)."
+assumption = "Ruling: the landed 18.811.1 behaviour is canonical; do_4 now retargets models 1 and 2 to the -2 registration refusal and moves admission_cases to a model 3 lease, and a new step names the -3 as a fixture-side host call before register()."
+severity = "major"

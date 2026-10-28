@@ -10386,3 +10386,15 @@ detail = "cargo build --tests (and cargo test --no-run) compiles every test file
 title = "verify_receipted only verifies receipted-rung views"
 detail = "layerx-committed-proof's verify_receipted hardcodes rung receipted and no block fields in its expected view (src/lib.rs:210-223) and compares exactly (:376); a pax_sequencerReceipt view recorded after commitment (rung committed, blockNumber, blockHash) is refused with ReceiptViewMismatch. Use verify_committed (task 18.1176.1) with the verified header hash for such views."
 
+[gotcha.2128]
+title = "schema-check names only the first missing compatibility minor"
+detail = "check_compatibility (services/human/tools/schema-check/src/lib.rs:2398) emits one compatibility-row-missing violation for the first missing minor and a separate unrecorded-schema-version violation for the schema's own minor (:2409-2414); a test expecting one violation per missing minor contradicts task 10.16.3 and fails (18.987.1 attempts 1-5)."
+
+[gotcha.2129]
+title = "A grant with a skewed expiry is InvalidEvidence, never StepUpMismatch"
+detail = "validate_native_local_grant (services/human/crates/layerx-human-kms/src/attestor.rs:1912) binds expires_at_ms to the capability not-after and refuses before any digest exists, so a step-up mismatch fixture must mutate a field the validator admits but the signing bytes cover (owner_public_key, attestor.rs:1824); moving the expiry yields InvalidEvidence at signer.rs:976 (18.1110.1 attempt 5; task 18.1177.1)."
+
+[gotcha.2130]
+title = "A guest terminal -3 is STATUS_BOUNDS, not NON_CANONICAL"
+detail = "When a programs guest ends in terminal failure the receipt result_code is the guest status band (programs/sdk/rust/src/error.rs:19-29): -3 is STATUS_BOUNDS, produced by the host for AbiError::Storage (layerx-programs-runtime host/mod.rs) or a context read over capacity (host/context.rs:42-43); market decode and register() refusals are -2 STATUS_INVALID, so a -3 on register-offer means the fixture's first storage or context host call failed before the guest logic ran (18.911.1 attempts 14-15)."
+
