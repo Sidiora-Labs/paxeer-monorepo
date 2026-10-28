@@ -77,10 +77,16 @@ impl Drop for Fixture {
 fn missing_compatibility_row_for_a_minor_is_rejected() {
     let fixture = Fixture::new();
     fixture.assert_passes();
-    assert!(fixture
+    let minor: u32 = fixture
         .read("v1.kvx")
         .lines()
-        .any(|line| line == "minor = 9"));
+        .skip_while(|line| *line != "[schema]")
+        .skip(1)
+        .take_while(|line| !line.starts_with('['))
+        .filter_map(|line| line.split_once('='))
+        .find_map(|(key, value)| (key.trim() == "minor").then(|| value.trim().parse()))
+        .expect("missing schema minor")
+        .expect("schema minor must be an unsigned integer");
     let matrix = fixture.read("compatibility.kvx");
     let (through_seven, _) = matrix
         .split_once("[compatibility.row.9]")
@@ -96,6 +102,16 @@ fn missing_compatibility_row_for_a_minor_is_rejected() {
     assert_eq!(
         missing[0].detail,
         "no matrix row records schema version 1.8"
+    );
+    let unrecorded: Vec<_> = violations
+        .iter()
+        .filter(|entry| entry.rule == "unrecorded-schema-version")
+        .collect();
+    assert_eq!(unrecorded.len(), 1, "{violations:#?}");
+    assert_eq!(unrecorded[0].path, fixture.0.join("compatibility.kvx"));
+    assert_eq!(
+        unrecorded[0].detail,
+        format!("no matrix row records schema version 1.{minor}")
     );
     assert!(violations
         .iter()
