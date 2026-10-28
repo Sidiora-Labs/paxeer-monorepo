@@ -10230,3 +10230,8 @@ detail = "layerx-x402's seller accepts PaymentExact or PaymentDrawn while the bu
 [gotcha.2093]
 title = "The layerx full image build needs more disk than its native stage"
 detail = "docker build of layerx-chain fails in the paxd Go compile with ENOSPC after the native target built; free the build host's warm caches and dangling images before the full build, or build on a larger disk (18.849.1)."
+
+[gotcha.2094]
+title = "Two tasks that build the same image must be sequenced, not run side by side"
+detail = "18.849.1 repairs the layerx image build context and 18.869.1 verifies by building the same image; every 18.869.1 attempt failed in a step 18.849.1 owns (the builder's Go step cannot find tests/testutil/sample, which modules/epoch/module_simulation.go:15 imports) and spent its limit there. When a verify_cmd builds an artefact another pending task is repairing, add that task to requires before relaunching."
+
