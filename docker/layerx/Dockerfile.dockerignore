@@ -54,6 +54,7 @@ tests
 !services/agent/**
 !include/**
 !src/**
+!tests/testutil/sample/**
 !services/platform/Makefile.inc
 !services/interop/Cargo.lock
 !services/agent/crates/layerx-agent-api/**
@@ -69,6 +70,7 @@ tests
 !services/human/crates/layerx-intents/**
 !services/interop/crates/layerx-ap2/**
 !services/interop/crates/layerx-bridge-relayer/**
+!services/interop/crates/layerx-committed-proof/**
 !services/interop/crates/layerx-fiat/**
 !services/interop/crates/layerx-gas-station/**
 !services/interop/crates/layerx-interop-gateway/**
@@ -101,6 +103,7 @@ tests
 !contracts/config/checkpoint-settlement.json
 !services/interop/specs/vendor/x402/x402-specification-v2.md
 !spec/layerx-merge/contracts/address-table.md
+!programs/vendor/**
 
 **/.env
 **/.env.*
