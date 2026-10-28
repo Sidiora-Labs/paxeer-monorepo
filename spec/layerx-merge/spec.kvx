@@ -181704,7 +181704,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.741.1]
 title = "Issue #741: Enforce the agent daily native value cap under concurrent requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1001.2"]
@@ -181796,7 +181796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.752.1]
 title = "Issue #752: Send each new sponsored wallet call instead of replaying the previous submission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182787,7 +182787,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1048.1]
 title = "Issue #1048: Validate the stored bridge theme in the pre-paint script as the ThemeProvider does"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1136.1"]
@@ -182818,7 +182818,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1049.1]
 title = "Issue #1049: Mount the bridge ThemeProvider so the class-preservation test runs its effects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1136.1"]
@@ -182910,7 +182910,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1058.1]
 title = "Issue #1058: Rebuild the trading chart whenever a theme change swaps its custom stylesheet, light and dark included"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183769,7 +183769,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1137.1]
 title = "Issue #1137: Make the launchpad keeper and simulation test packages compile without the deleted generation 1 key builders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
