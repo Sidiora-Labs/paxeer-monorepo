@@ -9643,3 +9643,43 @@ symbol = "open_or_create_by_assertion"
 observed = "Attempt 8 (850a0f2fc) cleared the inventory refusal and failed at the wallet DID step with 'assertion principal unavailable': the test passes the DID text where the identity provider expects a producer-signed binding token, and the verifier has no producer key or binding tenant."
 assumption = "do_6 configures the producer and mints the binding as the provider's own principal_store.rs tests do."
 severity = "minor"
+
+[finding.8.47.7.1]
+task = "8.47.7"
+file = "daemon/committed-fixture/vectors/vector-v4-committed.json"
+symbol = "VerifyCommittedReceipt"
+observed = "Attempt 1 (89d939fe0) wrote the five fixtures and the test; V4 and the committed V5 case fail because the vector carries only the commit of header 11 while sdk/platform/go/committed.go:94-130 needs the commit of execution header 10 as blockHeader's commit and header 11 as NextHeader with its own commit."
+assumption = "Issue #1164 / task 18.1164.1 adds settlement.execution_commit to the recorder and the vector; 8.47.7 requires it and do_6 names the pairing."
+severity = "major"
+
+[finding.10.4.3.2]
+task = "10.4.3"
+file = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:532"
+symbol = "genuine_native_journey_holds_reopens_and_resumes_original_authority"
+observed = "Attempt 5 (a5948e27f) built and passed the evidence node test; the journey approval test expects PAXEER_X_NATIVE_JOURNEY_APPROVAL_FIXTURE (an isolated real owner and a running agent socket) and the producer test PAXEER_X_HUMAN_NATIVE_SEND_PRODUCER_FIXTURE, neither of which a qualification run carries."
+assumption = "build_cmd compiles the three targets, verify_cmd runs the evidence node test; the two protected tests are release gates."
+severity = "minor"
+
+[finding.18.1156.1.3]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/src/server.rs:139"
+symbol = "validate_sign"
+observed = "Attempt 5 (dccc94061) under the runtime clock: the KMS now starts and three tests pass; twelve fail with status byte 1 or Kms(Refused)/Kms(Unavailable) at their first signing request, the refusal validate_sign gives a request whose network word differs from chain_id 125; 33 sites still write 77 at base, four of them in owner_rotation.rs and owner_bootstrap.rs, which the candidate did not touch."
+assumption = "do_6 lists the sites; owner_rotation.rs and owner_bootstrap.rs join touches."
+severity = "minor"
+
+[finding.11.14.3.1]
+task = "11.14.3"
+file = "services/interop/specs/conformance/committed/vector-v4-committed.json"
+symbol = "committed_vector_commits_verify"
+observed = "Attempt 1 (39e105c41) failed verify with InvalidReceipt on an effect of kind 0; the recorder's positive.receipt at head decodes to effects of kinds 1, 3, 3 under the verifier's layout, so the candidate's receipt bytes were assembled rather than copied."
+assumption = "do_4 names the source fields and forbids hand-built receipt bytes."
+severity = "minor"
+
+[finding.18.1162.1.1]
+task = "18.1162.1"
+file = "services/interop/crates/layerx-x402/tests/seller.rs:494"
+symbol = "seller_preserves_per_asset_binding_but_refuses_its_eip155_profile"
+observed = "Attempt 1 (91fa642a4) fixed is_layerx_network and the two settlement strings; 22 seller tests pass and two contradict the model's documented contract: :494 and :507-509 refuse a payTo derived from the offer's matching per-asset account, :604 accepts a payTo redirected away from the main account the profile names."
+assumption = "do_5 flips those assertions to the contract of model.rs:166-168 and :189-202 and nothing else; the ruling is recorded for the owner."
+severity = "minor"
