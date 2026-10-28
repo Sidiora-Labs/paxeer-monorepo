@@ -131,114 +131,44 @@ fn probe(socket: &Path, stage: &str, work: &Path) {
 fn finalized_reads(route: &mut NativeReadRoute, work: &Path) {
     let activity = fs::read_to_string(work.join("availability-activity-id"))
         .unwrap_or_else(|error| panic!("activity: {error}"));
-    let activity = activity.trim();
-    let receipt = route
-        .read(&format!("/v1/reads/receipt/{activity}"))
-        .unwrap_or_else(|error| panic!("receipt read: {error:?}"));
-    assert_eq!(receipt["activity_id"], activity);
-    assert_eq!(receipt["verification_level"], 2);
-    let proof = route
-        .read(&format!("/v1/reads/proof/{activity}"))
-        .unwrap_or_else(|error| panic!("activity proof: {error:?}"));
-    assert_eq!(proof["activity_id"], activity);
-    assert_eq!(proof["verification_level"], 2);
-    let checkpoint = route
-        .read("/v1/reads/checkpoint/1")
-        .unwrap_or_else(|error| panic!("checkpoint read: {error:?}"));
-    assert_eq!(checkpoint["availability_obtained"], true);
-    assert!(checkpoint["verification_level"]
-        .as_u64()
-        .is_some_and(|level| level >= 4));
-    let availability = route
-        .read("/v1/reads/availability/1")
-        .unwrap_or_else(|error| panic!("availability read: {error:?}"));
-    assert_eq!(availability["complete"], true);
-    assert!(availability["chunks"]
-        .as_array()
-        .is_some_and(|chunks| chunks.len() >= 5));
-    assert_eq!(availability["header_hex"], checkpoint["header_hex"]);
-    let key = SigningKey::from_bytes(&[0x11; 32]);
-    let account_name = layerx_types::account::AccountId::parse(&format!(
-        "agent:did:layerx:{}:main",
-        hex::encode(key.verifying_key().as_bytes())
-    ))
-    .unwrap_or_else(|error| panic!("actual actor account: {error:?}"));
-    let account = hex::encode(
-        &layerx_wire::hash::account_id_for_protocol(&account_name, 3)
-            .unwrap_or_else(|error| panic!("actor account identifier: {error:?}")),
-    );
-    history_reads(route, &account);
+    for (path, operation) in [
+        (
+            format!("/v1/reads/receipt/{}", activity.trim()),
+            "read.receipt",
+        ),
+        (
+            format!("/v1/reads/proof/{}", activity.trim()),
+            "read.proof_bundle",
+        ),
+        ("/v1/reads/checkpoint/1".to_owned(), "read.checkpoint"),
+        ("/v1/reads/availability/1".to_owned(), "read.availability"),
+    ] {
+        let Err(NativeReadError::UnavailableCapability(error)) = route.read(&path) else {
+            panic!("height-addressed operation must refuse");
+        };
+        assert_eq!(
+            error.class,
+            layerx_agent_api::error::ErrorClass::UnavailableCapability
+        );
+        assert_eq!(
+            error.reason.as_str(),
+            format!("unavailable_capability.{operation}")
+        );
+    }
+    history_reads(route, "account");
 }
 
 fn history_reads(route: &mut NativeReadRoute, account: &str) {
-    let mut page = route
-        .read(&format!("/v1/reads/history/{account}?limit=2"))
-        .unwrap_or_else(|error| panic!("history first page: {error:?}"));
-    let cursor = page["cursor"]
-        .as_str()
-        .unwrap_or_else(|| panic!("history cursor"))
-        .to_owned();
-    assert!(matches!(
-        route.read(&format!(
-            "/v1/reads/history/{}?limit=2&cursor={cursor}",
-            hex::encode(&[0x99; 32])
-        )),
-        Err(NativeReadError::CursorMismatch)
-    ));
-    let mut tampered =
-        hex::decode_digest(&cursor).unwrap_or_else(|error| panic!("cursor hex: {error:?}"));
-    tampered[0] ^= 1;
-    assert!(matches!(
-        route.read(&format!(
-            "/v1/reads/history/{account}?limit=2&cursor={}",
-            hex::encode(&tampered)
-        )),
-        Err(NativeReadError::CursorMismatch)
-    ));
-    let mut scanned = 0_u64;
-    let mut previous = 0_u64;
-    let mut count = 0;
-    for _ in 0..32 {
-        scanned += page["scanned_items"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("scanned count"));
-        for item in page["items"]
-            .as_array()
-            .unwrap_or_else(|| panic!("history items"))
-        {
-            let sequence: u64 = item["global_sequence"]
-                .as_str()
-                .unwrap_or_else(|| panic!("item sequence"))
-                .parse()
-                .unwrap_or_else(|error| panic!("sequence: {error}"));
-            assert!(sequence > previous);
-            previous = sequence;
-            count += 1;
-        }
-        let Some(cursor) = page["cursor"].as_str() else {
-            break;
-        };
-        page = route
-            .read(&format!(
-                "/v1/reads/history/{account}?limit=2&cursor={cursor}"
-            ))
-            .unwrap_or_else(|error| panic!("history continuation: {error:?}"));
-    }
-    assert_eq!(page["complete"], true);
+    let Err(NativeReadError::UnavailableCapability(error)) =
+        route.read(&format!("/v1/reads/history/{account}?limit=2"))
+    else {
+        panic!("height-addressed history must refuse");
+    };
     assert_eq!(
-        scanned,
-        page["freshness"]["snapshot_end_sequence"]
-            .as_u64()
-            .unwrap_or_else(|| panic!("snapshot end"))
+        error.class,
+        layerx_agent_api::error::ErrorClass::UnavailableCapability
     );
-    assert!(
-        count >= 9,
-        "all nine actual activities must be discoverable"
-    );
-    assert!(route
-        .read(&format!("/v1/reads/receipt/{}", hex::encode(&[0xff; 32])))
-        .is_err());
-    assert!(route.read("/v1/reads/history/bad?limit=0").is_err());
+    assert_eq!(error.reason.as_str(), "unavailable_capability.read.history");
 }
 
 #[test]
