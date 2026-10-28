@@ -12,7 +12,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, CursorAcknowledgement, DeliveryTarget, SubscriptionCreate,
     SubscriptionFilter, SubscriptionId, SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::approval::{
     ApprovalEmission, ApprovalEventKind, ApprovalEvents, ApprovalLifecycle,
     APPROVAL_ENFORCEMENT_NOTICE,
@@ -169,7 +168,11 @@ fn subscriptions_restored_after_gap(durable: Store, recovered_bytes: Vec<u8>) ->
             SubscriptionCreate {
                 scope: scope(),
                 filter: filter(),
-                start: ApiCursor(Sequence(0)),
+                start: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
                 delivery_target: DeliveryTarget::new("uds://approval-consumer")
                     .unwrap_or_else(|error| panic!("target: {error:?}")),
             },
@@ -184,6 +187,11 @@ fn subscriptions_restored_after_gap(durable: Store, recovered_bytes: Vec<u8>) ->
         events: vec![RecoveredEvent {
             global_sequence: 1,
             canonical_bytes: recovered_bytes,
+            position: layerx_agentd::read::Cursor {
+                block_height: 1,
+                tx_index: 0,
+                log_index: 0,
+            },
         }],
     };
     assert!(matches!(
