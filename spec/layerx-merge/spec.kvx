@@ -182535,7 +182535,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.921.1]
 title = "Issue #921: Retry price feed heights on gateway 5xx answers without counting them toward the failure cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183673,7 +183673,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.899.1]
 title = "Issue #899: Specify the price-feed stream and keep the feed pages from polling while the channel is joined"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
