@@ -15,8 +15,8 @@ pub const PAYMENT_REQUIRED_HEADER: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE_HEADER: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE_HEADER: &str = "PAYMENT-RESPONSE";
 
-/// CAIP-2 namespace of every network that settles through a `LayerX` receipt.
-pub const LAYERX_NETWORK_NAMESPACE: &str = "layerx";
+/// CAIP-2 network that settles through a `LayerX` receipt.
+pub const LAYERX_NETWORK: &str = "eip155:125";
 /// Maximum byte length of an `extra.layerx.account` reference.
 pub const MAX_ACCOUNT_REFERENCE_BYTES: usize = 512;
 /// Maximum byte length of the identifier inside an account reference.
@@ -178,8 +178,10 @@ impl PaymentRequirements {
         }
         if self.is_layerx_network() {
             self.layerx_terms()?;
-        } else {
-            layerx_profile(self.extra.as_ref(), parse_hex32(&self.asset).ok().as_ref())?;
+        } else if layerx_profile(self.extra.as_ref(), parse_hex32(&self.asset).ok().as_ref())?
+            .is_some()
+        {
+            return Err(X402Error::ProfileMismatch);
         }
         Ok(())
     }
@@ -187,9 +189,7 @@ impl PaymentRequirements {
     /// Whether this offer settles on a `LayerX` network.
     #[must_use]
     pub fn is_layerx_network(&self) -> bool {
-        self.network
-            .split_once(':')
-            .is_some_and(|(namespace, _)| namespace == LAYERX_NETWORK_NAMESPACE)
+        self.network == LAYERX_NETWORK
     }
 
     /// The quote terms a `LayerX` payer needs to reach the human API:
