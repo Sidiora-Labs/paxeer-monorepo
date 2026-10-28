@@ -8831,3 +8831,27 @@ symbol = "register"
 observed = "Since e28cb9af0 (18.811.1) the market guest registers and opens only FraudProvable (model 3) offers and settle.rs refuses direct-usage leases, so the attestation driver cases for model 1 (Bonded) and model 2 (Attested), including admission_cases on the model 2 lease, expect acceptances main refuses by design; do_4 keeps those assertions as written."
 assumption = "Needs a ruling: retarget the model 1 and model 2 cases to refusal expectations or restore those models in the guest; the model 3 -3 refusal is investigated separately."
 severity = "major"
+
+[finding.13.34.9.1]
+task = "13.34.9"
+file = "precompiles/layerxprograms/view_accounts.go:50-78"
+symbol = "getValueAccountHandler"
+observed = "Attempt 2 reverted with LXP_PRECOMPILE_UNKNOWN_METHOD: getValueAccount because view_accounts.go defines getProgramAccountById, getAccountProfile and getValueAccount without an init that registers them, while gas.go and abi.json carry all three (issue #1123)."
+assumption = "Task 18.1123.1 registers the three views; 13.34.9 requires it and its bank-parity test needs no change for this."
+severity = "major"
+
+[finding.13.26.3.1]
+task = "13.26.3"
+file = "modules/lxphost/host.go:211"
+symbol = "programs_runtime.occupancy_asset_id"
+observed = "Attempts 11-14 refused exitValue with LXP_CONTEXT_MISMATCH from lxp_ctx_ledger_execution_sequence (lxp_module_ctx.c:1708) because the host node never sets programs_runtime.occupancy_asset_id and lxp_kernel_bind_ledger_admission (lxp_kernel.c:497) therefore looks for a payment account in an all-zero asset (issue #1124)."
+assumption = "Task 18.1124.1 sets the field from the fee schedule before each activity; 13.26.3 requires it and must not seed accounts outside the canonical asset."
+severity = "major"
+
+[finding.8.11.2.1]
+task = "8.11.2"
+file = "services/platform/hosted/authority/src/trust.rs:110-194"
+symbol = "Trust::snapshot"
+observed = "Attempt 1 changed nothing because the pinned-key snapshot must return layerx_client::handover::SequencerHistory, which only from_genesis_artifact can build, and read ChainReceipts.keys (chain_receipt.rs:28), which has no accessor; both live outside the declared touches."
+assumption = "touches widened to handover.rs and chain_receipt.rs with a do step bounding the additions to a validated constructor and a read accessor."
+severity = "minor"

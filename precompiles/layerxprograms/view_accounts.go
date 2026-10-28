@@ -9,6 +9,12 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
+func init() {
+	register("getProgramAccountById", getProgramAccountByIdHandler)
+	register("getAccountProfile", getAccountProfileHandler)
+	register("getValueAccount", getValueAccountHandler)
+}
+
 func decodeAccountViewArgs(call callContext, args []interface{}, input interface{}) error {
 	decoded, err := decodeArgs(call.method, args)
 	if err != nil {
