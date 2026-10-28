@@ -10136,3 +10136,15 @@ detail = "tests/payment.rs offers an EVM payer address and answers accountId for
 title = "go.sum can lack a go.mod hash that only read-only module mode notices"
 detail = "GOFLAGS=-mod=mod builds (the sandboxed gates) add missing go.sum lines silently; the chain image's builder stage runs read-only and fails on the missing golang.org/x/net go.mod hash the replaced keyring still pulls in. Gate a go.sum repair with GOFLAGS=-mod=readonly."
 
+[gotcha.2072]
+title = "A task that adds fields to one struct must not pre-empt the dependent task that adds them to the next"
+detail = "10.2.7 adds receipt fields to ReceiptMaterial; its consumers copy into ProtocolEvidence, which gains the fields only in 10.13.1 (requires 10.2.7). The first task keeps the existing fields and consumers and adds beside them; the dependent task moves the consumers. Do-lines that say 'switch the consumers to the new fields' in the earlier task cannot compile."
+
+[gotcha.2073]
+title = "Field renames and type reshapes leave sibling test files behind; build the crate's --tests before marking done"
+detail = "10.13.7 renamed ReclaimAgentContext.account_sequence to nonce and added tests/reclaim_nonces.rs while tests/reclaim.rs kept the old field (#1142); 9.11.1 reshaped the event Cursor and left four layerx-agentd test files on the tuple form (#1143). Each gate ran only its own new test target. A rename or reshape task's build must be cargo build -p <crate> --tests."
+
+[gotcha.2074]
+title = "A done task whose test passes can still leave its second step unimplemented"
+detail = "18.1126.1 added a replay mutex and a test but not the sealed-layer source it named; the in-process test could not reproduce the divergence that the committed-fixture recorder hits at the first prior-block kernel read (#1144). When a do-line names a structural change, the acceptance test must fail without it."
+

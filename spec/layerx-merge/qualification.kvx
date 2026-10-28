@@ -9228,3 +9228,43 @@ observed = "Attempt 10 (75673db2b) built the paxd-node image and failed the laye
 assumption = "Task 18.1141.1 adds the hash; 18.869.1 and 18.849.1 require it."
 severity = "major"
 
+[finding.10.2.7.2]
+task = "10.2.7"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:425"
+symbol = "ProtocolEvidence"
+observed = "Attempt 4 (97839edf9) removed authorised_batch from ReceiptMaterial and wrote tx_hash, receipt_hash, block_height and rung into ProtocolEvidence, which only task 10.13.1 (requires 10.2.7) adds, so the lib failed with 18 errors; the previous do_2 told the consumers to switch fields that do not exist yet."
+assumption = "do_2 now keeps the existing fields and consumers and adds the four beside them; 10.13.1 moves the consumers."
+severity = "major"
+
+[finding.18.1132.1.1]
+task = "18.1132.1"
+file = "services/human/crates/layerx-human-service/tests/reclaim.rs:103"
+symbol = "ReclaimAgentContext"
+observed = "Attempt 4 (78dff1938) built --tests and failed on the pre-existing account_sequence field 0a78c10ba (10.13.7) renamed to nonce (issue #1142)."
+assumption = "Task 18.1142.1 repairs the test; 18.1132.1 requires it."
+severity = "major"
+
+[finding.18.1131.1.2]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/delivery.rs:187"
+symbol = "Cursor"
+observed = "Attempt 5 (7e04618b7) built --tests and failed on the pre-existing ApiCursor(Sequence(..)) constructors 051d11e3a (9.11.1) left in four test files (issue #1143)."
+assumption = "Task 18.1143.1 repairs them; 18.1131.1 requires it."
+severity = "major"
+
+[finding.5.55.5.3]
+task = "5.55.5"
+file = "node/sequencer/standby_role.go:135"
+symbol = "standbyRoleReplay"
+observed = "Attempt 10 (3f207b061, base with 07d11e56d) stopped at openAccount with standby execute seq 6: replayed receipt differs; the standby commits by re-execution because 18.1126.1 never installed the sealed-layer source its second step named (issue #1144)."
+assumption = "Task 18.1144.1 installs it with a reproducing node test; 5.55.5 requires it."
+severity = "major"
+
+[finding.18.1126.1.1]
+task = "18.1126.1"
+file = "node/sequencer/standby_role.go:200"
+symbol = "standbyRoleReplay"
+observed = "The done revision 07d11e56d added the replay mutex and a test but not the sealed-layer SequencerSource of do_2; the in-process test did not reproduce the divergence, so the gate passed."
+assumption = "Issue #1144 and task 18.1144.1 carry the missing step; the done record stands as its gate ran."
+severity = "major"
+
