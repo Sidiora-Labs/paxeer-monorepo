@@ -181810,7 +181810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.755.1]
 title = "Issue #755: Derive the Sidiora swap minimum output from the confirmed quote"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182301,7 +182301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.902.1]
 title = "Issue #902: Give failed launchpad approvals their own error codes, refuse malformed address words and test the wallet sponsored refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183099,7 +183099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1095.1]
 title = "Issue #1095: Accept and check signingKey in the Go SDK sequencer receipt view"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183130,7 +183130,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1096.1]
 title = "Issue #1096: Decode tx_hash in the Python history SDK and test it on the same page as the TypeScript SDK"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183191,7 +183191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1101.1]
 title = "Issue #1101: Return the transaction receipt evidence from the reference ramp order endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183222,7 +183222,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1103.1]
 title = "Issue #1103: Correct GOTCHA 2021 to re-include every public .der input of the vendored programs crates"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183558,7 +183558,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1133.1]
 title = "Issue #1133: Accept the model's 64-hex asset format in the x402 buyer and carry the settlement logs in the seller's evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183589,7 +183589,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1106.1]
 title = "Issue #1106: Take the libwasmvm libraries of the layerx image from the build context instead of downloading them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
