@@ -51,15 +51,15 @@ Events: `LayerXBound(evm, didPublicKey, nonce)` and `LayerXUnbound(evm, didPubli
 
 ### LayerXCustody — `0x0000000000000000000000000000000000001013`
 
-Native LayerX custody. Funds are held by the `layerxcustody` module account and leave it only against verified LayerX evidence: a sequencer-signed withdrawal receipt included in a finalized batch, or a native state proof of a balance under the latest finalized state root plus the account authority's recipient signature. Declared in `precompiles/layerxcustody/LayerXCustody.sol`:
+Native LayerX custody. Funds are held by the `layerxcustody` module account and leave it only against verified LayerX evidence: a sequencer-signed withdrawal receipt included in a finalized batch, or a native state proof of a balance plus the account authority's recipient signature. Forced exits prove against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards. Declared in `precompiles/layerxcustody/LayerXCustody.sol`:
 
 | Method | Purpose |
 |--------|---------|
-| `deposit(beneficiary) → depositId` | Custody `msg.value` of the native coin for a LayerX account. |
-| `depositToken(pointer, amount, beneficiary) → depositId` | Custody a bank denom addressed by its registered ERC20 pointer. |
+| `deposit(beneficiary) → depositId` | Custody `msg.value` of the native coin for a LayerX account; once the exit checkpoint is set, deposits are refused. |
+| `depositToken(pointer, amount, beneficiary) → depositId` | Custody a bank denom addressed by its registered ERC20 pointer; once the exit checkpoint is set, deposits are refused. |
 | `requestWithdrawal(receipt, proof, header, headerSignature) → claimId, availableAt` | Verify a withdrawal and queue its claim; payable after the withdrawal delay. |
 | `finaliseWithdrawal(receipt, proof, header, headerSignature) → claimId` | Re-verify a withdrawal and pay the recipient the receipt names. Queues the claim first when it was never requested. |
-| `requestForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId, availableAt` | Prove a whole balance under the latest finalized state root and queue its exit. |
+| `requestForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId, availableAt` | Prove a whole balance against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards; queue its exit. |
 | `executeForcedExit(witness, batchNumber, account, assetId, recipient, recipientSignature) → claimId` | Pay a forced exit, queueing it first when it was never requested. |
 
 View methods: `depositCount`, `depositNonce`, `getDeposit`, `getDepositByIndex`, `getClaim`, `nullifierStatus`, `getAsset`, `assetByPointer`, `nativeAssetId`, `exitEligible`.
@@ -105,8 +105,8 @@ One EVM address has at most one DID, and one DID has at most one EVM address. Ge
 
 The `layerxcustody` module (in `modules/layerxcustody/`) holds funds in a module account. Coins enter through `deposit` or `depositToken`. They leave only through proof-carrying claims:
 
-- **Withdrawals** — a sequencer-signed receipt proving a LayerX withdrawal, included in a finalized batch via `requestWithdrawal`. After the withdrawal delay, `finaliseWithdrawal` pays the recipient.
-- **Forced exits** — a state proof of the entire balance under the latest finalized state root, plus the recipient's signature, via `requestForcedExit`. After the delay, `executeForcedExit` pays out.
+- **Withdrawals** — a sequencer-signed receipt proving a LayerX withdrawal, included in a finalized batch via `requestWithdrawal`. After the withdrawal delay, `finaliseWithdrawal` pays the recipient. Once the exit checkpoint is set, withdrawals included in batches after the checkpoint are refused.
+- **Forced exits** — a state proof of the entire balance, plus the recipient's signature, via `requestForcedExit`. Forced exits prove against the latest finalized batch until the first forced exit is queued, and against that exit checkpoint batch afterwards. After the delay, `executeForcedExit` pays out.
 - **Emergency exits** — a special fast path when the custody module enters emergency mode.
 
 Nullifiers prevent double-spending. Every claim is bound to a nullifier; a nullifier can be reserved, consumed, or cancelled but never reopened.

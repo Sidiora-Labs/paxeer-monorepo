@@ -190,6 +190,36 @@ async function sequencerReceiptReadsPaxSequencerReceipt(): Promise<void> {
   expect(b.calls).toEqual([]);
 }
 
+async function rpcFailureDetailNamesMembersByIndex(): Promise<void> {
+  const urls = [a, b].map((node, index) => {
+    const url = new URL(node.url);
+    url.username = 'rpc-test';
+    url.pathname = `/rpc/key-member-${index}`;
+    return url.toString();
+  });
+  const p = new RpcPool({
+    urls,
+    sequencerUrl: sequencer.url,
+    chainId: 125,
+    lagThresholdBlocks: 20,
+    timeoutMs: 3_000,
+    healthIntervalMs: 60_000,
+  });
+  const err = await p.requestVia('eth_chainId').catch((error: unknown) => error);
+  expect(err).toBeInstanceOf(RpcUnavailableError);
+  const message = (err as RpcUnavailableError).message;
+  expect(message).toContain('every RPC endpoint failed eth_chainId:');
+  for (const [index, url] of urls.entries()) {
+    expect(p.status()[index]?.lastError).toContain(url);
+    expect(message).toContain(`member ${index} of 2:`);
+    expect(message).toContain(`credentials: member ${index}`);
+    expect(message).not.toContain(url);
+    expect(message).not.toContain(new URL(url).pathname);
+  }
+  expect(message).not.toContain(sequencer.url);
+}
+
+test(rpcFailureDetailNamesMembersByIndex, rpcFailureDetailNamesMembersByIndex);
 test(writeGoesToSequencerEndpointOnly, writeGoesToSequencerEndpointOnly);
 test(sequencerReceiptReadsPaxSequencerReceipt, sequencerReceiptReadsPaxSequencerReceipt);
 

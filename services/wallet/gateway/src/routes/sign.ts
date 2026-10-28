@@ -178,7 +178,7 @@ export async function signRoutes(app: FastifyInstance, opts: SignRoutesOptions =
 
   async function sequencerReceipt(hash: Hex) {
     const receipt = await rpc.sequencerReceipt(hash);
-    return { receipt, rung: receipt === null ? ('submitted' as const) : ('receipted' as const) };
+    return { receipt, rung: receipt === null ? ('submitted' as const) : receipt.rung };
   }
 
   function requireQuorumWallet(sw:SigningWallet):asserts sw is SigningWallet & {attestorKeyId:string} {

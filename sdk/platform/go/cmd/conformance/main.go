@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	layerx "github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go"
+	layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
 )
 
 type requestVector struct {

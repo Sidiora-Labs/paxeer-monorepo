@@ -26,7 +26,7 @@
   "services": [
     {
       "id": "kernel",
-      "purpose": "Sequencer, native module execution, batches and durable kernel state",
+      "purpose": "Sequencer, native module execution, batches, durable kernel state and px_register identity registration",
       "exposure": "product",
       "discovery_path": "/v1/routes/kernel",
       "transport": "authenticated-discovery",
@@ -588,7 +588,7 @@
     },
     {
       "id": "indexer",
-      "purpose": "Canonical receipts, history and rollback-safe projections",
+      "purpose": "Canonical receipts, px_getHistory history reads and rollback-safe projections",
       "exposure": "product",
       "discovery_path": "/v1/routes/indexer",
       "transport": "authenticated-discovery",
@@ -4213,10 +4213,10 @@
       "upstream_path": "/v1/support/conversations/{conversation_id}/feedback"
     },
     {
-      "id": "kernel:POST:lx_register",
+      "id": "kernel:POST:px_register",
       "service": "kernel",
       "method": "POST",
-      "path": "lx_register",
+      "path": "px_register",
       "transport": "json-rpc",
       "authentication": "method-specific",
       "upstream": "kernel",
@@ -4795,31 +4795,6 @@
       "transport": "json-rpc",
       "authentication": "method-specific",
       "upstream": "kernel",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "service-ready-and-network-version-bound",
-      "version": "1",
-      "consumers": [
-        "wallet",
-        "developer"
-      ],
-      "source": "services/platform/hosted/gateway/openrpc.json",
-      "proxy": false,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "endpoint_paths": [
-        "/",
-        "/rpc"
-      ]
-    },
-    {
-      "id": "indexer:POST:lx_getHistory",
-      "service": "indexer",
-      "method": "POST",
-      "path": "lx_getHistory",
-      "transport": "json-rpc",
-      "authentication": "method-specific",
-      "upstream": "indexer",
       "timeout_seconds": 8,
       "retries": 0,
       "health_predicate": "service-ready-and-network-version-bound",

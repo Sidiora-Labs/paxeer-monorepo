@@ -8221,3 +8221,19 @@ symbol = "receive"
 observed = "Attempt 42d6f4e25 ran the recorder: eth_gasPrice failed with 'pending block does not fix a base fee' (rpcPendingSnapshot, node/app.go:3288, satisfies no PendingBaseFee) and the primary halted at height 2 because the unpeered standby, still at height 1 since AppReplayer.Apply treats wal.Committed as a no-op (node/sequencer/replay.go:22-38), refused Open(3) (standby.go:323, :695-700) with a sticky failure."
 assumption = "Task 5.55.6 orders the standby's open after the app commit and forwards the base fee; 5.55.2 requires it and continues from 42d6f4e25 with the standby peered to the primary."
 severity = "blocker"
+
+[finding.8.29.2.1]
+task = "8.29.2"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "InventoryRebalancer"
+observed = "Attempt 1 implemented the toolkit change and the dependents check refused: main.rs:1129 lacks the new layerx field, :1173 passes a FinalityTracker where a transaction hash is now taken, :1179-1180 read the removed signal()/endpoint(); no task before 8.30.3 (wave 9) adapts the caller."
+assumption = "8.29.2 owns the minimal adaptation of the reference caller (do_7); 8.30.3 completes the custody route on top of it."
+severity = "blocker"
+
+[finding.9.1.8.3]
+task = "9.1.8"
+file = "tests/fixtures/custody/daemon-light-credit-receipt"
+symbol = "decode_activity_send"
+observed = "Attempt 9 ran the lib suite: two tls_boundary tests need the Paxeer boundary binary the gate never built, and four fixture tests fail with Decode(MalformedPayload)/Activity because a32c9e3e3 made decode_activity_send demand a six-byte network/protocol suffix the 2026-09-26 fixture does not carry; the candidate touched none of these paths."
+assumption = "The gate now builds the boundary and exports LAYERX_PAXEER_BOUNDARY_BIN as 9.1.7 does; the fixture/decoder disagreement is issue #1057, task 18.1057.1, which 9.1.8 requires."
+severity = "blocker"

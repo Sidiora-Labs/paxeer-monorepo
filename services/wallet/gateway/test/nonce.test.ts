@@ -22,6 +22,8 @@ let pendingCount = 7;
 let sendError: string | null = null;
 let sendHangs = false;
 let hashLookupDown = false;
+let hashLookupHangs = false;
+let countReadFails = false;
 const knownHashes = new Set<string>();
 
 type StoreModule = typeof import('../src/nonce/store.js');
@@ -39,6 +41,12 @@ function startRpc(): Promise<void> {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
       let result: unknown;
       if (body.method === 'eth_sendRawTransaction' && sendHangs) return;
+      if (body.method === 'eth_getTransactionByHash' && hashLookupHangs) return;
+      if (body.method === 'eth_getTransactionCount' && countReadFails) {
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32000, message: 'latest count unavailable' } }));
+        return;
+      }
       if (body.method === 'eth_getTransactionByHash' && hashLookupDown) {
         res.writeHead(503);
         res.end();
@@ -618,6 +626,7 @@ describe('NonceStore', () => {
     pendingCount = 140;
     sendError = 'nonce too low: next nonce 150, tx nonce 140';
     const raw140 = await sign(140);
+    const raw141 = await sign(141);
     const raw142 = await sign(142);
     try {
       const conflict = await lockedSend(store, address, raw140);
@@ -627,8 +636,8 @@ describe('NonceStore', () => {
       const refused = custodyRefusal(conflict.error);
       expect(refused).toMatchObject({ status: 409, body: { error: 'nonce_conflict', retry: 'prepare', member: 0, members: 1 } });
       expect(JSON.stringify(refused)).not.toContain('127.0.0.1');
-      knownHashes.add(keccak256('0x02e1'));
-      expect(await lockedSend(store, address, '0x02e1')).toEqual({ nonce: 141, error: null });
+      knownHashes.add(keccak256(raw141));
+      expect(await lockedSend(store, address, raw141)).toEqual({ nonce: 141, error: null });
       pendingCount = 143;
       const unknown = await makeRpc().sendRawTransactionVia(raw142).catch((err: unknown) => err);
       expect(unknown).toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
@@ -643,8 +652,38 @@ describe('NonceStore', () => {
       'select nonce::text, tx_hash from nonce_outstanding where address = $1 order by nonce_outstanding.nonce', [address]);
     expect(rows).toEqual([
       { nonce: '140', tx_hash: keccak256(raw140) },
-      { nonce: '141', tx_hash: keccak256('0x02e1') },
+      { nonce: '141', tx_hash: keccak256(raw141) },
     ]);
+  });
+
+  it('answers outcome unknown when a nonce too low classification read fails', async function answersOutcomeUnknownWhenANonceTooLowClassificationReadFails() {
+    const signer = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d');
+    const nonce = 146;
+    const signed = await signer.signTransaction({ chainId: 125, type: 'eip1559', nonce, to: ADDRESS, value: 1n, gas: 21_000n,
+      maxFeePerGas: 2_000_000_000n, maxPriorityFeePerGas: 1_000_000_000n });
+    const hash = keccak256(signed);
+    sendError = 'nonce too low: next nonce 150, tx nonce 146';
+    try {
+      for (const failure of ['hash lookup', 'latest count']) {
+        hashLookupHangs = failure === 'hash lookup';
+        countReadFails = failure === 'latest count';
+        const rpc = new poolMod.RpcPool({ urls: [rpcUrl], sequencerUrl: rpcUrl, chainId: 125,
+          lagThresholdBlocks: 20, timeoutMs: 500, healthIntervalMs: 60_000 });
+        const error = await rpc.sendRawTransactionVia(signed).catch((err: unknown) => err);
+        expect(error, failure).toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
+        expect(error, failure).not.toBeInstanceOf(poolMod.RpcUnavailableError);
+        expect(error, failure).not.toBeInstanceOf(poolMod.NonceConflictError);
+        expect(error, failure).toMatchObject({ hash, nonce, code: -32000, message: sendError, member: null, members: 1 });
+        expect(poolMod.outcomeUnknownBody(error as InstanceType<PoolModule['BroadcastOutcomeUnknownError']>), failure).toEqual({
+          error: 'outcome_unknown', tx_hash: hash, nonce, retry: 'poll_receipt', poll: 'eth_getTransactionReceipt',
+          must_not_resubmit: true, member: null, members: 1,
+        });
+      }
+    } finally {
+      hashLookupHangs = false;
+      countReadFails = false;
+      sendError = null;
+    }
   });
 
   it('drops a member that failed every request for longer than the grace period out of the not-known quorum and never drops the last answer', async () => {

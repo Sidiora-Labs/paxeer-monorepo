@@ -19,7 +19,9 @@ describe("FeeAccumulator", function () {
     await usdl.waitForDeployment();
 
     // Deploy a mock token (represents the pool's SidioraERC20)
-    token = await (await ethers.getContractFactory("MockERC20Base")).deploy("Test Token", "TEST", 18);
+    token = await (
+      await ethers.getContractFactory("MockERC20Base")
+    ).deploy("Test Token", "TEST", 18);
     await token.waitForDeployment();
 
     // Deploy mock EventEmitter
@@ -101,7 +103,11 @@ describe("FeeAccumulator", function () {
     // Register a pool in the registry for airdrop tests
     await registryProxy.grantRole(FACTORY_ROLE, deployer.address);
     await registryProxy.register(
-      poolSigner.address, await token.getAddress(), alice.address, ethers.ZeroAddress, 1
+      poolSigner.address,
+      await token.getAddress(),
+      alice.address,
+      ethers.ZeroAddress,
+      1
     );
 
     // Mint USDL to pool signer (simulates USDL being sent to FeeAccumulator for fee recording)
@@ -129,7 +135,7 @@ describe("FeeAccumulator", function () {
           await registryProxy.getAddress(),
           await eventEmitter.getAddress(),
           await usdl.getAddress(),
-          deployer.address,
+          deployer.address
         )
       ).to.be.revertedWithCustomError(accumulatorProxy, "AlreadyInitialized");
     });
@@ -151,7 +157,9 @@ describe("FeeAccumulator", function () {
       const expectedProtocolCut = (feeAmount * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
       const expectedPoolCut = feeAmount - expectedProtocolCut;
 
-      expect(await accumulatorProxy.getAccumulatedFees(poolSigner.address)).to.equal(expectedPoolCut);
+      expect(await accumulatorProxy.getAccumulatedFees(poolSigner.address)).to.equal(
+        expectedPoolCut
+      );
       expect(await accumulatorProxy.getProtocolFeesPending()).to.equal(0);
     });
 
@@ -189,11 +197,16 @@ describe("FeeAccumulator", function () {
       await recordFeeFromPool(ethers.parseUnits("10", 6));
       await recordFeeFromPool(ethers.parseUnits("5", 6));
 
-      const expectedPoolCut1 = ethers.parseUnits("10", 6) - (ethers.parseUnits("10", 6) * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
-      const expectedPoolCut2 = ethers.parseUnits("5", 6) - (ethers.parseUnits("5", 6) * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
+      const expectedPoolCut1 =
+        ethers.parseUnits("10", 6) -
+        (ethers.parseUnits("10", 6) * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
+      const expectedPoolCut2 =
+        ethers.parseUnits("5", 6) -
+        (ethers.parseUnits("5", 6) * PROTOCOL_FEE_BPS) / BPS_DENOMINATOR;
 
-      expect(await accumulatorProxy.getAccumulatedFees(poolSigner.address))
-        .to.equal(expectedPoolCut1 + expectedPoolCut2);
+      expect(await accumulatorProxy.getAccumulatedFees(poolSigner.address)).to.equal(
+        expectedPoolCut1 + expectedPoolCut2
+      );
     });
   });
 
@@ -264,9 +277,10 @@ describe("FeeAccumulator", function () {
 
     it("should emit FeesBurned event", async function () {
       await recordFeeFromPool(ethers.parseUnits("10", 6));
-      await expect(
-        accumulatorProxy.connect(feesRouterSigner).burn(poolSigner.address)
-      ).to.emit(accumulatorProxy, "FeesBurned");
+      await expect(accumulatorProxy.connect(feesRouterSigner).burn(poolSigner.address)).to.emit(
+        accumulatorProxy,
+        "FeesBurned"
+      );
     });
 
     it("should revert when no fees accumulated", async function () {
@@ -277,7 +291,9 @@ describe("FeeAccumulator", function () {
   });
 
   describe("triggerAirdrop (AIRDROP strategy)", function () {
-    beforeEach(async function () { await token.mint(alice.address, 1000); });
+    beforeEach(async function () {
+      await token.mint(alice.address, 1000);
+    });
     it("should snapshot amount and increment epoch", async function () {
       await recordFeeFromPool(ethers.parseUnits("10", 6));
       const accumulated = await accumulatorProxy.getAccumulatedFees(poolSigner.address);
@@ -315,6 +331,136 @@ describe("FeeAccumulator", function () {
       await accumulatorProxy.connect(feesRouterSigner).triggerAirdrop(poolSigner.address);
     });
 
+    const expiryTests = {
+      async "sweeps an expired airdrop epoch back to the pool fees"() {
+        const pool = poolSigner.address;
+        const epoch = await accumulatorProxy.getAirdropEpoch(pool);
+        const originalAmount = await accumulatorProxy.getAirdropBalance(pool);
+        const aliceShare = (originalAmount * 600n) / 1000n;
+        const aliceBalance = await usdl.balanceOf(alice.address);
+        await accumulatorProxy.claimAirdrop(pool, alice.address);
+        expect(await usdl.balanceOf(alice.address)).to.equal(aliceBalance + aliceShare);
+        const remaining = originalAmount - aliceShare;
+        expect(await accumulatorProxy.airdropEpochRemaining(pool, epoch)).to.equal(remaining);
+
+        await recordFeeFromPool(ethers.parseUnits("20", 6));
+        await accumulatorProxy.connect(feesRouterSigner).triggerAirdrop(pool);
+        const nextEpochRemaining = await accumulatorProxy.airdropEpochRemaining(pool, epoch + 1n);
+        await recordFeeFromPool(ethers.parseUnits("5", 6));
+
+        const feesBefore = await accumulatorProxy.getAccumulatedFees(pool);
+        const balanceBefore = await accumulatorProxy.getAirdropBalance(pool);
+        const liabilitiesBefore = await accumulatorProxy.totalLiabilities();
+        const custodyBefore = await usdl.balanceOf(await accumulatorProxy.getAddress());
+        const triggeredAt = await accumulatorProxy.airdropTriggeredAt(pool, epoch);
+        const window = await accumulatorProxy.AIRDROP_CLAIM_WINDOW();
+        expect(window).to.equal(180n * 24n * 60n * 60n);
+        expect(triggeredAt).to.be.greaterThan(0n);
+        await ethers.provider.send("evm_setNextBlockTimestamp", [
+          Number(triggeredAt + window + 1n),
+        ]);
+        await ethers.provider.send("evm_mine", []);
+
+        expect(
+          await accumulatorProxy.connect(bob).sweepExpiredAirdrop.staticCall(pool, epoch)
+        ).to.equal(remaining);
+        await expect(accumulatorProxy.connect(bob).sweepExpiredAirdrop(pool, epoch))
+          .to.emit(accumulatorProxy, "AirdropExpired")
+          .withArgs(pool, epoch, remaining);
+        expect(await accumulatorProxy.getAccumulatedFees(pool)).to.equal(feesBefore + remaining);
+        expect(await accumulatorProxy.getAirdropBalance(pool)).to.equal(balanceBefore - remaining);
+        expect(await accumulatorProxy.airdropEpochRemaining(pool, epoch)).to.equal(0n);
+        expect(await accumulatorProxy.airdropEpochRemaining(pool, epoch + 1n)).to.equal(
+          nextEpochRemaining
+        );
+        expect(await accumulatorProxy.totalLiabilities()).to.equal(liabilitiesBefore);
+        expect(await usdl.balanceOf(await accumulatorProxy.getAddress())).to.equal(custodyBefore);
+        await expect(
+          accumulatorProxy.claimAirdropEpoch(pool, bob.address, epoch)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropClaimWindowClosed");
+
+        await expect(accumulatorProxy.sweepExpiredAirdrop(pool, epoch))
+          .to.emit(accumulatorProxy, "AirdropExpired")
+          .withArgs(pool, epoch, 0n);
+        expect(await accumulatorProxy.getAccumulatedFees(pool)).to.equal(feesBefore + remaining);
+        expect(await accumulatorProxy.getAirdropBalance(pool)).to.equal(balanceBefore - remaining);
+        expect(await accumulatorProxy.totalLiabilities()).to.equal(liabilitiesBefore);
+      },
+
+      async "refuses a sweep inside the claim window and a claim after it"() {
+        const pool = poolSigner.address;
+        const epoch = await accumulatorProxy.getAirdropEpoch(pool);
+        const amount = await accumulatorProxy.airdropEpochRemaining(pool, epoch);
+        const liabilities = await accumulatorProxy.totalLiabilities();
+        const triggeredAt = await accumulatorProxy.airdropTriggeredAt(pool, epoch);
+        const expiry = triggeredAt + (await accumulatorProxy.AIRDROP_CLAIM_WINDOW());
+        await expect(
+          accumulatorProxy.sweepExpiredAirdrop(pool, epoch)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropClaimWindowOpen");
+        for (const invalidEpoch of [0n, epoch + 1n]) {
+          await expect(
+            accumulatorProxy.sweepExpiredAirdrop(pool, invalidEpoch)
+          ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropNotTriggered");
+        }
+        await expect(
+          accumulatorProxy.sweepExpiredAirdrop(bob.address, epoch)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropNotTriggered");
+
+        await ethers.provider.send("evm_setNextBlockTimestamp", [Number(expiry - 1n)]);
+        await ethers.provider.send("evm_mine", []);
+        await expect(
+          accumulatorProxy.sweepExpiredAirdrop.staticCall(pool, epoch)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropClaimWindowOpen");
+        expect(await accumulatorProxy.claimAirdrop.staticCall(pool, bob.address)).to.equal(
+          (amount * 400n) / 1000n
+        );
+
+        await ethers.provider.send("evm_setNextBlockTimestamp", [Number(expiry)]);
+        await expect(
+          accumulatorProxy.claimAirdrop(pool, bob.address)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropClaimWindowClosed");
+        expect(BigInt((await ethers.provider.getBlock("latest")).timestamp)).to.equal(expiry);
+        await expect(
+          accumulatorProxy.claimAirdropEpoch.staticCall(pool, bob.address, epoch)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropClaimWindowClosed");
+        expect(await accumulatorProxy.sweepExpiredAirdrop.staticCall(pool, epoch)).to.equal(amount);
+        expect(await accumulatorProxy.airdropEpochRemaining(pool, epoch)).to.equal(amount);
+        expect(await accumulatorProxy.getAirdropBalance(pool)).to.equal(amount);
+        expect(await accumulatorProxy.getAccumulatedFees(pool)).to.equal(0n);
+        expect(await accumulatorProxy.totalLiabilities()).to.equal(liabilities);
+        expect(await accumulatorProxy.hasClaimedAirdrop(pool, bob.address, epoch)).to.equal(false);
+
+        // Epochs created before this upgrade have no trigger timestamp.
+        const layout = require("../../storage-layout/core/FeeAccumulator.json");
+        const timestampSlot = layout.storage.find(
+          (field) => field.label === "airdropTriggeredAt"
+        ).slot;
+        const coder = ethers.AbiCoder.defaultAbiCoder();
+        const poolSlot = ethers.keccak256(
+          coder.encode(["address", "uint256"], [pool, timestampSlot])
+        );
+        const epochSlot = ethers.keccak256(coder.encode(["uint256", "bytes32"], [epoch, poolSlot]));
+        await ethers.provider.send("hardhat_setStorageAt", [
+          await accumulatorProxy.getAddress(),
+          epochSlot,
+          ethers.ZeroHash,
+        ]);
+        expect(await accumulatorProxy.airdropTriggeredAt(pool, epoch)).to.equal(0n);
+        await expect(
+          accumulatorProxy.sweepExpiredAirdrop(pool, epoch)
+        ).to.be.revertedWithCustomError(accumulatorProxy, "AirdropNotTriggered");
+        expect(
+          await accumulatorProxy.claimAirdropEpoch.staticCall(pool, bob.address, epoch)
+        ).to.equal((amount * 400n) / 1000n);
+        expect(await accumulatorProxy.airdropEpochRemaining(pool, epoch)).to.equal(amount);
+        expect(await accumulatorProxy.totalLiabilities()).to.equal(liabilities);
+      },
+    };
+
+    for (const test of Object.values(expiryTests)) {
+      it(test.name, test);
+    }
+
     it("should distribute proportional share to holder", async function () {
       const airdropBalance = await accumulatorProxy.getAirdropBalance(poolSigner.address);
       const balBefore = await usdl.balanceOf(alice.address);
@@ -329,7 +475,8 @@ describe("FeeAccumulator", function () {
 
     it("should mark holder as claimed for epoch", async function () {
       await accumulatorProxy.claimAirdrop(poolSigner.address, alice.address);
-      expect(await accumulatorProxy.hasClaimedAirdrop(poolSigner.address, alice.address, 1)).to.be.true;
+      expect(await accumulatorProxy.hasClaimedAirdrop(poolSigner.address, alice.address, 1)).to.be
+        .true;
     });
 
     it("should revert on double claim", async function () {
@@ -343,14 +490,17 @@ describe("FeeAccumulator", function () {
       await accumulatorProxy.claimAirdrop(poolSigner.address, alice.address);
       await accumulatorProxy.claimAirdrop(poolSigner.address, bob.address);
 
-      expect(await accumulatorProxy.hasClaimedAirdrop(poolSigner.address, alice.address, 1)).to.be.true;
-      expect(await accumulatorProxy.hasClaimedAirdrop(poolSigner.address, bob.address, 1)).to.be.true;
+      expect(await accumulatorProxy.hasClaimedAirdrop(poolSigner.address, alice.address, 1)).to.be
+        .true;
+      expect(await accumulatorProxy.hasClaimedAirdrop(poolSigner.address, bob.address, 1)).to.be
+        .true;
     });
 
     it("should emit AirdropClaimed event", async function () {
-      await expect(
-        accumulatorProxy.claimAirdrop(poolSigner.address, alice.address)
-      ).to.emit(accumulatorProxy, "AirdropClaimed");
+      await expect(accumulatorProxy.claimAirdrop(poolSigner.address, alice.address)).to.emit(
+        accumulatorProxy,
+        "AirdropClaimed"
+      );
     });
 
     it("should revert when no airdrop triggered", async function () {
