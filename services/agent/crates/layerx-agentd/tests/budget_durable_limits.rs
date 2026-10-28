@@ -14,7 +14,7 @@ use layerx_agent_api::budget::{
 use layerx_agent_api::generated::{Amount as ApiAmount, BudgetLimit};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef, ContractError, TenantId as ApiTenantId};
 use layerx_agent_api::submit::{PreparationRef, SignatureBytes};
-use layerx_agent_api::verify::Level;
+use layerx_agent_api::verify::Rung;
 use layerx_agentd::budget::{
     budget_create_identity, core_expiry_ms, create_daemon_limit, daemon_limit_id, daemon_limits,
     hold_unknown, load_daemon_limits, rebuild, release_expired_core_time, reserve_until_core_time,
@@ -1030,14 +1030,17 @@ fn authority_response_carries_exact_authority_and_truthful_enforcement() {
         ProtocolBudgetRecord::decode(&core_record(0, false)),
         "record",
     );
-    assert_eq!(
-        ProtocolBudgetView::from_proven(&record, Level::BatchIncluded),
-        Err(ContractError::OutOfRange("budget_verification_level"))
-    );
+    for rung in [Rung::Submitted, Rung::Receipted] {
+        assert_eq!(
+            ProtocolBudgetView::from_proven(&record, rung),
+            Err(ContractError::OutOfRange("budget_rung"))
+        );
+    }
     let view = text(
-        ProtocolBudgetView::from_proven(&record, Level::StateProven),
+        ProtocolBudgetView::from_proven(&record, Rung::Committed),
         "view",
     );
+    assert_eq!(view.achieved_rung, Rung::Committed);
     assert_eq!(view.expiry_ms, EXPIRY_MS);
     assert_eq!(view.period_length_ms, PERIOD_LENGTH_MS);
     assert_eq!(view.period_start_ms, PERIOD_START_MS);

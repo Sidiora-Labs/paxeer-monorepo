@@ -242,13 +242,10 @@ impl Authenticator {
                 payload.extend_from_slice(&event.delivery.deduplication_id.as_bytes());
                 match &event.delivery.receipt_reference {
                     ReceiptReference::None => payload.push(0),
-                    ReceiptReference::Verified {
-                        receipt_ref,
-                        verification_level,
-                    } => {
+                    ReceiptReference::Verified { receipt_ref, rung } => {
                         payload.push(1);
                         push_string(&mut payload, receipt_ref.as_str())?;
-                        payload.push(*verification_level as u8);
+                        payload.push(rung.wire_rank());
                     }
                 }
                 push_bytes(&mut payload, &event.delivery.event_bytes)?;

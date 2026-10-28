@@ -201,6 +201,7 @@ pub struct ServedProofBundle {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CheckpointReadError {
+    UnavailableCapability(layerx_agent_api::error::ApiError),
     Commit,
     Inclusion(InclusionError),
     RootMismatch,
@@ -345,41 +346,14 @@ fn merkle_hash(items: &[Vec<u8>]) -> [u8; 32] {
 pub fn proof_bundle(
     request: &ProofBundleRequest<'_>,
 ) -> Result<ServedProofBundle, CheckpointReadError> {
-    let evidence = match request.kind {
-        ProofBundleKind::Activity => verify_activity(
-            request.canonical_leaf_bytes,
-            request.proof,
-            request.header_bytes,
-            &request.header_signature,
-            request.authorization,
+    let _ = request;
+    Err(CheckpointReadError::UnavailableCapability(
+        layerx_agent_api::error::ApiError::unavailable_capability(
+            layerx_agent_api::error::RequestId(0),
+            "read.proof_bundle",
         )
-        .map_err(CheckpointReadError::Inclusion)?,
-        ProofBundleKind::State => verify_state(
-            request.canonical_leaf_bytes,
-            request.proof,
-            &request.named_root,
-            request.header_bytes,
-            &request.header_signature,
-            request.authorization,
-        )
-        .map_err(CheckpointReadError::Inclusion)?,
-    };
-    let committed_root = match request.kind {
-        ProofBundleKind::Activity => evidence.header().header().activity_merkle_root(),
-        ProofBundleKind::State => evidence.header().header().resulting_state_root(),
-    };
-    if committed_root != request.named_root {
-        return Err(CheckpointReadError::RootMismatch);
-    }
-    Ok(ServedProofBundle {
-        kind: request.kind,
-        canonical_leaf_bytes: request.canonical_leaf_bytes.to_vec(),
-        proof_bytes: encode_proof(request.proof)?,
-        named_root: request.named_root,
-        batch_number: evidence.header().header().batch_number(),
-        signed_header_digest: evidence.header().digest(),
-        verification_level: evidence.level(),
-    })
+        .expect("static operation name"),
+    ))
 }
 
 fn encode_proof(proof: &Proof) -> Result<Vec<u8>, CheckpointReadError> {
