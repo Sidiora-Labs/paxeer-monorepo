@@ -172789,7 +172789,7 @@ qualification = "UNRUN"
 
 [task.18.671.1]
 title = "Issue #671: Require every sidecar to submit in every block of the rehearsal cadence window"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172832,7 +172832,7 @@ qualification = "UNRUN"
 
 [task.18.684.1]
 title = "Issue #684: Seed positions with cost-basis size so open interest counts their base size"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -173058,7 +173058,7 @@ qualification = "UNRUN"
 
 [task.18.856.1]
 title = "Issue #856: Guard SDK write lookups, mark launchpad writes non-payable and keep the 17-id ADL codec assertion"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174751,7 +174751,7 @@ qualification = "UNRUN"
 
 [task.18.907.1]
 title = "Issue #907: Build the native libraries and install paxd before the ETH blocktests run"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175151,7 +175151,7 @@ qualification = "UNRUN"
 
 [task.18.833.1]
 title = "Issue #833: Refuse a starter credit whose amount differs from the faucet claim amount before funding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175684,7 +175684,7 @@ qualification = "UNRUN"
 
 [task.18.834.1]
 title = "Issue #834: Reissue stored starter credits at the current amount under their grant id"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175727,7 +175727,7 @@ qualification = "UNRUN"
 
 [task.18.867.1]
 title = "Issue #867: Keep secret exclusions in force for programs/vendor in the layerx and paxd-node image contexts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176340,7 +176340,7 @@ qualification = "UNRUN"
 
 [task.18.868.1]
 title = "Issue #868: Install OpenSSL, Rust 1.91.1 and the native libraries in every job that builds paxd"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -177520,7 +177520,7 @@ qualification = "UNRUN"
 
 [task.18.916.1]
 title = "Issue #916: Refuse near-maximum approvals to trusted spenders in the attestor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178512,7 +178512,7 @@ qualification = "UNRUN"
 
 [task.18.846.1]
 title = "Issue #846: Document the current 0x1017 Launchpad surface in the wiki"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178598,7 +178598,7 @@ qualification = "UNRUN"
 
 [task.18.889.1]
 title = "Issue #889: Rewrite the hosted webhooks and dashboard deployment docs for the env-init packaging"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
