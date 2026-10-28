@@ -10414,3 +10414,7 @@ detail = "layerx-x402 model.rs:19 binds LayerX offers to eip155:125 and refuses 
 title = "The KMS no longer signs kernel activity envelopes"
 detail = "Since 843ee0252 (10.11.7) layerx-human-kms sign (src/server.rs:158-184) admits only an unsigned EIP-1559 type-2 call whose bind_call disclosure and Keccak256 digest match call.signing_hash(), and refuses the kernel envelope with its SHA-256 LXP/v1/signature-preimage digest (status 1); provider tests that still build unsigned_envelope_bytes must port to evm_signing_request (tests/provider.rs:716-730). Keystore::authorize_send in layerx-human-service still sends the retired operation-11 SendPlanAuthorization until 10.0.3 lands (#1169)."
 
+[gotcha.2135]
+title = "Shell variables cannot be task symbols"
+detail = "cg spec done runs a graph check over every entry of a task's symbols list and refuses a name the symbol graph has not indexed; shell variables such as FILE_VARIABLES in docker/platform-gateway/entrypoint.sh are never indexed (18.1174.1 attempt 1 passed its tests and was refused on that check alone). Name shell-script identifiers in do steps and touches only, and keep symbols to indexed functions and types."
+

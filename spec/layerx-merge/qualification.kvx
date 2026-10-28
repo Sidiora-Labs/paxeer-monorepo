@@ -9883,3 +9883,11 @@ symbol = "signing_request"
 observed = "Attempt 8 (f759ae9ca) passed 6 of 15 provider tests; seven failures send the kernel activity envelope with a SHA-256 preimage that sign refuses since 843ee0252 (10.11.7), one is Keystore::authorize_send still serializing the retired SendPlanAuthorization (issue #1169, owned by 10.0.3 do_6), one is the 2 s fixture deadline under fifteen concurrent attestor clusters."
 assumption = "Ruling: the seven sites port to the landed EIP-1559 contract inside touches (owner_bootstrap.rs included, deleted later by 10.21.4), the deadlines rise to 30 s, and the task requires 10.0.3 at wave 11 rather than splitting #1169 out, since a split would collide with 10.0.3 on custody/evm.rs; the kernel fee-grant, session-grant, onboarding and native-operation disclosure checks that bind_call does not carry are retired coverage under decision.1005 unless an owner rules otherwise."
 severity = "major"
+
+[finding.18.1174.1.1]
+task = "18.1174.1"
+file = "docker/platform-gateway/entrypoint.sh"
+symbol = "FILE_VARIABLES"
+observed = "Attempt 1 (28d44fbbd) built and passed all four env_example tests, and the done record was refused only by the graph check: FILE_VARIABLES is a shell variable in entrypoint.sh, which the symbol graph does not index."
+assumption = "The symbol list keeps only the indexed Python functions; the shell variable stays named in do_1 and touches, and attempt 2 reruns the same candidate."
+severity = "minor"
