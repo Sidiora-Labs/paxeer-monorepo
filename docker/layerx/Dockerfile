@@ -18,12 +18,15 @@ COPY contracts/config/checkpoint-settlement.json contracts/config/
 COPY spec/layerx-merge/contracts/address-table.md spec/layerx-merge/contracts/
 COPY services/agent services/agent/
 COPY programs programs/
+COPY src src/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     make programs-release-build
-COPY src src/
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     set -eu; \
     make -j"$(nproc)" paxd-native-libs; \
+    test -s build/liblayerx.a; \
+    test -s build/generated/lxp_checkpoint_settlement.h; \
+    test -s programs/target/release/liblayerx_programs_sandbox.a; \
     mkdir -p /out/build/generated /out/programs/target/release; \
     cp build/liblayerx.a /out/build/; \
     cp build/generated/lxp_checkpoint_settlement.h /out/build/generated/; \
