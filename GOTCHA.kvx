@@ -10013,3 +10013,33 @@ area = "kernel programs"
 symptom = "Sandbox EXECUTE host admission refuses with LXP_ERR_NON_CANONICAL (seen as LXP_FATAL_INVARIANT before 18.1122.1) although lease, escrow and fee schedule are all consistent."
 cause = "layerx_programs_sandbox_lifecycle_length/_byte (src/modules/programs/sandbox.c:509-530) compare the raw token with the outer sandbox pointer, while admit_host (host_ffi.rs:538) legitimately holds the inner CALL token that every other sandbox accessor resolves through sandbox_for_call (issue #1125)."
 do = "Any new kernel accessor that takes a sandbox token must resolve it with sandbox_for_call so both the outer and the call token identify the active sandbox; the FUND/ACTIVATE lifecycle tests never exercise the call-token path, so add an EXECUTE-side case when touching these accessors."
+
+[gotcha.2051]
+area = "node sequencer"
+symptom = "A standby refuses the group at the first replicated ledger activity that reads kernel state written by an earlier block ('replayed receipt differs from stored receipt'), while plain transfers replay fine."
+cause = "node/sequencer/standby_role.go:135 installs no sequencer source, so the standby commits every block through the consensus re-execution path (node/app.go:2375-2420) while the primary commits the sealed layer it executed (node/app.go:1784-1818); the two paths can leave different kernel rows behind (issue #1126)."
+do = "Treat the standby's commit path as part of the replication contract: a standby test must commit through the real path and replicate a kernel activity that depends on a prior block, as 18.1126.1 adds."
+
+[gotcha.2052]
+area = "agent api"
+symptom = "A qualification's dependency check fails with E0423 in layerx-agent-api/tests/stream.rs although the task touched nothing in that crate."
+cause = "The 051d11e3a Cursor reshape ported the library and its downstream callers but not the crate's own tests/stream.rs, so the crate's test target has been dead since (issue #1127)."
+do = "When a pub type of a crate is reshaped, the reshaping task's gate must compile that crate's own test targets (cargo build -p <crate> --tests), not only its library."
+
+[gotcha.2053]
+area = "human service"
+symptom = "record_agent_event refuses a simulated receipted delivery with UnverifiedReceipt, or a level assertion expects Level::SequencerSigned for receipted evidence."
+cause = "Decision 907 and Level::rung (agent-api error.rs:153-160) map SequencerSigned to Submitted and BatchIncluded to Receipted; the human-service tests still carry the pre-2f3a411de mapping Receipted = SequencerSigned (issue #1128)."
+do = "Receipted evidence is Level::BatchIncluded; a verified fixture carries VerificationLevel::BATCH_INCLUDED. Never reintroduce a Receipted-to-SequencerSigned mapping."
+
+[gotcha.2054]
+area = "agent daemon tests"
+symptom = "A layerx-agentd test using tests/support/real_authority.rs panics 'build/bin/layerxd is not built' (or layerx-genesis-build)."
+cause = "The real-node harness (real_authority.rs:1003-1008) needs the node binaries from build/bin (or LAYERX_TEST_NATIVE_BIN_DIR) and must run as root; a crate-only cargo build never produces them."
+do = "A task whose gate drives real_authority must put 'make -C . layerxd layerx-genesis-build' in its build_cmd before the crate build."
+
+[gotcha.2055]
+area = "interop x402"
+symptom = "layerx-mcp or x-websearch buyer tests fail every settlement with SettlementMismatch / EvidenceMismatch against a recorded exchange."
+cause = "LayerXEvidence (layerx-x402 buyer.rs:61-74) is deny_unknown_fields and requires logs; the recorded tests/fixtures/client-exchange.json predates that shape and carries no logs or sequencer id (issue #1129)."
+do = "When the buyer evidence shape changes, re-record client-exchange.json with X_WEBSEARCH_RECORD_EXCHANGE (payment.rs:3082, :3214) and publish the sequencer id, public key and batch window in gateway/buyer.json in the same change."
