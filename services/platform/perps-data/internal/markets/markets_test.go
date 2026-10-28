@@ -395,6 +395,81 @@ func TestRefreshMarketConfig(t *testing.T) {
 	}
 }
 
+func TestMarketsCheck(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	client := testClient(t)
+	reseed(t, db)
+	requireSeeded(t, db)
+	check := Check(db, 2*time.Minute)
+	if err := check(ctx); err == nil {
+		t.Fatal("Check accepted seed rows before Refresh")
+	}
+
+	mux := http.NewServeMux()
+	httpx.RegisterHealth(mux, httpx.HealthDeps{Postgres: db.PingContext, Custom: map[string]httpx.Check{"markets": check}})
+	ready := func(want int, status string) {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz/ready", nil))
+		if rec.Code != want {
+			t.Fatalf("readiness status %d, want %d: %s", rec.Code, want, rec.Body)
+		}
+		var body struct {
+			Checks map[string]string `json:"checks"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("readiness response: %v", err)
+		}
+		if body.Checks["markets"] != status {
+			t.Fatalf("markets readiness %q, want %q", body.Checks["markets"], status)
+		}
+	}
+	ready(http.StatusServiceUnavailable, "failed")
+
+	if err := Refresh(ctx, db, client); err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	var newest int64
+	if err := db.QueryRowContext(ctx, `SELECT MAX(refreshed_block) FROM perps.markets WHERE source = 'chain'`).Scan(&newest); err != nil {
+		t.Fatalf("read refreshed height: %v", err)
+	}
+	block, err := client.BlockByNumber(ctx, big.NewInt(newest))
+	if err != nil {
+		t.Fatalf("read refresh block: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO perps.blocks (number, hash, parent_hash, time, proposer, tx_count)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (number) DO UPDATE SET hash = EXCLUDED.hash, parent_hash = EXCLUDED.parent_hash, time = EXCLUDED.time, proposer = EXCLUDED.proposer, tx_count = EXCLUDED.tx_count`,
+		newest, block.Hash().Bytes(), block.ParentHash().Bytes(), time.Unix(int64(block.Time()), 0), strings.ToUpper(block.Coinbase().Hex()[2:]), len(block.Transactions())); err != nil {
+		t.Fatalf("index real refresh block: %v", err)
+	}
+	if err := check(ctx); err != nil {
+		t.Fatalf("Check after Refresh: %v", err)
+	}
+	ready(http.StatusOK, "ok")
+	if err := Check(db, time.Nanosecond)(ctx); err == nil {
+		t.Fatal("Check accepted a refresh older than maxAge")
+	}
+	if err := Check(db, 0)(ctx); err == nil {
+		t.Fatal("Check accepted a nonpositive maxAge")
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if err := check(cancelled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Check with cancelled context = %v, want context.Canceled", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `UPDATE perps.markets SET source = 'seed'`); err != nil {
+		t.Fatalf("restore seed sources: %v", err)
+	}
+	if err := check(ctx); err == nil {
+		t.Fatal("Check accepted seed rows carrying a recent refreshed_block")
+	}
+	ready(http.StatusServiceUnavailable, "failed")
+	reseed(t, db)
+}
+
 func TestMarkets(t *testing.T) {
 	t.Run("seed_eighteen", func(t *testing.T) {
 		db := testDB(t)
@@ -545,25 +620,35 @@ func TestMarkets(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		type failure struct {
-			err     error
-			retryIn time.Duration
+		metrics, err := telemetry.New(config.Indexer)
+		if err != nil {
+			t.Fatal(err)
 		}
-		failures := make(chan failure, 1)
 		done := make(chan error, 1)
-		go func() {
-			done <- Retry(ctx, db, client, func(err error, retryIn time.Duration) {
-				failures <- failure{err, retryIn}
-			})
-		}()
-		var f failure
-		select {
-		case f = <-failures:
-		case <-time.After(30 * time.Second):
-			t.Fatal("Retry reported no failure")
+		go func() { done <- Run(ctx, db, client, 60*time.Second, metrics) }()
+		deadline := time.NewTimer(30 * time.Second)
+		defer deadline.Stop()
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+	awaitRetry:
+		for {
+			select {
+			case err := <-done:
+				t.Fatalf("Run returned before retrying: %v", err)
+			case <-deadline.C:
+				t.Fatal("Run reported no failure")
+			case <-ticker.C:
+				var body bytes.Buffer
+				if err := metrics.WritePrometheus(&body); err != nil {
+					t.Fatalf("metrics: %v", err)
+				}
+				if strings.Contains(body.String(), perps_markets_refresh_failures_total+" 1\n") {
+					break awaitRetry
+				}
+			}
 		}
-		if f.err == nil || f.retryIn != 60*time.Second || RetryInterval != 60*time.Second {
-			t.Fatalf("failure %v, retry in %s, want an error and 60s", f.err, f.retryIn)
+		if RetryInterval != 60*time.Second {
+			t.Fatalf("retry interval %s, want 60s", RetryInterval)
 		}
 		requireSeeded(t, db)
 
@@ -591,17 +676,17 @@ func TestMarkets(t *testing.T) {
 
 		select {
 		case err := <-done:
-			t.Fatalf("Retry returned %v before the 60s wait elapsed", err)
+			t.Fatalf("Run returned %v before the 60s wait elapsed", err)
 		default:
 		}
 		cancel()
 		select {
 		case err := <-done:
 			if !errors.Is(err, context.Canceled) {
-				t.Fatalf("Retry after cancel %v, want context.Canceled", err)
+				t.Fatalf("Run after cancel %v, want context.Canceled", err)
 			}
 		case <-time.After(10 * time.Second):
-			t.Fatal("Retry did not stop on cancel")
+			t.Fatal("Run did not stop on cancel")
 		}
 		requireSeeded(t, db)
 	})
