@@ -28,11 +28,68 @@ use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::process::ExitCode;
-use std::sync::Arc;
-use std::time::Duration;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
+use std::time::{Duration, Instant};
 
-const IO_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_CONNECTIONS: usize = 128;
+static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
+const REQUEST_DEADLINE: Duration = Duration::from_secs(30);
 const MAX_REQUEST_HEAD_BYTES: usize = 8_192;
+
+struct ConnectionPermit;
+
+impl ConnectionPermit {
+    fn acquire() -> Option<Self> {
+        ACTIVE_CONNECTIONS
+            .fetch_update(Ordering::AcqRel, Ordering::Acquire, |active| {
+                (active < MAX_CONNECTIONS).then_some(active + 1)
+            })
+            .ok()
+            .map(|_| Self)
+    }
+}
+
+impl Drop for ConnectionPermit {
+    fn drop(&mut self) {
+        ACTIVE_CONNECTIONS.fetch_sub(1, Ordering::AcqRel);
+    }
+}
+
+struct DeadlineSocket {
+    socket: TcpStream,
+    deadline: Instant,
+}
+
+impl DeadlineSocket {
+    fn remaining(&self) -> std::io::Result<Duration> {
+        self.deadline
+            .checked_duration_since(Instant::now())
+            .filter(|remaining| !remaining.is_zero())
+            .ok_or_else(|| std::io::Error::from(std::io::ErrorKind::TimedOut))
+    }
+}
+
+impl Read for DeadlineSocket {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        self.socket.set_read_timeout(Some(self.remaining()?))?;
+        self.socket.read(buf)
+    }
+}
+
+impl Write for DeadlineSocket {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.socket.set_write_timeout(Some(self.remaining()?))?;
+        self.socket.write(buf)
+    }
+
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.socket.set_write_timeout(Some(self.remaining()?))?;
+        self.socket.flush()
+    }
+}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -170,15 +227,22 @@ impl Service {
 fn read_request(stream: &mut impl Read) -> Result<(String, String, Vec<u8>), Response> {
     let malformed = || refusal(ServiceError::NonCanonical, Presence::Absent);
     let mut head = Vec::new();
-    let mut byte = [0u8; 1];
-    while !head.ends_with(b"\r\n\r\n") {
+    let mut chunk = [0u8; 1024];
+    let head_end = loop {
         if head.len() >= MAX_REQUEST_HEAD_BYTES {
             return Err(malformed());
         }
-        stream.read_exact(&mut byte).map_err(|_| malformed())?;
-        head.push(byte[0]);
-    }
-    let text = std::str::from_utf8(&head).map_err(|_| malformed())?;
+        let limit = chunk.len().min(MAX_REQUEST_HEAD_BYTES - head.len());
+        let count = stream.read(&mut chunk[..limit]).map_err(|_| malformed())?;
+        if count == 0 {
+            return Err(malformed());
+        }
+        head.extend_from_slice(&chunk[..count]);
+        if let Some(end) = head.windows(4).position(|bytes| bytes == b"\r\n\r\n") {
+            break end + 4;
+        }
+    };
+    let text = std::str::from_utf8(&head[..head_end]).map_err(|_| malformed())?;
     let mut lines = text.split("\r\n");
     let mut start = lines.next().unwrap_or_default().split(' ');
     let (Some(method), Some(path), Some("HTTP/1.1")) = (start.next(), start.next(), start.next())
@@ -197,7 +261,12 @@ fn read_request(stream: &mut impl Read) -> Result<(String, String, Vec<u8>), Res
         return Err(refusal(ServiceError::InputTooLarge, Presence::Absent));
     }
     let mut body = vec![0; length];
-    stream.read_exact(&mut body).map_err(|_| malformed())?;
+    let buffered = &head[head_end..];
+    let copied = buffered.len().min(length);
+    body[..copied].copy_from_slice(&buffered[..copied]);
+    stream
+        .read_exact(&mut body[copied..])
+        .map_err(|_| malformed())?;
     Ok((method.to_owned(), path.to_owned(), body))
 }
 
@@ -211,11 +280,14 @@ fn reason(status: u16) -> &'static str {
     }
 }
 
-fn serve(service: &Service, tls: Arc<ServerConfig>, socket: TcpStream) -> std::io::Result<()> {
-    socket.set_read_timeout(Some(IO_TIMEOUT))?;
-    socket.set_write_timeout(Some(IO_TIMEOUT))?;
+fn serve(
+    service: &Service,
+    tls: Arc<ServerConfig>,
+    socket: TcpStream,
+    deadline: Instant,
+) -> std::io::Result<()> {
     let connection = ServerConnection::new(tls).map_err(std::io::Error::other)?;
-    let mut stream = StreamOwned::new(connection, socket);
+    let mut stream = StreamOwned::new(connection, DeadlineSocket { socket, deadline });
     let response = match read_request(&mut stream) {
         Ok((method, path, body)) => service.dispatch(&method, &path, &body),
         Err(response) => response,
@@ -266,10 +338,16 @@ fn main() -> ExitCode {
     for socket in listener.incoming() {
         match socket {
             Ok(socket) => {
+                let deadline = Instant::now() + REQUEST_DEADLINE;
+                let Some(permit) = ConnectionPermit::acquire() else {
+                    drop(socket);
+                    continue;
+                };
                 let service = Arc::clone(&service);
                 let tls = Arc::clone(&tls);
                 std::thread::spawn(move || {
-                    if let Err(error) = serve(&service, tls, socket) {
+                    let _permit = permit;
+                    if let Err(error) = serve(&service, tls, socket, deadline) {
                         eprintln!("connection closed: {}", error.kind());
                     }
                 });
@@ -278,4 +356,46 @@ fn main() -> ExitCode {
         }
     }
     ExitCode::SUCCESS
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn request_limits_permit_refuses_beyond_cap() {
+        let mut permits = Vec::new();
+        for _ in 0..MAX_CONNECTIONS {
+            permits.push(ConnectionPermit::acquire().expect("permit below connection cap"));
+        }
+        assert!(ConnectionPermit::acquire().is_none());
+        drop(permits.pop().expect("held permit"));
+        let replacement = ConnectionPermit::acquire().expect("released connection slot");
+        assert!(ConnectionPermit::acquire().is_none());
+        drop(replacement);
+        drop(permits);
+        assert_eq!(ACTIVE_CONNECTIONS.load(Ordering::Acquire), 0);
+    }
+
+    #[test]
+    fn request_limits_slow_head_is_refused_at_deadline() {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind loopback listener");
+        let mut client = TcpStream::connect(listener.local_addr().expect("listener address"))
+            .expect("connect loopback client");
+        let (socket, _) = listener.accept().expect("accept loopback client");
+        client.write_all(b"P").expect("write partial request head");
+        let started = Instant::now();
+        let mut stream = DeadlineSocket {
+            socket,
+            deadline: started + Duration::from_millis(200),
+        };
+        let response = match read_request(&mut stream) {
+            Err(response) => response,
+            Ok(_) => panic!("incomplete request head accepted"),
+        };
+        assert!(started.elapsed() < Duration::from_secs(2));
+        let expected = refusal(ServiceError::NonCanonical, Presence::Absent);
+        assert_eq!(response.status, expected.status);
+        assert_eq!(response.body, expected.body);
+    }
 }
