@@ -28,7 +28,7 @@ import sys
 sys.dont_write_bytecode = True
 HERE = Path(sys.argv[1])
 sys.path.insert(0, str(HERE))
-from candidate import SCHEMA, UNKNOWN, BINDING_FIELDS, Invalid, load_private, validate, catalogue
+from candidate import SCHEMA, UNKNOWN, BINDING_FIELDS, SERVICE_CATALOGUE, Invalid, load_private, validate, catalogue
 
 EXIT = {'usage': 2, 'unregistered': 3, 'not_executable': 4, 'evidence_dir': 5, 'mismatch': 6,
         'dirty': 7, 'failed': 8, 'empty': 9, 'skipped': 10, 'fabricated': 11, 'stale': 12}
@@ -130,7 +130,7 @@ def manifest(argument):
         raise Refuse('mismatch', 'no candidate manifest supplied')
     try:
         data = load_private(raw)
-        validate(data, catalogue(SPEC), ROOT, False, MAINLINE)
+        validate(data, catalogue(ROOT / SERVICE_CATALOGUE), ROOT, False, MAINLINE)
     except (Invalid, OSError, ValueError, KeyError, TypeError, RecursionError):
         raise Refuse('mismatch', 'candidate manifest is invalid or does not identify this checkout') from None
     return data, sha256(canonical(data))

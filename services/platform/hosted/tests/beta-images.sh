@@ -5,7 +5,7 @@ IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-
     layerx-mirror layerx-interop-gateway layerx-reference-ramp
     paxd-node paxd
     bridge-relayer explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
-    gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder rpcnode
+    gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder relay-archive rpcnode
     search-front wallet-attestor wallet-gateway wallet-pwa x-websearch intent-ingester redis feeder)
 
 image_source() {
@@ -46,6 +46,7 @@ image_source() {
         localnode) printf 'ghcr.io/sidiora-labs/localnode:0.1.0 docker/localnode/Dockerfile' ;;
         platform-indexer) printf 'ghcr.io/sidiora-labs/platform-indexer:0.1.0 docker/platform-indexer/Dockerfile' ;;
         platform-registry-builder) printf 'ghcr.io/sidiora-labs/platform-registry-builder:0.1.0 docker/platform-registry-builder/Dockerfile' ;;
+        relay-archive) printf 'ghcr.io/sidiora-labs/relay-archive:0.1.0 docker/relay-archive/Dockerfile' ;;
         rpcnode) printf 'ghcr.io/sidiora-labs/rpcnode:0.1.0 docker/rpcnode/Dockerfile' ;;
         search-front) printf 'ghcr.io/sidiora-labs/search-front:0.1.0 docker/search-front/Dockerfile' ;;
         wallet-attestor) printf 'ghcr.io/sidiora-labs/wallet-attestor:0.1.0 docker/wallet-attestor/Dockerfile' ;;
