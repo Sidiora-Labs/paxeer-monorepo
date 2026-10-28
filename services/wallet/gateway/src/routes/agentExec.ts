@@ -14,9 +14,10 @@ import { bindCustodyBudgetReservation, getPolicy, listRules, releaseBudget, rele
 import { evaluateAgent, type AgentTxIntent } from '../policy/agent.js';
 import { AttestorError, AttestorTokenError, AttestorReauthorizationRequired, attestorErrorBody, attestorErrorStatus } from '../attestor/client.js';
 import { resolveGas } from '../chainReads.js';
-import { NonceBelowLatestError, NonceOutstandingError, NonceUnresolvedError, broadcastReserved, type NonceLease } from '../nonce/store.js';
+import { NonceBelowLatestError, NonceOutstandingError, NonceUnresolvedError, broadcastReserved, nonceUnresolvedBody, type NonceLease } from '../nonce/store.js';
 import { BroadcastOutcomeUnknownError, NonceConflictError, TransactionRejectedError, outcomeUnknownBody, sharedRpcPool, type SequencerReceiptResult } from '../rpc/pool.js';
 import { BROADCAST_GRACE_MS } from '../chain.js';
+import { PRECOMPILE_ADDRESSES, unservedPrecompileAt } from '../precompiles.js';
 
 /**
  * Shared agent execution core.
@@ -81,7 +82,7 @@ export function custodyRefusal(error: unknown): ExecResult | null {
     return { status: 409, body: { error: 'nonce_outstanding', nonce: error.nonce } };
   }
   if (error instanceof NonceUnresolvedError) {
-    return { status: 503, body: { error: 'nonce_unresolved', nonce: error.nonce, unreachable: error.unreachable, members: error.memberCount } };
+    return { status: 503, body: nonceUnresolvedBody(error) };
   }
   if (error instanceof NonceConflictError) {
     if (error.consumed) {
@@ -174,6 +175,18 @@ export async function executeAgentTransaction(args: {
   label?: string;
 }): Promise<ExecResult> {
   const { ctx, intent, tx, broadcast, audit } = args;
+
+  const precompile = unservedPrecompileAt(tx.to);
+  if (precompile !== null) {
+    return {
+      status: 503,
+      body: {
+        error: 'precompile_not_served',
+        precompile,
+        address: PRECOMPILE_ADDRESSES[precompile],
+      },
+    };
+  }
 
   const wallet = await getAgentWallet(ctx.did);
   if (!wallet) return { status: 409, body: { error: 'agent_wallet_not_provisioned' } };
