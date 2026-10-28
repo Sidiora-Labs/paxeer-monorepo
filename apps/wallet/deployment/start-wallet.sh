@@ -22,6 +22,8 @@ case "$secret" in
 esac
 printf 'proxy_set_header x-paxport-proxy-secret "%s";\n' "$secret" > /tmp/nginx/proxy-secret.conf
 
+sh "$(dirname -- "$0")/render-edge-trust.sh" /tmp/nginx/edge-trust.conf
+
 PORT=3000 HOSTNAME=127.0.0.1 node /app/apps/wallet/server.js &
 node_pid="$!"
 
