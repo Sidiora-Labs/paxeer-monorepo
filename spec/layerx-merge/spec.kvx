@@ -182434,7 +182434,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.896.1]
 title = "Issue #896: Break same-block price feed ties on the update index the endpoint orders by"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
