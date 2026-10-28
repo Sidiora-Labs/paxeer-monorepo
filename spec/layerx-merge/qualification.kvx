@@ -9867,3 +9867,11 @@ symbol = "ReceiptMaterial"
 observed = "Attempt 3 (05c5107ff) failed the build at a shared support module outside touches whose ReceiptMaterial literal lacks the four fields landed by 10.13.1; cargo build --tests compiles it into the withdraw test target."
 assumption = "Every test and support file of the crate with an unported ReceiptMaterial, VerifiedBudgetAfter or ReceiptReference::Verified literal is now in touches (scan recorded in do_5)."
 severity = "minor"
+
+[finding.18.1129.1.5]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/payment.rs:1217"
+symbol = "configure_with"
+observed = "Attempt 12 (d2aa1cd26) built and failed 30 of 35 payment tests with one root: the harness offers eip155:1337 (valid.json:52 through configure_with) and layerx-x402 model.rs:180-193 (e556c8b04, between attempts 11 and 12) refuses extra.layerx on any network but eip155:125, so Seller::new answers 503 payment_unavailable before any challenge; do_3 forbade moving the three chain-bound assertions."
+assumption = "Ruling: the recorded eip155:125 binding governs; do_12 moves the harness and the three assertions to chain 125 at equal strength, a port of the landed contract, with no change to layerx-x402."
+severity = "major"
