@@ -374,7 +374,9 @@ func TestStartStandbyServesReplication(t *testing.T) {
 		gap := standbyLeaseExchange(t, conn, nextOpen)
 		require.NoError(t, conn.Close())
 		require.Equal(t, sequencer.Ack{Status: sequencer.AckGap, LastSeq: accepted.Seq, GapFrom: accepted.Seq + 1, GapTo: accepted.Seq}, gap)
-		require.GreaterOrEqual(t, time.Since(started), cfg.ReplicationTimeout)
+		elapsed := time.Since(started)
+		require.GreaterOrEqual(t, elapsed, cfg.ReplicationTimeout/4)
+		require.Less(t, elapsed, cfg.ReplicationTimeout)
 		require.NoError(t, s.Err(), "a delayed consensus commit must not poison replication")
 		require.Equal(t, height-1, backupApp.App.LastBlockHeight())
 		type releaseResult struct {
@@ -437,6 +439,157 @@ func TestStartStandbyServesReplication(t *testing.T) {
 		_ = conn.Close()
 	}
 	require.Error(t, err)
+}
+
+func TestReplicatorReleaseOverLaggingStandbyCommit(t *testing.T) {
+	wasOCC := app.EnableOCC
+	app.EnableOCC = false
+	t.Cleanup(func() { app.EnableOCC = wasOCC })
+	ctx := context.Background()
+	sender := utils.NewSigner()
+	primaryApp := newStandbyRoleApp(t, sender)
+	backupApp := newStandbyRoleApp(t, sender)
+	info, err := backupApp.App.UpgradeKeeper.GetUpgradeInfoPath()
+	require.NoError(t, err)
+	consensus := tmconfig.DefaultConfig().SetRoot(filepath.Dir(filepath.Dir(info))).PrivValidator
+	require.NoError(t, os.MkdirAll(filepath.Dir(consensus.KeyFile()), 0o700))
+	standbyPV, err := privval.GenFilePV(consensus.KeyFile(), consensus.StateFile(), "")
+	require.NoError(t, err)
+	require.NoError(t, standbyPV.Save())
+	primaryDir := t.TempDir()
+	primaryPV, err := privval.GenFilePV(filepath.Join(primaryDir, "key.json"), filepath.Join(primaryDir, "state.json"), "")
+	require.NoError(t, err)
+	require.NoError(t, primaryPV.Save())
+	primaryPub, err := primaryPV.GetPubKey(ctx)
+	require.NoError(t, err)
+	standbyPub, err := standbyPV.GetPubKey(ctx)
+	require.NoError(t, err)
+	standbySeed := bytes.Repeat([]byte{0x67}, ed25519.SeedSize)
+	standbyPublic, primaryPublic := publicOf(standbySeed), publicOf(testKeySeed)
+	standbyID := [32]byte{0: 0x68}
+	for _, fixture := range []*app.TestWrapper{primaryApp, backupApp} {
+		a := fixture.App
+		require.NoError(t, a.SequencerKeeper.InitGenesis(fixture.Ctx, seqtypes.GenesisState{
+			Leaders: [][32]byte{[32]byte(primaryPub.Bytes()), [32]byte(standbyPub.Bytes())},
+			ReceiptKeys: []seqtypes.ReceiptKey{
+				{KeyId: testKeyID, PublicKey: primaryPublic, FirstHeight: 1, LastHeight: 1000},
+				{KeyId: standbyID, PublicKey: standbyPublic, FirstHeight: 1, LastHeight: 1000},
+			},
+			LastSeq: startSeq, LastSeqHash: startSeqHash,
+		}))
+		require.NoError(t, a.SequencerKeeper.SetActivationHeight(fixture.Ctx, openHeight))
+		a.UpgradeKeeper.SetDone(fixture.Ctx.WithBlockHeight(openHeight-1), app.MergeUpgrade)
+		_, err := a.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
+			Header: &tmproto.Header{ChainID: testChainID, Height: committedTip},
+		})
+		require.NoError(t, err)
+		a.SetDeliverStateToCommit()
+		_, err = a.Commit(ctx)
+		require.NoError(t, err)
+	}
+	l := listen(t)
+	address := l.Addr().String()
+	require.NoError(t, l.Close())
+	cfg := sequencer.Config{
+		Role: sequencer.RoleStandby, WALDir: filepath.Join(t.TempDir(), "standby-wal"),
+		ReceiptKeyFile: writeSeed(t, t.TempDir(), "receipt_key", standbySeed, 0o600),
+		StandbyAddress: address, ReplicationTimeout: 400 * time.Millisecond,
+	}
+	standbyCtx, cancel := context.WithCancel(ctx)
+	s, err := sequencer.StartStandby(standbyCtx, cfg, backupApp.App)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		cancel()
+		require.Eventually(t, func() bool { return s.Err() != nil }, replicationTimeout, time.Millisecond)
+	})
+	w, err := wal.OpenWAL(filepath.Join(t.TempDir(), "primary-wal"), wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(w.Close)
+	repl, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{
+		WAL: w, Dial: sequencer.DialStandby(address, cfg.ReplicationTimeout), ReplicationTimeout: cfg.ReplicationTimeout,
+	})
+	require.NoError(t, err)
+	t.Cleanup(repl.Close)
+	exec, err := sequencer.NewExecutor(primaryApp.App, sequencer.Options{
+		ChainID: testChainID, ProposerAddress: primaryPub.Address(), LastSeq: startSeq, LastSeqHash: startSeqHash,
+	})
+	require.NoError(t, err)
+	key, err := sequencer.LoadReceiptKey(writeSeed(t, primaryDir, "receipt_key", testKeySeed, 0o600),
+		filepath.Join(primaryDir, "key.json"), []verify.SequencerAuthorization{{
+			SequencerID: testKeyID, PublicKey: primaryPublic, FirstBatchNumber: 1, LastBatchNumber: 1000,
+		}}, openHeight)
+	require.NoError(t, err)
+	receipter, err := sequencer.NewReceipter(exec, primaryApp.App, &primaryApp.App.EvmKeeper, key, app.EVMReceiptModuleID)
+	require.NoError(t, err)
+	source, err := sequencer.NewConsensusSource(primaryApp.App, exec, key, sequencer.WithConsensusReplicator(repl))
+	require.NoError(t, err)
+	primaryApp.App.SetSequencerSource(source)
+	openMs := time.Now().Add(time.Minute).UnixMilli()
+	require.NoError(t, exec.Open(openHeight, openMs))
+	_, tx := transfer(t, sender, 0, sender.EvmAddress, big.NewInt(1))
+	accepted, receipt, err := receipter.Accept(tx)
+	require.NoError(t, err)
+	require.Zero(t, accepted.Result.Code, accepted.Result.Log)
+	ack, err := repl.Release(ctx,
+		&wal.Open{Height: uint64(openHeight), OpenTimeMs: uint64(openMs), BaseFee: uint256.NewInt(0)},
+		&wal.Accept{Seq: accepted.Seq, Height: uint64(openHeight), Tx: tx, Receipt: receipt})
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, ack)
+	block, err := source.Seal(ctx, openHeight)
+	require.NoError(t, err)
+	commit := func(a *app.App) {
+		t.Helper()
+		response, err := a.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
+			Header: &tmproto.Header{ChainID: testChainID, Height: openHeight, Time: block.OpenTime, ProposerAddress: primaryPub.Address()},
+			Txs:    append([][]byte{block.Batch}, block.Txs.ToSliceOfBytes()...),
+		})
+		require.NoError(t, err)
+		require.Len(t, response.TxResults, 2)
+		for _, result := range response.TxResults {
+			require.Zero(t, result.Code, result.Log)
+		}
+		a.SetDeliverStateToCommit()
+		_, err = a.Commit(ctx)
+		require.NoError(t, err)
+		require.Equal(t, openHeight, a.LastBlockHeight())
+	}
+	commit(primaryApp.App)
+	ack, err = repl.Release(ctx, &wal.Committed{
+		Height: uint64(openHeight), LastSeq: accepted.Seq,
+		AppHash: [32]byte(primaryApp.App.CommitMultiStore().LastCommitID().Hash),
+	})
+	require.NoError(t, err)
+	require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, ack)
+	require.Equal(t, openHeight-1, backupApp.App.LastBlockHeight())
+	require.NoError(t, s.Err())
+	type releaseResult struct {
+		ack sequencer.Ack
+		err error
+	}
+	released := make(chan releaseResult, 1)
+	started := time.Now()
+	go func() {
+		ack, err := repl.Release(ctx, &wal.Open{
+			Height: uint64(openHeight + 1), OpenTimeMs: uint64(openMs + 1), BaseFee: uint256.NewInt(0),
+		})
+		released <- releaseResult{ack, err}
+	}()
+	select {
+	case result := <-released:
+		t.Fatalf("open returned before the standby consensus commit: %+v", result)
+	case <-time.After(250 * time.Millisecond):
+	}
+	require.Equal(t, openHeight-1, backupApp.App.LastBlockHeight())
+	commit(backupApp.App)
+	select {
+	case result := <-released:
+		require.NoError(t, result.err)
+		require.Equal(t, sequencer.Ack{Status: sequencer.AckOK, LastSeq: accepted.Seq}, result.ack)
+		require.Less(t, time.Since(started), cfg.ReplicationTimeout)
+	case <-time.After(cfg.ReplicationTimeout):
+		t.Fatal("standby did not acknowledge after consensus committed")
+	}
+	require.NoError(t, s.Err())
 }
 
 func newStandbyRoleApp(t *testing.T, sender utils.TestAcct) *app.TestWrapper {
