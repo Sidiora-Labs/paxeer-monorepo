@@ -11,7 +11,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, DeliveryTarget, SubscriptionCreate, SubscriptionFilter, SubscriptionId,
     SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::events::subscription::{
     Continuity, Store as SubscriptionStore, SubscriptionError,
 };
@@ -95,7 +94,11 @@ fn request() -> SubscriptionCreate {
     SubscriptionCreate {
         scope: scope(),
         filter: filter(),
-        start: ApiCursor(Sequence(0)),
+        start: ApiCursor {
+            block_height: 0,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: text(DeliveryTarget::new("uds://consumer-a"), "delivery target"),
     }
 }

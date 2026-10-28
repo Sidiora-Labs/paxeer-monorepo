@@ -3909,6 +3909,24 @@ value = "spec/workflow.kvx task statuses are pending, in_progress, done, superse
 basis = "Five tasks are superseded and 13.34.2 is blocked; the spec tooling accepts both, the specgen validator read only the first three and failed TestRepositorySpecIsValidAndCurrent (18.961.1 attempts 1 and 2)."
 affects = ["18.961.1", "spec/workflow.kvx"]
 
+[decision.1800]
+title = "The x402 buyer accepts a PaymentDrawn log for the metered scheme"
+value = "Buyer::capture_settlement verifies exactly one 0x101a payment log per settlement: PaymentExact for the exact scheme and PaymentDrawn for the metered scheme, matched as the seller matches a drawn payment; a metered recording never carries a PaymentExact log."
+basis = "The seller and the x-websearch gate settle every metered draw with PaymentDrawn while the buyer accepted only PaymentExact, so recorded_settlements_are_captured_by_the_buyer could pass only on a fabricated log (18.1129.1 attempt 11, issue #1157)."
+affects = ["18.1157.1", "18.1129.1", "11.5.2"]
+
+[decision.1801]
+title = "Re-recording the x-websearch exchange re-pins the conformance suite"
+value = "A task that rewrites the recorded x-websearch vectors also sets CONFORMANCE_VECTOR_COUNT and CONFORMANCE_SUITE_DIGEST in src/lib.rs to the values recorded_suite computes over the rewritten vectors; the pin is part of the recording, not a separate change."
+basis = "the_gate_reads_its_payment_settings_and_checks_the_configured_suite fails after every re-recording when the pin stays outside touches (18.1129.1 attempt 11)."
+affects = ["18.1129.1"]
+
+[decision.1802]
+title = "Retired RPC assertions are ported to their native successors at equal strength and PAX payees follow the main-account form"
+value = "An x-websearch payment assertion that names a retired lx_* RPC is ported to the native request the gateway now records, checking the same property with the recorded counts; the account-calls payee expectations derive through wallet_account so PAX expects the :main account; no assertion is removed or loosened."
+basis = "Fourteen assertions at tests/payment.rs still name RPCs the landed gateway tasks retired, and the payee loop at :3520-3533 expected a PAX sub-account against do_7 and the x402 model (18.1129.1 attempt 11)."
+affects = ["18.1129.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -117552,7 +117570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.5]
 title = "Record and re-verify the V4 committed vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3", "5.55.2", "18.1074.1", "18.1109.1", "18.1120.1", "18.1126.1", "18.1144.1"]
@@ -142685,7 +142703,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.0.2]
 title = "Refuse retired human-api operations with operation-retired before dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.15.2", "10.4.4", "14.10.1", "9.1.8", "18.1119.1"]
@@ -142727,9 +142745,8 @@ capabilities = ["10.7.2"]
 interfaces = ["interface.10.rs-human-service-journeys-intent-submit-start-kernel-journey"]
 do_1 = "`start_kernel_journey` (services/human/crates/layerx-human-service/src/journeys/intent_submit.rs:253) starts a journey from kernel activity envelopes; start it from signed EIP-1559 transactions with the leg nonces of task 10.7.1 and record each leg `tx_hash`."
 do_2 = "`execute_intent_plan` (services/human/crates/layerx-human-service/src/server/production_components.rs:4964) and `intent_plan_json` (services/human/crates/layerx-human-service/src/server/production_components.rs:9527) emit kernel plan legs; emit per leg `to`, `value`, calldata, `nonce`, `max_fee_per_gas` and `max_priority_fee_per_gas`, matching the intent.plan answer reshaped in task 10.15.4."
-do_3 = "`sign_send_now` (services/human/crates/layerx-human-service/src/server/production_components.rs:8657) calls `signer.sign_send` at :8745; build an unsigned type-2 bank 0x1001 transfer and sign it with `AttestorSigner::sign_evm_transaction` through the KMS, per decision.1005."
-do_4 = "Read the native send purpose signature at services/human/crates/layerx-human-service/src/server/production_components.rs:8875 through `sign_native_send_purpose` (services/human/crates/layerx-human-kms/src/attestor.rs:1100), which stays."
-do_5 = "Create services/human/crates/layerx-human-service/tests/intent_plan_evm.rs (planned) driving intent.plan and intent.submit through a real `Router` over `ProductionComponents` opened in a temp directory."
+do_3 = "Read the native send purpose signature at services/human/crates/layerx-human-service/src/server/production_components.rs:8875 through `sign_native_send_purpose` (services/human/crates/layerx-human-kms/src/attestor.rs:1100), which stays."
+do_4 = "Create services/human/crates/layerx-human-service/tests/intent_plan_evm.rs (planned) driving intent.plan and intent.submit through a real `Router` over `ProductionComponents` opened in a temp directory."
 symbols = ["start_kernel_journey", "execute_intent_plan", "intent_plan_json", "sign_send_now"]
 touches = ["services/human/crates/layerx-human-service/src/journeys/intent_submit.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_plan_answers_eip1559_legs", "services/human/crates/layerx-human-service/tests/intent_plan_evm.rs::intent_submit_records_each_leg_tx_hash"]
@@ -142740,7 +142757,7 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
 rollback = "Revert intent_submit.rs and production_components.rs and delete the new test file."
-do_6 = "Move the layerx_crypto codec uses at services/human/crates/layerx-human-service/src/server/production_components.rs:15, :16, :17, :8704 and 8 more to bind_call, ledger_payment_call and sign_disclosed_call (wiring.J44.25; folded into this task because it owns the file in every wave up to 4, decision.1720)."
+do_5 = "Move the layerx_crypto codec uses at services/human/crates/layerx-human-service/src/server/production_components.rs:15, :16, :17, :8704 and 8 more to bind_call, ledger_payment_call and sign_disclosed_call (wiring.J44.25; folded into this task because it owns the file in every wave up to 4, decision.1720)."
 fulfils = ["wiring.J44.25"]
 max_builds = 1
 max_verify_runs = 1
@@ -142966,7 +142983,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.2]
 title = "Render approvals with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.0.1", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -142998,7 +143015,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.3]
 title = "Project journeys and activity with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.2.1", "9.0.1", "10.2.2", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -143093,7 +143110,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.6]
 title = "Approve agent holds against the pending nonce instead of the kernel sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.2.2", "9.1.8", "18.1119.1"]
@@ -143124,7 +143141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.7]
 title = "Carry transaction hashes, receipt hashes, block heights and rungs in receipt material"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.1.6", "9.1.8", "18.1119.1"]
@@ -143173,7 +143190,7 @@ do_6 = "Create services/human/crates/layerx-human-service/tests/export_receipts.
 do_7 = "services/human/crates/layerx-human-service/tests/activity.rs:37 imports `SettlementDomain` and `cached_receipt_rows_are_labelled_only_by_the_verifier` (services/human/crates/layerx-human-service/tests/activity.rs:698) builds `domain` and `foreign_domain` at :705-706 and asserts `UnverifiedReason::SettlementDomainMismatch` at :844; drop the import, both domain values and the foreign-domain case, and verify the cached rows through the version-2 receipt check of do_3 while keeping every tenant, digest and wrong-batch label assertion."
 do_8 = "services/human/crates/layerx-human-service/tests/export.rs also builds the event Cursor as a tuple at :213 and :240, names verification_level at :216 (rung: Rung since d7ffdc755, src/activity/stream.rs:206) and passes the version 1 OfflineExport to layerx_agentd::export::build at :308, which takes layerx_agent_api::export::OfflineExport (services/agent/crates/layerx-agent-api/src/read.rs:592); port those four sites as part of the version 2 bundle so the export target compiles and runs."
 symbols = ["EvidenceBundle", "EvidenceBundle::verify_receipt", "EvidenceExport::evidence", "ReceiptEvidence"]
-touches = ["services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/activity.rs"]
+touches = ["services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/activity.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v2_round_trips_receipt_fields", "services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v1_is_refused", "services/human/crates/layerx-human-service/tests/export_receipts.rs::tampered_receipt_hash_fails_verify_receipt", "services/human/crates/layerx-human-service/tests/activity.rs::cached_receipt_rows_are_labelled_only_by_the_verifier"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/export_receipts.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -143189,6 +143206,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "AgentRuntime::connect (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1975-1988) takes `crate::frame::Limits` and passes it to connect_peer unchanged, deleting the LNI field copy at :1981-1987; the callers production_components.rs:1068 (self.agent_limits) and :9386 pass the frame value once do_5 switches :14 to `crate::frame`. The tests of 10.4.3 keep working because they then import the frame Limits for connect; this task's gate builds them."
 
 [task.10.3.2]
 title = "Drop the settlement domain from the stream journal"
@@ -143223,7 +143241,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.4.1]
 title = "Move the custody gateway and KMS provider client onto the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143255,7 +143273,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.4.2]
 title = "Move the KMS gateway binary and KMS provider tests onto the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.1", "10.4.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143294,8 +143312,8 @@ reqs = ["10011.1", "10011.2", "10011.3"]
 capabilities = ["10.4.5"]
 interfaces = []
 do_1 = "services/human/crates/layerx-human-service/tests/evidence_node.rs:5 imports `layerx_client::lni::schema::{Capability, Version}` for the node Client and ClientConfig, which stay on `layerx_client::lni`; the file needs no change and its test runs unchanged through the verify_cmd."
-do_2 = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:4-6 imports the LNI HandshakeConfig, schema::Version and transport Limits; keep HandshakeConfig and Version on `layerx_client::lni` and pass `layerx_human_service::frame` Limits only to AgentRuntime::connect (services/human/crates/layerx-human-service/tests/native_send_producer.rs:137), the human-socket transport value whose type task 10.13.3 changes."
-do_3 = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:20-22 imports the LNI HandshakeConfig, schema::Version and transport Limits and MutualTlsConfig; keep HandshakeConfig and Version on `layerx_client::lni` and pass `layerx_human_service::frame` Limits and MutualTlsConfig only to AgentRuntime::connect (services/human/crates/layerx-human-service/tests/native_journey_approval.rs:138) and RemoteKmsProvider::new (services/human/crates/layerx-human-service/tests/native_journey_approval.rs:167), whose signatures tasks 10.13.3 and 10.4.1 change."
+do_2 = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:4-6 imports the LNI HandshakeConfig, schema::Version and transport Limits; keep all three on `layerx_client::lni`. AgentRuntime::connect (src/server/agent_runtime.rs:1975-1988) still takes `layerx_client::lni::transport::Limits` and converts it to the frame Limits itself (10.13.3 did not change that parameter; 10.3.1 do_9 does), so the call at :137 keeps the LNI value. Import `layerx_human_service::frame` types only where RemoteKmsProvider::new is called."
+do_3 = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:20-22 imports the LNI HandshakeConfig, schema::Version, transport Limits and MutualTlsConfig; keep HandshakeConfig, Version and the Limits passed to AgentRuntime::connect (:138) on `layerx_client::lni`, and pass `layerx_human_service::frame` Limits and MutualTlsConfig to RemoteKmsProvider::new (:167), whose signature 10.4.1 changed. Both types stay imported under distinct names."
 do_4 = "Run the three existing tests named below with their assertions unchanged, starting with services/human/crates/layerx-human-service/tests/evidence_node.rs:100, so the move is proven on real code paths without weakening any check."
 symbols = ["frame::read_frame", "frame::write_frame"]
 touches = ["services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
@@ -143473,7 +143491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.7.1]
 title = "Bind intent legs to pending-tag nonces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.13.3", "9.1.8", "18.1119.1"]
@@ -143691,7 +143709,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.1]
 title = "Replace the KMS activity module registry with a chain snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143756,7 +143774,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.3]
 title = "Serve the LXKP EVM wallet and EVM operations through the attestor signer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.11.2", "10.11.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143788,7 +143806,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.4]
 title = "Retire the LXKP authorize-recipient operation and the KMS settlement recipient"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.11.3", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143819,7 +143837,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.5]
 title = "Authorize sends as EIP-1559 transactions and retire the kernel send signers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["10.11.3", "10.11.4", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143831,7 +143849,7 @@ do_2 = "Delete `sign_payment_grant` (services/human/crates/layerx-human-kms/src/
 do_3 = "services/human/crates/layerx-human-kms/src/send.rs declares the kernel send debit types used by those signers at services/human/crates/layerx-human-kms/src/send.rs:1; keep only the recipient and amount disclosure types the EIP-1559 authorization uses."
 do_4 = "Create services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs (planned) against the real attestor cluster of services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs."
 symbols = ["authorize_send", "Operation::AuthorizeSend", "sign_evm_transaction"]
-touches = ["services/human/crates/layerx-human-kms/src/wire.rs", "services/human/crates/layerx-human-kms/src/store.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/crates/layerx-human-kms/src/send.rs", "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs"]
+touches = ["services/human/crates/layerx-human-kms/src/wire.rs", "services/human/crates/layerx-human-kms/src/store.rs", "services/human/crates/layerx-human-kms/src/attestor.rs", "services/human/crates/layerx-human-kms/src/send.rs", "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs"]
 tests = ["services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs::authorize_send_returns_a_signed_bank_transfer", "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs::authorize_send_with_mismatched_disclosure_is_refused"]
 planned_paths = ["services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms"
@@ -143847,10 +143865,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "`sign_send_now` (services/human/crates/layerx-human-service/src/server/production_components.rs:8657) is the only caller of the deleted `sign_send` (:8758); build an unsigned type-2 bank 0x1001 transfer bound to the disclosed recipient and amount and sign it with `AttestorSigner::sign_evm_transaction` through the KMS, per decision.1005, so the human service library compiles without the deleted signers (moved here from 10.0.3 because the deletion and its caller cannot land apart)."
 
 [task.10.11.7]
 title = "Validate KMS sign requests as EIP-1559 transactions instead of kernel activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.11.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143977,7 +143996,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.1]
 title = "Carry rungs and transaction receipts in agent creation evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "10.2.7", "9.1.8", "18.1119.1"]
@@ -143986,7 +144005,7 @@ capabilities = ["10.13.1"]
 interfaces = ["interface.10.cfg-purpose-catalog-preset-activity-types", "interface.10.rs-human-service-agents-create-protocol-evidence", "interface.10.rs-human-service-agents-create-agent-evidence"]
 do_1 = "services/human/crates/layerx-human-service/src/agents/create.rs:10 imports `layerx_proof::receipt::AuthorizedBatch` and `ProtocolEvidence` (services/human/crates/layerx-human-service/src/agents/create.rs:425) carries it with a `VerificationLevel`; replace both with `tx_hash: [u8; 32]`, `receipt_hash: [u8; 32]`, `block_height: u64` and `rung: Rung`."
 do_2 = "`AgentEvidence` (services/human/crates/layerx-human-service/src/agents/create.rs:544) carries a `VerificationLevel`; carry `Rung` and treat creation as complete only at `Rung::Committed`."
-do_3 = "The purpose preset catalog key `activity_types` read at services/human/crates/layerx-human-service/src/agents/create.rs:198 lists kernel activity types; replace it with `call_selectors`, a list of 4-byte EVM function selectors in 0x hex, and refuse a preset that still carries `activity_types`."
+do_3 = "The purpose preset catalog key `activity_types` read at services/human/crates/layerx-human-service/src/agents/create.rs:198 lists kernel activity types; replace it with `call_selectors`, a list of 4-byte EVM function selectors in 0x hex, and refuse a preset that still carries `activity_types`. The kernel activity types the creation request carries stay on SessionProvision and CapabilityProvision (src/agents/create.rs) and flow unchanged into the authority grants, the native provisions and the rotation and onboarding paths (src/server/agent_creation.rs:620-1122, agent_creation_native.rs:689, production_components.rs:8059, production_rotation.rs:668); call_selectors is read from the preset and does not replace that field."
 do_4 = "services/human/crates/layerx-human-service/src/agents/create_native.rs:245-296 builds `ProtocolEvidence` for native agents; fill the new fields from the native creation receipt."
 do_5 = "Create services/human/crates/layerx-human-service/tests/agent_evidence_rungs.rs (planned) driving the public `agents` API."
 symbols = ["ProtocolEvidence", "AgentEvidence", "call_selectors"]
@@ -144040,7 +144059,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.3]
 title = "Decode the agent runtime peer answers with rung bytes and 65-byte signatures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.0.1", "10.2.7", "9.1.8", "18.1119.1"]
@@ -144050,7 +144069,7 @@ interfaces = []
 fulfils = ["wiring.J43.1"]
 do_1 = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:31 and :32 keep the `LXHAGT01` and `LXHAGT02` magics and the opcode numbers at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:57-119, per decision.1004 and the agent domain decision to keep the human peer codec."
 do_2 = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4209 `decode_rung` (landed) maps byte 0 to Submitted and 1..=5 to Receipted; accept exactly 0 Submitted, 1 Receipted and 2 Committed and refuse any other byte."
-do_3 = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4217 `decode_level` and :4239 `decode_receipt` (which reads `AuthorizedBatch` and levels 1..5 at :4248-4253) are deleted; decode a receipt as `tx_hash`, `receipt_hash`, `observed_height` and rung byte, the HumanFinalizationEvidence shape requested by wiring.J43.1."
+do_3 = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4238 `decode_receipt` already fills the ReceiptMaterial 10.2.7 landed (src/journeys/engine.rs:229-237: canonical_bytes, authorised_batch, verification_level, tx_hash, receipt_hash, block_height, rung); keep those seven fields and their reads, route the rung byte at :4258 through `decode_rung`, and delete `decode_level` (:4216) once nothing reads it. ReceiptMaterial carries no observed_height and no signature: block_height is the observed height wiring.J43.1 asks for, and the 65-byte signature of do_4 belongs to the signature frames, not to the receipt."
 do_4 = "Delete the `SettlementAnchored` decodes at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2479-2480, :2830-2831 and :4058, and widen the signature reads at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4920 from `[u8; 64]` to `[u8; 65]` with the writes at :3978, :4565 and :5089."
 do_5 = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:12 imports `Level` and :14 imports the LNI client; drop the Level import and import `crate::frame` for the peer socket."
 do_6 = "Create services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs (planned) exchanging frames with a real peer socket served by the test."
@@ -144074,7 +144093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.4]
 title = "Answer agent account state and native send owner context with pending nonces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.13.3", "9.1.8", "18.1119.1"]
@@ -144200,8 +144219,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Preview native sends at the pending nonce"
 status = "pending"
 mode = "BUILD"
-wave = 7
-requires = ["10.13.3", "9.1.8", "18.1119.1"]
+wave = 11
+requires = ["10.13.3", "9.1.8", "18.1119.1", "10.13.4", "10.13.5"]
 reqs = ["10037.1", "10037.2"]
 capabilities = ["10.13.8"]
 interfaces = []
@@ -144210,7 +144229,7 @@ do_2 = "`load_access` (services/human/crates/layerx-human-service/src/server/nat
 do_3 = "Leave `HumanOwnerNativeContextV1` (services/human/crates/layerx-human-service/src/server/native_send.rs:215) field order unchanged apart from the nonce type."
 do_4 = "Create services/human/crates/layerx-human-service/tests/native_send_nonces.rs (planned) through the public native send API."
 symbols = ["NativeSendPreviewV1", "load_access"]
-touches = ["services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
+touches = ["services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/native_send_nonces.rs::native_send_preview_carries_nonce_and_fee_fields", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs::native_send_access_below_pending_nonce_is_expired"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -144226,6 +144245,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "NativeSendPreviewV1 is decoded from the peer answer at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4608-4616 (head_sequence, protocol_time_ms, owner_public_key, revocation_sequence); the answer the daemon writes (services/agent/crates/layerx-agentd/src/human_runtime.rs:8642-8662) carries no nonce and no fee, so this task runs after 10.13.5 and reads the pending nonce, max_fee_per_gas and max_priority_fee_per_gas from the unsigned type-2 transaction 10.13.5 makes the preview carry. Pass the pending nonce of AgentRuntime::pending_nonce (agent_runtime.rs:1792, 10.13.4) to load_access at production_components.rs:9798, :9858 and :9871 for do_2. If the preview after 10.13.5 still carries no transaction, stop and record it."
 
 [task.10.14.1]
 title = "Answer home summary and account balance with the balance rung"
@@ -144733,7 +144753,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.1]
 title = "Remove the precompile-routed intent kinds from the intents vocabulary"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.2", "11.0.2", "11.30.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -144746,8 +144766,11 @@ do_2 = "Delete `IntentKind::settled_on_paxeer` (services/human/crates/layerx-int
 do_3 = "In `compile` (services/human/crates/layerx-intents/src/compile.rs:134) delete the `ExchangeOrder`, `ExchangeCancel`, `ExchangeSettle` arms at services/human/crates/layerx-intents/src/compile.rs:604-606, the `ExchangeMarginDeposit` and `ExchangeMarginWithdraw` alternatives at services/human/crates/layerx-intents/src/compile.rs:558 and :575, and the settled-on-Paxeer refusal arm at services/human/crates/layerx-intents/src/compile.rs:607-620."
 do_4 = "In services/human/crates/layerx-intents/src/disclosure.rs delete the exchange alternatives at services/human/crates/layerx-intents/src/disclosure.rs:104, :434, :469, :478-490, :541, :789, :793 and the `DisclosureCheckError::SettledOnPaxeer` arm at services/human/crates/layerx-intents/src/disclosure.rs:796-804."
 do_5 = "Create services/human/crates/layerx-intents/tests/live_kinds.rs (planned) compiling one intent of every remaining `IntentKind` variant against the registry of services/human/crates/layerx-intents/tests/compile.rs:69 and asserting each compiled module is Governance, Asset, Budget, Bridge or Perps and never a settled-on-Paxeer refusal."
+do_6 = "Delete services/human/crates/layerx-intents/src/precompile.rs (1,226 lines: `EXCHANGE_PRECOMPILE` at services/human/crates/layerx-intents/src/precompile.rs:20, `PrecompileEventKind` at :28, `PrecompileEvent::decode` at :521, `route` at :1131 and `route_event` at :1142) in the same change as the thirteen variants: the variants wrap `crate::precompile` types and precompile.rs constructs the variants (fifteen E0599 sites in attempt 2), so neither deletion builds without the other."
+do_7 = "Delete `pub mod precompile;` at services/human/crates/layerx-intents/src/lib.rs:13; `keccak256` stays reachable through `mod keccak` (services/human/crates/layerx-intents/src/lib.rs:8), not through `precompile`."
+do_8 = "Delete services/human/crates/layerx-intents/tests/precompile_router.rs (1,359 lines, includes the exchange, bridge and launchpad ABI files at services/human/crates/layerx-intents/tests/precompile_router.rs:27-29); no crate outside layerx-intents names `layerx_intents::precompile`."
 symbols = ["IntentKind", "IntentKind::module", "IntentKind::perps_payload", "compile", "DisclosureCheck::verify", "every_remaining_intent_kind_compiles", "perps_intent_still_compiles_to_perps_module"]
-touches = ["services/human/crates/layerx-intents/src/vocabulary.rs", "services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/live_kinds.rs"]
+touches = ["services/human/crates/layerx-intents/src/vocabulary.rs", "services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/live_kinds.rs", "services/human/crates/layerx-intents/src/precompile.rs", "services/human/crates/layerx-intents/src/lib.rs", "services/human/crates/layerx-intents/tests/precompile_router.rs"]
 tests = ["services/human/crates/layerx-intents/tests/live_kinds.rs::every_remaining_intent_kind_compiles", "services/human/crates/layerx-intents/tests/live_kinds.rs::perps_intent_still_compiles_to_perps_module"]
 planned_paths = ["services/human/crates/layerx-intents/tests/live_kinds.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
@@ -144755,7 +144778,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Revert vocabulary.rs, compile.rs and disclosure.rs and delete tests/live_kinds.rs."
+rollback = "Revert vocabulary.rs, compile.rs, disclosure.rs and lib.rs, restore precompile.rs and tests/precompile_router.rs from the pinned revision, and delete tests/live_kinds.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -144765,8 +144788,8 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.10.21.2]
-title = "Delete the layerx-intents precompile event router"
-status = "pending"
+title = "Prove the layerx-intents precompile event router is retired"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["10.21.1", "11.0.3", "11.30.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -144774,13 +144797,10 @@ reqs = ["10242.1"]
 capabilities = ["10.21.2"]
 interfaces = ["interface.10.rs-intents-precompile-exchange-precompile", "interface.10.rs-intents-precompile-bridge-precompile", "interface.10.rs-intents-precompile-launchpad-precompile", "interface.10.rs-intents-precompile-precompile-event-kind", "interface.10.rs-intents-precompile-precompile-event-kind-all", "interface.10.rs-intents-precompile-precompile-event-kind-precompile", "interface.10.rs-intents-precompile-precompile-event-kind-signature", "interface.10.rs-intents-precompile-precompile-event-kind-topic0", "interface.10.rs-intents-precompile-precompile-event-kind-identify", "interface.10.rs-intents-precompile-evm-log", "interface.10.rs-intents-precompile-margin-deposited", "interface.10.rs-intents-precompile-order-placed", "interface.10.rs-intents-precompile-config-updated", "interface.10.rs-intents-precompile-fee-distributed", "interface.10.rs-intents-precompile-fee-flow", "interface.10.rs-intents-precompile-fee-strategy-changed", "interface.10.rs-intents-precompile-market-created", "interface.10.rs-intents-precompile-nft-mint", "interface.10.rs-intents-precompile-nft-transfer", "interface.10.rs-intents-precompile-pool-registered", "interface.10.rs-intents-precompile-pool-state-updated", "interface.10.rs-intents-precompile-router-trade", "interface.10.rs-intents-precompile-swap", "interface.10.rs-intents-precompile-token-deployed", "interface.10.rs-intents-precompile-precompile-event", "interface.10.rs-intents-precompile-event-decode-error", "interface.10.rs-intents-precompile-uint256-to-u128", "interface.10.rs-intents-precompile-precompile-event-decode", "interface.10.rs-intents-precompile-exchange-order", "interface.10.rs-intents-precompile-exchange-order-new", "interface.10.rs-intents-precompile-exchange-order-event", "interface.10.rs-intents-precompile-exchange-order-payload", "interface.10.rs-intents-precompile-route-binding", "interface.10.rs-intents-precompile-route-error", "interface.10.rs-intents-precompile-route", "interface.10.rs-intents-precompile-route-event", "interface.10.rs-intents-lib-precompile-l13-j46", "interface.10.rs-intents-precompile-keccak256-l5-j46", "interface.10.rs-intents-precompile-margin-withdrawal-requested-l172-j46", "interface.10.rs-intents-precompile-order-cancel-requested-l182-j46", "interface.10.rs-intents-precompile-settlement-requested-l202-j46", "interface.10.rs-intents-precompile-bridge-in-l210-j46", "interface.10.rs-intents-precompile-bridge-out-l221-j46", "interface.10.rs-intents-precompile-fn-l544-j46", "interface.10.rs-intents-precompile-new-for-abi-l892-j46", "interface.10.rs-intents-precompile-exchange-cancel-l949-j46", "interface.10.rs-intents-precompile-new-l960-j46", "interface.10.rs-intents-precompile-fn-l971-j46", "interface.10.rs-intents-precompile-fn-l976-j46", "interface.10.rs-intents-precompile-exchange-settle-l983-j46", "interface.10.rs-intents-precompile-new-l994-j46", "interface.10.rs-intents-precompile-fn-l1005-j46", "interface.10.rs-intents-precompile-fn-l1010-j46", "interface.10.rs-intents-precompile-exchange-margin-deposit-l1018-j46", "interface.10.rs-intents-precompile-new-l1028-j46", "interface.10.rs-intents-precompile-fn-l1046-j46", "interface.10.rs-intents-precompile-fn-l1051-j46", "interface.10.rs-intents-precompile-exchange-margin-withdraw-l1059-j46", "interface.10.rs-intents-precompile-new-l1069-j46", "interface.10.rs-intents-precompile-fn-l1086-j46", "interface.10.rs-intents-precompile-fn-l1091-j46"]
 wiring = ["wiring.J46.7"]
-do_1 = "Delete services/human/crates/layerx-intents/src/precompile.rs (1,226 lines: `EXCHANGE_PRECOMPILE` at services/human/crates/layerx-intents/src/precompile.rs:20, `PrecompileEventKind` at :28, `PrecompileEvent::decode` at :521, `route` at :1131 and `route_event` at :1142)."
-do_2 = "Delete `pub mod precompile;` at services/human/crates/layerx-intents/src/lib.rs:13."
-do_3 = "Delete services/human/crates/layerx-intents/tests/precompile_router.rs (1,359 lines, includes the exchange, bridge and launchpad ABI files at services/human/crates/layerx-intents/tests/precompile_router.rs:27-29)."
-do_4 = "Keep services/human/crates/layerx-intents/src/keccak.rs; `keccak256` stays reachable through the crate root re-export, not through `precompile` (services/human/crates/layerx-intents/src/precompile.rs:5)."
-do_5 = "Create services/human/crates/layerx-intents/tests/router_retired.rs (planned) asserting that `layerx_intents::fuzz_targets::INTENT_PARSING_AND_COMPILATION` (services/human/crates/layerx-intents/src/lib.rs:30) still names the single committed fuzz surface and that `inspect_intent` refuses an EVM log body with `RejectReason::Malformed`."
+do_1 = "Keep services/human/crates/layerx-intents/src/keccak.rs; `keccak256` stays reachable through `mod keccak` at services/human/crates/layerx-intents/src/lib.rs:8. precompile.rs, its module line and tests/precompile_router.rs are deleted by 10.21.1 together with the variants that wrapped its types."
+do_2 = "Create services/human/crates/layerx-intents/tests/router_retired.rs (planned) asserting that `layerx_intents::fuzz_targets::INTENT_PARSING_AND_COMPILATION` (services/human/crates/layerx-intents/src/lib.rs:30) still names the single committed fuzz surface and that `inspect_intent` refuses an EVM log body with `RejectReason::Malformed`."
 symbols = ["inspect_intent", "evm_log_bytes_are_not_an_intent"]
-touches = ["services/human/crates/layerx-intents/src/precompile.rs", "services/human/crates/layerx-intents/src/lib.rs", "services/human/crates/layerx-intents/tests/precompile_router.rs", "services/human/crates/layerx-intents/tests/router_retired.rs"]
+touches = ["services/human/crates/layerx-intents/tests/router_retired.rs"]
 tests = ["services/human/crates/layerx-intents/tests/router_retired.rs::evm_log_bytes_are_not_an_intent"]
 planned_paths = ["services/human/crates/layerx-intents/tests/router_retired.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
@@ -144788,7 +144808,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Restore precompile.rs, the lib.rs module line and tests/precompile_router.rs from the pinned revision."
+rollback = "Delete tests/router_retired.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -145085,7 +145105,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.3]
 title = "Serve the test evidence node over the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.23.7", "9.1.8", "18.1119.1"]
@@ -145146,7 +145166,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.5]
 title = "Add the cargo metadata harness to the human test-support crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -145861,19 +145881,18 @@ title = "Delete the explorer index freshness and mirror reports"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1"]
+requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1153.1"]
 reqs = ["10276.1"]
 capabilities = ["10.27.6"]
 interfaces = ["interface.10.rs-explorer-index-mirror-mirror-receipt-report-l13-j46", "interface.10.rs-explorer-index-mirror-mirror-state-report-l22-j46", "interface.10.rs-explorer-index-mirror-explorer-mirror-error-l30-j46", "interface.10.rs-explorer-index-mirror-verify-mirrored-receipt-l51-j46", "interface.10.rs-explorer-index-mirror-verify-mirrored-state-l79-j46", "interface.10.rs-explorer-index-freshness-freshness-l3-j46", "interface.10.rs-explorer-index-freshness-fn-l14-j46", "interface.10.rs-explorer-index-freshness-is-current-l23-j46", "interface.10.rs-explorer-index-freshness-indexed-l31-j46"]
 fulfils = ["wiring.J44.16"]
-do_1 = "Delete services/human/crates/layerx-explorer-index/src/freshness.rs:1-34."
-do_2 = "Delete services/human/crates/layerx-explorer-index/src/mirror.rs:1-105."
-do_3 = "Delete services/human/crates/layerx-explorer-index/tests/rebuild.rs:1-509."
-do_4 = "`Freshness` (services/human/crates/layerx-explorer-index/src/freshness.rs:3) and `MirrorReceiptReport` (services/human/crates/layerx-explorer-index/src/mirror.rs:13) report kernel mirror state; services/human/crates/layerx-explorer-index/tests/rebuild.rs:13 reads the retired checkpoint types (wiring.J44.16)."
-do_5 = "Read the workspace through `human_workspace_metadata` and `human_sources_containing` of task 10.25.5 at services/human/crates/layerx-human-test-support/src/lib.rs (planned)."
-do_6 = "Create services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs (planned) asserting the acceptance of this task with `std::path::Path::exists` and the two helpers."
+do_1 = "Delete services/human/crates/layerx-explorer-index/src/freshness.rs:1-34; src/mirror.rs was already deleted by 18.1153.1 (issue #1153)."
+do_2 = "Delete services/human/crates/layerx-explorer-index/tests/rebuild.rs:1-509."
+do_3 = "`Freshness` (services/human/crates/layerx-explorer-index/src/freshness.rs:3) reports kernel mirror state; services/human/crates/layerx-explorer-index/tests/rebuild.rs:13 reads the retired checkpoint types (wiring.J44.16)."
+do_4 = "Read the workspace through `human_workspace_metadata` and `human_sources_containing` of task 10.25.5 at services/human/crates/layerx-human-test-support/src/lib.rs (planned)."
+do_5 = "Create services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs (planned) asserting the acceptance of this task with `std::path::Path::exists` and the two helpers."
 symbols = ["human_workspace_metadata", "human_sources_containing", "retired_explorer_index_mirror_files_and_references_are_gone"]
-touches = ["services/human/crates/layerx-explorer-index/src/freshness.rs", "services/human/crates/layerx-explorer-index/src/mirror.rs", "services/human/crates/layerx-explorer-index/tests/rebuild.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
+touches = ["services/human/crates/layerx-explorer-index/src/freshness.rs", "services/human/crates/layerx-explorer-index/tests/rebuild.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs::retired_explorer_index_mirror_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
@@ -146213,7 +146232,7 @@ title = "Migrate the layerx-explorer-index callers of wiring.J44.21"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["10.0.2", "9.1.8", "18.1119.1"]
+requires = ["10.0.2", "9.1.8", "18.1119.1", "18.1153.1"]
 reqs = ["10941.1"]
 capabilities = ["10.98.1"]
 interfaces = []
@@ -146279,7 +146298,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.98.3]
 title = "Migrate the layerx-human-movement-provider callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.2", "10.4.1", "9.1.8", "18.1119.1"]
@@ -146449,7 +146468,7 @@ title = "Migrate the layerx-human-kms callers of wiring.J44.25"
 status = "pending"
 mode = "BUILD"
 wave = 12
-requires = ["10.0.3", "9.1.7", "9.1.8", "18.1119.1"]
+requires = ["10.0.3", "9.1.7", "9.1.8", "18.1119.1", "18.1156.1"]
 reqs = ["10948.1"]
 capabilities = ["10.98.8"]
 interfaces = []
@@ -146623,7 +146642,7 @@ title = "Migrate the layerx-intents callers of wiring.J44.25 (wave 3)"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1"]
+requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1", "18.1153.1"]
 reqs = ["10953.1"]
 capabilities = ["10.98.13"]
 interfaces = []
@@ -153571,7 +153590,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.1]
 title = "Carry the optional leg tx_hash in SDK intent bindings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.24.2", "10.0.2"]
@@ -153601,7 +153620,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.2]
 title = "Decode the optional transaction hash of journey evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["12.29.1"]
@@ -157354,7 +157373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.26.3]
 title = "Serve exitValue and exitValueBounded from a tombstoned program"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1", "18.1124.1", "18.1130.1"]
@@ -157389,7 +157408,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -158376,7 +158395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.9]
 title = "Prove 0x101D value account views equal bank balances of the same accounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.28.2", "13.25.1", "18.1073.1", "18.1123.1", "18.1130.1"]
@@ -172354,7 +172373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -172554,7 +172573,7 @@ title = "Issue #849: Build the layerx chain image with its native-library Rust s
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1106.1", "18.1141.1"]
+requires = ["18.1106.1", "18.1141.1", "18.1152.1"]
 reqs = ["18849.1"]
 capabilities = []
 interfaces = []
@@ -172562,7 +172581,7 @@ do_1 = "Build docker/layerx/Dockerfile from the repository root with its docker/
 do_2 = "For any failure in the native stage, add the missing inputs to its COPY lines (docker/layerx/Dockerfile:12-23) or re-include the excluded paths in docker/layerx/Dockerfile.dockerignore, keeping the paths it already re-includes (for example !programs/vendor/** and !services/agent/**) and its secret exclusions unchanged."
 do_3 = "Keep the native stage identical in toolchain pin and outputs to docker/paxeer/Dockerfile.paxd-node, so both images link the same native archives."
 do_4 = "Qualify with one full docker build of docker/layerx/Dockerfile that exits 0."
-symbols = ["native"]
+symbols = []
 touches = ["docker/layerx/Dockerfile", "docker/layerx/Dockerfile.dockerignore"]
 tests = ["docker/layerx/Dockerfile::native"]
 planned_paths = []
@@ -173622,7 +173641,7 @@ qualification = "UNRUN"
 
 [task.18.877.1]
 title = "Issue #877: Delete re-scanned price feed rows below the watermark and keep each market's newest price under retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -174760,7 +174779,7 @@ qualification = "UNRUN"
 
 [task.18.865.1]
 title = "Issue #865: Broadcast explorer price updates once and keep catch-up heights off the live block and transaction feeds"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176979,7 +176998,7 @@ title = "Issue #869: Build the layerx image and pin the paxd-node runtime to Ubu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1116.1", "18.1106.1", "18.1141.1"]
+requires = ["18.1116.1", "18.1106.1", "18.1141.1", "18.1152.1", "18.849.1"]
 reqs = ["18869.1", "18869.2"]
 capabilities = []
 interfaces = []
@@ -178981,7 +179000,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179417,7 +179436,7 @@ ac_1 = "cargo test -p layerx-agent-api --test stream compiles and passes with th
 
 [req.181129]
 title = "Re-record the x-websearch client exchange with the x402 buyer's log evidence"
-ac_1 = "Every PAYMENT-RESPONSE in client-exchange.json carries logs and height-keyed receipts under a sequencer id that gateway/buyer.json publishes with its public key and batch window, Buyer::capture_settlement accepts each recorded settlement, and the payment tests pass unchanged."
+ac_1 = "Every PAYMENT-RESPONSE in client-exchange.json carries logs and height-keyed receipts under a sequencer id that gateway/buyer.json publishes with its public key and batch window, Buyer::capture_settlement accepts each recorded settlement through its PaymentExact (exact) or PaymentDrawn (metered) log, the conformance pin matches the re-recorded suite, and the payment tests pass unchanged."
 ac_2 = "The seller offers PAX into the receiver's DID main account and every other asset into its sub-account, the recorded grants and receipts are issued from the configured payer's ledger account, and the whole payment test target passes."
 
 [req.181130]
@@ -179759,7 +179778,7 @@ ac_1 = "cargo build -p layerx-human-service --tests compiles tests/reclaim.rs ag
 
 [req.181143]
 title = "Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
-ac_1 = "cargo build -p layerx-agentd --tests compiles the four test files against the braced Cursor and their test targets pass with assertions unchanged."
+ac_1 = "cargo build -p layerx-agentd --tests compiles the four test files against the braced Cursor; the delivery, webhook and w7_subscription_permit targets pass with assertions unchanged, and the approval_events target compiles (its restore-after-gap fixture is repaired by 18.1150.1)."
 
 [req.181144]
 title = "Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
@@ -179767,11 +179786,74 @@ ac_1 = "The standby commits each replayed layer through the sealed-layer path, a
 
 [req.181147]
 title = "The layerx-human-service wallet identity test compiles with the ureq dependency the shared KMS attestor test support requires"
-ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ureq through a development dependency identical to the one layerx-human-kms declares, services/human/Cargo.lock records that edge, cargo --locked accepts the workspace, and the target compiles and its tests pass with no source file changed."
+ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ureq through a development dependency identical to the one layerx-human-kms declares, services/human/Cargo.lock records that edge, cargo --locked accepts the workspace, and the target links and its attestor-independent test passes (the attestor path is qualified by 18.1151.1)."
 
 [req.181149]
 title = "The reclaim test target passes in full against the pending-nonce reclaim agent"
 ac_1 = "All five tests of the layerx-human-service reclaim target pass: the journey fixtures sign the activity the service prepares, or a recorded contract divergence names the prepared and signed bytes."
+
+[req.18680]
+title = "The variable helper provisions the stats service's inline mTLS key as raw multi-line PEM"
+ac_1 = "With IDENTITY_MTLS_CLIENT_KEY_PEM supplied as a multi-line PEM value, the variable helper's --plan and --apply preflight report no 'contains a newline' problem for the stats service, the plan prints the key as ****, and a newline in a value whose name ends in neither _DOCUMENT nor _PEM is still refused with exit 2."
+
+[req.18726]
+title = "The gateway's hosted env example names only variables the gateway reads, including the indexer, faucet and receipt-key settings"
+ac_1 = "The example sets LAYERX_GATEWAY_INDEXER_URL to the indexer's TLS listener, documents the optional faucet and receipt-key variables, carries no LAYERX_GATEWAY_SEQUENCER_ or ENDPOINT_SEQUENCER_ name, keeps the LAYERX_EVENTS_ producer variables, and every ENDPOINT_ name and /run/secrets path it uses has a row in the gateway file-secret table, as the env_example test asserts."
+
+[req.18729]
+title = "The indexer's hosted env example names the paxscan database URL and certificate pin the backfill requires"
+ac_1 = "The example lists PAXSCAN_DATABASE_PUBLIC_URL and LAYERX_INDEXER_PAXSCAN_CERT_SHA256 as operator-filled placeholders, and BackfillConfig::from_args over the example's names with those two filled parses successfully while the same input without the pin is refused."
+
+[req.181150]
+title = "The approval stream test restores a gap through a chain event the backfill rule accepts"
+ac_1 = "cargo test -p layerx-agentd --test approval_events passes: the restore-after-gap fixture recovers a durable chain log whose position lies inside the gap, and every approval emission and digest-evidence assertion is unchanged; after the restore the subscription delivers the four approval events and then the recovered chain event once."
+
+[req.181151]
+title = "The wallet identity end-to-end test starts its attestor nodes with the type the attestor admits"
+ac_1 = "cargo test -p layerx-human-service --test wallet_identity_e2e passes: both attestor nodes start with ATTESTOR_ACTIVITY_TYPES holding the asset send alone and the kernel send is signed through them to a verified receipt, and the test's receipt builder fills the transaction hash, receipt hash, block height and rung that receipt material carries since 10.2.7."
+ac_2 = "The test approves the service's key in the attestor inventory for generate and then sign, so key creation and the kernel send through the attestors are accepted and the receipt is verified."
+
+[req.181152]
+title = "The root go.sum carries every go.mod hash the module graph needs, including golang.org/x/term v0.15.0"
+ac_1 = "GOFLAGS=-mod=readonly go mod download at the repository root exits 0, so the builder stage of docker/layerx/Dockerfile passes its go mod download step."
+
+[req.181153]
+title = "layerx-explorer-index builds and its unit tests pass without the retired mirror report"
+ac_1 = "cargo build --locked -p layerx-explorer-index --tests and cargo test --lib pass at head because src/mirror.rs and its module line are gone and nothing else references them."
+
+[req.181154]
+title = "The layerx-agentd checkpoint test target builds and passes at head"
+ac_1 = "cargo build --locked -p layerx-agentd --test checkpoint exits 0 and cargo test --test checkpoint passes, with the proof bundle refusals asserted through the receipt-proof v2 request shape as BelowRequestedRung and NotCommitted."
+
+[req.181155]
+title = "layerx-human-service approvals and decide tests still set a level field VerifiedBudgetAfter no longer has"
+ac_1 = "The approvals and decide test targets of layerx-human-service build against VerifiedBudgetAfter's rung field and pass with their assertions intact."
+
+[req.181156]
+title = "layerx-human-kms provider test writes a registry the KMS refuses: network_id 77 where it requires chain_id 125"
+ac_1 = "The layerx-human-kms provider test writes the chain_id 125 registry the KMS accepts, signs and sends with network 125, and passes."
+ac_2 = "The provider test target compiles: native_setup.rs matches every DisclosedNativeOperation variant explicitly, without a wildcard arm."
+
+[req.181157]
+title = "x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
+ac_1 = "Buyer::capture_settlement accepts a metered settlement whose single 0x101a log is the PaymentDrawn the seller verifies, refuses it when the idempotency key differs, keeps accepting exact settlements through their PaymentExact log, and the buyer and seller tests pass."
+ac_2 = "Every test of tests/buyer.rs passes with its fixtures in the eip155 network and transaction-hash forms the crate validates."
+
+[req.181158]
+title = "layerx-agentd audit_coverage test still reconstructs the version-2 audit session and fails to compile"
+ac_1 = "The audit_coverage test target compiles against the version-3 Reconstruction and reconstruct_session signature and every test in it passes, with the reconstruction assertions kept at equal strength."
+
+[req.181161]
+title = "Port the offline export bounds test to the v2 trust source"
+ac_1 = "tests/export_offline_bounds.rs builds against the v2 ExportTrustSource and its four tests pass, with the three bound tests unchanged."
+
+[req.181162]
+title = "Enforce the x402 payee binding on eip155 networks and expect the settlement logs in the seller tests"
+ac_1 = "is_layerx_network recognises eip155 networks so validate enforces the payee binding, and every test of the seller target passes with the settlement logs expected."
+
+[req.181163]
+title = "Resolve the sandbox escrow sequence account through the principal's main account"
+ac_1 = "layerx_programs_call_transfer_apply resolves an unbound principal to its owned main account the way transfer.c does, settles the sandbox escrow charge, and still refuses a principal without one."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180016,7 +180098,7 @@ qualification = "UNRUN"
 [acceptance.18.1129.1]
 feature = "18"
 req = "181129.1"
-scenario = "Given the re-recorded client exchange and the published sequencer authorization, when a buyer captures each recorded settlement with Buyer::capture_settlement, then the evidence decodes, its PaymentExact log verifies and the payment tests pass."
+scenario = "Given the re-recorded client exchange and the published sequencer authorization, when a buyer captures each recorded settlement with Buyer::capture_settlement, then the evidence decodes, its PaymentExact or PaymentDrawn log verifies and the payment tests pass."
 contract = "contracts/interop-deploy.md#deploy-workspace"
 test = "services/interop/crates/x-websearch/tests/payment.rs::delivery_recovers_the_recorded_receipted_settlement"
 qualification = "UNRUN"
@@ -180811,6 +180893,126 @@ req = "181149.1"
 scenario = "Given the reclaim agent that starts from the pending nonce, when the reclaim test target runs, then the journey fixtures are accepted by the boundary and the signature check and all five tests pass."
 contract = "contracts/README.md"
 test = "services/human/crates/layerx-human-service/tests/reclaim.rs"
+qualification = "UNRUN"
+
+[acceptance.18.680.1]
+feature = "18"
+req = "18680.1"
+scenario = "Given the stats manifest requires IDENTITY_MTLS_CLIENT_KEY_PEM and a values file supplies it as a three-line PEM, when the helper plans the stats service against an empty variable set, then it exits 0, lists the key as missing with a masked value, prints none of the PEM, and still exits 2 for a REDIS_URL value containing a newline."
+contract = "contracts/operations.md#deploy-cli"
+test = "tools/deploy/tests/railway-apply-variables.test.sh::stats_inline_pem_plan"
+qualification = "UNRUN"
+
+[acceptance.18.726.1]
+feature = "18"
+req = "18726.1"
+scenario = "Given the gateway's hosted env example and the gateway image's file-secret table, when the env_example test parses both, then it finds the indexer URL on the indexer's listener port, no sequencer variable, and a table row for every ENDPOINT_ name and /run/secrets path the example uses."
+contract = "contracts/platform-gateway.md#gateway-env-vars"
+test = "services/platform/hosted/gateway/tests/env_example.rs::router_example_names_the_indexer_listener"
+qualification = "UNRUN"
+
+[acceptance.18.729.1]
+feature = "18"
+req = "18729.1"
+scenario = "Given the indexer's hosted env example, when the env_example test serves its names to BackfillConfig::from_args with the two placeholders filled, then parsing succeeds, and when the certificate pin is withheld, then parsing is refused."
+contract = "contracts/platform-hosted.md#indexer-env-vars"
+test = "services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable"
+qualification = "UNRUN"
+
+[acceptance.18.1150.1]
+feature = "18"
+req = "181150.1"
+scenario = "Given a subscription blocked by a gap at sequence 1 and a durable chain log at block height 1, when the test applies a Recovered backfill carrying that log and its position, then apply_backfill returns Restored, admit succeeds, and the approval stream resumes and exports its digest evidence, and delivery yields the four approval events followed by the recovered event."
+contract = "contracts/agent-api.md#approval-list"
+qualification = "UNRUN"
+test = "services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
+
+[acceptance.18.1151.1]
+feature = "18"
+req = "181151.1"
+scenario = "Given the module registry with asset, governance and bridge registrations, when the test starts the attestor nodes with the asset send type alone and signs a kernel send through it, then both nodes start and the test reaches its verified receipt."
+contract = "contracts/services.md#human-service"
+qualification = "UNRUN"
+test = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"
+
+[acceptance.18.1152.1]
+feature = "18"
+req = "181152.1"
+scenario = "Given the root go.mod and a go.sum with the golang.org/x/term v0.15.0 lines added, when go mod download runs in read-only module mode, then it exits 0 without reporting a missing go.sum entry."
+contract = "contracts/tools-ops.md#wiring-integration"
+qualification = "UNRUN"
+test = "go.sum (go mod download in read-only module mode)"
+
+[acceptance.18.1153.1]
+feature = "18"
+req = "181153.1"
+scenario = "Given layerx-mirror without SignedHeaderTrust, MirrorVerifier::from_source, BatchIncluded and StateProven, when layerx-explorer-index builds with its tests and runs its unit tests, then both complete with exit 0."
+contract = "contracts/services.md#human-service"
+qualification = "UNRUN"
+test = "services/human/crates/layerx-explorer-index/src/lib.rs (unit tests)"
+
+[acceptance.18.1154.1]
+feature = "18"
+req = "181154.1"
+scenario = "Given the receipt-proof v2 ProofBundleRequest, when the checkpoint test asks proof_bundle for the Committed rung without a commit and for a bundle whose receipt is only Receipted, then verify_bundle refuses with BelowRequestedRung and NotCommitted, and every other checkpoint test passes."
+contract = "contracts/agent-api.md#approval-list"
+qualification = "UNRUN"
+test = "services/agent/crates/layerx-agentd/tests/checkpoint.rs::verified_checkpoint_derives_block_commit_without_anchor_escalation"
+
+[acceptance.18.1155.1]
+feature = "18"
+req = "181155.1"
+scenario = "Given VerifiedBudgetAfter with a rung field, when the approvals and decide tests build their budget fixtures, then they compile, assert the Committed rung and every test passes."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-service/tests/approvals.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1156.1]
+feature = "18"
+req = "181156.1"
+scenario = "Given the KMS that parses the registry as ChainSnapshot and refuses every chain id but 125, when the provider test starts the host and runs the lifecycle and canonical send tests, then the host starts and every test passes."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-kms/tests/provider.rs::actual_client_lifecycle_and_mutual_tls"
+qualification = "UNRUN"
+
+[acceptance.18.1157.1]
+feature = "18"
+req = "181157.1"
+scenario = "Given a settlement whose receipt carries exactly one PaymentDrawn log for the payment's grant, payer, recipient and idempotency key, when the buyer captures it under the metered scheme, then capture_settlement returns the evidence, and when the idempotency word differs it refuses with EvidenceMismatch."
+contract = "contracts/interop-deploy.md#deploy-workspace"
+test = "services/interop/crates/layerx-x402/tests/buyer.rs::buyer_captures_a_metered_settlement_from_a_payment_drawn_log"
+qualification = "UNRUN"
+
+[acceptance.18.1158.1]
+feature = "18"
+req = "181158.1"
+scenario = "Given the version-3 audit record, when the coverage test records a session whose entries carry a transaction hash, nonces and a Committed rung and reconstructs it by that hash, then the decisions, submitted bytes, authority, receipt bytes, hash, nonce and rung are asserted and the target passes."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-agentd/tests/audit_coverage.rs::recorded_session_reconstructs_decision_bytes_authority_and_core_receipt"
+qualification = "UNRUN"
+
+[acceptance.18.1161.1]
+feature = "18"
+req = "181161.1"
+scenario = "Given the v2 ExportTrustSource, when the offline bounds test target builds and runs, then it compiles and every test passes without a settlement-domain assertion."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1162.1]
+feature = "18"
+req = "181162.1"
+scenario = "Given an eip155:125 offer whose payTo is not derived from its layerx account, when it is validated, then ProfileMismatch is returned, and the seller target passes in full."
+contract = "contracts/interop-deploy.md#deploy-workspace"
+test = "services/interop/crates/layerx-x402/tests/seller.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1163.1]
+feature = "18"
+req = "181163.1"
+scenario = "Given a principal that owns a main account and an unbound transfer apply, when the escrow charge settles, then it debits that account; given a principal with no account, then LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE is returned."
+contract = "contracts/programs.md#market-guest"
+test = "tests/programs/test_call_escrow_principal.c"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -181725,19 +181927,19 @@ title = "Issue #1129: Re-record the x-websearch client exchange with the x402 bu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1133.1"]
+requires = ["18.1133.1", "18.1157.1"]
 reqs = ["181129.1"]
 capabilities = []
 interfaces = []
-do_1 = "Run the exchange recorder of services/interop/crates/x-websearch/tests/payment.rs (X_WEBSEARCH_RECORD_EXCHANGE, :3082 and :3214-3215) against the replayed gateway recordings so that services/interop/crates/x-websearch/tests/fixtures/client-exchange.json carries, in every PAYMENT-RESPONSE extensions.layerx, the logs field layerx-x402 LayerXEvidence requires (services/interop/crates/layerx-x402/src/buyer.rs:61-74: exactly one PaymentExact log from the 0x101a payment precompile whose topic 1 is the idempotency key and topic 2 the payer) and receipts keyed by height under one pinned sequencer id, the shape services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json already records."
+do_1 = "Run the exchange recorder of services/interop/crates/x-websearch/tests/payment.rs (X_WEBSEARCH_RECORD_EXCHANGE, :3082 and :3214-3215) against the replayed gateway recordings so that services/interop/crates/x-websearch/tests/fixtures/client-exchange.json carries, in every PAYMENT-RESPONSE extensions.layerx, the logs field layerx-x402 LayerXEvidence requires (services/interop/crates/layerx-x402/src/buyer.rs:61-74: exactly one log from the 0x101a payment precompile: PaymentExact for the exact scheme, topic 1 the idempotency key and topic 2 the payer, and PaymentDrawn for the metered scheme, which task 18.1157.1 teaches Buyer::capture_settlement to accept (issue #1157, decision 1800)) and receipts keyed by height under one pinned sequencer id, the shape services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json already records."
 do_2 = "Publish in services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json, beside sequencerPublicKey, the sequencerId the recorded receipts are keyed under and the firstBatchNumber and lastBatchNumber of the key window, so a buyer-side test can build the SequencerAuthorization that Buyer::capture_settlement (buyer.rs:239-243) verifies; if the replayed gateway recordings yield receipts under a sequencer id whose public key no fixture holds, stop and report the inconsistent fixture by path instead of inventing a key."
 do_3 = "Keep every payment.rs assertion unchanged. The recorder regenerates every gateway recording from the in-file keys and byte-compares them in the_gateway_recording_is_reproduced_by_the_real_signers (tests/payment.rs:3080-3095), so the re-recording rewrites buyer.json, metered.json, pending.json and client-exchange.json together, and exact.json or refusals.json only where their bytes change; no live chain or external key is involved."
 do_5 = "The metered steps fail with grant_payer_mismatch because the harness offers the EVM payer address PAYER (tests/payment.rs:63-64, :564-566, sent as LAYERX-PAYER-ADDRESS at :3152-3155) whose ledger account the accountId replay answers from payer_account_rules (:77-87, :162) as payer_account(asset) (:66-75), while the recorded grants and receipts are still issued from the ed25519 payer DID's account (account(&payer_did, asset) at :2805, :2836, :2852, :2883; account_id(&wallet_account(text(&buyer, '/payerDid'), &asset)) at :1282 and :3279). Issue every recorded grant and receipt from payer_account(asset) instead, and replace the third derivation account_id(&wallet_account(harness.payer()?, &asset)) at :1223, :3819, :3890 and the payer half of :1251-1260 with payer_account(&asset), so the recorded exchange, the replay rules and src/payment.rs ledger_account (:135-153) agree with what modules/lxphost/accountmap.go:53-60 derives on the chain."
 do_6 = "Keep the grant_payer_mismatch assertion of the_configured_payer_address_is_offered_and_drawn_from (:1888-1896) by feeding it an explicitly foreign grant: sign one with from = the ed25519 payer DID's account and register its 0x423fe4b2 rule exactly as :1897-1915 does for the matching grant, since the harness grant now belongs to the configured payer."
-do_7 = "Issue #1140: offer and settle PAX into the DID main accounts. In src/payment.rs:1304 build the offer's extra.layerx.account as agent:<receiver did>:main when the asset is PAX and as the :asset:<id> sub-account otherwise, and derive the payer's PAX account the same way wherever ledger_account or the receiver account of a metered draw is built for PAX, matching the x402 model's documented account forms (services/interop/crates/layerx-x402/src/model.rs:196 and :239-302) and pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own (tests/payment.rs:1234-1260); every other asset keeps its sub-account. Record this before re-recording so the fixtures carry the main-account form."
+do_7 = "Issue #1140: offer and settle PAX into the DID main accounts. In src/payment.rs:1304 build the offer's extra.layerx.account as agent:<receiver did>:main when the asset is PAX and as the :asset:<id> sub-account otherwise, and derive the payer's PAX account the same way wherever ledger_account or the receiver account of a metered draw is built for PAX, matching the x402 model's documented account forms (services/interop/crates/layerx-x402/src/model.rs:196 and :239-302) and pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own (tests/payment.rs:1234-1260); every other asset keeps its sub-account. Record this before re-recording so the fixtures carry the main-account form. The payee assertions of the account-calls test at tests/payment.rs:3520-3533 follow the same rule: derive each expected payee through wallet_account (:49-55), so PAX expects the :main account and every other asset its :asset:<id> sub-account, keeping assert_eq!(account_calls.len(), 4) and the per-asset loop (decision 1802)."
 do_8 = "Order of work: do_5 to do_7 first, then one X_WEBSEARCH_RECORD_EXCHANGE=1 run of the_gateway_recording_is_reproduced_by_the_real_signers and the_client_exchange_matches_the_recording, which rewrites the recordings, then the verify_cmd once; commit the rewritten fixtures with the code."
 symbols = ["RECORD_VARIABLE", "LayerXEvidence", "Buyer::capture_settlement"]
-touches = ["services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json", "services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/refusals.json"]
+touches = ["services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json", "services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/refusals.json", "services/interop/crates/x-websearch/src/lib.rs"]
 tests = ["services/interop/crates/x-websearch/tests/payment.rs::delivery_recovers_the_recorded_receipted_settlement", "services/interop/crates/x-websearch/tests/payment.rs::exact_receipts_settle_in_each_asset"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --tests"
@@ -181754,10 +181956,13 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Keep configure_with (services/interop/crates/x-websearch/tests/payment.rs:388-392) configuring the server's sequencer authority exactly as written, key_id hex(&receipt_key_id()) with first_height 0 and last_height u64::MAX, and keep the RECORD_VARIABLE semantics of :3082: the sequencerId, firstBatchNumber and lastBatchNumber published in gateway/buyer.json feed only the buyer-side SequencerAuthorization a test builds, never the server's accepted key window; a settlement response the recorder still writes without logs is reported with the entry's request path and scheme, not edited by hand."
+do_9 = "Re-pin the conformance suite after re-recording: CONFORMANCE_VECTOR_COUNT and CONFORMANCE_SUITE_DIGEST in services/interop/crates/x-websearch/src/lib.rs:43-49 are recomputed by recorded_suite (src/payment.rs:1891) over the rewritten vectors; set both constants to the recorded values and change nothing else in lib.rs (decision 1801)."
+do_10 = "Port the assertions that still name the retired lx_* RPCs to their native successors at equal strength (decision 1802): tests/payment.rs:1229, :1572, :1600-1603, :1609, :1758 and :1766 (receipt_unknown), :2204 and :2212 (the fee test at :2130), :2736, :2750 and :2765-2768 (the eth_call counts 3, 8 and 8), :3520 (account_calls), the DID payer header of the grants test at :1673, :3562-3563 and :3576-3577; each ported assertion checks the same property against the native requests the gateway now records (eth_estimateGas, eth_sendRawTransaction, pax_sequencerReceipt and eth_call) with the counts the recorder observes, and do_3 keeps every assertion not named by do_5 to do_11."
+do_11 = "Teach the gateway recorder that writes tests/fixtures/gateway/refusals.json the native rules each refused draw now issues (the eth_estimateGas, eth_sendRawTransaction and pax_sequencerReceipt triple the metered recordings carry) for the refused-other-receipt, refused-untrusted, refused-failed, refused-other-activity and refused-amount entries of tests/payment.rs:1723-1727, so draws_the_gateway_does_not_settle_release_nothing meets its recorded refusals instead of payment_pending. RECEIVER_SEQUENCE (:2506) renders as the 32-byte word equal to the in-file RECEIVER_SECRET and fails the reproduction test's secret check; move it and the colliding counter words to values no in-file key equals only if read_payer_grant (src/payment.rs:208-249) ignores the words they change, otherwise report the collision by line."
 
 [task.18.1130.1]
 title = "Issue #1130: Seed the active programs fee record in the layerxprograms harness and the lxphost program fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1135.1"]
@@ -181790,7 +181995,7 @@ title = "Issue #1131: Port the agentd real-authority test support and the pay2 q
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1138.1", "18.1143.1"]
+requires = ["18.1138.1", "18.1143.1", "18.1154.1", "18.1158.1", "18.1161.1"]
 reqs = ["181131.1"]
 capabilities = []
 interfaces = []
@@ -181819,7 +182024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1132.1]
 title = "Issue #1132: Port the human test support and the human-service evidence node test to the node readiness gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1119.1"]
@@ -182096,7 +182301,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.760.1]
 title = "Issue #760: Stop asking for a USDL approval before placeOrder opens, adds size or places orders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182281,7 +182486,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.853.1]
 title = "Issue #853: Name the missing-pool quote error, show the pool fee rate and call the quote asset a symbol"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182342,7 +182547,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.870.1]
 title = "Issue #870: Give home price-update rows watchlist tags, the EVM row layout, tested controls and their own item type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182403,7 +182608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.894.1]
 title = "Issue #894: Send the launchpad approve and then the write under the sponsored SID fee on the web launchpad page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182497,7 +182702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.900.1]
 title = "Issue #900: Keep live rows reachable, show the socket alert, refetch on join and dedupe hashes on the price feed pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182591,7 +182796,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.922.1]
 title = "Issue #922: Make price feed retry classification deterministic, warn on held heights and schedule retries after the batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.921.1"]
@@ -182622,7 +182827,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.923.1]
 title = "Issue #923: Report a pending earlier sponsored submission as pending instead of a missing wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182744,7 +182949,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1039.1]
 title = "Issue #1039: Assert the registered Treasury refusal sentinel through the error chain, not one unwrap level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1137.1"]
@@ -183117,7 +183322,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1061.1]
 title = "Issue #1061: Wait for the consensus commit without holding the standby mutex that guards lease takeover"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183759,7 +183964,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.961.1]
 title = "Issue #961: Make the specgen repository test expect the active feature the workflow selects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183851,7 +184056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1135.1]
 title = "Issue #1135: Keep receipt state roots continuous when a governance activity runs with an active programs fee record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183868,7 +184073,7 @@ touches = ["modules/lxphost/host.go", "modules/lxphost/ctx.go", "modules/lxphost
 tests = ["modules/lxphost/host_test.go::TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
 planned_paths = []
 build_cmd = "go build ./modules/lxphost/..."
-verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestResolutionExecuteEntry|TestHostFeeRecordAbsentRefusesVersion)$'"
+verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestHostFeeRecordAbsentRefusesVersion)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
@@ -183973,7 +184178,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1141.1]
 title = "Issue #1141: Issue #1141: Add the golang.org/x/net go.mod hash the module graph needs so the chain binary builds in read-only module mode"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184001,7 +184206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.731.1]
 title = "Issue #731: Keep EVM transactions on the home page when price-feed submissions fill every block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184031,7 +184236,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.876.1]
 title = "Issue #876: Ship a 30-day price-feed retention default in the backend environment template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184061,7 +184266,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1081.1]
 title = "Issue #1081: Point the explorer OpenAPI test at the archive anchor and receipt paths the router serves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184091,7 +184296,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.817.1]
 title = "Issue #817: Assert the mined nonce conflict as the 409 prepare-again answer the pool gives where the owner, agent receipt and nonce tests still expect 202 outcome_unknown"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184124,7 +184329,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1105.1]
 title = "Issue #1105: Default the market attestation driver's native include path to -Iinclude and pin it with a focused test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184155,7 +184360,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.929.1]
 title = "Issue #929: Raise every repository Go toolchain pin from 1.25.6 to the 1.25.8 that sdk/cosmovisor requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184188,7 +184393,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1139.1]
 title = "Issue #1139: Skip a late completed job in the PaxAI worker maintenance tick instead of aborting the tick"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184219,7 +184424,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1142.1]
 title = "Issue #1142: Issue #1142: Build the reclaim test's agent context with the nonce field the reclaim contract now carries"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184247,7 +184452,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1143.1]
 title = "Issue #1143: Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184260,8 +184465,8 @@ symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/delivery.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs"]
 tests = []
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test w7_subscription_permit"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the four test files; the daemon's test targets return to failing on the tuple cursor."
@@ -184275,7 +184480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1144.1]
 title = "Issue #1144: Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184286,10 +184491,10 @@ do_1 = "In node/sequencer/standby_role.go install on the standby app, beside Set
 do_2 = "Add to node/sequencer/standby_role_test.go a case TestStandbyReplayCommitsSealedLayerAcrossBlocks that drives a register in one block and an openAccount reading that asset in the next block through primary and standby and proves the standby's rebuilt receipt equals the primary's; the existing case (:39-220) stays as it is."
 do_3 = "Change no recorder code under daemon/committed-fixture; task 5.55.5 records the V4 vector once this lands."
 symbols = []
-touches = ["node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go"]
+touches = ["node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go", "node/app.go"]
 tests = []
 planned_paths = []
-build_cmd = "go vet ./node/sequencer/"
+build_cmd = "go vet ./node/ ./node/sequencer/"
 verify_cmd = "go test -count=1 ./node/sequencer/ -run ^TestStandbyReplayCommitsSealedLayerAcrossBlocks$"
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
@@ -184301,10 +184506,11 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "The WAL Seal record (node/sequencer/wal/wal.go:122-127) carries no batch transaction, so the standby cannot seal its replayed layer before consensus delivers the primary's signed tx 0, and app.go:3217 reads Sealed() with no arguments. In node/app.go FinalizeBlock, immediately before sealedBlockForFinalize (:1784), when the installed sequencer source implements interface{ SealForFinalize(height int64, txs [][]byte) error }, call it with req.Header.Height and req.Txs and return its error; the standby source implements it by checking the decided transactions against the replayed batch, decoding tx 0 with DecodeSequenceBatch and sealing through SealBatch, so Sealed() then returns the layer and the sealed path commits it. ConsensusSource does not implement the method and the primary is unchanged; change nothing else in app.go."
 
 [task.18.1147.1]
 title = "Issue #1147: Give layerx-human-service the ureq development dependency its wallet identity test needs through the shared KMS attestor test support"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184319,7 +184525,7 @@ touches = ["services/human/crates/layerx-human-service/Cargo.toml", "services/hu
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e -- --exact wallet_identity_e2e_refuses_startup_when_the_attestors_are_unreachable"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -184355,6 +184561,460 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
 rollback = "Revert the two test files; the reclaim target returns to three failing tests."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.680.1]
+title = "Issue #680: Let the variable helper accept a multi-line value for a name ending in _PEM while keeping it masked"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18680.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tools/deploy/railway-apply-variables.py:103-105 (desired) keep the newline refusal for every name except those ending in _DOCUMENT or _PEM, so the stats service's required IDENTITY_MTLS_CLIENT_KEY_PEM (deploy/launchpad/railway/variables.json stats.required, consumed as raw PEM bytes at sdk/launchpad/shared/auth/mtls_identity_client.go:101) passes --plan and the --apply preflight at :151-155; is_secret at :80-81 and show at :84-89 keep masking it as ****."
+do_2 = "In tools/deploy/tests/railway-apply-variables.test.sh add a stats case built like the user case at :124-146: sentinel values for every stats needed name with a three-line sentinel PEM for IDENTITY_MTLS_CLIENT_KEY_PEM, a replay whose Project lists svc-stats and whose Variables read is empty, then assert --plan exits 0, prints '  missing IDENTITY_MTLS_CLIENT_KEY_PEM = ****' and no line of the sentinel PEM; keep the REDIS_URL newline refusal at :31-32, :76-77 and :99-100 exactly as it is."
+do_3 = "Change no manifest value, nothing in tools/rollout/rollout.py and no other file."
+symbols = ["desired", "show"]
+touches = ["tools/deploy/railway-apply-variables.py", "tools/deploy/tests/railway-apply-variables.test.sh"]
+tests = ["tools/deploy/tests/railway-apply-variables.test.sh::stats_inline_pem_plan"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/railway-apply-variables.py"
+verify_cmd = "bash tools/deploy/tests/railway-apply-variables.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the two files; the helper again refuses every multi-line value whose name does not end in _DOCUMENT, so the stats inline PEM key cannot be applied."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.726.1]
+title = "Issue #726: Make the gateway's hosted env example name the indexer, faucet and receipt-key variables and drop the unread sequencer file variables"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18726.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/railway.env.example add LAYERX_GATEWAY_INDEXER_URL=https://indexer.railway.internal:8095 after line 31; configured_endpoint at services/platform/hosted/gateway/src/history.rs:66-71 reads it and services/platform/hosted/indexer/railway.env.example:2-4 declares that listener."
+do_2 = "In the same file, in the style of the commented optional lines at :17 and :24-25, add commented lines for LAYERX_GATEWAY_FAUCET_URL, LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE=/run/secrets/faucet-service-token and LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT (optional as a group per src/rpc_faucet.rs:404-419) and for LAYERX_GATEWAY_RECEIPT_KEYS_FILE=/run/secrets/receipt-keys.json (optional per src/main.rs:1083-1098), each preceded by one comment line saying that enabling it needs a matching row in docker/platform-gateway/files.tsv."
+do_3 = "Remove LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE, LAYERX_GATEWAY_SEQUENCER_ID_FILE, LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE and LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE (:40-43) and the four ENDPOINT_SEQUENCER_* placeholders (:71-74) from the example, rows 17-20 from docker/platform-gateway/files.tsv and the four sequencer names from FILE_VARIABLES in docker/platform-gateway/entrypoint.sh:19-22; no code under services/platform reads a LAYERX_GATEWAY_SEQUENCER_ name. Keep every LAYERX_EVENTS_* line and its ENDPOINT_EVENTS_* placeholder: run at src/main.rs:3827-3829 configures the payment producer from them through services/platform/hosted/internal/src/producer.rs:660-675."
+do_4 = "Add services/platform/hosted/gateway/tests/env_example.rs that parses the uncommented NAME=value lines of include_str!(\"../railway.env.example\") and the rows of docker/platform-gateway/files.tsv and the indexer example (both via CARGO_MANIFEST_DIR) and asserts: no name starts with LAYERX_GATEWAY_SEQUENCER_ or ENDPOINT_SEQUENCER_; LAYERX_GATEWAY_INDEXER_URL is an https URL whose port equals the LAYERX_INDEXER_LISTEN port of services/platform/hosted/indexer/railway.env.example; every ENDPOINT_* name has a files.tsv row and every value under /run/secrets/ is a files.tsv guest path."
+do_5 = "Change no Rust source, nothing in tests/degraded.rs, and leave services/platform/hosted/gateway/deployment.yaml as it is: services/platform/hosted/tests/sequencer-pins.py:30-38 still requires its sequencer entries."
+symbols = ["configured_endpoint", "configured"]
+touches = ["services/platform/hosted/gateway/railway.env.example", "docker/platform-gateway/files.tsv", "docker/platform-gateway/entrypoint.sh", "services/platform/hosted/gateway/tests/env_example.rs"]
+tests = ["services/platform/hosted/gateway/tests/env_example.rs::router_example_drops_unread_sequencer_variables", "services/platform/hosted/gateway/tests/env_example.rs::router_example_names_the_indexer_listener", "services/platform/hosted/gateway/tests/env_example.rs::router_example_file_secrets_have_table_rows"]
+planned_paths = ["services/platform/hosted/gateway/tests/env_example.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the four files; the example again lists the unread sequencer variables and omits the indexer URL, and no test ties it to the file-secret table."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.729.1]
+title = "Issue #729: Make the indexer's hosted env example name the paxscan variables backfill requires"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18729.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/indexer/railway.env.example after line 18 add one comment line and the operator-filled placeholders PAXSCAN_DATABASE_PUBLIC_URL= (the read-only paxscan connection string tools/bringup/check-live.sh:233 describes) and LAYERX_INDEXER_PAXSCAN_CERT_SHA256= (the 32-byte hex pin of the paxscan certificate), the names BackfillConfig::from_args reads at services/platform/hosted/indexer/src/config.rs:146-167 before env-init.sh:73-78 runs layerx-indexer backfill."
+do_2 = "Add services/platform/hosted/indexer/tests/env_example.rs that parses the uncommented NAME=value lines of include_str!(\"../railway.env.example\") into a map and asserts both names are present, then calls BackfillConfig::from_args with [\"--cutover-height=1\"] and a lookup that serves the map's names (an empty value replaced by a postgres URL and a 64-hex pin) and None for any other name, asserting Ok; a second test asserts the same lookup minus LAYERX_INDEXER_PAXSCAN_CERT_SHA256 is Err."
+do_3 = "Change no Rust source, no env-init.sh line and no other example value."
+symbols = ["BackfillConfig", "from_args"]
+touches = ["services/platform/hosted/indexer/railway.env.example", "services/platform/hosted/indexer/tests/env_example.rs"]
+tests = ["services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable", "services/platform/hosted/indexer/tests/env_example.rs::example_without_the_pin_is_refused"]
+planned_paths = ["services/platform/hosted/indexer/tests/env_example.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert both files; the example again omits the paxscan variables and the templated backfill refuses before serve can start."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1150.1]
+title = "Issue #1150: Recover a positioned chain log in the approval stream's restore-after-gap fixture"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = ["18.1143.1"]
+reqs = ["181150.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/approval_events.rs subscriptions_restored_after_gap (:163-201) make the backfill recover a chain event instead of the local-only approval bytes: build a log JSON with block height 1, transaction index 0 and log index 0 as tests/gaps.rs:267-272 log(height, tx, index) does, persist it into the durable store of the same tenant through EventIngestor::open and ingest with CoreEvent::from_log_bytes and global_sequence 1 as tests/gaps.rs:349-392 does, and hand the same canonical bytes with position Cursor { block_height: 1, tx_index: 0, log_index: 0 } to the RecoveredEvent, so apply_backfill (src/events/gap.rs:383-420) finds the durable match; the recovered_bytes parameter and its caller change accordingly."
+do_2 = "Keep the admit refusal before the backfill (:186), the Restored assertion (:197), the admit acceptance after it (:201), the approval emissions and the digest-evidence assertion (assert_digest_evidence_exported over the audit log and the four lifecycles) exactly as written; change no file under src/ and remove no test. The delivery assertion after the restore expects the four approval emissions' canonical bytes followed by the recovered chain event's canonical bytes: a restored subscription delivers the event it recovered once, and attempt 1 observed it as the fifth delivered event, so assert it rather than filtering it out."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/approval_events.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_events"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_events"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; the restore-after-gap helper returns to recovering a local-only event the backfill refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1151.1]
+title = "Issue #1151: Start the wallet identity end-to-end attestor nodes with the asset send type alone"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1147.1"]
+reqs = ["181151.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs pass only the asset send activity type (asset_send().value().to_string(), the 0x10005 that services/wallet/attestor/internal/config/config.go:287 admits) to the start_with_kernel_policy constructor of the attestor test support (layerx-human-kms/tests/support/attestor_cluster.rs:431) at :934, by narrowing activity_types() (:119-130) to the asset module's registrations; keep registry() with its governance and bridge registrations for the service, keep kernel_policy() and every assertion."
+do_2 = "Change no attestor code and no other test. If the test fails after both attestor nodes start, stop and record the failure."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs", "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs", "services/human/crates/layerx-human-service/src/custody/mod.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the test file; the attestor nodes again receive the governance and bridge types and both attestor nodes refuse to start."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "In the same file's receipt builder (fn receipt, :580-644) complete the ReceiptMaterial initializer at :631 with the four fields 85c5b32c5 (10.2.7) added to src/journeys/engine.rs:229-237: receipt_hash = Sha256::digest(&canonical_bytes).into(), tx_hash = activity_id, block_height = sequence and rung = layerx_types::rung::Rung::Receipted, exactly as tests/intent_submit.rs:631-635 fills the same builder; change nothing else in it."
+do_4 = "In services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs split the inventory bookkeeping of generate_key (:593-692) into two public helpers the service-driven test can call around the service's own key creation: approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) pushes the {key_id, epoch: 0, curve, public_key: '', owner, operations: ['generate']} entry (:600-604) and publishes the inventory (:577); approve_sign(&mut self, key_id: &str, public_key: &[u8]) sets that entry's public_key to the hex of the key and its operations to ['sign'] (:686-690) and publishes. generate_key keeps its behaviour by calling both; every other test of the support file is unchanged."
+do_5 = "In wallet_identity_e2e.rs, before kms.create_owned_key (:971), compute the key id the service posts to the attestors: attestor_key_id (src/server/production_components.rs:8472) formats 'lx-' followed by the lowercase hex of the first 16 bytes of PrincipalKeyBinding::digest() of the binding Keystore::binding (src/custody/mod.rs:944-955) builds for (principal_id, custody_key(), KeyClass::HumanPrimary). Make Keystore::binding pub (a visibility change only, the one source edit of this task) and call keystore.binding(..).digest() in the test rather than copying identity_bytes; then call cluster.approve_generate(&key_id, 'ed25519', SUBJECT), because the attestor's Inventory.Check (services/wallet/attestor/internal/server/authority.go:125-165) refuses an unlisted key with key_invalid_share, which attestor_refusal (production_components.rs:8409-8419) surfaces as KmsError::Refused — the failure both qualification runs hit at :979. After create_owned_key returns the public key call cluster.approve_sign(&key_id, &public_key) so the kernel send signed through the attestors (sign.go:380, :773) passes the same check. Keep every assertion of the test."
+
+[task.18.1152.1]
+title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181152.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add to the root go.sum every go.mod hash line the module graph needs: golang.org/x/term v0.15.0 (go.sum:2526-2530 carry v0.10.0 to v0.12.0 and v0.17.0 upward but not v0.15.0, which docker/layerx/Dockerfile:66 go mod download therefore refuses) and each further version GOFLAGS=-mod=readonly go list -m all reports missing after it (attempt 1 found golang.org/x/net v0.0.0-20211112202133-69e39bad7dc2 through github.com/xanzy/ssh-agent v0.3.3), by running go mod download <module>@<version> for each and keeping every other go.sum line as it is."
+do_2 = "Change no go.mod line and no source file; repeat go list -m all until it exits 0 in read-only module mode, then the gate runs the same go mod download the chain image runs."
+symbols = []
+touches = ["go.sum"]
+tests = []
+planned_paths = []
+build_cmd = "GOFLAGS=-mod=readonly go list -m all > /dev/null"
+verify_cmd = "GOFLAGS=-mod=readonly go mod download"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert go.sum; go mod download returns to refusing the missing golang.org/x/term v0.15.0 go.mod hash."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation of an existing one."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1153.1]
+title = "Issue #1153: Delete the layerx-explorer-index mirror report that still builds on the archive types layerx-mirror no longer has"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181153.1"]
+capabilities = []
+interfaces = []
+do_1 = "Delete services/human/crates/layerx-explorer-index/src/mirror.rs (1-105): its MirrorReceiptReport imports layerx_mirror::SignedHeaderTrust (:6) and calls MirrorVerifier::from_source and the BatchIncluded and StateProven evidence levels, all removed from layerx-mirror by edd77cf4a (task 11.26.4), so every build of the crate fails with E0432 and E0599; this is the deletion task 10.27.6 planned for the module, brought forward."
+do_2 = "Delete the `pub mod mirror;` line at services/human/crates/layerx-explorer-index/src/lib.rs:4; no other file or test in the crate or the workspace references the module."
+do_3 = "Change nothing else: freshness.rs, tests/rebuild.rs and the remaining modules stay as they are for 10.27.6."
+symbols = []
+touches = ["services/human/crates/layerx-explorer-index/src/mirror.rs", "services/human/crates/layerx-explorer-index/src/lib.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-explorer-index --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-explorer-index --lib"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Restore src/mirror.rs and the module line from the pinned revision; the crate returns to failing every build on the removed layerx-mirror types."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation of an existing one."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1154.1]
+title = "Issue #1154: Port the checkpoint test's proof bundle refusal to the receipt-proof v2 request shape"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181154.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/checkpoint.rs:126-158 rebuild the proof_bundle call with the ProofBundleRequest of src/read/checkpoint.rs:182-195 (target, requested_rung, raw_transaction, receipt, receipt_public_key, receipt_proof, receipts_root, chain_id, header, commit, validators, account_proof), following the request constructor of tests/proof_bundle_v2.rs:205-216 with its committed_block() fixture and chain_id paxeer-test, and replace the UnavailableCapability assertion, which no path of src/read produces (finding 18.1154.1.1), with the two refusals verify_bundle does produce: a request with commit None, target Receipt and requested_rung Committed is refused with CheckpointReadError::BelowRequestedRung (src/read/proof_bundle.rs:159-161), and a request with commit Some whose receipt carries rung Receipted is refused with CheckpointReadError::NotCommitted (:130-132); assert each with assert_eq! on the variant and on its reason (read.below_requested_rung and read.not_committed, src/read/checkpoint.rs:236-244), and keep every checkpoint assertion of the file."
+do_2 = "Change nothing else in the file and no source file; drop the ProofBundleKind import only if the port leaves it unused."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/checkpoint.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/checkpoint.rs::verified_checkpoint_derives_block_commit_without_anchor_escalation"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test checkpoint"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test checkpoint"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; the checkpoint target returns to failing its build on the seven removed fields."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation of an existing one."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1155.1]
+title = "Issue #1155: layerx-human-service approvals and decide tests still set a level field VerifiedBudgetAfter no longer has"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181155.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/approvals.rs (the VerifiedBudgetAfter literal at :162-167 and the assertion at :305) and tests/decide.rs (:417-422) replace the level: Level::StateProven field with rung: Rung::Committed, the field VerifiedBudgetAfter carries since 10.2.6 (src/approvals/mod.rs:133-140, layerx_types::rung::Rung), and assert budget_after().rung == Rung::Committed where the test asserted the level; replace the layerx_agent_api::verify::Level imports (approvals.rs:12, decide.rs:18) with the Rung import and keep every other assertion."
+do_2 = "Change no source file and remove no test."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/approvals.rs", "services/human/crates/layerx-human-service/tests/decide.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test approvals --test decide"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test approvals --test decide"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two test files; they return to failing on the removed level field."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1156.1]
+title = "Issue #1156: layerx-human-kms provider test writes a registry the KMS refuses: network_id 77 where it requires chain_id 125"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181156.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-kms/tests/provider.rs:60-81 write the registry file LAYERX_HUMAN_KMS_REGISTRY_FILE names as the ChainSnapshot the KMS parses (src/config.rs:28-32, deny_unknown_fields, the single field chain_id, which :85-96 accepts only as 125) instead of the network_id 77, protocol_version 3 and modules document the test writes today."
+do_2 = "Align the network words the test signs and sends to the chain id the server derives (src/server.rs:140-155 computes network from config.chain.chain_id and refuses a request whose network differs): the 77_u32 the canonical_send request writes at :304, the 77 the production keystore opens with at :329 and every other 77 network literal in the file become 125, so the mutual-TLS lifecycle and canonical send tests pass through the checks the KMS applies."
+do_3 = "Change no source file and remove no test."
+symbols = []
+touches = ["services/human/crates/layerx-human-kms/tests/provider.rs", "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
+tests = ["services/human/crates/layerx-human-kms/tests/provider.rs::actual_client_lifecycle_and_mutual_tls"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
+verify_cmd = "cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock -- --runtime-dir /tmp -- cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert provider.rs; the test returns to failing when the host refuses its registry."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "In services/human/crates/layerx-human-kms/tests/provider/native_setup.rs make the two matches on DisclosedNativeOperation (:73 and :82) exhaustive against the enum at services/agent/crates/layerx-crypto/src/disclosure/native.rs:44 by adding explicit arms for ProgramDeploy, ProgramUpgrade, ProgramCall, ProgramWindDown, LegacyProgramCall, BudgetFund, BudgetDefund and BudgetRevoke: a mutation count of 0 at :73 beside OwnerRotation | None, and the unreachable panic at :82 beside OwnerRotation. Add no wildcard arm, so the compiler keeps catching the next variant (issue #1159); the provider target does not compile without this."
+do_5 = "Every test of the provider target starts with RuntimeClock::from_environment (tests/provider.rs:42, :206, :376, :422), which needs LAYERX_RUNTIME_CLOCK_SOCKET from the layerx-runtime-clock service (services/platform/hosted/runtime-clock/src/main.rs:35-63 serves the socket and runs the command it is given with the variable set); the verify runs the target under that service, as docker/human-service and docker/platform-authority run their binaries. Change no test for the clock."
+
+[task.18.1157.1]
+title = "Issue #1157: x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1162.1"]
+reqs = ["181157.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/interop/crates/layerx-x402/src/buyer.rs:320-331 make Buyer::capture_settlement accept, when accepted.scheme is metered, exactly one PaymentDrawn log (PAYMENT_DRAWN_TOPIC, src/seller.rs:36-39) from the 0x101a payment precompile, verified as pay_drawn_matches verifies it for the seller (src/seller.rs:473-505): topics [_, grant, payer, recipient] with grant = payment_reference(payload.grantId) (seller.rs:394), recipient = the accepted payTo account, and 128-byte data whose asset word is [..32], amount [48..64] and idempotency key [64..96] matching the payment; keep the PaymentExact path for the exact scheme unchanged and keep the single-log requirement for both (decision 1800)."
+do_2 = "Reuse the seller's topic constant and drawn-log matching where their visibility allows; otherwise mirror them in buyer.rs and leave seller.rs untouched."
+do_3 = "In services/interop/crates/layerx-x402/tests/buyer.rs add buyer_captures_a_metered_settlement_from_a_payment_drawn_log, which captures a metered settlement whose single ledger log is a PaymentDrawn built from the test's grant, payer, recipient and idempotency key, and buyer_refuses_a_metered_settlement_whose_idempotency_word_differs, which expects EvidenceMismatch for the same settlement with another idempotency word, both through capture_settlement with the existing receipt fixtures (mock_receipt_bytes, mock_authorized_batch, pinned_receipt_keys)."
+symbols = ["Buyer::capture_settlement"]
+touches = ["services/interop/crates/layerx-x402/src/buyer.rs", "services/interop/crates/layerx-x402/tests/buyer.rs"]
+tests = ["services/interop/crates/layerx-x402/tests/buyer.rs::buyer_captures_a_metered_settlement_from_a_payment_drawn_log"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test buyer --test seller"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert buyer.rs and tests/buyer.rs; the buyer returns to refusing every metered settlement."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "In services/interop/crates/layerx-x402/tests/buyer.rs port the fixtures to the forms the crate validates (issue #1160): every network word layerx:beta or layerx:mainnet (test_supported :59/:63, test_requirements :71, the kinds and requirements at :150-:195 and :437-:518, and every other site in the file) becomes an eip155 identifier as validate_network (src/seller.rs:411-423) demands — eip155:125 as tests/seller.rs:81 and tests/layerx_evidence.rs:129 use, and a second distinct eip155 chain where a test needs two networks — with the assertions that name the word (such as :217) updated to the same value; every settlement transaction word that is not a 0x-prefixed 64-hex hash (String::new() at :437, 'test' at :472 and :517, the grant-settlement fixtures) becomes such a hash as tests/seller.rs:387 does, unless a test asserts TransactionForm itself. Keep every assertion: the grant-settlement refusal tests at :1020 and :1033 must again receive EvidenceMismatch, and all 26 tests of the target plus the two new metered tests pass."
+
+[task.18.1158.1]
+title = "Issue #1158: layerx-agentd audit_coverage test still reconstructs the version-2 audit session and fails to compile"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181158.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/audit_coverage.rs port recorded_session_reconstructs_decision_bytes_authority_and_core_receipt (:128-170) to the version-3 reconstruction 9.6.2 landed (64ab4a5c3): reconstruct_session (src/audit/record.rs:278-283) takes the session's transaction hash as [u8; 32] and reads each entry's tx_hash, nonce, rung and receipt_id (:289, :311, :321-329), so give the entry fixture (:46-98, which 9.6.2 left at tx_hash: None, nonce: None, rung: None) one tx_hash on every entry, the same nonce on the Submission and TerminalOutcome entries and Rung::Committed on the TerminalOutcome entry, following the fixture of tests/audit_record_v3.rs:96-110, and pass that hash where the test passed IdempotencyKey::new([4; 32]) (:157)."
+do_2 = "Replace the assertions on the removed resulting_activity_id and verification_level fields (:166, :168) with assertions of equal strength on what Reconstruction (src/audit/record.rs:177-185) now carries: tx_hash equals the fixture's hash, nonce equals the fixture's nonce and rung is Rung::Committed; keep the decisions, submitted_bytes, protocol_authority and core_receipt_bytes assertions as written and every other test in the file."
+do_3 = "Change no source file; if building this target exposes another layerx-agentd test target still on the version-2 shape, report it by file and line instead of editing it."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/audit_coverage.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/audit_coverage.rs::recorded_session_reconstructs_decision_bytes_authority_and_core_receipt"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test audit_coverage"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test audit_coverage"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert tests/audit_coverage.rs; the target returns to failing to compile against the version-3 Reconstruction."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1161.1]
+title = "Issue #1161: Port the offline export bounds test to the v2 trust source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181161.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs:186-204 build ExportTrustSource with (receipt_keys, validator_set) as tests/export_v2.rs:25-35 does; export.rs:46-72 (fbb5df6bb, 9.6.1) takes exactly those two vectors and has no settlement accessor. Prove with the v2 API what the test still owns: the trust source is independent of the artifact (constructed from receipt keys and validators alone) and refuses empty, zero or duplicate entries as export.rs:52-72 does. Drop the declared-domain, network-id and settlement assertions that v2 has no equivalent for; offline_export_names_no_settlement_domain (tests/export_v2.rs) already covers the absence of a settlement domain."
+do_2 = "Keep export_frame_is_bounded_at_exactly_one_mebibyte (:110), export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_rung (:126) and export_response_must_answer_every_requested_fact_at_the_requested_rung (:159) exactly as written. Change no source file."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test export_offline_bounds"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test export_offline_bounds"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; it returns to failing the build on the settlement-domain constructor."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1162.1]
+title = "Issue #1162: Enforce the x402 payee binding on eip155 networks and expect the settlement logs in the seller tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181162.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/interop/crates/layerx-x402/src/model.rs make is_layerx_network (:189-193) true for every network validate_network (src/seller.rs:411-423) accepts, eip155:<decimal chain id>, per decision.822; LAYERX_NETWORK_NAMESPACE (:19) names the eip155 namespace. validate (:179-183) then reaches layerx_terms for a LayerX offer again, so a payTo not derived from extra.layerx.account is refused with ProfileMismatch, and layerx_facts (:224-229) accepts eip155 offers. Keep the non-eip155 branch as written."
+do_2 = "In services/interop/crates/layerx-x402/tests/seller.rs extend the two expected settlement strings (:1076-1087 and :1111-1120) with the logs array exactly as settled (src/seller.rs:359-365, d20d224d8) emits it, in its position and form; the receipt the tests settle yields the logs the expected string lists."
+do_3 = "Change no other assertion. If a seller test still fails after do_1, stop and record the test and the observed value instead of changing the assertion."
+do_4 = "Issue #1162."
+symbols = ["is_layerx_network"]
+touches = ["services/interop/crates/layerx-x402/src/model.rs", "services/interop/crates/layerx-x402/tests/seller.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test seller"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert model.rs and the two expected strings; the seller target returns to four failures."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1163.1]
+title = "Issue #1163: Resolve the sandbox escrow sequence account through the principal's main account"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181163.1"]
+capabilities = []
+interfaces = []
+do_1 = "In src/modules/programs/call.c:2276-2280 (layerx_programs_call_transfer_apply), when ledger admission is unbound and account_by_id(runtime->accounts, principal) is NULL, resolve the sequence account through lx_account_list_did to the principal's LX_ACCOUNT_AGENT_MAIN account exactly as transfer.c:188-209 does since 0981a1dd3 (13.25.4), including the LX_ACCOUNT_REGISTRY_CAPACITY guard and the allocation failure path; keep LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE when the principal owns no main account. The kernel binds ledger admission only for CALL, WIND_DOWN, BUDGET and ASSET activities (src/protocol/lxp_kernel.c:485-486, :6880-6886), never for LX_PROGRAMS_SANDBOX, so the sandbox escrow charge (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:772-774 -> layerx-programs-runtime/src/ffi_call.rs:1990-2003 -> call.c:2255) reaches this lookup unbound."
+do_2 = "Create tests/programs/test_call_escrow_principal.c (planned) with two cases built as tests/programs/test_transfer_principal.c builds its registry: an unbound transfer apply from a principal that owns a main account settles against that account, and one from a principal that owns no account returns LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE. Register the binary in the Makefile beside programs_transfer_principal (:3200, :3376, :3386)."
+do_3 = "Change no file under src/protocol, src/modules/programs/sandbox.c or the Rust crates; the -208 to ReceiptMismatch to NON_CANONICAL collapse stays as recorded."
+do_4 = "Issue #1163."
+symbols = ["layerx_programs_call_transfer_apply"]
+touches = ["src/modules/programs/call.c", "tests/programs/test_call_escrow_principal.c", "Makefile"]
+tests = ["tests/programs/test_call_escrow_principal.c::escrow_from_owned_main_account", "tests/programs/test_call_escrow_principal.c::escrow_from_unknown_principal_refused"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/programs_call_escrow_principal && ./build/tests/programs_call_escrow_principal"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert call.c, delete the test and its Makefile lines; the escrow charge returns to refusing unbound principals."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2

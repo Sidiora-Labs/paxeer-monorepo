@@ -66,6 +66,7 @@ const VERIFICATION_LEVELS: readonly VerificationLevel[] = [
 ];
 const RETRIES: readonly HumanErrorBody['retry'][] = ['retriable', 'retriable-after', 'structural', 'final'];
 const HEX32 = /^[0-9a-f]{64}$/;
+const TX_HASH = /^0x[0-9a-fA-F]{64}$/;
 const AMOUNT = /^(0|[1-9][0-9]*)$/;
 const IDEMPOTENCY_KEY = /^[\x21-\x7e]{1,128}$/;
 const JOURNEY_ID = /^[A-Za-z0-9_-]{1,128}$/;
@@ -244,7 +245,7 @@ export function decodeIntentPlan(value: unknown): IntentPlan {
     const leg = record(entry, 'intent leg');
     const legIndex = index(leg.index, 'intent leg index');
     if (legIndex !== position) throw new HumanDecodeError('intent leg order');
-    return {
+    const decoded: IntentLeg = {
       index: legIndex,
       mechanism: text(leg.mechanism, 'intent leg mechanism'),
       domain: oneOf(leg.domain, DOMAINS, 'intent leg domain'),
@@ -253,6 +254,13 @@ export function decodeIntentPlan(value: unknown): IntentPlan {
       money: money(leg.money, 'intent leg money'),
       fee: money(leg.fee, 'intent leg fee'),
     };
+    if ('tx_hash' in leg) {
+      if (typeof leg.tx_hash !== 'string' || leg.tx_hash.length !== 66 || !TX_HASH.test(leg.tx_hash)) {
+        throw new HumanDecodeError('intent leg tx_hash');
+      }
+      decoded.tx_hash = leg.tx_hash;
+    }
+    return decoded;
   });
   if (!Array.isArray(plan.signing_requirements)) throw new HumanDecodeError('intent signing requirements');
   const seen = new Set<number>();
@@ -301,6 +309,12 @@ function evidence(value: unknown, what: string): EvidenceRef[] {
       class: oneOf(ref.class, EVIDENCE_CLASSES, `${what} class`),
       verification: oneOf(ref.verification, VERIFICATION_LEVELS, `${what} verification`),
     };
+    if ('tx_hash' in ref) {
+      if (typeof ref.tx_hash !== 'string' || ref.tx_hash.length !== 66 || !TX_HASH.test(ref.tx_hash)) {
+        throw new HumanDecodeError(`${what} tx_hash`);
+      }
+      decoded.tx_hash = ref.tx_hash;
+    }
     if ('settlement_domain' in ref) decoded.settlement_domain = text(ref.settlement_domain, `${what} settlement_domain`);
     return decoded;
   });

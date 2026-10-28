@@ -3,6 +3,7 @@ package layerxprograms_test
 import (
 	"bytes"
 	"crypto/ed25519"
+	"encoding/binary"
 	"math"
 	"testing"
 	"time"
@@ -22,15 +23,16 @@ import (
 )
 
 type harness struct {
-	t          *testing.T
-	key        *sdk.KVStoreKey
-	host       *lxphost.Host
-	executor   *lp.PrecompileExecutor
-	stateDB    *state.DBImpl
-	evm        *vm.EVM
-	precompile *pcommon.Precompile
-	caller     common.Address
-	publicKey  [32]byte
+	t              *testing.T
+	key            *sdk.KVStoreKey
+	host           *lxphost.Host
+	executor       *lp.PrecompileExecutor
+	stateDB        *state.DBImpl
+	evm            *vm.EVM
+	precompile     *pcommon.Precompile
+	caller         common.Address
+	publicKey      [32]byte
+	occupancyAsset [32]byte
 }
 
 func newHarness(t *testing.T) *harness {
@@ -51,6 +53,22 @@ func newHarness(t *testing.T) *harness {
 	copy(signature[:], ed25519.Sign(private, message))
 	_, err = app.EvmKeeper.BindLayerX(ctx, h.caller, h.publicKey, signature)
 	require.NoError(t, err)
+	authority, _, err := lp.PrincipalOf(ctx, &app.EvmKeeper, h.caller)
+	require.NoError(t, err)
+	h.occupancyAsset = [32]byte{0x91}
+	fee := binary.BigEndian.AppendUint32([]byte("LXFR1"), 1)
+	for i := 0; i < 7; i++ {
+		fee = binary.BigEndian.AppendUint64(fee, 1)
+	}
+	fee = append(fee, h.occupancyAsset[:]...)
+	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		fee = binary.BigEndian.AppendUint64(fee, value)
+	}
+	fee = append(fee, authority.Actor[:]...)
+	fee = append(fee, make([]byte, 16)...)
+	store := ctx.KVStore(key)
+	store.Set(append([]byte{1, 0, 9}, []byte("progfee/active/v1")...), fee)
+	store.Set(append([]byte{1, 0, 9}, binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1)...), fee)
 	h.host = h.newHost(1000000)
 	h.executor = lp.NewTestExecutor(h.host, &app.EvmKeeper)
 	h.precompile = pcommon.NewPrecompile(lp.ProgramsABI, h.executor, common.HexToAddress("0x101d"), "layerxprograms").

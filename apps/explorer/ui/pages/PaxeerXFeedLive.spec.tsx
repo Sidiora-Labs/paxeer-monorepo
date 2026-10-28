@@ -51,6 +51,38 @@ describe('PaxeerXFeed live updates', () => {
     fetchMock.mockResponse(JSON.stringify(feedMock.markets), { headers: { 'Content-Type': 'application/json' } });
   });
 
+  it('shows the socket alert while the feed channel is not joined', async function showsTheSocketAlertWhileTheFeedChannelIsNotJoined() {
+    const socket = await createTestSocket();
+
+    try {
+      const { container, rerender } = render(
+        <SocketProvider>
+          <PaxeerXFeed/>
+        </SocketProvider>,
+      );
+
+      await waitFor(() => {
+        expect(indexPriceOf(container, 0)).toBe(feedMock.btcIndexPrice);
+      });
+      const alert = container.querySelector('[role="alert"]');
+      expect(alert?.textContent).toBe('Connection lost, click to load newer records');
+      expect(alert?.querySelector('a')?.getAttribute('href')).toBe(window.document.location.href);
+      expect(alert?.compareDocumentPosition(container.querySelector('table')!)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+      rerender(
+        <SocketProvider url={ socket.url }>
+          <PaxeerXFeed/>
+        </SocketProvider>,
+      );
+      await socket.join(TOPIC);
+      await waitFor(() => {
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+      });
+    } finally {
+      await socket.close();
+    }
+  });
+
   it('moves the market rows in place when a submission arrives on the feed topic', async() => {
     const socket = await createTestSocket();
 

@@ -45,6 +45,85 @@ describe('PaxeerXFeedMarket live updates', () => {
     }));
   });
 
+  it('adds a submission sent twice in one flush once', async function addsASubmissionSentTwiceInOneFlushOnce() {
+    const socket = await createTestSocket();
+
+    try {
+      const { container } = render(
+        <SocketProvider url={ socket.url }>
+          <PaxeerXFeedMarket/>
+        </SocketProvider>,
+      );
+
+      const initial = feedMock.marketUpdates.map((item) => item.update_hash);
+      await socket.join(TOPIC);
+      await waitFor(() => {
+        expect(updateHashes(container)).toEqual(initial);
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+      });
+
+      const update = historyItem(34800124, 'ab', 9200);
+      socket.send(TOPIC, 'new_update', update);
+      socket.send(TOPIC, 'new_update', update);
+
+      await waitFor(() => {
+        expect(updateHashes(container)).toEqual([ update.update_hash, ...initial ]);
+      }, { timeout: 10_000 });
+    } finally {
+      await socket.close();
+    }
+  });
+
+  it('reads the first page again once the market channel joins', async function readsTheFirstPageAgainOnceTheMarketChannelJoins() {
+    const socket = await createTestSocket();
+
+    try {
+      const { container, rerender } = render(
+        <SocketProvider>
+          <PaxeerXFeedMarket/>
+        </SocketProvider>,
+      );
+
+      const initial = feedMock.marketUpdates.map((item) => item.update_hash);
+      await waitFor(() => {
+        expect(updateHashes(container)).toEqual(initial);
+      });
+      expect(container.querySelector('[role="alert"]')?.textContent).toContain('Connection lost');
+
+      const updateReads = () => fetchMock.mock.calls.filter(([ url ]) => String(url).includes('/markets/0/updates')).length;
+      expect(updateReads()).toBe(1);
+
+      const missed = historyItem(34800124, 'ab', 9200);
+      fetchMock.mockResponse((request) => Promise.resolve({
+        body: JSON.stringify(request.url.includes('/updates') ? {
+          ...feedMock.marketUpdatesPage,
+          items: [ missed, ...feedMock.marketUpdates ],
+        } : feedMock.markets),
+        headers: { 'Content-Type': 'application/json' },
+      }));
+
+      rerender(
+        <SocketProvider url={ socket.url }>
+          <PaxeerXFeedMarket/>
+        </SocketProvider>,
+      );
+      await socket.join(TOPIC);
+
+      await waitFor(() => {
+        expect(updateHashes(container)).toEqual([ missed.update_hash, ...initial ]);
+        expect(container.querySelector('[role="alert"]')).toBeNull();
+      });
+      expect(updateReads()).toBe(2);
+
+      await new Promise((resolve) => {
+        setTimeout(resolve, 5_500);
+      });
+      expect(updateReads()).toBe(2);
+    } finally {
+      await socket.close();
+    }
+  });
+
   it('puts the submissions of its market topic on top of the first page', async() => {
     const socket = await createTestSocket();
 
@@ -70,7 +149,7 @@ describe('PaxeerXFeedMarket live updates', () => {
       socket.send(TOPIC, 'new_update', feedMock.marketUpdates[0]);
 
       await waitFor(() => {
-        expect(updateHashes(container)).toEqual([ second.update_hash, first.update_hash, initial[0] ]);
+        expect(updateHashes(container)).toEqual([ second.update_hash, first.update_hash, ...initial ]);
       }, { timeout: 10_000 });
 
       expect(container.querySelector(`[data-update="${ second.update_hash }"] [data-price]`)?.getAttribute('data-price')).toBe(second.index_price);
