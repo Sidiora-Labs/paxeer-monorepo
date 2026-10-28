@@ -397,7 +397,11 @@ fn join_assets(
         };
         records.insert(asset.to_owned(), record);
     }
-    let registry = registry()?;
+    let registry = if records.values().any(|record| !record.is_null()) {
+        registry()?
+    } else {
+        Vec::new()
+    };
     for item in items.iter_mut() {
         let asset = text(item, "asset").unwrap_or_default().to_owned();
         let joined = records.get(&asset).map_or(Value::Null, |record| {
@@ -512,9 +516,11 @@ fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
         };
         let (status, body) = source
             .get("/v1/assets", &query)
-            .map_err(|_| Failure::Unavailable("registry_unavailable"))?;
-        if status != 200 {
-            return registry_result(None);
+            .map_err(Failure::Unavailable)?;
+        match status {
+            200 => {}
+            429 => return Err(Failure::Unavailable("registry_rate_limited")),
+            _ => return Err(Failure::Unavailable("registry_unavailable")),
         }
         let rows = body
             .get("items")
@@ -1930,6 +1936,122 @@ mod tests {
             })),
             Err(Failure::Unavailable("registry_unavailable"))
         );
+    }
+
+    #[test]
+    fn history_registry_skipped_for_native_only_pages() {
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        store
+            .commit(
+                &unit(
+                    "paxeer",
+                    10,
+                    vec![
+                        leg(
+                            (10, 0, 0),
+                            "native_transfer",
+                            "out",
+                            EVE,
+                            FRANK,
+                            "evm:native",
+                            "1",
+                        ),
+                        leg(
+                            (10, 1, 1),
+                            "erc20_transfer",
+                            "in",
+                            EVE,
+                            FRANK,
+                            &format!("evm:{POINTER}"),
+                            "2",
+                        ),
+                    ],
+                    Vec::new(),
+                ),
+                64,
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+        let indexer = serve(store);
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        let reads = std::cell::Cell::new(0);
+        let unavailable = || {
+            reads.set(reads.get() + 1);
+            Err(Failure::Unavailable("registry_unavailable"))
+        };
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            for (kind, expected) in [
+                (Value::Null, vec![1, 2]),
+                (json!("native_transfer"), vec![1]),
+                (json!("erc20_transfer"), vec![2]),
+                (json!("lxp_transfer"), vec![]),
+            ] {
+                let answer = served(
+                    &mut chain,
+                    Some(&source),
+                    &unavailable,
+                    method,
+                    &json!(7),
+                    Some(&json!([EVE, null, 100, kind])),
+                );
+                assert!(answer.get("error").is_none(), "{method} {answer}");
+                assert_eq!(ids(&answer["result"]), expected, "{method} {answer}");
+                for item in items(&answer["result"]) {
+                    assert_eq!(item["asset_metadata"], Value::Null, "{item}");
+                }
+            }
+        }
+        let mut rows = [
+            json!({"kind": "native_transfer", "asset": null}),
+            json!({"kind": "native_transfer"}),
+        ];
+        assert_eq!(join_assets(&source, &unavailable, &mut rows), Ok(()));
+        for row in rows {
+            assert_eq!(row.get("asset_metadata"), Some(&Value::Null));
+        }
+        assert_eq!(reads.get(), 0);
+    }
+
+    #[test]
+    fn history_registry_passes_through_refusal_codes() {
+        let closed = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
+        let address = closed
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error}"));
+        drop(closed);
+        let gone =
+            Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"));
+        let unavailable = Source {
+            indexer: &gone,
+            client: None,
+        };
+        assert_eq!(
+            super::registry(Some(&unavailable)),
+            Err(Failure::Unavailable("indexer_unreachable"))
+        );
+        let indexer = indexer();
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            let answer = served(
+                &mut chain,
+                Some(&source),
+                &|| super::registry(Some(&unavailable)),
+                method,
+                &json!(7),
+                Some(&json!([EVE, null, 100])),
+            );
+            assert_eq!(answer["error"]["code"], json!(-32001), "{method} {answer}");
+            assert_eq!(
+                answer["error"]["data"]["code"],
+                json!("indexer_unreachable"),
+                "{method} {answer}"
+            );
+        }
     }
 
     #[test]
