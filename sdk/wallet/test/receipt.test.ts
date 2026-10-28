@@ -20,11 +20,7 @@ const transactionHash = String(recorded.submitted.txHash);
 const foreignHash = `0x${'ff'.repeat(32)}`;
 const answers: Record<string, unknown> = {
   submitted: recorded.submitted,
-  receipted: {
-    ...recorded.receipted,
-    blockNumber: recorded.committed.blockNumber,
-    blockHash: recorded.committed.blockHash,
-  },
+  receipted: recorded.receipted,
   committed: recorded.committed,
   missing: null,
   foreign: { ...recorded.submitted, txHash: foreignHash },
@@ -97,6 +93,10 @@ async function read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_ea
     expect(answer).toEqual(answers[rung]);
     expect(answer?.rung).toBe(rung);
     expect(decodeSequencerReceipt(answers[rung])).toEqual(answer);
+    if (rung !== 'committed') {
+      expect(answer).not.toHaveProperty('blockNumber');
+      expect(answer).not.toHaveProperty('blockHash');
+    }
   }
   expect(await readSequencerReceipt(receiptRpc('missing'), transactionHash)).toBeNull();
   expect(requests.slice(start)).toEqual(
@@ -130,13 +130,11 @@ async function decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_has
   await expect(readSequencerReceipt(receiptRpc('unknown'), transactionHash)).rejects.toThrow(
     'rung'
   );
-  for (const rung of ['receipted', 'committed'] as const) {
-    for (const field of ['blockNumber', 'blockHash'] as const) {
-      for (const invalid of [undefined, null, '', 1]) {
-        expect(() =>
-          decodeSequencerReceipt({ ...recorded.committed, rung, [field]: invalid })
-        ).toThrow(field);
-      }
+  for (const field of ['blockNumber', 'blockHash'] as const) {
+    for (const invalid of [undefined, null, '', 1, '0x', '0x00']) {
+      expect(() =>
+        decodeSequencerReceipt({ ...recorded.committed, [field]: invalid })
+      ).toThrow(field);
     }
   }
   for (const invalid of [null, undefined, [], true, 'submitted']) {
@@ -148,11 +146,103 @@ async function decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_has
   for (const nonce of [undefined, null, 0, '0x00', '0x', '1']) {
     expect(() => decodeSequencerReceipt({ ...recorded.submitted, nonce })).toThrow('nonce');
   }
-  expect(() => decodeSequencerReceipt(recorded.receipted)).toThrow('blockNumber');
+  expect(decodeSequencerReceipt(recorded.receipted)).toEqual(recorded.receipted);
   expect(() => decodeSequencerReceipt({ ...recorded.committed, logs: [null] })).toThrow('log');
   expect(() => decodeSequencerReceipt({ ...recorded.committed, receipt: '0x1' })).toThrow(
     'receipt'
   );
+}
+
+function decode_sequencer_receipt_preserves_strict_validation_before_commit() {
+  for (const rung of ['submitted', 'receipted', 'committed'] as const) {
+    for (const field of [
+      'blockNumber',
+      'seq',
+      'height',
+      'index',
+      'timestamp',
+      'status',
+      'gasUsed',
+      'cumulativeGasUsed',
+      'effectiveGasPrice',
+      'feeAmount',
+    ] as const) {
+      for (const invalid of [null, 1, '0x', '0x00', '0x-1']) {
+        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
+          field
+        );
+      }
+    }
+    for (const field of ['blockHash', 'keyId'] as const) {
+      for (const invalid of [null, 1, '0x', `0x${'aa'.repeat(31)}`, `0x${'aa'.repeat(33)}`]) {
+        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
+          field
+        );
+      }
+    }
+    for (const field of ['returnData', 'receipt'] as const) {
+      for (const invalid of [null, 1, '0x1', '0xgg']) {
+        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
+          field
+        );
+      }
+    }
+    for (const field of ['sponsor', 'from', 'to', 'contractAddress'] as const) {
+      for (const invalid of [null, 1, '0x', `0x${'aa'.repeat(19)}`, `0x${'aa'.repeat(21)}`]) {
+        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
+          field
+        );
+      }
+    }
+    for (const field of ['feeDenom', 'vmError'] as const) {
+      for (const invalid of [null, 1, []]) {
+        expect(() => decodeSequencerReceipt({ ...recorded[rung], [field]: invalid })).toThrow(
+          field
+        );
+      }
+    }
+    for (const logs of [null, {}, [null], [{ topics: [] }]]) {
+      expect(() => decodeSequencerReceipt({ ...recorded[rung], logs })).toThrow('log');
+    }
+  }
+}
+
+async function wait_for_sequencer_receipt_polling_continues_through_the_unchanged_receipted_answer() {
+  const start = requests.length;
+  const answer = await waitForSequencerReceipt(
+    receiptSequenceRpc([recorded.submitted, recorded.receipted, recorded.committed]),
+    transactionHash,
+    { rung: 'committed', attempts: 3, intervalMs: 0 }
+  );
+  expect(answer).toEqual(recorded.committed);
+  expect(requests.slice(start)).toEqual(
+    Array.from({ length: 3 }, () => ({
+      method: 'pax_sequencerReceipt',
+      params: [transactionHash],
+    }))
+  );
+}
+
+async function wait_for_sequencer_receipt_refuses_malformed_bounds_before_polling() {
+  const start = requests.length;
+  const rpc = receiptRpc('committed');
+  for (const attempts of [-1, 0.5, Number.MAX_SAFE_INTEGER + 1, NaN, Infinity, -Infinity]) {
+    await expect(
+      waitForSequencerReceipt(rpc, transactionHash, { rung: 'committed', attempts })
+    ).rejects.toThrow('attempts');
+  }
+  for (const intervalMs of [-1, NaN, Infinity, -Infinity, 2147483648]) {
+    await expect(
+      waitForSequencerReceipt(rpc, transactionHash, { rung: 'committed', intervalMs })
+    ).rejects.toThrow('intervalMs');
+  }
+  await expect(
+    waitForSequencerReceipt(rpc, transactionHash, { rung: 'final' as SequencerRung })
+  ).rejects.toThrow('unknown sequencer receipt rung');
+  await expect(
+    waitForSequencerReceipt(rpc, 'invalid', { rung: 'committed' })
+  ).rejects.toThrow('transaction hash');
+  expect(requests).toHaveLength(start);
 }
 
 async function wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached() {
@@ -298,7 +388,14 @@ async function wait_for_sequencer_receipt_times_out_with_the_last_answer() {
   }
 }
 
-test(wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached);
-test(wait_for_sequencer_receipt_times_out_with_the_last_answer);
-test(read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung);
-test(decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_hash);
+for (const run of [
+  wait_for_sequencer_receipt_returns_once_the_requested_rung_is_reached,
+  wait_for_sequencer_receipt_times_out_with_the_last_answer,
+  read_sequencer_receipt_calls_pax_sequencer_receipt_and_decodes_each_rung,
+  decode_sequencer_receipt_refuses_an_unknown_rung_or_a_foreign_hash,
+  decode_sequencer_receipt_preserves_strict_validation_before_commit,
+  wait_for_sequencer_receipt_polling_continues_through_the_unchanged_receipted_answer,
+  wait_for_sequencer_receipt_refuses_malformed_bounds_before_polling,
+]) {
+  test(run.name, run);
+}

@@ -15,6 +15,10 @@ import {
   type SpotTradesResponse,
 } from "@/core/spot/api";
 import { subscribeSpotUserStream } from "./useSpotUserStream";
+import {
+  mergeSpotTradeSnapshot,
+  spotTradeSnapshotForAddress,
+} from "@/core/spot/trade-history";
 
 /* ══════════════════════════════════════════════════════════════════════
    `useSpotPortfolio(address)`
@@ -56,6 +60,8 @@ export interface SpotPortfolioState {
   positions: SpotPosition[];
   openOrders: SpotOrder[];
   recentTrades: SpotTrade[];
+  tradeHistory: SpotTradesResponse | null;
+  tradeHistoryError: Error | null;
   pnlSummary: SpotPnlSummary | null;
   /** Last frame received per stream, for components that want raw events. */
   lastFrames: {
@@ -78,6 +84,8 @@ const EMPTY_STATE: SpotPortfolioState = {
   positions: [],
   openOrders: [],
   recentTrades: [],
+  tradeHistory: null,
+  tradeHistoryError: null,
   pnlSummary: null,
   lastFrames: { trade: null, order: null, position: null, pnl: null, closedLeg: null },
   refresh: () => {},
@@ -125,13 +133,28 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
   const [holdings, setHoldings] = useState<SpotHoldingsResponse | null>(null);
   const [positions, setPositions] = useState<SpotPosition[]>([]);
   const [openOrders, setOpenOrders] = useState<SpotOrder[]>([]);
-  const [recentTrades, setRecentTrades] = useState<SpotTrade[]>([]);
+  const [tradeHistory, setTradeHistory] = useState<SpotTradesResponse | null>(
+    null,
+  );
+  const [tradeHistoryError, setTradeHistoryError] = useState<Error | null>(
+    null,
+  );
+  const pendingTradeSnapshot = useRef<{
+    address: string;
+    live: SpotTrade[];
+  } | null>(null);
   const [pnlSummary, setPnlSummary] = useState<SpotPnlSummary | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
   const [error, setError] = useState<Error | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
-  useEffect(() => onStreamResync(url => { if (address && url === SPOT_USER_WS_URL) setRefreshTick(n => n + 1); }), [address]);
+  useEffect(
+    () =>
+      onStreamResync((url) => {
+        if (address && url === SPOT_USER_WS_URL) setRefreshTick((n) => n + 1);
+      }),
+    [address],
+  );
 
   const lastTradeFrameRef = useRef<unknown>(null);
   const lastOrderFrameRef = useRef<unknown>(null);
@@ -145,7 +168,8 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
       setHoldings(null);
       setPositions([]);
       setOpenOrders([]);
-      setRecentTrades([]);
+      setTradeHistory(null);
+      setTradeHistoryError(null);
       setPnlSummary(null);
       setIsLoading(false);
       setHasLoadedOnce(false);
@@ -154,6 +178,10 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
     }
 
     const ctrl = new AbortController();
+    const pending = { address: address.toLowerCase(), live: [] as SpotTrade[] };
+    pendingTradeSnapshot.current = pending;
+    setTradeHistory((prev) => spotTradeSnapshotForAddress(prev, address));
+    setTradeHistoryError(null);
     setIsLoading(true);
     setError(null);
 
@@ -165,15 +193,35 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
         limit: ORDERS_INITIAL_LIMIT,
         signal: ctrl.signal,
       }),
-      spotApi.getTrades(address, { limit: TRADES_INITIAL_LIMIT, signal: ctrl.signal }),
+      spotApi.getTrades(address, {
+        limit: TRADES_INITIAL_LIMIT,
+        signal: ctrl.signal,
+      }),
       spotApi.getPnlSummary(address, ctrl.signal),
     ]).then((results) => {
       if (ctrl.signal.aborted) return;
       const [hRes, posRes, ordRes, trRes, pnlRes] = results;
       if (hRes.status === "fulfilled") setHoldings(hRes.value);
-      if (posRes.status === "fulfilled") setPositions((posRes.value as SpotPositionsResponse).positions);
-      if (ordRes.status === "fulfilled") setOpenOrders((ordRes.value as SpotOrdersResponse).items);
-      if (trRes.status === "fulfilled") setRecentTrades((trRes.value as SpotTradesResponse).items);
+      if (posRes.status === "fulfilled")
+        setPositions((posRes.value as SpotPositionsResponse).positions);
+      if (ordRes.status === "fulfilled")
+        setOpenOrders((ordRes.value as SpotOrdersResponse).items);
+      if (trRes.status === "fulfilled") {
+        setTradeHistory(
+          mergeSpotTradeSnapshot(
+            trRes.value as SpotTradesResponse,
+            pending.live,
+          ),
+        );
+      } else {
+        setTradeHistoryError(
+          trRes.reason instanceof Error
+            ? trRes.reason
+            : new Error(String(trRes.reason)),
+        );
+      }
+      if (pendingTradeSnapshot.current === pending)
+        pendingTradeSnapshot.current = null;
       if (pnlRes.status === "fulfilled") setPnlSummary(pnlRes.value);
 
       // If every request failed, surface the first error.
@@ -182,15 +230,23 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
         | undefined;
       const allFailed = results.every((r) => r.status === "rejected");
       if (allFailed && firstFail) {
-        setError(firstFail.reason instanceof Error ? firstFail.reason : new Error(String(firstFail.reason)));
+        setError(
+          firstFail.reason instanceof Error
+            ? firstFail.reason
+            : new Error(String(firstFail.reason)),
+        );
       }
       setIsLoading(false);
       setHasLoadedOnce(true);
-            // Closed legs are pulled on-demand by the panels that show them
+      // Closed legs are pulled on-demand by the panels that show them
       // — keeping the snapshot minimal here.
     });
 
-    return () => ctrl.abort();
+    return () => {
+      ctrl.abort();
+      if (pendingTradeSnapshot.current === pending)
+        pendingTradeSnapshot.current = null;
+    };
   }, [address, refreshTick]);
 
   // ── Holdings polling (no WS channel for holdings) ───────────────────
@@ -225,13 +281,24 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
       const payload = extractPayload(frame);
       if (payload && typeof payload === "object") {
         const t = payload as SpotTrade;
-        if (t && (typeof t.id === "string" || typeof t.id === "number")) {
-          setRecentTrades((prev) => {
-            // De-dupe by id.
-            const id = String(t.id);
-            const filtered = prev.filter((x) => String(x.id) !== id);
-            return [t, ...filtered].slice(0, 200);
+        if (
+          (typeof t.id === "string" || typeof t.id === "number") &&
+          ((typeof t.blockNumber === "string" && /^\d+$/.test(t.blockNumber)) ||
+            (typeof t.blockNumber === "number" &&
+              Number.isSafeInteger(t.blockNumber) &&
+              t.blockNumber >= 0)) &&
+          Number.isSafeInteger(t.logIndex) &&
+          t.logIndex >= 0
+        ) {
+          const pending = pendingTradeSnapshot.current;
+          if (pending?.address === address.toLowerCase())
+            pending.live.unshift(t);
+          setTradeHistory((prev) => {
+            const snapshot = spotTradeSnapshotForAddress(prev, address);
+            return snapshot ? mergeSpotTradeSnapshot(snapshot, [t]) : prev;
           });
+        } else {
+          setRefreshTick((tick) => tick + 1);
         }
       }
       // Lazy refetch of derived data.
@@ -341,6 +408,10 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
     return { ...EMPTY_STATE, refresh };
   }
 
+  const currentTradeHistory = spotTradeSnapshotForAddress(
+    tradeHistory,
+    address,
+  );
   return {
     isConnected,
     isLoading,
@@ -349,7 +420,9 @@ export function useSpotPortfolio(address: string | null | undefined): SpotPortfo
     holdings,
     positions,
     openOrders,
-    recentTrades,
+    recentTrades: currentTradeHistory?.items ?? EMPTY_STATE.recentTrades,
+    tradeHistory: currentTradeHistory,
+    tradeHistoryError,
     pnlSummary,
     lastFrames,
     refresh,

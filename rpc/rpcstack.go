@@ -417,7 +417,9 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 
 type denyListWSConn struct {
 	*websocket.Conn
-	mu sync.Mutex
+	mu            sync.Mutex
+	deniedMethods map[string]string
+	deniedErrors  map[string]string
 }
 
 func (c *denyListWSConn) SetWriteDeadline(deadline time.Time) error {
@@ -426,19 +428,113 @@ func (c *denyListWSConn) SetWriteDeadline(deadline time.Time) error {
 	return c.Conn.SetWriteDeadline(deadline)
 }
 
+func rewriteWSMessages(raw json.RawMessage, rewrite func(json.RawMessage) (json.RawMessage, error)) (json.RawMessage, error) {
+	if !bytes.HasPrefix(bytes.TrimSpace(raw), []byte("[")) {
+		return rewrite(raw)
+	}
+	var messages []json.RawMessage
+	if err := json.Unmarshal(raw, &messages); err != nil {
+		return nil, err
+	}
+	for i, message := range messages {
+		var err error
+		messages[i], err = rewrite(message)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return json.Marshal(messages)
+}
+
+func (c *denyListWSConn) readJSON(value interface{}) error {
+	var raw json.RawMessage
+	if err := c.Conn.ReadJSON(&raw); err != nil {
+		return err
+	}
+	raw, err := rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
+		var message jsonrpcMessage
+		if err := json.Unmarshal(raw, &message); err != nil || message.Method == "" {
+			return raw, nil
+		}
+		method, denied := c.deniedMethods[message.Method]
+		if !denied {
+			return raw, nil
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			return nil, err
+		}
+		if fields == nil {
+			return raw, nil
+		}
+		for key := range fields {
+			if strings.EqualFold(key, "method") {
+				delete(fields, key)
+			}
+		}
+		fields["method"], _ = json.Marshal(method)
+		return json.Marshal(fields)
+	})
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(raw, value)
+}
+
 func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	raw, err = rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
+		var response struct {
+			Error *struct {
+				Code    int    `json:"code"`
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(raw, &response); err != nil || response.Error == nil || response.Error.Code != -32601 {
+			return raw, nil
+		}
+		message, denied := c.deniedErrors[response.Error.Message]
+		if !denied {
+			return raw, nil
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(raw, &fields); err != nil {
+			return nil, err
+		}
+		var errorFields map[string]json.RawMessage
+		if err := json.Unmarshal(fields["error"], &errorFields); err != nil {
+			return nil, err
+		}
+		errorFields["message"], _ = json.Marshal(message)
+		fields["error"], err = json.Marshal(errorFields)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(fields)
+	})
+	if err != nil {
+		return err
+	}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	return c.Conn.WriteJSON(value)
+	return c.Conn.WriteJSON(json.RawMessage(raw))
 }
 
 func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 	if len(config.DenyList) == 0 {
 		return srv.WebsocketHandler(config.Origins)
 	}
-	denied := make(map[string]struct{}, len(config.DenyList))
-	for _, method := range config.DenyList {
-		denied[method] = struct{}{}
+	deniedMethods := make(map[string]string, len(config.DenyList))
+	deniedErrors := make(map[string]string, len(config.DenyList))
+	prefix := "denied:" + string(rpc.NewID()) + ":"
+	for i, method := range config.DenyList {
+		alias := prefix + strconv.Itoa(i)
+		deniedMethods[method] = alias
+		deniedErrors[fmt.Sprintf("the method %s does not exist/is not available", alias)] =
+			fmt.Sprintf("the method %s does not exist/is not available", method)
 	}
 	upgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -453,7 +549,7 @@ func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 			return
 		}
 		conn.SetReadLimit(config.readLimit)
-		c := &denyListWSConn{Conn: conn}
+		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors}
 		stopped := make(chan struct{})
 		defer close(stopped)
 		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Time{}) })
@@ -473,70 +569,7 @@ func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 				}
 			}
 		}()
-		decode := func(value interface{}) error {
-			for {
-				var raw json.RawMessage
-				if err := conn.ReadJSON(&raw); err != nil {
-					return err
-				}
-				var requests []json.RawMessage
-				batch := bytes.HasPrefix(bytes.TrimSpace(raw), []byte("["))
-				if batch {
-					if err := json.Unmarshal(raw, &requests); err != nil {
-						return err
-					}
-				} else {
-					requests = []json.RawMessage{raw}
-				}
-				var blocked *jsonrpcMessage
-				for _, request := range requests {
-					var message jsonrpcMessage
-					if json.Unmarshal(request, &message) == nil {
-						if _, found := denied[message.Method]; found {
-							blocked = &message
-							break
-						}
-					}
-				}
-				if blocked == nil {
-					return json.Unmarshal(raw, value)
-				}
-				response := struct {
-					Version string          `json:"jsonrpc"`
-					ID      json.RawMessage `json:"id"`
-					Error   struct {
-						Code    int    `json:"code"`
-						Message string `json:"message"`
-					} `json:"error"`
-				}{Version: "2.0", ID: orNullID(blocked.ID)}
-				response.Error.Code = -32601
-				response.Error.Message = fmt.Sprintf("the method %s does not exist/is not available", blocked.Method)
-				var reply interface{} = response
-				if batch {
-					responses := make([]interface{}, 0, len(requests))
-					for _, request := range requests {
-						var message jsonrpcMessage
-						if json.Unmarshal(request, &message) == nil && message.hasValidID() {
-							response.ID = message.ID
-							responses = append(responses, response)
-						}
-					}
-					if len(responses) == 0 {
-						continue
-					}
-					reply = responses
-				} else if blocked.ID == nil {
-					continue
-				}
-				if err := c.SetWriteDeadline(time.Now().Add(10 * time.Second)); err != nil {
-					return err
-				}
-				if err := c.writeJSON(reply, true); err != nil {
-					return err
-				}
-			}
-		}
-		srv.ServeCodec(rpc.NewFuncCodec(c, c.writeJSON, decode), 0)
+		srv.ServeCodec(rpc.NewFuncCodec(c, c.writeJSON, c.readJSON), 0)
 	})
 }
 

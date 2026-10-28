@@ -18,18 +18,20 @@ use base64::Engine as _;
 use k256::ecdsa::SigningKey;
 use layerx_crypto::payments::{Grant, Payment};
 use layerx_interop_gateway::adapter::ConformanceSuite;
-use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch, ReceiptKeys};
-use layerx_proof::sequencer_logs::SequencerLog;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptKeys};
+use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
 use layerx_types::payload::ModuleId;
+pub use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION as PROTOCOL_VERSION;
 use layerx_x402::model::{
-    account_identifiers, AtomicAmount, PaymentRequired, PaymentRequirements, ResourceInfo,
-    X402_VERSION,
+    AtomicAmount, PaymentRequired, PaymentRequirements, ResourceInfo, X402_VERSION,
 };
 use layerx_x402::seller::{
     ExecutedPayment, LayerXPaymentRequest, PaymentPlane, PlanePaymentOutcome, Seller, SellerOutcome,
@@ -45,20 +47,19 @@ use crate::submit::{SignedTransaction, SubmitError};
 use crate::watch::{hex0x, keccak, parse_quantity};
 
 use crate::assets::{AcceptedAsset, AcceptedAssets, AssetRefusal};
-use crate::config::{payer_did_valid, AssetSymbol, Config};
+use crate::config::{parse_payer_address, Config};
 use crate::server::{Request, Response, Route, RouteError, RouteTable};
-use crate::settlement::{SettlementError, SettlementRpc};
+use crate::settlement::{SettlementError, SettlementLog, SettlementReceipt, SettlementRpc};
 
 pub const PAYMENT_REQUIRED: &str = "PAYMENT-REQUIRED";
 pub const PAYMENT_SIGNATURE: &str = "PAYMENT-SIGNATURE";
 pub const PAYMENT_RESPONSE: &str = "PAYMENT-RESPONSE";
-/// Names the buyer's DID so metered offers can be bound to its accounts.
+/// Names the buyer's EVM address so metered offers can be bound to its accounts.
+pub const PAYER_ADDRESS: &str = "LAYERX-PAYER-ADDRESS";
 pub const PAYER_DID: &str = "LAYERX-PAYER-DID";
 pub const COMMITMENT: &str = "executed";
 pub const METERED: &str = "metered";
 pub const EXACT: &str = "exact";
-/// The protocol used to decode grants and payer account identifiers.
-pub const PROTOCOL_VERSION: u16 = layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 pub const OFFER_TIMEOUT_SECONDS: u32 = 60;
 pub const DRAW_VALIDITY_MS: u64 = 60_000;
 pub const GRANT_BYTES: usize = 346;
@@ -74,8 +75,6 @@ const ANONYMOUS_PRINCIPAL: &str = "anonymous-buyer";
 const RPC_TIMEOUT: Duration = Duration::from_secs(10);
 const RPC_RESPONSE_LIMIT: usize = 4_194_304;
 const RECEIPT_HEX_LIMIT: usize = 2_097_152;
-const PENDING_CODE: i64 = -32001;
-const ASSET_MODULE: u16 = 1;
 const MAX_HOST_BYTES: usize = 255;
 
 /// Milliseconds since the Unix epoch, as the gate reads its clock.
@@ -133,22 +132,27 @@ fn sha256(parts: &[&[u8]]) -> [u8; 32] {
     hash.finalize().into()
 }
 
-/// The account `did` pays or is paid in `asset`: the main account
-/// `agent:<did>:main` for PAX, the kernel's native coin, and the per-asset
-/// account for SID, USDC and USDL.
-#[must_use]
-pub fn wallet_account(did: &str, asset: &AcceptedAsset) -> String {
-    if asset.symbol == AssetSymbol::Pax {
-        format!("agent:{did}:main")
-    } else {
-        format!("agent:{did}:asset:{}", hex(&asset.asset_id))
+fn ledger_account(
+    rpc: &SettlementRpc,
+    address: &[u8; 20],
+    asset: &AcceptedAsset,
+) -> Result<[u8; 32], SettlementError> {
+    let mut owner = [0; 32];
+    owner[12..].copy_from_slice(address);
+    let data = [
+        &keccak(b"accountId(bytes32,bytes32)")[..4],
+        &owner,
+        &asset.asset_id,
+    ]
+    .concat();
+    let account: [u8; 32] = rpc
+        .eth_call(LEDGER_PRECOMPILE, &data)?
+        .try_into()
+        .map_err(|_| SettlementError::Malformed)?;
+    if account == [0; 32] {
+        return Err(SettlementError::Malformed);
     }
-}
-
-/// The account id of a reference under [`PROTOCOL_VERSION`].
-#[must_use]
-pub fn account_id(account: &str) -> Option<[u8; 32]> {
-    account_identifiers(account).ok().map(|ids| ids[1])
+    Ok(account)
 }
 
 /// The purpose every grant for this receiver's paid routes carries.
@@ -227,6 +231,56 @@ pub fn read_payer_grant(
         return Err(SettlementError::Malformed);
     }
     Ok(Some(grant))
+}
+
+pub fn read_receiver_did(
+    rpc: &SettlementRpc,
+    address: &[u8; 20],
+) -> Result<[u8; 32], SettlementError> {
+    let mut precompile = [0; 20];
+    precompile[18..].copy_from_slice(&[0x10, 0x04]);
+    let data = [&keccak(b"getLayerXDid(address)")[..4], &[0; 12], address].concat();
+    let answer = rpc.eth_call(precompile, &data)?;
+    if answer.len() != 192 {
+        return Err(SettlementError::Malformed);
+    }
+    let key: [u8; 32] = answer[..32]
+        .try_into()
+        .map_err(|_| SettlementError::Malformed)?;
+    let did = format!("did:layerx:{}", hex(&key));
+    if key == [0; 32]
+        || answer[32..63].iter().any(|byte| *byte != 0)
+        || answer[63] != 64
+        || answer[64..95].iter().any(|byte| *byte != 0)
+        || usize::from(answer[95]) != did.len()
+        || answer[96..96 + did.len()] != *did.as_bytes()
+        || answer[96 + did.len()..].iter().any(|byte| *byte != 0)
+    {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(key)
+}
+
+pub fn read_receiver_sequence(
+    rpc: &SettlementRpc,
+    did_key: &[u8; 32],
+    asset: &[u8; 32],
+) -> Result<u64, SettlementError> {
+    let data = [
+        &keccak(b"nextSequence(bytes32,bytes32)")[..4],
+        did_key,
+        asset,
+    ]
+    .concat();
+    let answer = rpc.eth_call(LEDGER_PRECOMPILE, &data)?;
+    if answer.len() != 32 || answer[..24].iter().any(|byte| *byte != 0) {
+        return Err(SettlementError::Malformed);
+    }
+    Ok(u64::from_be_bytes(
+        answer[24..]
+            .try_into()
+            .map_err(|_| SettlementError::Malformed)?,
+    ))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -311,7 +365,7 @@ pub fn draw_calldata(
     recipient: &[u8; 32],
     amount: u128,
     idempotency_key: &[u8; 32],
-    deadline_ms: u64,
+    receiver_sequence: u64,
     purpose: &[u8; 32],
     trace: &[u8; 32],
 ) -> Vec<u8> {
@@ -323,7 +377,7 @@ pub fn draw_calldata(
     calldata.extend_from_slice(&amount.to_be_bytes());
     calldata.extend_from_slice(idempotency_key);
     calldata.extend_from_slice(&[0; 24]);
-    calldata.extend_from_slice(&deadline_ms.to_be_bytes());
+    calldata.extend_from_slice(&receiver_sequence.to_be_bytes());
     calldata.extend_from_slice(purpose);
     calldata.extend_from_slice(trace);
     calldata
@@ -336,18 +390,6 @@ pub enum RpcAnswer {
     Error { code: i64, data: Value },
 }
 
-impl RpcAnswer {
-    fn pending(&self) -> bool {
-        match self {
-            Self::Error { code, data } => {
-                *code == PENDING_CODE
-                    && data.get("state").and_then(Value::as_str) == Some("pending")
-            }
-            Self::Result(value) => value.get("state").and_then(Value::as_str) == Some("pending"),
-        }
-    }
-}
-
 /// A JSON-RPC client for the configured gateway endpoint: TLS for https and
 /// plain HTTP for the loopback endpoints the configuration allows.
 #[derive(Clone, Debug)]
@@ -357,7 +399,6 @@ pub struct GatewayRpc {
     port: u16,
     authority: String,
     path: String,
-    authorization_file: Option<PathBuf>,
 }
 
 impl GatewayRpc {
@@ -402,25 +443,7 @@ impl GatewayRpc {
             port,
             authority: authority.to_owned(),
             path,
-            authorization_file: None,
         })
-    }
-
-    pub fn with_authorization_file(mut self, path: &Path) -> Result<Self, GateError> {
-        if !self.tls
-            && self
-                .host
-                .parse::<std::net::IpAddr>()
-                .is_ok_and(|ip| !ip.is_loopback())
-        {
-            return Err(GateError::Authorization);
-        }
-        if !self.tls && self.host.parse::<std::net::IpAddr>().is_err() && self.host != "localhost" {
-            return Err(GateError::Authorization);
-        }
-        let _ = gateway_authorization(path)?;
-        self.authorization_file = Some(path.to_owned());
-        Ok(self)
     }
 
     /// Calls one method. `None` means the answer is unknown: the gateway was
@@ -429,16 +452,8 @@ impl GatewayRpc {
     pub fn call(&self, method: &str, params: &Value) -> Option<RpcAnswer> {
         let body =
             json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params}).to_string();
-        let authorization = match &self.authorization_file {
-            Some(path) => Some(gateway_authorization(path).ok()?),
-            None => None,
-        };
-        let header = Zeroizing::new(authorization.as_ref().map_or_else(String::new, |value| {
-            format!("Authorization: {}\r\n", value.as_str())
-        }));
-        let authorization_header = header.as_str();
         let request = Zeroizing::new(format!(
-            "POST {} HTTP/1.1\r\nHost: {}\r\n{authorization_header}Content-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
+            "POST {} HTTP/1.1\r\nHost: {}\r\nContent-Type: application/json\r\nAccept: application/json\r\nConnection: close\r\nContent-Length: {}\r\n\r\n{body}",
             self.path,
             self.authority,
             body.len()
@@ -447,9 +462,6 @@ impl GatewayRpc {
             .to_socket_addrs()
             .ok()?
             .next()?;
-        if self.authorization_file.is_some() && !self.tls && !address.ip().is_loopback() {
-            return None;
-        }
         let stream = TcpStream::connect_timeout(&address, RPC_TIMEOUT).ok()?;
         stream.set_read_timeout(Some(RPC_TIMEOUT)).ok()?;
         stream.set_write_timeout(Some(RPC_TIMEOUT)).ok()?;
@@ -463,70 +475,6 @@ impl GatewayRpc {
         };
         decode_answer(&decode_http(&raw)?)
     }
-}
-
-fn gateway_authorization(path: &Path) -> Result<Zeroizing<String>, GateError> {
-    use std::os::unix::fs::MetadataExt as _;
-    if !path.is_absolute()
-        || path.components().any(|part| {
-            part.as_os_str()
-                .to_str()
-                .is_some_and(|part| part == ".env" || part.starts_with(".env."))
-        })
-    {
-        return Err(GateError::Authorization);
-    }
-    if fs::canonicalize(path).map_err(|_| GateError::Authorization)? != path {
-        return Err(GateError::Authorization);
-    }
-    let file = fs::OpenOptions::new()
-        .read(true)
-        .custom_flags(0x20000 | 0x800)
-        .open(path)
-        .map_err(|_| GateError::Authorization)?;
-    let metadata = file.metadata().map_err(|_| GateError::Authorization)?;
-    let owner = fs::metadata("/proc/self")
-        .map_err(|_| GateError::Authorization)?
-        .uid();
-    if !metadata.is_file()
-        || metadata.nlink() != 1
-        || metadata.uid() != owner
-        || metadata.mode() & 0o077 != 0
-        || metadata.len() > 256
-    {
-        return Err(GateError::Authorization);
-    }
-    let mut bytes = Zeroizing::new(Vec::new());
-    file.take(257)
-        .read_to_end(&mut bytes)
-        .map_err(|_| GateError::Authorization)?;
-    if bytes.len() > 256 {
-        return Err(GateError::Authorization);
-    }
-    let text = std::str::from_utf8(&bytes).map_err(|_| GateError::Authorization)?;
-    let text = text
-        .strip_suffix("\r\n")
-        .or_else(|| text.strip_suffix('\n'))
-        .unwrap_or(text);
-    let (id, secret) = text
-        .strip_prefix("LayerX-Key ")
-        .and_then(|value| value.split_once(':'))
-        .ok_or(GateError::Authorization)?;
-    if id.is_empty()
-        || id.len() > 64
-        || !id
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
-        || !secret.strip_prefix("lxp_live_").is_some_and(|value| {
-            value.len() == 64
-                && value
-                    .bytes()
-                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
-        })
-    {
-        return Err(GateError::Authorization);
-    }
-    Ok(Zeroizing::new(text.to_owned()))
 }
 
 fn exchange(stream: &mut (impl io::Read + io::Write), request: &[u8]) -> Option<Vec<u8>> {
@@ -636,6 +584,76 @@ pub struct PaymentRecord {
     pub receipt: Option<String>,
     pub receipt_digest: Option<String>,
     pub released: bool,
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
+struct LegacyPaymentRecord {
+    principal: String,
+    request_digest: String,
+    resource: String,
+    offer: Value,
+    payer: Option<String>,
+    receive_key: Option<String>,
+    activity: Option<String>,
+    activity_id: Option<String>,
+    attempted: bool,
+    receipt: Option<String>,
+    receipt_digest: Option<String>,
+    released: bool,
+}
+
+impl LegacyPaymentRecord {
+    fn into_current(self) -> io::Result<PaymentRecord> {
+        if self.attempted && !self.released {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidData,
+                "unreleased kernel activity",
+            ));
+        }
+        let _ = (self.activity, self.activity_id);
+        Ok(PaymentRecord {
+            principal: self.principal,
+            request_digest: self.request_digest,
+            resource: self.resource,
+            offer: self.offer,
+            payer: self.payer,
+            receive_key: self.receive_key,
+            tx_hash: None,
+            raw_transaction: None,
+            attempted: self.attempted,
+            receipt: self.receipt,
+            receipt_digest: self.receipt_digest,
+            released: self.released,
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PaymentExactLog {
+    pub payer: [u8; 32],
+    pub payee: [u8; 32],
+    pub reference: [u8; 32],
+    pub asset: [u8; 32],
+    pub amount: u128,
+}
+
+pub fn decode_payment_exact(log: &SettlementLog) -> Option<PaymentExactLog> {
+    if log.address != LEDGER_PRECOMPILE
+        || log.topics.len() != 4
+        || log.topics[0] != keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        || log.data.len() != 64
+        || log.data[32..48] != [0; 16]
+    {
+        return None;
+    }
+    Some(PaymentExactLog {
+        payer: log.topics[2],
+        payee: log.topics[3],
+        reference: log.topics[1],
+        asset: log.data[..32].try_into().ok()?,
+        amount: u128::from_be_bytes(log.data[48..64].try_into().ok()?),
+    })
 }
 
 /// File-backed payment associations under `<data_dir>/payments`.
@@ -812,7 +830,20 @@ impl DeliveryRecord {
                     .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?,
             )
             .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
-            settlement
+            let legacy = payment.tx_hash.is_none()
+                && payment.released
+                && settlement.transaction == format!("lxp:{}", self.receipt_digest)
+                && settlement
+                    .extensions
+                    .get("layerx")
+                    .and_then(|value| value.get("verificationLevel"))
+                    .and_then(Value::as_str)
+                    == Some("sequencer-signed");
+            let mut wire_settlement = settlement.clone();
+            if legacy {
+                wire_settlement.transaction = format!("0x{}", self.receipt_digest);
+            }
+            wire_settlement
                 .validate_wire()
                 .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
             let binding = settlement
@@ -829,7 +860,12 @@ impl DeliveryRecord {
                 .and_then(|receipt| STANDARD.decode(receipt).ok())
                 .ok_or(io::ErrorKind::InvalidData)?;
             if !settlement.success
-                || settlement.transaction != format!("lxp:{}", self.receipt_digest)
+                || (!legacy
+                    && payment
+                        .tx_hash
+                        .as_deref()
+                        .and_then(unhex32)
+                        .is_none_or(|hash| settlement.transaction != hex0x(&hash)))
                 || settlement.payer.as_deref() != payment.payer.as_deref()
                 || payment.offer.get("network").and_then(Value::as_str)
                     != Some(settlement.network.as_str())
@@ -841,7 +877,11 @@ impl DeliveryRecord {
                 || evidence.get("receiptDigest").and_then(Value::as_str)
                     != Some(self.receipt_digest.as_str())
                 || evidence.get("verificationLevel").and_then(Value::as_str)
-                    != Some("sequencer-signed")
+                    != Some(if legacy {
+                        "sequencer-signed"
+                    } else {
+                        "receipted"
+                    })
                 || payment.receipt.as_deref() != Some(hex(&receipt).as_str())
                 || binding.get("resource").and_then(Value::as_str) != Some(self.resource.as_str())
                 || binding.get("receiptDigest").and_then(Value::as_str)
@@ -902,6 +942,29 @@ impl PaymentStore {
         }
         fs::File::open(&root)?.sync_all()?;
         fs::File::open(data_dir)?.sync_all()?;
+        for entry in fs::read_dir(root.join(REQUESTS))? {
+            let entry = entry?;
+            if entry
+                .file_name()
+                .to_str()
+                .is_some_and(|name| name.ends_with(".staging"))
+            {
+                continue;
+            }
+            let bytes = fs::read(entry.path())?;
+            if serde_json::from_slice::<PaymentRecord>(&bytes).is_err() {
+                let legacy: LegacyPaymentRecord =
+                    serde_json::from_slice(&bytes).map_err(|error| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("{}: {error}", entry.path().display()),
+                        )
+                    })?;
+                legacy.into_current().map_err(|error| {
+                    io::Error::new(error.kind(), format!("{}: {error}", entry.path().display()))
+                })?;
+            }
+        }
         Ok(Self { root })
     }
 
@@ -913,9 +976,13 @@ impl PaymentStore {
     /// Returns an I/O error, or `InvalidData` for a record that does not parse.
     pub fn load(&self, key: &[u8; 32]) -> io::Result<Option<PaymentRecord>> {
         match fs::read(self.path(REQUESTS, &hex(key))) {
-            Ok(bytes) => serde_json::from_slice(&bytes)
-                .map(Some)
-                .map_err(|_| io::Error::from(io::ErrorKind::InvalidData)),
+            Ok(bytes) => match serde_json::from_slice(&bytes) {
+                Ok(record) => Ok(Some(record)),
+                Err(_) => serde_json::from_slice::<LegacyPaymentRecord>(&bytes)
+                    .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?
+                    .into_current()
+                    .map(Some),
+            },
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
             Err(error) => Err(error),
         }
@@ -1035,7 +1102,7 @@ impl std::fmt::Display for GateError {
             Self::Authorization => f.write_str("gateway authorization file or transport refused"),
             Self::Adapter => f.write_str("the 402LXP adapter cannot be registered"),
             Self::Store(error) => write!(f, "the payment store cannot be opened: {error}"),
-            Self::Payer => f.write_str("payment.payer_did does not derive a payer account"),
+            Self::Payer => f.write_str("payment.payer_address does not derive a payer account"),
             Self::Conformance => {
                 f.write_str("payment.conformance_suite does not hold the pinned conformance suite")
             }
@@ -1048,6 +1115,7 @@ impl std::error::Error for GateError {}
 struct Receiver {
     key: SigningKey,
     address: [u8; 20],
+    did_key: [u8; 32],
     purpose: [u8; 32],
     accounts: [[u8; 32]; 4],
 }
@@ -1059,10 +1127,9 @@ pub struct PaymentGate {
     network: String,
     chain_id: u64,
     receipt_keys: Vec<SequencerAuthorization>,
-    payer: Option<String>,
+    payer_address: Option<[u8; 20]>,
     draw_fee_limit: u128,
-    rpc: GatewayRpc,
-    settlement_rpc: SettlementRpc,
+    rpc: SettlementRpc,
     store: PaymentStore,
     clock: Clock,
     gateway: Mutex<GatewayCore>,
@@ -1112,16 +1179,6 @@ impl PaymentGate {
         }
         let assets = AcceptedAssets::new(&config.assets).map_err(GateError::Assets)?;
         let payment = &config.payment;
-        if let Some(payer) = payment.payer_did.as_deref() {
-            if !payer_did_valid(payer)
-                || assets
-                    .all()
-                    .iter()
-                    .any(|asset| account_id(&wallet_account(payer, asset)).is_none())
-            {
-                return Err(GateError::Payer);
-            }
-        }
         if let Some(directory) = payment.conformance_suite.as_deref() {
             if recorded_suite(directory).ok()
                 != Some((conformance.suite_digest(), conformance.vector_count()))
@@ -1129,13 +1186,8 @@ impl PaymentGate {
                 return Err(GateError::Conformance);
             }
         }
-        let rpc = GatewayRpc::new(&config.gateway.endpoint)?;
-        let settlement_rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
+        let rpc = SettlementRpc::new(&config.evm.endpoint, config.evm.chain_id)
             .map_err(|_| GateError::Endpoint)?;
-        let rpc = match &config.gateway.authorization_file {
-            Some(path) => rpc.with_authorization_file(path)?,
-            None => rpc,
-        };
         let store = PaymentStore::open(&config.data_dir).map_err(GateError::Store)?;
         let lease = fs::OpenOptions::new()
             .read(true)
@@ -1150,8 +1202,7 @@ impl PaymentGate {
             .try_lock()
             .map_err(|_| GateError::Store(io::Error::other("payment journal already open")))?;
         let address = signer_address(receiver);
-        let mut owner = [0; 32];
-        owner[12..].copy_from_slice(&address);
+        let owner = read_receiver_did(&rpc, &address).map_err(|_| GateError::Adapter)?;
         let mut accounts = [[0; 32]; 4];
         for (slot, asset) in accounts.iter_mut().zip(assets.all()) {
             let data = [
@@ -1160,7 +1211,7 @@ impl PaymentGate {
                 &asset.asset_id,
             ]
             .concat();
-            *slot = settlement_rpc
+            *slot = rpc
                 .eth_call(LEDGER_PRECOMPILE, &data)
                 .map_err(|_| GateError::Adapter)?
                 .try_into()
@@ -1181,15 +1232,15 @@ impl PaymentGate {
                 key: receiver.clone(),
                 purpose: purpose_hash(&address),
                 address,
+                did_key: owner,
                 accounts,
             },
             network: format!("eip155:{}", config.evm.chain_id),
             chain_id: config.evm.chain_id,
             receipt_keys: config.gateway.receipt_keys.clone(),
-            payer: payment.payer_did.clone(),
+            payer_address: payment.payer_address,
             draw_fee_limit: payment.draw_fee_limit,
             rpc,
-            settlement_rpc,
             store,
             clock,
             gateway: Mutex::new(gateway),
@@ -1216,8 +1267,8 @@ impl PaymentGate {
 
     /// The configured payer every draw is taken from, if any.
     #[must_use]
-    pub fn payer(&self) -> Option<&str> {
-        self.payer.as_deref()
+    pub fn payer(&self) -> Option<[u8; 20]> {
+        self.payer_address
     }
 
     /// The fee limit each draw is signed with and may be charged.
@@ -1247,21 +1298,20 @@ impl PaymentGate {
         &self,
         asset: &AcceptedAsset,
         scheme: &str,
-        payer: Option<&str>,
-    ) -> PaymentRequirements {
-        let mut owner = [0; 32];
-        owner[12..].copy_from_slice(&self.receiver.address);
+        payer: Option<[u8; 20]>,
+    ) -> Result<PaymentRequirements, Response> {
         let mut layerx = json!({
             "commitment": COMMITMENT,
-            "account": format!("agent:did:layerx:{}:asset:{}", hex(&owner), asset.id_hex()),
+            "account": format!("agent:did:layerx:{}:asset:{}", hex(&self.receiver.did_key), asset.id_hex()),
             "currency": asset.symbol.code(),
         });
         if let (Some(payer), Some(terms)) = (payer, layerx.as_object_mut()) {
-            let payer = account_id(&wallet_account(payer, asset)).map(|id| hex(&id));
-            terms.insert("payer".to_owned(), json!(payer));
+            let payer = ledger_account(&self.rpc, &payer, asset)
+                .map_err(|_| Response::error(503, "payment_unavailable"))?;
+            terms.insert("payer".to_owned(), json!(hex(&payer)));
             terms.insert("purposeHash".to_owned(), json!(hex(&self.receiver.purpose)));
         }
-        PaymentRequirements {
+        Ok(PaymentRequirements {
             scheme: scheme.to_owned(),
             network: self.network.clone(),
             amount: AtomicAmount::from_u128(asset.price),
@@ -1269,7 +1319,7 @@ impl PaymentGate {
             pay_to: hex(&self.payee(asset)),
             max_timeout_seconds: OFFER_TIMEOUT_SECONDS,
             extra: Some(json!({ "layerx": layerx })),
-        }
+        })
     }
 
     /// The offers for one request: per asset a metered draw bound to the
@@ -1280,7 +1330,7 @@ impl PaymentGate {
     pub fn payment_required(
         &self,
         request: &Request,
-        payer: Option<&str>,
+        payer: Option<[u8; 20]>,
     ) -> Result<PaymentRequired, Response> {
         let host = request
             .header("Host")
@@ -1296,9 +1346,9 @@ impl PaymentGate {
         let mut accepts = Vec::with_capacity(8);
         for asset in self.assets.all() {
             if payer.is_some() {
-                accepts.push(self.offer(asset, METERED, payer));
+                accepts.push(self.offer(asset, METERED, payer)?);
             }
-            accepts.push(self.offer(asset, EXACT, None));
+            accepts.push(self.offer(asset, EXACT, None)?);
         }
         Ok(PaymentRequired {
             x402_version: X402_VERSION,
@@ -1349,7 +1399,7 @@ impl PaymentGate {
             Ok(resource) => resource,
             Err(response) => return response,
         };
-        let payer = match payer_did(request, self.payer.as_deref()) {
+        let payer = match payer_address(request, self.payer_address) {
             Ok(payer) => payer,
             Err(response) => return response,
         };
@@ -1386,6 +1436,30 @@ impl PaymentGate {
                 now_ms / 1_000,
             )
         };
+        if plane.refusal == Some("legacy_replay") {
+            if let Some(key) = plane.key {
+                let replay = (|| -> io::Result<Option<Response>> {
+                    let payment = self.store.load(&key)?.ok_or(io::ErrorKind::InvalidData)?;
+                    if payment.tx_hash.is_none() && payment.released {
+                        if let Some(delivery) = self.store.delivery(&key)? {
+                            delivery.validate(&payment)?;
+                            return delivery
+                                .response
+                                .as_ref()
+                                .map(DeliveryResponse::response)
+                                .transpose();
+                        }
+                    }
+                    Ok(None)
+                })();
+                match replay {
+                    Ok(Some(response)) => return response,
+                    Err(_) => return Response::error(503, "payment_store_unavailable"),
+                    Ok(None) => {}
+                }
+            }
+            plane.refusal = Some("receipt_consumed");
+        }
         match outcome {
             Err(_) if plane.refusal == Some("payment_pending") => {
                 Response::error(503, "payment_pending").with_header("Retry-After", "1")
@@ -1618,6 +1692,32 @@ impl PaymentGate {
                 .and_then(unhex32)
                 .and_then(|id| self.assets.by_id(&id))
                 .ok_or(io::ErrorKind::InvalidData)?;
+            if payment.tx_hash.is_none() && payment.released {
+                let verified = verify_sequencer_signature(
+                    &bytes,
+                    ReceiptKeys::HeightRanges(&self.receipt_keys),
+                )
+                .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
+                let facts = verified.protocol().ok_or(io::ErrorKind::InvalidData)?;
+                let digest =
+                    leaf_hash(&bytes).map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
+                if facts.result_code() != 0
+                    || facts.asset() != asset.asset_id
+                    || payment.offer.get("amount").and_then(Value::as_str)
+                        != Some(facts.amount().to_string().as_str())
+                    || payment.offer.get("payTo").and_then(Value::as_str)
+                        != Some(hex(&facts.to()).as_str())
+                    || payment.payer.as_deref() != Some(hex(&facts.from()).as_str())
+                    || payment.receipt_digest.as_deref() != Some(hex(&digest).as_str())
+                    || !self.store.claim(RECEIPTS, &hex(&digest), &key)?
+                {
+                    return Err(io::ErrorKind::InvalidData.into());
+                }
+                if let Some(delivery) = self.store.delivery(&key)? {
+                    delivery.validate(&payment)?;
+                }
+                continue;
+            }
             let metered = payment.receive_key.is_some();
             let scheme = if metered { METERED } else { EXACT };
             if payment.offer.get("scheme").and_then(Value::as_str) != Some(scheme)
@@ -1650,17 +1750,30 @@ impl PaymentGate {
                 to: self.payee(asset),
                 asset: asset.asset_id,
                 amount: asset.price,
+                grant: metered
+                    .then(|| recorded_grant(&payment))
+                    .transpose()
+                    .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?,
+                receive_key: payment.receive_key.as_deref().and_then(unhex32),
             };
             let plane = Plane {
                 gate: self,
                 resource: &payment.resource,
-                payer: self.payer.as_deref(),
+                payer: self.payer_address,
                 now_ms: (self.clock)(),
                 key: None,
                 refusal: None,
             };
-            let (_, digest) = plane
-                .verify_receipt(&bytes, &expected)
+            let answer = self
+                .rpc
+                .sequencer_receipt(&expected.activity_id.ok_or(io::ErrorKind::InvalidData)?)
+                .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?
+                .ok_or(io::ErrorKind::InvalidData)?;
+            if answer.receipt.as_deref() != Some(bytes.as_slice()) {
+                return Err(io::ErrorKind::InvalidData.into());
+            }
+            let digest = plane
+                .verify_receipt(&answer, &expected)
                 .map_err(|_| io::Error::from(io::ErrorKind::InvalidData))?;
             if payment.receipt_digest.as_deref() != Some(hex(&digest).as_str())
                 || !self.store.claim(RECEIPTS, &hex(&digest), &key)?
@@ -1753,18 +1866,16 @@ const fn describe(route: Route) -> &'static str {
     }
 }
 
-/// The payer a request's draws are taken from: the configured payer when
-/// there is one, which a `LAYERX-PAYER-DID` header may repeat but not
-/// contradict, and otherwise the DID the header names.
-fn payer_did<'a>(
-    request: &'a Request,
-    configured: Option<&'a str>,
-) -> Result<Option<&'a str>, Response> {
-    let named = match request.header(PAYER_DID) {
-        None => None,
-        Some(did) if payer_did_valid(did) => Some(did),
-        Some(_) => return Err(Response::error(400, "malformed_payer")),
-    };
+fn payer_address(
+    request: &Request,
+    configured: Option<[u8; 20]>,
+) -> Result<Option<[u8; 20]>, Response> {
+    let named = request
+        .header(PAYER_ADDRESS)
+        .map(|text| {
+            parse_payer_address(text).ok_or_else(|| Response::error(400, "malformed_payer"))
+        })
+        .transpose()?;
     match (configured, named) {
         (Some(configured), Some(named)) if configured != named => {
             Err(Response::error(400, "payer_mismatch"))
@@ -1802,15 +1913,10 @@ fn recorded_suite(directory: &Path) -> io::Result<([u8; 32], u64)> {
     Ok((digest.finalize().into(), rules))
 }
 
-fn principal(payer: Option<&str>) -> PrincipalId {
+fn principal(payer: Option<[u8; 20]>) -> PrincipalId {
     let name = payer.map_or_else(
         || ANONYMOUS_PRINCIPAL.to_owned(),
-        |did| {
-            format!(
-                "payer-{}",
-                hex(&sha256(&[PRINCIPAL_DOMAIN, did.as_bytes()]))
-            )
-        },
+        |address| format!("payer-{}", hex(&sha256(&[PRINCIPAL_DOMAIN, &address]))),
     );
     PrincipalId::new(name).unwrap_or_else(|_| {
         PrincipalId::new(ANONYMOUS_PRINCIPAL).unwrap_or_else(|_| unreachable!("fixed principal"))
@@ -1874,7 +1980,7 @@ type Settled = Result<PlanePaymentOutcome, &'static str>;
 struct Plane<'a> {
     gate: &'a PaymentGate,
     resource: &'a str,
-    payer: Option<&'a str>,
+    payer: Option<[u8; 20]>,
     now_ms: u64,
     key: Option<[u8; 32]>,
     refusal: Option<&'static str>,
@@ -1893,7 +1999,9 @@ impl PaymentPlane for Plane<'_> {
                 self.refusal = Some(reason);
                 match reason {
                     "request_mismatch" => Err(layerx_x402::model::X402Error::RequirementsMismatch),
-                    "payment_pending" => Err(layerx_x402::model::X402Error::EvidenceMissing),
+                    "payment_pending" | "legacy_replay" => {
+                        Err(layerx_x402::model::X402Error::EvidenceMissing)
+                    }
                     _ => Ok(PlanePaymentOutcome::Refused { reason }),
                 }
             }
@@ -1919,6 +2027,8 @@ struct Expected {
     to: [u8; 32],
     asset: [u8; 32],
     amount: u128,
+    grant: Option<[u8; 32]>,
+    receive_key: Option<[u8; 32]>,
 }
 
 impl<'Plane> Plane<'Plane> {
@@ -1960,6 +2070,9 @@ impl<'Plane> Plane<'Plane> {
             {
                 return Err("request_mismatch");
             }
+            if record.tx_hash.is_none() && record.released {
+                return Err("legacy_replay");
+            }
             return match request.scheme.as_str() {
                 METERED => self.recover(&key, record, &asset, pay_to),
                 _ => self.exact(request, &asset, pay_to, Some(record)),
@@ -1997,13 +2110,14 @@ impl<'Plane> Plane<'Plane> {
     ) -> Settled {
         let payer = self.payer.ok_or("payer_required")?;
         let (grant_id, receive_key) = metered_payload(&request.scheme_payload)?;
-        let grant = read_payer_grant(&self.gate.settlement_rpc, &grant_id)
+        let grant = read_payer_grant(&self.gate.rpc, &grant_id)
             .map_err(|error| match error {
                 SettlementError::Malformed => "invalid_grant",
                 _ => "payment_pending",
             })?
             .ok_or("invalid_grant")?;
-        let payer_account = account_id(&wallet_account(payer, asset)).ok_or("payer_mismatch")?;
+        let payer_account =
+            ledger_account(&self.gate.rpc, &payer, asset).map_err(|_| "payment_pending")?;
         check_grant(
             &grant,
             &payer_account,
@@ -2024,7 +2138,14 @@ impl<'Plane> Plane<'Plane> {
             Ok(false) => return Err("idempotency_conflict"),
             Err(_) => return Err("payment_pending"),
         }
-        let rpc = &self.gate.settlement_rpc;
+        let rpc = &self.gate.rpc;
+        let did_key =
+            read_receiver_did(rpc, &self.gate.receiver.address).map_err(|_| "payment_pending")?;
+        if did_key != self.gate.receiver.did_key {
+            return Err("payment_pending");
+        }
+        let receiver_sequence = read_receiver_sequence(rpc, &did_key, &asset.asset_id)
+            .map_err(|_| "payment_pending")?;
         let nonce = rpc
             .pending_nonce(self.gate.receiver.address)
             .map_err(|_| "payment_pending")?;
@@ -2033,7 +2154,7 @@ impl<'Plane> Plane<'Plane> {
             &pay_to,
             asset.price,
             &receive_key,
-            self.now_ms.saturating_add(DRAW_VALIDITY_MS),
+            receiver_sequence,
             &self.gate.receiver.purpose,
             &request.request_digest,
         );
@@ -2108,7 +2229,7 @@ impl<'Plane> Plane<'Plane> {
         if self.gate.store.save(key, &record).is_err() {
             return Self::pending(&record);
         }
-        match self.gate.settlement_rpc.send_raw_transaction(&raw) {
+        match self.gate.rpc.send_raw_transaction(&raw) {
             Ok(hash) if hash == expected => Self::pending(&record),
             Ok(_) => Err("receipt_mismatch"),
             Err(SettlementError::Transport) => Self::pending(&record),
@@ -2123,74 +2244,44 @@ impl<'Plane> Plane<'Plane> {
         asset: &AcceptedAsset,
         pay_to: [u8; 32],
     ) -> Settled {
-        if let Some(receipt) = record.receipt.as_deref() {
-            let bytes = unhex(receipt).ok_or("receipt_unverified")?;
-            return self.finish(key, record, bytes, asset, pay_to);
-        }
-        if !record.attempted {
-            return self.submit(key, record, asset, pay_to);
-        }
-        let activity_id = record.tx_hash.clone().ok_or("request_mismatch")?;
-        let status = self
+        let hash = record
+            .tx_hash
+            .as_deref()
+            .and_then(unhex32)
+            .ok_or("request_mismatch")?;
+        let answer = self
             .gate
             .rpc
-            .call("lx_getActivityStatus", &json!([activity_id]));
-        let needs_receipt = matches!(
-            &status,
-            Some(RpcAnswer::Result(value))
-                if value.get("receipt").is_none()
-                    && value.get("state").and_then(Value::as_str) != Some("pending")
-        );
-        let answer = if needs_receipt {
-            self.gate.rpc.call("lx_getReceipt", &json!([activity_id]))
-        } else {
-            status
-        };
-        self.conclude(key, record, answer, asset, pay_to)
+            .sequencer_receipt(&hash)
+            .map_err(|error| match error {
+                SettlementError::Malformed => "receipt_mismatch",
+                _ => "payment_pending",
+            })?;
+        match answer {
+            None => self.submit(key, record, asset, pay_to),
+            Some(answer) => self.conclude(key, record, answer, asset, pay_to),
+        }
     }
 
     fn conclude(
         &self,
         key: &[u8; 32],
         record: PaymentRecord,
-        answer: Option<RpcAnswer>,
+        answer: SettlementReceipt,
         asset: &AcceptedAsset,
         pay_to: [u8; 32],
     ) -> Settled {
-        let Some(answer) = answer else {
-            return Self::pending(&record);
-        };
-        if answer.pending() {
+        if answer.rung == SettlementRung::Submitted {
             return Self::pending(&record);
         }
-        let RpcAnswer::Result(value) = answer else {
-            return Err("gateway_refused");
-        };
-        if value.get("activity_id").and_then(Value::as_str) != record.tx_hash.as_deref() {
-            return Err("receipt_mismatch");
-        }
-        if value
-            .get("state")
-            .is_some_and(|state| state.as_str() != Some("completed"))
-        {
-            return Err("payment_failed");
-        }
-        let Some(receipt) = value.get("receipt") else {
-            return Self::pending(&record);
-        };
-        let bytes = receipt
-            .as_str()
-            .filter(|text| text.len() <= RECEIPT_HEX_LIMIT)
-            .and_then(unhex)
-            .ok_or("receipt_unverified")?;
-        self.finish(key, record, bytes, asset, pay_to)
+        self.finish(key, record, answer, asset, pay_to)
     }
 
     fn finish(
         &self,
         key: &[u8; 32],
         mut record: PaymentRecord,
-        bytes: Vec<u8>,
+        answer: SettlementReceipt,
         asset: &AcceptedAsset,
         pay_to: [u8; 32],
     ) -> Settled {
@@ -2203,8 +2294,18 @@ impl<'Plane> Plane<'Plane> {
             to: pay_to,
             asset: asset.asset_id,
             amount: asset.price,
+            grant: metered.then(|| recorded_grant(&record)).transpose()?,
+            receive_key: record.receive_key.as_deref().and_then(unhex32),
         };
-        let (_, digest) = self.verify_receipt(&bytes, &expected)?;
+        let digest = self.verify_receipt(&answer, &expected)?;
+        let bytes = answer.receipt.ok_or("receipt_unverified")?;
+        if record
+            .receipt
+            .as_deref()
+            .is_some_and(|saved| saved != hex(&bytes))
+        {
+            return Err("receipt_mismatch");
+        }
         match self.gate.store.claim(RECEIPTS, &hex(&digest), key) {
             Ok(true) => {}
             Ok(false) => return Err("receipt_consumed"),
@@ -2219,84 +2320,62 @@ impl<'Plane> Plane<'Plane> {
         } else if record.receipt_digest.as_deref() != Some(hex(&digest).as_str()) {
             return Err("receipt_mismatch");
         }
-        let transaction_hash = record
-            .tx_hash
-            .as_deref()
-            .and_then(unhex32)
-            .ok_or("receipt_mismatch")?;
-        let Some(RpcAnswer::Result(value)) = self.gate.rpc.call(
-            "pax_sequencerReceipt",
-            &json!([format!("0x{}", hex(&transaction_hash))]),
-        ) else {
-            return Self::pending(&record);
-        };
-        let rpc_bytes = |value: &Value| {
-            value
-                .as_str()
-                .and_then(|text| text.strip_prefix("0x"))
-                .and_then(unhex)
-        };
-        if rpc_bytes(&value["txHash"]).as_deref() != Some(transaction_hash.as_slice())
-            || rpc_bytes(&value["receipt"]).as_deref() != Some(bytes.as_slice())
-        {
-            return Err("receipt_mismatch");
-        }
-        let logs = value["logs"]
-            .as_array()
-            .ok_or("receipt_unverified")?
-            .iter()
-            .map(|log| {
-                let address = rpc_bytes(&log["address"])?.try_into().ok()?;
-                let topics = log["topics"]
-                    .as_array()?
-                    .iter()
-                    .map(|topic| rpc_bytes(topic)?.try_into().ok())
-                    .collect::<Option<Vec<[u8; 32]>>>()?;
-                let data = rpc_bytes(&log["data"])?;
-                let index =
-                    u64::from_str_radix(log["logIndex"].as_str()?.strip_prefix("0x")?, 16).ok()?;
-                Some(SequencerLog::new(address, topics, data, index))
-            })
-            .collect::<Option<Vec<_>>>()
-            .ok_or("receipt_unverified")?;
         Ok(PlanePaymentOutcome::Executed(ExecutedPayment {
             evidence: SequencerEvidence {
-                transaction_hash,
+                transaction_hash: answer.tx_hash,
                 signed_receipt: bytes,
-                logs,
-                rung: SettlementRung::Receipted,
+                logs: answer
+                    .logs
+                    .into_iter()
+                    .map(|log| SequencerLog::new(log.address, log.topics, log.data, log.log_index))
+                    .collect(),
+                rung: answer.rung,
             },
         }))
     }
 
     fn verify_receipt(
         &self,
-        bytes: &[u8],
+        answer: &SettlementReceipt,
         expected: &Expected,
-    ) -> Result<(AuthorizedBatch, [u8; 32]), &'static str> {
+    ) -> Result<[u8; 32], &'static str> {
+        let bytes = answer
+            .receipt
+            .as_deref()
+            .filter(|bytes| bytes.len() <= RECEIPT_HEX_LIMIT / 2)
+            .ok_or("receipt_unverified")?;
         let receipt =
             verify_sequencer_signature(bytes, ReceiptKeys::HeightRanges(&self.gate.receipt_keys))
                 .map_err(|_| "receipt_unverified")?;
         let facts = receipt.protocol().ok_or("receipt_unverified")?;
-        let trusted = self
-            .gate
-            .receipt_keys
-            .iter()
-            .find(|key| key.sequencer_id() == facts.context_hash())
-            .ok_or("receipt_unverified")?
-            .public_key();
-        if facts.module_id() != ASSET_MODULE
-            || facts.operation() != expected.operation
-            || facts.result_code() != 0
-            || expected
-                .activity_id
-                .is_some_and(|activity| activity != facts.activity_id())
-            || expected.from.is_some_and(|from| from != facts.from())
-            || facts.to() != expected.to
-            || facts.asset() != expected.asset
-            || facts.amount() != expected.amount
+        let batch = facts.batch_id();
+        let height = u64::from_be_bytes(batch[24..].try_into().map_err(|_| "receipt_unverified")?);
+        if expected
+            .activity_id
+            .is_some_and(|hash| hash != answer.tx_hash)
+            || facts.activity_id() != answer.tx_hash
+            || answer.seq != Some(facts.global_sequence())
+            || answer.height != Some(height)
+            || answer.key_id != Some(facts.context_hash())
+            || answer.status != Some(u64::from(facts.result_code() == 0))
         {
             return Err("receipt_mismatch");
+        }
+        let logs = answer
+            .logs
+            .iter()
+            .map(|log| {
+                SequencerLog::new(
+                    log.address,
+                    log.topics.clone(),
+                    log.data.clone(),
+                    log.log_index,
+                )
+            })
+            .collect();
+        let verified = verify_logs(&receipt, logs).map_err(|_| "receipt_mismatch")?;
+        if facts.result_code() != 0 {
+            return Err("payment_failed");
         }
         if expected
             .fee_limit
@@ -2304,16 +2383,43 @@ impl<'Plane> Plane<'Plane> {
         {
             return Err("draw_fee_limit_exceeded");
         }
-        let batch = AuthorizedBatch::new(
-            facts.batch_id(),
-            facts.asset(),
-            facts.previous_state_root(),
-            facts.resulting_state_root(),
-            trusted,
-        );
-        let verified = verify(bytes, &batch).map_err(|_| "receipt_unverified")?;
-        let digest = leaf_hash(verified.canonical_bytes()).map_err(|_| "receipt_unverified")?;
-        Ok((batch, digest))
+        let event = if expected.operation == 6 {
+            keccak(b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)")
+        } else {
+            keccak(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        };
+        let matches = verified
+            .logs()
+            .iter()
+            .filter(|log| {
+                let topics = log.topics();
+                let data = log.data();
+                log.address() == LEDGER_PRECOMPILE
+                    && topics.len() == 4
+                    && topics[0] == event
+                    && if expected.operation == 6 {
+                        expected.grant == Some(topics[1])
+                            && expected.from == Some(topics[2])
+                            && topics[3] == expected.to
+                            && data.len() == 128
+                            && expected
+                                .receive_key
+                                .as_ref()
+                                .is_some_and(|key| data[64..96] == key[..])
+                    } else {
+                        expected.from.is_none_or(|from| topics[2] == from)
+                            && topics[3] == expected.to
+                            && data.len() == 64
+                    }
+                    && data[..32] == expected.asset
+                    && data[32..48] == [0; 16]
+                    && data[48..64] == expected.amount.to_be_bytes()
+            })
+            .count();
+        if matches != 1 {
+            return Err("receipt_mismatch");
+        }
+        canonical_receipt_digest(bytes).map_err(|_| "receipt_unverified")
     }
 
     fn exact(
@@ -2323,73 +2429,126 @@ impl<'Plane> Plane<'Plane> {
         pay_to: [u8; 32],
         existing: Option<PaymentRecord>,
     ) -> Settled {
-        let (bytes, claimed) = exact_payload(&request.scheme_payload)?;
+        let (hash, claimed) = exact_payload(&request.scheme_payload)?;
         let key = request.idempotency_key;
+        if existing
+            .as_ref()
+            .is_some_and(|record| record.tx_hash.as_deref() != Some(hex(&hash).as_str()))
+        {
+            return Err("request_mismatch");
+        }
+        let answer = self
+            .gate
+            .rpc
+            .sequencer_receipt(&hash)
+            .map_err(|error| match error {
+                SettlementError::Malformed => "receipt_mismatch",
+                _ => "payment_pending",
+            })?;
+        let Some(answer) = answer.filter(|answer| answer.rung != SettlementRung::Submitted) else {
+            return Ok(PlanePaymentOutcome::Pending {
+                transaction_hash: hash,
+            });
+        };
         let expected = Expected {
             operation: 5,
             fee_limit: None,
-            activity_id: None,
+            activity_id: Some(hash),
             from: self
                 .payer
-                .map(|payer| account_id(&wallet_account(payer, asset)).ok_or("payer_mismatch"))
+                .map(|payer| {
+                    ledger_account(&self.gate.rpc, &payer, asset).map_err(|_| "payment_pending")
+                })
                 .transpose()?,
             to: pay_to,
             asset: asset.asset_id,
             amount: asset.price,
+            grant: None,
+            receive_key: None,
         };
-        let (_, digest) = self.verify_receipt(&bytes, &expected)?;
+        let digest = self.verify_receipt(&answer, &expected)?;
         if digest != claimed {
             return Err("receipt_digest_mismatch");
         }
-        let record = if let Some(record) = existing {
-            record
-        } else {
-            match self.gate.store.holder(RECEIPTS, &hex(&digest)) {
-                Ok(None) => {}
-                Ok(Some(_)) => return Err("receipt_consumed"),
-                Err(_) => return Err("payment_pending"),
-            }
-            let facts = verify_sequencer_signature(
-                &bytes,
-                ReceiptKeys::HeightRanges(&self.gate.receipt_keys),
-            )
-            .ok()
-            .and_then(|receipt| {
-                receipt
-                    .protocol()
-                    .map(|facts| (facts.activity_id(), facts.from()))
-            })
-            .ok_or("receipt_unverified")?;
-            let record = PaymentRecord {
-                payer: Some(hex(&facts.1)),
-                tx_hash: Some(hex(&facts.0)),
-                attempted: true,
-                ..self.fresh_record(request)
-            };
-            if self.gate.store.save(&key, &record).is_err() {
-                return Self::pending(&record);
-            }
-            record
-        };
-        if record.receipt.is_some() {
-            return self.finish(&key, record, bytes, asset, pay_to);
+        match self.gate.store.holder(RECEIPTS, &hex(&digest)) {
+            Ok(Some(owner)) if owner != hex(&key).as_bytes() => return Err("receipt_consumed"),
+            Err(_) => return Err("payment_pending"),
+            _ => {}
         }
-        let activity_id = record.tx_hash.clone().ok_or("request_mismatch")?;
-        let answer = self.gate.rpc.call("lx_getReceipt", &json!([activity_id]));
-        let confirmed = match &answer {
-            Some(RpcAnswer::Result(value)) => value
-                .get("receipt")
-                .and_then(Value::as_str)
-                .is_none_or(|receipt| unhex(receipt).as_deref() == Some(bytes.as_slice())),
-            Some(error @ RpcAnswer::Error { .. }) if error.pending() => true,
-            Some(RpcAnswer::Error { .. }) => return Err("receipt_unknown"),
-            None => true,
-        };
-        if !confirmed {
+        let event = answer
+            .logs
+            .iter()
+            .filter_map(decode_payment_exact)
+            .find(|event| {
+                event.payee == pay_to
+                    && event.asset == asset.asset_id
+                    && event.amount == asset.price
+            })
+            .ok_or("receipt_mismatch")?;
+        if event.reference != key {
             return Err("receipt_mismatch");
+        }
+        let record = existing.unwrap_or_else(|| PaymentRecord {
+            payer: Some(hex(&event.payer)),
+            tx_hash: Some(hex(&hash)),
+            attempted: true,
+            ..self.fresh_record(request)
+        });
+        if self.gate.store.save(&key, &record).is_err() {
+            return Self::pending(&record);
         }
         self.conclude(&key, record, answer, asset, pay_to)
     }
+}
+
+fn recorded_grant(record: &PaymentRecord) -> Result<[u8; 32], &'static str> {
+    fn item(bytes: &[u8]) -> Option<(bool, &[u8], &[u8])> {
+        let first = *bytes.first()?;
+        let (list, offset, length) = match first {
+            0..=127 => (false, 0, 1),
+            128..=183 => (false, 1, usize::from(first - 128)),
+            192..=247 => (true, 1, usize::from(first - 192)),
+            _ => {
+                let list = first >= 248;
+                let width = usize::from(first - if list { 247 } else { 183 });
+                let length = bytes.get(1..1 + width)?.iter().try_fold(0usize, |n, b| {
+                    n.checked_mul(256)?.checked_add(usize::from(*b))
+                })?;
+                (list, 1 + width, length)
+            }
+        };
+        let end = offset.checked_add(length)?;
+        Some((list, bytes.get(offset..end)?, bytes.get(end..)?))
+    }
+    let raw = record
+        .raw_transaction
+        .as_deref()
+        .and_then(unhex)
+        .ok_or("receipt_mismatch")?;
+    if record.tx_hash.as_deref().and_then(unhex32) != Some(keccak(&raw)) {
+        return Err("receipt_mismatch");
+    }
+    let (list, mut fields, tail) = item(&raw).ok_or("receipt_mismatch")?;
+    if !list || !tail.is_empty() {
+        return Err("receipt_mismatch");
+    }
+    for index in 0..6 {
+        let (list, field, rest) = item(fields).ok_or("receipt_mismatch")?;
+        if list {
+            return Err("receipt_mismatch");
+        }
+        if index == 3 && field != LEDGER_PRECOMPILE {
+            return Err("receipt_mismatch");
+        }
+        if index == 5 {
+            if field.len() != 228 || field[..4] != keccak(DRAW_SIGNATURE.as_bytes())[..4] {
+                return Err("receipt_mismatch");
+            }
+            return field[4..36].try_into().map_err(|_| "receipt_mismatch");
+        }
+        fields = rest;
+    }
+    Err("receipt_mismatch")
 }
 
 fn check_grant(
@@ -2439,36 +2598,34 @@ fn metered_payload(payload: &Value) -> Result<([u8; 32], [u8; 32]), &'static str
     Ok((grant, key))
 }
 
-/// The exact payload: `receipt` in base64, `receiptDigest`, the
-/// `sequencer-signed` verification level and an optional `idempotencyKey`.
-fn exact_payload(payload: &Value) -> Result<(Vec<u8>, [u8; 32]), &'static str> {
+/// The exact payload binds a payExact transaction to its canonical receipt digest.
+fn exact_payload(payload: &Value) -> Result<([u8; 32], [u8; 32]), &'static str> {
     let fields = payload.as_object().ok_or("invalid_payment_payload")?;
     let known = [
-        "receipt",
+        "txHash",
         "receiptDigest",
         "verificationLevel",
         "idempotencyKey",
     ];
     if fields.keys().any(|name| !known.contains(&name.as_str()))
-        || fields.get("verificationLevel").and_then(Value::as_str) != Some("sequencer-signed")
+        || fields.get("verificationLevel").and_then(Value::as_str) != Some("receipted")
         || fields
             .get("idempotencyKey")
             .is_some_and(|key| key.as_str().and_then(unhex32).is_none())
     {
         return Err("invalid_payment_payload");
     }
-    let receipt = fields
-        .get("receipt")
+    let hash = fields
+        .get("txHash")
         .and_then(Value::as_str)
-        .filter(|receipt| receipt.len() <= RECEIPT_HEX_LIMIT)
-        .and_then(|receipt| STANDARD.decode(receipt).ok())
+        .and_then(|text| unhex32(text.strip_prefix("0x").unwrap_or(text)))
         .ok_or("invalid_payment_payload")?;
     let digest = fields
         .get("receiptDigest")
         .and_then(Value::as_str)
         .and_then(unhex32)
         .ok_or("invalid_payment_payload")?;
-    Ok((receipt, digest))
+    Ok((hash, digest))
 }
 
 #[cfg(test)]
@@ -2552,7 +2709,7 @@ mod offer_tests {
     use layerx_x402::seller::Seller;
     use serde_json::{json, Value};
 
-    use super::{PaymentGate, PAYER_DID, PAYMENT_REQUIRED};
+    use super::{PaymentGate, PAYER_ADDRESS, PAYMENT_REQUIRED};
     use crate::config::Config;
     use crate::server::{Request, Response, Route};
 
@@ -2576,10 +2733,25 @@ mod offer_tests {
             serde_json::from_str(include_str!("../tests/fixtures/gateway/metered.json"))?;
         let ledger = std::thread::spawn(move || {
             use std::io::{Read as _, Write as _};
-            let rules = recording["endpoints"]["gateway"]["*"]
+            let mut rules = recording["endpoints"]["gateway"]["*"]
                 .as_array()
-                .expect("rules");
-            for _ in 0..8 {
+                .expect("rules")
+                .clone();
+            let payer_rules: Vec<Value> = rules
+                .iter()
+                .filter_map(|rule| {
+                    let data = rule["params"][0]["data"].as_str()?;
+                    let asset = data.strip_prefix("0x3f050cbc")?.get(64..)?;
+                    let owner = format!("{:0>64}", "6813eb9362372eef6200f3b1dbc3f819671cba69");
+                    let account = super::keccak(&super::unhex(&format!("{owner}{asset}"))?);
+                    let mut payer = rule.clone();
+                    payer["params"][0]["data"] = json!(format!("0x3f050cbc{owner}{asset}"));
+                    payer["result"] = json!(format!("0x{}", super::hex(&account)));
+                    Some(payer)
+                })
+                .collect();
+            rules.extend(payer_rules);
+            for _ in 0..26 {
                 let (mut stream, _) = listener.accept().expect("ledger connection");
                 let mut raw = Vec::new();
                 let request = loop {
@@ -2632,8 +2804,7 @@ mod offer_tests {
             conformance,
             fixed_clock,
         )?;
-        ledger.join().map_err(|_| "ledger recorder failed")?;
-        let payer = format!("did:layerx:{}", super::hex(&[12; 32]));
+        let payer = gate.receiver_address();
         let request = Request {
             method: "GET".to_owned(),
             route: Route::Fetch,
@@ -2641,14 +2812,17 @@ mod offer_tests {
             query: Some("url=https%3A%2F%2Fpaxeer.app%2F".to_owned()),
             headers: vec![
                 ("Host".to_owned(), "127.0.0.1:8480".to_owned()),
-                (PAYER_DID.to_owned(), payer.clone()),
+                (
+                    PAYER_ADDRESS.to_owned(),
+                    format!("0x{}", super::hex(&payer)),
+                ),
             ],
             digest: None,
             peer: SocketAddr::from(([127, 0, 0, 1], 40_000)),
         };
 
         let required = gate
-            .payment_required(&request, Some(&payer))
+            .payment_required(&request, Some(payer))
             .map_err(|response| format!("offers refused with {}", response.status))?;
         assert_eq!(required.accepts.len(), 8);
         assert!(required
@@ -2671,6 +2845,7 @@ mod offer_tests {
         let body: Value = serde_json::from_slice(&response.body)?;
         assert_eq!(body["error"], json!("payment_required"));
         assert_eq!(body["paymentRequired"], expected);
+        ledger.join().map_err(|_| "ledger recorder failed")?;
         drop(gate);
         std::fs::remove_dir_all(&data)?;
         Ok(())

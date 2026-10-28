@@ -61,8 +61,8 @@ function wallet_settings_render_fee_choice_only() {
       assert.equal(html.split('role="radio"').length - 1, 2);
       assert.equal(html.split('aria-checked="true"').length - 1, 1);
       assert.doesNotMatch(html, /wallet-binding|\/app\/deposit|<a\b/iu);
-      for (const key of ["settings.wallet.change", "settings.wallet.add_money", "settings.wallet.retry", "settings.wallet.current"]) {
-        assert.ok(!html.includes(copyEntry(key).message), key);
+      for (const label of ["Change wallet", "Add money", "Try wallet again", "Current wallet"]) {
+        assert.ok(!html.includes(label), label);
       }
       if (currency === "sidiora") {
         assert.deepEqual(walletFeePreference(), { currency: "sidiora", maximum: 2_100_001n });

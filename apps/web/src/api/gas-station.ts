@@ -116,17 +116,18 @@ export async function sendSponsoredBatch(
     return { outcome: "failed" };
   }
   if (!response.ok) return { outcome: response.status >= 500 ? "failed" : "rejected" };
+  let transactionHash: string | undefined;
   try {
     const body: unknown = await response.json();
     if (typeof body === "object" && body !== null && "transactionHash" in body
       && typeof body.transactionHash === "string" && /^0x[0-9a-fA-F]{64}$/u.test(body.transactionHash)) {
-      const transactionHash = body.transactionHash;
+      transactionHash = body.transactionHash;
       const receipt = await ethTransactionReceipt(transactionHash);
       if (receipt === undefined) return { outcome: "sent", transactionHash };
       return { outcome: receipt.status === "reverted" ? "reverted" : "sent", transactionHash, receipt };
     }
   } catch {
-    return { outcome: "failed" };
+    return transactionHash === undefined ? { outcome: "failed" } : { outcome: "unconfirmed", transactionHash };
   }
   return { outcome: "failed" };
 }

@@ -14,14 +14,20 @@ import type {
 } from '../src/types.js';
 
 async function kernel_client_reads_account_and_balances_through_px_methods(): Promise<void> {
-  const address = `0x${'ab'.repeat(20)}`;
+  const address = '0x102132435465768798a9bacbdcedfe0f1e2d3c4b';
   const account: ChainAccount = {
-    account: 'pax1account',
-    paxeer: { address, balance: '90071992547409931234567890', nonce: '7', height: '42' },
+    account: {
+      evm_address: address,
+      pax_address: 'pax1exampleaccount',
+      layerx_did: `did:layerx:${'61'.repeat(32)}`,
+      layerx_account: '457d8ff18e80b2c0671cb8dd37042120b6bfcfa2f2477389636a6d62e2e64de0',
+      bound: true,
+    },
+    paxeer: { address, balance: '0x123456789abcdef', nonce: '0x2a', height: '16' },
   };
   const balances: Balances = {
-    account: address,
-    height: '42',
+    account: account.account,
+    height: '16',
     balances: [{ denom: 'apax', amount: '90071992547409931234567890' }],
   };
   const requests: { method: string; params: unknown[] }[] = [];
@@ -32,7 +38,9 @@ async function kernel_client_reads_account_and_balances_through_px_methods(): Pr
     for await (const chunk of req) chunks.push(Buffer.from(chunk));
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
     requests.push({ method: body.method, params: body.params });
-    const result = body.method === 'px_getAccount' ? account : balances;
+    const result = body.method === 'px_getAccount'
+      ? { ...account, paxeer: { ...account.paxeer, height: 16 } }
+      : { ...balances, height: 16 };
     const response = error !== null
       ? { error }
       : body.method === 'px_getAccount' || body.method === 'px_getBalances'

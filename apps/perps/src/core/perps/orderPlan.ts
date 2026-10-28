@@ -182,6 +182,7 @@ function planCalls(
         leverage,
         quote,
         timeInForce: timeInForce === TimeInForce.FOK ? TimeInForce.FOK : TimeInForce.IOC,
+        reduceOnly: state.reduceOnly,
         takeProfitPrice,
         stopLossPrice,
       });

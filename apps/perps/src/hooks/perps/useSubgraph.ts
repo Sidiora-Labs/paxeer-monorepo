@@ -74,6 +74,7 @@ export const MARKETS_QUERY = /* GraphQL */ `
   query GetMarkets {
     markets {
       marketId symbol name maxLeverage enabled createdAt
+      oracleSymbol szDecimals pxDecimals tickSize lotSize tierClass
       latestPrice { price onchainTimestamp }
       fundingRate { ratePerSecond rate24h }
     }

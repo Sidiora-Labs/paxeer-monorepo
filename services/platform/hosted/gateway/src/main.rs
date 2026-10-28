@@ -25,10 +25,10 @@ use layerx_platform_gateway::store::{
     Reservation, ReservationRequest,
 };
 use layerx_platform_gateway::{
-    authenticate_gateway_key, native_explorer_public_route, pay_timing, production_route,
-    verify_live_receipt, verify_program_operation, verify_program_simulation_operation,
-    verify_submission, AccessError, AuthorityFacts, GatewayError, IssuedKey,
-    NativeExplorerPublicRoute, PrincipalId, ProductionRoute, Quota, VerifiedSubmission,
+    authenticate_gateway_key, pay_timing, production_route, verify_live_receipt,
+    verify_program_operation, verify_program_simulation_operation, verify_submission, AccessError,
+    AuthorityFacts, GatewayError, IssuedKey, PrincipalId, ProductionRoute, Quota,
+    VerifiedSubmission,
 };
 use layerx_types::amount::Amount;
 use layerx_types::intent::{

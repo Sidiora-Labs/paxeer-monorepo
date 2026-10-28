@@ -3,6 +3,7 @@ package app
 import (
 	"bytes"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
@@ -13,7 +14,7 @@ func (app *App) checkSequencerProposer(ctx sdk.Context, proposer []byte) error {
 		return err
 	}
 	for _, leader := range leaders {
-		if bytes.Equal(proposer, leader[:]) {
+		if bytes.Equal(proposer, crypto.AddressHash(leader[:])) {
 			return nil
 		}
 	}
