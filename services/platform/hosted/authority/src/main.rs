@@ -1,9 +1,11 @@
+mod chain_receipt;
 mod human;
 mod protected;
 mod trust;
 
+use chain_receipt::{ChainReceipts, ReceiptSource};
+
 use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig, HandshakeError};
-use layerx_client::lni::refusal::decode_core_refusal;
 use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
 use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
 use layerx_platform_authority::{
@@ -37,8 +39,6 @@ const MAX_CONNECTIONS: usize = 128;
 const MAX_REQUESTS_PER_CONNECTION: usize = 64;
 const MAX_LNI_CONNECTIONS: usize = 16;
 const LNI_FRAME_BYTES: usize = 1_212_416;
-const RECEIPT_LOOKUP_REQUEST: u16 = 5;
-const RECEIPT_LOOKUP_RESPONSE: u16 = 6;
 const ERROR_RESPONSE: u16 = 25;
 const ZERO_HEX32: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 static ACTIVE_CONNECTIONS: AtomicUsize = AtomicUsize::new(0);
@@ -66,8 +66,9 @@ Environment:
   LAYERX_AUTHORITY_REPLICA_BEARER_TOKEN_FILE bearer token the replica requires
   LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE  optional protected file; its distinct bearer may read only /v1/batches/{batch_id}/receipt-authority
   LAYERX_AUTHORITY_REPLICA_ID                64-hex replica identity every evidence document must carry
-  LAYERX_AUTHORITY_LNI_SOCKET                LNI unix socket used as the receipt source (ReceiptLookup by activity id);
-                                             this service takes receipt bytes from the LNI and never an HTTP receipt URL
+  LAYERX_AUTHORITY_CHAIN_RPC_URL             loopback http://host:port endpoint serving pax_sequencerReceipt
+  LAYERX_AUTHORITY_RECEIPT_KEYS_FILE         protected ReceiptKeyList JSON with pinned keys and height ranges
+  LAYERX_AUTHORITY_LNI_SOCKET                LNI unix socket used for checkpoint and readiness reads
   LAYERX_AUTHORITY_PROTOCOL_NETWORK_ID       numeric protocol network id expected in the LNI handshake
   LAYERX_AUTHORITY_NETWORK_ID                deployment network identifier echoed in every answer
   LAYERX_AUTHORITY_WIRE_VERSION              wire version echoed in every answer, must be the built protocol version (default 3)
@@ -89,6 +90,7 @@ struct Config {
     replica_token: Zeroizing<String>,
     evidence_read_token: Option<Zeroizing<Vec<u8>>>,
     replica_id: [u8; 32],
+    chain_receipts: ChainReceipts,
     lni_socket: PathBuf,
     lni_gate: ConnectionGate,
     protocol_network_id: u32,
@@ -269,15 +271,19 @@ fn config() -> Result<Config, String> {
     let evidence_read_token = read_evidence_read_token(&tokens, &replica_token)?;
     let mut human_peers = tokens.clone();
     if let Some(token) = &evidence_read_token {
-        human_peers.push(Zeroizing::new(
-            String::from_utf8(token.to_vec())
-                .map_err(|_| "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is not printable")?,
-        ));
+        human_peers.push(Zeroizing::new(String::from_utf8(token.to_vec()).map_err(
+            |_| "LAYERX_AUTHORITY_EVIDENCE_READ_TOKEN_FILE is not printable",
+        )?));
     }
     let replica_id = parse_hex32("LAYERX_AUTHORITY_REPLICA_ID")?;
     if replica_id == [0; 32] {
         return Err("LAYERX_AUTHORITY_REPLICA_ID must not be zero".to_owned());
     }
+    let chain_rpc_url = env::var("LAYERX_AUTHORITY_CHAIN_RPC_URL")
+        .map_err(|_| "LAYERX_AUTHORITY_CHAIN_RPC_URL is required")?;
+    let receipt_keys_file = env::var("LAYERX_AUTHORITY_RECEIPT_KEYS_FILE")
+        .map_err(|_| "LAYERX_AUTHORITY_RECEIPT_KEYS_FILE is required")?;
+    let chain_receipts = ChainReceipts::load(&chain_rpc_url, &PathBuf::from(receipt_keys_file))?;
     let lni_socket = env::var("LAYERX_AUTHORITY_LNI_SOCKET")
         .map(PathBuf::from)
         .map_err(|_| "LAYERX_AUTHORITY_LNI_SOCKET is required".to_owned())?;
@@ -327,6 +333,7 @@ fn config() -> Result<Config, String> {
         replica_token,
         evidence_read_token,
         replica_id,
+        chain_receipts,
         lni_socket,
         lni_gate: ConnectionGate::new(MAX_LNI_CONNECTIONS),
         protocol_network_id,
@@ -617,13 +624,6 @@ fn replica_exchange_until(
     }
 }
 
-enum ReceiptSource {
-    Found(Vec<u8>),
-    Unknown,
-    Unavailable(String),
-    KeyMismatch,
-}
-
 #[derive(Clone, Copy, Debug, serde::Serialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 enum DependencyReason {
@@ -721,68 +721,12 @@ fn receipt_connection(
     Ok((transport, handshake))
 }
 
-fn lookup_receipt(config: &Config, activity_id: [u8; 32], wait_publication: bool) -> ReceiptSource {
-    let Some(deadline) = Instant::now().checked_add(IO_TIMEOUT) else {
-        return ReceiptSource::Unavailable("LNI deadline unavailable".to_owned());
-    };
-    let (mut transport, handshake) = match receipt_connection(config, wait_publication, deadline) {
-        Ok(connection) => connection,
-        Err(DependencyReason::KeyMismatch) => return ReceiptSource::KeyMismatch,
-        Err(reason) => return ReceiptSource::Unavailable(format!("LNI admission: {reason:?}")),
-    };
-    let mut selector = Vec::with_capacity(34);
-    selector.push(1);
-    selector.extend_from_slice(&activity_id);
-    if wait_publication {
-        selector.push(1);
-    } else if handshake.node().interface_version.minor >= Version::V1_6.minor {
-        selector.push(0);
-    }
-    let Ok(correlation_id) = trust::correlation(1) else {
-        return ReceiptSource::Unavailable("LNI correlation exhausted".to_owned());
-    };
-    let request = match encode_envelope(Envelope {
-        version: handshake.node().interface_version,
-        message_tag: RECEIPT_LOOKUP_REQUEST,
-        correlation_id,
-        canonical_payload: &selector,
-        proof_material: &[],
-    }) {
-        Ok(request) => request,
-        Err(error) => return ReceiptSource::Unavailable(format!("LNI encode: {error:?}")),
-    };
-    if let Err(error) = transport.send(&request) {
-        return ReceiptSource::Unavailable(format!("LNI send: {error:?}"));
-    }
-    let response = match transport.receive() {
-        Ok(response) => response,
-        Err(error) => return ReceiptSource::Unavailable(format!("LNI receive: {error:?}")),
-    };
-    let envelope = match decode_envelope(&response) {
-        Ok(envelope) => envelope,
-        Err(error) => return ReceiptSource::Unavailable(format!("LNI decode: {error:?}")),
-    };
-    if envelope.version.major != handshake.node().interface_version.major
-        || envelope.correlation_id != correlation_id
-    {
-        return ReceiptSource::Unavailable(
-            "LNI response changed version or correlation".to_owned(),
-        );
-    }
-    match envelope.message_tag {
-        RECEIPT_LOOKUP_RESPONSE if envelope.proof_material.is_empty() => {
-            if envelope.canonical_payload.is_empty() {
-                ReceiptSource::Unknown
-            } else {
-                ReceiptSource::Found(envelope.canonical_payload.to_vec())
-            }
-        }
-        ERROR_RESPONSE => ReceiptSource::Unavailable(format!(
-            "LNI refused the lookup: {:?}",
-            decode_core_refusal(envelope.canonical_payload)
-        )),
-        other => ReceiptSource::Unavailable(format!("LNI answered message tag {other}")),
-    }
+fn lookup_receipt(
+    config: &Config,
+    activity_id: [u8; 32],
+    _wait_publication: bool,
+) -> ReceiptSource {
+    config.chain_receipts.lookup(activity_id)
 }
 
 fn checkpoint_header(
@@ -888,7 +832,7 @@ fn by_activity(config: &Config, requested: &str, wait_publication: bool) -> Resp
         ReceiptSource::Found(receipt) => receipt,
         ReceiptSource::Unknown => return refusal(404, "unknown_activity", None),
         ReceiptSource::KeyMismatch => {
-            eprintln!("layerx-receipt-authority: LNI sequencer key differs from the pinned key");
+            eprintln!("layerx-receipt-authority: chain receipt key differs from the pinned keys");
             return refusal(502, "sequencer_key_mismatch", None);
         }
         ReceiptSource::Unavailable(reason) => {
