@@ -183382,7 +183382,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1117.1]
 title = "Issue #1117: Pass the applied program transfer legs of a Programs CALL to the web request fee check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
