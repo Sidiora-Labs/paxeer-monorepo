@@ -9826,3 +9826,40 @@ area = "paxeer-x attestation gate"
 symptom = "program_market_attestation.py --begin-build exits 'producer source closure is dirty or contains untracked inputs' although git status shows only the task's own edits."
 cause = "source_identity() (:147) runs git status over SOURCE_PATHS and treats any modified tracked file, including the implementation under qualification, as a dirty closure."
 do = "Commit the implementation so HEAD carries it before running the attestation build or verify; the gate accepts only a clean tree at HEAD."
+
+[gotcha.2020]
+area = "cg spec done symbol resolution"
+symptom = "cg spec done reports a declared symbol as 'not defined in the graph' although the identifier exists: a type reached through a use alias, a nested module path, or an Elixir module function."
+cause = "The resolver before hyperfide 4f3a3094b matched only bare top-level identifiers; aliases, nested paths and Elixir modules were never looked up."
+do = "Use cg built from hyperfide 4f3a3094b or later (branch cg/spec-symbol-resolver-2026-10-28); keep task symbols as code identifiers (GOTCHA 1998) and re-run the done gate on the unchanged candidate."
+
+[gotcha.2021]
+area = "docker build context"
+symptom = "make programs-release-build inside docker/paxeer/Dockerfile.paxd-node or docker/layerx/Dockerfile fails 'failed to calculate checksum of: /src/programs/vendor/ed25519-dalek-2.2.0/tests/examples/pubkey.der'."
+cause = "Both ignore files re-exclude programs/vendor/**/*.der after re-including programs/vendor/**, which drops the vendored crate's public test vectors that its .cargo-checksum.json lists; cargo --locked refuses the vendored source."
+do = "Re-include exactly those fixture files (programs/vendor/ed25519-dalek-*/tests/examples/*.der) after the key-material rule; never edit a vendored .cargo-checksum.json and never widen the re-include beyond the fixtures (18.849.1, 18.869.1)."
+
+[gotcha.2022]
+area = "wallet gateway e2e environment"
+symptom = "gateway.e2e.test.ts dies in startPostgres with '[env] Invalid environment configuration' naming WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE, WALLET_IDENTITY_BINDING_TENANT, WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE."
+cause = "src/env.ts:258-261 requires the four wallet identity and custody inventory inputs whenever ATTESTOR_ENDPOINTS is set (since 281e812be); the e2e harness sets the attestor endpoints but not them."
+do = "Set the four variables from the attestor harness before any import of src/env.ts, with the tenant equal to the attestors' ATTESTOR_AUTHORITY_TENANT and the inventory JWT tenant (18.1065.1)."
+
+[gotcha.2023]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py --build reports BUILD_RESULT native 1 with 'layerx/programs.h: No such file or directory'."
+cause = "The driver defaults --cppflags to the empty string, so the native test compiles with a bare cc; every tests/programs file includes 'layerx/...' relative to include/."
+do = "Pass or default --cppflags -Iinclude (arbiter_prestate.py:355 does); do not rewrite the includes in the test (18.911.1, issue #1105)."
+
+[gotcha.2024]
+area = "shell test harness stand-in processes"
+symptom = "A harness that copies sleep under a daemon name reports process=none; stderr shows 'coreutils: unknown program <name>'."
+cause = "Where coreutils is a multicall binary (uutils, busybox) the copy dispatches on its own file name and refuses to run."
+do = "Copy a standalone interpreter (command -v bash) under the daemon name and start it with -c 'sleep N' and no exec; /proc/<pid>/exe and environ then still belong to the named copy (check-live.test.sh, 18.776.1)."
+
+[gotcha.2025]
+area = "explorer read-only archive schemas"
+symptom = "Explorer tests fail with 'function Explorer.Chain.PaxeerX.Anchor.changeset/2 is undefined or private' (same for Receipt)."
+cause = "b14589838 made Anchor and Receipt read-only archive records without changesets; archive_readonly_test.exs guards that."
+do = "Seed rows in tests with Ecto.Changeset.cast(%Anchor{}, attrs, Map.keys(attrs)) |> Repo.insert!() or through the import runner; never add the changeset back (18.1010.1, 18.1006.1, 18.1104.1)."
+
