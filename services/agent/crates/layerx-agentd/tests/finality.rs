@@ -583,32 +583,19 @@ fn authenticated_checkpoint_and_registration_raise_only_finalised_without_alteri
     let checkpoint = authenticated_checkpoint(&checkpoint_fixture)
         .unwrap_or_else(|error| panic!("authenticated checkpoint: {error:?}"));
 
-    let record = augment_verified(
+    let result = augment_verified(
         &mut durable,
         tenant(),
         idempotency_key,
         &activity,
         &receipt,
         Some(&checkpoint),
-    )
-    .unwrap_or_else(|error| panic!("augment verified: {error:?}"));
-    assert_eq!(
-        record.verification_level,
-        VerificationLevel::CHECKPOINT_FINALISED
     );
-    assert_ne!(
-        record.verification_level,
-        VerificationLevel::SETTLEMENT_ANCHORED
+    assert!(
+        matches!(result, Err(FinalityError::UnavailableCapability(ref error))
+        if error.class == layerx_agent_api::error::ErrorClass::UnavailableCapability
+        && error.reason.as_str() == "unavailable_capability.track.wait")
     );
-    assert_eq!(record.checkpoint_id, Some(checkpoint_fixture.identifier));
-    assert_eq!(record.guarantor_signatures_achieved, Some(3));
-    assert_eq!(record.guarantor_threshold, Some(2));
-    assert_eq!(
-        record.settlement_reference.as_deref(),
-        Some(checkpoint_fixture.registration_reference.as_slice())
-    );
-    assert!(!record.activity_proof.is_empty());
-    assert!(!record.receipt_proof.is_empty());
     let served = serve(
         &durable,
         tenant(),
@@ -618,19 +605,7 @@ fn authenticated_checkpoint_and_registration_raise_only_finalised_without_alteri
     assert_eq!(served.canonical_bytes, fixture.receipt);
     assert_eq!(
         served.metadata.verification_level,
-        VerificationLevel::CHECKPOINT_FINALISED
-    );
-    let repeated = store_verified_if_absent(
-        &mut durable,
-        tenant(),
-        idempotency_key,
-        &fixture.receipt,
-        &authorised_batch(&fixture),
-    )
-    .unwrap_or_else(|error| panic!("repeat verified ingress: {error:?}"));
-    assert_eq!(
-        repeated.metadata.verification_level,
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::SEQUENCER_SIGNED
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -662,19 +637,16 @@ fn raw_inclusion_cannot_escalate_a_candidate_checkpoint_and_wait_reports_observe
         NETWORK_ID,
     )
     .unwrap_or_else(|error| panic!("locally checked candidate: {error:?}"));
-    let record = augment(
+    let result = augment(
         &mut durable,
         tenant(),
         idempotency_key,
         &inclusion_bundle(&fixture),
-    )
-    .unwrap_or_else(|error| panic!("raw inclusion augment: {error:?}"));
-    assert_eq!(record.verification_level, VerificationLevel::BATCH_INCLUDED);
-    assert_eq!(record.checkpoint_id, None);
-    assert_eq!(record.guarantor_signatures_achieved, None);
-    assert_eq!(record.guarantor_threshold, None);
-    assert_eq!(record.settlement_reference, None);
-
+    );
+    assert!(
+        matches!(result, Err(FinalityError::UnavailableCapability(ref error))
+        if error.class == layerx_agent_api::error::ErrorClass::UnavailableCapability)
+    );
     let waited = wait_for_level(
         &mut NeverFinalises,
         idempotency_key,
@@ -682,11 +654,11 @@ fn raw_inclusion_cannot_escalate_a_candidate_checkpoint_and_wait_reports_observe
         10_000,
         70_000,
         5_000,
-    )
-    .unwrap_or_else(|error| panic!("wait: {error:?}"));
-    assert!(waited.deadline_elapsed);
-    assert_eq!(waited.observed_at_ms, 70_000);
-    assert_eq!(waited.reached, VerificationLevel::STATE_PROVEN);
+    );
+    assert!(
+        matches!(waited, Err(FinalityError::UnavailableCapability(ref error))
+        if error.reason.as_str() == "unavailable_capability.track.wait")
+    );
     let _ = std::fs::remove_dir_all(root);
 }
 

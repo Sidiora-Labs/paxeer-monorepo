@@ -1721,10 +1721,8 @@ dependencies = [
  "ed25519-dalek",
  "layerx-client",
  "layerx-crypto",
- "layerx-intents",
  "layerx-interop-gateway",
  "layerx-migrate",
- "layerx-paxeer-client",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",
@@ -1740,7 +1738,6 @@ dependencies = [
 name = "layerx-reference-ramp"
 version = "0.1.0"
 dependencies = [
- "layerx-paxeer-client",
  "layerx-ramp-toolkit",
  "layerx-types",
  "layerx-wire",

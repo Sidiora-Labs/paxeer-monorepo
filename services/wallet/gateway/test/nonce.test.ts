@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test, vi } from 'vitest';
 import { fork } from 'node:child_process';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -183,6 +183,25 @@ afterAll(async () => {
   await new Promise<void>((r) => (rpcServer ? rpcServer.close(() => r()) : r()));
   await pgServer?.stop();
 });
+
+const refusalTests = {
+  async 'answers nonce_unresolved with member indices and count and no URL'(): Promise<void> {
+    const { custodyRefusal } = await import('../src/routes/agentExec.js');
+    const error = new storeMod.NonceUnresolvedError(100, [0], 2);
+    const refusal = custodyRefusal(error);
+    expect(refusal).toEqual({
+      status: 503,
+      body: { error: 'nonce_unresolved', nonce: 100, unreachable: [0], members: 2 },
+    });
+    expect(storeMod.nonceUnresolvedBody(error)).toEqual(refusal?.body);
+    expect(JSON.stringify(refusal?.body)).not.toContain('http');
+  },
+};
+
+test(
+  refusalTests['answers nonce_unresolved with member indices and count and no URL'],
+  refusalTests['answers nonce_unresolved with member indices and count and no URL'],
+);
 
 describe('NonceStore', () => {
   it('allocates a dense, gap-free, duplicate-free sequence across two processes', async () => {

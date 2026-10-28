@@ -10,6 +10,7 @@ import {
   PrecompileNotServedError,
   ensureServed,
   eip712,
+  precompileAddressBook,
   scheduler,
   streams,
   teeAttestor,
@@ -70,8 +71,9 @@ function refuseUnserved(key: keyof typeof PRECOMPILE_ADDRESSES) {
     } catch (err) {
       if (!(err instanceof PrecompileNotServedError)) throw err;
     }
-    void reply.code(503).send({
+    void reply.code(503).header('Retry-After', '3600').send({
       error: 'precompile_not_served',
+      retryable: false,
       message: `the node does not serve the ${key} precompile`,
       precompile: key,
       address: PRECOMPILE_ADDRESSES[key],
@@ -414,6 +416,6 @@ export async function agentPrecompileRoutes(app: FastifyInstance): Promise<void>
 
   // Expose the precompile address book for client convenience.
   app.get('/v1/agent/precompiles', { preHandler: requireAgent }, async (_req, reply) => {
-    return reply.send({ addresses: PRECOMPILE_ADDRESSES, tee_families: TEE_FAMILIES });
+    return reply.send(precompileAddressBook());
   });
 }

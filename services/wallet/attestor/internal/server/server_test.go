@@ -614,7 +614,7 @@ func TestSnapshotFollowsEveryKeyChangeAndRestoresToSign(t *testing.T) {
 	h.expect(t, c, "keys.generate", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "gen-key")
 
 	decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key"}
+		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key", CeremonyID: "metrics-ceremony", ExistingKey: true, ExpectedEpoch: new(uint64)}
 	}, ""))
 	h.expect(t, c, "keys.refresh", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 2, "node-5": 2}, "gen-key")
 
@@ -812,7 +812,13 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 		go func(i int, kc *keyCase) {
 			defer wg.Done()
 			results[i] = c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-				return RefreshRequest{SessionID: "refresh-" + kc.id, KeyID: kc.id}
+				req := RefreshRequest{SessionID: "refresh-" + kc.id, KeyID: kc.id, CeremonyID: "metrics-ceremony", ExpectedEpoch: new(uint64)}
+				if i < 2 {
+					req.ExistingKey = true
+				} else {
+					req.ImportSessionID = "import-" + kc.id
+				}
+				return req
 			}, "")
 		}(i, kc)
 	}

@@ -36,6 +36,24 @@ def test_network_head_has_no_anchor():
             px.decode_px_network_head({**document, "anchor": anchor})
 
 
+def test_history_account_refuses_zero_did():
+    zero_did = "did:layerx:" + "0" * 64
+    for account in (zero_did, f" {zero_did.upper()} "):
+        with pytest.raises(ValueError, match="^invalid-account-identifier$"):
+            px.history_account(account)
+
+    for account in (
+        "did:layerx:" + "11" * 32,
+        "did:layerx:" + "aB" * 32,
+        "did:layerx:" + "0" * 63 + "1",
+        "did:layerx:1" + "0" * 63,
+        "0x" + "aB" * 20,
+        "0x" + "0" * 40,
+    ):
+        assert px.history_account(account) == account.lower()
+        assert px.history_account(f" {account.upper()} ") == account.lower()
+
+
 def test_history_cursor_is_block_position():
     account = "0x" + "11" * 20
     cursor = px.history_cursor(7, 2, 1)

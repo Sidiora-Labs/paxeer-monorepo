@@ -1,8 +1,8 @@
 import type { Pool, PoolClient } from 'pg';
-import { keccak256, type Hex } from 'viem';
+import type { Hex } from 'viem';
 import { env } from '../env.js';
 import { getPool } from '../db/pool.js';
-import { BROADCAST_GRACE_MS } from '../chain.js';
+import { BROADCAST_GRACE_MS, transactionHash } from '../chain.js';
 import { TransactionRejectedError, sharedRpcPool, type TransactionLookup } from '../rpc/pool.js';
 
 export type PendingCountReader = (address: `0x${string}`) => Promise<number>;
@@ -49,11 +49,11 @@ export async function broadcastReserved(
 ): Promise<{ hash: Hex; error: null } | { hash: null; error: unknown }> {
   try {
     const { hash, member } = await send(raw);
-    await lease.track(nonce, keccak256(raw), member);
+    await lease.track(nonce, transactionHash(raw), member);
     return { hash, error: null };
   } catch (error) {
     if (error instanceof TransactionRejectedError) await lease.release(nonce);
-    else await lease.track(nonce, keccak256(raw), null);
+    else await lease.track(nonce, transactionHash(raw), null);
     return { hash: null, error };
   }
 }
@@ -81,6 +81,15 @@ export class NonceUnresolvedError extends Error {
     super(`nonce ${nonce} cannot be resolved: members ${unreachable.join(', ')} of ${memberCount} did not answer`);
     this.name = 'NonceUnresolvedError';
   }
+}
+
+export function nonceUnresolvedBody(error: NonceUnresolvedError): {
+  error: 'nonce_unresolved';
+  nonce: number;
+  unreachable: number[];
+  members: number;
+} {
+  return { error: 'nonce_unresolved', nonce: error.nonce, unreachable: error.unreachable, members: error.memberCount };
 }
 
 export interface NonceStoreOptions {
@@ -190,10 +199,9 @@ class Lease implements NonceLease {
           continue;
         }
       }
-      // ponytail: a sign-only nonce is held for the broadcast grace period only; a caller must broadcast
-      // its signed bytes before the deadline the sign response returns. A later broadcast after this nonce
-      // was reissued is refused by the node as nonce too low, so nothing double-pays; hold until the
-      // floor passes it if callers need longer.
+      // A sign-only nonce is held for the broadcast grace period; callers must broadcast before the deadline.
+      // A late broadcast is refused as nonce too low only after the reissued transaction at that nonce has mined.
+      // While the reissued transaction is still pending, the late transaction can replace it or win the race.
       await this.client.query('delete from nonce_outstanding where address = $1 and nonce = $2', [this.address, row.nonce]);
     }
     const { rows } = await this.client.query<{ nonce: string }>(

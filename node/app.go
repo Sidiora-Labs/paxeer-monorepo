@@ -2420,7 +2420,16 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 		txResults = append([]*abci.ExecTxResult{{}}, txResults...)
 	}
 
-	midBlockEvents := app.MidBlock(ctx, req.Height)
+	blockEvents, endBlockResp, err := app.CompleteBlock(ctx, req.Height, txResults, evmTxs)
+	if err != nil {
+		return nil, nil, abci.ResponseEndBlock{}, err
+	}
+	events = append(events, blockEvents...)
+	return events, txResults, endBlockResp, nil
+}
+
+func (app *App) CompleteBlock(ctx sdk.Context, height int64, txResults []*abci.ExecTxResult, evmTxs []*evmtypes.MsgEVMTransaction) (events []abci.Event, endBlockResp abci.ResponseEndBlock, err error) {
+	midBlockEvents := app.MidBlock(ctx, height)
 	events = append(events, midBlockEvents...)
 
 	// Flush giga stores so WriteDeferredBalances (which uses the standard BankKeeper)
@@ -2444,16 +2453,16 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 		}
 	}
 
-	endBlockResp = app.EndBlock(ctx, req.Height, evmTotalGasUsed)
+	endBlockResp = app.EndBlock(ctx, height, evmTotalGasUsed)
 
 	feeCtx := ctx.WithEventManager(sdk.NewEventManager())
 	if err := app.EvmKeeper.RouteCollectedFeeTokens(feeCtx); err != nil {
-		return nil, nil, abci.ResponseEndBlock{}, fmt.Errorf("route collected fee tokens: %w", err)
+		return nil, abci.ResponseEndBlock{}, fmt.Errorf("route collected fee tokens: %w", err)
 	}
 	endBlockResp.Events = append(endBlockResp.Events, sdk.MarkEventsToIndex(feeCtx.EventManager().ABCIEvents(), app.IndexEvents)...)
 
 	events = append(events, endBlockResp.Events...)
-	return events, txResults, endBlockResp, nil
+	return events, endBlockResp, nil
 }
 
 // executeEVMTxWithGigaExecutor executes a single EVM transaction using the giga executor.

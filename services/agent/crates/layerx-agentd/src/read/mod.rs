@@ -17,10 +17,7 @@ mod program_node;
 pub(crate) mod proof_bundle_owner;
 pub use native::{NativeReadError, NativeReadRoute};
 
-pub use available::{
-    availability, AvailabilityAudit, AvailabilityFailure, AvailabilityRead, AvailabilityRequest,
-    ReplayFraming,
-};
+pub use available::{availability, AvailabilityRead, AvailabilityReadError, AvailabilityRequest};
 pub use balances::{balance, BalanceRead, Freshness};
 pub use checkpoint_impl::{
     proof_bundle, validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CheckpointReadError,

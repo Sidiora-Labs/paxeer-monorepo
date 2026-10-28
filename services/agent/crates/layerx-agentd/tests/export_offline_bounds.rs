@@ -4,19 +4,23 @@ use layerx_agent_api::export::{
 };
 use layerx_agent_api::identity::ContractError;
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::read::{BatchRef, CheckpointRef, Freshness, ReadRequest, RelativeTo, VerifiedRead};
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
+use layerx_agent_api::proof::ProofBundle;
+use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
+use layerx_agent_api::verify::Rung;
 use layerx_agentd::agent_rpc::MAX_BODY_BYTES;
-use layerx_agentd::export::{require_frame_within_bound, ExportProduceError, ExportTrustSource, MAX_EXPORT_BYTES};
+use layerx_agentd::export::{
+    require_frame_within_bound, ExportProduceError, ExportTrustSource, MAX_EXPORT_BYTES,
+};
 use layerx_proof::export::OfflineTrustError;
 use layerx_proof::settlement::declared_domain;
 use layerx_proof::signed_authority::SignedAuthorityHistory;
 use layerx_wire::activity::decode_signed;
 use layerx_wire::handover::decode_genesis_trust;
 
-const GENESIS: &[u8] = include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/genesis.bin");
-const HEADERS: &[u8] = include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/headers.bin");
+const GENESIS: &[u8] =
+    include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/genesis.bin");
+const HEADERS: &[u8] =
+    include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/headers.bin");
 const HANDOVER: &[u8] =
     include_bytes!("../../layerx-proof/tests/fixtures/signed-authority/handover.activity");
 
@@ -34,14 +38,20 @@ fn fact(value: u8) -> String {
     format!("receipt:{}", hex(&id))
 }
 
-fn request(facts: &[String], level: Level) -> ReadRequest<Vec<FactRef>> {
+fn request(facts: &[String], level: Rung) -> ReadRequest<Vec<FactRef>> {
     ReadRequest {
-        selector: facts.iter().map(|text| must(FactRef::new(text.clone()))).collect(),
-        requested_verification_level: level,
+        selector: facts
+            .iter()
+            .map(|text| must(FactRef::new(text.clone())))
+            .collect(),
+        requested_rung: level,
     }
 }
 
-fn history() -> (SignedAuthorityHistory, layerx_types::payload::ModuleRegistry) {
+fn history() -> (
+    SignedAuthorityHistory,
+    layerx_types::payload::ModuleRegistry,
+) {
     let genesis = must(decode_genesis_trust(GENESIS));
     let activity = must(decode_signed(HANDOVER, &genesis.registry));
     let mut history = must(SignedAuthorityHistory::from_genesis(
@@ -57,22 +67,41 @@ fn history() -> (SignedAuthorityHistory, layerx_types::payload::ModuleRegistry) 
     (history, genesis.registry)
 }
 
-fn response(facts: &[String], level: Level) -> VerifiedRead<OfflineExport> {
+fn response(facts: &[String], level: Rung) -> VerifiedRead<OfflineExport> {
     VerifiedRead::new(
         OfflineExport {
-            facts: facts.iter().map(|text| must(FactRef::new(text.clone()))).collect(),
-            receipts: vec![must(CanonicalBytes::new(b"LXRF".to_vec()))],
-            proofs: Vec::new(),
-            certificates: Vec::new(),
-            headers: Vec::new(),
+            facts: facts
+                .iter()
+                .map(|text| must(FactRef::new(text.clone())))
+                .collect(),
+            bundles: vec![ProofBundle {
+                format: "layerx-receipt-proof-v2".into(),
+                verification_level: Rung::Committed,
+                raw_transaction: must(CanonicalBytes::new(HANDOVER.to_vec())),
+                signed_receipt: must(CanonicalBytes::new(HEADERS.to_vec())),
+                receipt_digest: [1; 32],
+                receipt_key: layerx_client::sequencer::ReceiptKeyEntry {
+                    key_id: [2; 32],
+                    public_key: [3; 32],
+                    first_height: 1,
+                    last_height: 9,
+                },
+                block_header: Some(must(CanonicalBytes::new(HEADERS.to_vec()))),
+                receipt_inclusion: Some(must(CanonicalBytes::new(HEADERS.to_vec()))),
+                commit: Some(must(CanonicalBytes::new(HEADERS.to_vec()))),
+                validator_set: Some(must(CanonicalBytes::new(GENESIS.to_vec()))),
+                account_proof: None,
+            }],
+            height: 9,
         },
         level,
         Freshness {
-            chain_head: Sequence(9),
-            latest_sealed_batch: must(BatchRef::new("1")),
-            latest_finalised_checkpoint: must(CheckpointRef::new("1")),
-            value_sequence: Sequence(9),
-            relative_to: RelativeTo::Batch(must(BatchRef::new("1"))),
+            chain_head: 9,
+            value_height: 9,
+            relative_to: RelativeTo::Block {
+                height: 9,
+                hash: [4; 32],
+            },
         },
     )
 }
@@ -94,22 +123,22 @@ fn export_frame_is_bounded_at_exactly_one_mebibyte() {
 }
 
 #[test]
-fn export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_level() {
+fn export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_rung() {
     let facts: Vec<String> = (1..=16).map(fact).collect();
-    for level in [Level::SequencerSigned, Level::StateProven, Level::CheckpointFinalised] {
+    for level in [Rung::Submitted, Rung::Receipted, Rung::Committed] {
         let validated = must(validate_export_request(request(&facts, level)));
-        assert_eq!(validated.requested_verification_level, level);
+        assert_eq!(validated.requested_rung, level);
         assert_eq!(validated.selector, request(&facts, level).selector);
     }
     assert_eq!(MAX_FACT_REFS, 16);
     let seventeen: Vec<String> = (1..=17).map(fact).collect();
     assert_eq!(
-        validate_export_request(request(&seventeen, Level::BatchIncluded)).err(),
+        validate_export_request(request(&seventeen, Rung::Receipted)).err(),
         Some(FactRefError::TooMany { count: 17 })
     );
     let duplicate = [fact(1), fact(1)];
     assert_eq!(
-        validate_export_request(request(&duplicate, Level::BatchIncluded)).err(),
+        validate_export_request(request(&duplicate, Rung::Receipted)).err(),
         Some(FactRefError::Duplicate { index: 1 })
     );
     for text in [
@@ -120,30 +149,35 @@ fn export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_level()
         format!("receipts:{}", &fact(1)[8..]),
     ] {
         assert!(
-            validate_export_request(request(&[text.clone()], Level::BatchIncluded)).is_err(),
+            validate_export_request(request(&[text.clone()], Rung::Receipted)).is_err(),
             "accepted {text:?}"
         );
     }
 }
 
 #[test]
-fn export_response_must_answer_every_requested_fact_at_the_requested_level() {
+fn export_response_must_answer_every_requested_fact_at_the_requested_rung() {
     let facts = [fact(1), fact(2)];
-    let asked = request(&facts, Level::StateProven);
-    assert!(check_export_response(&asked, &response(&facts, Level::StateProven)).is_ok());
-    assert!(check_export_response(&asked, &response(&facts, Level::CheckpointFinalised)).is_ok());
+    let asked = request(&facts, Rung::Committed);
+    assert!(check_export_response(&asked, &response(&facts, Rung::Committed)).is_ok());
+    let mut wrong_height = response(&facts, Rung::Committed);
+    wrong_height.value.height += 1;
+    assert_eq!(
+        check_export_response(&asked, &wrong_height),
+        Err(ContractError::Mismatch("export_height"))
+    );
     // No downgrade: a lower achieved level is refused, not served.
     assert_eq!(
-        check_export_response(&asked, &response(&facts, Level::BatchIncluded)).err(),
-        Some(ContractError::OutOfRange("export_verification_level"))
+        check_export_response(&asked, &response(&facts, Rung::Receipted)).err(),
+        Some(ContractError::OutOfRange("export_rung"))
     );
     let reordered = [fact(2), fact(1)];
     assert_eq!(
-        check_export_response(&asked, &response(&reordered, Level::StateProven)).err(),
+        check_export_response(&asked, &response(&reordered, Rung::Committed)).err(),
         Some(ContractError::Mismatch("export_facts"))
     );
     assert_eq!(
-        check_export_response(&asked, &response(&facts[..1], Level::StateProven)).err(),
+        check_export_response(&asked, &response(&facts[..1], Rung::Committed)).err(),
         Some(ContractError::Mismatch("export_facts"))
     );
 }
