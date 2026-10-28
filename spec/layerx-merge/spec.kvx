@@ -157003,7 +157003,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.24.1]
 title = "Serve call with the kernel call activity, outcome and guest events"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.3", "13.22.6", "1.21.3", "13.22.8", "1.23.6", "18.1073.1"]
@@ -157199,7 +157199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.25.2]
 title = "Serve registerAccount for LXPA1 and LXPA2 program accounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8", "1.23.5", "18.1073.1"]
@@ -172923,7 +172923,7 @@ qualification = "UNRUN"
 
 [task.18.799.1]
 title = "Issue #799: Harden price-feed node error matching, scan-status upserts and node receive timeout"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179955,7 +179955,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1109.1]
 title = "Issue #1109: Issue #1109: Make the standby acknowledge every replicated group of the committed-fixture recording through openAccount"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
