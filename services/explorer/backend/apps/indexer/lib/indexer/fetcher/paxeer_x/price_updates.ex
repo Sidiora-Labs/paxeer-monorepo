@@ -151,14 +151,19 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
   def run(entries, state) do
     now = System.monotonic_time(:millisecond)
 
-    Enum.each(entries, fn entry ->
+    entries
+    |> Enum.map(fn entry ->
       case normalize(entry) do
         {_number, _attempts, not_before, _failures} = entry when is_integer(not_before) and not_before > now ->
-          schedule(entry, not_before - now)
+          {:retry, entry, not_before - now}
 
         {number, attempts, _not_before, failures} ->
           number |> scan_block(state) |> after_scan(number, attempts + 1, failures, now)
       end
+    end)
+    |> Enum.each(fn
+      {:retry, entry, delay} -> schedule(entry, delay)
+      :ok -> :ok
     end)
   end
 
@@ -191,9 +196,16 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
   end
 
   defp retry(number, attempts, failures, now, reason) do
-    Logger.debug("price feed scan of block #{number} failed, attempt #{attempts}: #{inspect(reason)}")
     delay = backoff_ms(attempts)
-    schedule({number, attempts, now + delay, failures}, delay)
+
+    if delay == @max_backoff_ms and backoff_ms(attempts - 1) < @max_backoff_ms do
+      Logger.warning(
+        "price feed scan of block #{number} remains held after #{attempts} attempts; retry backoff reached #{delay}ms: #{inspect(reason)}"
+      )
+    end
+
+    Logger.debug("price feed scan of block #{number} failed, attempt #{attempts}: #{inspect(reason)}")
+    {:retry, {number, attempts, now + delay, failures}, delay}
   end
 
   # The entry stays off the queue until it is due, so a waiting retry runs no batch.

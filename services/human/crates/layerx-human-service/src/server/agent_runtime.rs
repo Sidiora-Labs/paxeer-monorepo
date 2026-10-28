@@ -22,11 +22,10 @@ use layerx_types::verify::VerificationLevel;
 use sha2::Digest as _;
 use zeroize::Zeroizing;
 
-use crate::journeys::DepositAgentBoundary;
 use crate::journeys::{
     AgentBoundary, AgentBoundaryError, AgentObservation, AgentPreparation, ReceiptLookup,
-    ReceiptMaterial,
 };
+use crate::journeys::{DepositAgentBoundary, ReceiptMaterial};
 
 const MAGIC: &[u8; 8] = b"LXHAGT01";
 const TRACED_MAGIC: &[u8; 8] = b"LXHAGT02";
@@ -4054,13 +4053,13 @@ impl crate::approvals::ApprovalBoundary for AgentRuntime {
         let decode=|reader:&mut Reader| -> Result<crate::approvals::VerifiedBudgetAfter,AgentBoundaryError> {
             if reader.u16()?!=2 || reader.fixed::<32>()?!=hold.approval_id
                 || reader.fixed::<32>()?!=hold.canonical_bytes_digest {return Err(AgentBoundaryError::CorruptResponse)};
-            let remaining=reader.u128()?;let level=match reader.u8()? {
-                4=>Level::CheckpointFinalised,5=>Level::SettlementAnchored,
+            let remaining=reader.u128()?;let rung=match reader.u8()? {
+                4|5=>layerx_types::rung::Rung::Committed,
                 _=>return Err(AgentBoundaryError::CorruptResponse)};
             let evidence_digest=reader.fixed()?;let observed_at_sequence=reader.u64()?;let asset=reader.fixed::<32>()?;
             if evidence_digest==[0;32] || asset==[0;32] || observed_at_sequence!=at_sequence {
                 return Err(AgentBoundaryError::CorruptResponse)};
-            reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,level,evidence_digest,observed_at_sequence})
+            reader.finish()?;Ok(crate::approvals::VerifiedBudgetAfter{remaining,rung,evidence_digest,observed_at_sequence})
         };
         decode(&mut reader).map_err(map_approval_error)
     }
@@ -4253,10 +4252,23 @@ fn decode_receipt(reader: &mut Reader) -> Result<ReceiptMaterial, AgentBoundaryE
         5 => VerificationLevel::SETTLEMENT_ANCHORED,
         _ => return Err(AgentBoundaryError::CorruptResponse),
     };
+    let tx_hash = reader.fixed::<32>()?;
+    let receipt_hash = reader.fixed::<32>()?;
+    let block_height = reader.u64()?;
+    let rung = match reader.u8()? {
+        0 => Rung::Submitted,
+        1 => Rung::Receipted,
+        2 => Rung::Committed,
+        _ => return Err(AgentBoundaryError::CorruptResponse),
+    };
     Ok(ReceiptMaterial {
         canonical_bytes,
         authorised_batch,
         verification_level,
+        tx_hash,
+        receipt_hash,
+        block_height,
+        rung,
     })
 }
 

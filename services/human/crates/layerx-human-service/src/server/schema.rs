@@ -130,9 +130,15 @@ pub struct Operation {
     pub response: String,
     pub idempotency: bool,
     pub authorization_class: AuthorizationClass,
+    pub retired: bool,
 }
 
 impl Operation {
+    #[must_use]
+    pub const fn retired(&self) -> bool {
+        self.retired
+    }
+
     #[must_use]
     pub fn is_public_bootstrap(&self) -> bool {
         matches!(
@@ -231,6 +237,9 @@ impl ApiSchema {
                         .get("idempotency")
                         .is_some_and(|value| value == "true"),
                     authorization_class,
+                    retired: values
+                        .get("retired")
+                        .is_some_and(|value| value == "\"true\""),
                 };
                 let base_path = format!("/v{major}/");
                 if !matches!(

@@ -19,6 +19,7 @@ use layerx_agentd::protocol_evidence::RawReceiptEvidence;
 use layerx_agentd::receipt as daemon_receipt;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_human_service::agents::{AgentShell, SpendError, SpendProfile, SpendReconciliation};
+use layerx_human_service::journeys::ReceiptMaterial;
 use layerx_human_service::store::PrincipalId;
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::payload::ModuleId;
@@ -184,7 +185,7 @@ impl RealAgentLayer {
                 &mut durable.store,
                 self.tenant.clone(),
                 idempotency_key,
-                &material.canonical_receipt,
+                &material.material.canonical_bytes,
                 &material.authorized_batch,
             );
             metadata.map(|_| ()).map_err(|_| ())
@@ -226,8 +227,8 @@ enum SubmitRefusal {
 }
 
 #[derive(Clone)]
-struct ReceiptMaterial {
-    canonical_receipt: Vec<u8>,
+struct SpendReceipt {
+    material: ReceiptMaterial,
     authorized_batch: AuthorizedBatch,
     evidence: RawReceiptEvidence,
 }
@@ -249,7 +250,7 @@ fn signed_receipt(
     amount: u128,
     asset: [u8; 32],
     counterparty: [u8; 32],
-) -> ReceiptMaterial {
+) -> SpendReceipt {
     let previous_state_root: [u8; 32] =
         Sha256::digest([b"before".as_slice(), &activity_id].concat()).into();
     let fields = ReceiptFields {
@@ -282,8 +283,16 @@ fn signed_receipt(
         sequence,
         &signer,
     );
-    ReceiptMaterial {
-        canonical_receipt,
+    SpendReceipt {
+        material: ReceiptMaterial {
+            authorised_batch: authorized_batch,
+            verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
+            receipt_hash: Sha256::digest(&canonical_receipt).into(),
+            canonical_bytes: canonical_receipt,
+            tx_hash: activity_id,
+            block_height: sequence,
+            rung: layerx_types::rung::Rung::Receipted,
+        },
         authorized_batch,
         evidence,
     }

@@ -983,7 +983,11 @@ impl DepositJourney {
                             return self.status();
                         }
                     };
-                    if material.canonical_bytes != evidence.canonical_receipt {
+                    if material.canonical_bytes != evidence.canonical_receipt
+                        || material.tx_hash != evidence.activity_id
+                        || material.receipt_hash != evidence.receipt_digest
+                        || material.rung < layerx_types::rung::Rung::Receipted
+                    {
                         return Err(DepositJourneyError::Corrupt(
                             "agent receipt changed after verification",
                         ));
