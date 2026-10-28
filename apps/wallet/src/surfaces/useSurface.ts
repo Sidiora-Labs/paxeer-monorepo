@@ -633,6 +633,28 @@ export const GRANT_LOG_BATCH = 8;
 export const GRANT_LOG_WINDOW_CEILING = 1024n;
 const HASH = /^0x[0-9a-fA-F]{64}$/u;
 
+export function earliestLiveExpiry(
+  grants: readonly Pick<WebPayerGrant, 'expiration' | 'revoked'>[],
+  nowSeconds: bigint
+): bigint | null {
+  let earliest: bigint | null = null;
+  for (const grant of grants) {
+    if (
+      !grant.revoked &&
+      grant.expiration > nowSeconds &&
+      (earliest === null || grant.expiration < earliest)
+    ) {
+      earliest = grant.expiration;
+    }
+  }
+  return earliest;
+}
+
+export function capsRefreshDelay(expiresAt: string, nowMs: number): number | null {
+  const remaining = BigInt(expiresAt) * 1000n - BigInt(nowMs);
+  return remaining <= 0n ? null : Math.min(60_000, Number(remaining));
+}
+
 async function view(provider: ModuleProvider, to: string, data: Hex): Promise<Hex> {
   return (await ethCall(provider, to, data)) as Hex;
 }
@@ -825,10 +847,7 @@ export async function readGrantCaps(
       : (await webData(observedProvider).caps(ids)).grants.filter(
           (grant) => grant.from === account
         );
-  const expires = owned.reduce(
-    (earliest, grant) => (grant.expiration < earliest ? grant.expiration : earliest),
-    owned[0]?.expiration ?? 0n
-  );
+  const expires = earliestLiveExpiry(owned, BigInt(Math.floor(Date.now() / 1000)));
   return {
     state: owned.length === 0 ? 'empty' : 'ready',
     did,
@@ -839,7 +858,7 @@ export async function readGrantCaps(
       session_id: '',
       address: address.toLowerCase(),
       chain_id: Number(chainId),
-      expires_at: owned.length === 0 ? NO_GRANT_EXPIRY : expires.toString(),
+      expires_at: expires === null ? NO_GRANT_EXPIRY : expires.toString(),
     },
     observation: {
       rung: 'committed',
@@ -953,10 +972,8 @@ export function useWebDataCaps(): {
   const caps: WalletCapsState = retained?.key === key ? retained.value : { state: 'loading' };
   useEffect(() => {
     if (caps.state !== 'ready' && caps.state !== 'empty') return undefined;
-    const delay = Math.max(
-      0,
-      Math.min(60_000, Number(BigInt(caps.context.expires_at) * 1000n - BigInt(Date.now())))
-    );
+    const delay = capsRefreshDelay(caps.context.expires_at, Date.now());
+    if (delay === null) return undefined;
     const timer = window.setTimeout(refreshCaps, delay);
     return () => window.clearTimeout(timer);
   }, [caps, refreshCaps]);
