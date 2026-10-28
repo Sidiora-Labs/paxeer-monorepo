@@ -142998,7 +142998,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.3]
 title = "Project journeys and activity with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.2.1", "9.0.1", "10.2.2", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -143093,7 +143093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.6]
 title = "Approve agent holds against the pending nonce instead of the kernel sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.2.2", "9.1.8", "18.1119.1"]
@@ -182402,7 +182402,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.870.1]
 title = "Issue #870: Give home price-update rows watchlist tags, the EVM row layout, tested controls and their own item type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
