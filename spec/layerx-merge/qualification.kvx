@@ -8029,3 +8029,195 @@ symbol = "PerpsMarket"
 observed = "Attempt da9ceb986 deleted maxLeverage from PerpsMarket and tsc failed at MarketsTable.tsx:225, MobileTickerBar.tsx:96 and markets-rows.test.ts:68, which read the field through MarketRow extends PerpsMarket and the mobile market prop."
 assumption = "do_5 moves the gateway-fed consumers onto a TradeableMarket type; the 1000 assertions in perps-config.test.ts go with the rows."
 severity = "major"
+
+[finding.11.36.1.2]
+task = "11.36.1"
+file = "services/interop/crates/x-websearch/tests/attest.rs"
+symbol = "decode_request_record"
+observed = "Attempt 1d7eadbe8 applied do_7 and the build failed at tests/attest.rs:25 (unresolved import x_websearch::kernel); tests/program.rs:17 and tests/binary.rs:19 import the module too, and tests/program.rs needs decode_request_record, which only kernel.rs:172 defines."
+assumption = "do_8 repoints the three tests and moves decode_request_record into program.rs; the kernel binary tests go with do_3."
+severity = "major"
+
+[finding.2.14.4]
+task = "2.14.4"
+file = "modules/layerxauth/keeper/authority_test.go"
+symbol = "package keeper"
+observed = "Attempts 1a1e85319 (2.14.4) and 1bf3eb4c7 (2.14.5) failed at go test setup: six in-package test files import tests/testutil/keeper, which imports node, which imports the auth keeper, an import cycle present since 1e3c9243f."
+assumption = "New task 2.14.6 moves them to package keeper_test; 2.14.4 and 2.14.5 require it."
+severity = "major"
+
+[finding.2.14.2]
+task = "2.14.2"
+file = "precompiles/layerxauth"
+symbol = "0x101C"
+observed = "Attempt f7dd7a41b: the grant id 0x101C returns is the grant-body hash while grant.activity-id holds the outer activity id, and Host.ReadIdempotentReceipt answered LXP_ERR_UNKNOWN_FIELD in every case (finding.2.4.2.1)."
+assumption = "do_3 compares against codec.DomainHash(DomainAuthorityHash, grant body) and stops reading receipts by idempotency key."
+severity = "major"
+
+[finding.8.29.1]
+task = "8.29.1"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "submit_native_receive"
+observed = "Attempts 5ef277951 and eabd3e15b removed RampEngine::submit_native_receive and the dependents check failed at main.rs:1049, a file task 8.30.2 owns; a requires edge would form a cycle."
+assumption = "8.29.1 keeps the method; 8.30.2 removes it with engine.rs added to its touches."
+severity = "major"
+
+[finding.8.7.2]
+task = "8.7.2"
+file = "services/platform/hosted/gateway/tests/browser_profiles.rs"
+symbol = "native_explorer_public_route"
+observed = "Attempt 56e51091a passed its verify_cmd but the graph refused the two deleted names still in symbols, and browser_profiles.rs:11 and :290-393 still import and assert them, which neither the verify_cmd nor the dependents check compiles."
+assumption = "symbols drop the deleted names; touches gain browser_profiles.rs with do_5."
+severity = "major"
+
+[finding.11.36.4.2]
+task = "11.36.4"
+file = "services/interop/crates/x-websearch/src/payment.rs"
+symbol = "exact_payload"
+observed = "Attempt 5787209ee: all six V3 cases answered invalid_payment_payload because the fixture gives them an empty receiptJson and no txHash, and exact_payload (payment.rs:2661-2686, since e7e345ed7) requires a 32-byte txHash before the receipt check."
+assumption = "do_5 derives the hash from rawTransaction and scripts the gateway receipt answer; req.11404 is unchanged."
+severity = "major"
+
+[finding.3.42.3]
+task = "3.42.3"
+file = "services/platform/perps-data/internal/markets/markets_test.go"
+symbol = "TestRunRefreshesAgain"
+observed = "Attempt a81709267 bounded two refreshes and a height advance to 500 ms; one Refresh against the started node takes longer and consecutive heights may be equal, so refreshed_block stayed NULL."
+assumption = "do_4 observes the second refresh by reseeding after the first one lands, with 30 s bounds."
+severity = "minor"
+
+[finding.13.25.2]
+task = "13.25.2"
+file = "modules/lxphost/host.go:159"
+symbol = "lxphost_reset"
+observed = "Attempt 4440d1f2e (base 435d817d3) built and `cg spec done 13.25.2` exited 1 (logs-verify-1.log): every registerAccount subtest reverted LXP_ERR_UNKNOWN_ACTIVITY on activity 0x00090006 because host.go:159 and read.go:216 register programs_module_registration(), whose activity_types_v1 (src/modules/programs/registration.c:18-24) lists no account, wind-down, sandbox, sandbox-destroy or storage-retirement type; 13.26.1 (6f3ccad02), 13.26.2 (6f7d6baa4), 13.26.3 (729ad9fbb), 13.27.1 (fe674645d), 13.27.3 (5c166b0e0) and 13.27.4 (da6e7fa9b) failed the same way."
+assumption = "New task 1.23.5 registers programs_module_registration_v4_storage_retirement() at both sites and the eight Programs tasks require it; the candidates above are continued unchanged."
+severity = "blocker"
+
+[finding.13.27.4]
+task = "13.27.4"
+file = "src/protocol/lxp_genesis.c:55"
+symbol = "module_table"
+observed = "The genesis module table registers programs_module_registration_v4, whose activity list lacks LX_PROGRAMS_STORAGE_RETIREMENT (0x0009000B), the activity retireStorage submits; task 1.23.5 registers the storage-retirement variant in the hosted kernel with the same abi version."
+assumption = "The hosted kernel is the merged node's execution path; whether the genesis table and the daemon move to the storage-retirement variant is an open kernel-owner question recorded here and changed by no task."
+severity = "note"
+
+[finding.13.24.1]
+task = "13.24.1"
+file = "modules/lxphost/host.go:526"
+symbol = "lxphost_execute"
+observed = "Attempt c9b10cd99 (base c2b3c902f) built and `cg spec done 13.24.1` exited 1 (logs-verify-1.log): TestProgramsCallReturnsTerminalOutcome got LXP_ERR_FEE_UNPAYABLE from a direct Submit with feeLimit 1e8 because lxphost_execute never fills execution->fee_balance (finding.1.93.2.1), and TestProgramsCallFeeLimitBelowFeeReverts got LXP_NON_CANONICAL from programs/crates/layerx-programs-runtime/src/ffi_call.rs:2909-2910 where the test pinned LXP_FEE_LIMIT; 13.24.3 (a7062576f) got LXP_ERR_FEE_UNPAYABLE in both quoteCallFee tests."
+assumption = "New task 1.23.6 fills fee_balance from the payer's agent main account as cmd/layerxd/lxp_daemon_lni.c:2300-2346 does; req.13260 ac_2 and do_2 now name the runtime refusal; 13.24.1 and 13.24.3 require 1.23.6."
+severity = "blocker"
+
+[finding.13.24.2]
+task = "13.24.2"
+file = "modules/lxphost/simulate.go:96"
+symbol = "lxphost_simulate"
+observed = "Attempt 391ce5fc8 (base c2b3c902f) built and `cg spec done 13.24.2` exited 1 (logs-verify-1.log): TestProgramsSimulateCallMatchesCallOutput and TestProgramsSimulateCallLeavesStateUnchanged got LXP_ERR_BAD_SIGNATURE from Host.Simulate because lxphost_simulate sets signature_valid but never execution->binding_authority, unlike lxphost_execute (host.go:536-537), so kernel_program_signer_binding (src/protocol/lxp_kernel.c:218-220) verifies the unsigned activity's signature."
+assumption = "Task 1.23.6 sets binding_authority in lxphost_simulate; 13.24.2 also requires 13.24.1 (call handler) and 13.28.1 (getStateHead); 391ce5fc8 is continued."
+severity = "blocker"
+
+[finding.13.25.1]
+task = "13.25.1"
+file = "precompiles/layerxprograms/principal.go"
+symbol = "principalOf"
+observed = "Attempt 8290ed5ee built and `cg spec done 13.25.1` exited 1: both transfer tests reverted LXP_NON_CANONICAL through submit, then LXP_AUTH_SCOPE once the handler computed an owner AuthorityHash (logs-verify-1.log, logs-verify-2.log); req.13252 ac_1 and decision.1329 make the principal MainAccountID with the DID as actor, while principalOf on main (task 13.22.4, b575ada34) sets Actor = Principal = DID id as kernel_program_signer_binding (src/protocol/lxp_kernel.c:210-211) requires, and the transfer debit leg must equal that principal (src/modules/programs/transfer.c:107), which no program account id does; principal_test.go:57 and :59 still assert the decision.1329 shape."
+assumption = "Which account the transfer debits, and whether decision.1329 or the merged principalOf stands, needs an owner ruling; 13.25.1 is held until then and 8290ed5ee is the candidate to continue."
+severity = "blocker"
+
+[finding.13.23.2]
+task = "13.23.2"
+file = "precompiles/layerxprograms/view_registry.go"
+symbol = "getProgram"
+observed = "Attempt fd80ddc67 (base 435d817d3) built and `cg spec done 13.23.2` exited 1 (logs-verify-2.log): the upgrade and stale-hash assertions passed and both tests then reverted 'execution reverted' at the getProgram StaticCall (method_upgrade_test.go:121, :154) because no getProgram handler was registered on that base; task 13.28.1 registers it."
+assumption = "13.23.2 now requires 13.28.1 and fd80ddc67 is continued."
+severity = "minor"
+
+[finding.13.27.2]
+task = "13.27.2"
+file = "precompiles/layerxprograms/method_sandbox_fund_test.go"
+symbol = "TestProgramsSandboxFundEscrowsLegs"
+observed = "Attempt fe0049182 built and `cg spec done 13.27.2` exited 1 (logs-verify-1.log): the staticcall assertion compared the revert reason with the bare code \"LXP_PROGRAM_REFUSED\" while pcommon.RevertReason returns \"LXP_PROGRAM_REFUSED: program refused; write under staticcall\" (errors_test.go:68, gate_test.go:102)."
+assumption = "do_6 names the pcommon.LXPRevert form; the sandbox activity then needs task 1.23.5 like the rest of the group."
+severity = "minor"
+
+[finding.13.28.2]
+task = "13.28.2"
+file = "precompiles/layerxprograms/view_accounts.go"
+symbol = "getProgramAccount"
+observed = "The published 13.28.2 wrote getProgramAccount but no init() registers it with register() of submit.go, so a getProgramAccount call reverts LXP_PRECOMPILE_UNKNOWN_METHOD on main (seen while reading 13.25.2 attempt 4440d1f2e, which registered it itself)."
+assumption = "13.25.2 do_6 registers it from its own init(); no 13.28.2 rework."
+severity = "minor"
+
+[finding.8.30.1]
+task = "8.30.1"
+file = "services/platform/ramps/reference/src/main.rs:1044"
+symbol = "State"
+observed = "Attempts a85a5c99f, 675c290ba and e9472d7fa failed `cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp` (exit 101, logs-build-1.log): removing PaxeerConfig RPC fields, tracker_config and State.paxeer_tracker_config/paxeer_trackers per do_1/do_3 breaks rebalance_presentation (:1044), rebalance (:1085, :1092), the sixth &TrackerConfig argument of verify_recovery_settlement (:1214, toolkit clients.rs:2303) and the required RampEngine.registry field (:1225, toolkit engine.rs:19), all owned by tasks 8.30.3 and 8.31.2."
+assumption = "8.30.1 keeps those fields and qualifies the operator-address test only; the removal, the retired-fields test and acceptance.8.274.1 move to 8.31.2, and 8.30.4 follows 8.31.2 (wave 11, 8.31.1 wave 12); 675c290ba is continued."
+severity = "minor"
+
+[finding.13.32.2]
+task = "13.32.2"
+file = "precompiles/layerxprograms/view_fees.go:177"
+symbol = "getCurrentFeeSchedule"
+observed = "Attempt c02eac95a (base 73253d5f5) built and `cg spec done 13.32.2` exited 1 (logs-verify-1.log): TestProgramsPrecompileActiveAfterMergeHeight reverted LXP_PRECOMPILE_UNKNOWN_METHOD on getCurrentFeeSchedule because its base predates the 13.28.4 merge that registers the view."
+assumption = "13.32.2 now requires 13.28.4; the next attempt runs on a base that includes it."
+severity = "minor"
+
+[finding.2.14.6]
+task = "2.14.6"
+file = "modules/layerxauth/keeper/views_test.go:284"
+symbol = "TestAuthResultByIdempotency"
+observed = "Attempt ff891ba32 (base 73253d5f5) fixed the import cycle, built and `go test -count=1 ./modules/layerxauth/keeper/` exited 1 (logs-verify-1.log) on TestGrantSession, TestGrantSessionSuccessor, TestGrantCapability, TestAuthExecuteIdempotentReplay, TestAuthExecuteSequenceReused, TestRevokeGrantAdvancesRevocation and TestAuthResultByIdempotency: each expects a stored receipt or LXP_IDEMPOTENT_REPLAY from the idempotency store task 1.2.1 retired and gets nil, independent of the moved files."
+assumption = "Those seven tests of tasks 2.7.1 and 2.7.4 need an owner task that rewrites them to the post-1.2.1 contract; 2.14.6 qualifies its three named tests and ff891ba32 is continued."
+severity = "major"
+
+[finding.13.25.1.2]
+task = "13.25.1"
+file = "src/modules/programs/transfer.c"
+symbol = "authorize_leg"
+observed = "decision.1329 was revised on 2026-10-28: the principal is the DID id and the main account is the debit account; transfer.c:107-108 and :51-52 refuse any leg whose from id differs from the principal and :133-136 refuse a zero authority_hash, so no hosted transfer can debit a ledger account until task 13.25.4 accepts legs from accounts the principal DID owns and 13.25.5 fills Kind and AuthorityHash."
+assumption = "13.25.1 requires 13.25.4 and 13.25.5 and continues from the funding setup of 8290ed5ee; the revised decision awaits owner confirmation."
+severity = "blocker"
+
+[finding.1.23.5]
+task = "1.23.5"
+file = "src/protocol/lxp_kernel.c"
+symbol = "lxp_kernel_execute_activity"
+observed = "Attempts through 1b25d3584 registered v4_storage_retirement and the account subtest received the error LXP_ERR_MODULE_DISABLED from the Programs state-activity gate at lxp_kernel.c:6758-6762 before dispatch, because modules/lxphost binds no commit observer; only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114) installs one and it needs the durable state feed store that layerxd and the emulator open."
+assumption = "The acceptance records the gate's code; a follow-up host task binds a Programs state feed before any hosted ACCOUNT or WIND_DOWN activity (13.25.2, 13.26.x) can execute."
+severity = "major"
+
+[finding.2.14.5]
+task = "2.14.5"
+file = "modules/layerxauth/keeper/shared_host_test.go"
+symbol = "TestSharedHostIdempotencyAcrossModules"
+observed = "Attempt 5f3ba8b33 ran and found no host row under prefix 0x04 after a ledger Send with key K and no ErrIdempotentReplay on reuse: task 1.2.1 (req.1010) removed kernel idempotency recording, so the only replay refusal left is ErrSequenceReused on a consumed account sequence."
+assumption = "req.2071 now asserts the sequence refusal and the empty 0x04 prefix; lines 1-202 of 5f3ba8b33 are the candidate to continue."
+severity = "major"
+
+[finding.3.54.1]
+task = "3.54.1"
+file = "tools/qualification/localnode/v6120-node.sh"
+symbol = "PERPS_DATA_TEST_COMET"
+observed = "Attempts through d4e0dbd64 built and the verify stopped at e2e_test.go:122 because PERPS_DATA_TEST_COMET was unset: v6120-node.sh:419-424 writes only LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL to --env-out."
+assumption = "Task 5.98.2 adds PERPS_DATA_TEST_COMET; 3.54.1 and 3.54.4 require it and d4e0dbd64 is re-qualified unchanged."
+severity = "major"
+
+[finding.8.29.1.1]
+task = "8.29.1"
+file = "services/platform/ramps/toolkit/src/engine.rs"
+symbol = "RampEngine::submit_layerx"
+observed = "At 998546692 the verify_cmd passed and cg spec done refused RampEngine::submit_layerx and RampEngine::resolve_layerx (methods of impl RampEngine<'_>, engine.rs:24) as not defined in the graph."
+assumption = "The symbol list names the two tests, as in finding.11.23.3.1; 998546692 is continued on main after 8.30.2."
+severity = "minor"
+
+[finding.5.55.2.5]
+task = "5.55.2"
+file = "node/sequencer/standby.go"
+symbol = "receive"
+observed = "Attempt 42d6f4e25 ran the recorder: eth_gasPrice failed with 'pending block does not fix a base fee' (rpcPendingSnapshot, node/app.go:3288, satisfies no PendingBaseFee) and the primary halted at height 2 because the unpeered standby, still at height 1 since AppReplayer.Apply treats wal.Committed as a no-op (node/sequencer/replay.go:22-38), refused Open(3) (standby.go:323, :695-700) with a sticky failure."
+assumption = "Task 5.55.6 orders the standby's open after the app commit and forwards the base fee; 5.55.2 requires it and continues from 42d6f4e25 with the standby peered to the primary."
+severity = "blocker"

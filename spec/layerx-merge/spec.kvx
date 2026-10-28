@@ -919,8 +919,8 @@ affects = ["2.3.1", "2.6.1", "2.14.4", "2.14.5"]
 
 [decision.202]
 title = "Idempotency is kernel-owned"
-value = "Idempotency records live in the host store under prefix 0x04 and are pruned by the kernel; the keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired, and IdempotencyRetention stays a layerxauth param that no host setter carries to the kernel."
-basis = "The host writes idempotency entries at modules/lxphost/ctx.go:281 and the kernel prunes them at src/state/lxp_idempotency.c:128 from the retention field of include/layerx/lxp_state.h:42; the module keys at modules/layerxauth/types/keys.go:21-35 are used only by a test."
+value = "The keeper-level IdempotencyPrefix, IdempotencyBySequencePrefix, IdempotencyKey and IdempotencyBySequenceKey are retired and IdempotencyRetention stays a layerxauth param that no host setter carries to the kernel; since req.1010 the kernel records no idempotency entries, the host store holds nothing under prefix 0x04, and replay protection is the per-account sequence (ErrSequenceReused)."
+basis = "Task 1.2.1 (req.1010) removed kernel idempotency recording and replay, leaving lxp_idempotency_canonical_lookup (src/protocol/lxp_kernel.c:7876); the module keys at modules/layerxauth/types/keys.go:21-35 are used only by a test."
 affects = ["2.1.6", "2.6.4", "2.14.4"]
 
 [decision.203]
@@ -3282,10 +3282,10 @@ basis = "lxphost.Activity carries IdempotencyKey [32]byte at modules/lxphost/hos
 affects = ["13.21.8", "13.34.4"]
 
 [decision.1329]
-title = "0x101D principal is the bound DID's kernel main account"
-value = "The precompile resolves the EVM caller to its bound DID and uses MainAccountID as principal with the DID as actor; an unbound caller is refused with LXP_ADDR_EVM_NOT_BOUND."
-basis = "modules/evm/keeper/layerx_binding.go:18 holds the binding and modules/lxphost/accountmap.go:43 defines MainAccountID."
-affects = ["13.22.3"]
+title = "0x101D principal is the bound DID id; the main account is the debit account"
+value = "principalOf resolves the EVM caller to its bound DID and submits with Actor = Principal = the DID id (lxphost.DIDID), VerifiedKey = the DID key, Kind = LXP_AUTHORITY_OWNER and AuthorityHash = lxp_authority_hash(LXP_AUTHORITY_OWNER, zero grant id, VerifiedKey); the DID's main account (MainAccountID) or one of its DID asset accounts is the debit account of a value leg, never the principal; an unbound caller is refused with LXP_ADDR_EVM_NOT_BOUND."
+basis = "kernel_program_signer_binding (src/protocol/lxp_kernel.c:201-221) requires actor == principal == the DID id for a host-bound Programs activity, and lni_principal derives the same id for Programs activities at cmd/layerxd/lxp_daemon_lni.c:2346-2350; the kernel tests hash the owner authority with a zero grant id (tests/programs/test_monetary_law.c:591, :681); modules/evm/keeper/layerx_binding.go:18 holds the binding and modules/lxphost/accountmap.go:43 defines MainAccountID."
+affects = ["13.22.3", "13.25.1", "13.25.4", "13.25.5"]
 
 [decision.1330]
 title = "Static calls serve views and simulateCall only"
@@ -11024,6 +11024,15 @@ ac_1 = "lx_service_dispute_resolve_execute (include/layerx/lx_service.h:425) rep
 ac_2 = "lx_service_dispute_open_execute (include/layerx/lx_service.h:422) returns LXP_ERR_ARBITER_REQUIRED (-737) when the linked escrow has a zero arbiter and LXP_ERR_ESCROW_LINK_MISMATCH (-739) when holder, beneficiary or asset differ from buyer, provider and offer asset."
 ac_3 = "The window, sequence and state rules of open and the escrow_resolution_id record of resolve keep their HEAD results (src/modules/service/lx_service_dispute.c:33-44, :94-95)."
 
+
+[req.1073]
+title = "The hosted kernel registers the Programs module activity set the precompiles submit"
+ac_1 = "An account, sandbox or storage-retirement Programs activity submitted through modules/lxphost Host.Execute is answered by the Programs module and never by LXP_ERR_UNKNOWN_ACTIVITY, while an ordinal no Programs module variant lists is still refused with LXP_ERR_UNKNOWN_ACTIVITY."
+
+[req.1074]
+title = "The hosted kernel pays activity fees from the payer's main account and binds simulate like execute"
+ac_1 = "Host.Execute of an activity whose fee limit is at or below the balance of the payer's agent main account is not refused with LXP_ERR_FEE_UNPAYABLE, and one whose fee limit exceeds that balance is."
+ac_2 = "Host.Simulate of an unsigned host-bound activity answers the same kernel code as Host.Execute and never LXP_ERR_BAD_SIGNATURE."
 [req.1241]
 title = "Add the kernel archive symbol harness used by every retirement test"
 ac_1 = "The archive harness lists lxp_kernel_create (src/protocol/lxp_kernel.c:1729) and lxp_log_append as defined symbols of build/liblayerx.a and lists no symbol of the excluded src/storage/lxp_projection.c (Makefile:44)."
@@ -11675,8 +11684,13 @@ ac_1 = "After a full ledger scenario through 0x101A, iterating the layerxledger 
 ac_2 = "After grants and revokes through 0x101C, iterating the layerxauth module store (storage/common/keys/store_keys.go:44) yields only ParamsKey 0x01 (modules/layerxauth/types/keys.go:20), with no 0x02 or 0x03 idempotency entries."
 
 [req.2071]
-title = "Ledger and auth share one kernel idempotency space per DID"
-ac_1 = "An idempotency key used by a DID for a ledger send cannot be reused by the same DID for grantSession (ErrIdempotentReplay, modules/layerxauth/types/errors.go:16) because both keepers run on one host store (modules/lxphost/ctx.go:65), while another DID may use the same key."
+title = "Ledger and auth share one host store whose kernel keeps no idempotency entries"
+ac_1 = "Ledger and auth run on one host store (modules/lxphost/ctx.go:65) whose kernel keeps no idempotency entries (req.1010): after DID A sends with key K through the ledger keeper, A's grantSession with K at the next sequence executes, re-submitting an activity on A's consumed account sequence is refused with ErrSequenceReused (modules/layerxauth/types/errors.go:14), DID B's grantSession with K executes, and the host store holds no key under prefix 0x04."
+
+
+[req.2072]
+title = "The layerxauth keeper test package builds"
+ac_1 = "go test ./modules/layerxauth/keeper/ reaches test execution: the in-package tests that import tests/testutil/keeper, which imports node, which imports the auth keeper, are package keeper_test behind an export_test.go bridge, as the modules/layerxledger/keeper tests are."
 
 [req.2241]
 title = "Generate layerxpay Params and MsgUpdateParams from api/layerxpay/tx.proto"
@@ -12611,7 +12625,7 @@ ac_1 = "On the local node an off-tick placeOrder reverts with PerpsTickSize clas
 [req.3533]
 title = "Local node: getMarketConfig decodes for every active market"
 ac_1 = "For every id of getActiveMarketIds (apps/perps/src/core/network/abi/PerpsPrecompile.ts:1630) on the local node decodeMarketConfig returns a symbol, tickSize above 0 and lotSize above 0."
-ac_2 = "tools/qualification/localnode/v6120-node.sh starts a disposable chain-125 node on loopback with the v6.12.0 plan applied in its first block, funds a test key, feeds one fixed BTC price per block, and prints LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL to the env file named by --env-out"
+ac_2 = "tools/qualification/localnode/v6120-node.sh starts a disposable chain-125 node on loopback with the v6.12.0 plan applied in its first block, funds a test key, feeds one fixed BTC price per block, and prints LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC, PERPS_DATA_TEST_COMET and NEXT_PUBLIC_PERPS_GATEWAY_URL to the env file named by --env-out, PERPS_DATA_TEST_COMET being http://127.0.0.1:<comet rpc port>"
 
 [req.3534]
 title = "Local node: getFeeTier of a fresh account decodes to tier 0"
@@ -19479,7 +19493,7 @@ ac_2 = "checkCall (planned) refuses a nonzero value on any method with LXP_PRECO
 
 [req.13252]
 title = "Resolve the 0x101D caller to its bound DID and kernel main account"
-ac_1 = "principalOf (planned) reads the DID bound to the EVM caller with GetLayerXDid (modules/evm/keeper/layerx_binding.go:18) and returns the kernel main account from MainAccountID (modules/lxphost/accountmap.go:43) with the DID as actor, the account as principal and the DID key as verified key in lxphost.KernelAuthority (modules/lxphost/host.go:568) (decision.1329)."
+ac_1 = "principalOf (precompiles/layerxprograms/principal.go) reads the DID bound to the EVM caller with GetLayerXDid (modules/evm/keeper/layerx_binding.go:18) and returns lxphost.KernelAuthority with Bound = true, Actor = Principal = lxphost.DIDID of the DID, VerifiedKey = the DID key, Kind = LXP_AUTHORITY_OWNER and AuthorityHash = lxp_authority_hash(LXP_AUTHORITY_OWNER, zero grant id, VerifiedKey) (decision.1329)."
 ac_2 = "principalOf refuses a caller with no DID binding with ErrUnboundCaller (LXP_ADDR_EVM_NOT_BOUND) and never falls back to a derived address account."
 
 [req.13253]
@@ -19520,7 +19534,7 @@ ac_2 = "registryRead with the zero program id reverts with LXP_NON_CANONICAL, th
 [req.13260]
 title = "Serve call with the kernel call activity, outcome and guest events"
 ac_1 = "call (precompiles/layerxprograms/abi.json:2) submits activity 0x00090003 (include/layerx/programs.h:171) with EncodeCallPayload and the feeLimit, and returns (int32 status, uint8 kind, bytes response) from the receipt program outcome requested by wiring.J52.3, emitting the guest events and ProgramCallOutcome."
-ac_2 = "call with a feeLimit below the computed call fee reverts with the kernel fee refusal of the call validate at src/modules/programs/call.c:2615 and charges nothing."
+ac_2 = "call with a feeLimit below the computed call fee reverts with the kernel refusal of the call runtime (programs/crates/layerx-programs-runtime/src/ffi_call.rs:2909-2910, LXP_ERR_NON_CANONICAL) and charges nothing."
 
 [req.13261]
 title = "Serve simulateCall as a static kernel simulation that writes nothing"
@@ -19534,8 +19548,41 @@ ac_2 = "A call made with feeLimit equal to the quoted ceiling never reverts with
 
 [req.13263]
 title = "Serve transfer of program value legs"
-ac_1 = "transfer (precompiles/layerxprograms/abi.json:1056) submits activity 0x00090005 (include/layerx/programs.h:173) with EncodeTransferPayload and emits ProgramTransferred."
+ac_1 = "transfer (precompiles/layerxprograms/abi.json:1056) submits activity 0x00090005 (include/layerx/programs.h:173) with EncodeTransferPayload under the authority principalOf supplies, debiting each leg from the caller DID's main account (MainAccountID) or one of its DID asset accounts, and emits ProgramTransferred."
 ac_2 = "transfer of more than the source balance reverts with the refusal lxp_ctx_emit_transfer_set returns in the transfer execute at src/modules/programs/transfer.c:200 and moves no units."
+
+[req.13301]
+title = "Authorize transfer legs debited from accounts the principal DID owns"
+ac_1 = "lxp_programs_transfer_validate and lxp_programs_transfer_execute_root (src/modules/programs/transfer.c) accept a leg whose from id equals authority->principal or names an account of the module runtime registry whose lx_account_owner_did (src/ledger/lx_account_read.c:6) equals authority->principal (kinds LX_ACCOUNT_AGENT_MAIN and LX_ACCOUNT_AGENT_ASSET), use the principal DID's account of kind LX_ACCOUNT_AGENT_MAIN as the sequence account, and keep each source authority's authorized_from equal to its leg's from id."
+ac_2 = "A leg whose from account is owned by another DID, or by no DID, is refused with LXP_ERR_AUTH_SCOPE and moves no units; a zero program_id or authority_hash stays LXP_ERR_NON_CANONICAL."
+
+[acceptance.13.301.1]
+feature = "13"
+req = "13301.1"
+scenario = "Given a kernel with the programs module registered, a DID whose main account holds 10 units of an asset and a program value account, when the DID's owner authority submits a transfer of 4 units from its main account to the value account, then the receipt is LXP_OK, the main account holds 6 and the value account 4"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/programs/test_transfer_principal.c::transfer_from_owned_main_account (planned)"
+qualification = "UNRUN"
+
+[acceptance.13.301.2]
+feature = "13"
+req = "13301.2"
+scenario = "Given the same kernel and a second DID's main account holding 10 units, when the first DID's owner authority submits a transfer of 4 units from the second DID's main account, then the receipt is LXP_ERR_AUTH_SCOPE and both balances are unchanged"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "tests/programs/test_transfer_principal.c::transfer_from_foreign_account_refused (planned)"
+qualification = "UNRUN"
+
+[req.13302]
+title = "Owner authority kind and hash on the 0x101D principal"
+ac_1 = "principalOf sets Kind = LXP_AUTHORITY_OWNER and AuthorityHash = lxp_authority_hash(LXP_AUTHORITY_OWNER, zero grant id, VerifiedKey) (src/state/lxp_authority.c:326) through a cgo wrapper in modules/lxphost, so lxp_programs_transfer_validate (src/modules/programs/transfer.c:133-136) no longer refuses the hosted authority as LXP_ERR_NON_CANONICAL for a zero authority_hash."
+
+[acceptance.13.302.1]
+feature = "13"
+req = "13302.1"
+scenario = "Given an EVM address bound to DID key 0x55..55, when principalOf runs for that caller, then Kind is LXP_AUTHORITY_OWNER and AuthorityHash equals lxp_authority_hash of (LXP_AUTHORITY_OWNER, a zero grant id, the DID key) and differs from the hash of another key"
+contract = "contracts/programs.md#layerxprograms-0x101d"
+test = "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalAuthorityKindAndHash (planned)"
+qualification = "UNRUN"
 
 [req.13264]
 title = "Serve registerAccount for LXPA1 and LXPA2 program accounts"
@@ -49585,6 +49632,30 @@ contract = "contracts/kernel.md#service-arbiter"
 test = "tests/codec/lxp_test_service_arbiter.c::dispute_window_rules_kept (planned)"
 qualification = "UNRUN"
 
+
+[acceptance.1.73.1]
+feature = "1"
+req = "1073.1"
+scenario = "Given the hosted kernel of modules/lxphost, when an activity of type 0x00090006, 0x00090009 or 0x0009000B with an empty payload is executed through Host.Execute, then the kernel code is not LXP_ERR_UNKNOWN_ACTIVITY: LXP_ERR_TRUNCATED from the Programs decoder for 0x00090009 and 0x0009000B, and LXP_ERR_MODULE_DISABLED from the Programs state-activity gate for 0x00090006 while the host binds no state feed, and an activity of an unlisted ordinal is refused with LXP_ERR_UNKNOWN_ACTIVITY"
+contract = "contracts/kernel.md#lxphost-host"
+test = "modules/lxphost/programs_registration_test.go::TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities (planned)"
+qualification = "UNRUN"
+
+[acceptance.1.74.1]
+feature = "1"
+req = "1074.1"
+scenario = "Given an agent main account with a non-zero balance registered on the hosted kernel, when its DID executes an activity with a fee limit at or below that balance, then the receipt code is not LXP_ERR_FEE_UNPAYABLE, and when the fee limit exceeds the balance, then it is LXP_ERR_FEE_UNPAYABLE"
+contract = "contracts/kernel.md#lxphost-host"
+test = "modules/lxphost/fee_balance_test.go::TestHostExecuteFeeBalanceFromPayerMainAccount (planned)"
+qualification = "UNRUN"
+
+[acceptance.1.74.2]
+feature = "1"
+req = "1074.2"
+scenario = "Given the unsigned host-bound activity of TestHostBindingAuthorityUnsignedRegister, when it is simulated through Host.Simulate, then the kernel code equals the Host.Execute code and is not LXP_ERR_BAD_SIGNATURE"
+contract = "contracts/kernel.md#lxphost-host"
+test = "modules/lxphost/fee_balance_test.go::TestHostSimulateBindsAuthorityLikeExecute (planned)"
+qualification = "UNRUN"
 [acceptance.1.241.1]
 feature = "1"
 req = "1241.1"
@@ -51428,7 +51499,7 @@ qualification = "UNRUN"
 [acceptance.2.71.1]
 feature = "2"
 req = "2071.1"
-scenario = "Given DID A that sent with key K through 0x101A, when A grants a session with K and DID B grants with K, then A is refused with ErrIdempotentReplay and B succeeds"
+scenario = "Given DID A that sent with key K through 0x101A, when A grants a session with K and DID B grants with K, then both succeed, A's replay of a consumed sequence is refused with ErrSequenceReused, and no host key starts with 0x04"
 contract = "contracts/ledger-auth.md#idempotency"
 test = "modules/layerxauth/keeper/shared_host_test.go::TestSharedHostIdempotencyAcrossModules (planned)"
 qualification = "UNRUN"
@@ -52711,6 +52782,15 @@ req = "2999.1"
 scenario = "Given the candidate after every domain-2 wave-6 task, when TestLedgerCompletionRetiredSurfacesAbsent runs, then no retired surface remains and every planned path exists"
 contract = "contracts/ledger-auth.md#layerxledger-0x101a"
 test = "precompiles/layerxledger/completion_gate_test.go::TestLedgerCompletionRetiredSurfacesAbsent (planned)"
+qualification = "UNRUN"
+
+
+[acceptance.2.72.1]
+feature = "2"
+req = "2072.1"
+scenario = "Given the merged tree, when go test runs the layerxauth keeper package, then its setup succeeds and TestAuthKeeperParamsRoundTrip runs"
+contract = "contracts/auth.md#keeper"
+test = "modules/layerxauth/keeper/keeper_test.go::TestAuthKeeperParamsRoundTrip"
 qualification = "UNRUN"
 
 [acceptance.3.1.1]
@@ -54444,9 +54524,21 @@ qualification = "UNRUN"
 [acceptance.3.533.2]
 feature = "3"
 req = "3533.2"
-scenario = "Given a clean environment, when tools/qualification/localnode/v6120-node.sh runs with --env-out, then a disposable chain-125 node on loopback serves the v6.12.0 set from its first block with 18 markets and 3 spot tokens, a funded test key and one fixed BTC price per block, and the env file holds LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL"
+scenario = "Given a clean environment, when tools/qualification/localnode/v6120-node.sh runs with --env-out, then a disposable chain-125 node on loopback serves the v6.12.0 set from its first block with 18 markets and 3 spot tokens, a funded test key and one fixed BTC price per block, and the env file holds LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC, PERPS_DATA_TEST_COMET and NEXT_PUBLIC_PERPS_GATEWAY_URL"
 contract = "contracts/perps-client.md#core"
 test = "tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120Serves (planned)"
+qualification = "UNRUN"
+
+[req.5982]
+title = "Local node env file names the Comet RPC"
+ac_1 = "tools/qualification/localnode/v6120-node.sh writes PERPS_DATA_TEST_COMET=http://127.0.0.1:<comet rpc port> (the RPC_PORT of its NODE address, v6120-node.sh:324) into the env file named by --env-out beside LOCAL_NODE_RPC, LOCAL_NODE_KEY, PERPS_DATA_TEST_RPC and NEXT_PUBLIC_PERPS_GATEWAY_URL (v6120-node.sh:419-424), and GET /status on that address reports network hyperpax_125-1."
+
+[acceptance.5.982.1]
+feature = "5"
+req = "5982.1"
+scenario = "Given the env file written by v6120-node.sh --env-out, when TestLocalNodeV6120CometEnv reads PERPS_DATA_TEST_COMET, then it has the shape http://127.0.0.1:<port> and GET /status on it reports network hyperpax_125-1"
+contract = "contracts/perps-client.md#core"
+test = "tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120CometEnv (planned)"
 qualification = "UNRUN"
 
 [acceptance.3.534.1]
@@ -58911,6 +59003,27 @@ req = "5515.1"
 scenario = "Given the recorded V1 file with provenance (paxd revision, chain id, heights, recorder command), when TestVectorV1ReceiptedPositiveVerifies decodes it, then ReceiptSignature succeeds under the pinned key and the activity id equals keccak256 of the raw transaction"
 contract = "contracts/sequencer.md#sequencer-receipt"
 test = "daemon/committed-fixture/vector_v1_test.go::TestVectorV1ReceiptedPositiveVerifies (planned)"
+qualification = "UNRUN"
+
+[req.5556]
+title = "Standby crosses commits and the sequencer serves a base fee"
+ac_1 = "The standby applies wal.Open(H+1) only after its app has committed H: standby.receive (node/sequencer/standby.go:693-701) waits, bounded by the replication timeout, for LastBlockHeight to reach H and answers the gap acknowledgement instead of setting the sticky failure when it has not, so sequential.Open (node/sequencer/executor.go:247) no longer fails with ErrOpenHeight on a following standby."
+ac_2 = "rpcPendingSnapshot (node/app.go:3288-3299) satisfies evmrpc.PendingBaseFee (rpc/info.go:376) with the base fee the open block fixed, so eth_gasPrice (rpc/info.go:105) and eth_feeHistory (rpc/info.go:282) are served on the sequencer and standby instead of failing with 'pending block does not fix a base fee' (rpc/info.go:389)."
+
+[acceptance.5.556.1]
+feature = "5"
+req = "5556.1"
+scenario = "Given a primary and a standby of node/sequencer/standby_role_test.go, when the primary commits heights 2 and 3 with the standby following, then the standby acknowledges both opens and reports no failure"
+contract = "contracts/sequencer.md#sequencer-executor"
+test = "node/sequencer/standby_role_test.go::TestStartStandbyServesReplication"
+qualification = "UNRUN"
+
+[acceptance.5.556.2]
+feature = "5"
+req = "5556.2"
+scenario = "Given the sequencer's RPC with an open pending block, when eth_gasPrice is served through rpcPendingSnapshot, then it returns the open block's base fee"
+contract = "contracts/sequencer.md#node-go-api"
+test = "node/rpc_pending_snapshot_test.go::TestRPCPendingSnapshotServesBaseFee (planned)"
 qualification = "UNRUN"
 
 [acceptance.5.516.1]
@@ -64646,7 +64759,7 @@ feature = "8"
 req = "8274.1"
 scenario = "Given a config valid for the merged chain plus paxeer.rpc_endpoints, when the binary starts, then it exits non-zero before listening."
 contract = "contracts/platform-ramps.md#ramp-layerx-config"
-test = "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields (planned)"
+test = "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields (planned, task 8.31.2)"
 qualification = "UNRUN"
 
 [acceptance.8.274.2]
@@ -74300,7 +74413,7 @@ qualification = "UNRUN"
 [acceptance.13.252.1]
 feature = "13"
 req = "13252.1"
-scenario = "Given an EVM address bound with BindLayerX (modules/evm/keeper/layerx_binding.go:56) to DID key 0x55..55, when principalOf runs for that caller, then Actor and VerifiedKey equal the DID key and Principal equals the id returned by MainAccountID"
+scenario = "Given an EVM address bound with BindLayerX (modules/evm/keeper/layerx_binding.go:56) to DID key 0x55..55, when principalOf runs for that caller, then Actor and Principal equal lxphost.DIDID of the DID, VerifiedKey equals the DID key and Principal differs from the id returned by MainAccountID"
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalFromBoundDID (planned)"
 qualification = "UNRUN"
@@ -74476,10 +74589,12 @@ qualification = "UNRUN"
 [acceptance.13.263.1]
 feature = "13"
 req = "13263.1"
-scenario = "Given a program value account funded with 10 units, when its owner calls transfer with one leg of 4 units, then getValueAccount reports 6 for the source and 4 for the destination and ProgramTransferred is emitted"
+scenario = "Given a bound DID whose main account holds 10 units of an asset and a program value account, when the DID's EVM address calls transfer with one leg of 4 units from its main account to the value account, then getValueAccount reports 4 for the destination, the main account holds 6 and ProgramTransferred is emitted"
 contract = "contracts/programs.md#layerxprograms-0x101d"
 test = "precompiles/layerxprograms/method_transfer_test.go::TestProgramsTransferMovesLegs (planned)"
 qualification = "UNRUN"
+
+
 
 [acceptance.13.263.2]
 feature = "13"
@@ -93732,12 +93847,75 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+
+[task.1.23.5]
+title = "Register the Programs module with the storage-retirement activity set in the hosted kernel"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = ["1.23.4", "13.22.4"]
+reqs = ["1073.1"]
+capabilities = ["1.23.5"]
+interfaces = []
+do_1 = "lxphost_reset (modules/lxphost/host.go:157-159) and lxphost_read_authority_envelope (modules/lxphost/read.go:216) register programs_module_registration() (src/modules/programs/registration.c:235), whose activity list activity_types_v1 (registration.c:18-24) holds only DEPLOY, UPGRADE, CALL, REGISTRY and TRANSFER, so lxp_kernel_module_for_activity (src/protocol/lxp_kernel.c:2240-2253) answers LXP_ERR_UNKNOWN_ACTIVITY for the account 0x00090006, wind-down 0x00090007, sandbox 0x00090009, sandbox-destroy 0x0009000A and storage-retirement 0x0009000B activities that tasks 13.25.2, 13.26.1, 13.26.2, 13.26.3, 13.27.1, 13.27.2, 13.27.3 and 13.27.4 submit, while deploy, call and transfer pass."
+do_2 = "Register programs_module_registration_v4_storage_retirement() (registration.c:311, include/layerx/programs.h:480) at both sites: it keeps the abi version LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION of the genesis table's programs_module_registration_v4 (src/protocol/lxp_genesis.c:54-55) and lists every type of activity_types_v4 plus LX_PROGRAMS_STORAGE_RETIREMENT (registration.c:52-57), the type task 13.27.4 submits; lxp_programs_account_module_validate (src/modules/programs/accounts.c:59-73) accepts that version. Change no kernel source, no genesis table and no existing test."
+do_3 = "Create modules/lxphost/programs_registration_test.go (planned) with TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities: through ExecuteActivity of modules/lxphost/execute_test.go:45 on the chain of modules/lxphost/host_test.go:40 submit one activity each of type 0x00090006, 0x00090009 and 0x0009000B with an empty payload and assert the returned kernel code is not the LXP_ERR_UNKNOWN_ACTIVITY code of the modules/lxphost Code table (for 0x00090009 and 0x0009000B ExecuteActivity returns no error and receipt.ResultCode LXP_ERR_TRUNCATED from the Programs decoder; for 0x00090006 it returns the error LXP_ERR_MODULE_DISABLED from the Programs state-activity gate of src/protocol/lxp_kernel.c:6758-6762, because the hosted kernel binds no Programs state feed commit observer), and TestHostProgramsModuleRefusesUnknownOrdinal submitting type 0x0009000C and asserting LXP_ERR_UNKNOWN_ACTIVITY."
+do_4 = "Tasks 1.24.1, 1.25.1, 1.25.2 and 1.26.1 edit the same registration sites later and now require this task."
+symbols = ["lxphost_reset", "lxphost_read_authority_envelope", "TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities", "TestHostProgramsModuleRefusesUnknownOrdinal"]
+touches = ["modules/lxphost/host.go", "modules/lxphost/read.go", "modules/lxphost/programs_registration_test.go"]
+tests = ["modules/lxphost/programs_registration_test.go::TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities", "modules/lxphost/programs_registration_test.go::TestHostProgramsModuleRefusesUnknownOrdinal"]
+planned_paths = ["modules/lxphost/programs_registration_test.go"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestHostProgramsModuleAcceptsAccountSandboxAndRetirementActivities|TestHostProgramsModuleRefusesUnknownOrdinal)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert both registration sites to programs_module_registration() and delete the planned test."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.1.23.6]
+title = "Fill the payer fee balance and the simulate binding authority in the hosted kernel"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = ["1.23.5", "1.93.2", "1.23.3"]
+reqs = ["1074.1", "1074.2"]
+capabilities = ["1.23.6"]
+interfaces = []
+do_1 = "lxphost_execute (modules/lxphost/host.go:526-543) and lxphost_simulate (modules/lxphost/simulate.go:96-118) zero lxp_kernel_execution and never set fee_balance (include/layerx/lxp_kernel.h:409), so the kernel fee admission sees a zero spendable balance (include/layerx/lxp_fee.h:157-185) and refuses every non-zero fee limit with LXP_ERR_FEE_UNPAYABLE (finding.1.93.2.1; tasks 13.24.1 and 13.24.3)."
+do_2 = "Before lxp_kernel_execute_activity and lxp_kernel_simulate_activity, resolve the payer's agent main account as lni_principal does in cmd/layerxd/lxp_daemon_lni.c:2300-2346: the account named agent:<actor_did>:main through lx_account_id_from_string, looked up in node->accounts (modules/lxphost/host.go:41), of kind LX_ACCOUNT_AGENT_MAIN whose authority_key equals node->authority.verified_key (include/layerx/lxp_authority.h:100); set execution->fee_balance to its balance, leave it zero when the account is absent and answer LXP_ERR_BAD_SIGNATURE on a key mismatch as the daemon does."
+do_3 = "lxphost_simulate sets signature_valid (modules/lxphost/simulate.go:105-107) but never binding_authority; set execution->binding_authority = (signature.length == 0U && binding_authority) exactly as lxphost_execute does at modules/lxphost/host.go:536-537, so kernel_program_signer_binding (src/protocol/lxp_kernel.c:218-220) accepts the host-bound unsigned activity instead of answering LXP_ERR_BAD_SIGNATURE (task 13.24.2)."
+do_4 = "Create modules/lxphost/fee_balance_test.go (planned) with TestHostExecuteFeeBalanceFromPayerMainAccount: register an agent main account with a non-zero balance on the chain of modules/lxphost/host_test.go:40 through the account registration path of modules/lxphost/execute_test.go:73, execute an activity of that DID with a FeeLimit at or below the balance and assert the code is not LXP_ERR_FEE_UNPAYABLE, then one above the balance and assert LXP_ERR_FEE_UNPAYABLE; and TestHostSimulateBindsAuthorityLikeExecute: Host.Simulate (modules/lxphost/simulate.go:144) of the unsigned bound activity of modules/lxphost/binding_test.go::TestHostBindingAuthorityUnsignedRegister answers the same code as Host.Execute and not LXP_ERR_BAD_SIGNATURE."
+do_5 = "Change no kernel source; the fee parameters, allowance and identities wiring of both functions stay as written."
+symbols = ["lxphost_execute", "lxphost_simulate", "fee_balance", "binding_authority", "TestHostExecuteFeeBalanceFromPayerMainAccount", "TestHostSimulateBindsAuthorityLikeExecute"]
+touches = ["modules/lxphost/host.go", "modules/lxphost/simulate.go", "modules/lxphost/fee_balance_test.go"]
+tests = ["modules/lxphost/fee_balance_test.go::TestHostExecuteFeeBalanceFromPayerMainAccount", "modules/lxphost/fee_balance_test.go::TestHostSimulateBindsAuthorityLikeExecute"]
+planned_paths = ["modules/lxphost/fee_balance_test.go"]
+build_cmd = "make paxd-native-libs && CGO_ENABLED=1 go build ./modules/lxphost/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestHostExecuteFeeBalanceFromPayerMainAccount|TestHostSimulateBindsAuthorityLikeExecute)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert fee_balance to zero and lxphost_simulate to the version without binding_authority; delete the planned test."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 [task.1.24.1]
 title = "Register perps, spot, stream and service modules in the hosted kernel"
 status = "pending"
 mode = "BUILD"
 wave = 23
-requires = ["1.23.3", "1.0.3", "2.95.1"]
+requires = ["1.23.3", "1.0.3", "2.95.1", "1.23.5"]
 reqs = ["1249.1", "1249.2", "1249.3", "1249.4"]
 capabilities = ["1.24.1"]
 interfaces = []
@@ -93769,7 +93947,7 @@ title = "Stop loading and writing the kernel idempotency rows in the host store"
 status = "pending"
 mode = "BUILD"
 wave = 24
-requires = ["1.24.1", "1.0.4"]
+requires = ["1.24.1", "1.0.4", "1.23.5"]
 reqs = ["1250.1", "1250.2"]
 capabilities = ["1.25.1"]
 interfaces = ["interface.1.key-lxphost-idempotency-j22"]
@@ -93800,7 +93978,7 @@ title = "Remove ReadIdempotentReceipt from the read bridge"
 status = "pending"
 mode = "BUILD"
 wave = 25
-requires = ["1.25.1", "1.21.2", "2.3.7", "1.98.1", "2.24.3"]
+requires = ["1.25.1", "1.21.2", "2.3.7", "1.98.1", "2.24.3", "1.23.5"]
 reqs = ["1251.1"]
 capabilities = ["1.25.2"]
 interfaces = ["interface.1.go-lxphost-read-idempotent-receipt-j22"]
@@ -93830,7 +94008,7 @@ title = "Replace the single host mutex with a bounded pool of kernel nodes"
 status = "pending"
 mode = "BUILD"
 wave = 32
-requires = ["1.25.1", "1.17.4", "1.98.1"]
+requires = ["1.25.1", "1.17.4", "1.98.1", "1.23.5"]
 reqs = ["1252.1", "1252.2", "1990.1", "1990.2"]
 capabilities = ["1.26.1", "1.98.1"]
 interfaces = ["interface.1.go-lxphost-config-j22", "interface.1.go-lxphost-host-j22", "interface.1.go-lxphost-new-host-j22", "interface.1.go-lxphost-close-j22"]
@@ -97848,7 +98026,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.2]
 title = "Auth parity: 0x101C grants match the native-session fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4"]
@@ -97857,7 +98035,7 @@ capabilities = ["2.14.2"]
 interfaces = []
 do_1 = "Write TestAuthPrecompileKernelParity in precompiles/layerxauth/parity_test.go (planned)."
 do_2 = "Read the fixtures tests/fixtures/authority/native-sessions/authentication/grant.activity:1 and the matching files of the fee, legacy and replacement directories."
-do_3 = "Compare the grant id with grant.activity-id and the result code with grant.receipt (tests/fixtures/authority/native-sessions/authentication/grant.receipt:1)."
+do_3 = "Compare the grant id returned by 0x101C with codec.DomainHash(DomainAuthorityHash, grant body) and the result code of the receipt the call produces with grant.receipt (tests/fixtures/authority/native-sessions/authentication/grant.receipt:1); do not read receipts back by idempotency key, which 1.2.1 retired (attempt f7dd7a41b saw LXP_ERR_UNKNOWN_FIELD from Host.ReadIdempotentReceipt in every case and grant.activity-id, the outer activity id, never equals the grant-body hash 0x101C returns)."
 symbols = ["TestAuthPrecompileKernelParity"]
 touches = ["precompiles/layerxauth/parity_test.go"]
 tests = ["precompiles/layerxauth/parity_test.go::TestAuthPrecompileKernelParity"]
@@ -97878,7 +98056,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.3]
 title = "Gas conformance: 0x101A and 0x101C charge exactly their gas table rows"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["2.0.4"]
@@ -97888,6 +98066,7 @@ interfaces = []
 do_1 = "Write TestLedgerGasConformance in precompiles/layerxledger/gas_conformance_test.go (planned)."
 do_2 = "Write TestAuthGasConformance in precompiles/layerxauth/gas_conformance_test.go (planned)."
 do_3 = "Compute the expected value with MethodGas.Gas (precompiles/common/precompiles.go:59) and DefaultGasCost (precompiles/common/precompiles.go:441)."
+do_4 = "Do not assert results through resultByIdempotency or Host.ReadIdempotentReceipt: since 1.2.1 the kernel records no idempotency entry, so the read-back at precompiles/layerxledger/gas_conformance_test.go:181 is empty (attempt c5f624b44); assert the result code and receipt directly, and drop the unused modules/lxphost import at gas_conformance_test.go:17."
 symbols = ["TestLedgerGasConformance", "TestAuthGasConformance"]
 touches = ["precompiles/layerxledger/gas_conformance_test.go", "precompiles/layerxauth/gas_conformance_test.go"]
 tests = ["precompiles/layerxledger/gas_conformance_test.go::TestLedgerGasConformance", "precompiles/layerxauth/gas_conformance_test.go::TestAuthGasConformance"]
@@ -97908,10 +98087,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.2.14.4]
 title = "Retirement conformance: module stores hold params only"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
-requires = ["2.0.4"]
+requires = ["2.0.4", "2.14.6"]
 reqs = ["2070.1", "2070.2"]
 capabilities = ["2.14.4"]
 interfaces = []
@@ -97941,13 +98120,13 @@ title = "Shared host conformance: idempotency keys are per DID across ledger and
 status = "pending"
 mode = "BUILD"
 wave = 19
-requires = ["2.0.4"]
+requires = ["2.0.4", "2.14.6"]
 reqs = ["2071.1"]
 capabilities = ["2.14.5"]
 interfaces = []
 do_1 = "Write TestSharedHostIdempotencyAcrossModules in modules/layerxauth/keeper/shared_host_test.go (planned) on app.Setup (node/test_helpers.go:433)."
 do_2 = "Use the node-constructed host shared by both keepers through the wiring of node/app.go:833."
-do_3 = "Assert the refusal matches ErrIdempotentReplay (modules/layerxauth/types/errors.go:16) and the host record under prefix 0x04 (modules/lxphost/ctx.go:65)."
+do_3 = "Assert both grants succeed, the consumed-sequence replay matches ErrSequenceReused (modules/layerxauth/types/errors.go:14), and no host key under prefix 0x04 (modules/lxphost/ctx.go:65)."
 symbols = ["TestSharedHostIdempotencyAcrossModules"]
 touches = ["modules/layerxauth/keeper/shared_host_test.go"]
 tests = ["modules/layerxauth/keeper/shared_host_test.go::TestSharedHostIdempotencyAcrossModules"]
@@ -97958,6 +98137,38 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-ledger-auth-pay"
 rollback = "Revert the touched files; the keeper is not constructed by node/app.go until the wave-4 wiring lands, so no chain path reaches it."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+
+[task.2.14.6]
+title = "Break the layerxauth keeper test import cycle by moving the testutil-backed tests to package keeper_test"
+status = "done"
+mode = "BUILD"
+wave = 18
+requires = ["5.19.2"]
+reqs = ["2072.1"]
+capabilities = ["2.14.6"]
+interfaces = []
+do_1 = "go test ./modules/layerxauth/keeper/ fails at setup with 'import cycle not allowed in test' (attempts 1a1e85319 and 1bf3eb4c7): modules/layerxauth/keeper/authority_test.go, capability_test.go, execute_test.go, harness_test.go, keeper_test.go and revoke_test.go are package keeper and import tests/testutil/keeper, which imports node (node/epoch.go), which imports modules/layerxauth/keeper (ante.go). Change those six files to package keeper_test, importing the keeper as keeper and referring to its exported names."
+do_2 = "Create modules/layerxauth/keeper/export_test.go (planned) in package keeper exporting, as `var X = x` or thin wrappers, every unexported function, type or variable the six moved files use; the other in-package test files (events_test.go, genesis_test.go, kernel_codes_test.go, msg_server_test.go, pause_test.go, sessions_test.go, views_test.go) stay package keeper and must still compile."
+do_3 = "Change no production file and no assertion; the tests keep their names and expectations."
+do_4 = "TestGrantSession, TestGrantSessionSuccessor, TestGrantCapability, TestAuthExecuteIdempotentReplay, TestAuthExecuteSequenceReused, TestRevokeGrantAdvancesRevocation and TestAuthResultByIdempotency fail on the current main independently of this move (they read the idempotency receipt store task 1.2.1 retired, finding.2.14.6); leave their assertions as written and qualify only the three tests above."
+symbols = ["TestAuthKeeperParamsRoundTrip", "TestAuthActorBound", "TestAuthActorUnbound"]
+touches = ["modules/layerxauth/keeper/authority_test.go", "modules/layerxauth/keeper/capability_test.go", "modules/layerxauth/keeper/execute_test.go", "modules/layerxauth/keeper/harness_test.go", "modules/layerxauth/keeper/keeper_test.go", "modules/layerxauth/keeper/revoke_test.go", "modules/layerxauth/keeper/export_test.go"]
+tests = ["modules/layerxauth/keeper/keeper_test.go::TestAuthKeeperParamsRoundTrip", "modules/layerxauth/keeper/authority_test.go::TestAuthActorBound", "modules/layerxauth/keeper/authority_test.go::TestAuthActorUnbound"]
+planned_paths = ["modules/layerxauth/keeper/export_test.go"]
+build_cmd = "go vet ./modules/layerxauth/keeper/"
+verify_cmd = "go test -count=1 ./modules/layerxauth/keeper/ -run '^(TestAuthKeeperParamsRoundTrip|TestAuthActorBound|TestAuthActorUnbound)$'"
+gate_kind = "existing"
+sandbox_profile = "go-cgo"
+owner_role = "fm-ledger-auth-pay"
+rollback = "Revert the files in touches; production code is untouched."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -104187,7 +104398,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.3]
 title = "Refresh markets periodically with markets.Run and report height and failures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["3.42.2", "3.42.7"]
@@ -104197,6 +104408,7 @@ interfaces = ["interface.3.go-perps-data-markets-run-j27", "interface.3.met-perp
 do_1 = "Add Run to services/platform/perps-data/internal/markets/markets.go calling Refresh (services/platform/perps-data/internal/markets/markets.go:114) every interval and after a failure every RetryInterval (services/platform/perps-data/internal/markets/markets.go:31), forever until ctx ends, because no ABI event announces a listing and Retry (services/platform/perps-data/internal/markets/markets.go:177) stops after the first success."
 do_2 = "Set the gauge perps_markets_refresh_height to the refreshed height and add one to perps_markets_refresh_failures_total per failed Refresh (services/platform/perps-data/internal/markets/markets.go:114) on the Metrics passed to Run."
 do_3 = "Write TestRunRefreshesAgain in services/platform/perps-data/internal/markets/markets_test.go on testDB (services/platform/perps-data/internal/markets/markets_test.go:46) and testClient (services/platform/perps-data/internal/markets/markets_test.go:67) with a 50 ms interval."
+do_4 = "Observe the second refresh independently of the chain: against the node the verify_cmd starts, one Refresh takes longer than 500 ms and two consecutive refreshes may read the same height, so attempt a81709267's 500 ms deadline on refreshed_block advancing never held (first and last both NULL). Wait up to 30 s for refreshed_block of market 0 to become non-null, call reseed(t, db) again (it deletes the rows and re-inserts the seed with refreshed_block NULL), then wait up to 30 s for it to become non-null again; keep the 50 ms interval and the cancellation assertions."
 symbols = ["Run", "perps_markets_refresh_height", "perps_markets_refresh_failures_total", "TestRunRefreshesAgain"]
 touches = ["services/platform/perps-data/internal/markets/markets.go", "services/platform/perps-data/internal/markets/markets_test.go"]
 tests = ["services/platform/perps-data/internal/markets/markets_test.go::TestRunRefreshesAgain"]
@@ -104248,7 +104460,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.42.5]
 title = "Run the periodic market refresh in perps-indexer and gate readiness on it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["3.42.3", "3.0.2"]
@@ -105426,7 +105638,7 @@ title = "End-to-end: /api/markets serves every chain market by id"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["3.42.5", "3.41.4"]
+requires = ["3.42.5", "3.41.4", "5.98.2"]
 reqs = ["3500.1"]
 capabilities = ["3.54.1"]
 interfaces = []
@@ -105519,7 +105731,7 @@ title = "End-to-end: GraphQL markets equal the chain market config and tiers"
 status = "pending"
 mode = "BUILD"
 wave = 7
-requires = ["3.42.9", "3.54.1"]
+requires = ["3.42.9", "3.54.1", "5.98.2"]
 reqs = ["3508.1"]
 capabilities = ["3.54.4"]
 interfaces = []
@@ -105609,7 +105821,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.3.55.1]
 title = "Retire the spot-design exports and the static perps market list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["3.48.8", "3.48.11", "3.48.14", "3.0.4"]
@@ -111853,7 +112065,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.1.3]
 title = "Compare the ProcessProposal proposer against the consensus address of each pinned leader key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["5.1.2"]
@@ -117199,7 +117411,7 @@ title = "Record and re-verify the V1 receipted-positive vector"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["5.55.1", "5.0.3", "5.1.3"]
+requires = ["5.55.1", "5.0.3", "5.1.3", "5.55.6"]
 reqs = ["5515.1"]
 capabilities = ["5.55.2"]
 interfaces = ["interface.5.fmt-committed-fixture-vector-j33"]
@@ -117227,6 +117439,8 @@ do_4 = "Recording the fixture is implementation work, not a qualification gate: 
 do_5 = "The recorder's primary sequencer config (daemon/committed-fixture/main.go:277-282) carries no standby-address, so paxd exits at node/sequencer/node.go:62 with 'invalid standby-address: missing port in address', and a primary needs a reachable standby because every Release (node/sequencer/node_start.go:111, node/sequencer/driver.go:81) returns the replication error. Fix the recorder here: start a second paxd home in role standby listening at a free loopback address (the pattern of node/sequencer/tcp_ack_test.go:70-90: listen, read the address, close, hand it to both configs) with its own wal-dir and receipt-key-file, write that address as the primary's standby-address and replication-timeout, and stop both processes after recording. The V2 and V3 vectors are not re-recorded by this task."
 do_6 = "Attempt three at 9eb233dec started a second paxd as the standby and it panicked at consensus/internal/consensus/state.go:2622 'validator ... not in committee': the standby home was initialised with --mode validator and its own priv_validator_key, which no gentx placed in the validator set. Initialise the standby home with --mode full (config.toml mode = \"full\"), copy the primary's config/genesis.json into it, give it its own rpc, p2p and evm listeners, set sequencer.role = standby and sequencer.standby-address to its own listener, point the primary's sequencer.standby-address at that listener, and start the standby before the primary; the primary keeps the gentx validator of main.go:178-180."
 do_7 = "Attempt 2484f85f7 built and pinned the validator's 32-byte ed25519 key with add-genesis-sequencer-leader --pubkey, which is right, but recording stalled at height 2 with 'proposer ... is outside the pinned leader list' because checkSequencerProposer compared the 20-byte Header.ProposerAddress with the 32-byte key; task 5.1.3 derives crypto.AddressHash of each leader, so continue from 2484f85f7 once it is in, keep the pubkey pinning, and on a recorder failure print the tail of its log to stderr so the cause is visible in the run output."
+do_8 = "Attempt 42d6f4e25 ran the recorder; it stopped on eth_gasPrice (pending block does not fix a base fee, rpc/info.go:389) and the primary halted at height 2 because the standby refused Open(3) (node/sequencer/standby.go:323). Continue from 42d6f4e25 once 5.55.6 is in; give the standby persistent-peers = the primary's p2p address so its app follows consensus; record per do_4."
+
 
 [task.5.55.3]
 title = "Record and re-verify the V2 receipted-revert vector"
@@ -117322,6 +117536,38 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "The first attempt stopped with an incomplete V4 vector because the recorder's primary paxd refused to start without a standby-address. 5.55.2 fixes the recorder (its do_5); this task requires it and does not change daemon/committed-fixture/main.go. Record V4 with the fixed recorder as described in do_1 and do_5."
+
+[task.5.55.6]
+title = "Let the standby cross commits and serve the sequencer base fee"
+status = "pending"
+mode = "BUILD"
+wave = 14
+requires = []
+reqs = ["5556.1", "5556.2"]
+capabilities = ["5.55.6"]
+interfaces = []
+do_1 = "In standby.receive (node/sequencer/standby.go:693-701) apply a wal.Open for height H+1 only after the standby app has committed H: wait, bounded by the replication timeout the standby role carries (node/sequencer/standby_role.go), for host.LastBlockHeight() (node/sequencer/executor.go:247) to reach H, and when it has not, answer the gap acknowledgement for the group and leave s.failed unset instead of the sticky AckRefused the primary turns into ErrStandbyRefused (node/sequencer/standby.go:323)."
+do_2 = "AppReplayer.Apply (node/sequencer/replay.go:22-38) keeps treating wal.Committed as a no-op; the wait of do_1 is the only coupling between replication and the app's consensus commit, so a standby whose app follows consensus through its peers crosses every commit."
+do_3 = "rpcPendingSnapshot (node/app.go:3288-3299) gains BaseFeePerGas() (sdk.Dec, error) forwarding the base fee the open block fixed at Open (sequencer.FeeFloor satisfies evmrpc.PendingBaseFee, rpc/info.go:374-377), through the pending source when it implements PendingBaseFee and from the app's open block otherwise, so eth_gasPrice (rpc/info.go:105) and eth_feeHistory (rpc/info.go:282) stop failing at rpc/info.go:389."
+do_4 = "Extend TestStartStandbyServesReplication (node/sequencer/standby_role_test.go:30) to commit two heights on the primary with the standby following and assert both opens are acknowledged and the standby reports no failure; create node/rpc_pending_snapshot_test.go (planned) with TestRPCPendingSnapshotServesBaseFee asserting rpcPendingSnapshot satisfies evmrpc.PendingBaseFee and returns the open block's base fee."
+do_5 = "Change no consensus, WAL format or receipt code; the change is the standby's ordering and the RPC's base-fee view."
+symbols = ["receive", "Apply", "rpcPendingSnapshot", "TestStartStandbyServesReplication", "TestRPCPendingSnapshotServesBaseFee"]
+touches = ["node/sequencer/standby.go", "node/sequencer/replay.go", "node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go", "node/app.go", "node/rpc_pending_snapshot_test.go"]
+tests = ["node/sequencer/standby_role_test.go::TestStartStandbyServesReplication", "node/rpc_pending_snapshot_test.go::TestRPCPendingSnapshotServesBaseFee"]
+planned_paths = ["node/rpc_pending_snapshot_test.go"]
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 ./node/sequencer/ -run '^(TestStartStandbyServesReplication)$' && go test -count=1 ./node/ -run '^(TestRPCPendingSnapshotServesBaseFee)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert the touched files; the standby then refuses the open after its first commit again and eth_gasPrice fails on the sequencer."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.5.56.1]
 title = "Let modules disable sends of a denom through registered send-enabled checkers"
@@ -118950,6 +119196,36 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-node-runtime"
 rollback = "Revert the touched files of task 5.98.1; the node home and env file live outside the repository, so no repository state depends on them."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.5.98.2]
+title = "Name the Comet RPC in the local node env file"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["5.98.1"]
+reqs = ["5982.1"]
+capabilities = []
+interfaces = []
+do_1 = "In the env block of tools/qualification/localnode/v6120-node.sh:419-424 add a printf of PERPS_DATA_TEST_COMET=http://127.0.0.1:$RPC_PORT (the Comet RPC port of the NODE address at v6120-node.sh:324), quoted with %q like the four existing lines; the copy to --env-out carries it."
+do_2 = "Add TestLocalNodeV6120CometEnv to tools/qualification/localnode/v6120_test.go: read PERPS_DATA_TEST_COMET, require the http://127.0.0.1:<port> shape, GET <value>/status and require result.node_info.network == hyperpax_125-1."
+do_3 = "Change nothing else in the script; the four existing variables keep their names and values."
+symbols = ["TestLocalNodeV6120CometEnv"]
+touches = ["tools/qualification/localnode/v6120-node.sh", "tools/qualification/localnode/v6120_test.go"]
+tests = ["tools/qualification/localnode/v6120_test.go::TestLocalNodeV6120CometEnv"]
+planned_paths = []
+build_cmd = "make -f chain.mk install"
+verify_cmd = "bash tools/qualification/localnode/v6120-node.sh --env-out ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set -a && . ${TMPDIR:-/tmp}/lx-localnode/localnode.env && set +a && go test -count=1 ./tools/qualification/localnode/ -run '^(TestLocalNodeV6120Serves|TestLocalNodeV6120CometEnv)$'"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-node-runtime"
+rollback = "Revert the two files; the env file then carries the four original variables."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -131248,7 +131524,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.7.2]
 title = "Stop proxying the kernel program explorer paths through the gateway"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.7.1", "8.0.3", "8.1.5"]
@@ -131259,8 +131535,9 @@ do_1 = "Delete the /v1/programs/{program_id} and /v1/programs/{program_id}/reads
 do_2 = "Delete NativeExplorerPublicRoute and native_explorer_public_route (services/platform/hosted/gateway/src/lib.rs:872-905) and their import at services/platform/hosted/gateway/src/main.rs:27, so the gateway no longer parses kernel program identifiers."
 do_3 = "A GET of either path answers the gateway not_found refusal; the explorer page routes of the bundled route catalogue read at services/platform/hosted/gateway/src/routes.rs:527 are unchanged."
 do_4 = "Add explorer_program_paths_are_not_proxied to services/platform/hosted/gateway/tests/unified_service_paths.rs beside lx_reads_switched_off (services/platform/hosted/gateway/tests/unified_service_paths.rs:422)."
-symbols = ["native_explorer_public_route", "NativeExplorerPublicRoute", "explorer_program_paths_are_not_proxied"]
-touches = ["services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs"]
+do_5 = "Remove the native_explorer_public_route and NativeExplorerPublicRoute import (services/platform/hosted/gateway/tests/browser_profiles.rs:11) and their assertions in native_program_and_name_reads_use_exact_public_owner_routes (:290-295, :346, :366, :392-393), keeping its production_route assertions; attempt 56e51091a deleted both names and left that test target uncompilable."
+symbols = ["explorer_program_paths_are_not_proxied"]
+touches = ["services/platform/hosted/gateway/src/routes.rs", "services/platform/hosted/gateway/src/lib.rs", "services/platform/hosted/gateway/src/main.rs", "services/platform/hosted/gateway/tests/unified_service_paths.rs", "services/platform/hosted/gateway/tests/browser_profiles.rs"]
 tests = ["services/platform/hosted/gateway/tests/unified_service_paths.rs::explorer_program_paths_are_not_proxied"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway"
@@ -132563,7 +132840,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.19.8]
 title = "Stop the beta cluster from building and deploying the relay archive"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["8.0.3"]
@@ -132575,7 +132852,7 @@ do_1 = "Remove layerx-relay-archive from IMAGE_NAMES (services/platform/hosted/t
 do_2 = "Delete the relay variables (services/platform/hosted/tests/beta-cluster.sh:304-307), including the archive codec path, and the relay-archive certificate (services/platform/hosted/tests/beta-cluster.sh:667-668)."
 do_3 = "Delete relay_archive_config_write (services/platform/hosted/tests/beta-cluster.sh:1748) and relay_archive_apply (services/platform/hosted/tests/beta-cluster.sh:1855-1876), the relay manifest render (services/platform/hosted/tests/beta-cluster.sh:1943-1946) and the relay_archive_apply call (services/platform/hosted/tests/beta-cluster.sh:3877)."
 do_4 = "Add services/platform/hosted/tests/test_beta_relay_archive_retired.py (planned) with test_beta_cluster_deploys_no_relay_archive."
-symbols = ["relay_archive_config_write", "relay_archive_apply", "image_build_args", "test_beta_cluster_deploys_no_relay_archive"]
+symbols = ["image_build_args", "test_beta_cluster_deploys_no_relay_archive"]
 touches = ["services/platform/hosted/tests/beta-images.sh", "services/platform/hosted/tests/beta-cluster.sh", "services/platform/hosted/tests/test_beta_relay_archive_retired.py"]
 tests = ["services/platform/hosted/tests/test_beta_relay_archive_retired.py::test_beta_cluster_deploys_no_relay_archive"]
 planned_paths = ["services/platform/hosted/tests/test_beta_relay_archive_retired.py"]
@@ -133920,12 +134197,12 @@ requires = ["8.28.3"]
 reqs = ["8271.1", "8271.2"]
 capabilities = ["8.29.1"]
 interfaces = ["interface.8.rs-ramp-toolkit-layerx-ramp-toolkit-engine-rampengine", "interface.8.rs-ramp-toolkit-journal-transitionevidence-j41", "interface.8.fmt-ramp-toolkit-journal"]
-do_1 = "services/platform/ramps/toolkit/src/engine.rs:178-250 submit_layerx, submit_native_receive and submit_payment record activity_id and canonical bytes; record tx_hash and raw_transaction and remove submit_native_receive per decision.827."
+do_1 = "services/platform/ramps/toolkit/src/engine.rs:178-250 submit_layerx and submit_payment record activity_id and canonical bytes; record tx_hash and raw_transaction as well (submit_native_receive and its caller at services/platform/ramps/reference/src/main.rs:1049 were removed by task 8.30.2, c596d0245)."
 do_2 = "services/platform/ramps/toolkit/src/engine.rs:252-346 resolve_layerx resolves by activity id and records receipt_digest; resolve by tx_hash, record receipt_digest, height and rung, and keep a Submitted answer in the pending stage."
 do_3 = "services/platform/ramps/toolkit/src/journal.rs:43-50 TransitionEvidence holds activity_id and canonical_activity; hold tx_hash, raw_transaction, receipt_digest, receipt_height and rung."
 do_4 = "services/platform/ramps/toolkit/src/journal.rs:12 binds records to the v1 journal domain; write v2 records under a v2 domain and replay v1 records read-only so existing journals still project per decision.834."
 do_5 = "Create services/platform/ramps/toolkit/tests/engine_legs.rs (planned) with the two tests below over a Journal opened in a temporary directory."
-symbols = ["RampEngine::submit_layerx", "RampEngine::resolve_layerx", "TransitionEvidence", "Journal"]
+symbols = ["TransitionEvidence", "Journal", "journal_records_transaction_hash_and_rung", "journal_replays_version_one_records"]
 touches = ["services/platform/ramps/toolkit/src/engine.rs", "services/platform/ramps/toolkit/src/journal.rs", "services/platform/ramps/toolkit/tests/engine_legs.rs"]
 tests = ["services/platform/ramps/toolkit/tests/engine_legs.rs::journal_records_transaction_hash_and_rung", "services/platform/ramps/toolkit/tests/engine_legs.rs::journal_replays_version_one_records"]
 planned_paths = ["services/platform/ramps/toolkit/tests/engine_legs.rs"]
@@ -134010,25 +134287,25 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.1]
 title = "Validate the reference ramp configuration for the merged chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["8.28.3", "8.29.3"]
-reqs = ["8274.1", "8274.2"]
+reqs = ["8274.2"]
 capabilities = ["8.30.1"]
-interfaces = ["interface.8.cfg-ramp-reference-config-paxeer", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-endpoints", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-trust-anchor-der", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-chain-id", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-minimum-agreement", "interface.8.cfg-ramp-reference-paxeerconfig-required-confirmations", "interface.8.cfg-ramp-reference-paxeerconfig-delayed-after-polls"]
-do_1 = "services/platform/ramps/reference/src/main.rs:113-129 PaxeerConfig carries rpc endpoints, trust anchor, chain id, agreement, confirmations and delay; keep the custody fields and poll_cadence_seconds and remove the rest per decision.829."
+interfaces = ["interface.8.cfg-ramp-reference-config-paxeer"]
+do_1 = "services/platform/ramps/reference/src/main.rs:113-129 PaxeerConfig carries rpc endpoints, trust anchor, chain id, agreement, confirmations and delay; keep the custody fields and poll_cadence_seconds, and keep rpc_endpoints, rpc_trust_anchor_der, rpc_chain_id, rpc_minimum_agreement, required_confirmations and delayed_after_polls until task 8.31.2 removes them with the layerx-paxeer-client dependency per decision.829, because rebalance (:1085-1092), rebalance_presentation (:1044) and the sixth argument of verify_recovery_settlement (:1214, services/platform/ramps/toolkit/src/clients.rs:2303) still read them."
 do_2 = "services/platform/ramps/reference/src/main.rs:329-375 validate_config compares layerx.protocol_version with the kernel wire version at :345; remove that check and validate chain_id, operator_address against operator.account binding and the receipt key ranges."
-do_3 = "services/platform/ramps/reference/src/main.rs:557-583 tracker_config builds a layerx_paxeer_client TrackerConfig, and services/platform/ramps/reference/src/main.rs:152-169 State holds the tracker config and trackers; remove both."
-do_4 = "services/platform/ramps/reference/src/main.rs:435-543 build_state builds the kernel module registry at :545; build only the LayerxClient, custody client and journal."
+do_3 = "services/platform/ramps/reference/src/main.rs:557-583 tracker_config builds a layerx_paxeer_client TrackerConfig and services/platform/ramps/reference/src/main.rs:152-169 State holds paxeer_tracker_config and paxeer_trackers; both stay until task 8.31.2 removes them."
+do_4 = "services/platform/ramps/reference/src/main.rs:435-543 build_state builds the kernel module registry at :545; keep State.registry because RampEngine.registry (services/platform/ramps/toolkit/src/engine.rs:19) is a required field, and build the LayerxClient, custody client and journal from the fields of task 8.28.3."
 do_5 = "services/platform/ramps/reference/tests/plain_listener.rs:162-175 writes the kernel layerx and paxeer config fields; write the new fields of task 8.28.3 so the three existing listener tests keep their assertions."
 do_6 = "Create services/platform/ramps/reference/tests/config_validation.rs (planned) with the two tests below running the built binary through CARGO_BIN_EXE_layerx-reference-ramp."
 symbols = ["PaxeerConfig", "validate_config", "build_state", "State"]
 touches = ["services/platform/ramps/reference/src/main.rs", "services/platform/ramps/reference/tests/plain_listener.rs", "services/platform/ramps/reference/tests/config_validation.rs"]
-tests = ["services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields", "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_operator_address_mismatch"]
+tests = ["services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_operator_address_mismatch"]
 planned_paths = ["services/platform/ramps/reference/tests/config_validation.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp"
-verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test config_validation -- --exact reference_ramp_refuses_retired_paxeer_rpc_fields reference_ramp_refuses_operator_address_mismatch"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test config_validation -- --exact reference_ramp_refuses_operator_address_mismatch"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
@@ -134043,7 +134320,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.2]
 title = "Run reference ramp work and receipt verification on ledger calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["8.30.1", "8.28.5"]
@@ -134054,8 +134331,9 @@ do_1 = "services/platform/ramps/reference/src/main.rs:1027-1076 perform_work che
 do_2 = "services/platform/ramps/reference/src/main.rs:1177-1185 Work carries account_sequence and a native payload; carry account_sequence for draws only."
 do_3 = "services/platform/ramps/reference/src/main.rs:223-275 verify_receipt_command takes ACTIVITY_HEX and prints batch_id, network_id and wire_version; take a 0x transaction hash and print transaction_hash, receipt_digest, height, rung and chain_id."
 do_4 = "Create services/platform/ramps/reference/tests/work_routes.rs (planned) with the two tests below."
+do_5 = "Remove RampEngine::submit_native_receive (services/platform/ramps/toolkit/src/engine.rs) once perform_work no longer calls it, per decision.827; task 8.29.1 left it in place because this file held its last caller."
 symbols = ["perform_work", "verify_receipt_command", "Work"]
-touches = ["services/platform/ramps/reference/src/main.rs", "services/platform/ramps/reference/tests/work_routes.rs"]
+touches = ["services/platform/ramps/reference/src/main.rs", "services/platform/ramps/reference/tests/work_routes.rs", "services/platform/ramps/toolkit/src/engine.rs"]
 tests = ["services/platform/ramps/reference/tests/work_routes.rs::verify_receipt_mode_refuses_activity_hex", "services/platform/ramps/reference/tests/work_routes.rs::work_route_refuses_native_payload_field"]
 planned_paths = ["services/platform/ramps/reference/tests/work_routes.rs"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp"
@@ -134084,7 +134362,7 @@ interfaces = ["interface.8.err-ramp-reference-paxeer-tracker-unavailable", "inte
 do_1 = "services/platform/ramps/reference/src/main.rs:1098-1175 rebalance creates a FinalityTracker at :1142 and answers paxeer_tracker_unavailable at :1137; record custody observations through InventoryRebalancer of task 8.29.2 and remove the tracker error per decision.829."
 do_2 = "services/platform/ramps/reference/src/main.rs:1078-1096 rebalance_presentation reports confirmations; report rung and block height."
 do_3 = "services/platform/ramps/reference/src/main.rs:1341-1368 chain_signal and endpoint_signal describe multi-endpoint agreement; remove them and report the sequencer endpoint chain id in readiness."
-do_4 = "services/platform/ramps/reference/src/main.rs:1245-1273 verified_recovery passes the TrackerConfig; pass the LayerxClient."
+do_4 = "services/platform/ramps/reference/src/main.rs:1245-1273 verified_recovery passes the TrackerConfig as the sixth argument of verify_recovery_settlement (services/platform/ramps/toolkit/src/clients.rs:2303), which stays until task 8.31.2 drops `_tracker_config`; pass the LayerxClient for the sequencer reads and keep passing State.paxeer_tracker_config until then. State.paxeer_trackers may go with the tracker path of do_1 and do_5; tracker_config and State.paxeer_tracker_config stay."
 do_5 = "services/platform/ramps/reference/src/main.rs:1287-1333 reconcile_loop polls trackers; poll pending custody transactions by hash."
 do_6 = "Create services/platform/ramps/reference/tests/rebalance_routes.rs (planned) with the two tests below."
 symbols = ["rebalance", "rebalance_presentation", "verified_recovery", "reconcile_loop"]
@@ -134109,8 +134387,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Ship ramp example configuration and container environment for the merged chain"
 status = "pending"
 mode = "BUILD"
-wave = 8
-requires = ["8.30.1"]
+wave = 11
+requires = ["8.30.1", "8.31.2"]
 reqs = ["8277.1", "8277.2"]
 capabilities = ["8.30.4"]
 interfaces = ["interface.8.cfg-ramps-layerx-gateway-endpoint", "interface.8.cfg-ramps-layerx-gateway-key-file", "interface.8.cfg-ramps-layerx-protocol-version", "interface.8.cfg-ramps-layerx-network-id", "interface.8.cfg-ramps-layerx-fee-limit", "interface.8.cfg-ramps-layerx-signer-public-key", "interface.8.cfg-ramps-paxeer-rpc-endpoints", "interface.8.cfg-ramps-paxeer-rpc-trust-anchor-der", "interface.8.cfg-ramps-paxeer-rpc-chain-id", "interface.8.cfg-ramps-paxeer-rpc-minimum-agreement", "interface.8.cfg-ramps-paxeer-required-confirmations", "interface.8.cfg-ramps-paxeer-delayed-after-polls", "interface.8.cfg-ramps-layerx-rpc-endpoint-j41", "interface.8.cfg-ramps-layerx-rpc-trust-anchor-der-j41", "interface.8.cfg-ramps-layerx-chain-id-j41", "interface.8.cfg-ramps-layerx-operator-address-j41", "interface.8.cfg-ramps-layerx-receipt-keys-j41", "interface.8.cfg-ramps-layerx-max-fee-per-gas-j41", "interface.8.cfg-ramps-layerx-max-priority-fee-per-gas-j41", "interface.8.cfg-ramps-layerx-gas-limit-cap-j41", "interface.8.env-ramps-env-init-ramp-gateway-endpoint-j41", "interface.8.env-ramps-env-init-ramp-receipt-authority-endpoint-j41", "interface.8.env-ramps-env-init-ramp-protocol-version-j41", "interface.8.env-ramps-env-init-ramp-network-id-j41", "interface.8.env-ramps-env-init-ramp-fee-limit-j41", "interface.8.env-ramps-env-init-ramp-layerx-signer-public-key-j41", "interface.8.env-ramps-env-init-ramp-sequencer-id-j41", "interface.8.env-ramps-env-init-ramp-sequencer-public-key-j41", "interface.8.env-ramps-env-init-ramp-sequencer-first-batch-j41", "interface.8.env-ramps-env-init-ramp-sequencer-last-batch-j41", "interface.8.env-ramps-env-init-ramp-rpc-names-j41", "interface.8.env-ramps-env-init-ramp-rpc-minimum-agreement-j41", "interface.8.env-ramps-env-init-ramp-required-confirmations-j41", "interface.8.env-ramps-env-init-ramp-delayed-after-polls-j41", "interface.8.env-ramps-env-init-ramp-sequencer-rpc-endpoint-j41", "interface.8.env-ramps-env-init-ramp-operator-address-j41", "interface.8.env-ramps-env-init-ramp-receipt-keys-json-j41", "interface.8.env-ramps-env-init-ramp-max-fee-per-gas-j41", "interface.8.env-ramps-env-init-ramp-max-priority-fee-per-gas-j41", "interface.8.env-ramps-env-init-ramp-gas-limit-cap-j41"]
@@ -134119,6 +134397,7 @@ do_2 = "services/platform/ramps/config.example.json:140-149 holds Paxeer RPC agr
 do_3 = "services/platform/ramps/env-init.sh:114-146 maps RAMP_GATEWAY_ENDPOINT, RAMP_RECEIPT_AUTHORITY_ENDPOINT, RAMP_PROTOCOL_VERSION, the sequencer batch variables and the RPC agreement variables; map RAMP_SEQUENCER_RPC_ENDPOINT, RAMP_RPC_CHAIN_ID, RAMP_OPERATOR_ADDRESS, RAMP_RECEIPT_KEYS_JSON and the fee bound variables, and stop reading RAMP_RPC_NAMES at services/platform/ramps/env-init.sh:65."
 do_4 = "services/platform/ramps/railway.env.example:14-22 and :38-44 list the retired variables; list the new ones."
 do_5 = "Create services/platform/ramps/toolkit/tests/config_example.rs (planned) with the two tests below."
+do_6 = "Task 8.31.2 removes the Paxeer RPC fields from the reference binary first, so the example of do_2 never describes a configuration the shipped binary refuses."
 symbols = ["LayerxConfig"]
 touches = ["services/platform/ramps/config.example.json", "services/platform/ramps/env-init.sh", "services/platform/ramps/railway.env.example", "services/platform/ramps/toolkit/tests/config_example.rs"]
 tests = ["services/platform/ramps/toolkit/tests/config_example.rs::config_example_layerx_section_parses", "services/platform/ramps/toolkit/tests/config_example.rs::config_example_has_no_paxeer_rpc_agreement"]
@@ -134141,7 +134420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Run the ramp sandbox journey on transaction hashes and receipt keys"
 status = "pending"
 mode = "BUILD"
-wave = 9
+wave = 12
 requires = ["8.30.2", "8.30.4"]
 reqs = ["8278.1", "8278.2"]
 capabilities = ["8.31.1"]
@@ -134174,9 +134453,9 @@ status = "pending"
 mode = "BUILD"
 wave = 10
 requires = ["8.29.2", "8.30.3", "8.28.2"]
-reqs = ["8279.1", "8279.2"]
+reqs = ["8279.1", "8279.2", "8274.1"]
 capabilities = ["8.31.2"]
-interfaces = []
+interfaces = ["interface.8.cfg-ramp-reference-paxeerconfig-rpc-endpoints", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-trust-anchor-der", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-chain-id", "interface.8.cfg-ramp-reference-paxeerconfig-rpc-minimum-agreement", "interface.8.cfg-ramp-reference-paxeerconfig-required-confirmations", "interface.8.cfg-ramp-reference-paxeerconfig-delayed-after-polls"]
 wiring = []
 do_1 = "services/platform/ramps/toolkit/Cargo.toml:15 and :18 depend on layerx-intents and layerx-paxeer-client; remove both per decision.829 and decision.827, with the lock update of wiring.J41.8."
 do_2 = "services/platform/ramps/reference/Cargo.toml:10 depends on layerx-paxeer-client; remove it."
@@ -134184,12 +134463,14 @@ do_3 = "services/platform/ramps/toolkit/src/lib.rs:8 imports layerx_intents comp
 do_4 = "services/platform/ramps/toolkit/tests/contracts.rs:13 imports the kernel LEGACY_PROTOCOL_VERSION and PROTOCOL_VERSION; remove the import and its remaining uses."
 do_5 = "services/platform/tools/dependency-policy.sh:16 bans kernel packages; add layerx-paxeer-client and layerx-intents to the banned pattern so they cannot return to the platform workspace."
 do_6 = "Create services/platform/tests/test_ramp_dependencies.py (planned) with the two tests below reading cargo metadata --locked --format-version 1."
+do_7 = "Remove the `_tracker_config` parameter of verify_recovery_settlement (services/platform/ramps/toolkit/src/clients.rs:2303-2309) and its argument at every caller: services/platform/ramps/toolkit/tests/contracts.rs:628 and :759, services/platform/ramps/toolkit/tests/recovery_settlement.rs:449-485 and verified_recovery of services/platform/ramps/reference/src/main.rs."
+do_8 = "Remove rpc_endpoints, rpc_trust_anchor_der, rpc_chain_id, rpc_minimum_agreement, required_confirmations and delayed_after_polls from PaxeerConfig (services/platform/ramps/reference/src/main.rs:113-129), tracker_config (:557-583) and State.paxeer_tracker_config and paxeer_trackers (:152-169) per decision.829 (moved from task 8.30.1), drop those fields from the fixture of services/platform/ramps/reference/tests/plain_listener.rs:162-175, and write services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields (acceptance.8.274.1): a config that still carries paxeer.rpc_endpoints makes the binary exit non-zero before listening."
 symbols = []
-touches = ["services/platform/ramps/toolkit/Cargo.toml", "services/platform/ramps/reference/Cargo.toml", "services/platform/ramps/toolkit/src/lib.rs", "services/platform/ramps/toolkit/tests/contracts.rs", "services/platform/tools/dependency-policy.sh", "services/platform/tests/test_ramp_dependencies.py"]
-tests = ["services/platform/tests/test_ramp_dependencies.py::test_ramp_crates_do_not_depend_on_paxeer_client", "services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client"]
+touches = ["services/platform/ramps/toolkit/Cargo.toml", "services/platform/ramps/reference/Cargo.toml", "services/platform/ramps/toolkit/src/lib.rs", "services/platform/ramps/toolkit/tests/contracts.rs", "services/platform/tools/dependency-policy.sh", "services/platform/tests/test_ramp_dependencies.py", "services/platform/ramps/toolkit/src/clients.rs", "services/platform/ramps/toolkit/tests/recovery_settlement.rs", "services/platform/ramps/reference/src/main.rs", "services/platform/ramps/reference/tests/config_validation.rs", "services/platform/ramps/reference/tests/plain_listener.rs"]
+tests = ["services/platform/tests/test_ramp_dependencies.py::test_ramp_crates_do_not_depend_on_paxeer_client", "services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client", "services/platform/ramps/reference/tests/config_validation.rs::reference_ramp_refuses_retired_paxeer_rpc_fields"]
 planned_paths = ["services/platform/tests/test_ramp_dependencies.py"]
 build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp"
-verify_cmd = "python3 -m pytest services/platform/tests/test_ramp_dependencies.py::test_ramp_crates_do_not_depend_on_paxeer_client services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client -q"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-reference-ramp --test config_validation -- --exact reference_ramp_refuses_retired_paxeer_rpc_fields && python3 -m pytest services/platform/tests/test_ramp_dependencies.py::test_ramp_crates_do_not_depend_on_paxeer_client services/platform/tests/test_ramp_dependencies.py::test_dependency_policy_bans_paxeer_client -q"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-platform"
@@ -149871,7 +150152,7 @@ do_11 = "Wherever Plane::exact still compares a receipt digest after do_1 and do
 
 [task.11.34.7]
 title = "Name the payer by EVM address in config and the LAYERX-PAYER-ADDRESS header"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["11.34.6", "11.36.2"]
@@ -149965,7 +150246,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.1]
 title = "Delete the x-websearch kernel module, its binary wiring and the kernel tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.32.3", "11.33.1", "11.34.5", "11.35.2"]
@@ -149977,8 +150258,8 @@ do_2 = "Delete the kernel imports at services/interop/crates/x-websearch/src/mai
 do_3 = "Delete services/interop/crates/x-websearch/tests/kernel.rs:1 and the kernel binary tests at services/interop/crates/x-websearch/tests/binary.rs:700 and :756, keeping the fixtures under tests/fixtures/kernel that services/interop/crates/x-websearch/tests/program.rs (planned) reads."
 do_4 = "Update the crate doc at services/interop/crates/x-websearch/src/lib.rs:7-8 to say /content is served before serving eligibility and that paid routes settle on the 0x101A ledger precompile."
 do_5 = "Write the two tests in services/interop/crates/x-websearch/tests/binary.rs:593."
-symbols = ["main", "RelayParts"]
-touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/src/attest.rs", "services/interop/crates/x-websearch/src/config.rs", "services/interop/crates/x-websearch/src/program.rs"]
+symbols = ["main", "RelayParts", "decode_request_record"]
+touches = ["services/interop/crates/x-websearch/src/kernel.rs", "services/interop/crates/x-websearch/src/lib.rs", "services/interop/crates/x-websearch/src/main.rs", "services/interop/crates/x-websearch/tests/kernel.rs", "services/interop/crates/x-websearch/tests/binary.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/src/attest.rs", "services/interop/crates/x-websearch/src/config.rs", "services/interop/crates/x-websearch/src/program.rs", "services/interop/crates/x-websearch/tests/attest.rs", "services/interop/crates/x-websearch/tests/program.rs"]
 tests = ["services/interop/crates/x-websearch/tests/binary.rs::the_binary_runs_the_evm_program_relay_without_a_kernel_section", "services/interop/crates/x-websearch/tests/binary.rs::readiness_lists_no_kernel_roles"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --all-targets"
@@ -149996,10 +150277,11 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Task 11.34.5 kept GatewayRpc, RpcAnswer and gateway_authorization in services/interop/crates/x-websearch/src/payment.rs:353-640 because kernel.rs used them. With kernel.rs deleted, delete gateway_authorization and GatewayRpc::with_authorization_file together with every lx_ helper only the kernel called; keep GatewayRpc, RpcAnswer and the eth_ helpers (call, block_number, quantity) that src/watch.rs:127-146 and :784-926 still use."
 do_7 = "Three files still reach the module through its re-exports and definitions (services/interop/crates/x-websearch/src/kernel.rs:29-45 and :119), so deleting it alone fails the build at attest.rs:15 and program.rs:19 as attempt 7e33e03b4 did: change services/interop/crates/x-websearch/src/attest.rs:15 to use crate::program::ProgramRequest and attest.rs:47 to crate::program::MAX_OBSERVATION_SIGNATURES (defined at program.rs:32); move REQUEST_TOPIC, REQUEST_TOPICS and request_topic (kernel.rs:36-45) into services/interop/crates/x-websearch/src/config.rs beside their only remaining caller at config.rs:1017 and call them unqualified there; move pub enum KernelError (kernel.rs:119) with its Display and std::error::Error impls into services/interop/crates/x-websearch/src/program.rs, which uses it at program.rs:174-233, and delete the use at program.rs:19. No other symbol of kernel.rs survives."
+do_8 = "Three integration tests import the module through its re-exports and attempt 1d7eadbe8 failed the build at services/interop/crates/x-websearch/tests/attest.rs:25 (unresolved import x_websearch::kernel): point tests/attest.rs:25 at x_websearch::program::{observation_bytes, program_record, ProgramExchange, ProgramRequest, MAX_OBSERVATION_SIGNATURES, OBSERVATION_HEADER_BYTES}, which kernel.rs:29-33 only re-exported; move decode_request_record (kernel.rs:172, with its doc and its KernelError result) into services/interop/crates/x-websearch/src/program.rs beside KernelError, so it is the one further survivor of kernel.rs, and import it at tests/program.rs:17 from x_websearch::program; in tests/binary.rs:19 take REQUEST_TOPIC from x_websearch::config and PROGRAM_ATTESTATION_PATH from x_websearch::program, delete the kernel tests the_kernel_relay_starts_and_stops_with_the_binary_under_a_configuration_that_names_it (tests/binary.rs:874) and a_binary_without_the_kernel_settings_serves_no_program_exchange (:930), which do_3 names by their older lines :700 and :756, delete the kernel_network_id refusal (:955-960) and the EVENTS_METHOD assertion (:977) of the_binary_refuses_to_start_naming_the_configuration_field_or_key (:950), keeping its key refusals, and delete the EVENTS_METHOD branch of answer_rpc (:278); EVENTS_METHOD (kernel.rs:48) then has no user and goes with the module."
 
 [task.11.36.2]
 title = "Remove the kernel config section and gateway.authorization_file from x-websearch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["11.36.1", "11.34.5"]
@@ -150030,7 +150312,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.3]
 title = "Re-record the x-websearch conformance suite digest and vector count"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["11.34.7", "11.36.1"]
@@ -150061,7 +150343,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.4]
 title = "Check x-websearch settlement decoding against the shared sequencer-receipt vectors"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["11.34.5"]
@@ -150072,6 +150354,7 @@ do_1 = "Read sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 from 
 do_2 = "Build the receipt keys from the vector's pinned keys and run settlement::decode and the payment receipt check of services/interop/crates/x-websearch/src/settlement.rs (planned) on each case."
 do_3 = "Skip no case: fail the test when sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:1 holds a case id the test does not classify."
 do_4 = "Derive each V3 case's expected refusal from the vector's expected.verifier field: receipt_unverified when it is SequencerSignature or Decode (the R2 and R3 cases), receipt_mismatch when it is accepts (the R4, R5 and R6 cases), because services/interop/crates/x-websearch/src/payment.rs:2231-2263 refuses a verified receipt whose activity id, seqHash chain or log view differs with receipt_mismatch under req.11395 ac_3. Attempt b58477b26 built, decoded all eleven cases and withheld every payment, failing only on a hardcoded receipt_unverified expectation for the three accepts cases."
+do_5 = "The six V3 cases of sdk/platform/conformance/fixtures/sequencer-receipt-v1.json carry an empty receiptJson and no txHash, and since e7e345ed7 exact_payload (services/interop/crates/x-websearch/src/payment.rs:2661-2686) refuses a payload without a 32-byte txHash as invalid_payment_payload before any receipt check, which is what attempt 5787209ee got for all six: for a V3 case use keccak(rawTransaction) as the payload txHash (the derivation sequencer_vectors.rs:428 already makes) and script the gateway's pax_sequencerReceipt answer for that hash with a result shaped like the V1 cases' receiptJson (:153) whose receipt is the case's signedReceipt, so the refusal comes from verify_receipt (payment.rs:2362-2483) as do_4 expects."
 symbols = ["settlement::decode"]
 touches = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs"]
 tests = ["services/interop/crates/x-websearch/tests/sequencer_vectors.rs::every_shared_answer_case_decodes_through_the_settlement_client", "services/interop/crates/x-websearch/tests/sequencer_vectors.rs::shared_refusal_cases_do_not_release_a_payment"]
@@ -150092,7 +150375,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.36.5]
 title = "Keep the x-websearch example configuration and README in step with the loader"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["11.34.7", "11.36.2"]
@@ -153137,7 +153420,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.1]
 title = "Retire the custody methods from the SDK provider"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 22
 requires = ["12.34.10"]
@@ -153167,7 +153450,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.2]
 title = "Retire WalletInterface.signCustody from the SDK wallet interface"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 23
 requires = ["12.28.1"]
@@ -153197,7 +153480,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.28.3]
 title = "Retire the custody_not_supported unauthorized reason"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 24
 requires = ["12.28.2"]
@@ -153777,7 +154060,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.7]
 title = "List bank balances per denom in the asset list"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 18
 requires = ["12.24.4", "12.31.1"]
@@ -153808,7 +154091,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.8]
 title = "Remove the account deposit route and its link"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 19
 requires = ["12.34.7"]
@@ -153838,7 +154121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.9]
 title = "Delete the custody deposit flow and the custody precompile helpers"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 20
 requires = ["12.34.8"]
@@ -153869,7 +154152,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.34.10]
 title = "Delete the paxeer_prepareCustody call path from the app"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 21
 requires = ["12.34.9"]
@@ -156619,7 +156902,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.1]
 title = "Serve deploy through the kernel deploy activity without a fee limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8"]
@@ -156651,10 +156934,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.2]
 title = "Serve upgrade with its hook, interface and fee limit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8", "13.28.1"]
 reqs = ["13258.1", "13258.2"]
 capabilities = ["13.23.2"]
 interfaces = ["interface.13.pc-0x101d-upgrade"]
@@ -156683,7 +156966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.23.3]
 title = "Serve registryRead through the kernel registry activity"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.2", "13.22.5", "13.22.8"]
@@ -156719,13 +157002,13 @@ title = "Serve call with the kernel call activity, outcome and guest events"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.3", "13.22.6", "1.21.3", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.3", "13.22.6", "1.21.3", "13.22.8", "1.23.6"]
 reqs = ["13260.1", "13260.2"]
 capabilities = ["13.24.1"]
 interfaces = ["interface.13.pc-0x101d-call"]
 wiring = ["wiring.J52.3"]
 do_1 = "Write the call handler in precompiles/layerxprograms/method_call.go (planned) decoding the nine inputs of precompiles/layerxprograms/abi.json:2-70, encoding them with EncodeCallPayload of precompiles/layerxprograms/payload_call.go (planned)."
-do_2 = "Submit the call activity type 0x00090003 of include/layerx/programs.h:171 with the decoded fee limit; the kernel applies it at src/modules/programs/call.c:2615."
+do_2 = "Submit the call activity type 0x00090003 of include/layerx/programs.h:173 with the decoded fee limit; src/modules/programs/call.c:2615 lies inside lxp_programs_call_execute and holds no fee check, the refusal of a signed fee limit below the budget's maximum fee comes from the call runtime at programs/crates/layerx-programs-runtime/src/ffi_call.rs:2909-2910 as LXP_ERR_NON_CANONICAL, and a fee limit the payer's main account cannot cover is LXP_ERR_FEE_UNPAYABLE from the kernel fee admission once task 1.23.6 fills the balance; the harness must hold a funded main account for the caller."
 do_3 = "Return programsABI.Methods[\"call\"].Outputs.Pack(status, kind, response) from the ProgramOutcome field of the receipt requested by wiring.J52.3 (precompiles/layerxprograms/method_call.go (planned))"
 do_4 = "Emit the call logs through emitCallEvents of precompiles/layerxprograms/events_call.go (planned)."
 do_5 = "Write both tests in precompiles/layerxprograms/method_call_test.go (planned)."
@@ -156753,13 +157036,13 @@ title = "Serve simulateCall as a static kernel simulation that writes nothing"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.3", "1.93.2", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.3", "1.93.2", "13.22.8", "1.23.6", "13.28.1", "13.24.1"]
 reqs = ["13261.1", "13261.2"]
 capabilities = ["13.24.2"]
 interfaces = ["interface.13.pc-0x101d-simulatecall"]
 wiring = ["wiring.J52.4"]
 do_1 = "Write the simulateCall handler in precompiles/layerxprograms/method_simulate.go (planned) with the same decoding as the call handler of precompiles/layerxprograms/method_call.go (planned)."
-do_2 = "Run Host.Simulate requested by wiring.J52.4, which wraps lxp_kernel_simulate_activity (src/protocol/lxp_kernel.c:6193, include/layerx/lxp_kernel.h:517) and commits nothing."
+do_2 = "Run Host.Simulate (modules/lxphost/simulate.go:144) requested by wiring.J52.4, which wraps lxp_kernel_simulate_activity (src/protocol/lxp_kernel.c:6193, include/layerx/lxp_kernel.h:517) and commits nothing; the matching call runs through the call handler of task 13.24.1 and the getStateHead read of acceptance.13.261.2 through the view of task 13.28.1, and the host binds the unsigned activity's authority only after task 1.23.6."
 do_3 = "Emit no log and leave nextOrdinal untouched so a simulation never consumes an idempotency ordinal (precompiles/layerxprograms/method_simulate.go (planned))"
 do_4 = "Write both tests in precompiles/layerxprograms/method_simulate_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
@@ -156786,7 +157069,7 @@ title = "Serve quoteCallFee from the current fee schedule and occupancy ceiling"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.9", "1.92.1", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.9", "1.92.1", "13.22.8", "1.23.6"]
 reqs = ["13262.1", "13262.2"]
 capabilities = ["13.24.3"]
 interfaces = ["interface.13.pc-0x101d-quotecallfee"]
@@ -156819,15 +157102,17 @@ title = "Serve transfer of program value legs"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8", "13.25.4", "13.25.5"]
 reqs = ["13263.1", "13263.2"]
 capabilities = ["13.25.1"]
 interfaces = ["interface.13.pc-0x101d-transfer"]
 do_1 = "Write the transfer handler in precompiles/layerxprograms/method_transfer.go (planned) decoding legs with decodeLegs of precompiles/layerxprograms/args.go (planned)."
-do_2 = "Submit activity 0x00090005 (include/layerx/programs.h:173) with EncodeTransferPayload of precompiles/layerxprograms/payload_accounts.go (planned)."
+do_2 = "Submit activity 0x00090005 (include/layerx/programs.h:175) with EncodeTransferPayload of precompiles/layerxprograms/payload_accounts.go (planned)."
 do_3 = "Emit ProgramTransferred through emitReceiptEvents after success (precompiles/layerxprograms/method_transfer.go (planned)), passing the program id decoded from the activity payload."
-do_4 = "Write both tests in precompiles/layerxprograms/method_transfer_test.go (planned)."
+do_4 = "Write both tests in precompiles/layerxprograms/method_transfer_test.go (planned): fund the caller DID's main account (lxphost.MainAccountID) through the ledger as the setup of attempt 8290ed5ee did, debit the legs from that account, and assert the destination balance, the source balance and ProgramTransferred; the overdraft case asserts the lxp_ctx_emit_transfer_set refusal and unchanged balances."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Submit through submit() of precompiles/layerxprograms/submit.go with the KernelAuthority principalOf supplies; do not build lxphost.Activity or KernelAuthority in the handler."
+do_7 = "Legs debit the caller DID's main account or one of its DID asset accounts (lx_account_owner_did, src/ledger/lx_account_read.c:6), never a program value account: src/modules/programs/transfer.c authorizes a leg only when its from account is the principal or is owned by the principal DID (task 13.25.4), and the authority carries Kind and AuthorityHash (task 13.25.5)."
 symbols = ["transferHandler", "TestProgramsTransferMovesLegs", "TestProgramsTransferOverdraftReverts"]
 touches = ["precompiles/layerxprograms/method_transfer.go", "precompiles/layerxprograms/method_transfer_test.go"]
 tests = ["precompiles/layerxprograms/method_transfer_test.go::TestProgramsTransferMovesLegs", "precompiles/layerxprograms/method_transfer_test.go::TestProgramsTransferOverdraftReverts"]
@@ -156846,20 +157131,83 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.13.25.4]
+title = "Authorize transfer legs debited from accounts the principal DID owns"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = []
+reqs = ["13301.1", "13301.2"]
+capabilities = ["13.25.4"]
+interfaces = []
+do_1 = "In authorize_leg (src/modules/programs/transfer.c:97-108) and source_authority_add (src/modules/programs/transfer.c:40-52) replace the equality test of the leg's from id against authority->principal with: equal, or the from account exists in the module runtime registry (lxp_ctx_module_runtime, lx_programs_transfer_runtime.accounts, account_by_id) and lx_account_owner_did of it (src/ledger/lx_account_read.c:6) equals authority->principal; every other leg stays LXP_ERR_AUTH_SCOPE."
+do_2 = "In lxp_programs_transfer_execute_root (src/modules/programs/transfer.c:164-169) resolve sequence_account as account_by_id(principal) when that exists, otherwise as the principal DID's account of kind LX_ACCOUNT_AGENT_MAIN among lx_account_list_did (include/layerx/lxp_ledger.h:319); absent both, LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE as today. Leave set.context.authorized_from, debit_authority_kind and each source authority's authorized_from (transfer.c:61, the leg's from id) as written."
+do_3 = "Keep the LXP_ERR_NON_CANONICAL gate on program_id and authority_hash (src/modules/programs/transfer.c:133-136) and the layerx_programs_authorize_402lxp_leg call with the principal unchanged; the only changed outcome is a leg from an account the principal DID owns."
+do_4 = "Create tests/programs/test_transfer_principal.c (planned) on the fixture shape of tests/programs/test_monetary_law.c:963-1061 (lx_account_registry_init, a registered asset, an lxp_authority_resolved of kind LXP_AUTHORITY_OWNER whose actor and principal are the DID id of lxp_did_id_derive and whose authority_hash comes from lxp_authority_hash with a zero grant id as at test_monetary_law.c:591 and :681, activity_type 0x00090005, lxp_kernel_execute_activity): transfer_from_owned_main_account moves 4 of 10 units from agent:<did>:main to a program value account and asserts LXP_OK and both balances; transfer_from_foreign_account_refused submits a leg from another DID's main account and asserts LXP_ERR_AUTH_SCOPE with both balances unchanged."
+do_5 = "Add the Makefile target $(BUILD_DIR)/tests/programs_transfer_principal on the pattern of Makefile:3194-3199 and list it with the other programs tests of programs-core-test (Makefile:3367). Change no other kernel source."
+symbols = ["authorize_leg", "source_authority_add", "lxp_programs_transfer_execute_root", "transfer_from_owned_main_account", "transfer_from_foreign_account_refused"]
+touches = ["src/modules/programs/transfer.c", "tests/programs/test_transfer_principal.c", "Makefile"]
+tests = ["tests/programs/test_transfer_principal.c::transfer_from_owned_main_account", "tests/programs/test_transfer_principal.c::transfer_from_foreign_account_refused"]
+planned_paths = ["tests/programs/test_transfer_principal.c"]
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/programs_transfer_principal && ./build/tests/programs_transfer_principal"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert transfer.c and the Makefile target and delete the test; the transfer module then accepts only legs whose from id is the principal."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.13.25.5]
+title = "Set the owner authority kind and hash on the 0x101D principal"
+status = "pending"
+mode = "BUILD"
+wave = 15
+requires = ["13.22.3"]
+reqs = ["13302.1"]
+capabilities = ["13.25.5"]
+interfaces = []
+do_1 = "Create modules/lxphost/authority_hash.go (planned) with func AuthorityHash(kind uint8, grantID, verifiedKey [32]byte) ([32]byte, error) calling C.lxp_authority_hash (include/layerx/lxp_authority.h:199, src/state/lxp_authority.c:326) and const AuthorityKindOwner = 1 (LXP_AUTHORITY_OWNER, include/layerx/lxp_authority.h:12); a non-OK status becomes an error, never a zero hash."
+do_2 = "principalOf (precompiles/layerxprograms/principal.go:24-28) sets Kind = lxphost.AuthorityKindOwner and AuthorityHash = lxphost.AuthorityHash(lxphost.AuthorityKindOwner, zero grant id, VerifiedKey), as the kernel tests do (tests/programs/test_monetary_law.c:591, :681) and as lxp_programs_transfer_validate requires a non-zero authority_hash (src/modules/programs/transfer.c:133-136); Actor, Principal (lxphost.DIDID of the DID), VerifiedKey and Bound stay as written."
+do_3 = "Correct TestProgramsPrincipalFromBoundDID (precompiles/layerxprograms/principal_test.go:55-60) to the shape principalOf has had since task 13.22.4: Actor and Principal equal lxphost.DIDID of the DID, VerifiedKey equals the key and Principal differs from MainAccountID; add TestProgramsPrincipalAuthorityKindAndHash asserting Kind is the owner kind, AuthorityHash equals lxphost.AuthorityHash(owner kind, zero grant id, key) and differs for another key."
+symbols = ["AuthorityHash", "AuthorityKindOwner", "principalOf", "TestProgramsPrincipalFromBoundDID", "TestProgramsPrincipalAuthorityKindAndHash"]
+touches = ["modules/lxphost/authority_hash.go", "precompiles/layerxprograms/principal.go", "precompiles/layerxprograms/principal_test.go"]
+tests = ["precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalFromBoundDID", "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalUnboundRefused", "precompiles/layerxprograms/principal_test.go::TestProgramsPrincipalAuthorityKindAndHash"]
+planned_paths = ["modules/lxphost/authority_hash.go"]
+build_cmd = "go build ./modules/lxphost/... ./precompiles/layerxprograms/..."
+verify_cmd = "go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsPrincipalFromBoundDID|TestProgramsPrincipalUnboundRefused|TestProgramsPrincipalAuthorityKindAndHash)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the touched files and delete authority_hash.go; principalOf then submits with a zero authority hash again."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.13.25.2]
 title = "Serve registerAccount for LXPA1 and LXPA2 program accounts"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.4", "13.22.5", "13.22.8", "1.23.5"]
 reqs = ["13264.1", "13264.2"]
 capabilities = ["13.25.2"]
 interfaces = ["interface.13.pc-0x101d-registeraccount"]
 do_1 = "Write the registerAccount handler in precompiles/layerxprograms/method_account.go (planned) over EncodeAccountPayload of precompiles/layerxprograms/payload_accounts.go (planned)."
-do_2 = "Submit the account activity type of include/layerx/programs.h:174 through submit."
+do_2 = "Submit the account activity type of include/layerx/programs.h:176 through submit."
 do_3 = "Emit ProgramAccountRegistered through emitReceiptEvents from the kernel event of src/modules/programs/accounts.c:909."
 do_4 = "Write both tests in precompiles/layerxprograms/method_account_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Register getProgramAccount of precompiles/layerxprograms/view_accounts.go (task 13.28.2 wrote the handler but no init() registers it) from this task's init() beside registerAccount so the account read-back works; touch no other file for it."
 symbols = ["registerAccountHandler", "TestProgramsRegisterAccountProfile1", "TestProgramsRegisterAccountDuplicateReverts"]
 touches = ["precompiles/layerxprograms/method_account.go", "precompiles/layerxprograms/method_account_test.go"]
 tests = ["precompiles/layerxprograms/method_account_test.go::TestProgramsRegisterAccountProfile1", "precompiles/layerxprograms/method_account_test.go::TestProgramsRegisterAccountDuplicateReverts"]
@@ -156883,12 +157231,12 @@ title = "Serve setExitRoute and deprecate wind-down operations"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5"]
 reqs = ["13265.1", "13265.2"]
 capabilities = ["13.26.1"]
 interfaces = ["interface.13.pc-0x101d-setexitroute", "interface.13.pc-0x101d-deprecate"]
 do_1 = "Write the setExitRoute and deprecate handlers in precompiles/layerxprograms/method_winddown.go (planned) over EncodeSetExitRoutePayload and EncodeDeprecatePayload of precompiles/layerxprograms/payload_winddown.go (planned)."
-do_2 = "Submit the wind-down activity type of include/layerx/programs.h:175 through submit."
+do_2 = "Submit the wind-down activity type of include/layerx/programs.h:177 through submit."
 do_3 = "Emit ExitRouteSet and ProgramDeprecated through emitReceiptEvents from the kernel events of src/modules/programs/winddown.c:907, passing the program id decoded from the activity payload."
 do_4 = "Write both tests in precompiles/layerxprograms/method_winddown_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
@@ -156915,12 +157263,12 @@ title = "Serve tombstone of a deprecated program"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5"]
 reqs = ["13266.1", "13266.2"]
 capabilities = ["13.26.2"]
 interfaces = ["interface.13.pc-0x101d-tombstone"]
 do_1 = "Write the tombstone handler in precompiles/layerxprograms/method_tombstone.go (planned) over EncodeTombstonePayload."
-do_2 = "Submit the wind-down activity type of include/layerx/programs.h:175 with operation 3 of src/modules/programs/winddown.c:446."
+do_2 = "Submit the wind-down activity type of include/layerx/programs.h:177 with operation 3 of src/modules/programs/winddown.c:446."
 do_3 = "Emit ProgramTombstoned through emitReceiptEvents (precompiles/layerxprograms/method_tombstone.go (planned)), passing the program id decoded from the activity payload."
 do_4 = "Write both tests in precompiles/layerxprograms/method_tombstone_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
@@ -156947,7 +157295,7 @@ title = "Serve exitValue and exitValueBounded from a tombstoned program"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5"]
 reqs = ["13267.1", "13267.2"]
 capabilities = ["13.26.3"]
 interfaces = ["interface.13.pc-0x101d-exitvalue", "interface.13.pc-0x101d-exitvaluebounded"]
@@ -156979,12 +157327,12 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
 do_1 = "Write the sandboxExecute handler in precompiles/layerxprograms/method_sandbox_execute.go (planned) over EncodeSandboxExecutePayload of precompiles/layerxprograms/payload_sandbox.go (planned)."
-do_2 = "Submit the sandbox activity type of include/layerx/programs.h:177 with the decoded fee limit."
+do_2 = "Submit the sandbox activity type of include/layerx/programs.h:179 with the decoded fee limit."
 do_3 = "Emit SandboxUsageReceipt through emitSandboxEvents of precompiles/layerxprograms/events_sandbox.go (planned)."
 do_4 = "Write both tests in precompiles/layerxprograms/method_sandbox_execute_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
@@ -157011,15 +157359,16 @@ title = "Serve sandboxFund for lease escrow funding legs"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
 reqs = ["13269.1", "13269.2"]
 capabilities = ["13.27.2"]
 interfaces = ["interface.13.pc-0x101d-sandboxfund"]
 do_1 = "Write the sandboxFund handler in precompiles/layerxprograms/method_sandbox_fund.go (planned) over EncodeSandboxFundPayload and decodeLegs."
-do_2 = "Submit the sandbox activity type of include/layerx/programs.h:177 with operation 2 of src/modules/programs/sandbox.c:163."
+do_2 = "Submit the sandbox activity type of include/layerx/programs.h:179 with operation 2 of src/modules/programs/sandbox.c:163."
 do_3 = "Emit the receipt sandbox events through emitSandboxEvents (precompiles/layerxprograms/method_sandbox_fund.go (planned))"
 do_4 = "Write both tests in precompiles/layerxprograms/method_sandbox_fund_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
+do_6 = "Assert revert reasons as precompiles/layerxprograms/gate_test.go:102 does: pcommon.RevertReason(err) equals pcommon.LXPRevert(\"LXP_PROGRAM_REFUSED\", \"write under staticcall\") for the staticcall case, because the reason carries code and detail joined by ': ' (precompiles/layerxprograms/errors_test.go:68); never compare against the bare code."
 symbols = ["sandboxFundHandler", "TestProgramsSandboxFundEscrowsLegs", "TestProgramsSandboxFundEmptyLeaseRequestReverts"]
 touches = ["precompiles/layerxprograms/method_sandbox_fund.go", "precompiles/layerxprograms/method_sandbox_fund_test.go"]
 tests = ["precompiles/layerxprograms/method_sandbox_fund_test.go::TestProgramsSandboxFundEscrowsLegs", "precompiles/layerxprograms/method_sandbox_fund_test.go::TestProgramsSandboxFundEmptyLeaseRequestReverts"]
@@ -157043,12 +157392,12 @@ title = "Serve sandboxActivate for a funded lease"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
 reqs = ["13270.1", "13270.2"]
 capabilities = ["13.27.3"]
 interfaces = ["interface.13.pc-0x101d-sandboxactivate"]
 do_1 = "Write the sandboxActivate handler in precompiles/layerxprograms/method_sandbox_activate.go (planned) over EncodeSandboxActivatePayload."
-do_2 = "Submit the sandbox activity type of include/layerx/programs.h:177 with operation 3 of src/modules/programs/sandbox.c:163."
+do_2 = "Submit the sandbox activity type of include/layerx/programs.h:179 with operation 3 of src/modules/programs/sandbox.c:163."
 do_3 = "Emit the receipt sandbox events through emitSandboxEvents (precompiles/layerxprograms/method_sandbox_activate.go (planned))"
 do_4 = "Write both tests in precompiles/layerxprograms/method_sandbox_activate_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
@@ -157075,12 +157424,12 @@ title = "Serve retireStorage with the retirement certificate request"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
 reqs = ["13271.1", "13271.2"]
 capabilities = ["13.27.4"]
 interfaces = ["interface.13.pc-0x101d-retirestorage"]
 do_1 = "Write the retireStorage handler in precompiles/layerxprograms/method_retire.go (planned) over CheckRetireStorageRequest of precompiles/layerxprograms/payload_sandbox.go (planned)."
-do_2 = "Submit activity 0x0009000B (include/layerx/programs.h:179), validated by request_parse at src/modules/programs/blob_lifecycle.c:259 and applied by lxp_programs_retirement_execute at src/modules/programs/blob_lifecycle.c:757."
+do_2 = "Submit activity 0x0009000B (include/layerx/programs.h:181), validated by request_parse at src/modules/programs/blob_lifecycle.c:259 and applied by lxp_programs_retirement_execute at src/modules/programs/blob_lifecycle.c:757."
 do_3 = "Emit StorageRetired through emitSandboxEvents from event 0x090B (src/modules/programs/blob_lifecycle.c:884)."
 do_4 = "Write both tests in precompiles/layerxprograms/method_retire_test.go (planned)."
 do_5 = "Register every handler this task writes from an init() in its method file with register(\"<methodName>\", <handler>) of precompiles/layerxprograms/submit.go (task 13.22.8); the handler signature is func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error), arguments are decoded with decodeArgs(call.method, args), the EVM for emitReceiptEvents and emitSandboxEvents is call.evm, and a view row of gasTable serves under STATICCALL; without the registration Execute answers LXP_PRECOMPILE_UNKNOWN_METHOD, which is what attempts before 13.22.8 saw. Do not edit submit.go."
@@ -157104,7 +157453,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.1]
 title = "Serve getProgram, getInterface, getProgramOwner and getStateHead from the host store"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
@@ -157169,7 +157518,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.3]
 title = "Serve getWindDown and getExitRoute"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
@@ -157203,7 +157552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.4]
 title = "Serve the current, pending and versioned fee schedule views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8"]
@@ -157237,7 +157586,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.5]
 title = "Serve getWebRequest from the program web request record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8"]
@@ -157270,7 +157619,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.6]
 title = "Serve the current and versioned metering schedule views"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.92.1", "13.22.8", "13.28.4"]
@@ -157304,7 +157653,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.28.7]
 title = "Serve getSandbox and getRetirementControl"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.21.7", "1.93.1", "13.22.8"]
@@ -157661,10 +158010,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.32.2]
 title = "Activate 0x101D at the merge upgrade through the node keepers and import"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
-requires = ["13.22.1", "13.23.1", "5.0.2", "6.0.2", "5.94.2"]
+requires = ["13.22.1", "13.23.1", "5.0.2", "6.0.2", "5.94.2", "13.28.4"]
 reqs = ["13289.1", "13289.2"]
 capabilities = ["13.32.2"]
 interfaces = []
@@ -171939,4 +172288,3 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-

@@ -2,7 +2,7 @@
 
 IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-registry layerx-webhooks layerx-dashboard layerx-dashboard-web
     layerx-internal layerx-human layerx-human-web layerx-node layerx-core-boundary layerx-receipt-authority layerx-agent-boundary layerx-identity layerx-paxeer-boundary
-    layerx-mirror layerx-relay-archive layerx-interop-gateway layerx-reference-ramp
+    layerx-mirror layerx-interop-gateway layerx-reference-ramp
     paxd-node paxd
     bridge-relayer explorer-backend explorer-elixir-builder explorer-frontend explorer-sig-provider explorer-smart-contract-verifier flyci-controller flyci-runner
     gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder rpcnode
@@ -27,7 +27,6 @@ image_source() {
         layerx-identity) printf 'ghcr.io/sidiora-labs/layerx-identity:0.1.0 docker/platform-identity/Dockerfile' ;;
         layerx-paxeer-boundary) printf 'ghcr.io/sidiora-labs/layerx-paxeer-boundary:0.1.0 docker/paxeer/Dockerfile' ;;
         layerx-mirror) printf 'ghcr.io/sidiora-labs/layerx-mirror:0.1.0 docker/interop-mirror/Dockerfile' ;;
-        layerx-relay-archive) printf 'ghcr.io/sidiora-labs/layerx-relay-archive:0.1.0 docker/relay-archive/Dockerfile' ;;
         layerx-interop-gateway) printf 'ghcr.io/sidiora-labs/layerx-interop-gateway:0.1.0 docker/interop-gateway/Dockerfile' ;;
         layerx-reference-ramp) printf 'ghcr.io/sidiora-labs/layerx-reference-ramp:0.1.0 docker/ramps/Dockerfile' ;;
         paxd-node) printf 'ghcr.io/sidiora-labs/paxd-node:0.1.0 docker/paxeer/Dockerfile.paxd-node' ;;
@@ -63,7 +62,7 @@ image_source() {
 
 image_build_args() {
     case "$1" in
-        layerx-node|layerx-relay-archive) printf -- '--build-arg LXP_REVISION=%s' "$REVISION" ;;
+        layerx-node) printf -- '--build-arg LXP_REVISION=%s' "$REVISION" ;;
         kernel) printf -- '--build-arg LXP_REVISION=%s' "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" ;;
         flyci-controller) printf -- '--build-arg SOURCE_REVISION=%s' "$(git -C "${REPO_ROOT:-.}" rev-parse HEAD)" ;;
         wallet-gateway) printf -- '--build-arg SOURCE_REVISION=%s --build-arg SOURCE_TREE=%s' \

@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { X, Search } from "lucide-react";
-import { coinLogoUrl, type PerpsMarket } from "@/core/perps/config";
+import { coinLogoUrl, type TradeableMarket } from "@/core/perps/config";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { fmtPrice, fmtUsdCompact } from "@/ui/utils/format";
@@ -12,7 +12,7 @@ import { MobileAccountView } from "./MobileAccountView";
 import { MobileBottomNav, type MobileGlobalTab } from "./MobileBottomNav";
 
 interface MobileAppLayoutProps {
-  market: PerpsMarket;
+  market: TradeableMarket;
   onSelectMarket: (symbol: string) => void;
 }
 

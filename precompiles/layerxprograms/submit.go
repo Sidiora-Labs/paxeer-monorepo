@@ -114,20 +114,3 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	}
 	return h(ctx, p, callContext{caller: caller, method: method, evm: evm}, args)
 }
-
-func registryReadHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
-	decoded, err := decodeArgs(call.method, args)
-	if err != nil {
-		return nil, err
-	}
-	payload, err := EncodeRegistryReadPayload(decoded[0].([32]byte), decoded[1].([]byte))
-	if err != nil {
-		return nil, err
-	}
-	_, err = submit(ctx, p, call, 0x00090004, payload, [16]byte{})
-	return nil, err
-}
-
-func init() {
-	register("registryRead", registryReadHandler)
-}

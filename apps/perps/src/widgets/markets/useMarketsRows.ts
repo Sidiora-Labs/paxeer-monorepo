@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { getMarketCategory, type PerpsMarket } from "@/core/perps/config";
+import { getMarketCategory, type TradeableMarket } from "@/core/perps/config";
 import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import {
@@ -33,7 +33,7 @@ function matchesCategory(category: string, row: MarketRow): boolean {
 }
 
 export function buildMarketsRows(
-  markets: readonly (MarketCatalogEntry & PerpsMarket)[],
+  markets: readonly (MarketCatalogEntry & TradeableMarket)[],
   snapshots: readonly MarketSnapshot[],
 ): MarketRow[] {
   const snapBySymbol = new Map<string, MarketSnapshot>();
