@@ -10191,3 +10191,42 @@ detail = "09f9d9239 raised go.mod to go 1.25.8; every go command on an installed
 title = "go mod download needs a go.mod hash for every version in the module graph"
 detail = "go mod download (and go list -m all) read the go.mod of every module version in the graph and refuse any whose /go.mod hash is missing from go.sum, even versions that provide no package to the build (golang.org/x/net for #1141, golang.org/x/term v0.15.0 for #1152). go build alone never notices; add the lines with go mod download <module>@<version>."
 
+[gotcha.2085]
+title = "go list -m all reports one missing go.sum hash at a time"
+detail = "Read-only module mode stops at the first module version whose /go.mod hash is absent from go.sum; after adding it the next gap appears (x/term v0.15.0, then x/net 20211112 in the chain repository). Iterate go mod download <module>@<version> until go list -m all exits 0 before declaring the graph complete."
+
+
+[gotcha.2086]
+title = "An all-targets daemon test build compiles every stale test file"
+detail = "cargo build -p layerx-agentd --tests and cargo test --no-run compile tests/checkpoint.rs, which still built the pre-9.5.5 ProofBundleRequest after 2666a01d5; a task whose gate needs the all-targets build (#1131) fails on a test file it does not own. Open the test port as its own task and gate on it."
+
+[gotcha.2087]
+title = "A single-target gate still compiles every stale builder in its own file"
+detail = "85c5b32c5 (10.2.7) added tx_hash, receipt_hash, block_height and rung to ReceiptMaterial and ported the crate's sources and intent_submit.rs, but wallet_identity_e2e.rs was not in its gate; the next task touching that file (#1151) failed its build on the builder it did not change. When a task's touched file has other initializers of a reshaped type, the port belongs in the same task."
+
+
+[gotcha.2088]
+title = "A restored gap delivers the recovered event"
+detail = "When a subscription test recovers a real chain event through backfill instead of a duplicate of an already-delivered local event, the delivery drain afterwards carries it as an extra event; assert the recovered bytes in the delivered sequence rather than filtering the event out of the subscription or keeping the old count."
+
+[gotcha.2089]
+title = "The dependents check compiles a library it declared broken at the base"
+detail = "cg spec done leaves out a dependent whose all-targets check already fails at the base, but another dependent pulls that library in as a normal dependency, so a deleted pub fn with one remaining caller still fails the check (10.11.5 attempt 1, sign_send). A deletion and its last caller must be one task even when the caller's file belongs to a later wave."
+
+[gotcha.2090]
+title = "A standby cannot seal before consensus hands it the primary's batch"
+detail = "The WAL Seal record carries height and sequence bounds only; the primary's signed sequence batch (tx 0) reaches the standby first as FinalizeBlock's Txs[0]. A standby sealed-layer source therefore needs a FinalizeBlock hook that receives the decided transactions before sealedBlockForFinalize reads Sealed(); installing a source alone leaves Sealed() nil and the standby on the re-execution path."
+
+[gotcha.2091]
+title = "A test may assert a refusal its module never produces"
+detail = "layerx-agentd tests/checkpoint.rs asserted CheckpointReadError::UnavailableCapability with the reason the RPC adapter renders; src/read has no producer for that variant, so porting the request shape could never make the assertion pass. Before porting a test to a new request shape, grep the module for the asserted variant and reason; if nothing produces it, the spec must name the refusals the module does produce (18.1154.1)."
+
+
+[gotcha.2092]
+title = "Buyer and seller verified different payment logs for the same scheme"
+detail = "layerx-x402's seller accepts PaymentExact or PaymentDrawn while the buyer accepted PaymentExact only, so every genuine metered settlement failed buyer capture and only a fabricated log could pass. When one side of a protocol gains a scheme, grep the counterpart for the same topic constant before writing a cross-side fixture test (#1157, 18.1129.1)."
+
+
+[gotcha.2093]
+title = "The layerx full image build needs more disk than its native stage"
+detail = "docker build of layerx-chain fails in the paxd Go compile with ENOSPC after the native target built; free the build host's warm caches and dangling images before the full build, or build on a larger disk (18.849.1)."
