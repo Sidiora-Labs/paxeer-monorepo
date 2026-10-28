@@ -371,6 +371,10 @@ impl Boundary {
     }
 
     fn get(&self, path: &str, token: &str) -> (u16, Value) {
+        self.request("GET", path, token)
+    }
+
+    fn request(&self, method: &str, path: &str, token: &str) -> (u16, Value) {
         let stream = must(TcpStream::connect_timeout(
             &self.address,
             Duration::from_secs(2),
@@ -378,7 +382,7 @@ impl Boundary {
         must(stream.set_read_timeout(Some(Duration::from_secs(20))));
         must(stream.set_write_timeout(Some(Duration::from_secs(5))));
         let mut stream = must(self.connector.connect("localhost", stream));
-        must(write!(stream, "GET {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nConnection: close\r\n\r\n"));
+        must(write!(stream, "{method} {path} HTTP/1.1\r\nHost: localhost\r\nAuthorization: Bearer {token}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"));
         must(stream.flush());
         let (headers, body) = read_message(&mut stream);
         let status = must(
@@ -464,4 +468,78 @@ fn internal_receipt_route_refuses_an_unknown_transaction() {
     assert_eq!(status, 503);
     assert_eq!(body["error"]["code"], "node_unavailable");
     assert_eq!(body["error"]["retry_after_seconds"], 5);
+}
+
+#[test]
+fn deployment_proof_reads_the_deployment_receipt() {
+    let signer = SigningKey::from_bytes(&[8; 32]);
+    let (view, bytes) = signed_receipt(TX_HASH, &signer);
+    let (wrong_transaction, _) = signed_receipt([4; 32], &signer);
+    let (mut bad_signature, _) = signed_receipt(TX_HASH, &SigningKey::from_bytes(&[9; 32]));
+    bad_signature["signingKey"] = view["signingKey"].clone();
+    let (url, server) = chain_listener(vec![
+        view.clone(),
+        view,
+        Value::Null,
+        json!({"rung": "submitted", "txHash": hex(&TX_HASH)}),
+        wrong_transaction,
+        bad_signature,
+    ]);
+    let boundary = Boundary::start(&url, 199);
+    let path = format!("/internal/v1/deployment-proof/{}", hex(&TX_HASH));
+    for target in [path.clone(), path.replace("/0x", "/")] {
+        assert_eq!(
+            boundary.get(&target, "registry-token"),
+            (
+                200,
+                json!({"transaction_hash": &hex(&TX_HASH)[2..], "receipt": &hex(&bytes)[2..]})
+            )
+        );
+    }
+    for _ in 0..2 {
+        let (status, body) = boundary.get(&path, "registry-token");
+        assert_eq!(status, 404);
+        assert_eq!(body["error"]["code"], "receipt_not_found");
+        assert!(body.get("receipt").is_none());
+    }
+    for _ in 0..2 {
+        let (status, body) = boundary.get(&path, "registry-token");
+        assert_eq!(status, 503);
+        assert_eq!(body["error"]["code"], "node_unavailable");
+        assert_eq!(body["error"]["retry_after_seconds"], 5);
+        assert!(body.get("receipt").is_none());
+    }
+    must(server.join());
+    for target in [
+        "/internal/v1/programs/deploy",
+        "/internal/v1/programs/upgrade",
+    ] {
+        let (status, body) = boundary.request("POST", target, "registry-token");
+        assert_eq!(status, 404);
+        assert_eq!(body["error"]["code"], "not_found");
+        for token in ["gateway-token", "webhook-token"] {
+            let (status, body) = boundary.request("POST", target, token);
+            assert_eq!(status, 403);
+            assert_eq!(body["error"]["code"], "entitlement_denied");
+        }
+    }
+    for token in ["gateway-token", "webhook-token"] {
+        let (status, body) = boundary.get(&path, token);
+        assert_eq!(status, 403);
+        assert_eq!(body["error"]["code"], "entitlement_denied");
+    }
+    let (status, body) = boundary.get(&format!("{path}?selector=1"), "registry-token");
+    assert_eq!(status, 404);
+    assert_eq!(body["error"]["code"], "not_found");
+    for transaction in ["zero".to_owned(), hex(&[0; 32])] {
+        let (status, body) = boundary.get(
+            &format!("/internal/v1/deployment-proof/{transaction}"),
+            "registry-token",
+        );
+        assert_eq!(status, 400);
+        assert_eq!(body["error"]["code"], "invalid_activity_id");
+    }
+    let (status, body) = boundary.get(&path, "registry-token");
+    assert_eq!(status, 503);
+    assert_eq!(body["error"]["code"], "node_unavailable");
 }
