@@ -63,10 +63,58 @@ pub struct SequencerHistory {
     predecessor_signature: [u8; 64],
     latest_evidence: Option<[u8; 32]>,
     registry: ModuleRegistry,
-    signed_authority: layerx_proof::signed_authority::SignedAuthorityHistory,
+    signed_authority: Option<layerx_proof::signed_authority::SignedAuthorityHistory>,
+    pinned_keys: Vec<SequencerAuthorization>,
 }
 
 impl SequencerHistory {
+    /// Constructs receipt authority from independently pinned keys, without native history.
+    ///
+    /// # Errors
+    /// Refuses an empty domain or list, invalid keys, duplicate identities and reversed ranges.
+    pub fn from_pinned_keys(
+        network_id: u32,
+        keys: &[SequencerAuthorization],
+    ) -> Result<Self, HistoryError> {
+        if network_id == 0 || keys.is_empty() {
+            return Err(HistoryError::Genesis);
+        }
+        for (index, key) in keys.iter().enumerate() {
+            sequencer_id(&key.public_key()).map_err(|_| HistoryError::Genesis)?;
+            if key.sequencer_id() == [0; 32]
+                || key.first_batch_number() > key.last_batch_number()
+                || keys[..index]
+                    .iter()
+                    .any(|prior| prior.sequencer_id() == key.sequencer_id())
+            {
+                return Err(HistoryError::Genesis);
+            }
+        }
+        Ok(Self {
+            network_id,
+            governance_key: [0; 32],
+            genesis_root: [0; 32],
+            canonical_genesis_root: [0; 32],
+            intervals: keys
+                .iter()
+                .map(|key| Interval {
+                    epoch: 0,
+                    public_key: key.public_key(),
+                    first_batch: key.first_batch_number(),
+                    last_batch: key.last_batch_number(),
+                    first_sequence: key.first_batch_number(),
+                    last_sequence: key.last_batch_number(),
+                })
+                .collect(),
+            predecessor: None,
+            predecessor_signature: [0; 64],
+            latest_evidence: None,
+            registry: ModuleRegistry::new(&[]).map_err(|_| HistoryError::Genesis)?,
+            signed_authority: None,
+            pinned_keys: keys.to_vec(),
+        })
+    }
+
     #[must_use]
     pub const fn network_id(&self) -> u32 {
         self.network_id
@@ -82,6 +130,17 @@ impl SequencerHistory {
         signature: &[u8; 64],
     ) -> Result<VerifiedBatchHeader, HistoryError> {
         let header = decode_batch_header(canonical).map_err(|_| HistoryError::Header)?;
+        if !self.pinned_keys.is_empty() {
+            if header.network_id() != self.network_id {
+                return Err(HistoryError::Header);
+            }
+            let key = self
+                .pinned_keys
+                .iter()
+                .find(|key| key.sequencer_id() == header.sequencer_id())
+                .ok_or(HistoryError::UnverifiedRange)?;
+            return verify_header(canonical, signature, key).map_err(|_| HistoryError::Header);
+        }
         let authorization = self.authorization_for_batch(header.batch_number())?;
         let interval = self
             .intervals
@@ -108,7 +167,10 @@ impl SequencerHistory {
     /// # Errors
     /// Refuses every sequence not yet covered by complete history verification.
     pub fn sequence_interval_end(&self, sequence: u64) -> Result<u64, HistoryError> {
-        self.authorization_for_sequence(sequence)?;
+        let authorization = self.authorization_for_sequence(sequence)?;
+        if !self.pinned_keys.is_empty() {
+            return Ok(authorization.last_batch_number());
+        }
         let interval = self
             .intervals
             .iter()
@@ -327,7 +389,8 @@ impl SequencerHistory {
             )
             .map_err(|_| HistoryError::Genesis)?;
         Ok(Self {
-            signed_authority,
+            signed_authority: Some(signed_authority),
+            pinned_keys: Vec::new(),
             network_id,
             governance_key,
             genesis_root: genesis_receipt_root(network_id, genesis_root),
@@ -411,7 +474,7 @@ impl SequencerHistory {
         let authorization = interval_authorization(&next, header.batch_number())?;
         let verified = verify_header(canonical_header, signature, &authorization)
             .map_err(|_| HistoryError::Header)?;
-        let mut signed_authority = self.signed_authority.clone();
+        let mut signed_authority = self.signed_authority.clone().ok_or(HistoryError::Genesis)?;
         signed_authority
             .advance(canonical_header, signature, packet)
             .map_err(|_| HistoryError::Header)?;
@@ -422,7 +485,7 @@ impl SequencerHistory {
             self.intervals.push(next);
             self.latest_evidence = packet.map(|bytes| Sha256::digest(bytes).into());
         }
-        self.signed_authority = signed_authority;
+        self.signed_authority = Some(signed_authority);
         self.predecessor = Some(verified);
         self.predecessor_signature = *signature;
         Ok(())
@@ -519,11 +582,17 @@ impl SequencerHistory {
     }
 
     /// Exports signed authority provenance only from the fully verified Client history.
+    ///
+    /// # Panics
+    /// Pinned receipt keys carry no native signed authority provenance.
     #[must_use]
     pub const fn signed_authority(
         &self,
     ) -> &layerx_proof::signed_authority::SignedAuthorityHistory {
-        &self.signed_authority
+        match &self.signed_authority {
+            Some(authority) => authority,
+            None => panic!("pinned receipt keys carry no native signed authority provenance"),
+        }
     }
 
     /// # Errors
@@ -532,6 +601,16 @@ impl SequencerHistory {
         &self,
         batch: u64,
     ) -> Result<SequencerAuthorization, HistoryError> {
+        if !self.pinned_keys.is_empty() {
+            let mut matching = self.pinned_keys.iter().filter(|key| {
+                (key.first_batch_number()..=key.last_batch_number()).contains(&batch)
+            });
+            let key = matching.next().ok_or(HistoryError::UnverifiedRange)?;
+            if matching.next().is_some() {
+                return Err(HistoryError::UnverifiedRange);
+            }
+            return Ok(*key);
+        }
         let head = self
             .predecessor
             .as_ref()
@@ -553,6 +632,16 @@ impl SequencerHistory {
         &self,
         sequence: u64,
     ) -> Result<SequencerAuthorization, HistoryError> {
+        if !self.pinned_keys.is_empty() {
+            let mut matching = self.pinned_keys.iter().filter(|key| {
+                (key.first_batch_number()..=key.last_batch_number()).contains(&sequence)
+            });
+            let key = matching.next().ok_or(HistoryError::UnverifiedRange)?;
+            if matching.next().is_some() {
+                return Err(HistoryError::UnverifiedRange);
+            }
+            return Ok(*key);
+        }
         let head = self
             .predecessor
             .as_ref()
