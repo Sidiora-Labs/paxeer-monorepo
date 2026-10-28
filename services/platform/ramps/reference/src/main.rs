@@ -15,9 +15,9 @@ use layerx_paxeer_client::{
     TransactionHash,
 };
 use layerx_ramp_toolkit::clients::{
-    parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig,
-    MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient,
-    SecretFile,
+    decode_hex, parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient,
+    LayerxConfig, MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback,
+    ProviderClient, SecretFile,
 };
 use layerx_ramp_toolkit::engine::{InventoryRebalancer, RampEngine};
 use layerx_ramp_toolkit::journal::{Journal, WorkflowStage};
@@ -222,10 +222,15 @@ struct ReceiptVerifierConfig {
 }
 
 fn verify_receipt_command() -> Result<(), String> {
+    const USAGE: &str = "usage: --verify-receipt CONFIG.json ORDER.json TRANSACTION_HASH";
     let arguments: Vec<_> = std::env::args_os().skip(2).collect();
     if arguments.len() != 3 {
-        return Err("usage: --verify-receipt CONFIG.json ORDER.json ACTIVITY_HEX".to_owned());
+        return Err(USAGE.to_owned());
     }
+    let transaction = arguments[2]
+        .to_str()
+        .and_then(|value| TransactionHash::from_hex(value).ok())
+        .ok_or_else(|| format!("{USAGE}; expected a 0x-prefixed 32-byte transaction hash"))?;
     let read = |path: &std::ffi::OsString| {
         SecretFile::new(PathBuf::from(path))
             .and_then(|file| file.read())
@@ -238,8 +243,6 @@ fn verify_receipt_command() -> Result<(), String> {
     order
         .validate_bound()
         .map_err(|_| "invalid order identity".to_owned())?;
-    let activity = arguments[2].to_str().ok_or("invalid activity encoding")?;
-    let activity = parse_hex32(activity).map_err(|_| "invalid activity identity")?;
     if !(1..=120).contains(&config.client_tls.timeout_seconds) {
         return Err("invalid verifier timeout".to_owned());
     }
@@ -254,7 +257,7 @@ fn verify_receipt_command() -> Result<(), String> {
         .map_err(|_| "invalid verifier TLS configuration")?;
     let client = build_layerx(&config.layerx, http)?;
     let layerx_ramp_toolkit::clients::LayerxSubmission::Verified { leg, .. } = client
-        .resolve(&order, activity)
+        .resolve(&order, transaction.bytes())
         .map_err(|_| "receipt proof refused")?
     else {
         return Err("receipt not verified".to_owned());
@@ -264,8 +267,8 @@ fn verify_receipt_command() -> Result<(), String> {
         json!({
             "verified": true,
             "order_digest": order.order_digest,
-            "tx_hash": leg.tx_hash,
-            "receipt_digest": leg.receipt_digest,
+            "transaction_hash": TransactionHash::new(leg.tx_hash).to_hex(),
+            "receipt_digest": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.receipt_digest)),
             "height": leg.height,
             "rung": leg.rung.name(),
             "chain_id": config.layerx.chain_id,
@@ -328,6 +331,40 @@ fn run() -> Result<(), String> {
 }
 
 fn validate_config(config: &Config) -> Result<(), String> {
+    if config.layerx.chain_id == 0 {
+        return Err("invalid LayerX chain_id: must be nonzero".to_owned());
+    }
+    let operator_address = decode_hex(&config.layerx.operator_address, 20)
+        .map_err(|_| "invalid LayerX operator_address: expected 20-byte hex address".to_owned())?;
+    if operator_address.len() != 20 {
+        return Err("invalid LayerX operator_address: expected 20-byte hex address".to_owned());
+    }
+    if config
+        .operator
+        .account
+        .strip_prefix("agent:")
+        .and_then(|account| account.strip_suffix(":main"))
+        != Some(config.layerx.actor_did.as_str())
+        || config.paxeer.operator_account != config.operator.account
+    {
+        return Err("LayerX operator account binding rejected".to_owned());
+    }
+    if config.layerx.receipt_keys.is_empty() {
+        return Err("invalid LayerX receipt_keys: must not be empty".to_owned());
+    }
+    if config
+        .layerx
+        .receipt_keys
+        .iter()
+        .any(|key| key.first_height > key.last_height)
+    {
+        return Err("invalid LayerX receipt_keys: firstHeight exceeds lastHeight".to_owned());
+    }
+    if config.layerx.max_priority_fee_per_gas > config.layerx.max_fee_per_gas
+        || config.layerx.gas_limit_cap == 0
+    {
+        return Err("invalid LayerX fee or gas bounds".to_owned());
+    }
     if config.worker_id.is_empty()
         || config.worker_id.len() > 128
         || config.lease_seconds == 0
@@ -342,8 +379,6 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.paxeer.required_confirmations == 0
         || config.paxeer.poll_cadence_seconds == 0
         || config.paxeer.delayed_after_polls == 0
-        || config.paxeer.operator_account != config.operator.account
-        || config.layerx.chain_id == 0
         || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
@@ -353,12 +388,6 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || !valid_opaque(&config.paxeer.wallet_address)
         || !valid_opaque(&config.paxeer.vault_id)
         || !valid_opaque(&config.paxeer.signer_key_handle)
-        || config
-            .operator
-            .account
-            .strip_prefix("agent:")
-            .and_then(|account| account.strip_suffix(":main"))
-            != Some(config.layerx.actor_did.as_str())
     {
         return Err("invalid worker, timing or quote configuration".to_owned());
     }
@@ -785,6 +814,9 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         verified_recovery(state).map_err(|error| map_error(&error))?;
         return Ok(ok(json!({ "recovered": true })));
     }
+    if request.method == "POST" && request.path == "/internal/v1/work" {
+        return perform_work(state, request);
+    }
     if request.method == "POST" {
         let journal = state
             .journal
@@ -838,9 +870,6 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
             "stage": snapshot.stage,
             "presentation": snapshot.presentation()
         })));
-    }
-    if request.method == "POST" && request.path == "/internal/v1/work" {
-        return perform_work(state, request);
     }
     if request.method == "POST" && request.path == "/internal/v1/rebalances" {
         return rebalance(state, request);
@@ -1034,8 +1063,7 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
     }
-    if work.canonical_receive_payload.is_some() && !matches!(work.action, WorkAction::SubmitLayerx)
-    {
+    if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
         return Err(error(400, "work_invalid"));
     }
     let mut engine = engine(state, &mut journal);
@@ -1043,15 +1071,18 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
         WorkAction::Compliance => engine.evaluate_compliance(work.order_digest, now()),
         WorkAction::SubmitProvider => engine.submit_provider(work.order_digest, now()),
         WorkAction::ReconcileProvider => engine.reconcile_provider(work.order_digest, now()),
-        WorkAction::SubmitLayerx => match work.account_sequence {
-            Some(sequence) => match work.canonical_receive_payload.as_deref() {
-                Some(payload) => {
-                    engine.submit_native_receive(work.order_digest, payload, sequence, now())
-                }
-                None => engine.submit_layerx(work.order_digest, sequence, now()),
-            },
-            None => Err(RampError::InvalidOrder),
-        },
+        WorkAction::SubmitLayerx => {
+            let order = engine
+                .journal
+                .order(&work.order_digest)
+                .ok_or_else(|| error(404, "order_not_found"))?;
+            let sequence = match (order.order.direction(), work.account_sequence) {
+                (RampDirection::OnRamp, None) => 0,
+                (RampDirection::OffRamp, Some(sequence)) => sequence,
+                _ => return Err(error(400, "work_invalid")),
+            };
+            engine.submit_layerx(work.order_digest, sequence, now())
+        }
         WorkAction::ResolveLayerx => engine.resolve_layerx(work.order_digest, now()),
     }
     .map_err(|error| map_error(&error))?;
@@ -1167,7 +1198,6 @@ struct Work {
     order_digest: [u8; 32],
     action: WorkAction,
     account_sequence: Option<u64>,
-    canonical_receive_payload: Option<Vec<u8>>,
 }
 
 #[derive(Deserialize)]
