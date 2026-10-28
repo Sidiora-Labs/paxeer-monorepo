@@ -16,6 +16,7 @@ import type { NovesAccountHistoryResponse, NovesDescribeTxsResponse, NovesRespon
 import type {
   OptimisticL2DepositsItem,
 } from 'types/api/optimisticL2';
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { SearchRedirectResult, SearchResult, SearchResultFilters, SearchResultItem } from 'types/api/search';
 import type { HomeStats } from 'types/api/stats';
 import type {
@@ -285,7 +286,7 @@ R extends 'general:stats_charts_market' ? ChartMarketResponse :
 R extends 'general:stats_charts_secondary_coin_price' ? ChartSecondaryCoinPriceResponse :
 R extends 'general:stats_hot_contracts' ? HotContractsResponse :
 R extends 'general:homepage_blocks' ? Array<Block> :
-R extends 'general:homepage_txs' ? Array<Transaction> :
+R extends 'general:homepage_txs' ? Array<Transaction | PriceUpdateItem> :
 R extends 'general:homepage_txs_watchlist' ? Array<Transaction> :
 R extends 'general:homepage_optimistic_deposits' ? Array<OptimisticL2DepositsItem> :
 R extends 'general:homepage_arbitrum_deposits' ? ArbitrumLatestDepositsResponse :
