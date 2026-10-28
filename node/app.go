@@ -2385,13 +2385,6 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	beginBlockResp := app.BeginBlock(ctx, req.Height, lastCommit.Votes, req.ByzantineValidators, true)
 	events = append(events, beginBlockResp.Events...)
 
-	if firstTx == 1 {
-		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
-			recordSequencedHalt(ctx.Context())
-			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
-		}
-	}
-
 	evmTxs := make([]*evmtypes.MsgEVMTransaction, len(txs)) // nil for non-EVM txs
 	var typedTxs []sdk.Tx
 	if len(preDecoded) == len(txs) {
@@ -2399,6 +2392,17 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 		app.FinalizeDecodedTransactionsConcurrently(ctx, typedTxs[firstTx:])
 	} else {
 		typedTxs = append(make([]sdk.Tx, firstTx), app.DecodeTransactionsConcurrently(ctx, txs[firstTx:])...)
+	}
+
+	if firstTx == 1 {
+		if err := seqtypes.VerifyBatchTxs(batch, app.sequencedActivityIDs(txs[1:], typedTxs[1:])); err != nil {
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
+		}
+		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
+		}
 	}
 
 	for i := firstTx; i < len(txs); i++ {

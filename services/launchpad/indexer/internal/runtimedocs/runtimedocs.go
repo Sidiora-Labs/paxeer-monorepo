@@ -220,7 +220,7 @@ func ReceiptOptions(in Inputs) (receipt.RPCOptions, Catalog, error) {
 		CatalogJSON: catalog.JSON,
 		Epochs:      epochs,
 		Discovery: []receipt.RPCDiscovery{
-			{Role: "SidioraPool", ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
+			{Role: "SidioraPool", Kind: "surface", ABIRevision: catalog.Revisions["SidioraPool"], RuntimeHash: strings.ToLower(in.PoolRuntimeHash.Hex())},
 			{Role: "SidioraERC20", ABIRevision: catalog.Revisions["SidioraERC20"], RuntimeHash: strings.ToLower(erc20.Hex()), Immutables: catalog.ERC20Ranges},
 		},
 		Anchor:        &receipt.BlockAnchor{Height: in.Anchor.Height, Hash: in.Anchor.Hash},

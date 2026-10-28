@@ -4,14 +4,38 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::Write;
 use std::net::{TcpStream, ToSocketAddrs};
+use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use super::{hex_decode, hex_encode, parse_node_url, refusal, NodeEndpoint, Response};
 
 pub(super) struct ChainFunding {
     endpoint: NodeEndpoint,
-    sender: EvmSender,
+    sender: Arc<EvmSender>,
     pub(super) chain_id: u64,
+}
+
+pub(super) struct FundingSlot {
+    configured: Result<ChainFunding, &'static str>,
+    connected: OnceLock<ChainFunding>,
+}
+
+impl FundingSlot {
+    pub(super) fn from_env() -> Self {
+        Self {
+            configured: ChainFunding::from_env(),
+            connected: OnceLock::new(),
+        }
+    }
+
+    pub(super) fn get(&self) -> Result<&ChainFunding, &'static str> {
+        let configured = self.configured.as_ref().map_err(|reason| *reason)?;
+        if let Some(funding) = self.connected.get() {
+            return Ok(funding);
+        }
+        let funding = configured.connect()?;
+        Ok(self.connected.get_or_init(|| funding))
+    }
 }
 
 #[derive(Deserialize, Serialize)]
@@ -42,23 +66,30 @@ impl ChainFunding {
         .map_err(|_| "chain_unavailable")?;
         let sender =
             EvmSender::from_env("LAYERX_CORE_FUNDING_SENDER").map_err(|_| "sender_unavailable")?;
-        let mut funding = Self {
+        Ok(Self {
             endpoint,
-            sender,
+            sender: Arc::new(sender),
             chain_id: 0,
-        };
-        funding.chain_id = quantity(
-            &funding
+        })
+    }
+
+    fn connect(&self) -> Result<Self, &'static str> {
+        let chain_id = quantity(
+            &self
                 .rpc("eth_chainId", json!([]))
                 .map_err(|_| "chain_unavailable")?,
         )
         .map_err(|_| "chain_unavailable")?
         .try_into()
         .map_err(|_| "chain_unavailable")?;
-        if funding.chain_id == 0 {
+        if chain_id == 0 {
             return Err("chain_unavailable");
         }
-        Ok(funding)
+        Ok(Self {
+            endpoint: self.endpoint.clone(),
+            sender: Arc::clone(&self.sender),
+            chain_id,
+        })
     }
 
     pub(super) fn readiness(&self) -> Result<Value, &'static str> {
