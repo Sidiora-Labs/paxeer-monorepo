@@ -4,7 +4,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
   alias Explorer.Chain.PaxeerX.{Anchor, Receipt}
   alias Explorer.Repo
 
-  test "archive_anchors_lists_frozen_rows", %{conn: conn} do
+  test "archive_anchors_lists_frozen_rows", context do
+    archive_anchors_lists_frozen_rows(context)
+  end
+
+  defp archive_anchors_lists_frozen_rows(%{conn: conn}) do
     assert json_response(get(conn, "/api/v2/paxeer-x/archive/anchors"), 200) == %{
              "items" => [],
              "next_page_params" => nil
@@ -34,7 +38,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
     assert page["next_page_params"] == nil
   end
 
-  test "archive_receipts_lists_frozen_rows", %{conn: conn} do
+  test "archive_receipts_lists_frozen_rows", context do
+    archive_receipts_lists_frozen_rows(context)
+  end
+
+  defp archive_receipts_lists_frozen_rows(%{conn: conn}) do
     assert json_response(get(conn, "/api/v2/paxeer-x/archive/receipts"), 200) == %{
              "items" => [],
              "next_page_params" => nil
@@ -84,7 +92,11 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
     assert page["next_page_params"] == nil
   end
 
-  test "archive_receipt_404_for_unknown_id", %{conn: conn} do
+  test "archive_receipt_404_for_unknown_id", context do
+    archive_receipt_404_for_unknown_id(context)
+  end
+
+  defp archive_receipt_404_for_unknown_id(%{conn: conn}) do
     insert_receipt(1)
 
     assert json_response(get(conn, "/api/v2/paxeer-x/archive/receipts/#{hash(2)}"), 404) == %{
@@ -108,8 +120,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
     transaction = :transaction |> insert() |> with_block(block)
     block = block |> Ecto.Changeset.change(consensus: Map.get(overrides, :consensus, true)) |> Repo.update!()
 
-    %Anchor{}
-    |> Anchor.changeset(
+    attrs =
       Map.merge(
         %{
           transaction_hash: transaction.hash,
@@ -126,7 +137,9 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
         },
         Map.drop(overrides, [:block_number, :consensus])
       )
-    )
+
+    %Anchor{}
+    |> Ecto.Changeset.cast(attrs, Map.keys(attrs))
     |> Repo.insert!()
   end
 
@@ -142,8 +155,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
     transaction = :transaction |> insert() |> with_block(block)
     block = block |> Ecto.Changeset.change(consensus: Map.get(overrides, :consensus, true)) |> Repo.update!()
 
-    %Receipt{}
-    |> Receipt.changeset(
+    attrs =
       Map.merge(
         %{
           transaction_hash: transaction.hash,
@@ -158,13 +170,14 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
         },
         Map.drop(overrides, [:block_number, :consensus])
       )
-    )
+
+    %Receipt{}
+    |> Ecto.Changeset.cast(attrs, Map.keys(attrs))
     |> Repo.insert!()
   end
 
   defp insert_kernel_receipt(index) do
-    %Receipt{}
-    |> Receipt.changeset(%{
+    attrs = %{
       origin: :kernel,
       receipt_id: hash(index),
       account: hash(99),
@@ -186,7 +199,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.ArchiveControllerTest do
         "raw_sha256" => String.trim_leading(hash(104), "0x")
       },
       kernel_verification: :sequencer_verified
-    })
+    }
+
+    %Receipt{}
+    |> Ecto.Changeset.cast(attrs, Map.keys(attrs))
     |> Repo.insert!()
   end
 
