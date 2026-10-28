@@ -8759,3 +8759,11 @@ symbol = "HeadTracker"
 observed = "Attempt 4 (ab5eed4c9) writes a correct scan test that honestly fails at tests/retired_client_modules.rs:40: the probe is an LNI client by design (lni::transport::Uds, handshake::perform, head::HeadTracker, caps::CapsDiscovery, read::did_accounts, evidence::RootSelector) and layerx_client::rpc, sequencer and px carry none of these."
 assumption = "The task waits in j4420_mapping_ruling for the owner to either delete the probe alongside 8.19.2 or re-specify it as a JSON-RPC probe over SequencerEndpoint and PxEndpoint; 9.25.1, 9.25.2 and 9.24.7 now require it."
 severity = "major"
+
+[finding.18.865.1.2]
+task = "18.865.1"
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex"
+symbol = "block_update_hashes"
+observed = "Attempt 2 (163f3579b) passes the per-app verify_cmd introduced in 46580130d and is refused only by the symbol check 'Explorer.Chain.PaxeerX.PriceFeed.block_update_hashes not defined in the graph'."
+assumption = "The graph indexes Elixir functions by bare name (46580130d, 18.877.1 and 18.875.1 precedents); the symbol now reads block_update_hashes and attempt 3 carries 163f3579b unchanged."
+severity = "minor"
