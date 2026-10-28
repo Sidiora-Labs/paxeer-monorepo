@@ -135,7 +135,7 @@ export async function verifyThresholdSignatures(args: {
   if (args.signatures.length < args.threshold) {
     return { ok: false, reason: `Only ${ args.signatures.length } of ${ args.threshold } required signatures are available.` };
   }
-  const allowed = new Set(args.attestors.map((a) => getAddress(a).toLowerCase()));
+  const allowed: ReadonlySet<string> = new Set(args.attestors.map((a) => getAddress(a).toLowerCase()));
   const signers: Address[] = [];
   for (const [ index, signature ] of args.signatures.entries()) {
     if (!/^0x[0-9a-fA-F]{130}$/.test(signature)) {
