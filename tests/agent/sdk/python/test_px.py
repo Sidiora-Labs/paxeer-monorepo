@@ -400,7 +400,8 @@ class HistoryReadTest(unittest.TestCase):
             "counterparty": EVM,
             "asset": "evm:native",
             "amount": str((1 << 256) - 1),
-            "tx_id": "0x" + "12" * 32,
+            "tx_id": "native_transfer-10-0",
+            "tx_hash": "0x" + "12" * 32,
             "ordinal": "0",
             "final": False,
             "decoded": {"position": "10"},
@@ -432,7 +433,8 @@ class HistoryReadTest(unittest.TestCase):
             "counterparty": UNJOINED,
             "asset": NATIVE,
             "amount": "7",
-            "tx_id": "0x" + "34" * 32,
+            "tx_id": "asset_transfer-11-1",
+            "tx_hash": "0x" + "34" * 32,
             "ordinal": "1",
             "final": True,
             "decoded": {"transfer": {"amount": "7", "recipient": ACCOUNT}},
@@ -491,6 +493,15 @@ class HistoryReadTest(unittest.TestCase):
         self.assertEqual([(side.side, side.account) for side in page.accounts], [("paxeer", EVE), ("layerx", ACCOUNT)])
         self.assertEqual([row.id for row in page.items], ["explorer:1", "2", "explorer:3", "4"])
         self.assertEqual(
+            [(row.tx_id, row.tx_hash) for row in page.items],
+            [
+                ("native_transfer-10-0", "0x" + "12" * 32),
+                ("asset_transfer-11-1", "0x" + "34" * 32),
+                ("native_transfer-10-0", "0x" + "12" * 32),
+                ("native_transfer-10-0", "0x" + "12" * 32),
+            ],
+        )
+        self.assertEqual(
             [(row.block_height, row.tx_index, row.log_index) for row in page.items],
             [(10, 0, 0), (11, 1, 1), (12, 2, 2), (13, 3, 3)],
         )
@@ -506,7 +517,8 @@ class HistoryReadTest(unittest.TestCase):
             counterparty=UNJOINED,
             asset=NATIVE,
             amount=7,
-            tx_id="0x" + "34" * 32,
+            tx_id="asset_transfer-11-1",
+            tx_hash="0x" + "34" * 32,
             ordinal=1,
             final=True,
             decoded={"transfer": {"amount": "7", "recipient": ACCOUNT}},
@@ -530,6 +542,15 @@ class HistoryReadTest(unittest.TestCase):
         self.assertIsNone(page.items[2].asset_metadata)
         self.assertIsNone(page.items[3].counterparty)
         self.assertEqual(page.next_cursor, document["next_cursor"])
+        missing_tx_hash = dict(first)
+        del missing_tx_hash["tx_hash"]
+        for refused_row in (missing_tx_hash, {**first, "tx_hash": "0x" + "1" * 63}):
+            with self.subTest(tx_hash=refused_row.get("tx_hash")):
+                with self.assertRaisesRegex(ValueError, "^invalid-history-transaction-hash$"):
+                    decode_unified_history_page({
+                        **document,
+                        "items": [refused_row, *items[1:]],
+                    })
         with self.assertRaisesRegex(ValueError, "^invalid-history-decimal$"):
             decode_unified_history_page({
                 **document,

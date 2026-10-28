@@ -114,6 +114,7 @@ class HistoryRow:
     asset: str
     amount: int
     tx_id: str
+    tx_hash: str
     ordinal: int
     final: bool
     decoded: object
@@ -122,7 +123,7 @@ class HistoryRow:
     tx_index: int
     log_index: int
     side: str | None
-    def __init__(self, id: int, height_or_seq: int, chain: str, kind: str, direction: str, account: str, counterparty: str | None, asset: str, amount: int, tx_id: str, ordinal: int, final: bool, decoded: object, asset_metadata: HistoryAssetMetadata | None, block_height: int, tx_index: int, log_index: int, side: str | None) -> None: ...
+    def __init__(self, id: int, height_or_seq: int, chain: str, kind: str, direction: str, account: str, counterparty: str | None, asset: str, amount: int, tx_id: str, tx_hash: str, ordinal: int, final: bool, decoded: object, asset_metadata: HistoryAssetMetadata | None, block_height: int, tx_index: int, log_index: int, side: str | None) -> None: ...
 
 class HistoryPage:
     account: str
