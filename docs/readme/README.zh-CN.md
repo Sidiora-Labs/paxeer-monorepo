@@ -50,7 +50,7 @@ Paxeer X 链在 Tendermint 共识之上运行 EVM 执行，并包含 `layerxcust
 
 ## 从源码构建
 
-Paxeer X 链节点使用 Go 1.25.6（`go.mod`）。LayerX 内核使用 C17（根目录 `Makefile` 中的 `-std=c17`）。agent、human 和 platform 工作区使用 Rust 1.91.1（`rust-toolchain.toml`）。`contracts/` 中的内核结算合约使用 Solidity 0.8.27（`foundry.toml`）。重放资格验证需要 GCC 13、Clang 18、Docker、amd64 musl 运行器，以及 AArch64 交叉编译器和 QEMU；参见 [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md)。
+Paxeer X 链节点使用 Go 1.25.8（`go.mod`）。LayerX 内核使用 C17（根目录 `Makefile` 中的 `-std=c17`）。agent、human 和 platform 工作区使用 Rust 1.91.1（`rust-toolchain.toml`）。`contracts/` 中的内核结算合约使用 Solidity 0.8.27（`foundry.toml`）。重放资格验证需要 GCC 13、Clang 18、Docker、amd64 musl 运行器，以及 AArch64 交叉编译器和 QEMU；参见 [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md)。
 
 LayerX 内核目标：
 

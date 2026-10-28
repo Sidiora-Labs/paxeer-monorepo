@@ -129,7 +129,8 @@ impl Store {
         );
         let mut aad = b"LXKP/state/v1\0".to_vec();
         aad.extend(config.provider.as_bytes());
-        aad.extend(config.network.to_be_bytes());
+        let network = u32::try_from(config.chain.chain_id).map_err(|_| "state chain id invalid")?;
+        aad.extend(network.to_be_bytes());
         let path = config.state.join("state.aead");
         let state = if path.try_exists().map_err(|_| "state lookup failed")? {
             let mut encrypted = protected(&path, MAX_STATE + 28, true)?;
@@ -151,7 +152,7 @@ impl Store {
             State {
                 version: 1,
                 provider: config.provider.clone(),
-                network: config.network,
+                network,
                 records: BTreeMap::new(),
             }
         };
@@ -497,7 +498,7 @@ impl Store {
 fn validate(state: &State, config: &Config) -> std::result::Result<(), String> {
     if state.version != 1
         || state.provider != config.provider
-        || state.network != config.network
+        || u64::from(state.network) != config.chain.chain_id
         || state.records.len() > 4096
     {
         return Err("state policy mismatch".into());

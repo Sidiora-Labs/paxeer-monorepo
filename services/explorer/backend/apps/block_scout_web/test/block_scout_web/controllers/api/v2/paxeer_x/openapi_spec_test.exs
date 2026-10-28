@@ -12,10 +12,10 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
 
   @paxeer_x_paths [
     "/v2/addresses/{address_hash_param}/unified",
-    "/v2/paxeer-x/anchors",
+    "/v2/paxeer-x/archive/anchors",
     "/v2/paxeer-x/capabilities",
-    "/v2/paxeer-x/receipts",
-    "/v2/paxeer-x/receipts/{id}",
+    "/v2/paxeer-x/archive/receipts",
+    "/v2/paxeer-x/archive/receipts/{id}",
     "/v2/transactions/{transaction_hash_param}/status"
   ]
 
@@ -68,8 +68,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject an anchors page that lost a field", %{conn: conn} do
       insert_anchor(3)
 
-      response = json_response(get(conn, "/api/v2/paxeer-x/anchors"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/anchors")
+      response = json_response(get(conn, "/api/v2/paxeer-x/archive/anchors"), 200)
+      {spec, schema} = declared_schema("/v2/paxeer-x/archive/anchors")
 
       assert_absent_rejected(response, schema, spec)
       assert_absent_rejected_in_list(response, "items", schema, spec)
@@ -85,8 +85,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject a receipts page that lost a field", %{conn: conn} do
       insert_receipt(4)
 
-      response = json_response(get(conn, "/api/v2/paxeer-x/receipts"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/receipts")
+      response = json_response(get(conn, "/api/v2/paxeer-x/archive/receipts"), 200)
+      {spec, schema} = declared_schema("/v2/paxeer-x/archive/receipts")
 
       assert_absent_rejected(response, schema, spec)
       assert_absent_rejected_in_list(response, "items", schema, spec)
@@ -95,8 +95,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     test "reject one receipt that lost a field", %{conn: conn} do
       insert_receipt(4)
 
-      response = json_response(get(conn, "/api/v2/paxeer-x/receipts/#{receipt_id(4)}"), 200)
-      {spec, schema} = declared_schema("/v2/paxeer-x/receipts/{id}")
+      response = json_response(get(conn, "/api/v2/paxeer-x/archive/receipts/#{receipt_id(4)}"), 200)
+      {spec, schema} = declared_schema("/v2/paxeer-x/archive/receipts/{id}")
 
       assert_absent_rejected(response, schema, spec)
     end
@@ -238,7 +238,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     }
 
     %Anchor{}
-    |> Anchor.changeset(attributes)
+    |> Ecto.Changeset.cast(attributes, Map.keys(attributes))
     |> Repo.insert!()
   end
 
@@ -259,7 +259,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.OpenApiSpecTest do
     }
 
     %Receipt{}
-    |> Receipt.changeset(attributes)
+    |> Ecto.Changeset.cast(attributes, Map.keys(attributes))
     |> Repo.insert!()
   end
 
