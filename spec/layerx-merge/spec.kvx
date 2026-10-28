@@ -185422,7 +185422,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1177.1]
 title = "Issue #1177: Issue #1177: Make the native step-up mismatch fixtures reach the step-up compare"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
