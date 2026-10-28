@@ -138446,7 +138446,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.1]
 title = "Read balances at the pending block through eth_getBalance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.1.1", "9.12.1", "9.1.8"]
@@ -138571,7 +138571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.5]
 title = "Build receipt proof bundles v2 from eth_getProof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.5.4", "9.4.2", "9.1.1", "9.1.8"]
