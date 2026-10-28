@@ -8640,6 +8640,14 @@ observed = "Attempts 9 to 12 each passed 254 lib tests and failed the same four 
 assumption = "Ruling: LXDC3 is canonical; task 18.1111.1 teaches the crate to disclose it and 9.1.8 requires it with the fixture unchanged. #1057's diagnosis is corrected."
 severity = "blocker"
 
+[finding.9.1.8.6]
+task = "9.1.8"
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs:773-778,1021-1026"
+symbol = "authenticate_cumulative_time_use"
+observed = "Attempt 13 (d7a7b70ed, base with 18.1111.1) passes 257 lib tests and fails only actual_native_batch_proves_time_count_and_exact_receipt_denomination with Activity: the registry is built from receipt.operation() (0 in the canonical credit.receipt), which ActivityType::new rejects as ZeroOrdinal (issue #1118)."
+assumption = "The receipt operation byte is the ledger operation, never the activity ordinal; do_8 derives the kind from the activity type field and the fixture stays canonical."
+severity = "blocker"
+
 [finding.18.801.1.1]
 task = "18.801.1"
 file = "services/wallet/gateway/src/precompiles.ts:32"
