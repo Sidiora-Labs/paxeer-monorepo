@@ -134419,7 +134419,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.31.1]
 title = "Run the ramp sandbox journey on transaction hashes and receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 12
 requires = ["8.30.2", "8.30.4"]
