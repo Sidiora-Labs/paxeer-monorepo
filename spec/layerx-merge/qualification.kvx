@@ -9835,3 +9835,11 @@ symbol = "native_provider_and_sdk_real_cluster"
 observed = "Attempt 5 (c67079b4a) built and passed every Go assertion; the Rust consumer failed at :584 expecting StepUpMismatch for a grant with expires_at_ms - 1, which validate_native_local_grant (attestor.rs:1912) refuses as InvalidEvidence before the step-up compare (signer.rs:994); the same mutation sits in native_send_purpose.rs:589 (gotcha 740)."
 assumption = "The validator is right; task 18.1177.1 (issue #1177) changes both fixtures to mutate owner_public_key and this task requires it."
 severity = "major"
+
+[finding.18.911.1.8]
+task = "18.911.1"
+file = "tests/programs/test_market_attestation.c:1101-1105"
+symbol = "main"
+observed = "Attempt 15 (54078c924) built and failed at the first market call of every model with -3 = STATUS_BOUNDS, before register(); independently, do_4 kept the model 1 and model 2 acceptances that register (lib.rs:309) and open (:343) refuse by design since 18.811.1 (finding 18.911.1.7)."
+assumption = "Ruling: the landed 18.811.1 behaviour is canonical; do_4 now retargets models 1 and 2 to the -2 registration refusal and moves admission_cases to a model 3 lease, and a new step names the -3 as a fixture-side host call before register()."
+severity = "major"
