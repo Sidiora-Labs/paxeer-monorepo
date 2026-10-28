@@ -172577,7 +172577,7 @@ qualification = "UNRUN"
 
 [task.18.890.1]
 title = "Issue #890: Point the payments and porting guides at the in-tree LXT-20 sources and pay5 fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -172876,7 +172876,7 @@ qualification = "UNRUN"
 
 [task.18.779.1]
 title = "Issue #779: Publish the paxd images for pushes that change only chain source"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1054.1"]
@@ -173389,7 +173389,7 @@ qualification = "UNRUN"
 
 [task.18.687.1]
 title = "Issue #687: Resubscribe a perps GraphQL stream after the gateway ends it with a recoverable loss error"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1052.1"]
@@ -177353,7 +177353,7 @@ qualification = "UNRUN"
 
 [task.18.789.1]
 title = "Issue #789: Validate the launchpad deadline and document every wallet environment variable"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1053.1"]
@@ -178055,7 +178055,7 @@ qualification = "UNRUN"
 
 [task.18.939.1]
 title = "Issue #939: Document the perpetuals precompile ABI served at 0x1015 and retire the layerxexchange section"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
