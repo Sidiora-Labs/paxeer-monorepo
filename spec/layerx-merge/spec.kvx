@@ -183904,7 +183904,7 @@ touches = ["modules/lxphost/host.go", "modules/lxphost/ctx.go", "modules/lxphost
 tests = ["modules/lxphost/host_test.go::TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
 planned_paths = []
 build_cmd = "go build ./modules/lxphost/..."
-verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestResolutionExecuteEntry|TestHostFeeRecordAbsentRefusesVersion)$'"
+verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestHostFeeRecordAbsentRefusesVersion)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
