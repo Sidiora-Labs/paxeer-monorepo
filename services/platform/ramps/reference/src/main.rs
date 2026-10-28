@@ -1,6 +1,6 @@
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
@@ -27,6 +27,7 @@ use layerx_ramp_toolkit::{
     RampOrder, EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use native_tls::{Identity, TlsAcceptor, TlsStream};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -157,6 +158,7 @@ struct State {
     layerx: LayerxClient,
     paxeer: PaxeerCustodyClient,
     paxeer_tracker_config: TrackerConfig,
+    pending_rebalances: Mutex<BTreeSet<[u8; 32]>>,
     registry: ModuleRegistry,
     worker_id: String,
     lease_seconds: u64,
@@ -287,6 +289,9 @@ fn run() -> Result<(), String> {
     validate_config(&config)?;
     let listener_mode = Arc::new(listener_config(&config)?);
     let state = Arc::new(build_state(&config)?);
+    if verified_recovery(&state).is_err() {
+        eprintln!("ramp journal recovery requires verified external settlement");
+    }
     let reconcile_state = Arc::clone(&state);
     let cadence = Duration::from_secs(config.reconcile_seconds);
     thread::Builder::new()
@@ -550,6 +555,7 @@ fn build_state(config: &Config) -> Result<State, String> {
         layerx,
         paxeer,
         paxeer_tracker_config,
+        pending_rebalances: Mutex::new(BTreeSet::new()),
         registry,
         worker_id: config.worker_id.clone(),
         lease_seconds: config.lease_seconds,
@@ -560,9 +566,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         operator_control_token,
         source_settlement,
     };
-    if verified_recovery(&state).is_err() {
-        eprintln!("ramp journal recovery requires verified external settlement");
-    }
     Ok(state)
 }
 
@@ -1121,6 +1124,20 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
     }
+    let idempotency_key = match &action {
+        Rebalance::Submit {
+            idempotency_key, ..
+        }
+        | Rebalance::Poll {
+            idempotency_key, ..
+        }
+        | Rebalance::Reconcile { idempotency_key } => *idempotency_key,
+    };
+    state
+        .pending_rebalances
+        .lock()
+        .map_err(|_| error(503, "service_unavailable"))?
+        .insert(idempotency_key);
     let mut rebalancer = InventoryRebalancer {
         journal: &mut journal,
         custody: &state.paxeer,
@@ -1238,6 +1255,7 @@ fn require_operator(state: &State, request: &Request) -> Result<(), Response> {
 
 fn verified_recovery(state: &State) -> Result<(), RampError> {
     let mut journal = state.journal.lock().map_err(|_| RampError::Journal)?;
+    let mut pending = BTreeSet::new();
     journal.recover_verified(|projection| {
         for record in projection.source_settlements() {
             let snapshot = projection
@@ -1255,6 +1273,12 @@ fn verified_recovery(state: &State) -> Result<(), RampError> {
                 .service
                 .verify_retained(&snapshot.order, record, &trace)?;
         }
+        pending.extend(
+            projection
+                .paxeer_transfers()
+                .filter(|snapshot| snapshot.rung != Some(Rung::Committed))
+                .map(|snapshot| snapshot.idempotency_key),
+        );
         layerx_ramp_toolkit::clients::verify_recovery_settlement(
             projection,
             &state.operator,
@@ -1263,7 +1287,12 @@ fn verified_recovery(state: &State) -> Result<(), RampError> {
             &state.paxeer,
             &state.paxeer_tracker_config,
         )
-    })
+    })?;
+    *state
+        .pending_rebalances
+        .lock()
+        .map_err(|_| RampError::Journal)? = pending;
+    Ok(())
 }
 
 fn engine<'a>(state: &'a State, journal: &'a mut Journal) -> RampEngine<'a> {
@@ -1287,6 +1316,35 @@ fn reconcile_loop(state: &State, cadence: Duration) {
         if !journal.health().ready {
             continue;
         }
+        let Ok(mut pending) = state.pending_rebalances.lock() else {
+            continue;
+        };
+        pending.retain(|idempotency_key| {
+            let Some(snapshot) = journal.paxeer(idempotency_key).cloned() else {
+                return false;
+            };
+            if snapshot.rung == Some(Rung::Committed) {
+                return false;
+            }
+            let mut rebalancer = InventoryRebalancer {
+                journal: &mut journal,
+                custody: &state.paxeer,
+                layerx: &state.layerx,
+            };
+            let result = match (snapshot.operation_id.as_deref(), snapshot.transaction_hash) {
+                (Some(operation), Some(transaction)) => rebalancer
+                    .poll(*idempotency_key, operation, transaction, now())
+                    .map(|_| ()),
+                _ => rebalancer.reconcile(*idempotency_key, now()).map(|_| ()),
+            };
+            if result.is_err() {
+                eprintln!("ramp custody reconciliation retained unresolved state");
+            }
+            journal
+                .paxeer(idempotency_key)
+                .is_some_and(|snapshot| snapshot.rung != Some(Rung::Committed))
+        });
+        drop(pending);
         let due = journal.orders();
         for snapshot in due {
             let digest = snapshot.order.order_digest;
@@ -1412,4 +1470,30 @@ mod boundary_tests {
         drop(replacement);
         assert_eq!(gate.active.load(Ordering::Acquire), 0);
     }
+}
+
+#[cfg(test)]
+pub(crate) fn rebalance_route_test_response(
+    config: serde_json::Value,
+    seed: impl FnOnce(&mut Journal),
+    path: &str,
+) -> (u16, serde_json::Value) {
+    let config: Config = serde_json::from_value(config).expect("route test configuration");
+    validate_config(&config).expect("valid route test configuration");
+    let state = build_state(&config).expect("real route state");
+    seed(&mut state.journal.lock().expect("journal lock"));
+    let request = Request {
+        method: "GET".to_owned(),
+        path: path.to_owned(),
+        headers: BTreeMap::from([(
+            "authorization".to_owned(),
+            format!("Bearer {}", state.operator_control_token),
+        )]),
+        body: Vec::new(),
+    };
+    let response = route(&state, &request).unwrap_or_else(|response| response);
+    (
+        response.status,
+        serde_json::from_slice(&response.body).expect("route JSON"),
+    )
 }
