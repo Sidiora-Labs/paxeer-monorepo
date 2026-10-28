@@ -138478,7 +138478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.2]
 title = "Page account history by block-position cursor through px_getHistory"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.1.1", "9.12.1", "9.1.8"]
