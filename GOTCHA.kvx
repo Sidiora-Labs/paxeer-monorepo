@@ -10191,3 +10191,12 @@ detail = "09f9d9239 raised go.mod to go 1.25.8; every go command on an installed
 title = "go mod download needs a go.mod hash for every version in the module graph"
 detail = "go mod download (and go list -m all) read the go.mod of every module version in the graph and refuse any whose /go.mod hash is missing from go.sum, even versions that provide no package to the build (golang.org/x/net for #1141, golang.org/x/term v0.15.0 for #1152). go build alone never notices; add the lines with go mod download <module>@<version>."
 
+[gotcha.2085]
+title = "go list -m all reports one missing go.sum hash at a time"
+detail = "Read-only module mode stops at the first module version whose /go.mod hash is absent from go.sum; after adding it the next gap appears (x/term v0.15.0, then x/net 20211112 in the chain repository). Iterate go mod download <module>@<version> until go list -m all exits 0 before declaring the graph complete."
+
+
+[gotcha.2086]
+title = "An all-targets daemon test build compiles every stale test file"
+detail = "cargo build -p layerx-agentd --tests and cargo test --no-run compile tests/checkpoint.rs, which still built the pre-9.5.5 ProofBundleRequest after 2666a01d5; a task whose gate needs the all-targets build (#1131) fails on a test file it does not own. Open the test port as its own task and gate on it."
+
