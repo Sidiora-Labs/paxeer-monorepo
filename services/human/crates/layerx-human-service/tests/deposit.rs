@@ -717,7 +717,6 @@ impl RealCreditAgent {
         canonical[signature_offset..]
             .copy_from_slice(&signer.sign(&<[u8; 32]>::from(digest.finalize())).to_bytes());
         Ok(ReceiptMaterial {
-            canonical_bytes: canonical,
             authorised_batch: AuthorizedBatch::new(
                 hex_array(CHECKPOINT_ID_HEX),
                 ASSET,
@@ -726,6 +725,11 @@ impl RealCreditAgent {
                 signer.verifying_key().to_bytes(),
             ),
             verification_level: layerx_types::verify::VerificationLevel::SEQUENCER_SIGNED,
+            receipt_hash: Sha256::digest(&canonical).into(),
+            canonical_bytes: canonical,
+            tx_hash: activity_id,
+            block_height: 9,
+            rung: layerx_types::rung::Rung::Receipted,
         })
     }
 

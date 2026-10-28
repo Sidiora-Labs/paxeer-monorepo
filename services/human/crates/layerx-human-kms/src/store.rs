@@ -11,8 +11,6 @@ use std::path::PathBuf;
 use zeroize::{Zeroize, Zeroizing};
 
 const MAX_STATE: usize = 8 * 1024 * 1024;
-#[path = "settlement_recipient.rs"]
-mod settlement_recipient;
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Record {
@@ -288,7 +286,6 @@ impl Store {
             Operation::AuthorizeSend => {
                 return self.authorize_send(request, signing_digest.ok_or(Error::Refused)?)
             }
-            Operation::AuthorizeRecipient => return self.authorize_recipient(request),
             Operation::EvmWallet | Operation::Evm => return self.evm(request, now),
             Operation::ExportPrimary => return self.export_primary(request),
             Operation::Describe

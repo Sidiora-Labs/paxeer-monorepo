@@ -78,13 +78,13 @@ export async function sendWithApproval(
 
 export function LaunchpadActions({
   account,
-  quoteDenom,
+  quoteSymbol,
   markets,
   feeStrategies,
 }: Readonly<{
   account: string | undefined;
-  quoteDenom: string;
-  markets: readonly Readonly<{ token: string; pool: string; label: string; paused: boolean }>[];
+  quoteSymbol: string;
+  markets: readonly Readonly<{ token: string; pool: string; label: string; paused: boolean; currentFeeBps: bigint }>[];
   feeStrategies: readonly string[];
 }>) {
   const router = useRouter();
@@ -114,8 +114,9 @@ export function LaunchpadActions({
       : undefined;
   const quote = currentPreview?.answer.ok === true ? currentPreview.answer : undefined;
   const minOut = quote === undefined || slippage === undefined ? undefined : (BigInt(quote.amountOut) * (BASIS_POINTS - slippage)) / BASIS_POINTS;
-  const payDenom = side === "buy" ? quoteDenom : "token";
-  const receiveDenom = side === "buy" ? "token" : quoteDenom;
+  const payDenom = side === "buy" ? quoteSymbol : "token";
+  const receiveDenom = side === "buy" ? "token" : quoteSymbol;
+  const selectedMarket = markets.find((market) => market.token === token);
 
   const previewQuote = () => {
     if (!validTrade) {
@@ -129,7 +130,7 @@ export function LaunchpadActions({
   };
 
   const trade = () => {
-    const pool = markets.find((market) => market.token === token)?.pool;
+    const pool = selectedMarket?.pool;
     if (account === undefined || pool === undefined || quote === undefined || minOut === undefined || amountIn === undefined) {
       return;
     }
@@ -235,10 +236,10 @@ export function LaunchpadActions({
             {currentPreview?.answer.ok === false ? (
               <InlineNotice tone="warning">{currentPreview.answer.detail}</InlineNotice>
             ) : null}
-            {quote === undefined || minOut === undefined ? null : (
+            {quote === undefined || minOut === undefined || selectedMarket === undefined ? null : (
               <div className="flex flex-wrap gap-6">
                 <LabelValue label={`You receive (${receiveDenom})`} value={formatUnits(BigInt(quote.amountOut), LAUNCHPAD_DECIMALS)} />
-                <LabelValue label="Fee" value={formatUnits(BigInt(quote.feeAmount), LAUNCHPAD_DECIMALS)} />
+                <LabelValue label="Fee" value={`${formatUnits(BigInt(quote.feeAmount), LAUNCHPAD_DECIMALS)} (${selectedMarket.currentFeeBps.toString()} bps)`} />
                 <LabelValue label="Price impact" value={`${quote.priceImpactBps} bps`} />
                 <LabelValue label="Minimum received" value={formatUnits(minOut, LAUNCHPAD_DECIMALS)} />
               </div>
@@ -289,7 +290,7 @@ export function LaunchpadActions({
             Create market
           </KitButton>
           {approving === "create" ? (
-            <InlineNotice>{`Approving exactly the creation fee in ${quoteDenom} for the launchpad router; the market is created once it confirms.`}</InlineNotice>
+            <InlineNotice>{`Approving exactly the creation fee in ${quoteSymbol} for the launchpad router; the market is created once it confirms.`}</InlineNotice>
           ) : null}
           <SendOutcome outcome={createOutcome} />
         </div>

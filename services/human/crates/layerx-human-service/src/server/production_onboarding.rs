@@ -316,6 +316,13 @@ impl ProductionComponents {
             if activity.network_id() != self.network_id {
                 return Err(ApiFailure::forbidden());
             }
+            if material.tx_hash != activity_id
+                || material.receipt_hash
+                    != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+                || material.rung < layerx_types::rung::Rung::Receipted
+            {
+                return Err(ApiFailure::upstream_degraded());
+            }
             let evidence = crate::agents::ProtocolEvidence {
                 actor: self.agent_actor.as_str().as_bytes().to_vec(),
                 owner_public_key: key.public_key,

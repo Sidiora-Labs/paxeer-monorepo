@@ -143850,7 +143850,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.7]
 title = "Validate KMS sign requests as EIP-1559 transactions instead of kernel activities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.11.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -144746,8 +144746,11 @@ do_2 = "Delete `IntentKind::settled_on_paxeer` (services/human/crates/layerx-int
 do_3 = "In `compile` (services/human/crates/layerx-intents/src/compile.rs:134) delete the `ExchangeOrder`, `ExchangeCancel`, `ExchangeSettle` arms at services/human/crates/layerx-intents/src/compile.rs:604-606, the `ExchangeMarginDeposit` and `ExchangeMarginWithdraw` alternatives at services/human/crates/layerx-intents/src/compile.rs:558 and :575, and the settled-on-Paxeer refusal arm at services/human/crates/layerx-intents/src/compile.rs:607-620."
 do_4 = "In services/human/crates/layerx-intents/src/disclosure.rs delete the exchange alternatives at services/human/crates/layerx-intents/src/disclosure.rs:104, :434, :469, :478-490, :541, :789, :793 and the `DisclosureCheckError::SettledOnPaxeer` arm at services/human/crates/layerx-intents/src/disclosure.rs:796-804."
 do_5 = "Create services/human/crates/layerx-intents/tests/live_kinds.rs (planned) compiling one intent of every remaining `IntentKind` variant against the registry of services/human/crates/layerx-intents/tests/compile.rs:69 and asserting each compiled module is Governance, Asset, Budget, Bridge or Perps and never a settled-on-Paxeer refusal."
+do_6 = "Delete services/human/crates/layerx-intents/src/precompile.rs (1,226 lines: `EXCHANGE_PRECOMPILE` at services/human/crates/layerx-intents/src/precompile.rs:20, `PrecompileEventKind` at :28, `PrecompileEvent::decode` at :521, `route` at :1131 and `route_event` at :1142) in the same change as the thirteen variants: the variants wrap `crate::precompile` types and precompile.rs constructs the variants (fifteen E0599 sites in attempt 2), so neither deletion builds without the other."
+do_7 = "Delete `pub mod precompile;` at services/human/crates/layerx-intents/src/lib.rs:13; `keccak256` stays reachable through `mod keccak` (services/human/crates/layerx-intents/src/lib.rs:8), not through `precompile`."
+do_8 = "Delete services/human/crates/layerx-intents/tests/precompile_router.rs (1,359 lines, includes the exchange, bridge and launchpad ABI files at services/human/crates/layerx-intents/tests/precompile_router.rs:27-29); no crate outside layerx-intents names `layerx_intents::precompile`."
 symbols = ["IntentKind", "IntentKind::module", "IntentKind::perps_payload", "compile", "DisclosureCheck::verify", "every_remaining_intent_kind_compiles", "perps_intent_still_compiles_to_perps_module"]
-touches = ["services/human/crates/layerx-intents/src/vocabulary.rs", "services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/live_kinds.rs"]
+touches = ["services/human/crates/layerx-intents/src/vocabulary.rs", "services/human/crates/layerx-intents/src/compile.rs", "services/human/crates/layerx-intents/src/disclosure.rs", "services/human/crates/layerx-intents/tests/live_kinds.rs", "services/human/crates/layerx-intents/src/precompile.rs", "services/human/crates/layerx-intents/src/lib.rs", "services/human/crates/layerx-intents/tests/precompile_router.rs"]
 tests = ["services/human/crates/layerx-intents/tests/live_kinds.rs::every_remaining_intent_kind_compiles", "services/human/crates/layerx-intents/tests/live_kinds.rs::perps_intent_still_compiles_to_perps_module"]
 planned_paths = ["services/human/crates/layerx-intents/tests/live_kinds.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
@@ -144755,7 +144758,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Revert vocabulary.rs, compile.rs and disclosure.rs and delete tests/live_kinds.rs."
+rollback = "Revert vocabulary.rs, compile.rs, disclosure.rs and lib.rs, restore precompile.rs and tests/precompile_router.rs from the pinned revision, and delete tests/live_kinds.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -144765,7 +144768,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.10.21.2]
-title = "Delete the layerx-intents precompile event router"
+title = "Prove the layerx-intents precompile event router is retired"
 status = "pending"
 mode = "BUILD"
 wave = 9
@@ -144774,13 +144777,10 @@ reqs = ["10242.1"]
 capabilities = ["10.21.2"]
 interfaces = ["interface.10.rs-intents-precompile-exchange-precompile", "interface.10.rs-intents-precompile-bridge-precompile", "interface.10.rs-intents-precompile-launchpad-precompile", "interface.10.rs-intents-precompile-precompile-event-kind", "interface.10.rs-intents-precompile-precompile-event-kind-all", "interface.10.rs-intents-precompile-precompile-event-kind-precompile", "interface.10.rs-intents-precompile-precompile-event-kind-signature", "interface.10.rs-intents-precompile-precompile-event-kind-topic0", "interface.10.rs-intents-precompile-precompile-event-kind-identify", "interface.10.rs-intents-precompile-evm-log", "interface.10.rs-intents-precompile-margin-deposited", "interface.10.rs-intents-precompile-order-placed", "interface.10.rs-intents-precompile-config-updated", "interface.10.rs-intents-precompile-fee-distributed", "interface.10.rs-intents-precompile-fee-flow", "interface.10.rs-intents-precompile-fee-strategy-changed", "interface.10.rs-intents-precompile-market-created", "interface.10.rs-intents-precompile-nft-mint", "interface.10.rs-intents-precompile-nft-transfer", "interface.10.rs-intents-precompile-pool-registered", "interface.10.rs-intents-precompile-pool-state-updated", "interface.10.rs-intents-precompile-router-trade", "interface.10.rs-intents-precompile-swap", "interface.10.rs-intents-precompile-token-deployed", "interface.10.rs-intents-precompile-precompile-event", "interface.10.rs-intents-precompile-event-decode-error", "interface.10.rs-intents-precompile-uint256-to-u128", "interface.10.rs-intents-precompile-precompile-event-decode", "interface.10.rs-intents-precompile-exchange-order", "interface.10.rs-intents-precompile-exchange-order-new", "interface.10.rs-intents-precompile-exchange-order-event", "interface.10.rs-intents-precompile-exchange-order-payload", "interface.10.rs-intents-precompile-route-binding", "interface.10.rs-intents-precompile-route-error", "interface.10.rs-intents-precompile-route", "interface.10.rs-intents-precompile-route-event", "interface.10.rs-intents-lib-precompile-l13-j46", "interface.10.rs-intents-precompile-keccak256-l5-j46", "interface.10.rs-intents-precompile-margin-withdrawal-requested-l172-j46", "interface.10.rs-intents-precompile-order-cancel-requested-l182-j46", "interface.10.rs-intents-precompile-settlement-requested-l202-j46", "interface.10.rs-intents-precompile-bridge-in-l210-j46", "interface.10.rs-intents-precompile-bridge-out-l221-j46", "interface.10.rs-intents-precompile-fn-l544-j46", "interface.10.rs-intents-precompile-new-for-abi-l892-j46", "interface.10.rs-intents-precompile-exchange-cancel-l949-j46", "interface.10.rs-intents-precompile-new-l960-j46", "interface.10.rs-intents-precompile-fn-l971-j46", "interface.10.rs-intents-precompile-fn-l976-j46", "interface.10.rs-intents-precompile-exchange-settle-l983-j46", "interface.10.rs-intents-precompile-new-l994-j46", "interface.10.rs-intents-precompile-fn-l1005-j46", "interface.10.rs-intents-precompile-fn-l1010-j46", "interface.10.rs-intents-precompile-exchange-margin-deposit-l1018-j46", "interface.10.rs-intents-precompile-new-l1028-j46", "interface.10.rs-intents-precompile-fn-l1046-j46", "interface.10.rs-intents-precompile-fn-l1051-j46", "interface.10.rs-intents-precompile-exchange-margin-withdraw-l1059-j46", "interface.10.rs-intents-precompile-new-l1069-j46", "interface.10.rs-intents-precompile-fn-l1086-j46", "interface.10.rs-intents-precompile-fn-l1091-j46"]
 wiring = ["wiring.J46.7"]
-do_1 = "Delete services/human/crates/layerx-intents/src/precompile.rs (1,226 lines: `EXCHANGE_PRECOMPILE` at services/human/crates/layerx-intents/src/precompile.rs:20, `PrecompileEventKind` at :28, `PrecompileEvent::decode` at :521, `route` at :1131 and `route_event` at :1142)."
-do_2 = "Delete `pub mod precompile;` at services/human/crates/layerx-intents/src/lib.rs:13."
-do_3 = "Delete services/human/crates/layerx-intents/tests/precompile_router.rs (1,359 lines, includes the exchange, bridge and launchpad ABI files at services/human/crates/layerx-intents/tests/precompile_router.rs:27-29)."
-do_4 = "Keep services/human/crates/layerx-intents/src/keccak.rs; `keccak256` stays reachable through the crate root re-export, not through `precompile` (services/human/crates/layerx-intents/src/precompile.rs:5)."
-do_5 = "Create services/human/crates/layerx-intents/tests/router_retired.rs (planned) asserting that `layerx_intents::fuzz_targets::INTENT_PARSING_AND_COMPILATION` (services/human/crates/layerx-intents/src/lib.rs:30) still names the single committed fuzz surface and that `inspect_intent` refuses an EVM log body with `RejectReason::Malformed`."
+do_1 = "Keep services/human/crates/layerx-intents/src/keccak.rs; `keccak256` stays reachable through `mod keccak` at services/human/crates/layerx-intents/src/lib.rs:8. precompile.rs, its module line and tests/precompile_router.rs are deleted by 10.21.1 together with the variants that wrapped its types."
+do_2 = "Create services/human/crates/layerx-intents/tests/router_retired.rs (planned) asserting that `layerx_intents::fuzz_targets::INTENT_PARSING_AND_COMPILATION` (services/human/crates/layerx-intents/src/lib.rs:30) still names the single committed fuzz surface and that `inspect_intent` refuses an EVM log body with `RejectReason::Malformed`."
 symbols = ["inspect_intent", "evm_log_bytes_are_not_an_intent"]
-touches = ["services/human/crates/layerx-intents/src/precompile.rs", "services/human/crates/layerx-intents/src/lib.rs", "services/human/crates/layerx-intents/tests/precompile_router.rs", "services/human/crates/layerx-intents/tests/router_retired.rs"]
+touches = ["services/human/crates/layerx-intents/tests/router_retired.rs"]
 tests = ["services/human/crates/layerx-intents/tests/router_retired.rs::evm_log_bytes_are_not_an_intent"]
 planned_paths = ["services/human/crates/layerx-intents/tests/router_retired.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-intents --tests"
@@ -144788,7 +144788,7 @@ verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p l
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
-rollback = "Restore precompile.rs, the lib.rs module line and tests/precompile_router.rs from the pinned revision."
+rollback = "Delete tests/router_retired.rs."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
@@ -145146,7 +145146,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.5]
 title = "Add the cargo metadata harness to the human test-support crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -145861,19 +145861,18 @@ title = "Delete the explorer index freshness and mirror reports"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1"]
+requires = ["10.27.1", "10.25.5", "9.1.8", "18.1119.1", "18.1153.1"]
 reqs = ["10276.1"]
 capabilities = ["10.27.6"]
 interfaces = ["interface.10.rs-explorer-index-mirror-mirror-receipt-report-l13-j46", "interface.10.rs-explorer-index-mirror-mirror-state-report-l22-j46", "interface.10.rs-explorer-index-mirror-explorer-mirror-error-l30-j46", "interface.10.rs-explorer-index-mirror-verify-mirrored-receipt-l51-j46", "interface.10.rs-explorer-index-mirror-verify-mirrored-state-l79-j46", "interface.10.rs-explorer-index-freshness-freshness-l3-j46", "interface.10.rs-explorer-index-freshness-fn-l14-j46", "interface.10.rs-explorer-index-freshness-is-current-l23-j46", "interface.10.rs-explorer-index-freshness-indexed-l31-j46"]
 fulfils = ["wiring.J44.16"]
-do_1 = "Delete services/human/crates/layerx-explorer-index/src/freshness.rs:1-34."
-do_2 = "Delete services/human/crates/layerx-explorer-index/src/mirror.rs:1-105."
-do_3 = "Delete services/human/crates/layerx-explorer-index/tests/rebuild.rs:1-509."
-do_4 = "`Freshness` (services/human/crates/layerx-explorer-index/src/freshness.rs:3) and `MirrorReceiptReport` (services/human/crates/layerx-explorer-index/src/mirror.rs:13) report kernel mirror state; services/human/crates/layerx-explorer-index/tests/rebuild.rs:13 reads the retired checkpoint types (wiring.J44.16)."
-do_5 = "Read the workspace through `human_workspace_metadata` and `human_sources_containing` of task 10.25.5 at services/human/crates/layerx-human-test-support/src/lib.rs (planned)."
-do_6 = "Create services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs (planned) asserting the acceptance of this task with `std::path::Path::exists` and the two helpers."
+do_1 = "Delete services/human/crates/layerx-explorer-index/src/freshness.rs:1-34; src/mirror.rs was already deleted by 18.1153.1 (issue #1153)."
+do_2 = "Delete services/human/crates/layerx-explorer-index/tests/rebuild.rs:1-509."
+do_3 = "`Freshness` (services/human/crates/layerx-explorer-index/src/freshness.rs:3) reports kernel mirror state; services/human/crates/layerx-explorer-index/tests/rebuild.rs:13 reads the retired checkpoint types (wiring.J44.16)."
+do_4 = "Read the workspace through `human_workspace_metadata` and `human_sources_containing` of task 10.25.5 at services/human/crates/layerx-human-test-support/src/lib.rs (planned)."
+do_5 = "Create services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs (planned) asserting the acceptance of this task with `std::path::Path::exists` and the two helpers."
 symbols = ["human_workspace_metadata", "human_sources_containing", "retired_explorer_index_mirror_files_and_references_are_gone"]
-touches = ["services/human/crates/layerx-explorer-index/src/freshness.rs", "services/human/crates/layerx-explorer-index/src/mirror.rs", "services/human/crates/layerx-explorer-index/tests/rebuild.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
+touches = ["services/human/crates/layerx-explorer-index/src/freshness.rs", "services/human/crates/layerx-explorer-index/tests/rebuild.rs", "services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
 tests = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs::retired_explorer_index_mirror_files_and_references_are_gone"]
 planned_paths = ["services/human/crates/layerx-human-test-support/tests/retired_explorer_index_mirror.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-test-support --tests"
@@ -146213,7 +146212,7 @@ title = "Migrate the layerx-explorer-index callers of wiring.J44.21"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["10.0.2", "9.1.8", "18.1119.1"]
+requires = ["10.0.2", "9.1.8", "18.1119.1", "18.1153.1"]
 reqs = ["10941.1"]
 capabilities = ["10.98.1"]
 interfaces = []
@@ -146623,7 +146622,7 @@ title = "Migrate the layerx-intents callers of wiring.J44.25 (wave 3)"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1"]
+requires = ["10.0.2", "9.1.7", "9.1.8", "18.1119.1", "18.1153.1"]
 reqs = ["10953.1"]
 capabilities = ["10.98.13"]
 interfaces = []
@@ -153601,7 +153600,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.2]
 title = "Decode the optional transaction hash of journey evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 10
 requires = ["12.29.1"]
@@ -172354,7 +172353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -172554,7 +172553,7 @@ title = "Issue #849: Build the layerx chain image with its native-library Rust s
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1106.1", "18.1141.1"]
+requires = ["18.1106.1", "18.1141.1", "18.1152.1"]
 reqs = ["18849.1"]
 capabilities = []
 interfaces = []
@@ -176979,7 +176978,7 @@ title = "Issue #869: Build the layerx image and pin the paxd-node runtime to Ubu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1116.1", "18.1106.1", "18.1141.1"]
+requires = ["18.1116.1", "18.1106.1", "18.1141.1", "18.1152.1"]
 reqs = ["18869.1", "18869.2"]
 capabilities = []
 interfaces = []
@@ -178981,7 +178980,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179792,6 +179791,14 @@ ac_1 = "cargo test -p layerx-agentd --test approval_events passes: the restore-a
 [req.181151]
 title = "The wallet identity end-to-end test starts its attestor nodes with the type the attestor admits"
 ac_1 = "cargo test -p layerx-human-service --test wallet_identity_e2e passes: both attestor nodes start with ATTESTOR_ACTIVITY_TYPES holding the asset send alone and the kernel send is signed through them to a verified receipt."
+
+[req.181152]
+title = "The root go.sum carries every go.mod hash the module graph needs, including golang.org/x/term v0.15.0"
+ac_1 = "GOFLAGS=-mod=readonly go mod download at the repository root exits 0, so the builder stage of docker/layerx/Dockerfile passes its go mod download step."
+
+[req.181153]
+title = "layerx-explorer-index builds and its unit tests pass without the retired mirror report"
+ac_1 = "cargo build --locked -p layerx-explorer-index --tests and cargo test --lib pass at head because src/mirror.rs and its module line are gone and nothing else references them."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180872,6 +180879,22 @@ scenario = "Given the module registry with asset, governance and bridge registra
 contract = "contracts/services.md#human-service"
 qualification = "UNRUN"
 test = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"
+
+[acceptance.18.1152.1]
+feature = "18"
+req = "181152.1"
+scenario = "Given the root go.mod and a go.sum with the golang.org/x/term v0.15.0 lines added, when go mod download runs in read-only module mode, then it exits 0 without reporting a missing go.sum entry."
+contract = "contracts/tools-ops.md#wiring-integration"
+qualification = "UNRUN"
+test = "go.sum (go mod download in read-only module mode)"
+
+[acceptance.18.1153.1]
+feature = "18"
+req = "181153.1"
+scenario = "Given layerx-mirror without SignedHeaderTrust, MirrorVerifier::from_source, BatchIncluded and StateProven, when layerx-explorer-index builds with its tests and runs its unit tests, then both complete with exit 0."
+contract = "contracts/services.md#human-service"
+qualification = "UNRUN"
+test = "services/human/crates/layerx-explorer-index/src/lib.rs (unit tests)"
 
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
@@ -184307,7 +184330,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1143.1]
 title = "Issue #1143: Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184571,6 +184594,65 @@ max_repair_cycles = 2
 time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1152.1]
+title = "Issue #1152: Add the golang.org/x/term v0.15.0 go.sum lines the module graph needs so the chain image's go mod download completes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181152.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add to the root go.sum the two lines for golang.org/x/term v0.15.0 (the module hash and the /go.mod hash) by running go mod download golang.org/x/term@v0.15.0 at the repository root, keeping every other go.sum line as it is; the root go.sum carries golang.org/x/term v0.10.0 through v0.12.0 and v0.17.0 upward (go.sum:2526-2530) but not v0.15.0, which a dependency's go.mod names and docker/layerx/Dockerfile:66 (go mod download without arguments) therefore refuses with a missing go.sum entry."
+do_2 = "Change no go.mod line and no source file; the gate loads the whole module graph in read-only module mode (go list -m all) and runs the same go mod download the chain image runs."
+symbols = []
+touches = ["go.sum"]
+tests = []
+planned_paths = []
+build_cmd = "GOFLAGS=-mod=readonly go list -m all > /dev/null"
+verify_cmd = "GOFLAGS=-mod=readonly go mod download"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert go.sum; go mod download returns to refusing the missing golang.org/x/term v0.15.0 go.mod hash."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation of an existing one."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1153.1]
+title = "Issue #1153: Delete the layerx-explorer-index mirror report that still builds on the archive types layerx-mirror no longer has"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181153.1"]
+capabilities = []
+interfaces = []
+do_1 = "Delete services/human/crates/layerx-explorer-index/src/mirror.rs (1-105): its MirrorReceiptReport imports layerx_mirror::SignedHeaderTrust (:6) and calls MirrorVerifier::from_source and the BatchIncluded and StateProven evidence levels, all removed from layerx-mirror by edd77cf4a (task 11.26.4), so every build of the crate fails with E0432 and E0599; this is the deletion task 10.27.6 planned for the module, brought forward."
+do_2 = "Delete the `pub mod mirror;` line at services/human/crates/layerx-explorer-index/src/lib.rs:4; no other file or test in the crate or the workspace references the module."
+do_3 = "Change nothing else: freshness.rs, tests/rebuild.rs and the remaining modules stay as they are for 10.27.6."
+symbols = []
+touches = ["services/human/crates/layerx-explorer-index/src/mirror.rs", "services/human/crates/layerx-explorer-index/src/lib.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-explorer-index --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-explorer-index --lib"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Restore src/mirror.rs and the module line from the pinned revision; the crate returns to failing every build on the removed layerx-mirror types."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation of an existing one."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.18.1001.2]
