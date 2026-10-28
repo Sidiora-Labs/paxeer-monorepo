@@ -9236,12 +9236,12 @@ observed = "Attempt 4 (97839edf9) removed authorised_batch from ReceiptMaterial 
 assumption = "do_2 now keeps the existing fields and consumers and adds the four beside them; 10.13.1 moves the consumers."
 severity = "major"
 
-[finding.18.1132.1.1]
+[finding.18.1132.1.2]
 task = "18.1132.1"
 file = "services/human/crates/layerx-human-service/tests/reclaim.rs:103"
 symbol = "ReclaimAgentContext"
 observed = "Attempt 4 (78dff1938) built --tests and failed on the pre-existing account_sequence field 0a78c10ba (10.13.7) renamed to nonce (issue #1142)."
-assumption = "Task 18.1142.1 repairs the test; 18.1132.1 requires it."
+assumption = "build_cmd is narrowed to the evidence_node target, so the reclaim repair (18.1142.1) and the ureq dev-dependency (18.1147.1) no longer gate this task; 18.1119.1 do_7 already ports the shared test support."
 severity = "major"
 
 [finding.18.1131.1.2]
@@ -9268,3 +9268,66 @@ observed = "The done revision 07d11e56d added the replay mutex and a test but no
 assumption = "Issue #1144 and task 18.1144.1 carry the missing step; the done record stands as its gate ran."
 severity = "major"
 
+[finding.10.0.2.1]
+task = "10.0.2"
+file = "services/human/tools/api-gen/src/lib.rs:33"
+symbol = "Operation::retired"
+observed = "Attempt 5 (55f31f1d5) passed the build and all three retired_operations tests; cg spec done refused because the code graph holds two Operation::retired definitions (api-gen lib.rs:33 and the service's)."
+assumption = "symbols now lists only ApiFailure::operation_retired and Router::serve_one, which the task alone defines."
+severity = "minor"
+
+[finding.10.2.2.2]
+task = "10.2.2"
+file = "services/agent/crates/layerx-types/src/rung.rs:11"
+symbol = "Rung"
+observed = "Attempt 7 (03e3450c2) passed the build and both approval_rungs tests; cg spec done could not resolve Rung, a type another crate defines."
+assumption = "symbols now lists VerifiedBudgetAfter and DisclosureRenderer::render only."
+severity = "minor"
+
+[finding.17.5.1.3]
+task = "17.5.1"
+file = "services/agent/crates/layerx-mcp/src/tools/read.rs:193"
+symbol = "CheckpointValue"
+observed = "Attempt 5 (4bca0e4b7) passed the build; the wave-0 gate script's agent build fails on value.0 of the named-field CheckpointValue (layerx-agent-api src/read.rs:207), the site 18.1121.1 do_1 ports; 17.5.2 attempt 5 (2c62ad996) failed the same way."
+assumption = "17.5.1 through 17.5.7 require 18.1121.1."
+severity = "major"
+
+[finding.10.3.1.1]
+task = "10.3.1"
+file = "services/human/crates/layerx-human-service/tests/export.rs:308"
+symbol = "build"
+observed = "tests/export.rs builds the event Cursor as a tuple at :213 and :240, names verification_level at :216 (rung since d7ffdc755) and passes the version 1 OfflineExport to layerx_agentd::export::build at :308, which takes the version 2 export (layerx-agent-api src/read.rs:592); no conversion exists, so the port is part of the version 2 bundle work."
+assumption = "do_8 names the four sites; until 10.3.1 lands the export target is excluded from other tasks' dependents builds."
+severity = "major"
+
+[finding.10.4.1.1]
+task = "10.4.1"
+file = "services/human/crates/layerx-human-movement-provider/tests/kms/mod.rs:357"
+symbol = "KmsProvider::new"
+observed = "Attempt 7 (fc5e3d483) switched provider.rs:7 to crate::frame and the dependents build failed in the movement provider's config.rs:202 and tests/kms/mod.rs:357, which still pass layerx_client::lni::transport Limits and MutualTlsConfig; both compile at main."
+assumption = "touches and do_5 now carry the two callers and build_cmd compiles the movement provider's tests."
+severity = "major"
+
+[finding.18.983.1.1]
+task = "18.983.1"
+file = "services/human/crates/layerx-human-service/tests/reclaim.rs:136"
+symbol = "every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity"
+observed = "Attempt 5 (769a2f8f9) built after the :103 rename; three reclaim tests fail on the boundary refusal and Malformed('signature') raised from journey_faults.rs (issue #1149), and do_1 duplicated 18.1142.1."
+assumption = "18.983.1 requires 18.1142.1 and 18.1149.1; do_1 starts from their result."
+severity = "major"
+
+[finding.18.1142.1.1]
+task = "18.1142.1"
+file = "services/human/crates/layerx-human-service/tests/journey_faults.rs:855"
+symbol = "verify_before_submit"
+observed = "The full reclaim target cannot pass at head: three tests fail on the pending-nonce contract (issue #1149) independent of the :103 rename, and a --tests build compiles the evidence_node, wallet_identity_e2e and export targets broken by #1146, #1147 and the 10.3.1 export work."
+assumption = "build_cmd and verify_cmd are narrowed to the reclaim target and its two journey-free tests; 18.1149.1 carries the rest."
+severity = "major"
+
+[finding.18.1143.1.1]
+task = "18.1143.1"
+file = "services/agent/crates/layerx-agentd/tests/support/real_authority.rs:5"
+symbol = "handshake_gate"
+observed = "Attempt 2's --tests build compiles the seventeen agentd test targets that include tests/support/mod.rs, whose real_authority.rs still imports boot::handshake_gate; that port is 18.1131.1 do_1, and 18.1131.1 requires this task."
+assumption = "build_cmd compiles only the four touched targets (delivery, webhook, approval_events, w7_subscription_permit), none of which includes the support module."
+severity = "major"

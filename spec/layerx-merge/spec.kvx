@@ -142698,7 +142698,7 @@ do_2 = "Add `ApiFailure::operation_retired()` beside `upstream_degraded` (servic
 do_3 = "services/human/crates/layerx-human-service/src/server/http.rs:218 binds `let operation = matched.operation;`; refuse a retired operation right after it with `ApiFailure::operation_retired()` before authorization, body decode or `self.backend.execute` (services/human/crates/layerx-human-service/src/server/http.rs:332)."
 do_4 = "services/human/crates/layerx-human-service/src/server/component.rs:464 dispatches component requests to `self.backend.execute`; refuse retired operations there with the same failure so the component socket cannot reach a retired handler."
 do_5 = "Create services/human/crates/layerx-human-service/tests/retired_operations.rs (planned) replaying the golden requests of the eleven retired operations from services/human/schema/human-api/golden/deposit.start.request.json:1 and its siblings through a real `Router` over a Unix socket."
-symbols = ["Operation::retired", "ApiFailure::operation_retired", "Router::serve_one"]
+symbols = ["ApiFailure::operation_retired", "Router::serve_one"]
 touches = ["services/human/crates/layerx-human-service/src/server/schema.rs", "services/human/crates/layerx-human-service/src/server/http.rs", "services/human/crates/layerx-human-service/src/server/component.rs", "services/human/crates/layerx-human-service/src/server/backend.rs", "services/human/crates/layerx-human-service/tests/retired_operations.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/retired_operations.rs::every_retired_operation_answers_operation_retired", "services/human/crates/layerx-human-service/tests/retired_operations.rs::retired_operation_is_refused_before_authorization", "services/human/crates/layerx-human-service/tests/retired_operations.rs::live_operation_is_still_dispatched"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/retired_operations.rs"]
@@ -142978,7 +142978,7 @@ do_2 = "Where the rendered approval states the budget evidence (services/human/c
 do_3 = "Keep `DisclosureRenderer::render` (services/human/crates/layerx-human-service/src/approvals/render.rs:138) output byte-identical for Committed reads so the rendered approval golden text does not change."
 do_4 = "Create services/human/crates/layerx-human-service/tests/approval_rungs.rs (planned) rendering through the public `approvals` API."
 do_5 = "Adapt only the `rung` construction at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4054-4063 and the `budget.rung` match at services/human/crates/layerx-human-service/src/server/projection.rs:293-299 to the renamed budget evidence; nothing else in those two files changes."
-symbols = ["VerifiedBudgetAfter", "DisclosureRenderer::render", "Rung"]
+symbols = ["VerifiedBudgetAfter", "DisclosureRenderer::render"]
 touches = ["services/human/crates/layerx-human-service/src/approvals/render.rs", "services/human/crates/layerx-human-service/src/approvals/mod.rs", "services/human/crates/layerx-human-service/tests/approval_rungs.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/server/projection.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/approval_rungs.rs::approval_budget_read_below_committed_renders_unverified", "services/human/crates/layerx-human-service/tests/approval_rungs.rs::approval_budget_read_at_committed_renders_unchanged"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/approval_rungs.rs"]
@@ -143171,6 +143171,7 @@ do_4 = "`EvidenceExport::evidence` (services/human/crates/layerx-human-service/s
 do_5 = "services/human/crates/layerx-human-service/src/server/production_components.rs:14 imports the LNI client and :25 imports `SettlementDomain`; switch :14 to `crate::frame` and update the two `EvidenceBundle`, three `EvidenceExport` and two `ReceiptAuthority` uses in production_components to the new fields."
 do_6 = "Create services/human/crates/layerx-human-service/tests/export_receipts.rs (planned) and update services/human/crates/layerx-human-service/tests/export.rs, which constructs `SettlementDomain` at HEAD, to the version 2 bundle."
 do_7 = "services/human/crates/layerx-human-service/tests/activity.rs:37 imports `SettlementDomain` and `cached_receipt_rows_are_labelled_only_by_the_verifier` (services/human/crates/layerx-human-service/tests/activity.rs:698) builds `domain` and `foreign_domain` at :705-706 and asserts `UnverifiedReason::SettlementDomainMismatch` at :844; drop the import, both domain values and the foreign-domain case, and verify the cached rows through the version-2 receipt check of do_3 while keeping every tenant, digest and wrong-batch label assertion."
+do_8 = "services/human/crates/layerx-human-service/tests/export.rs also builds the event Cursor as a tuple at :213 and :240, names verification_level at :216 (rung: Rung since d7ffdc755, src/activity/stream.rs:206) and passes the version 1 OfflineExport to layerx_agentd::export::build at :308, which takes layerx_agent_api::export::OfflineExport (services/agent/crates/layerx-agent-api/src/read.rs:592); port those four sites as part of the version 2 bundle so the export target compiles and runs."
 symbols = ["EvidenceBundle", "EvidenceBundle::verify_receipt", "EvidenceExport::evidence", "ReceiptEvidence"]
 touches = ["services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/activity.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v2_round_trips_receipt_fields", "services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v1_is_refused", "services/human/crates/layerx-human-service/tests/export_receipts.rs::tampered_receipt_hash_fails_verify_receipt", "services/human/crates/layerx-human-service/tests/activity.rs::cached_receipt_rows_are_labelled_only_by_the_verifier"]
@@ -143233,11 +143234,12 @@ do_1 = "services/human/crates/layerx-human-service/src/custody/gateway.rs:13 imp
 do_2 = "services/human/crates/layerx-human-service/src/custody/provider.rs:7 imports the LNI transport for the LXKP client; import `crate::frame` instead so `KmsProvider` (services/human/crates/layerx-human-service/src/custody/provider.rs:498) speaks LXKP over the same bytes."
 do_3 = "Leave the LXKP frame format of services/human/crates/layerx-human-kms/src/wire.rs:86 unchanged; only the transport module path changes."
 do_4 = "Create services/human/crates/layerx-human-service/tests/custody_frame.rs (planned) relaying one LXKP probe through `LxkpGateway::serve` (services/human/crates/layerx-human-service/src/custody/gateway.rs:248) to a real `layerx-human-kms` server over Unix sockets."
+do_5 = "The provider.rs:7 switch changes the transport types KmsProvider's constructor takes; port its two callers outside the service, services/human/crates/layerx-human-movement-provider/src/config.rs:202 and services/human/crates/layerx-human-movement-provider/tests/kms/mod.rs:357 (both import Limits and MutualTlsConfig from layerx_client::lni::transport at config.rs:6 and kms/mod.rs:13), to the frame types, and build the movement provider's tests in the gate."
 symbols = ["LxkpGateway", "KmsProvider", "frame::read_frame"]
-touches = ["services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs"]
+touches = ["services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-movement-provider/src/config.rs", "services/human/crates/layerx-human-movement-provider/tests/kms/mod.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/custody_frame.rs::custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/custody_frame.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-movement-provider --tests"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody_frame -- --exact custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -143910,7 +143912,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.12.1]
 title = "Add a gas station client for sponsored onboarding batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "11.0.2", "9.1.8", "18.1119.1"]
@@ -171349,7 +171351,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -171380,7 +171382,7 @@ title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1"]
+requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]
 interfaces = []
@@ -171411,7 +171413,7 @@ title = "Run the wave 2 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3"]
+requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3", "18.1121.1"]
 reqs = ["17056.1"]
 capabilities = ["17.5.3"]
 interfaces = []
@@ -171442,7 +171444,7 @@ title = "Run the wave 3 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4"]
+requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4", "18.1121.1"]
 reqs = ["17057.1"]
 capabilities = ["17.5.4"]
 interfaces = []
@@ -171473,7 +171475,7 @@ title = "Run the wave 4 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5"]
+requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1"]
 reqs = ["17058.1"]
 capabilities = ["17.5.5"]
 interfaces = []
@@ -171504,7 +171506,7 @@ title = "Run the wave 5 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["17.5.8", "17.0.4", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.6"]
+requires = ["17.5.8", "17.0.4", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.6", "18.1121.1"]
 reqs = ["17059.1"]
 capabilities = ["17.5.6"]
 interfaces = []
@@ -171535,7 +171537,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 31
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -172352,7 +172354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -172767,11 +172769,11 @@ title = "Issue #983: Update the reclaim integration test fixture to the nonce fi
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.1.8", "18.1119.1"]
+requires = ["9.1.8", "18.1119.1", "18.1142.1", "18.1149.1"]
 reqs = ["18983.1"]
 capabilities = []
 interfaces = []
-do_1 = "In reclaim_request (services/human/crates/layerx-human-service/tests/reclaim.rs:85-109) initialise ReclaimAgentContext with nonce: ACCOUNT_SEQUENCE in place of the removed account_sequence field (tests/reclaim.rs:103), matching the struct at src/agents/reclaim.rs:64-73; ACCOUNT_SEQUENCE comes from tests/journey_faults.rs:56 through include! at tests/reclaim.rs:1."
+do_1 = "18.1142.1 renames the field at tests/reclaim.rs:103 to nonce: ACCOUNT_SEQUENCE and 18.1149.1 makes the reclaim journey fixtures sign what the pending-nonce agent prepares; start from their result and keep both as they stand."
 do_2 = "In every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity (tests/reclaim.rs:149) assert that each started reclaim journey leg records preparation.account_sequence equal to request.agent.nonce(), the same check assert_pending_nonce makes in tests/reclaim_nonces.rs:55-80."
 do_3 = "Keep both existing tests every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity and reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse (tests/reclaim.rs:247) and their assertions; qualify by running the reclaim test target."
 symbols = ["reclaim_request", "every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity", "reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse"]
@@ -178979,7 +178981,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179763,6 +179765,26 @@ ac_1 = "cargo build -p layerx-agentd --tests compiles the four test files agains
 title = "Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
 ac_1 = "The standby commits each replayed layer through the sealed-layer path, and a node/sequencer test proves that an openAccount reading an asset registered in an earlier block rebuilds the primary's receipt on the standby."
 
+[req.181147]
+title = "The layerx-human-service wallet identity test compiles with the ureq dependency the shared KMS attestor test support requires"
+ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ureq through a development dependency identical to the one layerx-human-kms declares, services/human/Cargo.lock records that edge, cargo --locked accepts the workspace, and the target compiles and its tests pass with no source file changed."
+
+[req.181149]
+title = "The reclaim test target passes in full against the pending-nonce reclaim agent"
+ac_1 = "All five tests of the layerx-human-service reclaim target pass: the journey fixtures sign the activity the service prepares, or a recorded contract divergence names the prepared and signed bytes."
+
+[req.18680]
+title = "The variable helper provisions the stats service's inline mTLS key as raw multi-line PEM"
+ac_1 = "With IDENTITY_MTLS_CLIENT_KEY_PEM supplied as a multi-line PEM value, the variable helper's --plan and --apply preflight report no 'contains a newline' problem for the stats service, the plan prints the key as ****, and a newline in a value whose name ends in neither _DOCUMENT nor _PEM is still refused with exit 2."
+
+[req.18726]
+title = "The gateway's hosted env example names only variables the gateway reads, including the indexer, faucet and receipt-key settings"
+ac_1 = "The example sets LAYERX_GATEWAY_INDEXER_URL to the indexer's TLS listener, documents the optional faucet and receipt-key variables, carries no LAYERX_GATEWAY_SEQUENCER_ or ENDPOINT_SEQUENCER_ name, keeps the LAYERX_EVENTS_ producer variables, and every ENDPOINT_ name and /run/secrets path it uses has a row in the gateway file-secret table, as the env_example test asserts."
+
+[req.18729]
+title = "The indexer's hosted env example names the paxscan database URL and certificate pin the backfill requires"
+ac_1 = "The example lists PAXSCAN_DATABASE_PUBLIC_URL and LAYERX_INDEXER_PAXSCAN_CERT_SHA256 as operator-filled placeholders, and BackfillConfig::from_args over the example's names with those two filled parses successfully while the same input without the pin is refused."
+
 [acceptance.18.1066.1]
 feature = "18"
 req = "181066.1"
@@ -179887,7 +179909,7 @@ qualification = "UNRUN"
 feature = "18"
 req = "181098.1"
 scenario = "Given test paths from two umbrella apps, when mix-in-builder.sh test runs once with all of them, then each app's tests run against a fresh sidecar and the run exits 0 when every test passes."
-contract = contracts/explorer-http-api.md#api-v2-paxeer-x
+contract = "contracts/explorer-http-api.md#api-v2-paxeer-x"
 test = "services/explorer/deploy/tools/mix-in-builder.sh::test"
 qualification = "UNRUN"
 
@@ -180785,6 +180807,46 @@ req = "181144.1"
 scenario = "Given a primary and a standby, when a register is sealed in one block and an openAccount reading it in the next, then the standby's rebuilt receipt for the openAccount equals the primary's and the replay is accepted."
 contract = "contracts/rpc.md#namespace-debug"
 test = "node/sequencer/standby_role_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1147.1]
+feature = "18"
+req = "181147.1"
+scenario = "Given main where the shared KMS attestor test support calls ureq while layerx-human-service declares no ureq development dependency, when the dependency and its lock entry are added and the wallet_identity_e2e target compiles and runs under cargo --locked, then the target builds and its tests pass unchanged."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"
+qualification = "UNRUN"
+
+[acceptance.18.1149.1]
+feature = "18"
+req = "181149.1"
+scenario = "Given the reclaim agent that starts from the pending nonce, when the reclaim test target runs, then the journey fixtures are accepted by the boundary and the signature check and all five tests pass."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-service/tests/reclaim.rs"
+qualification = "UNRUN"
+
+[acceptance.18.680.1]
+feature = "18"
+req = "18680.1"
+scenario = "Given the stats manifest requires IDENTITY_MTLS_CLIENT_KEY_PEM and a values file supplies it as a three-line PEM, when the helper plans the stats service against an empty variable set, then it exits 0, lists the key as missing with a masked value, prints none of the PEM, and still exits 2 for a REDIS_URL value containing a newline."
+contract = "contracts/operations.md#deploy-cli"
+test = "tools/deploy/tests/railway-apply-variables.test.sh::stats_inline_pem_plan"
+qualification = "UNRUN"
+
+[acceptance.18.726.1]
+feature = "18"
+req = "18726.1"
+scenario = "Given the gateway's hosted env example and the gateway image's file-secret table, when the env_example test parses both, then it finds the indexer URL on the indexer's listener port, no sequencer variable, and a table row for every ENDPOINT_ name and /run/secrets path the example uses."
+contract = "contracts/platform-gateway.md#gateway-env-vars"
+test = "services/platform/hosted/gateway/tests/env_example.rs::router_example_names_the_indexer_listener"
+qualification = "UNRUN"
+
+[acceptance.18.729.1]
+feature = "18"
+req = "18729.1"
+scenario = "Given the indexer's hosted env example, when the env_example test serves its names to BackfillConfig::from_args with the two placeholders filled, then parsing succeeds, and when the certificate pin is withheld, then parsing is refused."
+contract = "contracts/platform-hosted.md#indexer-env-vars"
+test = "services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -181796,7 +181858,7 @@ title = "Issue #1132: Port the human test support and the human-service evidence
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1119.1", "18.1142.1"]
+requires = ["18.1119.1"]
 reqs = ["181132.1"]
 capabilities = []
 interfaces = []
@@ -181807,7 +181869,7 @@ symbols = ["evidence_verifier", "evidence_gate"]
 touches = ["services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/evidence_node.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/evidence_node.rs::advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test evidence_node"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test evidence_node"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -182408,7 +182470,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.896.1]
 title = "Issue #896: Break same-block price feed ties on the update index the endpoint orders by"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182535,7 +182597,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.921.1]
 title = "Issue #921: Retry price feed heights on gateway 5xx answers without counting them toward the failure cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183673,7 +183735,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.899.1]
 title = "Issue #899: Specify the price-feed stream and keep the feed pages from polling while the channel is joined"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184005,7 +184067,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.876.1]
 title = "Issue #876: Ship a 30-day price-feed retention default in the backend environment template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184129,7 +184191,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.929.1]
 title = "Issue #929: Raise every repository Go toolchain pin from 1.25.6 to the 1.25.8 that sdk/cosmovisor requires"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184201,13 +184263,13 @@ reqs = ["181142.1"]
 capabilities = []
 interfaces = []
 do_1 = "In services/human/crates/layerx-human-service/tests/reclaim.rs:103 replace account_sequence: ACCOUNT_SEQUENCE with nonce: ACCOUNT_SEQUENCE, the field ReclaimAgentContext carries since 0a78c10ba (services/human/crates/layerx-human-service/src/agents/reclaim.rs:64-73, as tests/reclaim_nonces.rs:42-50 builds it); keep ACCOUNT_SEQUENCE at :66 and :278 and every assertion of the file."
-do_2 = "Change no production code and remove no test; if a reclaim assertion then fails because the pending-tag nonce no longer equals the signed receive's sequence, stop and record it rather than changing the assertion."
+do_2 = "Change no production code and remove no test. The three reclaim tests that fail at head on the boundary refusal and Malformed('signature') are issue #1149 and belong to 18.1149.1; this task's gate is the compile of the reclaim target and its two tests that do not drive the reclaim journey."
 symbols = []
 touches = ["services/human/crates/layerx-human-service/tests/reclaim.rs"]
 tests = []
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim -- --exact reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse repeated_start_repairs_initial_progress_after_restart"
 sandbox_profile = "rust"
 owner_role = "fm-human"
 rollback = "Revert tests/reclaim.rs; the crate's test targets return to failing on the renamed field."
@@ -184234,7 +184296,7 @@ symbols = []
 touches = ["services/agent/crates/layerx-agentd/tests/delivery.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs"]
 tests = []
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
@@ -184268,6 +184330,159 @@ verify_cmd = "go test -count=1 ./node/sequencer/ -run ^TestStandbyReplayCommitsS
 sandbox_profile = "go-cgo"
 owner_role = "fm-node-runtime"
 rollback = "Revert standby_role.go and its test; the standby returns to committing by re-execution."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1147.1]
+title = "Issue #1147: Give layerx-human-service the ureq development dependency its wallet identity test needs through the shared KMS attestor test support"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181147.1"]
+capabilities = []
+interfaces = []
+do_1 = "In the [dev-dependencies] table of services/human/crates/layerx-human-service/Cargo.toml (line 36, ending with the p256 entry at line 44) add the entry ureq = { version = \"=3.4.0\", default-features = false, features = [\"rustls-no-provider\", \"_ring\"] }, identical to the dependency services/human/crates/layerx-human-kms/Cargo.toml:25 declares, because services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:4 includes services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs by path and that module calls ureq::tls::Certificate::from_der, ureq::tls::PrivateKey::from_pem, ureq::Agent::config_builder, ureq::tls::TlsConfig::builder, ureq::tls::TlsProvider::Rustls, ureq::tls::RootCerts::new_with_certs and ureq::tls::ClientCert::new_with_certs at attestor_cluster.rs:606-616."
+do_2 = "In services/human/Cargo.lock add \"ureq\" to the dependencies list of the layerx-human-service package (services/human/Cargo.lock:1090-1124), in sorted position between \"subtle\" and \"zeroize\", so cargo --locked accepts the manifest; the ureq 3.4.0 package entry already present in the lock file (services/human/Cargo.lock:2289) is unchanged and no other lock entry moves."
+do_3 = "Change no Rust source file: attestor_cluster.rs:606-616 and wallet_identity_e2e.rs:4 stay as written, no test is removed and no assertion changes."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/Cargo.toml", "services/human/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the manifest and lock file; the wallet_identity_e2e test target returns to failing resolution of the ureq crate used by the shared KMS attestor test support."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1149.1]
+title = "Issue #1149: Issue #1149: Make the reclaim journey fixtures sign the activity the pending-nonce reclaim agent prepares, or record the contract divergence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1142.1"]
+reqs = ["181149.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/journey_faults.rs (included by tests/reclaim.rs:1) trace why the agent boundary refuses transition 1 of jrn_reclaimbudget (every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity panics at tests/reclaim.rs:136) and why verify_before_submit reports Malformed('signature') (services/agent/crates/layerx-agent-api/src/write.rs:89-95) in acknowledgement_gap_faults_converge_without_resubmitting_unknown and crashes_after_every_durable_stage_resume_with_one_effect_per_leg (journey_faults.rs:855), starting from the pending-nonce semantics 0a78c10ba introduced (src/agents/reclaim.rs:64-73; tests/reclaim_nonces.rs:42-80 shows the context the service accepts)."
+do_2 = "If the fixtures diverged from the reclaim contract, update the prepare and sign helpers of journey_faults.rs (ACCOUNT_SEQUENCE at :56 used at :136 and :151, the external signature attached at :412-418, the receipt encoder at :628-675) so they sign the activity the service now prepares; keep every assertion of tests/reclaim.rs and tests/journey_faults.rs and remove no test."
+do_3 = "If the service diverged from the reclaim contract (the nonce it prepares is not the one the signed activity must carry), stop and record the divergence with the exact prepared and signed bytes; change no file under src/."
+do_4 = "Qualify with the whole reclaim test target; all five tests must pass."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two test files; the reclaim target returns to three failing tests."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.680.1]
+title = "Issue #680: Let the variable helper accept a multi-line value for a name ending in _PEM while keeping it masked"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18680.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tools/deploy/railway-apply-variables.py:103-105 (desired) keep the newline refusal for every name except those ending in _DOCUMENT or _PEM, so the stats service's required IDENTITY_MTLS_CLIENT_KEY_PEM (deploy/launchpad/railway/variables.json stats.required, consumed as raw PEM bytes at sdk/launchpad/shared/auth/mtls_identity_client.go:101) passes --plan and the --apply preflight at :151-155; is_secret at :80-81 and show at :84-89 keep masking it as ****."
+do_2 = "In tools/deploy/tests/railway-apply-variables.test.sh add a stats case built like the user case at :124-146: sentinel values for every stats needed name with a three-line sentinel PEM for IDENTITY_MTLS_CLIENT_KEY_PEM, a replay whose Project lists svc-stats and whose Variables read is empty, then assert --plan exits 0, prints '  missing IDENTITY_MTLS_CLIENT_KEY_PEM = ****' and no line of the sentinel PEM; keep the REDIS_URL newline refusal at :31-32, :76-77 and :99-100 exactly as it is."
+do_3 = "Change no manifest value, nothing in tools/rollout/rollout.py and no other file."
+symbols = ["desired", "show"]
+touches = ["tools/deploy/railway-apply-variables.py", "tools/deploy/tests/railway-apply-variables.test.sh"]
+tests = ["tools/deploy/tests/railway-apply-variables.test.sh::stats_inline_pem_plan"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/railway-apply-variables.py"
+verify_cmd = "bash tools/deploy/tests/railway-apply-variables.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the two files; the helper again refuses every multi-line value whose name does not end in _DOCUMENT, so the stats inline PEM key cannot be applied."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.726.1]
+title = "Issue #726: Make the gateway's hosted env example name the indexer, faucet and receipt-key variables and drop the unread sequencer file variables"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18726.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/railway.env.example add LAYERX_GATEWAY_INDEXER_URL=https://indexer.railway.internal:8095 after line 31; configured_endpoint at services/platform/hosted/gateway/src/history.rs:66-71 reads it and services/platform/hosted/indexer/railway.env.example:2-4 declares that listener."
+do_2 = "In the same file, in the style of the commented optional lines at :17 and :24-25, add commented lines for LAYERX_GATEWAY_FAUCET_URL, LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE=/run/secrets/faucet-service-token and LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT (optional as a group per src/rpc_faucet.rs:404-419) and for LAYERX_GATEWAY_RECEIPT_KEYS_FILE=/run/secrets/receipt-keys.json (optional per src/main.rs:1083-1098), each preceded by one comment line saying that enabling it needs a matching row in docker/platform-gateway/files.tsv."
+do_3 = "Remove LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE, LAYERX_GATEWAY_SEQUENCER_ID_FILE, LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE and LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE (:40-43) and the four ENDPOINT_SEQUENCER_* placeholders (:71-74) from the example, rows 17-20 from docker/platform-gateway/files.tsv and the four sequencer names from FILE_VARIABLES in docker/platform-gateway/entrypoint.sh:19-22; no code under services/platform reads a LAYERX_GATEWAY_SEQUENCER_ name. Keep every LAYERX_EVENTS_* line and its ENDPOINT_EVENTS_* placeholder: run at src/main.rs:3827-3829 configures the payment producer from them through services/platform/hosted/internal/src/producer.rs:660-675."
+do_4 = "Add services/platform/hosted/gateway/tests/env_example.rs that parses the uncommented NAME=value lines of include_str!(\"../railway.env.example\") and the rows of docker/platform-gateway/files.tsv and the indexer example (both via CARGO_MANIFEST_DIR) and asserts: no name starts with LAYERX_GATEWAY_SEQUENCER_ or ENDPOINT_SEQUENCER_; LAYERX_GATEWAY_INDEXER_URL is an https URL whose port equals the LAYERX_INDEXER_LISTEN port of services/platform/hosted/indexer/railway.env.example; every ENDPOINT_* name has a files.tsv row and every value under /run/secrets/ is a files.tsv guest path."
+do_5 = "Change no Rust source, nothing in tests/degraded.rs, and leave services/platform/hosted/gateway/deployment.yaml as it is: services/platform/hosted/tests/sequencer-pins.py:30-38 still requires its sequencer entries."
+symbols = ["configured_endpoint", "configured"]
+touches = ["services/platform/hosted/gateway/railway.env.example", "docker/platform-gateway/files.tsv", "docker/platform-gateway/entrypoint.sh", "services/platform/hosted/gateway/tests/env_example.rs"]
+tests = ["services/platform/hosted/gateway/tests/env_example.rs::router_example_drops_unread_sequencer_variables", "services/platform/hosted/gateway/tests/env_example.rs::router_example_names_the_indexer_listener", "services/platform/hosted/gateway/tests/env_example.rs::router_example_file_secrets_have_table_rows"]
+planned_paths = ["services/platform/hosted/gateway/tests/env_example.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the four files; the example again lists the unread sequencer variables and omits the indexer URL, and no test ties it to the file-secret table."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.729.1]
+title = "Issue #729: Make the indexer's hosted env example name the paxscan variables backfill requires"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18729.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/indexer/railway.env.example after line 18 add one comment line and the operator-filled placeholders PAXSCAN_DATABASE_PUBLIC_URL= (the read-only paxscan connection string tools/bringup/check-live.sh:233 describes) and LAYERX_INDEXER_PAXSCAN_CERT_SHA256= (the 32-byte hex pin of the paxscan certificate), the names BackfillConfig::from_args reads at services/platform/hosted/indexer/src/config.rs:146-167 before env-init.sh:73-78 runs layerx-indexer backfill."
+do_2 = "Add services/platform/hosted/indexer/tests/env_example.rs that parses the uncommented NAME=value lines of include_str!(\"../railway.env.example\") into a map and asserts both names are present, then calls BackfillConfig::from_args with [\"--cutover-height=1\"] and a lookup that serves the map's names (an empty value replaced by a postgres URL and a 64-hex pin) and None for any other name, asserting Ok; a second test asserts the same lookup minus LAYERX_INDEXER_PAXSCAN_CERT_SHA256 is Err."
+do_3 = "Change no Rust source, no env-init.sh line and no other example value."
+symbols = ["BackfillConfig", "from_args"]
+touches = ["services/platform/hosted/indexer/railway.env.example", "services/platform/hosted/indexer/tests/env_example.rs"]
+tests = ["services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable", "services/platform/hosted/indexer/tests/env_example.rs::example_without_the_pin_is_refused"]
+planned_paths = ["services/platform/hosted/indexer/tests/env_example.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert both files; the example again omits the paxscan variables and the templated backfill refuses before serve can start."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
