@@ -217,6 +217,28 @@ func TestCommittedTransactionProofsMatchConsensusContract(t *testing.T) {
 	}
 }
 
+func TestCommittedTransactionProofRefusesPrehashedLeaves(t *testing.T) {
+	f := newCommittedFixture(t, "V1-pax-transfer", [4]int64{1, 1, 1, 1}, 0)
+	for _, tc := range []struct {
+		name        string
+		transaction []byte
+		proof       CommittedProof
+	}{
+		{"transaction", f.inclusion.Transaction, f.inclusion.TransactionProof},
+		{"batch", f.inclusion.BatchTransaction, f.inclusion.BatchProof},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if !committedVerifyTransactionProof(tc.transaction, tc.proof, f.header.DataHash) {
+				t.Fatal("original transaction proof was refused")
+			}
+			hash := sha256.Sum256(tc.transaction)
+			if committedVerifyTransactionProof(hash[:], tc.proof, f.header.DataHash) {
+				t.Fatal("prehashed transaction was accepted with the original proof")
+			}
+		})
+	}
+}
+
 func TestCommittedRungRefusesWrongProofPreimages(t *testing.T) {
 	for _, mutation := range []string{"unhashed transactions", "hashed results"} {
 		t.Run(mutation, func(t *testing.T) {
@@ -414,7 +436,7 @@ func TestCommittedRungRefusesTamperedInclusion(t *testing.T) {
 			case "prehashed batch":
 				hash := sha256.Sum256(f.inclusion.BatchTransaction)
 				f.inclusion.BatchTransaction = hash[:]
-				check = "committed-batch"
+				check = "committed-inclusion"
 			case "malformed batch":
 				f.inclusion.BatchTransaction[0] ^= 1
 				check = "committed-batch"
@@ -428,7 +450,11 @@ func TestCommittedRungRefusesTamperedInclusion(t *testing.T) {
 				f.receipt = SequencerReceiptVerification{}
 				check = "committed-receipt"
 			}
-			f.reanchor(t)
+			switch mutation {
+			case "different transaction", "prehashed transaction", "prehashed batch":
+			default:
+				f.reanchor(t)
+			}
 			requireCommittedRefusal(t, f, check)
 		})
 	}
