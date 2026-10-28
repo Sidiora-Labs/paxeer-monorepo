@@ -31,6 +31,30 @@ defmodule BlockScoutWeb.V2.PaxeerXFeedChannelTest do
     :ok
   end
 
+  test "a backfilled height is not pushed as a new block" do
+    block = insert(:block, number: 20)
+    insert(:block, number: 31)
+    [hash] = store(block, [submission(0, [observation(2, 7)])])
+
+    Enum.each(
+      ~w(paxeer_x_feed:new_update paxeer_x_feed:market:2 transactions:new_transaction blocks:new_block),
+      &@endpoint.subscribe/1
+    )
+
+    Notifier.handle_event({:chain_event, :paxeer_x_price_updates, :realtime, [20]})
+
+    assert_receive %Broadcast{topic: "paxeer_x_feed:new_update", event: "new_update", payload: %{"hash" => ^hash}}
+
+    assert_receive %Broadcast{
+      topic: "paxeer_x_feed:market:2",
+      event: "new_update",
+      payload: %{"update_hash" => ^hash}
+    }
+
+    refute_receive %Broadcast{topic: "blocks:new_block"}
+    refute_receive %Broadcast{topic: "transactions:new_transaction"}
+  end
+
   describe "price update broadcasts" do
     test "every inserted update is broadcast with the payload its REST item carries", %{conn: conn} do
       block = insert(:block, number: 20)

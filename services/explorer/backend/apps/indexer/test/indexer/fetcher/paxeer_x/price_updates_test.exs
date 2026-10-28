@@ -185,6 +185,26 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     assert Repo.get(PriceFeedScannedBlock, 13) == nil
   end
 
+  test "a rescanned height publishes nothing new", %{rest: rest, rpc: rpc, state: state} do
+    insert(:block, number: 10)
+    serve(rest, "/cosmos/tx/v1beta1/txs/block/10", 200, "block_txs.json")
+    serve(rpc, "/block_results", 200, "block_results.json")
+
+    PriceFeed.upsert_markets(Enum.map(0..17, &%{market_id: &1, symbol: to_string(&1), chainflow_symbol: to_string(&1)}))
+
+    Subscriber.to(:paxeer_x_price_updates, :realtime)
+
+    assert :ok = PriceUpdates.run([10], state)
+    assert [%PriceUpdate{} = update] = PriceFeed.block_updates(10)
+    assert PriceFeed.block_update_hashes(10) == [to_string(update.hash)]
+    assert :ok = PriceUpdates.run([10], state)
+    assert [%PriceUpdate{hash: hash}] = PriceFeed.block_updates(10)
+    assert hash == update.hash
+
+    assert_receive {:chain_event, :paxeer_x_price_updates, :realtime, [10]}
+    refute_receive {:chain_event, :paxeer_x_price_updates, :realtime, _}
+  end
+
   describe "run/2" do
     test "stores the recorded submission and reads the market list", %{rest: rest, rpc: rpc, state: state} do
       block = insert(:block, number: 10)
