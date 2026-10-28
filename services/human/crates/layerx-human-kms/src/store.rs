@@ -24,7 +24,7 @@ struct Record {
     #[serde(default)]
     wallet: Option<crate::evm::Wallet>,
     #[serde(default)]
-    send_actions: BTreeMap<String, (crate::evm_types::SendPlanAuthorization, Vec<u8>)>,
+    send_actions: BTreeMap<String, (crate::send::SendAuthorization, Vec<u8>)>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     recipient_identity: Option<[u8; 32]>,
     #[serde(default)]
@@ -284,7 +284,7 @@ impl Store {
             Operation::Create => return self.create(request),
             Operation::Rotate => return Err(Error::Refused),
             Operation::AuthorizeSend => {
-                return self.authorize_send(request, signing_digest.ok_or(Error::Refused)?)
+                return self.authorize_send(request, signing_digest.ok_or(Error::Refused)?, now)
             }
             Operation::EvmWallet | Operation::Evm => return self.evm(request, now),
             Operation::ExportPrimary => return self.export_primary(request),
@@ -359,7 +359,12 @@ impl Store {
         self.persist()?;
         Ok(exported.to_vec())
     }
-    fn authorize_send(&mut self, request: &Request<'_>, digest: [u8; 32]) -> Result<Vec<u8>> {
+    fn authorize_send(
+        &mut self,
+        request: &Request<'_>,
+        digest: [u8; 32],
+        now: u64,
+    ) -> Result<Vec<u8>> {
         let record = self
             .state
             .records
@@ -371,13 +376,18 @@ impl Store {
         if record.self_custodied {
             return Err(Error::SelfCustodied);
         }
-        let seed = record.seed.as_ref().ok_or(Error::NotFound)?;
-        let authorization: crate::evm_types::SendPlanAuthorization =
+        record.seed.as_ref().ok_or(Error::NotFound)?;
+        let authorization: crate::send::SendAuthorization =
             serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
-        let key = hex(&authorization.action_key);
-        if let Some((previous, signature)) = record.send_actions.get(&key) {
+        if crate::send::digest(&authorization, request.binding, self.state.network, 3, now)?
+            != digest
+        {
+            return Err(Error::Integrity);
+        }
+        let key = hex(&authorization.authorization.action_key);
+        if let Some((previous, transaction)) = record.send_actions.get(&key) {
             return if previous == &authorization {
-                Ok(signature.clone())
+                Ok(transaction.clone())
             } else {
                 Err(Error::Conflict)
             };
@@ -385,12 +395,23 @@ impl Store {
         if record.send_actions.len() >= 4096 {
             return Err(Error::Unavailable);
         }
-        let signature = signing_key(seed)?.sign(&digest).as_ref().to_vec();
+        let attestor = self.evm_attestor.as_ref().ok_or(Error::Unavailable)?;
+        let wallet = record.wallet.as_mut().ok_or(Error::NotFound)?;
+        if wallet.evm_key_id != attestor.key_id || wallet.address != attestor.address {
+            return Err(Error::Integrity);
+        }
+        wallet.authorize(authorization.authorization.clone(), now)?;
+        let action = wallet.sign(
+            &authorization.authorization.action_key,
+            now,
+            u64::from(self.state.network),
+            &attestor.signer,
+        )?;
         record
             .send_actions
-            .insert(key, (authorization, signature.clone()));
+            .insert(key, (authorization, action.raw_transaction.clone()));
         self.persist()?;
-        Ok(signature)
+        Ok(action.raw_transaction)
     }
     fn evm(&mut self, request: &Request<'_>, now: u64) -> Result<Vec<u8>> {
         use crate::evm_types::{EvmAcknowledgement, EvmPlanAuthorization};

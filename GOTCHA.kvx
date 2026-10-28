@@ -10243,3 +10243,69 @@ detail = "9.6.2 added tx_hash, nonce and rung as None to the fixture of layerx-a
 title = "A task gated on a whole test target inherits that target's pre-existing failures"
 detail = "18.1156.1 (--test provider) and 18.1157.1 (--test buyer --test seller) both failed their first attempt on failures older than the issue they fix: native_setup.rs E0004 (recorded since gotcha.906) and 19 buyer tests still offering layerx:beta networks. Before gating an issue task on a whole target, check the target's last recorded result at head (qualification.kvx, GOTCHA.kvx, the last attempt that built it) and either fold the repair into the task or narrow the gate to the task's tests while another task owns the rest (#1159, #1160)."
 
+[gotcha.2097]
+title = "A shared test support file that gains a mandatory precondition breaks every test that includes it"
+detail = "6a5587897 (10.11.2) made the attestor test cluster publish a wallet inventory and route every key generation through its own generate_key helper, verifying only attestor_evm_signer; wallet_identity_e2e, which includes the same support by #[path] and lets the service create the key, has been refused with key_invalid_share ever since (18.1151.1 a2/a7). When a support file under tests/support changes what a cluster or fixture requires, every test target that includes it belongs in the gate, and the service-driven path needs its own approval helper."
+
+
+[gotcha.2098]
+title = "symbols must be code symbols the graph indexes"
+detail = "18.849.1 listed the Dockerfile stage 'native' in symbols; after a full passing image build the done record was refused with 'symbol native — not defined in the graph' (a11). Docker stages, make targets and file names are not graph symbols; leave symbols empty for container, script and fixture tasks."
+
+[gotcha.2099]
+title = "A step must not assume a signature change another task did not deliver"
+detail = "10.4.3 told its tests to pass the frame Limits to AgentRuntime::connect because 10.13.3 'changes' that parameter; 10.13.3 changed the peer codec and left connect on the LNI Limits (agent_runtime.rs:1975-1988), so the migrated tests failed E0308 after a passing build (a3). When a step names a signature another task changes, read the signature at head when the prerequisite lands, and give the change an explicit owner (now 10.3.1 do_9)."
+
+
+[gotcha.2100]
+title = "A reshaped pub constructor must build every test target that calls it"
+detail = "9.6.1 (fbb5df6bb) changed ExportTrustSource::new to (receipt_keys, validator_set) and removed settlement(), verifying only --test export_v2; tests/export_offline_bounds.rs:192 still builds the old form, so every all-targets layerx-agentd test build fails (18.1131.1 a7). Repeat of the pattern of gotchas 2044/2046/2095: grep tests/ for the constructor before publishing and put each caller target in build_cmd."
+
+
+[gotcha.2101]
+title = "Test targets that read the runtime clock need the clock service in their gate"
+detail = "layerx-human-kms tests/provider.rs starts every test with RuntimeClock::from_environment, which needs LAYERX_RUNTIME_CLOCK_SOCKET; without the layerx-runtime-clock service all 14 tests return Unavailable (18.1156.1 a3/a4). The service images run their binaries under `layerx-runtime-clock --runtime-dir /tmp -- <command>` (services/platform/hosted/runtime-clock/src/main.rs:35-63); a verify of such a target must do the same."
+
+
+[gotcha.2102]
+title = "Renaming a network namespace can silently disable a validation branch"
+detail = "decision.822 moved every x402 network to eip155:<id>, but model.rs:19/:189-193 kept is_layerx_network on the 'layerx' namespace, so validate() skipped layerx_terms for every LayerX offer and the payee redirect refusal vanished; tests/seller.rs:494/:598 caught it only because 18.1157.1's gate ran the whole seller target (11.3.3 ran one test with --exact). When a decision renames identifiers, grep every constant and predicate that keyed on the old name, and run whole targets, not single tests, in the gate of the task that moves the fixtures."
+
+
+[gotcha.2103]
+title = "A kernel fallback added to one lookup must be mirrored in its sibling lookups"
+detail = "13.25.4 (0981a1dd3) taught transfer.c:188-209 to resolve an unbound principal to its owned main account; the same raw-principal lookup at call.c:2276-2280, reached by the sandbox escrow charge whose activity never binds ledger admission (lxp_kernel.c:485-486, :6880-6886), kept refusing with -208, which two Rust layers collapse to NON_CANONICAL (ffi_call.rs:2003, host_ffi.rs:774). 13.27.1 burned attempts 17-21 on it. When a fallback lands in one path, grep for the sibling account_by_id(…, principal) lookups and the activities that reach them unbound."
+
+[gotcha.2104]
+title = "A gate must not name a test that reads a live fixture from the environment"
+detail = "10.11.9's verify listed native_provider_and_sdk_real_cluster, which returns NotPresent without PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE (a running attestor cluster, its TLS material and an owner assertion); no qualification run has it, so the task could never pass. Tests that read a *_LIVE_FIXTURE or *_TEST_RPC variable (native_send_purpose.rs, attestor_native_profile.rs, the perps tests of the test_services_env holds) are release gates: build their targets in build_cmd, run them where the fixture exists, and keep them out of verify_cmd."
+
+
+[gotcha.2105]
+title = "A planned test must name its in-process harness, or the implementer invents an environment fixture"
+detail = "10.5.2 a4 and 10.14.1 a1 both created their planned test and, finding no harness named, read an environment variable (PAXEER_X_NATIVE_ONBOARDING_FIXTURE, a 'real component fixture') that nothing defines, then failed NotPresent. The human service already has the harnesses: tests/agent_runtime_nonces.rs:41-147 (in-process agent runtime peer answering opcodes) and tests/projection_rungs.rs:60-150 (SystemClock + PrivilegedHumanComponents + HumanComponentServer + UnixComponents + Router). A do item that says 'create tests/x.rs (planned)' must cite the harness file and lines."
+
+
+[gotcha.2106]
+title = "A decoder's accepted byte set moves with the task that changes the writer"
+detail = "10.14.1 asked the human service to write the balance rung byte (0, 1, 2) while AgentRuntime::balance (agent_runtime.rs:1913) still refuses every byte but the retired levels 4 and 5, and the daemon's BALANCE answer changes only in a later wave; the task was unqualifiable at its wave. When a do item reads a field from a peer answer, find the task that changes the writer, require it, and give the decoder port an explicit step."
+
+
+[gotcha.2107]
+title = "The identity provider admits a wallet DID only through a producer-signed binding token"
+detail = "open_or_create_by_assertion(token, binding, now) takes a producer-signed binding (three dot-separated parts), never DID text, and verify_binding refuses Unavailable when the verifier has no with_binding_producer_key or the state has no pinned binding tenant; wallet_identity_e2e.rs:982 passed Some(&did) and burned 18.1151.1 a8 on 'assertion principal unavailable'. Follow tests/principal_store.rs of layerx-human-identity-provider (:140-200, :470-500) for the producer key, the tenant and the binding mint."
+
+[gotcha.2108]
+title = "Conformance vectors are copied from the recorder's output, never assembled"
+detail = "11.14.3 a1 built its committed vector's receipt bytes and the verifier refused an effect of kind 0; the recorder's receipt in daemon/committed-fixture/vectors/vector-v4-committed.json decodes to kinds 1, 3, 3 (layout: 6-byte prefix, u32-length-prefixed 32-byte arrays, raw u64/u32 scalars, per effect a 6-byte header, kind, monetary, root, u32 length and body). A vector task names the recorded file and fields as its source; an InvalidReceipt on bytes nobody recorded means the bytes were invented."
+
+
+[gotcha.2109]
+title = "The SDK committed verifier needs two commits; a vector with one cannot pass it"
+detail = "sdk/platform/go VerifyCommittedReceipt takes the execution block (header H, its commit, the transaction and batch proofs against H.data_hash) and the following block (NextHeader H+1 with LastBlockID == hash(H), its commit and validators, the result proof against H+1.last_results_hash). The recorder wrote only the commit of H+1 and its own test (chain types, no SDK call) could not notice; 8.47.7 a1 paired the H+1 commit with header H and failed. Issue #1164 / 18.1164.1. A recorder's test must call the consumer's verifier, or the consumer's verifier inputs must be listed in the vector's contract."
+
+
+[gotcha.2110]
+title = "A refusal test that outlives the rule it refuses is a contradiction to rule on, not a failure to chase"
+detail = "After is_layerx_network admitted eip155 again, two layerx-x402 seller tests contradicted the model's own documented contract (per-asset payee accepted when its asset matches; any payTo not derived from extra.layerx.account refused); the implementer stopped as told. The orchestrator rules by the documented contract (model.rs doc comments plus the decision that renamed the network), lists each flipped assertion in a do item, and records the ruling as a finding for the owner. Never let the implementer pick which side of a contradiction to keep."
+
