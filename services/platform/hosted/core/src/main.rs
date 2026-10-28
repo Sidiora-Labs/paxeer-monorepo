@@ -93,7 +93,7 @@ struct Config {
     treasury: SocketSigner,
     treasury_did: String,
     treasury_asset: [u8; 32],
-    funding: Result<chain_fund::ChainFunding, &'static str>,
+    funding: chain_fund::FundingSlot,
     sequencer_id: [u8; 32],
     supervisor_socket: PathBuf,
     state_dir: PathBuf,
@@ -362,7 +362,7 @@ fn config() -> Result<Config, String> {
         treasury_did: did_for_public_key(&treasury.public_key()),
         treasury,
         treasury_asset,
-        funding: chain_fund::ChainFunding::from_env(),
+        funding: chain_fund::FundingSlot::from_env(),
         sequencer_id,
         supervisor_socket: PathBuf::from(required("LAYERX_CORE_SUPERVISOR_SOCKET")?),
         state_dir,
@@ -1409,8 +1409,7 @@ fn readiness(config: &Config) -> Response {
     })();
     let funding = config
         .funding
-        .as_ref()
-        .map_err(|reason| *reason)
+        .get()
         .and_then(chain_fund::ChainFunding::readiness)
         .unwrap_or_else(|reason| serde_json::json!({"ready": false, "reason": reason}));
     let mut document: serde_json::Value =
@@ -2116,7 +2115,7 @@ fn prepare_funding(
     }
     let funding = config
         .funding
-        .as_ref()
+        .get()
         .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
     let public_key = fixed_hex::<32>("public_key", &command.public_key)
         .map_err(|_| refusal(400, "invalid_argument", None))?;
@@ -2144,7 +2143,7 @@ fn fund_send(
     let signed = prepare_funding(config, command, key)?;
     let funding = config
         .funding
-        .as_ref()
+        .get()
         .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
     funding.submit(&signed)?;
     let funded = funding.funded(&signed)?;
