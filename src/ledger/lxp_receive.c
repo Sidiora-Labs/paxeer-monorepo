@@ -354,7 +354,7 @@ static lxp_result verify_receiver(const lxp_receive *receive,
         return LXP_ERR_CONTEXT_MISMATCH;
     status = lxp_receive_authorization_message(receive, message, sizeof(message),
                                                &message_length);
-    if (status == LXP_OK)
+    if (status == LXP_OK && !environment->binding_authority)
         status = lxp_ed25519_verify(authorization->public_key,
                                     authorization->signature,
                                     LXP_DOMAIN_SIGNATURE_PREIMAGE,

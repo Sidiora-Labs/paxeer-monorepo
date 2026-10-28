@@ -64,6 +64,68 @@ fn draw_calldata_places_seven_contract_words() {
 }
 
 #[test]
+fn payment_exact_log_matches_native_ledger_abi() {
+    let abi: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../../precompiles/layerxledger/abi.json"
+    ))
+    .expect("native ledger ABI");
+    let event = abi
+        .as_array()
+        .expect("ABI definitions")
+        .iter()
+        .find(|entry| entry["type"] == "event" && entry["name"] == "PaymentExact")
+        .expect("native PaymentExact event");
+    let from = [0x11; 32];
+    let to = [0x22; 32];
+    let reference = [0x33; 32];
+    let asset = [0x44; 32];
+    let amount = u128::MAX;
+    let inputs = event["inputs"].as_array().expect("event inputs");
+    let types: Vec<_> = inputs
+        .iter()
+        .map(|input| input["type"].as_str().expect("ABI type"))
+        .collect();
+    let signature = format!("PaymentExact({})", types.join(","));
+    let mut topics = vec![Keccak256::digest(signature.as_bytes()).into()];
+    let mut data = Vec::new();
+    for input in inputs {
+        let word = match input["name"].as_str().expect("ABI field name") {
+            "paymentReference" => reference,
+            "from" => from,
+            "to" => to,
+            "assetId" => asset,
+            "amount" => {
+                let mut word = [0; 32];
+                word[16..].copy_from_slice(&amount.to_be_bytes());
+                word
+            }
+            name => panic!("unexpected PaymentExact field: {name}"),
+        };
+        if input["indexed"].as_bool().expect("indexed flag") {
+            topics.push(word);
+        } else {
+            data.extend_from_slice(&word);
+        }
+    }
+    let log = SequencerLog {
+        address: LEDGER_ADDRESS,
+        topics,
+        data,
+        log_index: 0,
+    };
+    assert_eq!(
+        decode_ledger_payment(&log),
+        Some(LedgerPayment::Exact {
+            from,
+            to,
+            reference,
+            asset,
+            amount,
+        })
+    );
+}
+
+#[test]
 fn ledger_payment_log_from_other_address_is_ignored() {
     let from = [0x11; 32];
     let to = [0x22; 32];
@@ -98,7 +160,7 @@ fn ledger_payment_log_from_other_address_is_ignored() {
         data.extend_from_slice(&amount.to_be_bytes());
         let exact = SequencerLog {
             address: LEDGER_ADDRESS,
-            topics: vec![exact_topic, from, to, reference],
+            topics: vec![exact_topic, reference, from, to],
             data,
             log_index: 0,
         };

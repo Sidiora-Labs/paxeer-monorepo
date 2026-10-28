@@ -11,7 +11,7 @@ enum {
     TERMINAL_BYTES = 352,
     CLEANUP_BYTES = 96,
     CLEANUP_BLOBS_PER_ACTIVITY = 3,
-    MAX_EXPIRIES_PER_BATCH = 6
+    MAX_EXPIRIES_PER_BATCH = 128
 };
 typedef struct sandbox_destroy_activity {
     uint8_t lease_id[32];

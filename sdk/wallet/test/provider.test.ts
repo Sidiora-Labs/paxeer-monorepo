@@ -251,6 +251,37 @@ class LocalKeyProvider implements Eip1193Provider {
   }
 }
 
+async function provider_refuses_the_retired_custody_methods() {
+  const confirmations: string[] = [];
+  const signedIn = provider('default', {
+    confirm: ({ method }) => {
+      confirmations.push(method);
+      return false;
+    },
+  });
+  await signedIn.request({ method: 'eth_requestAccounts' });
+  const before = seen.length;
+  for (const p of [provider('default', { token: null }), provider(), signedIn]) {
+    for (const method of [
+      'paxeer_prepareCustody',
+      'paxeer_custodyStatus',
+      'paxeer_restoreCustody',
+      'paxeer_recoverCustody',
+      'paxeer_signCustody',
+    ]) {
+      for (const params of [[], [{ custody: vectors.custody }]]) {
+        const err = await failure(p.request({ method, params }));
+        expect(err).toBeInstanceOf(UnsupportedMethodError);
+        expect(err).toMatchObject({ code: 4200, method });
+      }
+    }
+  }
+  expect(confirmations).toEqual([]);
+  expect(seen).toHaveLength(before);
+}
+
+test(provider_refuses_the_retired_custody_methods);
+
 describe('PaxeerProvider', () => {
   it('provider_fixtures_are_signed_by_the_recorded_wallet', async () => {
     expect(privateKeyToAccount(fixtureKey).address).toBe(vectors.address);
@@ -791,6 +822,98 @@ describe('gas station through PaxeerProvider', () => {
     expect(seen.length).toBe(before);
   });
 });
+
+async function provider_sponsored_status_answers_the_sequencer_rung() {
+  const status = {
+    account: vectors.address,
+    sponsor: vectors.sponsoredBatch.quote.sponsor,
+    quoteNonce: vectors.sponsoredBatch.quote.quoteNonce,
+    relayerSignature: bodyOf('wallet-sign-digest-sponsored-batch').signature,
+  };
+  const station = {
+    state: 'quoted',
+    deadline: vectors.sponsoredBatch.quote.deadline,
+    submission: null,
+    replacement: null,
+    completion: null,
+  };
+  const pendingAnswer = { status: 'pending', tx_hash: null, station };
+  const statusFixture: Fixture = {
+    scenario: 'sponsored-status',
+    method: 'POST',
+    path: '/v1/wallet/sponsored/status',
+    status: 200,
+    body: pendingAnswer,
+  };
+  const receiptFixture: Fixture = {
+    scenario: 'rpc',
+    method: 'pax_sequencerReceipt',
+    status: 200,
+    body: { jsonrpc: '2.0', result: null },
+  };
+  fixtures.push(statusFixture, receiptFixture);
+  try {
+    const p = await connected('sponsored-status');
+    const before = seen.length;
+    expect(await p.request({ method: 'paxeer_sponsoredStatus', params: [status] })).toEqual({
+      ...pendingAnswer,
+      rung: null,
+    });
+    expect(seen.slice(before)).toEqual([
+      {
+        method: 'POST',
+        path: '/v1/wallet/sponsored/status',
+        scenario: 'sponsored-status',
+        authorization: `Bearer ${TOKEN}`,
+        body: status,
+      },
+    ]);
+
+    const txHash = sequencerFixtures.submitted.txHash;
+    const submittedAnswer = {
+      status: 'pending',
+      tx_hash: txHash,
+      station: { ...station, state: 'pending', submission: { sponsorNonce: '0', transactionHash: txHash } },
+    };
+    statusFixture.body = submittedAnswer;
+    const receipts = [sequencerFixtures.submitted, sequencerReceipted, sequencerFixtures.committed, null];
+    for (const [index, receipt] of receipts.entries()) {
+      receiptFixture.body = { jsonrpc: '2.0', result: receipt };
+      const beforeRead = seen.length;
+      expect(await p.request({ method: 'paxeer_sponsoredStatus', params: [status] })).toEqual({
+        ...submittedAnswer,
+        rung: receipt === null ? null : receipt.rung,
+      });
+      expect(seen.slice(beforeRead)).toEqual([
+        {
+          method: 'POST',
+          path: '/v1/wallet/sponsored/status',
+          scenario: 'sponsored-status',
+          authorization: `Bearer ${TOKEN}`,
+          body: status,
+        },
+        {
+          method: 'POST',
+          path: '/',
+          scenario: 'rpc',
+          authorization: undefined,
+          body: { jsonrpc: '2.0', id: index + 1, method: 'pax_sequencerReceipt', params: [txHash] },
+        },
+      ]);
+    }
+
+    receiptFixture.body = { jsonrpc: '2.0', error: { code: -32603, message: 'sequencer unavailable' } };
+    await expect(p.request({ method: 'paxeer_sponsoredStatus', params: [status] })).rejects.toMatchObject({
+      code: -32603,
+      message: 'sequencer unavailable',
+    });
+  } finally {
+    fixtures.splice(fixtures.indexOf(statusFixture), 1);
+    fixtures.splice(fixtures.indexOf(receiptFixture), 1);
+  }
+}
+
+test(provider_sponsored_status_answers_the_sequencer_rung);
 
 async function provider_send_transaction_receipted_answers_the_receipted_sequencer_receipt() {
   const confirmations: string[] = [];

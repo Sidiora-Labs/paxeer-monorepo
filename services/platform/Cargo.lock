@@ -1215,6 +1215,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "layerx-committed-proof"
+version = "0.1.0"
+dependencies = [
+ "ed25519-dalek",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "layerx-crypto"
 version = "0.1.0"
 dependencies = [
@@ -1249,8 +1258,10 @@ dependencies = [
 name = "layerx-indexer"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "k256",
  "layerx-client",
+ "layerx-committed-proof",
  "layerx-crypto",
  "layerx-paxeer-verifier",
  "layerx-platform-internal",
@@ -1315,8 +1326,6 @@ dependencies = [
  "base64 0.23.1",
  "ed25519-dalek",
  "k256",
- "layerx-agent-api",
- "layerx-client",
  "layerx-crypto",
  "layerx-proof",
  "layerx-wire",
@@ -1618,11 +1627,10 @@ version = "0.1.0"
 dependencies = [
  "ed25519-dalek",
  "getrandom 0.4.3",
- "k256",
- "layerx-crypto",
+ "layerx-committed-proof",
+ "layerx-indexer",
  "layerx-platform-gateway",
  "layerx-programs-ai-market",
- "layerx-proof",
  "layerx-wire",
  "native-tls",
  "rustls",

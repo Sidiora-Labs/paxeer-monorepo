@@ -1,4 +1,4 @@
-package layerxprograms
+package layerxprograms_test
 
 import (
 	"bytes"
@@ -8,6 +8,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
+	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -115,13 +116,13 @@ func TestProgramsSandboxUsageReceiptLog(t *testing.T) {
 	}
 	evm, db := sandboxEventState(t)
 	receipt := sandboxEventReceipt(t, activityID, effects...)
-	require.NoError(t, emitSandboxEvents(evm, receipt))
+	require.NoError(t, lp.EmitSandboxEvents(evm, receipt))
 	logs := db.GetAllLogs()
 	require.Len(t, logs, 2)
 	var reconstructed []byte
 	for i, log := range logs {
 		assertSandboxLog(t, log, "0x5c8386df0628270b0285d3f16695d6147ce4a66e048cbef0d572dae8ac4d2ba7", common.Hash(activityID), uint(i))
-		values, err := programsABI.Events["SandboxUsageReceipt"].Inputs.NonIndexed().Unpack(log.Data)
+		values, err := lp.ProgramsABI.Events["SandboxUsageReceipt"].Inputs.NonIndexed().Unpack(log.Data)
 		require.NoError(t, err)
 		require.Equal(t, []interface{}{sequence, uint16(i), uint16(2), uint32(len(usage)), frames[i][52:]}, values)
 		require.Equal(t, uint64(160), binary.BigEndian.Uint64(log.Data[152:160]))
@@ -145,18 +146,18 @@ func TestProgramsSandboxUsageReceiptLog(t *testing.T) {
 			tc.edit(bad)
 			evm, db := sandboxEventState(t)
 			receipt := sandboxEventReceipt(t, activityID, effects[0], sandboxKernelEvent(0x0909, bad))
-			require.Error(t, emitSandboxEvents(evm, receipt))
+			require.Error(t, lp.EmitSandboxEvents(evm, receipt))
 			require.Empty(t, db.GetAllLogs())
 		})
 	}
 	for _, body := range [][]byte{nil, frames[0][:51], frames[0][:255]} {
 		evm, db := sandboxEventState(t)
-		require.Error(t, emitSandboxEvents(evm, sandboxEventReceipt(t, activityID, sandboxKernelEvent(0x0909, body))))
+		require.Error(t, lp.EmitSandboxEvents(evm, sandboxEventReceipt(t, activityID, sandboxKernelEvent(0x0909, body))))
 		require.Empty(t, db.GetAllLogs())
 	}
-	require.ErrorContains(t, emitSandboxEvents(nil, receipt), "EVM is nil")
-	require.ErrorContains(t, emitSandboxEvents(&vm.EVM{}, receipt), "StateDB is nil")
-	require.Error(t, emitSandboxEvents(evm, lxphost.Receipt{Encoded: receipt.Encoded[:20]}))
+	require.ErrorContains(t, lp.EmitSandboxEvents(nil, receipt), "EVM is nil")
+	require.ErrorContains(t, lp.EmitSandboxEvents(&vm.EVM{}, receipt), "StateDB is nil")
+	require.Error(t, lp.EmitSandboxEvents(evm, lxphost.Receipt{Encoded: receipt.Encoded[:20]}))
 }
 
 func TestProgramsSandboxDestroyedAndRetiredLogs(t *testing.T) {
@@ -190,9 +191,9 @@ func TestProgramsSandboxDestroyedAndRetiredLogs(t *testing.T) {
 	}
 	evm, db := sandboxEventState(t)
 	require.Empty(t, db.GetAllLogs())
-	require.NoError(t, emitSandboxEvents(evm, sandboxEventReceipt(t, activityID)))
+	require.NoError(t, lp.EmitSandboxEvents(evm, sandboxEventReceipt(t, activityID)))
 	require.Empty(t, db.GetAllLogs())
-	require.NoError(t, emitSandboxEvents(evm, sandboxEventReceipt(t, activityID, effects...)))
+	require.NoError(t, lp.EmitSandboxEvents(evm, sandboxEventReceipt(t, activityID, effects...)))
 	logs := db.GetAllLogs()
 	require.Len(t, logs, 6)
 	var reconstructed []byte
@@ -206,7 +207,7 @@ func TestProgramsSandboxDestroyedAndRetiredLogs(t *testing.T) {
 			name = "StorageRetired"
 			assertSandboxLog(t, log, "0xb8fb07925225ab6c059c761581d51adeb4b7017ea3b0523efded11df61bed65b", common.Hash(activityID), uint(i))
 		}
-		values, err := programsABI.Events[name].Inputs.NonIndexed().Unpack(log.Data)
+		values, err := lp.ProgramsABI.Events[name].Inputs.NonIndexed().Unpack(log.Data)
 		require.NoError(t, err)
 		require.Equal(t, []interface{}{frame[4], frame}, values)
 		require.Equal(t, uint64(64), binary.BigEndian.Uint64(log.Data[56:64]))
@@ -219,7 +220,7 @@ func TestProgramsSandboxDestroyedAndRetiredLogs(t *testing.T) {
 		otherModule.ModuleID = 8
 		stateEffect := sandboxKernelEvent(0x090B, nil)
 		stateEffect.Kind = 1
-		require.NoError(t, emitSandboxEvents(evm, sandboxEventReceipt(t, activityID, otherModule, stateEffect, sandboxKernelEvent(0x0908, nil))))
+		require.NoError(t, lp.EmitSandboxEvents(evm, sandboxEventReceipt(t, activityID, otherModule, stateEffect, sandboxKernelEvent(0x0908, nil))))
 		require.Empty(t, db.GetAllLogs())
 	})
 	for _, tc := range []struct {
@@ -239,7 +240,7 @@ func TestProgramsSandboxDestroyedAndRetiredLogs(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			evm, db := sandboxEventState(t)
-			require.Error(t, emitSandboxEvents(evm, sandboxEventReceipt(t, activityID, tc.effects...)))
+			require.Error(t, lp.EmitSandboxEvents(evm, sandboxEventReceipt(t, activityID, tc.effects...)))
 			require.Empty(t, db.GetAllLogs())
 		})
 	}
@@ -247,7 +248,7 @@ func TestProgramsSandboxDestroyedAndRetiredLogs(t *testing.T) {
 		bad := bytes.Clone(effects[i].Body)
 		bad[6] = 2
 		evm, db := sandboxEventState(t)
-		require.Error(t, emitSandboxEvents(evm, sandboxEventReceipt(t, activityID, sandboxKernelEvent(effects[i].EventType, bad))))
+		require.Error(t, lp.EmitSandboxEvents(evm, sandboxEventReceipt(t, activityID, sandboxKernelEvent(effects[i].EventType, bad))))
 		require.Empty(t, db.GetAllLogs())
 	}
 }

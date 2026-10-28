@@ -473,6 +473,8 @@ type PoolReserves struct {
 	VirtualUSDL, RealUSDL, Token, Price *big.Int
 }
 
+var getReservesSelector = crypto.Keccak256([]byte("getReserves()"))[:4]
+
 // PoolReserves reads getReserves() and getPrice() of a qualified pool pinned to
 // block (EIP-1898 by block identity), i.e. the pool state after that block.
 // SidioraPool emits PoolStateUpdated only from syncReserves(), so swaps do not
@@ -495,7 +497,7 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 	if err != nil {
 		return out, err
 	}
-	raw, err := authority.client.CallContractAtHash(read, ethereum.CallMsg{To: &pool, Data: crypto.Keccak256([]byte("getReserves()"))[:4], Gas: rpcReadGas}, block)
+	raw, err := authority.client.CallContractAtHash(read, ethereum.CallMsg{To: &pool, Data: getReservesSelector, Gas: rpcReadGas}, block)
 	release()
 	if err != nil {
 		return out, errors.Join(ErrQualification, err)

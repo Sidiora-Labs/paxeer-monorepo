@@ -5,8 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"reflect"
+	"regexp"
+	"sort"
 	"strings"
 	"testing"
 
@@ -14,6 +17,182 @@ import (
 )
 
 const ethereumRecordPath = "../tests/fixtures/records/ethereum.json"
+
+func TestEnvNamesMatchTheBridgeAppConfig(t *testing.T) {
+	gomod, err := exec.Command("go", "env", "GOMOD").Output()
+	if err != nil {
+		t.Fatalf("go env GOMOD: %v", err)
+	}
+	modulePath := strings.TrimSpace(string(gomod))
+	if modulePath == "" || modulePath == os.DevNull || !filepath.IsAbs(modulePath) {
+		t.Fatalf("go env GOMOD returned no module path: %q", modulePath)
+	}
+	configPath := filepath.Join(filepath.Dir(modulePath), "apps/bridge/src/lib/bridge/config.ts")
+	source, err := os.ReadFile(configPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, config, ok := strings.Cut(string(source), "export function readConfig(")
+	if !ok {
+		t.Fatalf("%s: readConfig function not found", configPath)
+	}
+	config, _, ok = strings.Cut(config, "export const bridgeConfig")
+	if !ok {
+		t.Fatalf("%s: bridgeConfig boundary not found", configPath)
+	}
+	reads := regexp.MustCompile(`\benv\.(NEXT_PUBLIC_BRIDGE_(?:VAULT_[A-Z0-9_]+|SOLANA_PROGRAM_ID))\b`).FindAllStringSubmatch(config, -1)
+	if len(reads) == 0 {
+		t.Fatalf("%s: no vault or Solana program environment reads found", configPath)
+	}
+	appNames := make(map[string]bool)
+	for _, read := range reads {
+		appNames[read[1]] = true
+	}
+	names := EnvNames()
+	appenvNames := make(map[string]bool)
+	for _, name := range names {
+		if appenvNames[name] {
+			t.Errorf("EnvNames repeats %q", name)
+		}
+		appenvNames[name] = true
+	}
+	var onlyAppenv, onlyApp []string
+	for name := range appenvNames {
+		if !appNames[name] {
+			onlyAppenv = append(onlyAppenv, name)
+		}
+	}
+	for name := range appNames {
+		if !appenvNames[name] {
+			onlyApp = append(onlyApp, name)
+		}
+	}
+	sort.Strings(onlyAppenv)
+	sort.Strings(onlyApp)
+	if len(onlyAppenv) != 0 || len(onlyApp) != 0 {
+		t.Errorf("environment names differ: only appenv: %q; only bridge app: %q", onlyAppenv, onlyApp)
+	}
+
+	var records []Record
+	for _, chain := range chainconfig.Chains() {
+		if chain.Kind != chainconfig.KindEVM {
+			continue
+		}
+		path := recordCopy(t, map[string]any{"chain": chain.Name, "chain_id": chain.ID})
+		record, err := LoadRecord(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		records = append(records, record)
+	}
+	solana, err := LoadRecord("../tests/fixtures/records/solana.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	records = append(records, solana)
+	var emittedNames []string
+	for _, line := range EnvLines(records) {
+		name, _, ok := strings.Cut(line, "=")
+		if !ok {
+			t.Fatalf("EnvLines emitted an invalid assignment: %q", line)
+		}
+		emittedNames = append(emittedNames, name)
+	}
+	if !reflect.DeepEqual(names, emittedNames) {
+		t.Errorf("EnvNames() = %q, but EnvLines emits %q", names, emittedNames)
+	}
+}
+
+func TestCheckReportsAVaultThatDiffers(t *testing.T) {
+	record, err := LoadRecord(ethereumRecordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	raw, err := os.ReadFile(ethereumRecordPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "ethereum.json"), raw, 0600); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name string
+		env  string
+	}{
+		{"different", "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=0x0000000000000000000000000000000000000001\n"},
+		{"missing", "UNRELATED=value\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			envPath := filepath.Join(t.TempDir(), ".env")
+			if err := os.WriteFile(envPath, []byte(tc.env), 0600); err != nil {
+				t.Fatal(err)
+			}
+			err := Check(envPath, []Record{record})
+			if err == nil || !strings.Contains(err.Error(), "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM") {
+				t.Fatalf("Check must report the vault key: %v", err)
+			}
+			var output bytes.Buffer
+			err = Run([]string{"--check", envPath, dir}, &output)
+			if err == nil || !strings.Contains(err.Error(), "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM") {
+				t.Fatalf("Run --check must report the vault key: %v", err)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("Run --check wrote environment output: %q", output.String())
+			}
+		})
+	}
+}
+
+func TestCheckAcceptsAMatchingEnv(t *testing.T) {
+	var records []Record
+	dir := t.TempDir()
+	for _, name := range []string{"ethereum", "solana"} {
+		path := filepath.Join("../tests/fixtures/records", name+".json")
+		record, err := LoadRecord(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		records = append(records, record)
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name+".json"), raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, vault := range []string{records[0].Vault, "0x" + strings.ToUpper(records[0].Vault[2:])} {
+		t.Run(vault, func(t *testing.T) {
+			envPath := filepath.Join(t.TempDir(), ".env")
+			env := "# App environment\r\nUNRELATED=some=value\r\n\r\nNEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + vault + "\r\nNEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + records[1].ProgramID
+			if err := os.WriteFile(envPath, []byte(env), 0600); err != nil {
+				t.Fatal(err)
+			}
+			if err := Check(envPath, records); err != nil {
+				t.Fatalf("Check rejected matching environment: %v", err)
+			}
+			var output bytes.Buffer
+			if err := Run([]string{"--check", envPath, dir}, &output); err != nil {
+				t.Fatalf("Run --check rejected matching environment: %v", err)
+			}
+			if output.Len() != 0 {
+				t.Fatalf("Run --check wrote environment output: %q", output.String())
+			}
+		})
+	}
+	t.Run("program_id_case_is_significant", func(t *testing.T) {
+		envPath := filepath.Join(t.TempDir(), ".env")
+		env := "NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + records[0].Vault + "\nNEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID=" + strings.ToLower(records[1].ProgramID) + "\n"
+		if err := os.WriteFile(envPath, []byte(env), 0600); err != nil {
+			t.Fatal(err)
+		}
+		err := Check(envPath, records)
+		if err == nil || !strings.Contains(err.Error(), "NEXT_PUBLIC_BRIDGE_SOLANA_PROGRAM_ID") {
+			t.Fatalf("Check must reject a changed program ID: %v", err)
+		}
+	})
+}
 
 func recordCopy(t *testing.T, fields map[string]any) string {
 	t.Helper()

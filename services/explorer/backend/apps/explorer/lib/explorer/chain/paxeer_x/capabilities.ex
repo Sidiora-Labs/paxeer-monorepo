@@ -11,8 +11,8 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   One probe reads the node head with `eth_blockNumber` and then, at that one
   height, issues
 
-    * `eth_getCode` for the custody (`0x…1013`), anchor (`0x…1014`), exchange
-      (`0x…1015`), bridge (`0x…1016`) and launchpad (`0x…1017`) precompiles — a
+    * `eth_getCode` for the exchange (`0x…1015`), bridge (`0x…1016`) and
+      launchpad (`0x…1017`) precompiles — a
       surface is live when the answer carries at least one byte of code;
     * one `eth_call` of `getUnifiedAccount(address)` (selector `0x357feed6`) at
       the addr precompile `0x…1004`, which exists before the upgrade but only
@@ -36,9 +36,9 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
 
     * `live?/1` — `true` when the capability was live at the last successful
       probe, `false` for every capability while the process is not running or
-      has not answered yet. Takes `:custody`, `:anchor`, `:exchange`, `:bridge`,
+      has not answered yet. Takes `:exchange`, `:bridge`,
       `:launchpad` or `:unified_account`.
-    * `all/0` — the whole snapshot as a map of those six booleans plus
+    * `all/0` — the whole snapshot as a map of those four booleans plus
       `:checked_at`, the `DateTime` of the last successful probe or `nil`.
     * `refresh/0` — probes now, in the caller's stead, and returns the snapshot
       it stored; `{:error, reason}` when the node refuses.
@@ -59,16 +59,12 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   @table :paxeer_x_capabilities
   @snapshot_key :snapshot
 
-  @custody_precompile "0x0000000000000000000000000000000000001013"
-  @anchor_precompile "0x0000000000000000000000000000000000001014"
   @exchange_precompile "0x0000000000000000000000000000000000001015"
   @bridge_precompile "0x0000000000000000000000000000000000001016"
   @launchpad_precompile "0x0000000000000000000000000000000000001017"
   @addr_precompile "0x0000000000000000000000000000000000001004"
 
   @code_surfaces [
-    custody: @custody_precompile,
-    anchor: @anchor_precompile,
     exchange: @exchange_precompile,
     bridge: @bridge_precompile,
     launchpad: @launchpad_precompile
@@ -95,11 +91,9 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   # and the process reports started — before the node is asked anything.
   @first_probe_delay_milliseconds 0
 
-  @type surface :: :custody | :anchor | :exchange | :bridge | :launchpad | :unified_account
+  @type surface :: :exchange | :bridge | :launchpad | :unified_account
 
   @type snapshot :: %{
-          custody: boolean(),
-          anchor: boolean(),
           exchange: boolean(),
           bridge: boolean(),
           launchpad: boolean(),
@@ -164,7 +158,7 @@ defmodule Explorer.Chain.PaxeerX.Capabilities do
   end
 
   @doc """
-  Reads the five surface precompiles and the addr method at one node height.
+  Reads the three surface precompiles and the addr method at one node height.
 
   Returns the snapshot the node describes, or the reason it refused. Exposed so
   a caller with its own JSON-RPC arguments can probe without this process.

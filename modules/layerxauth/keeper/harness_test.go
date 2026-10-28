@@ -1,10 +1,11 @@
-package keeper
+package keeper_test
 
 import (
 	"testing"
 	"time"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/cachemulti"
@@ -18,13 +19,16 @@ import (
 	tmdb "github.com/tendermint/tm-db"
 )
 
-type harness struct {
-	ctx       sdk.Context
-	keeper    *Keeper
-	host      *lxphost.Host
-	key       *sdk.KVStoreKey
-	hostKey   *sdk.KVStoreKey
-	authority string
+type authViewFixture = keeper.AuthViewFixture
+
+var newAuthViewFixture = keeper.NewAuthViewFixture
+var authViewStores = keeper.AuthViewStores
+
+func init() {
+	keeper.HarnessFactory = newHarness
+	keeper.ExecuteActor = authExecuteActor
+	keeper.ExecutePayload = authExecutePayload
+	keeper.ExecuteSignedReceipt = authExecuteSignedReceipt
 }
 
 func mounted(parent storetypes.MultiStore, key storetypes.StoreKey) (store storetypes.KVStore, ok bool) {
@@ -51,7 +55,7 @@ func withStore(ctx sdk.Context, key storetypes.StoreKey) sdk.Context {
 	return ctx.WithMultiStore(cachemulti.NewStore(tmdb.NewMemDB(), stores, keys, nil, nil, nil, 0))
 }
 
-func newHarness(t *testing.T) *harness {
+func newHarness(t *testing.T) *keeper.Harness {
 	t.Helper()
 	app := testkeeper.EVMTestApp
 	base, _ := app.NewContext(false, tmtypes.Header{}).
@@ -66,8 +70,6 @@ func newHarness(t *testing.T) *harness {
 	require.NoError(t, err)
 	t.Cleanup(host.Close)
 	authority := authtypes.NewModuleAddress(govtypes.ModuleName).String()
-	return &harness{
-		ctx: ctx, key: key, hostKey: hostKey, host: host, authority: authority,
-		keeper: NewKeeper(app.AppCodec(), key, host, &app.AuthzKeeper, &app.EvmKeeper, authority),
-	}
+	k := keeper.NewKeeper(app.AppCodec(), key, host, &app.AuthzKeeper, &app.EvmKeeper, authority)
+	return keeper.NewHarness(ctx, k, host, key, hostKey, authority)
 }

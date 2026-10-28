@@ -397,11 +397,17 @@ impl EthereumArchiveClient {
     ///
     /// # Errors
     /// Refuses identity, RPC, archive, and canonical-coordinate failures.
-    pub fn retrieve_finalized(&self, commitment: ArchiveCommitment) -> Result<Option<Vec<u8>>, EthereumError> {
+    pub fn retrieve_finalized(
+        &self,
+        commitment: ArchiveCommitment,
+    ) -> Result<Option<Vec<u8>>, EthereumError> {
         let reader = EthereumMirrorReader::open(EthereumMirrorReadConfig {
-            rpc: self.config.rpc.clone(), chain_id: self.config.chain_id,
-            genesis_hash: self.config.genesis_hash, archive_contract: self.config.archive_contract,
-            archive_code_hash: self.config.archive_code_hash, publisher: self.signer_address,
+            rpc: self.config.rpc.clone(),
+            chain_id: self.config.chain_id,
+            genesis_hash: self.config.genesis_hash,
+            archive_contract: self.config.archive_contract,
+            archive_code_hash: self.config.archive_code_hash,
+            publisher: self.signer_address,
         })?;
         match reader.retrieve(commitment)? {
             Some(observed) if reader.is_canonical(&observed)? => Ok(Some(observed.archive)),
@@ -425,11 +431,7 @@ impl EthereumArchiveClient {
             chain: MirrorChain::Ethereum,
             batch_number: archive.data().batch_number,
             commitment: archive.commitment(),
-            checkpoint: archive
-                .data()
-                .checkpoint
-                .as_ref()
-                .map(|value| value.coordinate),
+            committed: archive.data().committed_coordinate(),
             stage: stage.stage,
             phase: PublicationPhase::Prepared,
             stage_payload_digest: digest,
@@ -857,11 +859,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StagePayload>, Et
     let chunk_count = archive.bytes().len().div_ceil(chunk_bytes);
     let chunk_count_u32 = u32::try_from(chunk_count).map_err(|_| EthereumError::Transaction)?;
     let length = u64::try_from(archive.bytes().len()).map_err(|_| EthereumError::Transaction)?;
-    let checkpoint = archive
-        .data()
-        .checkpoint
-        .as_ref()
-        .map_or([0; 32], |value| value.coordinate.checkpoint_id);
+    let block_hash = archive.data().committed.block_hash;
     let mut output = Vec::with_capacity(chunk_count.saturating_add(2));
     output.push(StagePayload {
         stage: PublicationStage::Manifest,
@@ -871,7 +869,7 @@ fn stages(archive: &Archive, chunk_bytes: usize) -> Result<Vec<StagePayload>, Et
                 AbiValue::Fixed(*archive.commitment().as_bytes()),
                 AbiValue::Uint(u128::from(archive.data().network_id)),
                 AbiValue::Uint(u128::from(archive.data().batch_number)),
-                AbiValue::Fixed(checkpoint),
+                AbiValue::Fixed(block_hash),
                 AbiValue::Uint(u128::from(length)),
                 AbiValue::Uint(u128::from(chunk_count_u32)),
                 AbiValue::Fixed(Sha256::digest(archive.bytes()).into()),
@@ -1190,7 +1188,87 @@ fn hex(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{decode_manifest, manifest_within_bounds, MAX_ARCHIVE_BYTES, MAX_ARCHIVE_CHUNKS};
+    use sha2::{Digest, Sha256};
+    use sha3::Keccak256;
+
+    use crate::committed::{CommittedBlock, CommittedHeader};
+    use crate::{Archive, NodeHead};
+
+    use super::{
+        chunk_chain_root, decode_manifest, manifest_within_bounds, stages, PublicationStage,
+        MAX_ARCHIVE_BYTES, MAX_ARCHIVE_CHUNKS, MIN_CHUNK_BYTES,
+    };
+
+    fn committed_archive() -> Archive {
+        let height = 0x0102_0304_0506_0708;
+        Archive::from_committed(
+            &CommittedBlock {
+                header: CommittedHeader {
+                    height,
+                    block_hash: [0x11; 32],
+                    parent_hash: [0x22; 32],
+                    app_hash: [0x33; 32],
+                    timestamp: 1_700_000_000,
+                    transactions: vec![[0x44; 32]],
+                },
+                receipts: vec![vec![0x55; 2049]],
+            },
+            125,
+            NodeHead {
+                latest_sealed_batch: height + 3,
+                latest_committed: None,
+            },
+        )
+        .unwrap_or_else(|error| panic!("committed archive: {error:?}"))
+    }
+
+    #[test]
+    fn begin_carries_the_committed_height_and_block_hash() {
+        let archive = committed_archive();
+        assert_eq!(&archive.bytes()[8..10], &4_u16.to_be_bytes());
+        assert_eq!(archive.data().committed.block_hash, [0x11; 32]);
+        let payloads = stages(&archive, MIN_CHUNK_BYTES)
+            .unwrap_or_else(|error| panic!("archive stages: {error:?}"));
+        let manifest = &payloads[0];
+        assert_eq!(manifest.stage, PublicationStage::Manifest);
+        let call = &manifest.call_data;
+        assert_eq!(call.len(), 4 + 8 * 32);
+        let selector = Keccak256::digest(
+            b"begin(bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32,bytes32)",
+        );
+        assert_eq!(&call[..4], &selector[..4]);
+        let words = call[4..].chunks_exact(32).collect::<Vec<_>>();
+        assert_eq!(words[0], archive.commitment().as_bytes());
+        let uint_word = |value: u64| {
+            let mut word = [0; 32];
+            word[24..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        assert_eq!(words[1], uint_word(125));
+        assert_eq!(words[2], uint_word(0x0102_0304_0506_0708));
+        assert_eq!(words[3], [0x11; 32]);
+        assert_eq!(words[4], uint_word(archive.bytes().len() as u64));
+        assert_eq!(words[5], uint_word(3));
+        assert_eq!(words[6], Sha256::digest(archive.bytes()).as_slice());
+        assert_eq!(
+            words[7],
+            chunk_chain_root(archive.bytes(), MIN_CHUNK_BYTES)
+                .unwrap_or_else(|error| panic!("chunk chain: {error:?}"))
+        );
+        assert_eq!(payloads.len(), 5);
+        for (index, payload) in payloads[1..4].iter().enumerate() {
+            assert_eq!(payload.stage, PublicationStage::Chunk(index as u32));
+        }
+        assert_eq!(payloads[4].stage, PublicationStage::Finalize);
+    }
+
+    #[test]
+    fn a_v4_archive_without_a_committed_block_has_no_manifest() {
+        let archive = committed_archive();
+        let mut missing_block = archive.bytes().to_vec();
+        missing_block.truncate(8 + 2 + 4 + 8);
+        assert!(Archive::from_spool(missing_block, archive.node_head()).is_err());
+    }
 
     fn manifest(length: u64, chunks: u64, finalized: bool) -> Vec<u8> {
         let mut encoded = vec![0_u8; 128];

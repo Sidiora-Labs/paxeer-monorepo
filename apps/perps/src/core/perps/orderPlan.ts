@@ -86,9 +86,12 @@ export function checkOrderLimits(state: OrderFormState, limits: OrderLimits): Or
   if (parseLeverage(state.leverage) > limits.maxLeverage) {
     return refusal("VALIDATION_ABOVE_MAX", "Leverage exceeds the market maximum.");
   }
-  const prices = state.orderType === "limit"
-    ? [state.triggerPrice]
-    : state.orderType === "stop-limit" ? [state.triggerPrice, state.limitPrice] : [];
+  const prices =
+    state.orderType === "limit"
+      ? [state.triggerPrice]
+      : state.orderType === "stop-limit"
+        ? [state.triggerPrice, state.limitPrice]
+        : [];
   if (prices.some((price) => safeParseUnits(price, USD_DECIMALS) % limits.tickSize !== 0n)) {
     return refusal("VALIDATION_PRECISION", "Order prices must be multiples of the market tick size.");
   }
@@ -152,14 +155,10 @@ function planCalls(
   state: OrderFormState,
   quote: OpenPositionQuote | null,
   leverage: bigint,
-  limits?: OrderLimits,
+  limits: OrderLimits,
 ): OrderPlan {
-  if (limits !== undefined) {
-    const refused = checkOrderLimits(state, limits);
-    if (refused !== null) return refused;
-    if (state.orderType === "market" && quote !== null && quote.sizeUsd % limits.lotSize !== 0n) {
-      return refusal("VALIDATION_PRECISION", "Order sizes must be multiples of the market lot size.");
-    }
+  if (state.orderType === "market" && quote !== null && quote.sizeUsd % limits.lotSize !== 0n) {
+    return refusal("VALIDATION_PRECISION", "Order sizes must be multiples of the market lot size.");
   }
   const timeInForce = timeInForceOf(state.orderType, state);
   const takeProfitPrice = state.tpslEnabled ? safeParseUnits(state.tpPrice, USD_DECIMALS) : 0n;
@@ -183,6 +182,7 @@ function planCalls(
         leverage,
         quote,
         timeInForce: timeInForce === TimeInForce.FOK ? TimeInForce.FOK : TimeInForce.IOC,
+        reduceOnly: state.reduceOnly,
         takeProfitPrice,
         stopLossPrice,
       });
@@ -216,7 +216,10 @@ function planCalls(
     case "scaled": {
       const distribution = state.scaledDistribution;
       if (distribution === "custom") {
-        return refusal("VALIDATION_REQUIRED_FIELD", "The custom distribution has no input; choose flat, ascending or descending.");
+        return refusal(
+          "VALIDATION_REQUIRED_FIELD",
+          "The custom distribution has no input; choose flat, ascending or descending.",
+        );
       }
       const rungs = parseRungs(state.scaledTotalOrders);
       if (typeof rungs === "string") {
@@ -226,15 +229,17 @@ function planCalls(
       const end = safeParseUnits(state.scaledEndPrice, USD_DECIMALS);
       const span = BigInt(rungs - 1);
       const sizes = rungSizes(sizeUsd, distribution, rungs);
-      if (limits !== undefined && sizes.some((size) => size % limits.lotSize !== 0n)) {
+      if (sizes.some((size) => size % limits.lotSize !== 0n)) {
         return refusal("VALIDATION_PRECISION", "Each scaled order must be a multiple of the market lot size.");
       }
       const calls = sizes.map((rungSize, i) =>
         buildPlaceLimitOrder({
           ...resting,
-          limitPrice: limits === undefined
-            ? start + ((end - start) * BigInt(i)) / span
-            : alignToTick(start + ((end - start) * BigInt(i)) / span, limits.tickSize, state.isLong ? "down" : "up"),
+          limitPrice: alignToTick(
+            start + ((end - start) * BigInt(i)) / span,
+            limits.tickSize,
+            state.isLong ? "down" : "up",
+          ),
           sizeUsd: rungSize,
           collateralAmount: deriveImpliedCollateral(rungSize, leverage, COLLATERAL_DECIMALS),
           cloid: ladderCloid(state.ladderId, i),
@@ -248,12 +253,14 @@ function planCalls(
 /**
  * The ordered placeOrder calls handleSubmit sends for the form state, or no calls and the refusal.
  * `quote` is the current quoteOpenPosition of a market order; resting orders take null.
- * Supply `limits` to enforce chain tick, lot and leverage limits and align scaled prices.
+ * `limits` enforce chain tick, lot and leverage limits and align scaled prices.
  */
-export function buildOrderPlan(state: OrderFormState, quote: OpenPositionQuote | null, limits?: OrderLimits): OrderPlan {
+export function buildOrderPlan(state: OrderFormState, quote: OpenPositionQuote | null, limits: OrderLimits): OrderPlan {
   const leverage = parseLeverage(state.leverage);
   if (leverage === 0n) return refusal("VALIDATION_BELOW_MIN", "Leverage must be at least 1x.");
   try {
+    const refused = checkOrderLimits(state, limits);
+    if (refused !== null) return refused;
     return planCalls(state, quote, leverage, limits);
   } catch (err) {
     if (isUserFacingError(err)) return { calls: [], error: err };

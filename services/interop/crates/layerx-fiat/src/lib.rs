@@ -602,7 +602,7 @@ impl FiatAdapter {
                     return Err(fail(FiatError::ReceiptMismatch));
                 }
                 let mut payments = verified.logs().iter().filter(|log| {
-                    let [event, _, to, reference] = log.topics() else {
+                    let [event, reference, _, to] = log.topics() else {
                         return false;
                     };
                     log.address() == LEDGER_ADDRESS
@@ -619,7 +619,7 @@ impl FiatAdapter {
                 if payments.next().is_some() {
                     return Err(fail(FiatError::ReceiptMismatch));
                 }
-                Some(payment.topics()[1])
+                Some(payment.topics()[2])
             }
             _ => None,
         };
@@ -627,7 +627,7 @@ impl FiatAdapter {
             .logs
             .iter()
             .filter(|log| {
-                let [event, from, to, reference] = log.topics() else {
+                let [event, reference, from, to] = log.topics() else {
                     return false;
                 };
                 let account_matches = match facts.class {

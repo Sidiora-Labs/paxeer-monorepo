@@ -16,11 +16,11 @@ use crate::attest::{
 use crate::content::{ContentStore, PEER_HEADER};
 use crate::fetch::{Fetcher, HttpClient, Url};
 use crate::index::WebIndex;
-use crate::kernel::KernelError;
 use crate::payment::{hex, unhex};
 use crate::search;
 use crate::server::{Response, RouteError, RouteTable};
-use crate::watch::{hex0x, keccak, unhex0x};
+use crate::submit::{Outcome, SubmitError, Submitter};
+use crate::watch::{hex0x, keccak, unhex0x, EvmError, RequestWatcher};
 
 pub use crate::server::PROGRAM_ATTESTATION_PATH;
 
@@ -33,6 +33,82 @@ pub const MAX_OBSERVATION_SIGNATURES: usize = 16;
 const PEER_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const PEER_TOTAL_TIMEOUT: Duration = Duration::from_secs(10);
 const DISCARD_LOG: &str = "program-discarded.jsonl";
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum KernelError {
+    Authorization,
+    /// The gateway endpoint is not an http or https URL with a host.
+    Endpoint,
+    /// No well-formed answer arrived.
+    Unavailable,
+    /// The gateway answered with a JSON-RPC error.
+    Rejected {
+        code: i64,
+    },
+    /// The answer does not have the shape the method defines.
+    Malformed,
+    /// A request record is not a canonical program web request.
+    Record,
+    /// The watcher's cursor could not be read or written.
+    Cursor,
+    /// The observation or its activity could not be encoded.
+    Encode,
+    /// The relay journal could not be read, is not this version or could
+    /// not be written.
+    Journal,
+}
+
+impl std::fmt::Display for KernelError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Authorization => f.write_str("kernel gateway authorization refused"),
+            Self::Endpoint => f.write_str("gateway endpoint refused"),
+            Self::Unavailable => f.write_str("gateway unavailable"),
+            Self::Rejected { code } => write!(f, "gateway rejected the call with {code}"),
+            Self::Malformed => f.write_str("gateway answer malformed"),
+            Self::Record => f.write_str("program web request record malformed"),
+            Self::Cursor => f.write_str("kernel watch cursor unreadable or unwritable"),
+            Self::Encode => f.write_str("observation activity could not be encoded"),
+            Self::Journal => f.write_str("kernel relay journal unreadable or unwritable"),
+        }
+    }
+}
+
+impl std::error::Error for KernelError {}
+
+/// Decodes the record a program emits: the request id big-endian, the kind,
+/// the payload length big-endian and the payload.
+///
+/// # Errors
+/// Refuses an unknown kind, an empty payload and a length that does not
+/// match the record.
+pub fn decode_request_record(
+    program_id: [u8; 32],
+    sequence: u64,
+    data: &[u8],
+) -> Result<ProgramRequest, KernelError> {
+    const HEADER_BYTES: usize = 13;
+    if data.len() < HEADER_BYTES {
+        return Err(KernelError::Record);
+    }
+    let (header, payload) = data.split_at(HEADER_BYTES);
+    let mut id = [0; 8];
+    id.copy_from_slice(&header[..8]);
+    let mut length = [0; 4];
+    length.copy_from_slice(&header[9..13]);
+    let length = usize::try_from(u32::from_be_bytes(length)).map_err(|_| KernelError::Record)?;
+    let kind = header[8];
+    if !matches!(kind, 1 | 2) || length == 0 || payload.len() != length {
+        return Err(KernelError::Record);
+    }
+    Ok(ProgramRequest {
+        program_id,
+        request_id: u64::from_be_bytes(id),
+        kind,
+        payload: payload.to_vec(),
+        sequence,
+    })
+}
 
 /// One committed program web request.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -675,6 +751,146 @@ pub fn register(
 ) -> Result<(), RouteError> {
     let exchange = Arc::clone(exchange);
     routes.set_program_attestations(move |program_id, request_id| {
-        exchange.handle((program_id, request_id))
+        match exchange.answer((program_id, request_id)) {
+            Some(answer) => Response::json(200, program_record(&answer).to_string().into_bytes()),
+            None => Response::error(404, "not_found"),
+        }
     })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, serde::Deserialize, serde::Serialize)]
+pub struct ProgramRefusal {
+    pub program_id: [u8; 32],
+    pub request_id: u64,
+    pub code: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum Step {
+    Submitted {
+        program_id: [u8; 32],
+        request_id: u64,
+        outcome: Outcome,
+    },
+    Discarded {
+        program_id: [u8; 32],
+        request_id: u64,
+        code: String,
+    },
+}
+
+pub struct ProgramRelay {
+    pub watcher: RequestWatcher,
+    pub attestor: ProgramAttestor,
+    pub exchange: Arc<ProgramExchange>,
+    pub set: AttestorSet,
+    pub submitter: Submitter,
+}
+
+impl ProgramRelay {
+    pub fn discarded(&self) -> Result<Vec<ProgramRefusal>, EvmError> {
+        let path = self
+            .exchange
+            .log_path()
+            .with_file_name("program-requests-discarded.jsonl");
+        let contents = match std::fs::read_to_string(path) {
+            Ok(contents) => contents,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(Vec::new()),
+            Err(_) => return Err(EvmError::Journal),
+        };
+        contents
+            .lines()
+            .map(|line| serde_json::from_str(line).map_err(|_| EvmError::Journal))
+            .collect()
+    }
+
+    pub fn step(&mut self) -> Result<Vec<Step>, EvmError> {
+        let discarded = self.discarded()?;
+        self.watcher.poll()?;
+        let mut steps = Vec::new();
+        for request in self.watcher.program_work() {
+            let key = (request.program_id, request.request_id);
+            if let Some(refusal) = discarded
+                .iter()
+                .find(|entry| (entry.program_id, entry.request_id) == key)
+            {
+                self.watcher.retire_program(key.0, key.1)?;
+                self.exchange.forget(key);
+                steps.push(Step::Discarded {
+                    program_id: key.0,
+                    request_id: key.1,
+                    code: refusal.code.clone(),
+                });
+                continue;
+            }
+            let resumed = self.submitter.resume_program(key).map_err(submit_error)?;
+            let outcome = if let Some(outcome) = resumed {
+                outcome
+            } else {
+                if self.exchange.answer(key).is_none() {
+                    match self.attestor.attest(&request) {
+                        Ok(answer) => self.exchange.record(answer),
+                        Err(reason) => {
+                            let code = match &reason {
+                                AttestError::Fetch(error) => error.code().to_owned(),
+                                _ => reason.to_string(),
+                            };
+                            let record = serde_json::to_string(&ProgramRefusal {
+                                program_id: key.0,
+                                request_id: key.1,
+                                code: code.clone(),
+                            })
+                            .map_err(|_| EvmError::Journal)?;
+                            let mut file = std::fs::OpenOptions::new()
+                                .create(true)
+                                .append(true)
+                                .open(
+                                    self.exchange
+                                        .log_path()
+                                        .with_file_name("program-requests-discarded.jsonl"),
+                                )
+                                .map_err(|_| EvmError::Journal)?;
+                            writeln!(file, "{record}").map_err(|_| EvmError::Journal)?;
+                            file.sync_all().map_err(|_| EvmError::Journal)?;
+                            self.watcher.retire_program(key.0, key.1)?;
+                            self.exchange.forget(key);
+                            steps.push(Step::Discarded {
+                                program_id: key.0,
+                                request_id: key.1,
+                                code,
+                            });
+                            continue;
+                        }
+                    }
+                }
+                let _ = self.exchange.collect(key, &self.set);
+                let Some(ready) = self.exchange.ready(key, &self.set) else {
+                    continue;
+                };
+                let observation = observation_bytes(self.attestor.network_id, &request, &ready)
+                    .map_err(|_| EvmError::Malformed)?;
+                self.submitter
+                    .submit_program(key, &observation, ready.signatures.len())
+                    .map_err(submit_error)?
+            };
+            if outcome.completed() {
+                self.watcher.retire_program(key.0, key.1)?;
+                self.exchange.forget(key);
+            }
+            steps.push(Step::Submitted {
+                program_id: key.0,
+                request_id: key.1,
+                outcome,
+            });
+        }
+        Ok(steps)
+    }
+}
+
+fn submit_error(error: SubmitError) -> EvmError {
+    match error {
+        SubmitError::Evm(error) => error,
+        SubmitError::Journal => EvmError::Journal,
+        _ => EvmError::Malformed,
+    }
 }
