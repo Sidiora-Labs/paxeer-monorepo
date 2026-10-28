@@ -85,7 +85,7 @@ function startRpc(): Promise<void> {
 }
 
 function makeRpc(timeoutMs = 5_000): InstanceType<PoolModule['RpcPool']> {
-  return new poolMod.RpcPool({ urls: [rpcUrl], chainId: 125, lagThresholdBlocks: 20, timeoutMs, healthIntervalMs: 60_000 });
+  return new poolMod.RpcPool({ urls: [rpcUrl], sequencerUrl: rpcUrl, chainId: 125, lagThresholdBlocks: 20, timeoutMs, healthIntervalMs: 60_000 });
 }
 
 function makeStore(): InstanceType<StoreModule['NonceStore']> {
@@ -635,7 +635,7 @@ describe('NonceStore', () => {
     expect(await allocate(store, address)).toBe(130);
   });
 
-  it('takes nonce too low as success when our hash is known, as a conflict when latest has not passed our nonce and as outcome unknown when it has', async () => {
+  it('takes nonce too low as success when our hash is known, as a conflict when latest has not passed our nonce and as nonce consumed when every member has', async () => {
     const signer = privateKeyToAccount('0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d');
     const address = signer.address.toLowerCase();
     const sign = (nonce: number) => signer.signTransaction({ chainId: 125, type: 'eip1559', nonce, to: ADDRESS, value: 1n, gas: 21_000n,
@@ -651,19 +651,20 @@ describe('NonceStore', () => {
       const conflict = await lockedSend(store, address, raw140);
       expect(conflict.nonce).toBe(140);
       expect(conflict.error).toBeInstanceOf(poolMod.NonceConflictError);
-      expect(conflict.error).toMatchObject({ member: 0, members: 1 });
+      expect(conflict.error).toMatchObject({ member: null, members: 1 });
       const refused = custodyRefusal(conflict.error);
-      expect(refused).toMatchObject({ status: 409, body: { error: 'nonce_conflict', retry: 'prepare', member: 0, members: 1 } });
+      expect(refused).toMatchObject({ status: 409, body: { error: 'nonce_conflict', retry: 'prepare', member: null, members: 1 } });
       expect(JSON.stringify(refused)).not.toContain('127.0.0.1');
       knownHashes.add(keccak256(raw141));
       expect(await lockedSend(store, address, raw141)).toEqual({ nonce: 141, error: null });
       pendingCount = 143;
-      const unknown = await makeRpc().sendRawTransactionVia(raw142).catch((err: unknown) => err);
-      expect(unknown).toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
-      expect(unknown).not.toBeInstanceOf(poolMod.NonceConflictError);
-      expect(unknown).toMatchObject({ hash: keccak256(raw142), nonce: 142 });
-      expect(custodyRefusal(unknown)).toEqual({ status: 202, body: { error: 'outcome_unknown', tx_hash: keccak256(raw142), nonce: 142,
-        retry: 'poll_receipt', poll: 'eth_getTransactionReceipt', must_not_resubmit: true, member: 0, members: 1 } });
+      const consumed = await makeRpc().sendRawTransactionVia(raw142).catch((err: unknown) => err);
+      expect(consumed).toBeInstanceOf(poolMod.NonceConflictError);
+      expect(consumed).not.toBeInstanceOf(poolMod.BroadcastOutcomeUnknownError);
+      expect(consumed).toMatchObject({ consumed: true, nonce: 142, member: null, members: 1 });
+      expect(custodyRefusal(consumed)).toEqual({ status: 409, body: {
+        error: 'nonce_consumed', retry: 'prepare', nonce: 142, member: null, members: 1,
+      } });
     } finally {
       sendError = null;
     }

@@ -47,7 +47,7 @@ const receipt: TransactionReceipt = {
   type: 'eip1559',
 };
 
-function receiptLog(address: Address, topics: ReturnType<typeof encodeEventTopics>, data: Hex, logIndex: number): Log {
+function receiptLog(address: Address, topics: ReturnType<typeof encodeEventTopics>, data: Hex, logIndex: number): Log<bigint, number, false> {
   const [ signature, ...indexed ] = topics;
   return {
     address,
@@ -65,7 +65,7 @@ function receiptLog(address: Address, topics: ReturnType<typeof encodeEventTopic
   };
 }
 
-function depositLog(destination: Address, depositAsset: Address = asset): Log {
+function depositLog(destination: Address, depositAsset: Address = asset): Log<bigint, number, false> {
   return receiptLog(
     vault,
     encodeEventTopics({
@@ -78,7 +78,7 @@ function depositLog(destination: Address, depositAsset: Address = asset): Log {
   );
 }
 
-function bridgeOutLog(address: Address, nonce: bigint): Log {
+function bridgeOutLog(address: Address, nonce: bigint): Log<bigint, number, false> {
   return receiptLog(
     address,
     encodeEventTopics({
@@ -91,7 +91,7 @@ function bridgeOutLog(address: Address, nonce: bigint): Log {
   );
 }
 
-function enrichRecordIgnoresADepositLogForAnotherRecipient() {
+function enrichRecordIgnoresADepositLogForAnotherRecipient(): void {
   const wrongRecipient = depositLog(other);
   const ignored = enrichRecord(transfer, { ...receipt, logs: [ wrongRecipient ] });
   expect(ignored.logIndex).toBeUndefined();
@@ -107,10 +107,11 @@ function enrichRecordIgnoresADepositLogForAnotherRecipient() {
   expect(transfer.logIndex).toBeUndefined();
   expect(enrichRecord(enriched, { ...receipt, logs: [ depositLog(other) ] })).toBe(enriched);
   expect(enrichRecord(transfer, receipt)).toBe(transfer);
-  expect(enrichRecord(transfer, { ...receipt, logs: [ { ...matching, logIndex: null } ] })).toBe(transfer);
+  const missingLogIndex = Object.defineProperty({ ...matching }, 'logIndex', { value: null });
+  expect(enrichRecord(transfer, { ...receipt, logs: [ missingLogIndex ] })).toBe(transfer);
 }
 
-function enrichRecordReadsTheBridgeOutNonce() {
+function enrichRecordReadsTheBridgeOutNonce(): void {
   const withdrawal: BridgeTransfer = { ...transfer, id: `${ zeroHash }:out`, direction: 'out' };
   const impostor = bridgeOutLog(other, 5n);
   const bridgeReceipt: TransactionReceipt = {
