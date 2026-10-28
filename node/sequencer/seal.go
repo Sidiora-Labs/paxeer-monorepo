@@ -90,7 +90,8 @@ func BatchFields(b *Batch) SequenceBatchFields {
 // SealBatch applies msg as tx 0 of b with DeliverSequenceBatch, runs the end-of-block steps over
 // b in ProcessBlock order and returns L_N with the encoded tx 0. It refuses a msg whose fields
 // differ from BatchFields(b). The steps run on a branch of b.Store that is written only when
-// every step succeeds, so on any error b.Store is unchanged.
+// every step succeeds, so on any error b.Store is unchanged. The stored historical header
+// remains provisional until FinalizeBlocker supplies the decided consensus header.
 func SealBatch(a *app.App, b *Batch, msg seqtypes.MsgSequenceBatch) (*SealedLayer, []byte, error) {
 	if a == nil {
 		return nil, nil, errors.New("sequencer: nil app")
