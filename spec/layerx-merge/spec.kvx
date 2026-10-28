@@ -172748,7 +172748,7 @@ qualification = "UNRUN"
 
 [task.18.1010.1]
 title = "Issue #1010: Build the archive controller test fixtures without the retired Anchor and Receipt changesets"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178145,7 +178145,7 @@ qualification = "UNRUN"
 
 [task.18.1005.1]
 title = "Issue #1005: Answer the committed-receipt lookup in the signature route test fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178787,7 +178787,7 @@ qualification = "UNRUN"
 
 [task.18.1006.1]
 title = "Issue #1006: Remove the retired CustodyEvent struct from the retained Paxeer X web tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
