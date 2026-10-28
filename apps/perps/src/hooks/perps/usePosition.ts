@@ -88,7 +88,7 @@ export function usePosition() {
   }
 
   async function openPosition(input: OpenPositionInput) {
-    return sendPlan(await planOpen(input, perpsAllowanceSource()));
+    return sendPlan(await planOpen(input));
   }
 
   /** Close the whole position at the quoteClosePosition exit price bound. */
@@ -117,7 +117,6 @@ export function usePosition() {
 
   /** Grow the position on its market and side; `additionalCollateral` in USDL base units, leverage at 18 decimals. */
   async function addSize(positionId: bigint, additionalCollateral: bigint, leverage: bigint) {
-    const source = perpsAllowanceSource();
     const position = await getPositionRecord(positionId);
     const quote = await quoter.quoteOpenPosition({
       marketId: position.marketId,
@@ -127,10 +126,12 @@ export function usePosition() {
       isLong: position.isLong,
     });
     return sendPlan(
-      await planAddSize(
-        { position: { marketId: position.marketId, isLong: position.isLong }, additionalCollateral, leverage, quote },
-        source,
-      ),
+      await planAddSize({
+        position: { marketId: position.marketId, isLong: position.isLong },
+        additionalCollateral,
+        leverage,
+        quote,
+      }),
     );
   }
 

@@ -14,7 +14,7 @@ import {
 } from "@/core/perps/calls";
 import { planOrder, type PlaceOrderCall } from "@/core/perps/positionWrites";
 import { readContract, writeContract, waitForTx, type WaitForTxResult } from "./useContract";
-import { perpsAllowanceSource, sendPlan } from "./usePosition";
+import { sendPlan } from "./usePosition";
 
 export function usePerpsOrders() {
   async function getOrder(orderId: bigint) {
@@ -25,9 +25,9 @@ export function usePerpsOrders() {
     return (await readContract(buildGetUserOrderIds(account))) as readonly bigint[];
   }
 
-  /** Send the placeOrder calls of an order plan behind the exact USDL approval of their collateral. */
+  /** Send the placeOrder calls of an order plan using deposited collateral. */
   async function submitOrderPlan(calls: readonly PlaceOrderCall[]) {
-    return sendPlan(await planOrder(calls, perpsAllowanceSource()));
+    return sendPlan(await planOrder(calls));
   }
 
   async function placeLimitOrder(input: LimitOrderInput) {
