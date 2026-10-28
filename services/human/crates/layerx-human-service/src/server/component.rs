@@ -342,6 +342,9 @@ impl Dispatcher {
                     .schema
                     .operation(operation)
                     .ok_or_else(ApiFailure::not_found)?;
+                if operation.retired() {
+                    return Err(ApiFailure::operation_retired());
+                }
                 validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
                 let request_digest = parse_digest(request_digest, "request_digest")?;
                 let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
@@ -392,6 +395,9 @@ impl Dispatcher {
                     .schema
                     .operation(operation)
                     .ok_or_else(ApiFailure::not_found)?;
+                if operation.retired() {
+                    return Err(ApiFailure::operation_retired());
+                }
                 validate_execute(operation, path_parameters, idempotency_key.as_deref())?;
                 let request_digest = parse_digest(request_digest, "request_digest")?;
                 let disclosure_digest = parse_digest(disclosure_digest, "disclosure_digest")?;
@@ -438,6 +444,9 @@ impl Dispatcher {
                     .schema
                     .operation(operation)
                     .ok_or_else(ApiFailure::not_found)?;
+                if operation.retired() {
+                    return Err(ApiFailure::operation_retired());
+                }
                 let owner = component_owner(&operation.name)?;
                 if component != owner {
                     return Err(ApiFailure::forbidden());
@@ -505,6 +514,9 @@ impl Dispatcher {
             .schema
             .operation(operation)
             .ok_or_else(ApiFailure::not_found)?;
+        if operation.retired() {
+            return Err(ApiFailure::operation_retired());
+        }
         if operation.name != "stream.next" || component != component_owner(&operation.name)? {
             return Err(ApiFailure::forbidden());
         }

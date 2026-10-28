@@ -8,10 +8,10 @@ use std::process::ExitCode;
 use std::sync::Arc;
 use std::time::Duration;
 
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
 use layerx_human_service::custody::{
     GatewayLimits, GatewayPolicy, GatewayTls, LxkpGateway, RemoteKmsProvider,
 };
+use layerx_human_service::frame::{Limits, MutualTlsConfig};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use rustix::fs::{Mode, OFlags};
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
@@ -221,13 +221,13 @@ mod tests {
     use std::process::{Child, Command, Output, Stdio};
     use std::time::Instant;
 
-    use layerx_client::lni::framing::{read_frame, write_frame};
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole, Disclosure};
     use layerx_crypto::ed25519::verify_digest;
     use layerx_human_service::custody::{
         CustodyError, EnvelopeKms, KeyClass, KmsError, KmsProvider, PrincipalKeyBinding,
         GATEWAY_FRAME_LIMIT,
     };
+    use layerx_human_service::frame::{read_frame, write_frame};
     use layerx_intents::owner_activity::{unsigned_native, OwnerEnvelopeContext};
     use layerx_intents::NativeOwnerBootstrap;
     use layerx_types::ids::Did;

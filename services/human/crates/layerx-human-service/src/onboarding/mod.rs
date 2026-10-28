@@ -1,5 +1,6 @@
 //! Durable, receipt-gated human identity onboarding.
 
+pub mod gas_station;
 mod native;
 
 pub(crate) use native::{NativePlan, NativeSponsor};

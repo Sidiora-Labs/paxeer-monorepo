@@ -1,6 +1,6 @@
 ARG PAXCTL_VERSION=v0.0.5-pax.1
 
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS paxctl
+FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS paxctl
 ARG PAXCTL_VERSION
 RUN GOBIN=/usr/bin go install github.com/Paxeer-Network/paxctl@${PAXCTL_VERSION}
 
@@ -29,7 +29,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry \
     cp build/generated/lxp_checkpoint_settlement.h /out/build/generated/; \
     cp programs/target/release/liblayerx_programs_sandbox.a /out/programs/target/release/
 
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS builder
+FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS builder
 RUN apt-get update && \
     apt-get install -y --no-install-recommends libssl-dev && \
     rm -rf /var/lib/apt/lists/*

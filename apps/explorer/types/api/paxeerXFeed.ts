@@ -38,6 +38,7 @@ export interface PriceUpdateItem {
 }
 
 export interface FeedMarketLatest {
+  index: number;
   index_price: string;
   mark_price: string;
   source_timestamp_ms: number;
@@ -62,6 +63,7 @@ export interface FeedMarketsResponse {
 export interface MarketUpdate {
   update_hash: string;
   block_number: number;
+  index: number;
   timestamp: string;
   index_price: string;
   mark_price: string;

@@ -197,6 +197,14 @@ def begin_build():
     print("Artifact build: " + str(directory), flush=True)
 
 
+def native_command(arguments, native_library, runtime_library, native_output):
+    return (shlex.split(arguments.cc) + shlex.split(arguments.cppflags) +
+            shlex.split(arguments.cflags) +
+            ["tests/programs/test_market_attestation.c", str(native_library), str(runtime_library),
+             str(native_library)] + shlex.split(arguments.ldflags) +
+            ["-lcrypto", "-pthread", "-ldl", "-lm", "-o", str(native_output)])
+
+
 def build(arguments):
     directory = active_build()
     manifest = json.loads((directory / "start.json").read_text())
@@ -217,14 +225,13 @@ def build(arguments):
          "--target", "wasm32-unknown-unknown", "--release", "-p", "layerx-programs-market"]),
         ("sandbox", cargo + ["build", "--locked", "--manifest-path", "programs/Cargo.toml",
          "-p", "layerx-programs-sandbox", "--features", "host-ffi"]),
-        ("native", cc + shlex.split(arguments.cppflags) + shlex.split(arguments.cflags) +
-         ["tests/programs/test_market_attestation.c", str(native_library), str(runtime_library),
-          str(native_library)] + shlex.split(arguments.ldflags) +
-         ["-lcrypto", "-pthread", "-ldl", "-lm", "-o", str(native_output)]),
+        ("native", native_command(arguments, native_library, runtime_library, native_output)),
         ("unit", cargo + ["test", "--locked", "--manifest-path", "programs/Cargo.toml",
          "-p", "layerx-programs-market", "--lib", "--no-run", "--message-format=json"]),
     ]
     manifest["commands"] = {name: command for name, command in commands}
+    manifest["native_flags"] = {"cppflags": arguments.cppflags, "cflags": arguments.cflags,
+                                "ldflags": arguments.ldflags}
     manifest["features"] = {"sandbox": ["host-ffi"], "market": []}
     manifest["compiler_environment"] = {name: environment.get(name, "") for name in
                                         ("RUSTFLAGS", "CARGO_ENCODED_RUSTFLAGS", "RUSTC", "RUSTC_WRAPPER",
@@ -379,7 +386,7 @@ def qualify():
     return result["exit_code"]
 
 
-def main():
+def parse_arguments(argv):
     parser = argparse.ArgumentParser()
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--begin-build", action="store_true")
@@ -387,12 +394,16 @@ def main():
     parser.add_argument("--cargo", default="cargo")
     parser.add_argument("--target-dir", default=str(ROOT / "programs/target"))
     parser.add_argument("--cc", default="cc")
-    parser.add_argument("--cppflags", default="")
+    parser.add_argument("--cppflags", default="-Iinclude")
     parser.add_argument("--cflags", default="")
     parser.add_argument("--ldflags", default="")
     parser.add_argument("--native-library", default="build/liblayerx.a")
     parser.add_argument("--native-output", default="build/tests/programs_market_attestation")
-    arguments = parser.parse_args()
+    return parser.parse_args(argv)
+
+
+def main():
+    arguments = parse_arguments(sys.argv[1:])
     os.umask(0o077)
     if arguments.begin_build:
         begin_build()

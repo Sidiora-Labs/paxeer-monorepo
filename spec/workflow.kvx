@@ -76,7 +76,7 @@ step_7 = "Run cg spec done <id> without --force only after verify_cmd passes. Th
 step_8 = "Immediately publish the qualified task: from the repository root, git add -A, commit with a natural-sounding message describing the implementation and verified gates, and push. Never batch several tasks into one commit and never leave a completed task unpushed."
 
 [status_values]
-task    = ["pending", "in_progress", "done"]
+task    = ["pending", "in_progress", "done", "superseded", "blocked"]
 feature = ["draft", "in_progress", "paused", "blocked", "complete"]
 
 # HARD rules mirrored in-repo so an agent without cortex still sees them.
