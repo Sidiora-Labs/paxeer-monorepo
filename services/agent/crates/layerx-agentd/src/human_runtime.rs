@@ -50,11 +50,11 @@ use crate::outbox::{
     Outbox, RecoveredOutbox, RecoveryError, RecoveryInputs, SubmissionState, SubmissionStatus,
 };
 use crate::policy::approval::{ApprovalRegistry, ApprovalState, ApproverId};
-use crate::prepare::PreparationLifecycle;
-use crate::prepare::{
+use crate::prepare::legacy::{
     prepare_activity_for_protocol, CoreStateError, PreparationDefaults, PrepareRequest, Prepared,
     ProductionCorePreparationBoundary,
 };
+use crate::prepare::PreparationLifecycle;
 use crate::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use crate::receipt::{ReceiptEvidenceRecord, ReceiptMetadata};
 use crate::session::{self, OpenRequest, SessionId, SessionRegistry};
@@ -15064,9 +15064,11 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let correlation = boundary_correlation(peer, actor.as_bytes(), b"account-sequence");
         let mut boundary = ProductionCorePreparationBoundary::new(&mut self.node, correlation)
             .map_err(map_core)?;
-        let state =
-            crate::prepare::CorePreparationBoundary::preparation_state(&mut boundary, &actor)
-                .map_err(map_core)?;
+        let state = crate::prepare::legacy::CorePreparationBoundary::preparation_state(
+            &mut boundary,
+            &actor,
+        )
+        .map_err(map_core)?;
         let mut out = Encoder::new();
         out.u64(state.account_sequence);
         out.finish()
@@ -17599,11 +17601,11 @@ fn core_preparation_snapshot(
     node: &mut Client,
     peer: &HumanPeer,
     actor: &Did,
-) -> Result<crate::prepare::CorePreparationState, HumanOperationError> {
+) -> Result<crate::prepare::legacy::CorePreparationState, HumanOperationError> {
     let correlation = boundary_correlation(peer, actor.as_bytes(), b"core-batch-time");
     let mut boundary =
         ProductionCorePreparationBoundary::new(node, correlation).map_err(map_core)?;
-    crate::prepare::CorePreparationBoundary::preparation_state(&mut boundary, actor)
+    crate::prepare::legacy::CorePreparationBoundary::preparation_state(&mut boundary, actor)
         .map_err(map_core)
 }
 
@@ -18949,13 +18951,13 @@ impl crate::budget::BudgetMutationPipeline for NodeBudgetPipeline<'_> {
 
 fn budget_aware_prepare(
     context: Option<&layerx_crypto::disclosure::BudgetStateContext>,
-    boundary: &mut dyn crate::prepare::CorePreparationBoundary,
+    boundary: &mut dyn crate::prepare::legacy::CorePreparationBoundary,
     defaults: PreparationDefaults,
     request: PrepareRequest,
     protocol_version: u16,
-) -> Result<crate::prepare::Prepared, crate::prepare::PrepareError> {
+) -> Result<crate::prepare::Prepared, crate::prepare::legacy::PrepareError> {
     match context {
-        Some(context) => crate::prepare::prepare_budget_mutation_for_protocol(
+        Some(context) => crate::prepare::legacy::prepare_budget_mutation_for_protocol(
             boundary,
             defaults,
             request,
