@@ -45,6 +45,58 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
     end
   end
 
+  test "records a height as failed once its definitive failures run out and catch-up scans it again", %{
+    rest: rest,
+    state: state
+  } do
+    insert(:block, number: 13)
+    Process.register(self(), PriceUpdates)
+
+    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+      Plug.Conn.resp(conn, 400, ~s({"code":13,"message":"internal"}))
+    end)
+
+    assert :ok = PriceUpdates.run([{13, 0, nil, 0}], state)
+    assert_receive {:buffer, [{13, 1, _, 1}], false}, 2_000
+    assert Repo.get(PriceFeedScannedBlock, 13) == nil
+
+    assert :ok = PriceUpdates.run([{13, 9, nil, 9}], state)
+    assert %PriceFeedScannedBlock{status: "failed", error: error} = Repo.get(PriceFeedScannedBlock, 13)
+    assert error =~ "http_status"
+    assert PriceUpdates.init([], &[&1 | &2], state) == [13]
+
+    Repo.insert_all(PriceFeedScannedBlock, Enum.map(5..12, &%{block_number: &1, status: "scanned"}))
+    assert PriceFeed.compact_scanned_blocks(5, 100) == 13
+    assert PriceUpdates.init([], &[&1 | &2], state) == [13]
+  end
+
+  @tag timeout: 310_000
+  test "keeps retrying a gateway 5xx height without counting it toward the failure cap", context do
+    apply(__MODULE__, :"keeps retrying a gateway 5xx height without counting it toward the failure cap", [context])
+  end
+
+  def unquote(:"keeps retrying a gateway 5xx height without counting it toward the failure cap")(%{
+        rest: rest,
+        state: state
+      }) do
+    for repo <- [Repo, Repo.Account, Repo.EventNotifications] do
+      :ok = Ecto.Adapters.SQL.Sandbox.checkin(repo)
+      :ok = Ecto.Adapters.SQL.Sandbox.checkout(repo, ownership_timeout: 310_000)
+    end
+
+    insert(:block, number: 13)
+    Process.register(self(), PriceUpdates)
+
+    Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
+      Plug.Conn.resp(conn, 503, ~s({"code":13,"message":"internal"}))
+    end)
+
+    assert :ok = PriceUpdates.run([{13, 9, nil, 9}], state)
+    assert Repo.get(PriceFeedScannedBlock, 13) == nil
+    assert_receive {:buffer, [{13, 10, _, 9}], false}, 301_000
+    assert Repo.get(PriceFeedScannedBlock, 13) == nil
+  end
+
   describe "run/2" do
     test "stores the recorded submission and reads the market list", %{rest: rest, rpc: rpc, state: state} do
       block = insert(:block, number: 10)
@@ -138,31 +190,6 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdatesTest do
       assert_receive {:buffer, [^entry], false}, 1_000
       assert System.monotonic_time(:millisecond) >= elem(entry, 2)
       assert Repo.get(PriceFeedScannedBlock, 13) == nil
-    end
-
-    test "records a height as failed once its definitive failures run out and catch-up scans it again", %{
-      rest: rest,
-      state: state
-    } do
-      insert(:block, number: 13)
-      Process.register(self(), PriceUpdates)
-
-      Bypass.expect(rest, "GET", "/cosmos/tx/v1beta1/txs/block/13", fn conn ->
-        Plug.Conn.resp(conn, 503, ~s({"code":13,"message":"internal"}))
-      end)
-
-      assert :ok = PriceUpdates.run([{13, 0, nil, 0}], state)
-      assert_receive {:buffer, [{13, 1, _, 1}], false}, 2_000
-      assert Repo.get(PriceFeedScannedBlock, 13) == nil
-
-      assert :ok = PriceUpdates.run([{13, 9, nil, 9}], state)
-      assert %PriceFeedScannedBlock{status: "failed", error: error} = Repo.get(PriceFeedScannedBlock, 13)
-      assert error =~ "http_status"
-      assert PriceUpdates.init([], &[&1 | &2], state) == [13]
-
-      Repo.insert_all(PriceFeedScannedBlock, Enum.map(5..12, &%{block_number: &1, status: "scanned"}))
-      assert PriceFeed.compact_scanned_blocks(5, 100) == 13
-      assert PriceUpdates.init([], &[&1 | &2], state) == [13]
     end
 
     test "keeps retrying an unreachable height without counting it toward the failure cap", %{state: state} do
