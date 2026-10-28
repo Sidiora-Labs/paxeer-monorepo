@@ -5,6 +5,7 @@ import {
   LAUNCHPAD_PRECOMPILE,
   abiSelector,
   launchpadBuyCall,
+  launchpadSellCall,
   launchpadApproveCall,
   launchpadCreateMarketCall,
 } from '@sidiora/layerx-sdk';
@@ -74,7 +75,7 @@ describe('LaunchpadView', () => {
       await typeInto(container, 'deadlineMinutes', '10');
       const order = {
         pool: fixture.pool,
-        amountIn: 1_000_000_000_000_000_000n,
+        amountIn: 1_000_000n,
         minOut: BigInt(fixture.minOut),
         deadline: BigInt(Math.floor(now() / 1000) + 600),
       };
@@ -103,7 +104,7 @@ describe('LaunchpadView', () => {
       expect(sell).toHaveBeenCalledExactlyOnceWith({
         pool: fixture.pool,
         amountIn: 1n,
-        minOut: BigInt(fixture.minOut) * 10n ** 18n,
+        minOut: BigInt(fixture.minOut) * 10n ** 6n,
         deadline: order.deadline,
       });
       expect(container.querySelector('[data-role="build-error"]')).toBeNull();
@@ -116,10 +117,9 @@ describe('LaunchpadView', () => {
 
   test(launchpad_view_refuses_a_deadline_that_is_not_a_positive_whole_number_of_minutes);
 
-  it('launchpad_view_buys_through_the_module_and_shows_the_decoded_swap', async () => {
+  async function launchpad_view_buys_through_the_module_and_shows_the_decoded_swap() {
     const fixture = callFixtures().launchpad.buy as {
       pool: string;
-      amountIn: string;
       minOut: string;
       deadline: string;
     };
@@ -130,6 +130,9 @@ describe('LaunchpadView', () => {
     mounted = await mountSurface(chain, <LaunchpadView sidRate={null} now={now} />);
     const { container } = mounted;
 
+    expect(container.querySelector('input[name="amountIn"]')?.closest('label')?.textContent).toBe(
+      'Pay (USDL)'
+    );
     await typeInto(container, 'pool', fixture.pool);
     await typeInto(container, 'amountIn', '1');
     await typeInto(container, 'minOut', fixture.minOut);
@@ -139,7 +142,7 @@ describe('LaunchpadView', () => {
 
     const order = {
       pool: fixture.pool,
-      amountIn: BigInt(fixture.amountIn),
+      amountIn: 1_000_000n,
       minOut: BigInt(fixture.minOut),
       deadline: BigInt(fixture.deadline),
     };
@@ -163,7 +166,50 @@ describe('LaunchpadView', () => {
         expectedField(spec, name, value)
       );
     }
-  });
+  }
+
+  test(launchpad_view_buys_through_the_module_and_shows_the_decoded_swap);
+
+  async function launchpad_view_sells_with_a_usdl_minimum_at_six_decimals() {
+    const fixture = callFixtures().launchpad.sell as {
+      pool: string;
+      amountIn: string;
+      deadline: string;
+    };
+    const now = () => (Number(fixture.deadline) - 600) * 1000;
+    mounted = await mountSurface(chain, <LaunchpadView sidRate={null} now={now} />);
+    const { container } = mounted;
+
+    await click(radio(container, 'Launchpad action', 'Sell'), 'sell action');
+    expect(container.querySelector('input[name="minOut"]')?.closest('label')?.textContent).toBe(
+      'Receive at least (USDL)'
+    );
+    await typeInto(container, 'pool', fixture.pool);
+    await typeInto(container, 'amountIn', fixture.amountIn);
+    await typeInto(container, 'minOut', '2.5');
+    await until(() => send(container)?.disabled === false, 'sell send enabled');
+    await click(send(container), 'send');
+    await until(() => text(container, '[data-role="status"]') === 'confirmed', 'receipt');
+
+    const order = {
+      pool: fixture.pool,
+      amountIn: BigInt(fixture.amountIn),
+      minOut: 2_500_000n,
+      deadline: BigInt(fixture.deadline),
+    };
+    const expected = launchpadSellCall(order);
+    const approve = launchpadApproveCall(chain.launchpadToken, order.amountIn);
+    expect(chain.sent).toEqual([
+      { from: chain.address, to: chain.launchpadToken, data: approve.data, value: '0x0' },
+      { from: chain.address, to: LAUNCHPAD_PRECOMPILE, data: expected.data, value: '0x0' },
+    ]);
+    expect(
+      chain.sent[1]?.data.startsWith(abiSelector('sell(address,uint256,uint256,uint256)'))
+    ).toBe(true);
+    expect(chain.sent[1]?.data).toBe(launchpad(chain).sell(order).data);
+  }
+
+  test(launchpad_view_sells_with_a_usdl_minimum_at_six_decimals);
 
   async function launchpad_view_shows_the_created_market_from_the_receipt_logs() {
     const fixture = callFixtures().launchpad.createMarket as {
