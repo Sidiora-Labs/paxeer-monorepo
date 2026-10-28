@@ -163,6 +163,13 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   @spec block_updates(non_neg_integer()) :: [PriceUpdate.t()]
   def block_updates(block_number) when is_integer(block_number), do: updates_in_blocks([block_number])
 
+  @spec block_update_hashes(non_neg_integer()) :: [String.t()]
+  def block_update_hashes(block_number) when is_integer(block_number) do
+    from(update in PriceUpdate, where: update.block_number == ^block_number, select: update.hash)
+    |> Repo.all()
+    |> Enum.map(&to_string/1)
+  end
+
   @doc """
   Stores the submissions read for one consensus block and marks its height scanned.
 
