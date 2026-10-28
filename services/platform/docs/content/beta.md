@@ -135,6 +135,6 @@ governance proposal changes it during the beta.
 
 | Key | Canonical value | Divergent source | Divergent value |
 | --- | --- | --- | --- |
-| go_sdk_module | github.com/Sidiora-Labs/Paxeer-X-Network/platform/sdk/go | sdk/platform/go/go.mod | github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go |
+| go_sdk_module | github.com/Sidiora-Labs/Paxeer-X-Network/sdk/platform/go | sdk/platform/go/go.mod | github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go |
 
 The readiness claim cannot become `true` while any row remains.
