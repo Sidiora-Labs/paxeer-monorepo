@@ -173332,7 +173332,7 @@ qualification = "UNRUN"
 
 [task.18.987.1]
 title = "Issue #987: Make the schema-check regression tests hold against the merged minor-10 schema"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1119.1"]
@@ -185333,7 +185333,7 @@ do_4 = "The build compiles every test target of the crate (cargo build --tests),
 
 [task.18.1176.1]
 title = "Issue #1176: Issue #1176: Verify a committed-rung receipt view in the committed-proof crate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
