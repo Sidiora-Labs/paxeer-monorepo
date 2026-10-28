@@ -98,6 +98,9 @@ impl ApprovalEvents {
             protocol_authority: None,
             submitted_bytes: Some(PayloadEvidence::Digest(lifecycle.canonical_digest)),
             receipt_id: None,
+            tx_hash: None,
+            nonce: None,
+            rung: None,
         };
         let event = CoreEvent {
             global_sequence,

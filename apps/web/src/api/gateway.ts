@@ -92,7 +92,15 @@ async function rpc(method: string, params: readonly unknown[]): Promise<unknown>
   if (body.length > MAX_RESPONSE_BYTES) {
     throw new GatewayUnavailableError(`${method} answer too large`);
   }
-  const document: unknown = JSON.parse(body);
+  let document: unknown;
+  try {
+    document = JSON.parse(body);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw new GatewayUnavailableError(`${method} answered malformed JSON`);
+    }
+    throw error;
+  }
   if (!isObject(document) || document.jsonrpc !== "2.0" || document.id !== id) {
     throw new GatewayUnavailableError(`${method} answered a malformed envelope`);
   }
