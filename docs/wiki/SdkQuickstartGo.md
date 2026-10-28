@@ -1,6 +1,6 @@
 # Go SDK quickstart
 
-Module: `github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go`
+Module: `github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go`
 at `sdk/platform/go`. There is no public JSON-RPC client in this
 module.
 
@@ -41,7 +41,7 @@ import (
 	"context"
 	"net/http"
 
-	layerx "github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go"
+	layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
 )
 
 type Money struct {
@@ -108,7 +108,7 @@ agent-plane `Transport` this module does not ship.
 ```go
 package main
 
-import layerx "github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go"
+import layerx "github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go"
 
 func verify(canonicalReceipt []byte, authorized layerx.AuthorizedBatch) (layerx.VerifiedReceipt, error) {
 	return layerx.VerifyReceipt(canonicalReceipt, authorized)

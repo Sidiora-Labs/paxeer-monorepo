@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import unittest
 from pathlib import Path
 from typing import Any
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "services/agent/sdk/python"))
 
 from layerx_sdk import (
     HISTORY_DEFAULT_LIMIT,
@@ -360,7 +363,7 @@ class HistoryReadTest(unittest.TestCase):
         unified = decode_unified_history_page(RECORDED_UNIFIED)
         self.assertEqual(
             [(row.id, row.side, row.block_height, row.tx_index, row.log_index) for row in unified.items],
-            [(3, "paxeer", 10, 0, 0), (6, "paxeer", 11, 0, 0), (9, "paxeer", 12, 0, 0), (11, "paxeer", 12, 1, 0)],
+            [("3", "paxeer", 10, 0, 0), ("6", "paxeer", 11, 0, 0), ("9", "paxeer", 12, 0, 0), ("11", "paxeer", 12, 1, 0)],
         )
         self.assertEqual([(side.side, side.account) for side in unified.accounts], [("paxeer", EVE)])
         self.assertIsNone(unified.next_cursor)
@@ -381,9 +384,39 @@ class HistoryReadTest(unittest.TestCase):
         paxeer = decode_paxeer_history_page(RECORDED_PAXEER)
         self.assertEqual(paxeer.account, EVE)
         self.assertIsNone(paxeer.next_cursor)
-        self.assertEqual([(row.id, row.side) for row in paxeer.items], [(3, None), (6, None), (9, None), (11, None)])
+        self.assertEqual([(row.id, row.side) for row in paxeer.items], [("3", None), ("6", None), ("9", None), ("11", None)])
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "items": []}).items, ())
         self.assertEqual(decode_paxeer_history_page({**RECORDED_PAXEER, "next_cursor": CURSOR}).next_cursor, CURSOR)
+
+    def test_explorer_row_ids_decode_as_strings(self) -> None:
+        for document, decode in (
+            (RECORDED_UNIFIED, decode_unified_history_page),
+            (RECORDED_PAXEER, decode_paxeer_history_page),
+        ):
+            first, second = document["items"][:2]
+            page_document = {
+                **document,
+                "items": [{**first, "id": "9"}, {**second, "id": "explorer:7"}],
+                "next_cursor": None,
+            }
+            page = decode(page_document)
+            self.assertEqual([row.id for row in page.items], ["9", "explorer:7"])
+            for row_id in ("18446744073709551615", "explorer:18446744073709551615"):
+                with self.subTest(row_id=row_id, decode=decode.__name__):
+                    maximum = decode({**page_document, "items": [{**first, "id": row_id}]})
+                    self.assertEqual(maximum.items[0].id, row_id)
+            for row_id in (
+                "explorer:0", "explorer:", "0", "layerx:7",
+                "explorer:18446744073709551616", "18446744073709551616",
+                "", "01", "explorer:07", "-7", "explorer:-7", "explorer:7.0",
+                "explorer:7\n", " 9", "explorer:٧", 7, None, True,
+            ):
+                with self.subTest(row_id=row_id, decode=decode.__name__):
+                    with self.assertRaisesRegex(ValueError, "invalid-history-row-id"):
+                        decode({
+                            **page_document,
+                            "items": [{**first, "id": "9"}, {**second, "id": row_id}],
+                        })
 
     def test_malformed_pages_are_refused(self) -> None:
         refusals = (
@@ -415,7 +448,7 @@ class HistoryReadTest(unittest.TestCase):
         try:
             client = PxClient(f"http://127.0.0.1:{server.server_port}/rpc")
             unified = client.get_unified_history(DID.upper().replace("DID:LAYERX:", "did:layerx:"), limit=4)
-            self.assertEqual([row.id for row in unified.items], [3, 6, 9, 11])
+            self.assertEqual([row.id for row in unified.items], ["3", "6", "9", "11"])
             paxeer = client.get_history(DID, cursor=CURSOR, kind="erc20_transfer")
             self.assertEqual(len(paxeer.items), 4)
             client.get_history(EVE.upper().replace("0X", "0x"))

@@ -369,11 +369,18 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 	}
 	identity := deployment.Role{Address: address.Hex(), Kind: "direct", RuntimeHash: template.RuntimeHash}
 	if role == "SidioraPool" {
-		beacon := owned.Manifest.Roles["PoolBeacon"]
-		identity.Kind = "beacon_proxy"
-		identity.BeaconAddress = beacon.Address
-		identity.ImplementationAddress = beacon.ImplementationAddress
-		identity.ImplementationHash = beacon.ImplementationHash
+		switch template.Kind {
+		case "", "beacon_proxy":
+			beacon := owned.Manifest.Roles["PoolBeacon"]
+			identity.Kind = "beacon_proxy"
+			identity.BeaconAddress = beacon.Address
+			identity.ImplementationAddress = beacon.ImplementationAddress
+			identity.ImplementationHash = beacon.ImplementationHash
+		case "surface":
+			identity.Kind = "surface"
+		default:
+			return RPCCodeEpoch{}, ErrQualification
+		}
 	}
 	return RPCCodeEpoch{Deployment: decode.Deployment{Address: address, Role: role, ABIRevision: template.ABIRevision, From: from}, Identity: identity}, nil
 }
