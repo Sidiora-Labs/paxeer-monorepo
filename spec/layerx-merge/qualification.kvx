@@ -8368,8 +8368,8 @@ severity = "blocker"
 
 [finding.18.804.1.1]
 task = "18.804.1"
-file = "services/wallet/gateway/src/precompiles.ts:38-47"
+file = "services/wallet/gateway/src/precompiles.ts:32"
 symbol = "UNSERVED_PRECOMPILES"
-observed = "Attempt 3 cannot satisfy do_2 because UNSERVED_PRECOMPILES still lists orob, clearing, eip712, pofq and teeattestor while node/precompiles.go:20-24 and node/upgrades.go:33-37 link them, and src/precompiles.ts was not in the task's touches."
-assumption = "The task now touches src/precompiles.ts and do_5 updates the list; the test assertion at precompiles.test.ts:234 stays as written."
-severity = "major"
+observed = "Attempt 3 was triaged against a revision where UNSERVED_PRECOMPILES still listed orob, clearing, eip712, pofq and teeattestor; 9aef930a7 had already reduced it to oracle, scheduler and streams, so do_2 is satisfiable at head (issue #1079)."
+assumption = "The do_5 step and the src/precompiles.ts touch added at a4db0be51 are withdrawn; the task continues as originally specified."
+severity = "minor"
