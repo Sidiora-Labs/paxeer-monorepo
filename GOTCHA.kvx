@@ -10378,3 +10378,7 @@ detail = "The kernel's sandboxExecute refuses LXP_ERR_NON_CANONICAL without a si
 title = "A KMS test fixture must outlive host.stop()/host.start()"
 detail = "layerx-human-kms provider tests restart the KMS mid-test; a fixture that starts the attestor cluster or writes config files inside host.start() or drops them with the first host leaves the restarted KMS refusing (status 1) or exiting at startup (18.1156.1 attempt 7). Start the cluster once per test and hand the restarted KMS the same file paths."
 
+[gotcha.2126]
+title = "A fixture-port task must own every test target its build compiles"
+detail = "cargo build --tests (and cargo test --no-run) compiles every test file of the crate, so a task that ports test fixtures after a type reshape fails at build on any test file outside its touches that still uses the old shape (18.1172.1 attempt 1: render.rs, journey_faults.rs). Grep the whole tests/ directory for the retired fields when writing the touches list."
+
