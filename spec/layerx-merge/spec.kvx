@@ -138732,7 +138732,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.6.2]
 title = "Record audit entries version 3 with rungs and transaction hashes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["9.0.1", "9.1.8"]
