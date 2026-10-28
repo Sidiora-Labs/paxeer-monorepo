@@ -182546,7 +182546,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1040.1]
 title = "Issue #1040: Register the custody-retirement guards as real test callbacks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183161,7 +183161,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1097.1]
 title = "Issue #1097: Replace the dead chain-id precondition in the reference ramp readiness test"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
