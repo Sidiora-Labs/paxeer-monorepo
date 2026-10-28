@@ -174243,7 +174243,7 @@ qualification = "UNRUN"
 
 [task.18.944.1]
 title = "Issue #944: Assert the merge precompile gate test's version-map precondition"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
