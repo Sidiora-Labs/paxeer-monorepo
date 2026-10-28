@@ -149,9 +149,13 @@ fn validate_sign(request: &Request<'_>, config: &Config, now: u64) -> Result<Opt
         let value = serde_json::from_slice(request.evm).map_err(|_| Error::Refused)?;
         return crate::send::digest(&value, request.binding, network, 3, now).map(Some);
     }
-    if request.operation != 5 {
+    if request.kind != Operation::Sign {
         return Ok(None);
     }
+    sign(request, config, network)
+}
+
+fn sign(request: &Request<'_>, config: &Config, network: u32) -> Result<Option<[u8; 32]>> {
     let call = decode_unsigned_call(request.canonical)?;
     if call.chain_id != config.chain.chain_id || request.network != network {
         return Err(Error::Refused);
@@ -171,7 +175,10 @@ fn validate_sign(request: &Request<'_>, config: &Config, now: u64) -> Result<Opt
     if wire::disclosure(&disclosure)? != request.disclosure {
         return Err(Error::Refused);
     }
-    let digest = call.signing_hash();
+    let digest: [u8; 32] = sha3::Keccak256::digest(request.canonical).into();
+    if !layerx_crypto::ct::eq_fixed(&digest, &call.signing_hash()) {
+        return Err(Error::Refused);
+    }
     if !layerx_crypto::ct::eq_fixed(&digest, &request.digest) {
         return Err(Error::Integrity);
     }
