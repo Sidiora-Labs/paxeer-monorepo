@@ -12,6 +12,23 @@ on:
     tags: ["sdk-v*"]
     paths:
       - docker/**
+      - go.mod
+      - go.sum
+      - Makefile
+      - chain.mk
+      - cmd/**
+      - daemon/**
+      - node/**
+      - modules/**
+      - precompiles/**
+      - rpc/**
+      - engine/**
+      - sdk/**
+      - src/**
+      - include/**
+      - programs/**
+      - contracts/config/**
+      - tools/release/version.json
       - services/platform/**
       - services/interop/**
       - services/wallet/**

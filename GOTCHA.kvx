@@ -9730,3 +9730,21 @@ area = "explorer compile warnings"
 symptom = "Only tests under apps/ethereum_jsonrpc fail with Compilation failed due to warnings while block_scout_web and explorer tests run with the same warnings."
 cause = "apps/ethereum_jsonrpc/mix.exs:52 aliases compile to compile --warnings-as-errors in every environment, so a stale router reference in block_scout_web (issue #1055) fails that app's tests."
 do = "Tasks whose gate runs apps/ethereum_jsonrpc tests require 18.1055.1 until the router is clean."
+
+[gotcha.2004]
+area = "paxeer-x attestation"
+symptom = "program_market_attestation.py --begin-build exits because PAXEER_X_BUILDER_ID is unset."
+cause = "begin_build() (tools/qualification/paxeer-x/program_market_attestation.py:178) requires the variable and --build (:205) re-checks the manifest builder against it."
+do = "Export PAXEER_X_BUILDER_ID=$(hostname) for the whole gate; it is recorded as the builder identity only."
+
+[gotcha.2005]
+area = "launchpad stats-workers tests"
+symptom = "stats-workers tests cannot connect: STATS_TEST_POSTGRES_DSN names a server, not a database."
+cause = "internaltest.NewPostgres (services/launchpad/stats-workers/internal/internaltest/containers.go:44) creates a throwaway database on the server the DSN names, so the role needs CREATEDB."
+do = "Point *_TEST_POSTGRES_DSN at a server whose role may create databases."
+
+[gotcha.2006]
+area = "agent daemon dependents"
+symptom = "cargo build of layerx-human-service, layerx-human-test-support, layerx-explorer-index, layerx-mcp, layerx-platform-cli, layerx-agentd-host and the human providers fails at main with E0560 on ReadRequest and HistorySelector."
+cause = "71550012a reshaped layerx-agent-api; the callers in layerx-agentd (agent_rpc_adapters.rs, human_runtime.rs, export.rs, read/proof_bundle.rs) were not ported and these crates depend on layerx-agentd. layerx-intents, layerx-human-kms, layerx-platform-authority and layerx-platform-agent-boundary fail only under cargo test (dev-dependency)."
+do = "Tasks whose gate compiles one of those crates require 9.1.8; never patch the daemon callers inside a dependent task."
