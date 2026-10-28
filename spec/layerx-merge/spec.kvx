@@ -134353,7 +134353,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.30.3]
 title = "Report reference ramp rebalances and readiness by rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["8.30.2", "8.29.2"]
