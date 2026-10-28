@@ -9,9 +9,7 @@ use layerx_crypto::disclosure::{
     bind, AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
 };
 use layerx_crypto::payments::Payment;
-use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
 use layerx_crypto::signer::SignError;
-use layerx_intents::canonical::Domain;
 use layerx_types::payload::{ModuleId, ModuleRegistry};
 use rustls::pki_types::CertificateDer;
 use serde::{Deserialize, Serialize};
@@ -19,7 +17,6 @@ use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 pub const KIND_ACTIVITY: &str = "lx_activity";
-pub const KIND_SEND_AUTHORIZATION: &str = "lx_send_authorization";
 pub const MIN_SIGNERS: usize = 3;
 pub const APPROVAL_VERSION: u8 = 1;
 const PATH_SIGN: &str = "/v1/sign";
@@ -381,6 +378,17 @@ impl AttestorClient {
         owner: &str,
         assertion: &str,
     ) -> Result<[u8; 20], AttestorError> {
+        self.public_wallet_key(ed_key_id, public_key, owner, assertion)
+            .map(|(_, address)| address)
+    }
+
+    fn public_wallet_key(
+        &self,
+        ed_key_id: &str,
+        public_key: &[u8; 32],
+        owner: &str,
+        assertion: &str,
+    ) -> Result<(String, [u8; 20]), AttestorError> {
         if !valid_identifier(ed_key_id) || owner.is_empty() || assertion.is_empty() {
             return Err(AttestorError::Configuration(
                 "public wallet identity request",
@@ -434,7 +442,7 @@ impl AttestorClient {
             }
         }
         identity
-            .map(|(_, _, _, address)| address)
+            .map(|(key_id, _, _, address)| (key_id, address))
             .ok_or(AttestorError::Configuration("no attestor wallet identity"))
     }
 
@@ -610,6 +618,25 @@ impl AttestorSigner {
         Ok(())
     }
 
+    pub fn with_public_wallet(
+        mut self,
+        owner: &str,
+        assertion: &str,
+    ) -> Result<Self, AttestorError> {
+        self.set_evm_assertion(assertion)?;
+        let (key_id, address) =
+            self.client
+                .public_wallet_key(&self.key_id, &self.public_key, owner, assertion)?;
+        self.evm_key_id = key_id;
+        self.evm_address = address;
+        Ok(self)
+    }
+
+    #[must_use]
+    pub const fn evm_address(&self) -> [u8; 20] {
+        self.evm_address
+    }
+
     pub fn sign_evm_transaction(
         &self,
         unsigned: &[u8],
@@ -689,95 +716,6 @@ impl AttestorSigner {
         }
         recorded.extend(audit);
         Ok(signature)
-    }
-
-    pub fn sign_payment_grant(
-        &self,
-        grant: &layerx_crypto::payments::Grant,
-        session_id: &str,
-        assertion: &str,
-    ) -> Result<Vec<u8>, AttestorError> {
-        if !valid_identifier(session_id)
-            || assertion.is_empty()
-            || grant.public_key != self.public_key
-            || grant.id != [0; 32]
-            || grant.signature != [0; 64]
-        {
-            return Err(AttestorError::Configuration("payment grant binding"));
-        }
-        let digest = grant
-            .signing_digest()
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        let body = Zeroizing::new(
-            serde_json::to_vec(&serde_json::json!({
-                "session_id": session_id,
-                "key_id": self.key_id,
-                "kind": "lx_grant",
-                "clock_profile": "native-v3-ms",
-                "signers": self.signers,
-                "grant": {
-                    "from": encode_hex(&grant.from),
-                    "recipient": encode_hex(&grant.recipient),
-                    "asset": encode_hex(&grant.asset),
-                    "per_draw_maximum": grant.per_draw_maximum.to_string(),
-                    "allowance": grant.allowance.to_string(),
-                    "recurring": grant.recurring,
-                    "window_length": grant.window_length,
-                    "expiration": grant.expiration,
-                    "purpose_hash": encode_hex(&grant.purpose_hash),
-                    "has_reference": grant.has_reference,
-                    "reference_hash": encode_hex(&grant.reference_hash),
-                    "revocation_sequence": grant.revocation_sequence,
-                }
-            }))
-            .map_err(|_| AttestorError::Configuration("payment grant request"))?,
-        );
-        let results = self
-            .client
-            .post_all(&self.signers, PATH_SIGN, &body, Some(assertion));
-        let mut signature = None;
-        let mut audit = BTreeMap::new();
-        for (node, result) in results {
-            let raw = result?;
-            let response: SignResponseBody =
-                serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
-            if response.node_id != node
-                || response.key_id != self.key_id
-                || response.kind != "lx_grant"
-                || response.recovery_id.is_some()
-            {
-                return Err(malformed(&node));
-            }
-            let signed =
-                decode_fixed::<32>(&response.signed_bytes).ok_or_else(|| malformed(&node))?;
-            if !layerx_crypto::ct::eq_fixed(&signed, &digest) {
-                return Err(malformed(&node));
-            }
-            let returned =
-                decode_fixed::<64>(&response.signature).ok_or_else(|| malformed(&node))?;
-            layerx_crypto::ed25519::verify_digest(&self.public_key, &returned, &digest)
-                .map_err(|_| AttestorError::SignatureInvalid { node: node.clone() })?;
-            signature.get_or_insert(returned);
-            audit.insert(node, response.audit_sequence);
-        }
-        let signature = signature.ok_or(AttestorError::Configuration("signing quorum"))?;
-        let mut recorded = self.recorded();
-        for (node, sequence) in &audit {
-            if *sequence == 0
-                || recorded
-                    .get(node)
-                    .is_some_and(|previous| sequence <= previous)
-            {
-                return Err(malformed(node));
-            }
-        }
-        recorded.extend(audit);
-        let mut signed = grant.clone();
-        signed.id = digest;
-        signed.signature = signature;
-        Payment::IssueGrant(signed)
-            .encode(b"")
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))
     }
 
     /// Binds a client to one attestor-held Ed25519 key, its expected group key, the signing
@@ -909,152 +847,6 @@ impl AttestorSigner {
                 assertion,
             )
         }
-    }
-
-    /// Signs an asset send with the attestor-held owner key: the quorum first signs the owner
-    /// authorization digest of the unsigned send under `lx_send_authorization`, the signature
-    /// is embedded in the send payload, and the completed send envelope is then signed as
-    /// `lx_activity`. Each request carries its own assertion from `assertion`.
-    ///
-    /// # Errors
-    /// Refuses a debit or envelope on another network, an envelope authority that is not the
-    /// held key, a non-owner authorization kind, any quorum refusal with its refusal code, a
-    /// returned signature that does not verify over the authorization digest and every
-    /// `sign_activity` refusal.
-    pub fn sign_send(
-        &self,
-        debit: &SendDebit,
-        options: &EnvelopeOptions<'_>,
-        approval: &SendApproval<'_>,
-        assertion: impl FnMut() -> Result<String, AttestorError>,
-    ) -> Result<SignedSend, AttestorError> {
-        self.sign_send_with_clock(debit, options, approval, assertion, false)
-    }
-
-    pub fn sign_native_send(
-        &self,
-        debit: &SendDebit,
-        options: &EnvelopeOptions<'_>,
-        approval: &SendApproval<'_>,
-        assertion: impl FnMut() -> Result<String, AttestorError>,
-    ) -> Result<SignedSend, AttestorError> {
-        if debit.protocol_version != 3
-            || options.protocol_version != 3
-            || approval
-                .expires_at
-                .checked_mul(1000)
-                .is_none_or(|expiry| expiry > options.not_after)
-        {
-            return Err(AttestorError::Configuration("native send clock binding"));
-        }
-        self.sign_send_with_clock(debit, options, approval, assertion, true)
-    }
-
-    fn sign_send_with_clock(
-        &self,
-        debit: &SendDebit,
-        options: &EnvelopeOptions<'_>,
-        approval: &SendApproval<'_>,
-        mut assertion: impl FnMut() -> Result<String, AttestorError>,
-        native_clock: bool,
-    ) -> Result<SignedSend, AttestorError> {
-        if debit.network_id != self.network {
-            return Err(AttestorError::WrongNetwork {
-                expected: self.network,
-                actual: debit.network_id,
-            });
-        }
-        if options.network_id != self.network {
-            return Err(AttestorError::WrongNetwork {
-                expected: self.network,
-                actual: options.network_id,
-            });
-        }
-        if debit.authorization_kind != OWNER_AUTHORIZATION
-            || options.public_key != self.public_key
-            || debit.protocol_version != options.protocol_version
-            || debit.idempotency_key != options.idempotency_key
-        {
-            return Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-                "send_authorization",
-            )));
-        }
-        let message = debit
-            .authorization_message()
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        let digest = layerx_crypto::SignatureMessage::new(
-            Domain::SignaturePreimage,
-            debit.protocol_version,
-            debit.network_id,
-            &message,
-        )
-        .map_err(|_| AttestorError::Disclosure(SignError::InvalidDisclosure))?
-        .digest();
-        let placeholder = placeholder_envelope(&message, options)?;
-        // Stage one discloses the approved debit itself, never a decoding of the placeholder.
-        let approved = disclosure_wire(
-            debit.from,
-            "asset",
-            5,
-            vec![(debit.asset, debit.amount)],
-            vec![debit.to],
-            options.identity_sequence,
-            options.not_before,
-            options.not_after,
-        );
-        if approval.authorization_session == approval.activity_session {
-            return Err(AttestorError::Configuration("send approval sessions"));
-        }
-        let authorization_approval = Approval {
-            principal: approval.principal,
-            session_id: approval.authorization_session,
-            expires_at: approval.expires_at,
-        };
-        authorization_approval.check(options.not_after)?;
-        let first = assertion()?;
-        if first.is_empty() {
-            return Err(AttestorError::Configuration("user assertion"));
-        }
-        let authorization = self.request_signature_with_clock(
-            KIND_SEND_AUTHORIZATION,
-            &placeholder,
-            digest,
-            &approved,
-            &authorization_approval,
-            debit.protocol_version,
-            &first,
-            native_clock,
-        )?;
-        let payload = debit
-            .encode_signed(self.public_key, *authorization.signature())
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        let envelope = encode_send_envelope(&payload, options)
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        if project(&envelope.disclosure)? != approved {
-            return Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-                "send_semantics",
-            )));
-        }
-        let second = assertion()?;
-        let activity = self.sign_activity_with_clock(
-            &envelope.canonical,
-            &envelope.disclosure,
-            &envelope.registry,
-            &Approval {
-                principal: approval.principal,
-                session_id: approval.activity_session,
-                expires_at: approval.expires_at,
-            },
-            &second,
-            native_clock,
-        )?;
-        Ok(SignedSend {
-            payload,
-            canonical: envelope.canonical,
-            disclosure: envelope.disclosure,
-            authorization,
-            activity,
-        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1410,72 +1202,6 @@ fn validate_disclosure(
     Ok(())
 }
 
-const OWNER_AUTHORIZATION: u8 = 1;
-const SEND_FIELD_COUNT: [u8; 2] = [0x00, 0x0a];
-const SEND_MESSAGE_TAIL: usize = 32 + 4 + 2;
-
-/// Builds the unsigned send envelope the attestors authorize: the send payload carries the
-/// envelope authority as its key and 64 zero signature bytes, in the kernel send layout.
-fn placeholder_envelope(
-    message: &[u8],
-    options: &EnvelopeOptions<'_>,
-) -> Result<Vec<u8>, AttestorError> {
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, Payload};
-    fn bad<E>(_: E) -> AttestorError {
-        AttestorError::Disclosure(SignError::InvalidDisclosure)
-    }
-    if message.len() < 2 + SEND_MESSAGE_TAIL {
-        return Err(AttestorError::Disclosure(SignError::InvalidDisclosure));
-    }
-    let split = message.len() - SEND_MESSAGE_TAIL;
-    let mut payload = Vec::with_capacity(message.len() + 2 + 32 + 64);
-    payload.extend_from_slice(&message[..2]);
-    payload.extend_from_slice(&SEND_FIELD_COUNT);
-    payload.extend_from_slice(&message[2..split]);
-    payload.extend_from_slice(&options.public_key);
-    payload.extend_from_slice(&[0_u8; 64]);
-    payload.extend_from_slice(&message[split..]);
-    let kind = ActivityType::new(ModuleId::Asset, 5).map_err(bad)?;
-    let registry =
-        ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(bad)?])
-            .map_err(bad)?;
-    let mut hash = Sha256::new();
-    hash.update(Domain::PayloadHash.tag());
-    hash.update(&payload);
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(options.protocol_version)
-        .map_err(bad)?;
-    builder.network_id(options.network_id).map_err(bad)?;
-    builder.activity_type(kind).map_err(bad)?;
-    builder
-        .actor_did(Did::new(options.actor.as_bytes()).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .authority(Authority::owner(&options.public_key).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .account_sequence(options.identity_sequence)
-        .map_err(bad)?;
-    builder
-        .timestamp_bound(TimestampBound::new(options.not_before, options.not_after).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .idempotency_key(IdempotencyKey::new(options.idempotency_key))
-        .map_err(bad)?;
-    builder
-        .fee_limit(Amount::from_u128(options.fee_limit))
-        .map_err(bad)?;
-    builder.payload_hash(hash.finalize().into()).map_err(bad)?;
-    builder
-        .payload(Payload::new(&registry, kind, &payload).map_err(bad)?)
-        .map_err(bad)?;
-    layerx_intents::canonical::unsigned_envelope_bytes(&builder.build().map_err(bad)?).map_err(bad)
-}
-
 /// Computes the domain-separated activity preimage the attestors sign.
 #[must_use]
 pub fn preimage(canonical: &[u8]) -> [u8; 32] {
@@ -1529,6 +1255,38 @@ fn evm_rlp_list(payload: &[u8]) -> Vec<u8> {
     }
     out.extend_from_slice(payload);
     out
+}
+
+pub fn unsigned_evm_transaction(call: &layerx_crypto::evm_transaction::Eip1559Call) -> Vec<u8> {
+    fn bytes(value: &[u8], out: &mut Vec<u8>) {
+        if value.len() == 1 && value[0] < 0x80 {
+            out.extend_from_slice(value);
+        } else {
+            let mut encoded = evm_rlp_list(value);
+            encoded[0] -= 0x40;
+            out.extend(encoded);
+        }
+    }
+    fn integer(value: &[u8], out: &mut Vec<u8>) {
+        let start = value
+            .iter()
+            .position(|byte| *byte != 0)
+            .unwrap_or(value.len());
+        bytes(&value[start..], out);
+    }
+    let mut fields = Vec::new();
+    integer(&call.chain_id.to_be_bytes(), &mut fields);
+    integer(&call.nonce.to_be_bytes(), &mut fields);
+    integer(&call.max_priority_fee_per_gas.to_be_bytes(), &mut fields);
+    integer(&call.max_fee_per_gas.to_be_bytes(), &mut fields);
+    integer(&call.gas_limit.to_be_bytes(), &mut fields);
+    bytes(&call.to, &mut fields);
+    fields.push(0x80);
+    bytes(&call.data, &mut fields);
+    fields.push(0xc0);
+    let mut unsigned = vec![2];
+    unsigned.extend(evm_rlp_list(&fields));
+    unsigned
 }
 
 fn evm_transaction(unsigned: &[u8], chain_id: u64) -> Result<([u8; 32], Vec<u8>), AttestorError> {

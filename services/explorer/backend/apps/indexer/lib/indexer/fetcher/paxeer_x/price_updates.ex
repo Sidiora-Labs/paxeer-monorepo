@@ -226,8 +226,12 @@ defmodule Indexer.Fetcher.PaxeerX.PriceUpdates do
       block ->
         with {:ok, updates} <- CosmosRest.block_price_updates(state.cosmos_rest_urls, state.cometbft_rpc_urls, number),
              :ok <- maybe_refresh_markets(updates, state),
-             {:ok, count} <- PriceFeed.replace_block_updates(block, updates) do
-          if count > 0, do: Publisher.broadcast(%{paxeer_x_price_updates: [number]}, :realtime)
+             stored_hashes = MapSet.new(PriceFeed.block_update_hashes(number)),
+             {:ok, _count} <- PriceFeed.replace_block_updates(block, updates) do
+          if Enum.any?(updates, &(not MapSet.member?(stored_hashes, &1.hash))) do
+            Publisher.broadcast(%{paxeer_x_price_updates: [number]}, :realtime)
+          end
+
           :ok
         end
     end
