@@ -179909,7 +179909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1089.1]
 title = "Issue #1089: Refresh the explorer's embedded copy of the sequencer receipt vectors after their regeneration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.997.1", "18.1104.1"]
