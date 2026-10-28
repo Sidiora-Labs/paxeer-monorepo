@@ -9694,3 +9694,27 @@ area = "paxd native builds"
 symptom = "go build -o reuses an existing paxd binary after only its native archives change; make -n stops at the native archives missing error on a fresh checkout."
 cause = "Go's link action ID ignores the contents of -l native archives; chain.mk:90 refuses to compute their digest until both archives exist, including during make -n."
 do = "Build paxd-native-libs before a dry run and stamp NativeArchiveDigest into the link flags so native archive changes force relinking."
+
+[gotcha.1998]
+area = "spec task symbols"
+symptom = "cg spec done refuses with symbol ... not defined in the graph although verify_cmd passed."
+cause = "The graph check resolves only indexed code identifiers (functions, types, constants, Type::method). Test descriptions with spaces, Elixir Mod.fun/arity references, Make targets and document headings are never indexed."
+do = "List only code identifiers under symbols; name tests under tests."
+
+[gotcha.1999]
+area = "spec gate strings"
+symptom = "A verify_cmd that nests an escaped double quote fails in sh with colon not found and backticks executing."
+cause = "Escaped double quotes inside a kvx gate string reach the shell with their backslashes intact."
+do = "Use single quotes inside build_cmd and verify_cmd; never nest double quotes."
+
+[gotcha.2000]
+area = "layerx-agentd lib tests"
+symptom = "Two tls_boundary tests panic with build the real Paxeer TLS boundary first under cargo test -p layerx-agentd --lib."
+cause = "tls_boundary.rs:187 spawns the layerx-paxeer-boundary binary from LAYERX_PAXEER_BOUNDARY_BIN or services/platform/target/debug."
+do = "Gates that run the agentd lib suite build -p layerx-platform-paxeer-boundary first and export LAYERX_PAXEER_BOUNDARY_BIN, as task 9.1.7 does."
+
+[gotcha.2001]
+area = "main gates"
+symptom = "Tasks fail their build or verify on code they did not touch: apps/perps tsc (esbuild types), apps/wallet typecheck (Balances.account), publish-images.test.sh, explorer backend warnings-as-errors (ReceiptController routes), layerx-ai-evaluator (ReadProof.batch_id), the agentd custody fixture."
+cause = "Six cross-component changes landed on main without their dependents; tracked as issues #1052-#1057."
+do = "Tasks on those gates require 18.1052.1-18.1057.1; record a new instance as an issue plus a task instead of fixing it inside an unrelated task."
