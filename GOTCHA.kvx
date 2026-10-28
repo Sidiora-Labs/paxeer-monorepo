@@ -9898,3 +9898,39 @@ area = "node merge gate tests"
 symptom = "A test cannot require the NewTestWrapper app's version map to lack layerxagent."
 cause = "node/app.go:313 registers layerxagent in every test app."
 do = "Rewrite the map with a.UpgradeKeeper.SetModuleVersionMap before the assertions, as node/upgrades_test.go:240 does (18.944.1)."
+
+[gotcha.2032]
+area = "layerx-crypto disclosure"
+symptom = "bind answers MalformedPayload for every real custody credit (Bridge activity 1), including the recorded fixture."
+cause = "disclosure.rs decoded Bridge/1 as a 0x4801 seven-field payload of at most 512 bytes that nothing produces; the kernel, custodyproof/light.go and the daemon reader define the credit as a 363-byte LXDC3 head plus an LXLB1 bundle."
+do = "LXDC3 is canonical (ruling 2026-10-28, issue #1111); task 18.1111.1 teaches the crate to disclose it. Never re-capture the custody fixture to fit a decoder."
+
+[gotcha.2033]
+area = "explorer paxeer_x controller tests"
+symptom = "Status and signature controller routes answer 404 for a receipt the app-level tests verify."
+cause = "Since 584ad3c41 receipt_keys/1 accepts only a map whose keys entry holds the list; a Bypass server answering px_getReceiptKeys with a bare list is malformed and both controllers turn that into 404."
+do = "Serve the keyed answer in controller tests and keep one bare-list case asserting 404 (issue #1112, 18.1089.1)."
+
+[gotcha.2034]
+area = "wallet gateway precompiles"
+symptom = "An address-book test expects orob, clearing, pofq, teeAttestor and eip712 to be unserved."
+cause = "9aef930a7 reduced UNSERVED_PRECOMPILES to oracle, scheduler and streams."
+do = "Compute expectations from the exported set, never from a hand-written list (18.801.1, 18.804.1)."
+
+[gotcha.2035]
+area = "paxeer-x market attestation driver"
+symptom = "The driver reports every native case missing and the gate record holds no reason."
+cause = "The driver counts only lines starting with {'case': in native.log under PAXEER_X_EVIDENCE_DIR; the C test prints through a fully buffered stdout, so an early return before native-deploy or a crash before exit leaves no line, and a temporary evidence directory is discarded with the run."
+do = "Print native.log on gate failure and make stdout line-buffered in main (18.911.1 do_7)."
+
+[gotcha.2036]
+area = "wallet gateway provisioning"
+symptom = "Provisioning answers 503 sponsor_unconfigured for a fresh account although a sponsor key file is configured."
+cause = "5f5f66995 retired SPONSOR_PRIVATE_KEY_FILE and provisionDepsFromEnv sets sponsor null; the top-up step at provision/state.ts:510-523 still needs one, and gateway.e2e.test.ts:161 asserts the top-up came from the sponsor."
+do = "Do not restore the key or drop the assertion inside a test task; issue #1113 holds the owner's decision (18.1065.1 waits)."
+
+[gotcha.2037]
+area = "node upgrade keeper tests"
+symptom = "GetModuleVersionMap still lists a module after it was deleted from the map and SetModuleVersionMap was called."
+cause = "SetModuleVersionMap stores the entries it receives and removes none; a Delete on ctx.KVStore(a.GetKey(upgradetypes.StoreKey)) does not reach the keeper's store service."
+do = "Remove the entry through the keeper's store service or test on an app built without the module (18.944.1)."

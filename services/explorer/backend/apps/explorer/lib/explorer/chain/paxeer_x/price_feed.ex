@@ -24,7 +24,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
   alias Explorer.Chain.{Block, Hash}
   alias Explorer.Chain.Cache.Counters.LastFetchedCounter
   alias Explorer.Chain.PaxeerX.{PriceFeedScannedBlock, PriceMarket, PriceObservation, PriceUpdate}
-  alias Explorer.{PagingOptions, Repo}
+  alias Explorer.{Chain, PagingOptions, Repo}
 
   @default_page_size 50
 
@@ -101,6 +101,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
         inner_join: block in Block,
         on: block.hash == update.block_hash and block.consensus == true,
         where: observation.market_id == parent_as(:market).market_id,
+        where: update.status == 1 and observation.accepted == true,
         order_by: [desc: observation.block_number, desc: update.index],
         limit: 1,
         select: observation
@@ -133,6 +134,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
       inner_join: block in Block,
       on: block.hash == update.block_hash and block.consensus == true,
       where: observation.market_id == ^market_id,
+      where: update.status == 1 and observation.accepted == true,
       order_by: [desc: observation.block_number, desc: update.index],
       preload: [update: update]
     )
@@ -215,7 +217,11 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
 
   defp mark_scanned(number, status, error) do
     Repo.insert_all(PriceFeedScannedBlock, [%{block_number: number, status: status, error: error}],
-      on_conflict: {:replace, [:status, :error]},
+      on_conflict:
+        from(scanned in PriceFeedScannedBlock,
+          update: [set: [status: fragment("EXCLUDED.status"), error: fragment("EXCLUDED.error")]],
+          where: scanned.status != "scanned"
+        ),
       conflict_target: :block_number
     )
   end
@@ -406,6 +412,21 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
           where: fragment("starts_with(?, ?)", counter.counter_type, "paxeer_x_price_feed_scanned_through_")
         )
       ) or Repo.exists?(PriceUpdate)
+  end
+
+  @doc """
+  Whether a block within `window_blocks` of the current height has been successfully
+  scanned for submissions, by this node or any indexer writing to the same database.
+  """
+  @spec scanned_recently?(non_neg_integer()) :: boolean()
+  def scanned_recently?(window_blocks) when is_integer(window_blocks) and window_blocks >= 0 do
+    minimum_block = Chain.block_height() - window_blocks
+
+    Repo.exists?(
+      from(scanned in PriceFeedScannedBlock,
+        where: scanned.status == "scanned" and scanned.block_number >= ^minimum_block
+      )
+    )
   end
 
   @doc """

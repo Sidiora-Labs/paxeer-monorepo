@@ -8631,3 +8631,67 @@ symbol = "capabilities_controller_test"
 observed = "Attempt 2 (7a80bddbb) passed its gate but could not be merged: the base's copy of capabilities_controller_test.exs changed after the attempt branched and both sides edit it."
 assumption = "The candidate continues on the current base keeping the base's tests and this task's two tests."
 severity = "minor"
+
+[finding.9.1.8.5]
+task = "9.1.8"
+file = "services/agent/crates/layerx-crypto/src/disclosure.rs:405-432"
+symbol = "decode_bridge_deposit_credit"
+observed = "Attempts 9 to 12 each passed 254 lib tests and failed the same four custody fixture tests; the cause is not the decode_activity_send suffix named in do_5 but semantics() refusing the activity's LXDC3 credit (0x4801 tag expected, 512-byte bound), the framing every other reader and the recorded fixture use (issue #1111)."
+assumption = "Ruling: LXDC3 is canonical; task 18.1111.1 teaches the crate to disclose it and 9.1.8 requires it with the fixture unchanged. #1057's diagnosis is corrected."
+severity = "blocker"
+
+[finding.18.801.1.1]
+task = "18.801.1"
+file = "services/wallet/gateway/src/precompiles.ts:32"
+symbol = "UNSERVED_PRECOMPILES"
+observed = "Attempt 4 failed only the address-book case because do_4 enumerated orob through eip712 as unserved while 9aef930a7 reduced the set to oracle, scheduler and streams; the refusal case for 0x0905 passed."
+assumption = "do_2 and do_4 now derive the expectation from the exported set; the candidate continues with that one assertion rewritten."
+severity = "minor"
+
+[finding.18.1089.1.2]
+task = "18.1089.1"
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex:195-201"
+symbol = "receipt_keys"
+observed = "Attempt 4 passed the 50 explorer-app tests and failed five controller cases with 404: both controllers call receipt_keys/1, which since 584ad3c41 accepts only the keyed answer, and the status, signature and signature-committed controller tests still serve a bare list (issue #1112); the refreshed fixture is not involved."
+assumption = "do_3 has the task serve the keyed answer in the three files and keep one malformed case each; the fixture copy stays as attempt 4 produced it."
+severity = "major"
+
+[finding.18.911.1.6]
+task = "18.911.1"
+file = "tests/programs/test_market_attestation.c:1200-1240"
+symbol = "main"
+observed = "Attempt 10 built the native and unit stages and the driver reported every one of the 122 native cases missing with no unexpected name: the native run wrote no case line, and its native.log lived under the gate's temporary evidence directory, so the exit code and stderr are not in the record."
+assumption = "The gate now prints native.log on failure and do_7 makes stdout line-buffered; the next attempt reads the surfaced log before changing anything."
+severity = "major"
+
+[finding.18.1065.1.4]
+task = "18.1065.1"
+file = "services/wallet/gateway/src/routes/wallet.ts:60-80"
+symbol = "provisionDepsFromEnv"
+observed = "Attempt 9 passed the inventory admission and provisioning then answered 503 sponsor_unconfigured: 5f5f66995 (task 8.5.4) retired SPONSOR_PRIVATE_KEY_FILE and fixed sponsor to null while state.ts:510-523 still needs a sponsor to top up an unfunded account, and gateway.e2e.test.ts:161 asserts that top-up came from the sponsor (issue #1113)."
+assumption = "The e2e asserts a retired behaviour; removing the assertion would weaken it and restoring the key reverses 8.5.4, so the task waits for the wallet owner's decision on issue #1113."
+severity = "blocker"
+
+[finding.18.944.1.2]
+task = "18.944.1"
+file = "node/upgrades_merge_gate_test.go:24-29"
+symbol = "TestMergePrecompileGate"
+observed = "Attempt 6 deleted layerxagent from the version map and from the upgrade store key and called SetModuleVersionMap, yet GetModuleVersionMap still answered layerxagent 0x1 and the NotContains precondition failed."
+assumption = "SetModuleVersionMap writes the entries it is given and deletes nothing; the direct store delete did not reach the keeper's store, so the next attempt removes the entry through the keeper's own store service or asserts the gate on an app built without the agent module."
+severity = "major"
+
+[finding.18.877.1.1]
+task = "18.877.1"
+file = "services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex"
+symbol = "compact_scanned_blocks"
+observed = "Attempt 3 (fbc3631fa) passed its two tests and the done record refused three symbols written as PriceFeed.compact_scanned_blocks, PriceFeed.delete_expired_updates and PriceFeed.oldest_updates_query as not defined in the graph."
+assumption = "The graph indexes Elixir functions by bare name (GOTCHA 1998); the symbols are rewritten and the candidate continues unchanged."
+severity = "minor"
+
+[finding.18.865.1.1]
+task = "18.865.1"
+file = "services/explorer/deploy/tools/mix-in-builder.sh"
+symbol = "mix-in-builder"
+observed = "Attempt 1 (1eb86b67e) ran the indexer test to 0 failures and the block_scout_web channel test then failed with DBConnection.OwnershipError because one wrapper invocation ran two umbrella apps (issue #1098)."
+assumption = "The gate now runs one wrapper invocation per app; the candidate continues unchanged."
+severity = "minor"

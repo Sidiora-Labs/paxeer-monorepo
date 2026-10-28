@@ -11,10 +11,15 @@ import {
   SCHEDULER_ABI,
   STREAMS_ABI,
   TEE_ATTESTOR_ABI,
+  TEE_FAMILIES,
   UNSERVED_PRECOMPILES,
+  precompileAddressBook,
   scheduler,
   streams,
+  unservedPrecompileAt,
 } from '../src/precompiles.js';
+import { closePool, getPool } from '../src/db/pool.js';
+import { executeAgentTransaction, type AgentCtx } from '../src/routes/agentExec.js';
 
 function readRepositoryFile(path: string): string {
   return readFileSync(new URL(`../../../../${path}`, import.meta.url), 'utf8');
@@ -212,6 +217,76 @@ function goImports(source: string): string[] {
 }
 
 const unservedPrecompileTests = {
+  async 'refuses a raw send to an unserved precompile address before any wallet read'() {
+    const did = 'did:key:z6MkhMVmHTTrRzNBoFKtGAgJcmbopvJ8t83aF2j6cm7uqh5V';
+    const ctx: AgentCtx = {
+      did,
+      ownerUserId: null,
+      principal: {
+        did,
+        owner_user_id: null,
+        label: 'Unserved precompile regression',
+        key_fingerprint: 'unserved-precompile',
+        public_key: '11'.repeat(32),
+        wallet_id: null,
+        is_frozen: false,
+        created_at: new Date(0).toISOString(),
+        last_seen_at: null,
+      },
+    };
+    const pool = getPool();
+    expect(pool.totalCount).toBe(0);
+    try {
+      const to = '0x0000000000000000000000000000000000000905';
+      const result = await executeAgentTransaction({
+        ctx,
+        tx: { to, value: 1n },
+        intent: { kind: 'transaction', to, value: 1n },
+        broadcast: true,
+        audit: { request_hash: 'unserved-precompile', ip: null, user_agent: null },
+      });
+      expect(result).toEqual({
+        status: 503,
+        body: { error: 'precompile_not_served', precompile: 'scheduler', address: to },
+      });
+      for (const key of UNSERVED_PRECOMPILES) {
+        const address = PRECOMPILE_ADDRESSES[key];
+        expect(unservedPrecompileAt(address.toUpperCase())).toBe(key);
+        for (const broadcast of [false, true]) {
+          await expect(
+            executeAgentTransaction({
+              ctx,
+              tx: { to: address, value: 1n },
+              intent: { kind: 'transaction', to: address, value: 1n },
+              broadcast,
+              audit: { request_hash: 'unserved-precompile', ip: null, user_agent: null },
+            }),
+          ).resolves.toEqual({
+            status: 503,
+            body: { error: 'precompile_not_served', precompile: key, address },
+          });
+        }
+      }
+      expect(pool.totalCount).toBe(0);
+      expect(pool.waitingCount).toBe(0);
+      expect(unservedPrecompileAt(undefined)).toBeNull();
+      expect(unservedPrecompileAt('0x000000000000000000000000000000000000dEaD')).toBeNull();
+    } finally {
+      await closePool();
+    }
+  },
+  'address book marks each unserved precompile as not served'() {
+    const book = precompileAddressBook();
+    expect(book.addresses).toEqual(PRECOMPILE_ADDRESSES);
+    expect(book.tee_families).toEqual(TEE_FAMILIES);
+    expect(Object.keys(book.served).sort()).toEqual(Object.keys(PRECOMPILE_ADDRESSES).sort());
+    for (const key of Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[]) {
+      expect(book.served[key], key).toBe(!UNSERVED_PRECOMPILES.has(key));
+      expect(unservedPrecompileAt(PRECOMPILE_ADDRESSES[key]), key).toBe(
+        UNSERVED_PRECOMPILES.has(key) ? key : null,
+      );
+    }
+  },
   'lists every 0x09xx route while no node package links a layerxagent precompile'() {
     const routePackages = {
       orob: 'orob',
@@ -236,6 +311,16 @@ const unservedPrecompileTests = {
 };
 
 describe('unserved agent precompiles', () => {
+  test(
+    unservedPrecompileTests['refuses a raw send to an unserved precompile address before any wallet read'],
+    unservedPrecompileTests['refuses a raw send to an unserved precompile address before any wallet read'],
+  );
+
+  test(
+    unservedPrecompileTests['address book marks each unserved precompile as not served'],
+    unservedPrecompileTests['address book marks each unserved precompile as not served'],
+  );
+
   it('lists the agent routes whose constructor package is not linked by the node', () => {
     const agentKeys = routeKeys.filter(
       (key) => !registrationSources.some((source) => source.key === key),
