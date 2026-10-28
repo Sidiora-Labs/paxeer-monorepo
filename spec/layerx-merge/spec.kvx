@@ -143756,7 +143756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.3]
 title = "Serve the LXKP EVM wallet and EVM operations through the attestor signer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.11.2", "10.11.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -145085,7 +145085,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.3]
 title = "Serve the test evidence node over the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.23.7", "9.1.8", "18.1119.1"]
@@ -146279,7 +146279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.98.3]
 title = "Migrate the layerx-human-movement-provider callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.2", "10.4.1", "9.1.8", "18.1119.1"]
@@ -153571,7 +153571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.1]
 title = "Carry the optional leg tx_hash in SDK intent bindings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.24.2", "10.0.2"]
@@ -172354,7 +172354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -178981,7 +178981,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179759,7 +179759,7 @@ ac_1 = "cargo build -p layerx-human-service --tests compiles tests/reclaim.rs ag
 
 [req.181143]
 title = "Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
-ac_1 = "cargo build -p layerx-agentd --tests compiles the four test files against the braced Cursor and their test targets pass with assertions unchanged."
+ac_1 = "cargo build -p layerx-agentd --tests compiles the four test files against the braced Cursor; the delivery, webhook and w7_subscription_permit targets pass with assertions unchanged, and the approval_events target compiles (its restore-after-gap fixture is repaired by 18.1150.1)."
 
 [req.181144]
 title = "Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
@@ -179767,7 +179767,7 @@ ac_1 = "The standby commits each replayed layer through the sealed-layer path, a
 
 [req.181147]
 title = "The layerx-human-service wallet identity test compiles with the ureq dependency the shared KMS attestor test support requires"
-ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ureq through a development dependency identical to the one layerx-human-kms declares, services/human/Cargo.lock records that edge, cargo --locked accepts the workspace, and the target compiles and its tests pass with no source file changed."
+ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ureq through a development dependency identical to the one layerx-human-kms declares, services/human/Cargo.lock records that edge, cargo --locked accepts the workspace, and the target links and its attestor-independent test passes (the attestor path is qualified by 18.1151.1)."
 
 [req.181149]
 title = "The reclaim test target passes in full against the pending-nonce reclaim agent"
@@ -179784,6 +179784,14 @@ ac_1 = "The example sets LAYERX_GATEWAY_INDEXER_URL to the indexer's TLS listene
 [req.18729]
 title = "The indexer's hosted env example names the paxscan database URL and certificate pin the backfill requires"
 ac_1 = "The example lists PAXSCAN_DATABASE_PUBLIC_URL and LAYERX_INDEXER_PAXSCAN_CERT_SHA256 as operator-filled placeholders, and BackfillConfig::from_args over the example's names with those two filled parses successfully while the same input without the pin is refused."
+
+[req.181150]
+title = "The approval stream test restores a gap through a chain event the backfill rule accepts"
+ac_1 = "cargo test -p layerx-agentd --test approval_events passes: the restore-after-gap fixture recovers a durable chain log whose position lies inside the gap, and every approval emission and digest-evidence assertion is unchanged."
+
+[req.181151]
+title = "The wallet identity end-to-end test starts its attestor nodes with the type the attestor admits"
+ac_1 = "cargo test -p layerx-human-service --test wallet_identity_e2e passes: both attestor nodes start with ATTESTOR_ACTIVITY_TYPES holding the asset send alone and the kernel send is signed through them to a verified receipt."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180849,6 +180857,22 @@ contract = "contracts/platform-hosted.md#indexer-env-vars"
 test = "services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable"
 qualification = "UNRUN"
 
+[acceptance.18.1150.1]
+feature = "18"
+req = "181150.1"
+scenario = "Given a subscription blocked by a gap at sequence 1 and a durable chain log at block height 1, when the test applies a Recovered backfill carrying that log and its position, then apply_backfill returns Restored, admit succeeds, and the approval stream resumes and exports its digest evidence."
+contract = "contracts/agent-api.md#approval-list"
+qualification = "UNRUN"
+test = "services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
+
+[acceptance.18.1151.1]
+feature = "18"
+req = "181151.1"
+scenario = "Given the module registry with asset, governance and bridge registrations, when the test starts the attestor nodes with the asset send type alone and signs a kernel send through it, then both nodes start and the test reaches its verified receipt."
+contract = "contracts/services.md#human-service"
+qualification = "UNRUN"
+test = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"
+
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
 status = "done"
@@ -181855,7 +181879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1132.1]
 title = "Issue #1132: Port the human test support and the human-service evidence node test to the node readiness gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1119.1"]
@@ -182132,7 +182156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.760.1]
 title = "Issue #760: Stop asking for a USDL approval before placeOrder opens, adds size or places orders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182658,7 +182682,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.923.1]
 title = "Issue #923: Report a pending earlier sponsored submission as pending instead of a missing wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182780,7 +182804,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1039.1]
 title = "Issue #1039: Assert the registered Treasury refusal sentinel through the error chain, not one unwrap level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1137.1"]
@@ -183795,7 +183819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.961.1]
 title = "Issue #961: Make the specgen repository test expect the active feature the workflow selects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184037,7 +184061,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.731.1]
 title = "Issue #731: Keep EVM transactions on the home page when price-feed submissions fill every block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184097,7 +184121,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1081.1]
 title = "Issue #1081: Point the explorer OpenAPI test at the archive anchor and receipt paths the router serves"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184297,7 +184321,7 @@ touches = ["services/agent/crates/layerx-agentd/tests/delivery.rs", "services/ag
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
-verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test w7_subscription_permit"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert the four test files; the daemon's test targets return to failing on the tuple cursor."
@@ -184355,7 +184379,7 @@ touches = ["services/human/crates/layerx-human-service/Cargo.toml", "services/hu
 tests = []
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e -- --exact wallet_identity_e2e_refuses_startup_when_the_attestors_are_unreachable"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -184483,6 +184507,64 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-platform"
 rollback = "Revert both files; the example again omits the paxscan variables and the templated backfill refuses before serve can start."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1150.1]
+title = "Issue #1150: Recover a positioned chain log in the approval stream's restore-after-gap fixture"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1143.1"]
+reqs = ["181150.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/approval_events.rs subscriptions_restored_after_gap (:163-201) make the backfill recover a chain event instead of the local-only approval bytes: build a log JSON with block height 1, transaction index 0 and log index 0 as tests/gaps.rs:267-272 log(height, tx, index) does, persist it into the durable store of the same tenant through EventIngestor::open and ingest with CoreEvent::from_log_bytes and global_sequence 1 as tests/gaps.rs:349-392 does, and hand the same canonical bytes with position Cursor { block_height: 1, tx_index: 0, log_index: 0 } to the RecoveredEvent, so apply_backfill (src/events/gap.rs:383-420) finds the durable match; the recovered_bytes parameter and its caller change accordingly."
+do_2 = "Keep the admit refusal before the backfill (:186), the Restored assertion (:197), the admit acceptance after it (:201), the approval emissions and every digest-evidence assertion exactly as written; change no file under src/ and remove no test. If a later assertion of the test fails on the recovered event, stop and record it."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/approval_events.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_events"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_events"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; the restore-after-gap helper returns to recovering a local-only event the backfill refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1151.1]
+title = "Issue #1151: Start the wallet identity end-to-end attestor nodes with the asset send type alone"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1147.1"]
+reqs = ["181151.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs pass only the asset send activity type (asset_send().value().to_string(), the 0x10005 that services/wallet/attestor/internal/config/config.go:287 admits) to the start_with_kernel_policy constructor of the attestor test support (layerx-human-kms/tests/support/attestor_cluster.rs:431) at :934, by narrowing activity_types() (:119-130) to the asset module's registrations; keep registry() with its governance and bridge registrations for the service, keep kernel_policy() and every assertion."
+do_2 = "Change no attestor code and no other test. If the test fails after both attestor nodes start, stop and record the failure."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the test file; the attestor nodes again receive the governance and bridge types and both attestor nodes refuse to start."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
