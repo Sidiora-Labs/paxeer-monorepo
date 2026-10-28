@@ -460,6 +460,7 @@ func TestHostDeterministicAppHash(t *testing.T) {
 	}
 	run := func() ([][]byte, [][]byte) {
 		chain := newTestChain(t)
+		seedProgramsFeeRecord(t, chain, alice.id)
 		host := chain.host(t)
 		var receipts, hashes [][]byte
 		sequence := uint64(100)
