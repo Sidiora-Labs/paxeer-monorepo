@@ -793,10 +793,10 @@ assert.deepEqual(
     row.logIndex,
   ]),
   [
-    [3n, "paxeer", 10, 0, 0],
-    [6n, "paxeer", 11, 0, 0],
-    [9n, "paxeer", 12, 0, 0],
-    [11n, "paxeer", 12, 1, 0],
+    ["3", "paxeer", 10, 0, 0],
+    ["6", "paxeer", 11, 0, 0],
+    ["9", "paxeer", 12, 0, 0],
+    ["11", "paxeer", 12, 1, 0],
   ],
 );
 assert.deepEqual(unifiedPage.accounts, [{ side: "paxeer", account: EVE }]);
@@ -820,10 +820,10 @@ assert.equal(paxeerPage.nextCursor, null);
 assert.deepEqual(
   paxeerPage.items.map((row) => [row.id, row.side]),
   [
-    [3n, null],
-    [6n, null],
-    [9n, null],
-    [11n, null],
+    ["3", null],
+    ["6", null],
+    ["9", null],
+    ["11", null],
   ],
 );
 assert.equal(
@@ -941,7 +941,7 @@ try {
   const unified = await px.getUnifiedHistory(DID.toUpperCase(), { limit: 4 });
   assert.deepEqual(
     unified.items.map((row) => row.id),
-    [3n, 6n, 9n, 11n],
+    ["3", "6", "9", "11"],
   );
   const paxeer = await px.getHistory(DID, {
     cursor: CURSOR,
