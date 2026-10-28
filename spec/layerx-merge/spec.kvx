@@ -179551,7 +179551,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1071.1]
 title = "Issue #1071: Make the system docs generator resolve lowercase constructors and regenerate the stale system docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179730,7 +179730,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1078.1]
 title = "Issue #1078: Make the platform dependency policy pass on the live workspace while still banning the retired crates from the ramps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1083.1"]
