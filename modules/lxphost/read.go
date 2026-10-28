@@ -213,7 +213,7 @@ static int32_t lxphost_read_authority_envelope(lxphost_read_state *state,
                                                  lxp_governance_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&state->kernel,
-                                             programs_module_registration());
+                                             programs_module_registration_v4_storage_retirement());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&state->kernel,
                                              lx_asset_module_iface());
@@ -255,10 +255,10 @@ static int32_t lxphost_read_check_activity(lxphost_read_state *state,
                                            const uint8_t payload_hash[32],
                                            uint64_t timestamp, uint64_t sequence,
                                            lxp_authority_grant *grant,
-                                           lxp_authority_resolved *out)
+                                           lxp_authority_resolved *out,
+                                           const lxp_authority_envelope *envelope)
 {
     lxp_identity identity;
-    lxp_authority_envelope envelope;
     int32_t status = lxphost_read_identity(state, did, length, &identity);
     if (status == LXP_OK) status = lxp_authority_grant_load(&state->kernel, id, grant);
     if (status == LXP_OK) status = lxphost_read_live(state, grant, timestamp, sequence);
@@ -266,25 +266,22 @@ static int32_t lxphost_read_check_activity(lxphost_read_state *state,
     if (!lxp_ct_is_zero(grant->scope.purpose_hash, 32U) &&
         lxp_ct_memcmp(grant->scope.purpose_hash, payload_hash, 32U) != 0)
         return LXP_ERR_AUTH_SCOPE;
-    status = lxphost_read_authority_envelope(state, &envelope);
-    if (status != LXP_OK) return status;
-    return lxphost_read_resolve(state, identity.did_id, grant, &envelope, out);
+    return lxphost_read_resolve(state, identity.did_id, grant, envelope, out);
 }
 
 static int32_t lxphost_read_identity_state(lxphost_read_state *state,
                                            const uint8_t *did, size_t length,
                                            lxp_identity *identity,
                                            lxp_authority_grant *grant,
-                                           lxp_authority_resolved *out)
+                                           lxp_authority_resolved *out,
+                                           const lxp_authority_envelope *envelope)
 {
-    lxp_authority_envelope envelope;
     int32_t status = lxphost_read_identity(state, did, length, identity);
-    if (status == LXP_OK) status = lxphost_read_authority_envelope(state, &envelope);
     if (status == LXP_OK)
         status = lxp_authority_owner_grant(identity, identity->primary_key,
-                                            &envelope, 0U, UINT64_MAX - 1U, grant);
+                                            envelope, 0U, UINT64_MAX - 1U, grant);
     if (status != LXP_OK) return status;
-    return lxphost_read_resolve(state, identity->did_id, grant, &envelope, out);
+    return lxphost_read_resolve(state, identity->did_id, grant, envelope, out);
 }
 
 static int32_t lxphost_read_record(lxphost_read_state *state, uint16_t module,
@@ -458,6 +455,10 @@ type IdentityState struct {
 	EVMPayoutAddress          [20]byte
 	HasEVMPayoutBinding       bool
 	Authority                 AuthorityState
+}
+
+func lxphost_read_authority_envelope(state *C.lxphost_read_state, envelope *C.lxp_authority_envelope) error {
+	return result(C.lxphost_read_authority_envelope(state, envelope))
 }
 
 func readAuthorityScope(scope *C.struct_lxp_authority_scope) AuthorityScope {
@@ -784,8 +785,12 @@ func (h *Host) ReadCheckActivity(ctx sdk.Context, actorDID []byte, grantID [32]b
 		}
 		var grant C.lxp_authority_grant
 		var authority C.struct_lxp_authority_resolved
+		var envelope C.lxp_authority_envelope
+		if err := lxphost_read_authority_envelope(state, &envelope); err != nil {
+			return err
+		}
 		if err := result(C.lxphost_read_check_activity(state, bytesPtr(actorDID), C.size_t(len(actorDID)),
-			bytes32(&grantID), bytes32(&payloadHash), C.uint64_t(timestamp), C.uint64_t(sequence), &grant, &authority)); err != nil {
+			bytes32(&grantID), bytes32(&payloadHash), C.uint64_t(timestamp), C.uint64_t(sequence), &grant, &authority, &envelope)); err != nil {
 			return err
 		}
 		out = readAuthorityState(&authority, &grant.scope)
@@ -803,8 +808,12 @@ func (h *Host) ReadIdentityState(ctx sdk.Context, actorDID []byte) (IdentityStat
 		var identity C.struct_lxp_identity
 		var grant C.lxp_authority_grant
 		var authority C.struct_lxp_authority_resolved
+		var envelope C.lxp_authority_envelope
+		if err := lxphost_read_authority_envelope(state, &envelope); err != nil {
+			return err
+		}
 		if err := result(C.lxphost_read_identity_state(state, bytesPtr(actorDID), C.size_t(len(actorDID)),
-			&identity, &grant, &authority)); err != nil {
+			&identity, &grant, &authority, &envelope)); err != nil {
 			return err
 		}
 		id := *(*[32]byte)(unsafe.Pointer(&identity.did_id[0]))

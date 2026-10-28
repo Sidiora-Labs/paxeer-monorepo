@@ -103,13 +103,13 @@ export function ResizeHandle({
 
   const endDrag = useCallback(() => {
     if (!isDragging.current) return;
-    isDragging.current = false;
     if (rafId.current) {
       cancelAnimationFrame(rafId.current);
       rafId.current = 0;
     }
     // Apply final position synchronously
     applySize();
+    isDragging.current = false;
     document.body.style.cursor = "";
     document.body.style.userSelect = "";
     document.body.style.webkitUserSelect = "";

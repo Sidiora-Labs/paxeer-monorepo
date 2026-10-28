@@ -107,6 +107,7 @@ interface ReceiptSession {
   status: SponsoredSubmissionEvidence["status"];
   receiptStatus: "0x1" | "0x0" | null;
   receiptHttpStatus: number;
+  submitHttpStatus: number;
 }
 
 async function withSubmission(run: (session: ReceiptSession) => Promise<void>): Promise<void> {
@@ -115,7 +116,7 @@ async function withSubmission(run: (session: ReceiptSession) => Promise<void>): 
   const database = new DatabaseSync(join(directory, "submission.sqlite"));
   const session: ReceiptSession = {
     quoted, paths: [], receiptHashes: [], storage: new SubmissionStorage(database),
-    status: "pending", receiptStatus: null, receiptHttpStatus: 200,
+    status: "pending", receiptStatus: null, receiptHttpStatus: 200, submitHttpStatus: 200,
   };
   const server = createServer(async (request, response) => {
     try {
@@ -135,6 +136,7 @@ async function withSubmission(run: (session: ReceiptSession) => Promise<void>): 
         return;
       }
       if (request.url === "/v1/wallet/sponsored/submit" || request.url === "/v1/wallet/sponsored/status") {
+        if (request.url.endsWith("/submit")) response.statusCode = session.submitHttpStatus;
         const status = request.url.endsWith("/submit") ? "pending" : session.status;
         const station = status === "pending" ? null : {
           state: "completed", deadline: quoted.batch.quote.deadline.toString(),
@@ -237,8 +239,16 @@ async function sponsored_batch_reports_receipt(): Promise<void> {
     const review = wallet.sidioraQuotePresentation(session.quoted);
     assert.ok(review);
     const result = await wallet.sendWalletSponsoredBatch(session.quoted, review.identity);
-    assert.equal(result.outcome, "failed");
+    assert.deepEqual(result, { outcome: "unconfirmed", transactionHash: HASH });
     assert.deepEqual(session.receiptHashes, [[HASH]]);
+    assert.equal(session.paths.filter(path => path === "/v1/wallet/sponsored/submit").length, 1);
+  });
+  await withSubmission(async session => {
+    session.submitHttpStatus = 403;
+    const review = wallet.sidioraQuotePresentation(session.quoted);
+    assert.ok(review);
+    assert.deepEqual(await wallet.sendWalletSponsoredBatch(session.quoted, review.identity), { outcome: "rejected" });
+    assert.deepEqual(session.receiptHashes, []);
   });
 }
 
@@ -287,14 +297,33 @@ async function resumed_submission_reports_receipt(): Promise<void> {
     });
     assert.equal(session.paths.filter(path => path === "/v1/wallet/sponsored/submit").length, 1);
   });
+  for (const status of ["pending", "confirmed", "reverted"] as const) {
+    await withSubmission(async session => {
+      const review = wallet.sidioraQuotePresentation(session.quoted);
+      assert.ok(review);
+      await wallet.sendWalletSponsoredBatch(session.quoted, review.identity);
+      session.status = status;
+      session.receiptStatus = status === "reverted" ? "0x0" : "0x1";
+      session.receiptHttpStatus = 503;
+      assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(session.quoted.batch.account), { outcome: "unconfirmed", transactionHash: HASH });
+      assert.equal(session.paths.filter(path => path === "/v1/wallet/sponsored/submit").length, 1);
+    });
+  }
   await withSubmission(async session => {
     const review = wallet.sidioraQuotePresentation(session.quoted);
     assert.ok(review);
     await wallet.sendWalletSponsoredBatch(session.quoted, review.identity);
-    session.status = "confirmed";
-    session.receiptStatus = "0x1";
     session.receiptHttpStatus = 503;
-    assert.equal((await wallet.resumeWalletSponsoredSubmission(session.quoted.batch.account))?.outcome, "failed");
+    assert.deepEqual(await wallet.sendWalletSponsoredBatch(session.quoted, review.identity), { outcome: "unconfirmed", transactionHash: HASH });
+    assert.equal(session.paths.filter(path => path === "/v1/wallet/sponsored/submit").length, 1);
+  });
+  await withSubmission(async session => {
+    const review = wallet.sidioraQuotePresentation(session.quoted);
+    assert.ok(review);
+    await wallet.sendWalletSponsoredBatch(session.quoted, review.identity);
+    session.status = "reverted";
+    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(session.quoted.batch.account), { outcome: "unconfirmed", transactionHash: HASH });
+    assert.equal(session.paths.filter(path => path === "/v1/wallet/sponsored/submit").length, 1);
   });
 }
 
