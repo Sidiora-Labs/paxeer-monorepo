@@ -9083,3 +9083,99 @@ symbol = "packageManager"
 observed = "Attempt 1 (02b26ae52) wrote the joined-channel regression test but the build pnpm --dir apps/explorer exec tsc --noEmit fails with ERR_PNPM_OTHER_PM_EXPECTED: apps/explorer pins yarn@1.22.22 and every other explorer task gates with cd apps/explorer && yarn."
 assumption = "Gate wording defect, not a code failure; build_cmd and verify_cmd now use yarn as 18.897.1 and 18.900.1 do and the next attempt continues from the candidate."
 severity = "minor"
+
+[finding.18.1039.1.1]
+task = "18.1039.1"
+file = "modules/launchpad/keeper/fees_test.go:172"
+symbol = "ProtocolFeesKey"
+observed = "Attempts 2 and 3 (bc450c1f1) pass the build and fail the verify because the keeper test package does not compile: fees_test.go:172 and simulation/decoder_test.go:55 call types.ProtocolFeesKey, deleted by 94bae91dc (4.8.5), whose gate did not compile the test packages (issue #1137)."
+assumption = "Pre-existing; 18.1137.1 repairs both tests and 18.1039.1 requires it."
+severity = "major"
+
+[finding.18.1131.1.2]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:142"
+symbol = "config_with_authority"
+observed = "Attempt 3 (f73cbbc6f) fails the build: the fixture sets expected_protocol_version and sequencer_authority_source, removed from StartupConfig by 5609ec802 (9.12.3), and readiness_node_rpc.rs includes the file by #[path], so every agentd test-target build fails (issue #1138)."
+assumption = "Pre-existing; 18.1138.1 ports the fixture and 18.1131.1 and 9.95.1 require it."
+severity = "major"
+
+[finding.18.741.1.1]
+task = "18.741.1"
+file = "services/wallet/gateway/test/support/chain.ts:214"
+symbol = "TestChain.handle"
+observed = "Attempts 2 and 3 (aca4f9e29) implement the lock change and fail the verify because TestChain answers pax_sequencerReceipt with -32601, so both broadcasts return 502 and the cap assertion sees the wrong sequence."
+assumption = "The TestChain support is split out of 18.1001.1 (ruling-held behind 12.6.3) into 18.1001.2; 18.741.1 requires it."
+severity = "major"
+
+[finding.18.752.1.1]
+task = "18.752.1"
+file = "apps/web/package.json"
+symbol = "typecheck"
+observed = "Attempt 2 (c3c142f87) fails the build pnpm --dir apps/web exec tsc --noEmit with 98 errors (missing @layerx/ui modules, implicit any) while 18.851.1 and 18.758.1 passed npm --prefix apps/web run typecheck at the same hour: apps/web resolves its workspace packages through npm, not pnpm."
+assumption = "Gate wording defect; build and verify now run through npm and node as the other apps/web tasks do."
+severity = "minor"
+
+[finding.18.870.1.1]
+task = "18.870.1"
+file = "apps/explorer/package.json"
+symbol = "chakra:typegen"
+observed = "Attempt 1 (3335e60e1) fails yarn lint:tsc with 341 errors in toolkit/chakra and ui/showcases that 18.896.1 and 18.897.1 did not see with the same compiler: the attempt reinstalled node_modules and the Chakra recipe types that postinstall generates (chakra typegen) were lost."
+assumption = "Environment, not code; the build now runs yarn chakra:typegen first and the next attempt must not reinstall dependencies."
+severity = "minor"
+
+[finding.18.961.1.1]
+task = "18.961.1"
+file = "spec/workflow.kvx:79"
+symbol = "task"
+observed = "Attempts 1 and 2 (2c331c1e4) change the expected feature and still fail: the validator rejects status superseded on 6.69.2, 6.69.3, 8.28.4, 8.98.7, 8.98.8 and blocked on 13.34.2 because workflow.kvx lists only pending, in_progress and done."
+assumption = "decision.1799 adds both statuses to the workflow vocabulary; do_2 added."
+severity = "major"
+
+[finding.18.760.1.1]
+task = "18.760.1"
+file = "apps/perps/tests/order-plan.test.ts:205"
+symbol = "planOrder"
+observed = "Attempts 2 and 3 (172062668) fail the perps type-check because order-plan.test.ts still calls planOrder with an allowance source and expects an approve write, the behaviour the issue removes; the file was outside touches."
+assumption = "Task-scoped; the test is added to touches with do_4."
+severity = "major"
+
+[finding.18.896.1.1]
+task = "18.896.1"
+file = "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx:20"
+symbol = "index"
+observed = "Attempt 1 (e0fc0abcd) adds the required index field to the feed type and fails the explorer type-check on the existing fixture that lacks it; the spec file was outside touches."
+assumption = "Task-scoped; the fixture is added to touches with a do-line."
+severity = "major"
+
+[finding.18.923.1.1]
+task = "18.923.1"
+file = "apps/web/e2e/gas-station.test.ts:280"
+symbol = "sendWalletSponsoredBatch"
+observed = "Attempt 2 (e3fdd21b9) implements the pending outcome and fails on the existing expectation that the first write is reported sent; since c182d8bfd the product reports unconfirmed when the receipt poll yields no receipt, which the fixture does."
+assumption = "The test encodes the pre-c182d8bfd contract; do_4 updates the two expectations to the shipped outcome."
+severity = "major"
+
+[finding.18.1119.1.3]
+task = "18.1119.1"
+file = "services/human/crates/layerx-human-service/tests/detail_rungs.rs:126"
+symbol = "receipted_entry_detail_is_not_final"
+observed = "Attempt 8 (f021bcb0c) ports the readiness gate and fails two detail_rungs tests: they iterate verification levels StateProven and SettlementAnchored into Verified references that now carry a Rung, and Level::rung folds StateProven into Receipted and gives SettlementAnchored no rung."
+assumption = "The level loops are the pre-rung convention; do_7 moves them to rungs and keeps the finality assertions."
+severity = "major"
+
+[finding.18.1110.1.1]
+task = "18.1110.1"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go:303"
+symbol = "runNativeRustConsumer"
+observed = "Attempts 1 and 2 (80d566f81) pass the build and fail the verify at the fixture's first line: PAXEER_X_NATIVE_CUSTODY_RUST_TEST is unset, so the real Rust custody consumer is absent."
+assumption = "The gate now builds the layerx-human-kms attestor_native_profile executable and exports its path, as tools/qualification/paxeer-x/human_native_custody.py does."
+severity = "major"
+
+[finding.18.754.1.1]
+task = "18.754.1"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "symbols"
+observed = "Attempts 3 and 4 (38472f260) pass build and behaviour tests and fail cg spec done on symbol render-edge-trust.sh not defined in the graph; the same check fails 18.1058.1 (a test title) and would fail 18.900.1, 18.921.1, 18.922.1, 10.5.2 and 10.13.8."
+assumption = "Symbols are graph identifiers; file names and test titles removed from the seven tasks."
+severity = "minor"
