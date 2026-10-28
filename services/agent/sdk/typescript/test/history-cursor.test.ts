@@ -3,6 +3,8 @@ import { test } from "node:test";
 
 import {
   decodeHistoryPage,
+  decodePaxeerHistoryPage,
+  decodeUnifiedHistoryPage,
   historyCursor,
   historyParams,
   type HistoryRow,
@@ -103,7 +105,6 @@ function history_cursor_encodes_block_height_tx_index_and_log_index(): void {
     historyCursor(41n, 0xffffffff, 0xffffffff),
     historyCursor(42n, 1, 0xffffffff),
     historyCursor(42n, 2, 2),
-    position,
   ]) {
     assert.throws(
       () =>
@@ -115,6 +116,7 @@ function history_cursor_encodes_block_height_tx_index_and_log_index(): void {
     );
   }
   for (const cursor of [
+    position,
     historyCursor(42n, 2, 4),
     historyCursor(42n, 3, 0),
     historyCursor(43n, 0, 0),
@@ -208,5 +210,137 @@ function history_rows_carry_the_transaction_hash(): void {
   }
 }
 
+function decodeGatewayPage(
+  items: readonly ReturnType<typeof historyRow>[],
+  next_cursor: string | null,
+  unified: boolean,
+) {
+  if (unified) {
+    return decodeUnifiedHistoryPage(
+      {
+        account: { evm_address: ACCOUNT },
+        accounts: [{ side: "paxeer", account: ACCOUNT }],
+        items: items.map((row) => ({ ...row, side: "paxeer" })),
+        next_cursor,
+      },
+      2,
+    );
+  }
+  return decodePaxeerHistoryPage({ account: ACCOUNT, items, next_cursor }, 2);
+}
+
+function history_pages_resume_from_the_gateway_last_row_without_gaps(): void {
+  const positions = [
+    [10, 0, 0],
+    [11, 0, 0],
+    [11, 0, 1],
+    [11, 1, 0],
+    [12, 0, 0],
+  ] as const;
+  const items = positions.map(([blockHeight, txIndex, logIndex], index) => ({
+    ...historyRow(),
+    id: String(index + 1),
+    height_or_seq: String(blockHeight),
+    ordinal: String(logIndex + 1),
+    blockHeight,
+    txIndex,
+    logIndex,
+  }));
+  const pages = [
+    {
+      items: items.slice(0, 2),
+      next_cursor: "000000000000000b0000000000000000",
+    },
+    {
+      items: items.slice(2, 4),
+      next_cursor: "000000000000000b0000000100000000",
+    },
+    { items: items.slice(4), next_cursor: null },
+  ];
+  for (const unified of [false, true]) {
+    const seen: HistoryRow[] = [];
+    let cursor: string | null = null;
+    for (const [index, document] of pages.entries()) {
+      assert.deepEqual(
+        historyParams(ACCOUNT, {
+          ...(cursor === null ? {} : { cursor }),
+          limit: 2,
+        }),
+        [ACCOUNT, index === 0 ? null : pages[index - 1]!.next_cursor, 2, null],
+      );
+      const page = decodeGatewayPage(
+        document.items,
+        document.next_cursor,
+        unified,
+      );
+      assert.equal(page.nextCursor, document.next_cursor);
+      assert.equal(page.items.length, index === 2 ? 1 : 2);
+      const first = page.items[0]!;
+      const last = page.items[page.items.length - 1]!;
+      if (cursor !== null) {
+        assert(
+          historyCursor(
+            BigInt(first.blockHeight),
+            first.txIndex,
+            first.logIndex,
+          ) > cursor,
+        );
+      }
+      if (page.nextCursor !== null) {
+        assert.equal(
+          page.nextCursor,
+          historyCursor(BigInt(last.blockHeight), last.txIndex, last.logIndex),
+        );
+        assert.throws(
+          () =>
+            decodeGatewayPage(
+              document.items,
+              historyCursor(
+                BigInt(first.blockHeight),
+                first.txIndex,
+                first.logIndex,
+              ),
+              unified,
+            ),
+          /Invalid history cursor/,
+        );
+        assert.throws(
+          () =>
+            decodeGatewayPage(document.items, `${page.nextCursor}\n`, unified),
+          /Invalid history cursor/,
+        );
+      } else {
+        assert.equal(index, pages.length - 1);
+      }
+      seen.push(...page.items);
+      cursor = page.nextCursor;
+    }
+    assert.equal(cursor, null);
+    assert.deepEqual(
+      seen.map((row) => row.id),
+      [1n, 2n, 3n, 4n, 5n],
+    );
+    assert.deepEqual(
+      seen.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
+      positions,
+    );
+    assert(seen.every((row) => row.side === (unified ? "paxeer" : null)));
+  }
+}
+
+function history_empty_pages_have_no_continuation(): void {
+  for (const unified of [false, true]) {
+    const page = decodeGatewayPage([], null, unified);
+    assert.deepEqual(page.items, []);
+    assert.equal(page.nextCursor, null);
+    assert.throws(
+      () => decodeGatewayPage([], historyCursor(11n, 0, 0), unified),
+      /Invalid history cursor/,
+    );
+  }
+}
+
 test(history_cursor_encodes_block_height_tx_index_and_log_index);
 test(history_rows_carry_the_transaction_hash);
+test(history_pages_resume_from_the_gateway_last_row_without_gaps);
+test(history_empty_pages_have_no_continuation);

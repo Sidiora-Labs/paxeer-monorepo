@@ -322,7 +322,7 @@ function nextCursor(
   const last = items[items.length - 1];
   if (
     last === undefined ||
-    cursor <=
+    cursor <
       historyCursor(BigInt(last.blockHeight), last.txIndex, last.logIndex)
   )
     throw new Error("Invalid history cursor");

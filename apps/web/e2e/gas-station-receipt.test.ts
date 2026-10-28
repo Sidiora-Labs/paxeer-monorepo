@@ -94,6 +94,7 @@ async function withStation(
   quoteAnswer: unknown,
   receipt: unknown,
   run: (requests: Readonly<{ quote: ReceivedRequest[]; submit: ReceivedRequest[]; gateway: ReceivedRequest[] }>) => Promise<void>,
+  options: Readonly<{ receiptHttpStatus?: number }> = {},
 ): Promise<void> {
   const key = readFileSync(new URL("./fixtures/localhost-key.pem", import.meta.url), "utf8");
   const cert = readFileSync(new URL("./fixtures/localhost-cert.pem", import.meta.url), "utf8");
@@ -104,7 +105,7 @@ async function withStation(
       for await (const chunk of request) body += String(chunk);
       const document: unknown = JSON.parse(body);
       requests[kind].push({ method: request.method, url: request.url, body: document });
-      response.writeHead(kind === "quote" ? quoteStatus : 200, { "content-type": "application/json" });
+      response.writeHead(kind === "quote" ? quoteStatus : kind === "gateway" ? options.receiptHttpStatus ?? 200 : 200, { "content-type": "application/json" });
       const answer = kind === "quote" ? quoteAnswer : kind === "submit" ? { transactionHash: HASH } : {
         jsonrpc: "2.0", id: (document as { id: string }).id, result: receipt,
       };
@@ -178,7 +179,7 @@ async function sponsored_submit_returns_receipt(): Promise<void> {
   const authorizationDigest = sdk.eip7702AuthorizationDigest({ chainId: config.chainId, address: config.paymaster, nonce: authorizationNonce });
   assert.ok(authorizationDigest.ok);
   const authorizationSignature = await account.sign({ hash: authorizationDigest.value as `0x${string}` });
-  for (const status of ["0x1", "0x0", null] as const) {
+  for (const [status, receiptHttpStatus] of [["0x1", 200], ["0x0", 200], [null, 200], ["0x1", 503], ["malformed", 200]] as const) {
     const receipt = status === null ? null : { transactionHash: HASH, status, blockNumber: LOG.blockNumber, logs: [LOG] };
     await withStation(200, { quote, relayerSignature, feeDenom: "sidiora" }, receipt, async (requests) => {
       const quoted = await station.requestSidioraGasQuote(quoteRequest, config.chainId);
@@ -188,7 +189,9 @@ async function sponsored_submit_returns_receipt(): Promise<void> {
       assert.ok(batchDigest.ok);
       const accountSignature = await account.sign({ hash: batchDigest.value as `0x${string}` });
       const outcome = await station.sendSponsoredBatch(quoted.value, accountSignature, authorizationNonce, authorizationSignature);
-      if (status === null) {
+      if (receiptHttpStatus === 503 || status === "malformed") {
+        assert.deepEqual(outcome, { outcome: "unconfirmed", transactionHash: HASH });
+      } else if (status === null) {
         assert.deepEqual(outcome, { outcome: "sent", transactionHash: HASH });
       } else {
         assert.deepEqual(outcome, {
@@ -217,7 +220,7 @@ async function sponsored_submit_returns_receipt(): Promise<void> {
       assert.equal(typeof document.id, "string");
       assert.equal(document.method, "eth_getTransactionReceipt");
       assert.deepEqual(document.params, [HASH]);
-    });
+    }, { receiptHttpStatus });
   }
 }
 

@@ -156,7 +156,7 @@ static int32_t lxphost_reset(lxphost_node *node, uint64_t first_sequence)
                                             lxp_governance_module_iface());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
-                                            programs_module_registration());
+                                            programs_module_registration_v4_storage_retirement());
     if (status == LXP_OK)
         status = lxp_kernel_register_module(&node->kernel,
                                             lx_asset_module_iface());
