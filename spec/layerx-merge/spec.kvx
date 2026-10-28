@@ -172384,7 +172384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163", "181164", "181165", "181166", "181167", "181171", "181172", "181176", "181177", "181173", "181174", "181175"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -179012,7 +179012,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 11
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1", "18.1164.1", "18.1165.1", "18.1167.1", "18.1171.1", "18.1172.1", "18.1176.1", "18.1177.1", "18.1173.1", "18.1173.2", "18.1174.1", "18.1175.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179898,6 +179898,18 @@ ac_1 = "verify_committed accepts the recorded committed view of vector-v4-commit
 [req.181177]
 title = "Issue #1177: Make the native step-up mismatch fixtures reach the step-up compare"
 ac_1 = "Both native step-up fixtures mutate owner_public_key to reach the step-up compare and assert StepUpMismatch, assert InvalidEvidence for the expiry-skewed grant, and the native send real-profile harness passes with the human-service consumer."
+
+[req.181173]
+title = "Issue #1173: Carry observation acceptance on the live price feed and keep refused rows off the market topics"
+ac_1 = "The paxeer_x_feed:new_update item carries accepted per observation, paxeer_x_feed:market:<id> pushes only accepted observations of status 1 submissions as the market REST endpoints serve, and applyPriceUpdates moves a market's latest price only to an accepted observation, so a REST reload shows the same price and history the live pages built."
+
+[req.181174]
+title = "Issue #1174: Stage the optional gateway UI bindings file for uid 4020 before the entrypoint drops privileges"
+ac_1 = "With the stock image and no owner override, enabling LAYERX_GATEWAY_UI_BINDINGS_FILE=/run/secrets/ui-bindings.json hands the uid 4020 gateway a 4020-owned 0600 private copy of the shim-materialised file, and env_example.rs proves every env-example variable pointing at a files.tsv guest path is staged by FILE_VARIABLES or the route-bindings path."
+
+[req.181175]
+title = "Issue #1175: Serialize the committed block number and hash in x402 seller settlement responses"
+ac_1 = "A settled response whose evidence rung is Committed carries blockNumber as a canonical 0x quantity and blockHash as lowercase 0x-prefixed 32-byte hex in extensions.layerx, a receipted response carries neither, and Buyer::capture_settlement accepts the seller-produced committed header for the matching BuiltPayment."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -181121,6 +181133,38 @@ req = "181177.1"
 scenario = "Given the real-profile attestor harness driving the native send consumer, when the consumer signs with a grant whose owner_public_key differs from the authenticated step-up, then StepUpMismatch is returned, and when the grant's expiry disagrees with its capability, then InvalidEvidence is returned."
 contract = "contracts/README.md"
 test = "services/human/crates/layerx-human-service/tests/native_send_purpose.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1173.1]
+feature = "18"
+req = "181173.1"
+scenario = "Given a market showing an accepted observation, when a newer successful submission with a refused observation for that market and a failed submission are stored and broadcast, then the feed topic pushes both submissions with the refused observation marked accepted false, the market topic pushes neither, and the overview keeps the older accepted price."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs"
+qualification = "UNRUN"
+
+[acceptance.18.1173.2]
+feature = "18"
+req = "181173.1"
+scenario = "Given markets showing accepted observations, when a status ok update whose market 0 observation is refused is applied, then market 0 keeps its previous latest price while chain_head advances, and the same update with the observation accepted moves latest to it."
+contract = "contracts/explorer-indexer.md#paxeer-x-ingestion"
+test = "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts"
+qualification = "UNRUN"
+
+[acceptance.18.1174.1]
+feature = "18"
+req = "181174.1"
+scenario = "Given the stock gateway image with ENDPOINT_UI_BINDINGS set and no LAYERX_FILES_OWNER override, when the entrypoint runs as root before su-exec 4020:4020, then LAYERX_GATEWAY_UI_BINDINGS_FILE points at a 4020-owned 0600 private copy the gateway's protected_bindings check accepts, and the env example test fails whenever a table-backed file variable is missing from FILE_VARIABLES."
+contract = "contracts/perps-data.md#websocket"
+test = "services/platform/hosted/gateway/tests/env_example.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1175.1]
+feature = "18"
+req = "181175.1"
+scenario = "Given an exact-payment seller fixture whose SequencerEvidence rung is Committed { block_number: 9, block_hash: 0xab..ab }, when Seller::settle runs and the buyer captures the PAYMENT-RESPONSE with the matching BuiltPayment and pinned receipt keys, then the header carries verificationLevel committed, blockNumber 0x9 and blockHash 0xab..ab and capture_settlement returns Ok with rung committed."
+contract = "contracts/interop-deploy.md#deploy-workspace"
+test = "services/interop/crates/layerx-x402/tests/seller.rs"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -185382,6 +185426,129 @@ gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-human"
 rollback = "Revert the two fixture mutations; the consumers return to asserting StepUpMismatch on a grant the validator refuses as InvalidEvidence."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1173.1]
+title = "Issue #1173: Carry observation acceptance on the live price feed and keep refused rows off the market topics"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181173.1"]
+capabilities = []
+interfaces = []
+do_1 = "In FeedView.prepare_observation (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex:83-91) add 'accepted' => observation.accepted (Explorer.Chain.PaxeerX.PriceObservation.accepted, price_observation.ex:31), so the submission item of the REST updates endpoint and of the paxeer_x_feed:new_update push says per observation whether the node accepted it; leave prepare_observation_update (:107-118) and prepare_update (:51-81) otherwise as they are so the audit listing of every submission keeps every observation."
+do_2 = "In broadcast_price_updates (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex:699-705) push an observation on paxeer_x_feed:market:#{observation.market_id} only when update.status == 1 and observation.accepted, the predicate market_updates_query applies at services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/price_feed.ex:137; keep the paxeer_x_feed:new_update push at :693-697 for every submission and the transactions:new_transaction and blocks:new_block pushes unchanged."
+do_3 = "Write the top-level test 'a refused observation moves no market price on the live topics' in services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs (beside :34, using store/submission/observation at :199-225): store at height 20 a status 1 submission whose market 0 observation has accepted: false (Map.put on observation(0, 5)) and whose market 2 observation is accepted, plus a status: 0 submission carrying observation(0, 6); subscribe to paxeer_x_feed:new_update, paxeer_x_feed:market:0 and paxeer_x_feed:market:2; call Notifier.handle_event({:chain_event, :paxeer_x_price_updates, :realtime, [20]}); assert both new_update pushes arrive and the first carries 'accepted' => false for market 0, assert exactly one paxeer_x_feed:market:2 push and refute any paxeer_x_feed:market:0 push. Add 'accepted' => true to the two observation maps the exact item assertion compares at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs:89-104."
+do_4 = "In services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs, where the updates endpoint's observations are asserted, also assert the accepted field (true for the stored accepted observation)."
+do_5 = "Change nothing in PriceFeed queries, Explorer.PaxeerX.CosmosRest or the indexer fetcher, and remove no test."
+symbols = ["prepare_observation", "broadcast_price_updates"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs::a refused observation moves no market price on the live topics"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/channels/v2/paxeer_x_feed_channel_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the four backend files; the market topics again push refused and failed observations and the feed item loses the accepted field."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1173.2]
+title = "Issue #1173: Take a market's latest price only from an accepted observation in the explorer feed"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181173.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/explorer/types/api/paxeerXFeed.ts:4-11 add accepted: boolean to PriceObservation; in applyPriceUpdates (apps/explorer/ui/paxeerX/feed/applyPriceUpdates.ts:18) take the market's observation only when observation.accepted is true, keeping the update.status === 'ok' filter at :6 and the newer-than test at :24-26; give every observation literal accepted: true in apps/explorer/mocks/paxeerX/feed.ts:37-38, apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts:20-26 and apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx:33-34 and :127 so yarn tsc --noEmit passes."
+do_2 = "Write the test 'keeps the accepted price when a newer successful submission carries a refused observation' in apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts: apply to markets a status 'ok' update at block 34800124 whose market 0 observation has accepted: false and assert items[0].latest is the markets fixture's latest (update_hash updateHash, block 34800123) while chain_head becomes 34800124; then apply the same update with accepted: true and assert latest moves to it."
+do_3 = "Change nothing in apps/explorer/ui/pages/PaxeerXFeedMarket.tsx (its handleFlush receives only accepted rows of successful submissions once the notifier filters them) and remove no test."
+symbols = ["applyPriceUpdates"]
+touches = ["apps/explorer/types/api/paxeerXFeed.ts", "apps/explorer/mocks/paxeerX/feed.ts", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.ts", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts", "apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx"]
+tests = ["apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts::keeps the accepted price when a newer successful submission carries a refused observation"]
+planned_paths = []
+build_cmd = "cd apps/explorer && yarn lint:tsc"
+verify_cmd = "cd apps/explorer && yarn vitest run ui/paxeerX/feed/applyPriceUpdates.spec.ts -t '(?:^|\s)(keeps the accepted price when a newer successful submission carries a refused observation)$'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the five frontend files; the overview reducer again takes any observation of a successful submission."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1174.1]
+title = "Issue #1174: Stage the optional gateway UI bindings file for uid 4020 before the entrypoint drops privileges"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181174.1"]
+capabilities = []
+interfaces = []
+do_1 = "In docker/platform-gateway/entrypoint.sh add 'LAYERX_GATEWAY_UI_BINDINGS_FILE' to the FILE_VARIABLES tuple (:12-37, after LAYERX_GATEWAY_HPX_INGRESS_FILE at :28), so the staging loop at :118-120 reads the root-owned 0600 /run/secrets/ui-bindings.json that docker/platform-gateway/files.tsv:19 materialises through protected_bytes (:49-75, which admits uid 0 or 4020, mode 0600, one link, O_NOFOLLOW) and rewrites the variable to a 4020-owned 0600 private copy (:78-92) before su-exec 4020:4020 at :142, exactly as the other *_FILE, _DER and _PKCS12 secrets are staged; protected_bindings (services/platform/hosted/gateway/src/ui_proxy.rs:80-109) then opens a file of its own uid."
+do_2 = "In services/platform/hosted/gateway/tests/env_example.rs add the test router_entrypoint_stages_every_table_backed_file_variable: read docker/platform-gateway/entrypoint.sh through CARGO_MANIFEST_DIR the way :78-81 reads files.tsv, collect the double-quoted names between 'FILE_VARIABLES = (' and its closing ')' and the BINDINGS_VARIABLE name (:38); build the set of files.tsv guest paths as :84-92 does; then for every variable of include_str!('../railway.env.example') - the uncommented NAME=value lines configured (:9-25) returns plus the documented optional lines of the form '# NAME=value' such as :24 - whose value is one of those guest paths, assert the name is in FILE_VARIABLES or equals the BINDINGS_VARIABLE, naming the variable in the panic message; assert explicitly that LAYERX_GATEWAY_UI_BINDINGS_FILE is in FILE_VARIABLES. Keep the three existing tests as written."
+do_3 = "Change nothing in docker/common/env-files.sh, docker/platform-gateway/files.tsv, docker/platform-gateway/Dockerfile, services/platform/hosted/gateway/railway.env.example or ui_proxy.rs; add no LAYERX_FILES_OWNER override and loosen no mode, owner or O_NOFOLLOW check."
+symbols = ["FILE_VARIABLES", "protected_bytes", "private_copy"]
+touches = ["docker/platform-gateway/entrypoint.sh", "services/platform/hosted/gateway/tests/env_example.rs"]
+tests = ["services/platform/hosted/gateway/tests/env_example.rs::router_entrypoint_stages_every_table_backed_file_variable"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the two files; the entrypoint again leaves /run/secrets/ui-bindings.json root-owned 0600 for the uid 4020 gateway and no test ties the staging allowlist to the file-secret table."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1175.1]
+title = "Issue #1175: Serialize the committed block number and hash in x402 seller settlement responses"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181175.1"]
+capabilities = []
+interfaces = []
+do_1 = "In Seller::settled (services/interop/crates/layerx-x402/src/seller.rs:359-372) when evidence.rung is SettlementRung::Committed { block_number, block_hash } insert 'blockNumber' as format!('0x{block_number:x}') (the canonical quantity form logIndex already uses at :366) and 'blockHash' as prefixed_hex(&block_hash) (:573) into the layerx object next to the optional purposeHash insert at :370-372; a Receipted rung keeps omitting both fields, and Submitted still returns pending at :298-300."
+do_2 = "In services/interop/crates/layerx-x402/tests/seller.rs let the fixture carry a rung: give settlement_executed_with_logs (:765-782) a rung parameter, or add a sibling helper, so a test can build SequencerEvidence with rung SettlementRung::Committed { block_number: 9, block_hash: [0xab; 32] } over the same signed receipt and PaymentExact log; keep every existing call producing SettlementRung::Receipted."
+do_3 = "Write the test a_committed_exact_settlement_round_trips_to_the_buyer in services/interop/crates/layerx-x402/tests/seller.rs: settle the committed fixture with test_requirements() and the payload {'receipt': 'AA==', 'idempotencyKey': '74'.repeat(32)} exactly as settlement_transaction_is_tx_hash does (:1096-1105); decode the header with settled_header and assert extensions.layerx carries verificationLevel 'committed', blockNumber '0x9' and blockHash '0x' + 'ab'.repeat(32); then build a layerx_x402::buyer::BuiltPayment { header: String::new(), payload: PaymentPayload { x402_version: X402_VERSION, resource: Some(test_payment_required().resource), accepted: test_requirements(), payload: that same payload, extensions: BTreeMap::new() }, idempotency_key: [0x74; 32] } and assert Buyer::capture_settlement(&header, &built, &settlement_keys(), &TraceId::mint([0xab; 16])) returns Ok with rung 'committed' and transaction_hash [0x61; 32]. Keep the exact receipted header string of settlement_transaction_is_tx_hash (:1109-1121), which pins that a receipted response still has neither field."
+do_4 = "Change nothing in buyer.rs (the refusal tests/layerx_evidence.rs:179 committed_evidence_without_block_fields_is_refused proves stays as written), model.rs, gateway.rs, evidence.rs or x-websearch."
+symbols = ["Seller::settled", "SettlementRung::Committed", "Buyer::capture_settlement"]
+touches = ["services/interop/crates/layerx-x402/src/seller.rs", "services/interop/crates/layerx-x402/tests/seller.rs"]
+tests = ["services/interop/crates/layerx-x402/tests/seller.rs::a_committed_exact_settlement_round_trips_to_the_buyer", "services/interop/crates/layerx-x402/tests/seller.rs::settlement_transaction_is_tx_hash"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test seller"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test seller -- --exact a_committed_exact_settlement_round_trips_to_the_buyer settlement_transaction_is_tx_hash"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert seller.rs and tests/seller.rs; a committed settlement again serialises only the rung label and every seller-generated committed response is refused by the buyer with EvidenceMismatch."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
