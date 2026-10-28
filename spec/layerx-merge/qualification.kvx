@@ -8221,3 +8221,155 @@ symbol = "receive"
 observed = "Attempt 42d6f4e25 ran the recorder: eth_gasPrice failed with 'pending block does not fix a base fee' (rpcPendingSnapshot, node/app.go:3288, satisfies no PendingBaseFee) and the primary halted at height 2 because the unpeered standby, still at height 1 since AppReplayer.Apply treats wal.Committed as a no-op (node/sequencer/replay.go:22-38), refused Open(3) (standby.go:323, :695-700) with a sticky failure."
 assumption = "Task 5.55.6 orders the standby's open after the app commit and forwards the base fee; 5.55.2 requires it and continues from 42d6f4e25 with the standby peered to the primary."
 severity = "blocker"
+
+[finding.8.29.2.1]
+task = "8.29.2"
+file = "services/platform/ramps/reference/src/main.rs"
+symbol = "InventoryRebalancer"
+observed = "Attempt 1 implemented the toolkit change and the dependents check refused: main.rs:1129 lacks the new layerx field, :1173 passes a FinalityTracker where a transaction hash is now taken, :1179-1180 read the removed signal()/endpoint(); no task before 8.30.3 (wave 9) adapts the caller."
+assumption = "8.29.2 owns the minimal adaptation of the reference caller (do_7); 8.30.3 completes the custody route on top of it."
+severity = "blocker"
+
+[finding.9.1.8.3]
+task = "9.1.8"
+file = "tests/fixtures/custody/daemon-light-credit-receipt"
+symbol = "decode_activity_send"
+observed = "Attempt 9 ran the lib suite: two tls_boundary tests need the Paxeer boundary binary the gate never built, and four fixture tests fail with Decode(MalformedPayload)/Activity because a32c9e3e3 made decode_activity_send demand a six-byte network/protocol suffix the 2026-09-26 fixture does not carry; the candidate touched none of these paths."
+assumption = "The gate now builds the boundary and exports LAYERX_PAXEER_BOUNDARY_BIN as 9.1.7 does; the fixture/decoder disagreement is issue #1057, task 18.1057.1, which 9.1.8 requires."
+severity = "blocker"
+
+[finding.13.26.1.1]
+task = "13.26.1"
+file = "src/protocol/lxp_kernel.c"
+symbol = "lxp_kernel_batch_snapshot_create"
+observed = "Attempts of 13.25.2, 13.26.1, 13.26.2, 13.26.3 and 13.27.1 at 3eaaef0a6 fail their programs tests with LXP_ERR_MODULE_DISABLED while 13.27.2 and 13.27.3 pass with the same harness; the snapshot path at lxp_kernel.c:796-802 disables every programs call when the runtime lxphost_bind_assets fills is incomplete, and 1.23.6 (e6bb6130c) met the same code in the fee-balance tests and routed non-programs activities around the snapshot."
+assumption = "The disabling site is a host binding or test setup ordering defect to be found by tracing the seven -103 return sites; no task maps -103 onto its expected error."
+severity = "blocker"
+
+[finding.18.1001.1.1]
+task = "18.1001.1"
+file = "services/wallet/gateway/test/e2e/attestors.ts"
+symbol = "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE"
+observed = "Attempt 3 at b07918d21: every gateway.e2e test aborts because node-1 exits with custody authority unavailable or refused; the end-to-end harness (attestors.ts:251-262) never passes ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, which the attestor has required since 281e812be."
+assumption = "Pre-existing at main and independent of the task's change; issue #1065 / task 18.1065.1 fixes the harness and 18.1001.1 requires it."
+severity = "blocker"
+
+[finding.18.883.1.1]
+task = "18.883.1"
+file = "services/wallet/attestor/internal/policy/evm/abi/xweb.json"
+symbol = "TestABICopiesMatchRepository"
+observed = "Attempt 2 at 55c419ec5: TestABICopiesMatchRepository fails because the embedded xweb ABI (15 entries) lacks the XWebProgramRequested entry 383bbbbd8 added to precompiles/xweb/abi.json."
+assumption = "Pre-existing at main; issue #1066 / task 18.1066.1 refreshes the copy and 18.883.1 requires it."
+severity = "blocker"
+
+[finding.18.670.1.1]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go"
+symbol = "TestEndToEnd"
+observed = "Attempt 2 at 7dfd6301d: e2e_test.go:256 stops with TestEndToEnd requires PERPS_DATA_TEST_RPC, mandatory since 86367cc1d (task 3.54.1); no chain endpoint exists in the task's qualification environment."
+assumption = "External authority: the gate needs a live endpoint supplied by the owner; the task is held until one is named."
+severity = "blocker"
+
+[finding.18.849.1.1]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile"
+symbol = "native"
+observed = "Attempt 2 of 18.849.1 (5cbcea1e2) and of 18.869.1 (08e277543): docker build stops before the first layer because the Dockerfile uses RUN --mount and the qualification environment's docker lacked the buildx component."
+assumption = "Environment gap, not a product defect; the environment now provides buildx and both tasks retry unchanged."
+severity = "major"
+
+[finding.18.911.1.1]
+task = "18.911.1"
+file = "tools/qualification/paxeer-x/program_market_attestation.py"
+symbol = "begin_build"
+observed = "Attempt 2 at 119cd300a: --begin-build exits because PAXEER_X_BUILDER_ID is unset; the tool records the value only as the builder identity beside the hostname and re-checks it at --build."
+assumption = "The gate now exports PAXEER_X_BUILDER_ID=$(hostname) for every call; the tool is unchanged."
+severity = "major"
+
+[finding.18.946.1.1]
+task = "18.946.1"
+file = "services/launchpad/stats-workers/internal/internaltest/containers.go"
+symbol = "NewPostgres"
+observed = "Attempt 2 at 25c8b530d: the stats-workers tests need a reachable server named by STATS_TEST_POSTGRES_DSN on which to create throwaway databases; the qualification environment provisioned only redis for this task."
+assumption = "Environment gap; servers for *_TEST_POSTGRES_DSN names are now provisioned and the task retries unchanged."
+severity = "major"
+
+[finding.18.941.1.1]
+task = "18.941.1"
+file = "chain.mk"
+symbol = "loadtest"
+observed = "Attempt 2 at a2985b47d: build_cmd make -f chain.mk -n loadtest stops at the native-archive guard because the archives were never built (GOTCHA 1997)."
+assumption = "build_cmd now runs make paxd-native-libs first; the loadtest target is unchanged."
+severity = "major"
+
+[finding.18.987.1.1]
+task = "18.987.1"
+file = "services/human/tools/schema-check/tests/compatibility_rows.rs"
+symbol = "missing_compatibility_row_for_a_minor_is_rejected"
+observed = "Attempt 2 at af148eff3: after truncating the matrix at row 9 the test expects one compatibility-row-missing violation per schema version 1.8 through 1.10 (do_2) while the checker reports a single violation for 1.8."
+assumption = "do_2 and the checker disagree on whether every missing row is reported or only the first; the test and checker stay as written until the owner rules which is canonical."
+severity = "blocker"
+
+[finding.13.26.1.2]
+task = "13.26.1"
+file = "src/protocol/lxp_kernel.c:6757-6762"
+symbol = "lxp_kernel_batch_snapshot_create"
+observed = "Attempts of 13.25.2, 13.26.1, 13.26.2, 13.26.3 and 13.27.1 fail with LXP_ERR_MODULE_DISABLED because both Programs state-activity gates (:6757-6762, :4985-4988) refuse 0x00090006 and 0x00090007 when kernel->observe_commit is NULL; the only installer lxp_programs_bind_state_feed lost its caller in 38c544316 (1.15.1) and modules/lxphost/programs_registration_test.go:27-31 (1.23.5) pins -103."
+assumption = "The gate is a leftover of the mandatory feed; 18.1073.1 (issue #1073) removes it and corrects the pinned assertion per req.1073 ac_1, and the seven programs tasks require it."
+severity = "blocker"
+
+[finding.18.788.1.1]
+task = "18.788.1"
+file = "services/agent/sdk/typescript/test/px.test.ts:941"
+symbol = "getUnifiedHistory"
+observed = "Attempts of 18.788.1 and 18.825.1 fail every test in px.test.js at module load with Incomplete history document because apps/web/e2e/fixtures/px-get-unified-history.json carries no tx_hash, required by history.ts:198 since 2463fcb04 (9.33.3)."
+assumption = "Pre-existing at main; 18.1069.1 (issue #1069) adds the field and both tasks require it."
+severity = "major"
+
+[finding.18.880.1.1]
+task = "18.880.1"
+file = "tools/bringup/search-front.sh:240"
+symbol = "deploy_prints_upstreams_and_edge_registration"
+observed = "Attempt 3 fails with KeyError on the note key because services/interop/crates/x-websearch/config.example.json lost it in 288a967c2 (11.36.5)."
+assumption = "Pre-existing at main; 18.1070.1 (issue #1070) defaults the pop and 18.880.1 requires it."
+severity = "major"
+
+[finding.18.826.1.1]
+task = "18.826.1"
+file = "docs/system/chain-modules.md"
+symbol = "gen-system-docs.sh --check"
+observed = "Attempt 2 passes its SDK tests but gen-system-docs.sh --check exits 1 on chain-modules.md and kernel-modules.md, which are outside the task's touches."
+assumption = "Pre-existing at main; 18.1071.1 (issue #1071) regenerates the two pages and 18.826.1 requires it."
+severity = "major"
+
+[finding.18.990.1.1]
+task = "18.990.1"
+file = "spec/layerx-merge/programme/data/precompile-activation.kvx"
+symbol = "test_merge_gate_lists_twelve_addresses"
+observed = "Attempt 3 fails at test_precompile_activation.py:85 because [address.0x1014] lists layerxanchor while node/upgrades.go:539 serves the address from the upgrade module since ae2beed63 (5.7.1)."
+assumption = "Pre-existing at main; 18.1072.1 (issue #1072) updates the row and 18.990.1 requires it."
+severity = "major"
+
+[finding.18.964.1.1]
+task = "18.964.1"
+file = "services/launchpad/indexer/internal/receipt/rpc.go:533-536"
+symbol = "TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 4 implements do_1 and do_2 exactly (manifest byte-identical to 145164d70, deployment.Parse in realInputs) and still fails because rpc.go:533-536 refuses any manifest whose version or activation height differs from deployment.Current()."
+assumption = "do_2 and the qualification policy contradict each other (issue #1075); 18.964.1 is held until the owner rules which manifest set receipt qualification accepts."
+severity = "blocker"
+
+[finding.5.55.5.2]
+task = "5.55.5"
+file = "node/app.go:1784-1815"
+symbol = "FinalizeBlocker"
+observed = "Attempts 3 and 4 fail because the primary's sealed-block adoption (0ab6b9962, 5.19.3) commits a post-block-2 AppHash that differs from the hash both followers compute by re-execution, so block 3 fails with wrong Block.Header.AppHash, the standby stops and the recorder's Accept is refused with replication halted."
+assumption = "Pre-existing at main and outside the task's three files; 18.1074.1 (issue #1074) fixes the adoption path and 5.55.5 requires it."
+severity = "blocker"
+
+[finding.18.804.1.1]
+task = "18.804.1"
+file = "services/wallet/gateway/src/precompiles.ts:32"
+symbol = "UNSERVED_PRECOMPILES"
+observed = "Attempt 3 was triaged against a revision where UNSERVED_PRECOMPILES still listed orob, clearing, eip712, pofq and teeattestor; 9aef930a7 had already reduced it to oracle, scheduler and streams, so do_2 is satisfiable at head (issue #1079)."
+assumption = "The do_5 step and the src/precompiles.ts touch added at a4db0be51 are withdrawn; the task continues as originally specified."
+severity = "minor"

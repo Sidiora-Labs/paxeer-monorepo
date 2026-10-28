@@ -5,6 +5,8 @@ defmodule BlockScoutWeb.RealtimeEventHandlers.Main do
   use GenServer
   use Utils.CompileTimeEnvHelper, chain_type: [:explorer, :chain_type]
 
+  require Logger
+
   alias BlockScoutWeb.Notifier
   alias Explorer.Chain.Events.Subscriber
 
@@ -61,7 +63,20 @@ defmodule BlockScoutWeb.RealtimeEventHandlers.Main do
 
   @impl true
   def handle_info(event, state) do
-    Notifier.handle_event(event)
+    try do
+      Notifier.handle_event(event)
+    rescue
+      exception ->
+        Logger.error(
+          "Failed to handle realtime event #{inspect(event)}: " <> Exception.format(:error, exception, __STACKTRACE__)
+        )
+    catch
+      kind, reason ->
+        Logger.error(
+          "Failed to handle realtime event #{inspect(event)}: " <> Exception.format(kind, reason, __STACKTRACE__)
+        )
+    end
+
     {:noreply, state}
   end
 end

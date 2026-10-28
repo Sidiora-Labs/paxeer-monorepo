@@ -1,7 +1,6 @@
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeMap;
-use std::fs;
+use std::collections::{BTreeMap, BTreeSet};
 use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
@@ -10,10 +9,6 @@ use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use layerx_paxeer_client::{
-    ChainSignal, EndpointConfig, EndpointSignal, EndpointTransport, FinalityTracker, TrackerConfig,
-    TransactionHash,
-};
 use layerx_ramp_toolkit::clients::{
     decode_hex, parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient,
     LayerxConfig, MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback,
@@ -26,10 +21,11 @@ use layerx_ramp_toolkit::migration::{
     SourceSettlementService, SourceSettlementState, SOURCE_SETTLEMENT_VERSION,
 };
 use layerx_ramp_toolkit::{
-    platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms, RampDirection, RampError,
-    RampOrder, EXTERNAL_CUSTODY_LABEL,
+    parse_transaction_hash, platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms,
+    RampDirection, RampError, RampOrder, EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use native_tls::{Identity, TlsAcceptor, TlsStream};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -120,13 +116,7 @@ struct PaxeerConfig {
     wallet_address: String,
     vault_id: String,
     signer_key_handle: String,
-    rpc_endpoints: Vec<String>,
-    rpc_trust_anchor_der: PathBuf,
-    rpc_chain_id: u64,
-    rpc_minimum_agreement: usize,
-    required_confirmations: u64,
     poll_cadence_seconds: u64,
-    delayed_after_polls: u64,
 }
 
 enum Listener {
@@ -159,8 +149,7 @@ struct State {
     provider: ProviderClient,
     layerx: LayerxClient,
     paxeer: PaxeerCustodyClient,
-    paxeer_tracker_config: TrackerConfig,
-    paxeer_trackers: Mutex<BTreeMap<[u8; 32], FinalityTracker>>,
+    pending_rebalances: Mutex<BTreeSet<[u8; 32]>>,
     registry: ModuleRegistry,
     worker_id: String,
     lease_seconds: u64,
@@ -229,7 +218,7 @@ fn verify_receipt_command() -> Result<(), String> {
     }
     let transaction = arguments[2]
         .to_str()
-        .and_then(|value| TransactionHash::from_hex(value).ok())
+        .and_then(|value| parse_transaction_hash(value).ok())
         .ok_or_else(|| format!("{USAGE}; expected a 0x-prefixed 32-byte transaction hash"))?;
     let read = |path: &std::ffi::OsString| {
         SecretFile::new(PathBuf::from(path))
@@ -257,7 +246,7 @@ fn verify_receipt_command() -> Result<(), String> {
         .map_err(|_| "invalid verifier TLS configuration")?;
     let client = build_layerx(&config.layerx, http)?;
     let layerx_ramp_toolkit::clients::LayerxSubmission::Verified { leg, .. } = client
-        .resolve(&order, transaction.bytes())
+        .resolve(&order, transaction)
         .map_err(|_| "receipt proof refused")?
     else {
         return Err("receipt not verified".to_owned());
@@ -267,7 +256,7 @@ fn verify_receipt_command() -> Result<(), String> {
         json!({
             "verified": true,
             "order_digest": order.order_digest,
-            "transaction_hash": TransactionHash::new(leg.tx_hash).to_hex(),
+            "transaction_hash": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.tx_hash)),
             "receipt_digest": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.receipt_digest)),
             "height": leg.height,
             "rung": leg.rung.name(),
@@ -291,6 +280,9 @@ fn run() -> Result<(), String> {
     validate_config(&config)?;
     let listener_mode = Arc::new(listener_config(&config)?);
     let state = Arc::new(build_state(&config)?);
+    if verified_recovery(&state).is_err() {
+        eprintln!("ramp journal recovery requires verified external settlement");
+    }
     let reconcile_state = Arc::clone(&state);
     let cadence = Duration::from_secs(config.reconcile_seconds);
     thread::Builder::new()
@@ -372,13 +364,7 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.client_tls.timeout_seconds == 0
         || config.lease_seconds <= config.client_tls.timeout_seconds.saturating_mul(5)
         || config.quotes.is_empty()
-        || config.paxeer.rpc_endpoints.is_empty()
-        || config.paxeer.rpc_chain_id == 0
-        || config.paxeer.rpc_minimum_agreement < 2
-        || config.paxeer.rpc_minimum_agreement > config.paxeer.rpc_endpoints.len()
-        || config.paxeer.required_confirmations == 0
         || config.paxeer.poll_cadence_seconds == 0
-        || config.paxeer.delayed_after_polls == 0
         || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
@@ -507,7 +493,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         vault_id: config.paxeer.vault_id.clone(),
         signer_key_handle: config.paxeer.signer_key_handle.clone(),
     };
-    let paxeer_tracker_config = tracker_config(config, timeout)?;
     let registry = asset_registry()?;
     let mut quotes = BTreeMap::new();
     for quote in &config.quotes {
@@ -553,8 +538,7 @@ fn build_state(config: &Config) -> Result<State, String> {
         provider,
         layerx,
         paxeer,
-        paxeer_tracker_config,
-        paxeer_trackers: Mutex::new(BTreeMap::new()),
+        pending_rebalances: Mutex::new(BTreeSet::new()),
         registry,
         worker_id: config.worker_id.clone(),
         lease_seconds: config.lease_seconds,
@@ -565,9 +549,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         operator_control_token,
         source_settlement,
     };
-    if verified_recovery(&state).is_err() {
-        eprintln!("ramp journal recovery requires verified external settlement");
-    }
     Ok(state)
 }
 
@@ -581,34 +562,6 @@ fn asset_registry() -> Result<ModuleRegistry, String> {
     let registry =
         ModuleRegistry::new(&[registration]).map_err(|_| "module registry rejected".to_owned())?;
     Ok(registry)
-}
-
-fn tracker_config(config: &Config, timeout: Duration) -> Result<TrackerConfig, String> {
-    let rpc_trust_anchor_der = fs::read(&config.paxeer.rpc_trust_anchor_der)
-        .map_err(|_| "Paxeer RPC trust anchor is unavailable".to_owned())?;
-    if rpc_trust_anchor_der.is_empty() {
-        return Err("Paxeer RPC trust anchor is empty".to_owned());
-    }
-    let paxeer_tracker_config = TrackerConfig {
-        endpoints: config
-            .paxeer
-            .rpc_endpoints
-            .iter()
-            .map(|url| EndpointConfig {
-                url: url.clone(),
-                request_timeout: timeout,
-                transport: EndpointTransport::PinnedTls {
-                    trust_anchor_der: rpc_trust_anchor_der.clone(),
-                },
-                expected_chain_id: config.paxeer.rpc_chain_id,
-            })
-            .collect(),
-        minimum_endpoint_agreement: config.paxeer.rpc_minimum_agreement,
-        required_confirmations: config.paxeer.required_confirmations,
-        poll_cadence: Duration::from_secs(config.paxeer.poll_cadence_seconds),
-        delayed_after_polls: config.paxeer.delayed_after_polls,
-    };
-    Ok(paxeer_tracker_config)
 }
 
 fn configured_key(value: &str, label: &str) -> Result<[u8; 32], String> {
@@ -1110,8 +1063,8 @@ fn rebalance_presentation(
         "transaction_hash": snapshot.transaction_hash.map(|hash| format!("0x{}", layerx_ramp_toolkit::clients::hex(&hash))),
         "status": snapshot.stage,
         "block_hash": snapshot.block_hash.map(|hash| format!("0x{}", layerx_ramp_toolkit::clients::hex(&hash))),
-        "confirmations": snapshot.confirmations,
-        "required_confirmations": state.paxeer_tracker_config.required_confirmations
+        "rung": snapshot.rung.map(|rung| rung.name()),
+        "block_height": snapshot.block_height
     })
 }
 
@@ -1126,9 +1079,24 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
     }
+    let idempotency_key = match &action {
+        Rebalance::Submit {
+            idempotency_key, ..
+        }
+        | Rebalance::Poll {
+            idempotency_key, ..
+        }
+        | Rebalance::Reconcile { idempotency_key } => *idempotency_key,
+    };
+    state
+        .pending_rebalances
+        .lock()
+        .map_err(|_| error(503, "service_unavailable"))?
+        .insert(idempotency_key);
     let mut rebalancer = InventoryRebalancer {
         journal: &mut journal,
         custody: &state.paxeer,
+        layerx: &state.layerx,
     };
     match action {
         Rebalance::Submit {
@@ -1149,36 +1117,15 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
             operation_id,
             transaction_hash,
         } => {
-            let transaction = TransactionHash::from_hex(&transaction_hash)
+            let transaction = parse_transaction_hash(&transaction_hash)
                 .map_err(|_| error(400, "transaction_hash_invalid"))?;
-            let mut trackers = state
-                .paxeer_trackers
-                .lock()
-                .map_err(|_| error(503, "paxeer_tracker_unavailable"))?;
-            if let std::collections::btree_map::Entry::Vacant(entry) =
-                trackers.entry(idempotency_key)
-            {
-                let tracker =
-                    FinalityTracker::new(state.paxeer_tracker_config.clone(), transaction)
-                        .map_err(|_| error(503, "paxeer_tracker_unavailable"))?;
-                entry.insert(tracker);
-            }
-            let tracker = trackers
-                .get_mut(&idempotency_key)
-                .ok_or_else(|| error(503, "paxeer_tracker_unavailable"))?;
-            if tracker.transaction() != transaction {
-                return Err(error(409, "rebalance_transaction_conflict"));
-            }
-            let report = rebalancer
-                .poll(idempotency_key, &operation_id, tracker, now())
+            rebalancer
+                .poll(idempotency_key, &operation_id, transaction, now())
                 .map_err(|error| map_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
-            let mut presentation = rebalance_presentation(state, persisted);
-            presentation["chain"] = json!(chain_signal(&report.signal()));
-            presentation["endpoints"] = json!(endpoint_signal(&report.endpoint()));
-            Ok(ok(presentation))
+            Ok(ok(rebalance_presentation(state, persisted)))
         }
         Rebalance::Reconcile { idempotency_key } => {
             rebalancer
@@ -1263,6 +1210,7 @@ fn require_operator(state: &State, request: &Request) -> Result<(), Response> {
 
 fn verified_recovery(state: &State) -> Result<(), RampError> {
     let mut journal = state.journal.lock().map_err(|_| RampError::Journal)?;
+    let mut pending = BTreeSet::new();
     journal.recover_verified(|projection| {
         for record in projection.source_settlements() {
             let snapshot = projection
@@ -1280,15 +1228,25 @@ fn verified_recovery(state: &State) -> Result<(), RampError> {
                 .service
                 .verify_retained(&snapshot.order, record, &trace)?;
         }
+        pending.extend(
+            projection
+                .paxeer_transfers()
+                .filter(|snapshot| snapshot.rung != Some(Rung::Committed))
+                .map(|snapshot| snapshot.idempotency_key),
+        );
         layerx_ramp_toolkit::clients::verify_recovery_settlement(
             projection,
             &state.operator,
             &state.provider,
             &state.layerx,
             &state.paxeer,
-            &state.paxeer_tracker_config,
         )
-    })
+    })?;
+    *state
+        .pending_rebalances
+        .lock()
+        .map_err(|_| RampError::Journal)? = pending;
+    Ok(())
 }
 
 fn engine<'a>(state: &'a State, journal: &'a mut Journal) -> RampEngine<'a> {
@@ -1312,6 +1270,35 @@ fn reconcile_loop(state: &State, cadence: Duration) {
         if !journal.health().ready {
             continue;
         }
+        let Ok(mut pending) = state.pending_rebalances.lock() else {
+            continue;
+        };
+        pending.retain(|idempotency_key| {
+            let Some(snapshot) = journal.paxeer(idempotency_key).cloned() else {
+                return false;
+            };
+            if snapshot.rung == Some(Rung::Committed) {
+                return false;
+            }
+            let mut rebalancer = InventoryRebalancer {
+                journal: &mut journal,
+                custody: &state.paxeer,
+                layerx: &state.layerx,
+            };
+            let result = match (snapshot.operation_id.as_deref(), snapshot.transaction_hash) {
+                (Some(operation), Some(transaction)) => rebalancer
+                    .poll(*idempotency_key, operation, transaction, now())
+                    .map(|_| ()),
+                _ => rebalancer.reconcile(*idempotency_key, now()).map(|_| ()),
+            };
+            if result.is_err() {
+                eprintln!("ramp custody reconciliation retained unresolved state");
+            }
+            journal
+                .paxeer(idempotency_key)
+                .is_some_and(|snapshot| snapshot.rung != Some(Rung::Committed))
+        });
+        drop(pending);
         let due = journal.orders();
         for snapshot in due {
             let digest = snapshot.order.order_digest;
@@ -1355,35 +1342,6 @@ fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs())
-}
-
-fn chain_signal(signal: &ChainSignal) -> serde_json::Value {
-    match signal {
-        ChainSignal::Progressing => json!({ "state": "progressing" }),
-        ChainSignal::Delayed {
-            stalled_polls,
-            threshold,
-            stalled_for,
-            delayed_after,
-        } => json!({
-            "state": "delayed",
-            "stalled_polls": stalled_polls,
-            "threshold": threshold,
-            "stalled_for_seconds": stalled_for.as_secs(),
-            "delayed_after_seconds": delayed_after.as_secs()
-        }),
-        ChainSignal::Unreachable { .. } => json!({ "state": "unreachable" }),
-    }
-}
-
-fn endpoint_signal(signal: &EndpointSignal) -> serde_json::Value {
-    match signal {
-        EndpointSignal::Serving => json!({ "state": "serving" }),
-        EndpointSignal::Degraded { failovers } => {
-            json!({ "state": "degraded", "failover_count": failovers.len() })
-        }
-        EndpointSignal::Unreachable { .. } => json!({ "state": "unreachable" }),
-    }
 }
 
 fn ok(value: impl Serialize) -> Response {
@@ -1466,4 +1424,30 @@ mod boundary_tests {
         drop(replacement);
         assert_eq!(gate.active.load(Ordering::Acquire), 0);
     }
+}
+
+#[cfg(test)]
+pub(crate) fn rebalance_route_test_response(
+    config: serde_json::Value,
+    seed: impl FnOnce(&mut Journal),
+    path: &str,
+) -> (u16, serde_json::Value) {
+    let config: Config = serde_json::from_value(config).expect("route test configuration");
+    validate_config(&config).expect("valid route test configuration");
+    let state = build_state(&config).expect("real route state");
+    seed(&mut state.journal.lock().expect("journal lock"));
+    let request = Request {
+        method: "GET".to_owned(),
+        path: path.to_owned(),
+        headers: BTreeMap::from([(
+            "authorization".to_owned(),
+            format!("Bearer {}", state.operator_control_token),
+        )]),
+        body: Vec::new(),
+    };
+    let response = route(&state, &request).unwrap_or_else(|response| response);
+    (
+        response.status,
+        serde_json::from_slice(&response.body).expect("route JSON"),
+    )
 }

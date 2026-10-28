@@ -2,7 +2,10 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, test } from 'vit
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { keccak256, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import {
+  BroadcastOutcomeUnknownError,
+  NonceConflictError,
   PendingReadRefusedError,
   RpcPool,
   RpcResponseError,
@@ -11,6 +14,7 @@ import {
   type SequencerReceiptResult,
 } from '../src/rpc/pool.js';
 import { env } from '../src/env.js';
+import { custodyRefusal } from '../src/routes/agentExec.js';
 
 interface Node {
   server: Server;
@@ -22,6 +26,7 @@ interface Node {
   revertCalls: boolean;
   sendError: { code: number; message: string } | null;
   receipt: SequencerReceiptResult | null;
+  latestCount: number;
 }
 
 const nodes: Node[] = [];
@@ -29,7 +34,7 @@ const nodes: Node[] = [];
 function startNode(): Promise<Node> {
   const node: Node = {
     server: null as unknown as Server, url: '', failing: false, head: 1000, calls: [], requests: [],
-    revertCalls: false, sendError: null, receipt: null,
+    revertCalls: false, sendError: null, receipt: null, latestCount: 9,
   };
   node.server = createServer((req, res) => {
     const chunks: Buffer[] = [];
@@ -54,7 +59,9 @@ function startNode(): Promise<Node> {
           return reply({ result: '0x7d' });
         case 'eth_getTransactionCount':
           if (body.params[1] === 'pending') return reply({ error: { code: -32000, message: 'pending block is not available' } });
-          return reply({ result: '0x9' });
+          return reply({ result: `0x${node.latestCount.toString(16)}` });
+        case 'eth_getTransactionByHash':
+          return reply({ result: null });
         case 'eth_call':
           if (node.revertCalls) return reply({ error: { code: 3, message: 'execution reverted', data: '0x' } });
           return reply({ result: '0x' });
@@ -117,6 +124,7 @@ beforeEach(() => {
     n.revertCalls = false;
     n.sendError = null;
     n.receipt = null;
+    n.latestCount = 9;
   }
 });
 
@@ -222,6 +230,63 @@ async function rpcFailureDetailNamesMembersByIndex(): Promise<void> {
 test(rpcFailureDetailNamesMembersByIndex, rpcFailureDetailNamesMembersByIndex);
 test(writeGoesToSequencerEndpointOnly, writeGoesToSequencerEndpointOnly);
 test(sequencerReceiptReadsPaxSequencerReceipt, sequencerReceiptReadsPaxSequencerReceipt);
+
+const nonceTooLowTests = {
+  async 'nonce too low with a lagging member reporting latest <= nonce is outcome unknown, not a conflict'(): Promise<void> {
+    const account = privateKeyToAccount(`0x${'01'.repeat(32)}`);
+    const signed = await account.signTransaction({ type: 'eip1559', chainId: 125, nonce: 9,
+      to: account.address, value: 1n, gas: 21_000n, maxFeePerGas: 7n, maxPriorityFeePerGas: 3n });
+    const p = pool();
+    a.sendError = { code: -32000, message: 'nonce too low' };
+    a.latestCount = 9;
+    b.latestCount = 10;
+    a.head = 900;
+    await p.checkHealth();
+    expect(p.status()[0]?.state).toBe('lagging');
+
+    const error: unknown = await p.sendRawTransactionVia(signed).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(BroadcastOutcomeUnknownError);
+    expect(error).not.toBeInstanceOf(NonceConflictError);
+    expect(custodyRefusal(error)).toEqual({ status: 202, body: {
+      error: 'outcome_unknown', tx_hash: keccak256(signed), nonce: 9, retry: 'poll_receipt',
+      poll: 'eth_getTransactionReceipt', must_not_resubmit: true, member: null, members: 2,
+    } });
+    for (const node of [a, b]) {
+      expect(node.requests.filter((r) => r.method === 'eth_getTransactionCount')).toEqual([
+        { method: 'eth_getTransactionCount', params: [account.address, 'latest'] },
+      ]);
+      expect(node.requests.filter((r) => r.method === 'eth_getTransactionByHash')).toEqual([
+        { method: 'eth_getTransactionByHash', params: [keccak256(signed)] },
+      ]);
+    }
+  },
+  async 'nonce too low with every member past the nonce and the hash unknown everywhere is nonce consumed'(): Promise<void> {
+    const account = privateKeyToAccount(`0x${'02'.repeat(32)}`);
+    const signed = await account.signTransaction({ type: 'eip1559', chainId: 125, nonce: 9,
+      to: account.address, value: 1n, gas: 21_000n, maxFeePerGas: 7n, maxPriorityFeePerGas: 3n });
+    const p = rpcPoolFromConfig({ ...env, RPC_URLS: [a.url, b.url], SEQUENCER_RPC_URL: sequencer.url });
+    sequencer.sendError = { code: -32000, message: 'nonce too low' };
+    for (const node of [a, b, sequencer]) node.latestCount = 14;
+
+    const error: unknown = await p.sendRawTransactionVia(signed).catch((err: unknown) => err);
+    expect(error).toBeInstanceOf(NonceConflictError);
+    expect(error).not.toBeInstanceOf(BroadcastOutcomeUnknownError);
+    expect(error).toMatchObject({ consumed: true, nonce: 9, members: 3 });
+    expect(custodyRefusal(error)).toEqual({ status: 409, body: {
+      error: 'nonce_consumed', retry: 'prepare', nonce: 9, member: null, members: 3,
+    } });
+    for (const node of [a, b, sequencer]) {
+      expect(node.requests.filter((r) => r.method === 'eth_getTransactionCount')).toEqual([
+        { method: 'eth_getTransactionCount', params: [account.address, 'latest'] },
+      ]);
+      expect(node.requests.filter((r) => r.method === 'eth_getTransactionByHash')).toEqual([
+        { method: 'eth_getTransactionByHash', params: [keccak256(signed)] },
+      ]);
+    }
+  },
+};
+
+for (const run of Object.values(nonceTooLowTests)) test(run, run);
 
 describe('RpcPool', () => {
   it('fails over from a failing endpoint and takes it back once it recovers', async () => {

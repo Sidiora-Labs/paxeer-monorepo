@@ -135,13 +135,16 @@ def abi_signature(entry):
 
 def gen_precompiles():
     out = [HEADER, "# Precompile ABIs\n\n",
-           "Source: `precompiles/<name>/abi.json`, the address constants in `precompiles/<name>/*.go` and the "
+           "Source: `precompiles/<name>/*abi*.json` and `precompiles/<name>/abi/abi.json`, "
+           "the address constants in `precompiles/<name>/*.go` and the "
            "Solidity interfaces in `contracts/src/precompiles/`.\n"]
     addr_re = re.compile(r'(\w*Address)\s*=\s*"(0x[0-9a-fA-F]{40})"')
     rows = []
     sections = []
-    for abi_path in sorted((ROOT / "precompiles").glob("*/*abi*.json")):
-        pkg = abi_path.parent
+    precompiles = ROOT / "precompiles"
+    abi_paths = set(precompiles.glob("*/*abi*.json")) | set(precompiles.glob("*/abi/abi.json"))
+    for abi_path in sorted(abi_paths):
+        pkg = abi_path.parent.parent if abi_path.parent.name == "abi" else abi_path.parent
         addresses = sorted({a for src in go_sources(pkg) for _, a in addr_re.findall(read(src))})
         entries = json.loads(read(abi_path))
         rows.append([pkg.name, f"`{rel(abi_path)}`", ", ".join(f"`{a}`" for a in addresses) or "-",
