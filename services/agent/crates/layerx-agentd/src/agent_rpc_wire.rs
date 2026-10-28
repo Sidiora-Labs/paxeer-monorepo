@@ -1886,10 +1886,38 @@ impl SubscriptionFilterWire {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+struct SubscriptionCursorWire {
+    block_height: String,
+    tx_index: String,
+    log_index: String,
+}
+
+impl SubscriptionCursorWire {
+    fn into_cursor(self, id: RequestId) -> Result<Cursor, Rejection> {
+        Ok(Cursor {
+            block_height: decimal_u64(&self.block_height, id)?,
+            tx_index: u32::try_from(decimal_u64(&self.tx_index, id)?)
+                .map_err(|_| noncanonical(id))?,
+            log_index: u32::try_from(decimal_u64(&self.log_index, id)?)
+                .map_err(|_| noncanonical(id))?,
+        })
+    }
+}
+
+fn subscription_cursor_value(cursor: Cursor) -> Value {
+    json!({
+        "block_height": cursor.block_height.to_string(),
+        "tx_index": cursor.tx_index.to_string(),
+        "log_index": cursor.log_index.to_string(),
+    })
+}
+
+#[derive(Deserialize)]
+#[serde(deny_unknown_fields)]
 pub(crate) struct SubscriptionCreateWire {
     scope: SubscriptionScopeWire,
     filter: SubscriptionFilterWire,
-    start: String,
+    start: SubscriptionCursorWire,
     delivery_target: String,
 }
 
@@ -1898,7 +1926,7 @@ impl SubscriptionCreateWire {
         SubscriptionCreate {
             scope: self.scope.into_scope(id)?,
             filter: self.filter.into_filter(id)?,
-            start: Cursor(Sequence(decimal_u64(&self.start, id)?)),
+            start: self.start.into_cursor(id)?,
             delivery_target: text(self.delivery_target, id, DeliveryTarget::new)?,
         }
         .validate()
@@ -1945,7 +1973,7 @@ impl Canonical for SubscriptionCreate {
                 "counterparties": tenant_object_values(&filter.counterparties, Counterparty::as_str),
                 "result_classes": filter.result_classes.values().iter().map(|code| code.raw()).collect::<Vec<_>>(),
             },
-            "start": self.start.0 .0.to_string(),
+            "start": subscription_cursor_value(self.start),
             "delivery_target": self.delivery_target.as_str(),
         })
     }
@@ -1981,7 +2009,7 @@ impl Canonical for SubscriptionTarget {
 pub(crate) struct CursorAcknowledgementWire {
     scope: SubscriptionScopeWire,
     subscription_id: String,
-    cursor: String,
+    cursor: SubscriptionCursorWire,
 }
 
 impl CursorAcknowledgementWire {
@@ -1989,7 +2017,7 @@ impl CursorAcknowledgementWire {
         Ok(CursorAcknowledgement {
             scope: self.scope.into_scope(id)?,
             subscription_id: text(self.subscription_id, id, SubscriptionId::new)?,
-            cursor: Cursor(Sequence(decimal_u64(&self.cursor, id)?)),
+            cursor: self.cursor.into_cursor(id)?,
         })
     }
 }
@@ -1999,7 +2027,7 @@ impl Canonical for CursorAcknowledgement {
         json!({
             "scope": scope_value(&self.scope),
             "subscription_id": self.subscription_id.as_str(),
-            "cursor": self.cursor.0 .0.to_string(),
+            "cursor": subscription_cursor_value(self.cursor),
         })
     }
 }
