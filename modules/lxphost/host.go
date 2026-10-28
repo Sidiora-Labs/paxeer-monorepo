@@ -542,6 +542,20 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
     execution->fee_balance = fee_balance;
     execution->gas_limit = gas_limit;
     execution->arena = &node->arena;
+    {
+        lx_programs_fee_schedule schedule;
+        uint8_t occupancy_asset_id[32];
+        status = node->programs_runtime.resolve_occupancy_parameters(
+            node->programs_runtime.occupancy_parameter_context,
+            execution->recorded_fee_schedule_version, &schedule,
+            occupancy_asset_id);
+        if (status == LXP_OK)
+            (void)memcpy(node->programs_runtime.occupancy_asset_id,
+                         occupancy_asset_id, sizeof(occupancy_asset_id));
+        else if (lxp_activity_module_id(node->envelope.activity.activity_type) ==
+                 LXP_MODULE_PROGRAMS)
+            return status;
+    }
     return lxp_kernel_execute_activity(&node->kernel, &node->envelope.activity,
                                        execution, &node->receipt);
 }
@@ -895,6 +909,12 @@ func (h *Host) Close() {
 	defer h.mu.Unlock()
 	C.lxphost_node_free(h.node)
 	h.node = nil
+}
+
+func (h *Host) ProgramsOccupancyAsset() [32]byte {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return *(*[32]byte)(unsafe.Pointer(&h.node.programs_runtime.occupancy_asset_id[0]))
 }
 
 // DeriveKernelAccount derives the kernel account of the DID key for one
