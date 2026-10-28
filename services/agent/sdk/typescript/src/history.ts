@@ -297,8 +297,7 @@ function rows(
   unified: boolean,
   limit: number,
 ): readonly HistoryRow[] {
-  if (!Array.isArray(value) || value.length > limit)
-    throw new Error("Invalid history page");
+  if (!Array.isArray(value)) throw new Error("Invalid history page");
   const items = Object.freeze(
     value.map((row) => decodeHistoryRow(row, unified)),
   );
@@ -309,6 +308,18 @@ function rows(
       before.txIndex - after.txIndex ||
       before.logIndex - after.logIndex;
     if (order > 0) throw new Error("Unordered history page");
+  }
+  if (items.length > limit) {
+    const boundary = items[limit - 1]!;
+    if (
+      items.slice(limit).some(
+        (row) =>
+          row.blockHeight !== boundary.blockHeight ||
+          row.txIndex !== boundary.txIndex ||
+          row.logIndex !== boundary.logIndex,
+      )
+    )
+      throw new Error("Invalid history page");
   }
   return items;
 }
