@@ -34,7 +34,7 @@ RUN cargo build --locked --release --manifest-path services/platform/hosted/node
 
 # The light credit of tools/bringup/value-loop.sh and the light profile of
 # tools/bringup/kernel-genesis.sh (task 1.6): the Go custody proof tool.
-FROM docker.io/golang:1.25.6-bookworm@sha256:2f768d462dbffbb0f0b3a5171009f162945b086f326e0b2a8fd5d29c3219ff14 AS custody-proof
+FROM docker.io/golang:1.25.8-bookworm@sha256:4557cf171e3cdf5053a298d5171b1a5f5734d920260c25f22c79e94760eb2084 AS custody-proof
 WORKDIR /src
 COPY . .
 RUN make custody-proof-build && test -x build/bin/layerx-custody-proof \

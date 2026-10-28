@@ -16,7 +16,7 @@ use layerx_types::activity::TimestampBound;
 use layerx_types::ids::Did;
 use layerx_types::intent::{PublicKey, Sequence};
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -104,7 +104,7 @@ pub struct ProtocolIdentitySnapshot {
     pub revocation_sequence: u64,
     pub protocol_time: u64,
     pub core_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
 }
 
 /// A session seed that can only leave the Human service by being consumed by
@@ -227,7 +227,7 @@ pub struct ProvisionEvidence {
     pub daemon_session_id: [u8; 32],
     pub protocol_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
@@ -243,7 +243,7 @@ impl ProvisionEvidence {
                 &self.daemon_session_id,
                 &self.protocol_sequence.to_be_bytes(),
                 &self.observed_at.to_be_bytes(),
-                &[self.verification_level.wire_rank()],
+                &[self.rung.wire_rank()],
             ],
         )
     }
@@ -310,7 +310,7 @@ pub struct RevocationEvidence {
     pub reason: RevocationReason,
     pub observed_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
@@ -324,7 +324,7 @@ impl RevocationEvidence {
                 &[self.reason.code()],
                 &self.observed_sequence.to_be_bytes(),
                 &self.observed_at.to_be_bytes(),
-                &[self.verification_level.wire_rank()],
+                &[self.rung.wire_rank()],
             ],
         )
     }
@@ -349,6 +349,7 @@ pub struct RotationSubmission {
 /// Proof-bearing receipt for the key-rotation announcement.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RotationEvidence {
+    pub tx_hash: [u8; 32],
     pub payload_hash: [u8; 32],
     pub pending_public_key: [u8; 32],
     pub effective_at: u64,
@@ -356,7 +357,7 @@ pub struct RotationEvidence {
     pub effective_sequence: u64,
     pub observed_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
@@ -366,6 +367,7 @@ impl RotationEvidence {
         digest_fields(
             ROTATION_RECEIPT_DOMAIN,
             &[
+                &self.tx_hash,
                 &self.payload_hash,
                 &self.pending_public_key,
                 &self.effective_at.to_be_bytes(),
@@ -373,7 +375,7 @@ impl RotationEvidence {
                 &self.effective_sequence.to_be_bytes(),
                 &self.observed_sequence.to_be_bytes(),
                 &self.observed_at.to_be_bytes(),
-                &[self.verification_level.wire_rank()],
+                &[self.rung.wire_rank()],
             ],
         )
     }
@@ -382,6 +384,7 @@ impl RotationEvidence {
 /// State-proven identity rotation observation returned by the agent contract.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RotationObservation {
+    pub tx_hash: [u8; 32],
     pub primary_public_key: [u8; 32],
     pub pending_public_key: Option<[u8; 32]>,
     pub superseded_public_key: Option<[u8; 32]>,
@@ -390,7 +393,7 @@ pub struct RotationObservation {
     pub effective_sequence: u64,
     pub observed_at: u64,
     pub observed_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
 }
 
 /// Stable errors at the versioned agent boundary.
@@ -603,6 +606,7 @@ pub struct RenewalOutcome {
 /// Stored rotation journey with exact protocol windows and public key handles.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RotationJourney {
+    pub tx_hash: [u8; 32],
     pub principal: PrincipalId,
     pub subject: RotationSubject,
     pub did: Did,
@@ -969,18 +973,20 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             compiled,
             disclosure,
         })?;
-        if evidence.payload_hash != expected_payload_hash
+        if evidence.tx_hash == [0; 32]
+            || evidence.payload_hash != expected_payload_hash
             || evidence.pending_public_key != pending.public_key
             || evidence.effective_at != effective_at
             || evidence.lapse_at != lapse_at
             || evidence.effective_sequence != effective_sequence
             || evidence.observed_at < identity.protocol_time
-            || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+            || evidence.rung < Rung::Receipted
             || evidence.receipt_digest != evidence.expected_digest()
         {
             return Err(SessionKeyError::InvalidEvidence);
         }
         let journey = RotationJourney {
+            tx_hash: evidence.tx_hash,
             principal: principal.clone(),
             subject,
             did: did.clone(),
@@ -1020,13 +1026,25 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             .cloned()
             .ok_or(SessionKeyError::RotationNotFound)?;
         let observed = self.contract.rotation_observation(principal, did)?;
-        if observed.verification_level < VerificationLevel::STATE_PROVEN
+        if observed.tx_hash != tracked.tx_hash
+            || observed.rung < Rung::Receipted
             || observed.effective_at != tracked.effective_at
             || observed.lapse_at != tracked.lapse_at
             || observed.effective_sequence != tracked.effective_sequence
             || observed.observed_at < tracked.announced_at
         {
             return Err(SessionKeyError::InvalidEvidence);
+        }
+        let pending = observed.primary_public_key == tracked.current_public_key
+            && observed.pending_public_key == Some(tracked.pending_public_key);
+        let effective = observed.primary_public_key == tracked.pending_public_key
+            && observed.pending_public_key.is_none()
+            && observed.superseded_public_key == Some(tracked.current_public_key);
+        if !pending && !effective {
+            return Err(SessionKeyError::InvalidEvidence);
+        }
+        if observed.rung != Rung::Committed {
+            return Ok((tracked, None));
         }
         let mut replacement = None;
         let state = if observed.primary_public_key == tracked.current_public_key
@@ -1116,7 +1134,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             || evidence.daemon_session_id == [0; 32]
             || evidence.protocol_sequence < identity.core_sequence
             || evidence.observed_at < identity.protocol_time
-            || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+            || evidence.rung < Rung::Receipted
             || evidence.receipt_digest != evidence.expected_digest()
         {
             return Err(SessionKeyError::InvalidEvidence);
@@ -1291,7 +1309,7 @@ fn verify_identity(identity: &ProtocolIdentitySnapshot) -> Result<(), SessionKey
         || identity.primary_public_key == [0; 32]
         || identity.revocation_sequence == 0
         || identity.protocol_time == 0
-        || identity.verification_level < VerificationLevel::STATE_PROVEN
+        || identity.rung != Rung::Committed
     {
         Err(SessionKeyError::InvalidIdentity)
     } else {
@@ -1326,7 +1344,7 @@ fn validate_revocation(
     if evidence.grant_id != target.grant_id
         || evidence.reason != reason
         || evidence.observed_at < suspended_at
-        || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+        || evidence.rung < Rung::Receipted
         || evidence.receipt_digest != evidence.expected_digest()
     {
         Err(SessionKeyError::InvalidEvidence)

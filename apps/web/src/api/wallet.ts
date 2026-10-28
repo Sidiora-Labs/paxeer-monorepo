@@ -198,9 +198,8 @@ function sameCalls(calls: readonly PrecompileCall[], call: PrecompileCall): bool
 
 /**
  * Resumes the account's retained sponsored submission. Given `call`, a retained
- * submission for any other call is driven to completion but never reported as
- * this call's outcome: undefined once it has finished, unavailable while it is
- * still pending.
+ * submission is driven to completion but never reported as a new call's outcome
+ * once it has finished. A different call is unavailable while it is still pending.
  */
 export async function resumeWalletSponsoredSubmission(account: string, call?: PrecompileCall): Promise<PrecompileSendOutcome | undefined> {
   const wallet = windowWalletProvider();
@@ -220,12 +219,18 @@ export async function resumeWalletSponsoredSubmission(account: string, call?: Pr
       || typeof context.identity !== "string" || !/^0x[0-9a-fA-F]{64}:0x[0-9a-fA-F]{40}:0x[0-9a-fA-F]{130}$/.test(context.identity)) return { outcome: "rejected" };
     const module = gasStation(wallet, { chainId: BigInt(context.chainId), sponsor: context.sponsor, paymaster: context.paymaster, submissionStore: store });
     const retained = await module.pending(account);
-    if (retained === null) return { outcome: "unavailable" };
+    if (retained === null) {
+      store.removeItem(sponsoredContextKey(account));
+      return undefined;
+    }
     const digest = sponsoredBatchDigest(retained.batch);
     if (!digest.ok || context.identity !== `${digest.value}:${context.paymaster.toLowerCase()}:${retained.relayerSignature.toLowerCase()}`) return { outcome: "rejected" };
     const report = await module.resume(retained.batch, retained.relayerSignature);
-    if (report.status !== "pending") store.removeItem(sponsoredContextKey(account));
-    if (call !== undefined && !sameCalls(retained.batch.calls, call)) return report.status === "pending" ? { outcome: "unavailable" } : undefined;
+    if (report.status !== "pending") {
+      store.removeItem(sponsoredContextKey(account));
+      return undefined;
+    }
+    if (call !== undefined && !sameCalls(retained.batch.calls, call)) return { outcome: "unavailable" };
     return await statusOutcome(report);
   } catch (error) { return walletSendFailure(error); }
 }
@@ -246,7 +251,9 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
       const digest = sponsoredBatchDigest(pending.batch);
       const expected = sponsoredBatchDigest(snapshot.batch);
       if (!digest.ok || !expected.ok || digest.value !== expected.value || pending.relayerSignature.toLowerCase() !== snapshot.relayerSignature.toLowerCase()) return { outcome: "rejected" };
-      return await statusOutcome(await module.resume(pending.batch, pending.relayerSignature));
+      const report = await module.resume(pending.batch, pending.relayerSignature);
+      if (report.status !== "pending") storage.removeItem(sponsoredContextKey(snapshot.batch.account));
+      return await statusOutcome(report);
     }
     const key = sponsoredContextKey(snapshot.batch.account);
     const context = { version: 1, account: snapshot.batch.account.toLowerCase(), chainId: snapshot.batch.chainId.toString(),
@@ -261,6 +268,8 @@ export async function sendWalletSponsoredBatch(quoted: SidioraGasQuote, consentI
         return current !== undefined && current.identity === consentIdentity && digest.ok && consent.batchDigest === digest.value;
       },
     });
+    const report = await module.resume(snapshot.batch, snapshot.relayerSignature);
+    if (report.status !== "pending") storage.removeItem(key);
     const receipt = await ethTransactionReceipt(transactionHash);
     return receipt === undefined ? { outcome: "sent", transactionHash }
       : { outcome: receipt.status === "success" ? "sent" : "reverted", transactionHash, receipt };
