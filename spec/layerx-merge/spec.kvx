@@ -179797,7 +179797,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1076.1]
 title = "Issue #1076: Align the retired, launchpad and market ABI explorer tests with the expanded perps log decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
