@@ -796,7 +796,7 @@ def _decode_history_page(
 
 
 def _history_rows(value: object, unified: bool, limit: int) -> tuple[HistoryRow, ...]:
-    if not isinstance(value, list) or len(value) > limit:
+    if not isinstance(value, list):
         raise ValueError("invalid-history-page")
     items = tuple(decode_history_row(row, unified) for row in value)
     for before, after in zip(items, items[1:]):
@@ -806,6 +806,14 @@ def _history_rows(value: object, unified: bool, limit: int) -> tuple[HistoryRow,
             after.log_index,
         ):
             raise ValueError("unordered-history-page")
+    if len(items) > limit:
+        boundary = items[limit - 1]
+        if any(
+            (row.block_height, row.tx_index, row.log_index)
+            != (boundary.block_height, boundary.tx_index, boundary.log_index)
+            for row in items[limit:]
+        ):
+            raise ValueError("invalid-history-page")
     return items
 
 
