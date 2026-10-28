@@ -172543,7 +172543,7 @@ qualification = "UNRUN"
 
 [task.18.875.1]
 title = "Issue #875: Make the price feed tuning migration safe to rerun after a partial failure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
