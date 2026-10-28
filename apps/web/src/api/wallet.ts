@@ -18,6 +18,7 @@ export type PrecompileSendOutcome =
 
 export const RECEIPT_POLL_LIMIT = 20;
 export const RECEIPT_POLL_INTERVAL_MS = 500;
+export const SPONSORED_SUBMISSION_PENDING = "an earlier sponsored submission is still pending; try again once it settles";
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 const USER_REJECTED_REQUEST = 4001;
@@ -199,7 +200,8 @@ function sameCalls(calls: readonly PrecompileCall[], call: PrecompileCall): bool
 /**
  * Resumes the account's retained sponsored submission. Given `call`, a retained
  * submission is driven to completion but never reported as a new call's outcome
- * once it has finished. A different call is unavailable while it is still pending.
+ * once it has finished. A different call fails with a pending detail while it
+ * is still pending.
  */
 export async function resumeWalletSponsoredSubmission(account: string, call?: PrecompileCall): Promise<PrecompileSendOutcome | undefined> {
   const wallet = windowWalletProvider();
@@ -230,7 +232,7 @@ export async function resumeWalletSponsoredSubmission(account: string, call?: Pr
       store.removeItem(sponsoredContextKey(account));
       return undefined;
     }
-    if (call !== undefined && !sameCalls(retained.batch.calls, call)) return { outcome: "unavailable" };
+    if (call !== undefined && !sameCalls(retained.batch.calls, call)) return { outcome: "failed", detail: SPONSORED_SUBMISSION_PENDING };
     return await statusOutcome(report);
   } catch (error) { return walletSendFailure(error); }
 }
