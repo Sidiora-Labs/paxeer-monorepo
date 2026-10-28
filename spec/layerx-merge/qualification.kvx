@@ -9739,3 +9739,19 @@ symbol = "layerx_programs_sandbox"
 observed = "Attempt 22 (83e97ad0e): after 18.1163.1 the -208 escrow refusal is gone; the candidate re-seeded the fee account to the upcoming global sequence and sandboxExecute then reverted with LXP_FATAL_INVARIANT at an unnamed sandbox.c site; the zero-asset test passes."
 assumption = "The fixture must keep the host-read identity sequence (do_6); the fatal site is to be named by the harness diagnostic before any further change."
 severity = "major"
+
+[finding.18.1151.1.5]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/src/custody/evm.rs:212"
+symbol = "Keystore::authorize_send"
+observed = "Attempt 10 (dd4aaed6a) reached the owner send authorization; Kms(Refused) with no quorum code came from sign_send_now's parse of the operation-11 payload, which has expected an EIP-1559 send authorization since 10.11.5 while the service still serializes a SendPlanAuthorization (issue #1169)."
+assumption = "The kernel send authorization is retired product-wide; 10.0.3 ports the service's callers (do_6) and this task follows it in wave 11 with the send leg ported to the EIP-1559 shape."
+severity = "major"
+
+[finding.18.1167.1.1]
+task = "18.1167.1"
+file = "services/interop/crates/layerx-committed-proof/src/lib.rs:376"
+symbol = "verify_receipt_view"
+observed = "Attempt 1 (ae2f48e86) carried the operation byte; the receipted target failed at tests/receipted.rs:84 with ReceiptViewMismatch on V1-pax-transfer because 6c1851b54 (18.997.1) added signingKey to every fixture receiptJson and the exact view comparison never builds it (issue #1170)."
+assumption = "do_6 builds signingKey from the matched pinned key; the fixture is canonical and unchanged."
+severity = "major"

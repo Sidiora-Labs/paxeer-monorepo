@@ -10342,3 +10342,12 @@ detail = "send::digest refuses a transaction whose chain_id is not the configure
 title = "A sandbox fixture that pre-seeds the settlement sequence trips a kernel invariant"
 detail = "The fee account is seeded at the identity sequence the host reads; the kernel reads expected_sequence from the payload (sandbox.c:236-241) and checks it at :686-690. Seeding the global sequence instead turned a -208 escrow refusal into LXP_FATAL_INVARIANT (13.27.1 attempt 22)."
 
+[gotcha.2118]
+title = "A shared fixture gaining a key breaks every exact-view verifier"
+detail = "18.997.1 added signingKey to the sequencer receipt conformance fixture under a Go-only gate; layerx-committed-proof compares the receipt view with ==, so its receipted test went red at head for twelve hours (#1170). A task that edits a fixture under sdk/platform/conformance must run every consumer's test, Go and Rust."
+
+
+[gotcha.2119]
+title = "Retiring a signer on the KMS side leaves its service callers refusing at parse"
+detail = "10.11.5 made both KMS providers parse operation 11 as an EIP-1559 send authorization; Keystore::authorize_send, authorize_kernel_send and the send route's attestor branch still send a SendPlanAuthorization, so every kernel send is Kms(Refused) with no quorum code (#1169, 10.0.3 do_6). A task that changes what a KMS operation accepts must port or delete the service callers of that operation in its gate."
+
