@@ -4,7 +4,7 @@
  * Numeral in history lists); every comparison, cap check and contract
  * argument uses the bigint value.
  */
-import { formatUnits } from "viem";
+import { formatUnits } from 'viem';
 
 /** Parse a decimal string to base units. Returns undefined on any malformed input. */
 export function parseAmount(input: string, decimals: number): bigint | undefined {
@@ -15,18 +15,18 @@ export function parseAmount(input: string, decimals: number): bigint | undefined
     text = integerPart.replace(/,/g, '') + text.slice(integerPart.length);
   }
   if (!/^\d+(\.\d*)?$/.test(text)) return undefined;
-  const [wholeRaw, fraction = ""] = text.split(".");
-  const whole = wholeRaw.replace(/^0+(?=\d)/, "");
+  const [ wholeRaw, fraction = '' ] = text.split('.');
+  const whole = wholeRaw.replace(/^0+(?=\d)/, '');
   if (fraction.length > decimals) return undefined;
-  const padded = fraction.padEnd(decimals, "0");
-  const combined = `${whole}${padded}`.replace(/^0+(?=\d)/, "");
-  return BigInt(combined || "0");
+  const padded = fraction.padEnd(decimals, '0');
+  const combined = `${ whole }${ padded }`.replace(/^0+(?=\d)/, '');
+  return BigInt(combined || '0');
 }
 
 /** True when the input names more fractional digits than the asset supports. */
 export function hasExcessPrecision(input: string, decimals: number): boolean {
   const text = input.trim();
-  const fraction = text.split(".")[1];
+  const fraction = text.split('.')[1];
   return fraction !== undefined && fraction.length > decimals;
 }
 
@@ -35,8 +35,8 @@ const DISPLAY_FRACTION_DIGITS = 6;
 /** Full-precision units → trimmed decimal string ("1.5", "0.000001", "0"). */
 export function formatAmount(value: bigint, decimals: number): string {
   const full = formatUnits(value, decimals);
-  if (!full.includes(".")) return full;
-  return full.replace(/0+$/, "").replace(/\.$/, "");
+  if (!full.includes('.')) return full;
+  return full.replace(/0+$/, '').replace(/\.$/, '');
 }
 
 /**
@@ -46,11 +46,11 @@ export function formatAmount(value: bigint, decimals: number): string {
  */
 export function formatAmountDisplay(value: bigint, decimals: number): string {
   const full = formatUnits(value, decimals);
-  const [whole, fraction = ""] = full.split(".");
-  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const shown = fraction.slice(0, DISPLAY_FRACTION_DIGITS).replace(/0+$/, "");
+  const [ whole, fraction = '' ] = full.split('.');
+  const grouped = whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const shown = fraction.slice(0, DISPLAY_FRACTION_DIGITS).replace(/0+$/, '');
   if (!shown) return grouped;
-  return `${grouped}.${shown}`;
+  return `${ grouped }.${ shown }`;
 }
 
 /** Percent (0–100, clamped) of `part` in `whole`, for cap-usage bars. */
