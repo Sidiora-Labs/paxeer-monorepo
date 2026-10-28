@@ -1,16 +1,12 @@
 use super::{
-    protected, Config, CORRELATION, IO_TIMEOUT, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS,
-    PROTOCOL_VERSION,
+    protected, Config, CORRELATION, LNI_FRAME_BYTES, MAX_LNI_CONNECTIONS, PROTOCOL_VERSION,
 };
-use layerx_client::availability::RetrievalLimits;
 use layerx_client::evidence::{
-    checkpoint as read_checkpoint, CheckpointSelector, EvidenceContext, FinalityEvidenceCandidate,
-    VerifiedCheckpoint,
+    checkpoint as read_checkpoint, CheckpointSelector, EvidenceContext, VerifiedCheckpoint,
 };
 use layerx_client::handover::SequencerHistory;
-use layerx_client::lni::handshake::{perform, HandshakeConfig};
 use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{FrameTransport, Limits, Uds};
+use layerx_client::lni::transport::{FrameTransport, Limits};
 use layerx_paxeer_verifier::PaxeerCheckpointVerifier;
 use layerx_platform_authority::{parse_replica_evidence, BatchEvidence, EvidenceRefusal};
 use layerx_proof::inclusion::SequencerAuthorization;
@@ -22,7 +18,6 @@ use std::time::Instant;
 
 pub(super) struct Trust {
     history: Mutex<SequencerHistory>,
-    verifier: PaxeerCheckpointVerifier,
 }
 
 pub(super) fn correlation(count: u64) -> Result<u64, ()> {
@@ -101,121 +96,37 @@ impl Trust {
             initial_key,
         )
         .map_err(|_| ())?;
+        PaxeerCheckpointVerifier::new(policy).map_err(|_| ())?;
         Ok(Self {
             history: Mutex::new(history),
-            verifier: PaxeerCheckpointVerifier::new(policy).map_err(|_| ())?,
         })
-    }
-
-    fn snapshot(
-        &self,
-        config: &Config,
-        target: u64,
-        deadline: Instant,
-    ) -> Result<SequencerHistory, ()> {
-        let mut history = self.history.try_lock().map_err(|_| ())?;
-        loop {
-            let verified = history
-                .verified_head()
-                .map_or(0, |head| head.header().batch_number());
-            if verified > target {
-                return Err(());
-            }
-            if verified == target {
-                return Ok(history.clone());
-            }
-            let mut transport =
-                Uds::connect(&config.lni_socket, &config.lni_gate, limits(deadline)?)
-                    .map_err(|_| ())?;
-            let handshake = perform(
-                &mut transport,
-                &HandshakeConfig {
-                    built_interface_version: Version::V1_5,
-                    expected_protocol_version: PROTOCOL_VERSION,
-                    expected_network_id: config.protocol_network_id,
-                },
-                None,
-            )
-            .map_err(|_| ())?;
-            if handshake.node().interface_version != Version::V1_5
-                || handshake.node().latest_sealed_batch < target
-            {
-                return Err(());
-            }
-            history
-                .fetch_next_with_finality(
-                    &mut transport,
-                    Version::V1_5,
-                    correlation(3)?,
-                    RetrievalLimits {
-                        maximum_bytes: layerx_wire::handover::MAX_RECOVERY_BYTES,
-                        maximum_chunks: 4096,
-                        deadline: limits(deadline)?.deadline,
-                    },
-                    Some(&self.verifier),
-                )
-                .map_err(|_| ())?;
-        }
-    }
-
-    pub(super) fn checkpoint(
-        &self,
-        checkpoint: &VerifiedCheckpoint,
-    ) -> Result<VerifiedCheckpoint, ()> {
-        let publication = self
-            .verifier
-            .verify(
-                &checkpoint.certificate().map_err(|_| ())?,
-                checkpoint.set_version(),
-            )
-            .map_err(|_| ())?;
-        let candidate = FinalityEvidenceCandidate::from_exact_bytes(
-            checkpoint.checkpoint_bytes().to_vec(),
-            checkpoint.context_bytes().to_vec(),
-            PROTOCOL_VERSION,
-            self.verifier.policy().network_id,
-        )
-        .map_err(|_| ())?;
-        VerifiedCheckpoint::from_independent_publication(candidate, &publication).map_err(|_| ())
     }
 }
 
 pub(super) fn snapshot(
     config: &Config,
-    target: u64,
+    _target: u64,
     claimed_key: [u8; 32],
-    deadline: Instant,
+    _deadline: Instant,
 ) -> Result<Option<SequencerHistory>, ()> {
-    match &config.trust {
-        Some(trust) => trust.snapshot(config, target, deadline).map(Some),
-        None if claimed_key == config.sequencer_public_key => Ok(None),
-        None => Err(()),
+    if !config
+        .chain_receipts
+        .pinned_keys()
+        .iter()
+        .any(|key| key.public_key() == claimed_key)
+    {
+        return Err(());
     }
+    current(config)
 }
 
 pub(super) fn current(config: &Config) -> Result<Option<SequencerHistory>, ()> {
-    if config.trust.is_none() {
-        return Ok(None);
-    }
-    let deadline = Instant::now().checked_add(IO_TIMEOUT).ok_or(())?;
-    let mut transport =
-        Uds::connect(&config.lni_socket, &config.lni_gate, limits(deadline)?).map_err(|_| ())?;
-    let handshake = perform(
-        &mut transport,
-        &HandshakeConfig {
-            built_interface_version: Version::V1_5,
-            expected_protocol_version: PROTOCOL_VERSION,
-            expected_network_id: config.protocol_network_id,
-        },
-        None,
+    SequencerHistory::from_pinned_keys(
+        config.protocol_network_id,
+        config.chain_receipts.pinned_keys(),
     )
-    .map_err(|_| ())?;
-    snapshot(
-        config,
-        handshake.node().latest_sealed_batch,
-        handshake.node().authorised_sequencer_key,
-        deadline,
-    )
+    .map(Some)
+    .map_err(|_| ())
 }
 
 pub(super) fn replica(
@@ -227,12 +138,13 @@ pub(super) fn replica(
     let decoded =
         layerx_wire::receipt::decode(receipt).map_err(|_| EvidenceRefusal::ReceiptDecode)?;
     let receipt = decoded.protocol().ok_or(EvidenceRefusal::ReceiptShape)?;
-    let authorization = match &history {
-        Some(history) => history
-            .authorization_for_sequence(receipt.global_sequence())
-            .map_err(|_| EvidenceRefusal::SequencerKey)?,
-        None => config.authorization,
-    };
+    let authorization = config
+        .chain_receipts
+        .pinned_keys()
+        .iter()
+        .find(|key| key.sequencer_id() == receipt.context_hash())
+        .copied()
+        .ok_or(EvidenceRefusal::SequencerKey)?;
     let evidence = parse_replica_evidence(document, config.replica_id, authorization.public_key())?;
     if let Some(history) = &history {
         history
@@ -253,9 +165,13 @@ pub(super) fn authorization(
     let header = history
         .verify_header(canonical, signature)
         .map_err(|_| ())?;
-    history
-        .authorization_for_batch(header.header().batch_number())
-        .map_err(|_| ())
+    config
+        .chain_receipts
+        .pinned_keys()
+        .iter()
+        .find(|key| key.sequencer_id() == header.header().sequencer_id())
+        .copied()
+        .ok_or(())
 }
 
 pub(super) fn checkpoint(
@@ -294,7 +210,6 @@ pub(super) fn checkpoint(
         if header.canonical_bytes() != checkpoint.canonical_header() {
             return Err(());
         }
-        return config.trust.as_ref().ok_or(())?.checkpoint(&checkpoint);
     }
     Ok(checkpoint)
 }

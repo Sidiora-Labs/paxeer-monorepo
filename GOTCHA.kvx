@@ -10043,3 +10043,27 @@ area = "interop x402"
 symptom = "layerx-mcp or x-websearch buyer tests fail every settlement with SettlementMismatch / EvidenceMismatch against a recorded exchange."
 cause = "LayerXEvidence (layerx-x402 buyer.rs:61-74) is deny_unknown_fields and requires logs; the recorded tests/fixtures/client-exchange.json predates that shape and carries no logs or sequencer id (issue #1129)."
 do = "When the buyer evidence shape changes, re-record client-exchange.json with X_WEBSEARCH_RECORD_EXCHANGE (payment.rs:3082, :3214) and publish the sequencer id, public key and batch window in gateway/buyer.json in the same change."
+
+[gotcha.2056]
+area = "programs host"
+symptom = "A programs deploy or call through the precompile harness or an lxphost test chain is refused LXP_ERR_VERSION_UNSUPPORTED before the activity runs."
+cause = "Since e1c81cc5a (#1124) modules/lxphost/host.go:545-558 resolves the fee schedule's occupancy asset for every programs activity and refuses when the store carries no progfee/active/v1 record; the kernel's own path (lxp_kernel.c:393) tolerates the absence, so fixtures written before never seeded one (issue #1130)."
+do = "Every fixture that executes a programs activity seeds a version-1 LXFR1 record at progfee/active/v1 and progfee/history/v1/1 (shape: method_call_test.go:103-114). A host-side rule change must run the precompile and lxphost program suites once at the merged revision."
+
+[gotcha.2057]
+area = "programs transfer"
+symptom = "A 0x101D transfer leg whose source is a program account reverts LXP_AUTH_SCOPE whoever calls it."
+cause = "transfer.c:41-54 principal_authorizes_from admits only the principal's own id or an agent account whose owner DID is the principal (lx_account_read.c:11-13); program accounts are neither."
+do = "Do not write tests that debit program accounts through the transfer method until req.13292 ac_2 is ruled; fund program accounts from the caller's accounts and move program value through program-executed paths."
+
+[gotcha.2058]
+area = "agent daemon tests"
+symptom = "Every layerx-agentd integration test target and every layerx-human-service test target fails to compile with E0432 unresolved import layerx_agentd::boot::handshake_gate."
+cause = "70ce262d3 (9.12.2) replaced the LNI handshake gate with Gate::readiness_gate(&NodeRpc) (eth_chainId + px_getReceiptKeys) and ported only its own tests; the shared test support of both workspaces and the pay2 harness still import the old function (issue #1131)."
+do = "Readiness in fixtures comes from a local JSON-RPC responder (tests/handshake_gate.rs:36-88 pattern) plus gate.readiness_gate; LNI status and capability assertions use layerx_client::lni::handshake::perform directly. A task that removes or renames a pub fn compiles every dependent test target (cargo test -p <crate> --no-run for each workspace that imports it) inside its gate."
+
+[gotcha.2059]
+area = "interop x402 fixtures"
+symptom = "After re-recording client-exchange.json most x-websearch payment tests fail with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload."
+cause = "The recorder's sequencer metadata (sequencerId, firstBatchNumber, lastBatchNumber in gateway/buyer.json) was fed into configure_with as the server's accepted receipt-key window, narrowing it to one batch."
+do = "The server fixture keeps key_id hex(&receipt_key_id()), first_height 0, last_height u64::MAX; buyer.json metadata builds only the buyer-side SequencerAuthorization in tests."
