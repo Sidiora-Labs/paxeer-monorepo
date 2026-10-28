@@ -81,8 +81,9 @@ export class NonceConflictError extends RpcResponseError {
 
 /**
  * A node answered nonce too low, no member knows our hash and the chain's latest count is past our
- * nonce: our own transaction may have mined on a member whose transaction index is off or lagging, so
- * the outcome is unknown. The caller polls eth_getTransactionReceipt by this hash and never prepares again.
+ * nonce, or the reads needed to classify the refusal failed: our own transaction may have mined on a
+ * member whose transaction index is off or lagging, so the outcome is unknown. The caller polls
+ * eth_getTransactionReceipt by this hash and never prepares again.
  */
 export class BroadcastOutcomeUnknownError extends RpcResponseError {
   constructor(code: number, message: string, data: unknown, readonly hash: Hex, readonly nonce: number,
@@ -266,6 +267,14 @@ export class RpcPool {
     return (await this.requestVia<T>(method, params)).result;
   }
 
+  private redact(text: string): string {
+    const replacements = this.endpoints.map((ep, index) => ({ url: ep.url, name: `member ${index}` }));
+    if (this.opts.sequencerUrl) replacements.push({ url: this.opts.sequencerUrl, name: 'sequencer' });
+    replacements.sort((a, b) => b.url.length - a.url.length);
+    for (const { url, name } of replacements) text = text.split(url).join(name);
+    return text;
+  }
+
   /** request(), also naming the pool member that answered. */
   async requestVia<T = unknown>(method: string, params: unknown[] = []): Promise<{ result: T; member: string }> {
     const order = this.candidates();
@@ -285,7 +294,9 @@ export class RpcPool {
         }
         ep.state = 'down';
         ep.lastError = err instanceof Error ? err.message : String(err);
-        failures.push(`${ep.url}: ${ep.lastError}`);
+        const index = this.endpoints.indexOf(ep);
+        const reason = this.redact(ep.lastError);
+        failures.push(`member ${index} of ${this.endpoints.length}: ${reason}`);
       }
     }
     throw new RpcUnavailableError(`every RPC endpoint failed ${method}: ${failures.join('; ')}`);
@@ -374,7 +385,7 @@ export class RpcPool {
    * sendRawTransaction(), also naming the sequencer that accepted the transaction; an idempotent
    * answer returns the keccak of the signed bytes as the hash. Each call sends once to the sequencer. Nonce too low is
    * success when our hash is known on any member; known on none, it is a BroadcastOutcomeUnknownError
-   * when the sender's latest count is past our nonce (ours may have mined unindexed) and a
+   * when classification reads fail or the sender's latest count is past our nonce (ours may have mined unindexed) and a
    * NonceConflictError otherwise; replacement underpriced is a NonceConflictError; any other refusal is
    * a TransactionRejectedError.
    */
@@ -389,10 +400,16 @@ export class RpcPool {
       if (ALREADY_KNOWN.test(err.message)) return { hash, member };
       const members = this.endpoints.length;
       if (NONCE_TOO_LOW.test(err.message)) {
-        if (await this.transactionKnown(hash, member)) return { hash, member };
         const nonce = parseTransaction(signed).nonce ?? 0;
-        const from = await recoverTransactionAddress({ serializedTransaction: signed as Parameters<typeof recoverTransactionAddress>[0]['serializedTransaction'] });
-        if ((await this.getTransactionCount(from, 'latest')) > nonce) {
+        let latest: number;
+        try {
+          if (await this.transactionKnown(hash, member)) return { hash, member };
+          const from = await recoverTransactionAddress({ serializedTransaction: signed as Parameters<typeof recoverTransactionAddress>[0]['serializedTransaction'] });
+          latest = await this.getTransactionCount(from, 'latest');
+        } catch {
+          throw new BroadcastOutcomeUnknownError(err.code, err.message, err.data, hash, nonce, err.memberIndex, members);
+        }
+        if (latest > nonce) {
           throw new BroadcastOutcomeUnknownError(err.code, err.message, err.data, hash, nonce, err.memberIndex, members);
         }
         throw new NonceConflictError(err.code, err.message, err.data, err.memberIndex, members);

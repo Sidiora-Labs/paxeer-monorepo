@@ -146,7 +146,7 @@ fn register_step(params: Option<&Value>) -> Result<([u8; 32], [u8; 64], Step), i
     }
 }
 
-fn client_ip(
+pub(super) fn client_ip(
     proxies: &[(IpAddr, u8)],
     peer: Option<SocketAddr>,
     forwarded: Option<&str>,

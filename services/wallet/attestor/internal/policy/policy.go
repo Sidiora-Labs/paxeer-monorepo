@@ -523,7 +523,7 @@ func (p *Policy) Evaluate(account string, req Request, ledger Ledger) Decision {
 			}
 		}
 		if spend.Spender != nil && effective.trusted[*spend.Spender] {
-			if spend.Amount != nil && spend.Amount.Cmp(maxUint256) == 0 {
+			if spend.Amount != nil && spend.Amount.Cmp(approvalCeiling) >= 0 {
 				return denied(CodeUnlimitedApproval, "unlimited approval of %s to %s is refused", spend.Asset, spend.Spender.Hex())
 			}
 			if _, ok := effective.caps[spend.Asset]; !ok || pullCounted[*spend.Spender] {
@@ -892,6 +892,7 @@ func inspectTypedData(ctx Context, view any) (Inspection, error) {
 }
 
 var maxUint256 = new(big.Int).Sub(new(big.Int).Lsh(big.NewInt(1), 256), big.NewInt(1))
+var approvalCeiling = new(big.Int).Lsh(big.NewInt(1), 255)
 
 func permitSpend(typed *evm.TypedData) (Spend, common.Address, error) {
 	domain := typed.Data.Domain
