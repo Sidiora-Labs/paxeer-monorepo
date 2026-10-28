@@ -179601,7 +179601,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1074.1]
 title = "Issue #1074: Make sealed-block adoption in FinalizeBlock commit the state follower re-execution computes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
