@@ -895,12 +895,15 @@ fn maintenance_tick(service: &Service, config: &Config) -> Result<(), ServiceErr
                 });
             }
             (JobState::Ended(Outcome::Succeeded), TaskStatus::Accepted) => {
-                if expired.contains(&(key.digest().bytes(), job.state.fence)) {
+                if job.state.late || expired.contains(&(key.digest().bytes(), job.state.fence)) {
                     continue;
                 }
+                let Some(digest) = service.jobs.commit_record_or_retain(key, &authority)? else {
+                    continue;
+                };
                 let mut payload = shared.revision.to_be_bytes().to_vec();
                 payload.extend_from_slice(task.task.as_bytes());
-                payload.extend_from_slice(service.jobs.commit_record(key, &authority)?.as_bytes());
+                payload.extend_from_slice(digest.as_bytes());
                 operation = Some((dispatch::COMMIT_TASK_RESULT, payload));
                 break;
             }
