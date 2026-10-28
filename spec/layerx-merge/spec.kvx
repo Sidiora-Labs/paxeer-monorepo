@@ -172346,7 +172346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -178973,7 +178973,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179695,6 +179695,14 @@ ac_1 = "The buyer's exact-capture check accepts an accepted offer whose asset an
 [req.181106]
 title = "The layerx image builds its libwasmvm libraries from the tree without a download"
 ac_1 = "docker/layerx/Dockerfile copies libwasmvm, libwasmvm152 and libwasmvm155 for the target architecture from wasm-runtime/internal/api and wasm/x/wasm/artifacts and verifies them against wasm-runtime/libwasmvm-linux.sha256, with no reference to node.hyperpaxeer.com, and tools/ci/tests/test_layerx_image_libwasmvm.py proves both and that the x86_64 libraries in the tree match the pinned digests."
+
+[req.181135]
+title = "Receipt roots stay continuous across a governance activity that reads an active programs fee record"
+ac_1 = "With an LXFR1 record at progfee/active/v1, a governance activity followed by a programs activity on the same host produces receipts whose ResultingStateRoot and the next PreviousStateRoot are equal, proven by TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity, while the fee record format and the 18.1124.1 refusal are unchanged."
+
+[req.181136]
+title = "The bridge app's type-check passes at main"
+ac_1 = "pnpm --dir apps/bridge run typecheck exits 0 at main with the ES2020 target and the generated Next route types, and the bridge library specs whose types were repaired still pass."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180590,6 +180598,22 @@ req = "181106.1"
 scenario = "Given the repository checkout, when the layerx builder stage runs, then the three libwasmvm libraries come from the build context and pass the pinned digest check without any network fetch."
 contract = "contracts/tools-ops.md#container-images"
 test = "tools/ci/tests/test_layerx_image_libwasmvm.py::test_tree_libraries_match_pinned_digests (planned)"
+qualification = "UNRUN"
+
+[acceptance.18.1135.1]
+feature = "18"
+req = "181135.1"
+scenario = "Given a chain with an active programs fee record, when a governance activity and then a programs activity execute, then every consecutive receipt pair links by state root exactly as it does without the record."
+contract = "contracts/programs.md#market-guest"
+test = "modules/lxphost/host_test.go::TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity (planned)"
+qualification = "UNRUN"
+
+[acceptance.18.1136.1]
+feature = "18"
+req = "181136.1"
+scenario = "Given the bridge app at main, when its typecheck script runs, then it generates the route types, compiles every source and spec without error, and the library specs pass unchanged in behaviour."
+contract = "contracts/bridge-client.md#components"
+test = "apps/bridge/package.json::typecheck (planned)"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -181534,7 +181558,7 @@ title = "Issue #1130: Seed the active programs fee record in the layerxprograms 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1135.1"]
 reqs = ["181130.1"]
 capabilities = []
 interfaces = []
@@ -182706,7 +182730,7 @@ title = "Issue #1048: Validate the stored bridge theme in the pre-paint script a
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1136.1"]
 reqs = ["181048.1"]
 capabilities = []
 interfaces = []
@@ -182718,7 +182742,7 @@ symbols = ["THEME_INIT", "theme_init_and_provider_agree_on_an_invalid_stored_the
 touches = ["apps/bridge/src/app/layout.tsx", "apps/bridge/src/app/theme-init.ts", "apps/bridge/src/app/theme-init.spec.tsx"]
 tests = ["apps/bridge/src/app/theme-init.spec.tsx::theme_init_and_provider_agree_on_an_invalid_stored_theme"]
 planned_paths = ["apps/bridge/src/app/theme-init.ts", "apps/bridge/src/app/theme-init.spec.tsx"]
-build_cmd = "pnpm --dir apps/bridge exec tsc --noEmit"
+build_cmd = "pnpm --dir apps/bridge run typecheck"
 verify_cmd = "pnpm --dir apps/bridge exec vitest run src/app/theme-init.spec.tsx -t '^theme_init_and_provider_agree_on_an_invalid_stored_theme$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -182737,7 +182761,7 @@ title = "Issue #1049: Mount the bridge ThemeProvider so the class-preservation t
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1136.1"]
 reqs = ["181049.1"]
 capabilities = []
 interfaces = []
@@ -182749,7 +182773,7 @@ symbols = ["mounted_provider_keeps_the_pre_paint_theme_classes", "mounted_provid
 touches = ["apps/bridge/src/components/theme-provider.browser-render.spec.tsx"]
 tests = ["apps/bridge/src/components/theme-provider.browser-render.spec.tsx::mounted_provider_keeps_the_pre_paint_theme_classes", "apps/bridge/src/components/theme-provider.browser-render.spec.tsx::mounted_provider_applies_validated_stored_preferences"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/bridge exec tsc --noEmit"
+build_cmd = "pnpm --dir apps/bridge run typecheck"
 verify_cmd = "pnpm --dir apps/bridge exec vitest run src/components/theme-provider.browser-render.spec.tsx -t '^mounted_provider_'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -183483,8 +183507,8 @@ symbols = []
 touches = ["apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx::does not read the markets endpoint again while the feed channel is joined"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/explorer exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/explorer exec vitest run ui/pages/PaxeerXFeedLive.spec.tsx -t 'does not read the markets endpoint again while the feed channel is joined'"
+build_cmd = "cd apps/explorer && yarn tsc --noEmit"
+verify_cmd = "cd apps/explorer && yarn vitest run ui/pages/PaxeerXFeedLive.spec.tsx -t 'does not read the markets endpoint again while the feed channel is joined'"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
@@ -183610,6 +183634,67 @@ gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-tools-ops"
 rollback = "Revert the Dockerfile to the curl download and delete the test; the image build returns to depending on the library host."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1135.1]
+title = "Issue #1135: Keep receipt state roots continuous when a governance activity runs with an active programs fee record"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181135.1"]
+capabilities = []
+interfaces = []
+do_1 = "In modules/lxphost/host.go:1005-1019 stop loading progfee/active/v1 and progfee/history/v1/<n> as two stray programs-module keys beside the module set: a governance activity that needs the fee record loads the programs module in full (extend the set activityModules returns at host.go:1127 for C.LXP_MODULE_GOVERNANCE, or an equivalent that keeps every module either fully loaded or not loaded), so the set the kernel computes a subtree root over (src/state/lxp_state_root.c state_subtree_leaves) is the same at the end of the governance activity and at the start of the next programs activity."
+do_2 = "Keep the fee record format, the refusal 18.1124.1 introduced for programs activities without an active record (host.go:545-558) and the receipt fields unchanged; change nothing under src/ or include/."
+do_3 = "Add seedProgramsFeeRecord(t, chain, authority) to modules/lxphost/host_test.go: a 217-byte LXFR1 record (version 1, seven u64 ones, asset byte 0x91, the nine u64 values 1000, 8, 1, 8, 1, 100, 1, 0, 1, the authority actor and 16 zero bytes) written under module 9 at progfee/active/v1 and progfee/history/v1/1 through sdk.NewContext(chain.cms, tmproto.Header{}, false).KVStore(chain.key)."
+do_4 = "Add TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity to modules/lxphost/host_test.go: seed the record on a fresh test chain, execute the register, registry-entry and program-deploy activities TestResolutionExecuteEntry executes (modules/lxphost/resolution_test.go:196-220), and assert for every consecutive pair that the earlier receipt's ResultingStateRoot equals the later receipt's PreviousStateRoot and that each receipt's roots differ from each other; prove the same sequence without the record stays continuous."
+symbols = ["activityModules", "seedProgramsFeeRecord", "TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
+touches = ["modules/lxphost/host.go", "modules/lxphost/ctx.go", "modules/lxphost/host_test.go"]
+tests = ["modules/lxphost/host_test.go::TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
+planned_paths = []
+build_cmd = "go build ./modules/lxphost/..."
+verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestResolutionExecuteEntry|TestHostFeeRecordAbsentRefusesVersion)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert host.go and the new test; governance activities return to loading the two fee keys alone and the receipt chain breaks again whenever a fee record is active."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1136.1]
+title = "Issue #1136: Make the bridge app type-check at main"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181136.1"]
+capabilities = []
+interfaces = []
+do_1 = "In apps/bridge/tsconfig.json raise target to ES2020 so the 0n-style literals in src/components/bridge/bridge-card.tsx and the bridge libraries are legal (the 69 TS2737 errors), and in apps/bridge/package.json make the typecheck script generate the Next 16 route types before checking (next typegen && tsc --noEmit -p tsconfig.json) so LayoutProps at src/app/layout.tsx:36 resolves."
+do_2 = "Repair the remaining type errors the check reports in src/lib/bridge/enrich.spec.ts, card-state.spec.ts, import.spec.ts, import.ts, use-bridge-state.ts, card-state.ts, submission.spec.ts, amount.ts, submitted.spec.ts, chains.ts, settlement.spec.ts, errors.ts, digests.ts and src/components/bridge/bridge-card.tsx by typing the values correctly (viem Log generics, the optional string at chains.ts:42, the writeContract argument at bridge-card.tsx:235); change no runtime behaviour, remove no test and relax no assertion."
+do_3 = "pnpm --dir apps/bridge run typecheck exits 0 and pnpm --dir apps/bridge exec vitest run still passes the bridge library specs the repaired files belong to."
+symbols = []
+touches = ["apps/bridge/tsconfig.json", "apps/bridge/package.json", "apps/bridge/src/app/layout.tsx", "apps/bridge/src/components/bridge/bridge-card.tsx", "apps/bridge/src/lib/bridge/enrich.spec.ts", "apps/bridge/src/lib/bridge/card-state.spec.ts", "apps/bridge/src/lib/bridge/import.spec.ts", "apps/bridge/src/lib/bridge/import.ts", "apps/bridge/src/lib/bridge/use-bridge-state.ts", "apps/bridge/src/lib/bridge/card-state.ts", "apps/bridge/src/lib/bridge/submission.spec.ts", "apps/bridge/src/lib/bridge/amount.ts", "apps/bridge/src/lib/bridge/submitted.spec.ts", "apps/bridge/src/lib/bridge/chains.ts", "apps/bridge/src/lib/bridge/settlement.spec.ts", "apps/bridge/src/lib/bridge/errors.ts", "apps/bridge/src/lib/bridge/digests.ts"]
+tests = []
+planned_paths = []
+build_cmd = "pnpm --dir apps/bridge exec vitest list src/lib/bridge/chains.spec.ts"
+verify_cmd = "pnpm --dir apps/bridge run typecheck && pnpm --dir apps/bridge exec vitest run src/lib/bridge/enrich.spec.ts src/lib/bridge/card-state.spec.ts src/lib/bridge/import.spec.ts src/lib/bridge/submission.spec.ts src/lib/bridge/submitted.spec.ts src/lib/bridge/settlement.spec.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the tsconfig, package.json and source changes; the bridge app returns to failing its type-check at main."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
