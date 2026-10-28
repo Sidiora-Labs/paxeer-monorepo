@@ -1,16 +1,33 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, test } from 'vitest';
-import { SIDIORA_TOKEN, abiSelector, exchangeCancelOrderCall } from '@sidiora/layerx-sdk';
+import { createServer } from 'node:http';
+import type { AddressInfo } from 'node:net';
+import { useLayoutEffect, useMemo } from 'react';
+import { ethers } from 'ethers';
+import {
+  SIDIORA_TOKEN,
+  abiSelector,
+  exchangeCancelOrderCall,
+  gasQuoteDigest,
+} from '@sidiora/layerx-sdk';
 import {
   FEE_TOKEN_PRECOMPILE,
   SIDIORA_FEE_DENOM,
+  constructionDigest,
+  exchange,
   feeToken,
   type IntentLeg,
   type ModuleTransaction,
+  type SponsoredAdapterRequest,
+  type WireDigestConstruction,
 } from '@paxeer/wallet';
+import { WalletProvider, useWallet } from '@/wallet/WalletProvider';
+import { IdentitySession } from '@/wallet/identity';
+import { EMAIL, EMAIL_CODE, startGateway } from '@/wallet/test/gateway';
+import { mount } from '@/account/test/render';
 import { FeeChoice } from './FeeChoice';
-import { SurfaceFrame } from './Surface';
-import { useFeeSelection, useSurfaceWallet } from './useSurface';
+import { SendButton, SentResult, SurfaceFrame } from './Surface';
+import { useFeeSelection, useModuleSend, useSurfaceWallet } from './useSurface';
 import { SurfaceChain, click, mountSurface, text, until, type Mounted } from './test/chain';
 
 let chain: SurfaceChain;
@@ -86,7 +103,284 @@ function part(container: HTMLElement, id: string, role: string): string {
   return choice(container, id).querySelector(`[data-role="${role}"]`)?.textContent ?? '';
 }
 
+function SponsoredSendHarness({ hashes }: { hashes: string[] }) {
+  const connection = useWallet();
+  const { provider, address } = useSurfaceWallet();
+  const selection = useFeeSelection(provider, address);
+  const module = useMemo(() => (provider ? exchange(provider) : null), [provider]);
+  const send = useModuleSend(module, provider, address, selection);
+  useLayoutEffect(() => {
+    if (send.sent) hashes.push(send.sent.hash);
+  }, [send.sent, hashes]);
+  return (
+    <>
+      <button onClick={() => void connection.verifyEmailCode(EMAIL, EMAIL_CODE)}>Sign in</button>
+      <SurfaceFrame title="Sponsored resend" connected={provider !== null}>
+        <FeeChoice
+          provider={provider}
+          address={address}
+          transaction={TRANSACTION}
+          selection={selection}
+          sidRate={RATE}
+        />
+        <button data-action="quote" onClick={() => void selection.prepare(TRANSACTION, 100n, 1n)}>
+          Quote this call
+        </button>
+        <SendButton
+          label="Send"
+          transaction={TRANSACTION}
+          blocked={selection.blocked}
+          state={send}
+        />
+        <SentResult state={send} />
+      </SurfaceFrame>
+    </>
+  );
+}
+
 describe('FeeChoice', () => {
+  async function fee_choice_requotes_an_identical_sponsored_send_after_the_first_settles() {
+    const identityGateway = await startGateway();
+    const sponsor = new ethers.Wallet(ethers.id('fee-choice-resend-sponsor'));
+    const paymaster = `0x${'33'.repeat(20)}`;
+    const quotes: unknown[] = [];
+    const submissions: SponsoredAdapterRequest[] = [];
+    const failures: unknown[] = [];
+    const hashes: string[] = [];
+    const previous = {
+      api: process.env.NEXT_PUBLIC_PAXEER_WALLET_API,
+      sponsor: process.env.NEXT_PUBLIC_PAXEER_GAS_SPONSOR,
+      paymaster: process.env.NEXT_PUBLIC_PAXEER_GAS_PAYMASTER,
+    };
+    const server = createServer((request, response) => {
+      void (async () => {
+        let raw = '';
+        for await (const chunk of request) raw += String(chunk);
+        const body = raw ? JSON.parse(raw) : null;
+        response.setHeader('content-type', 'application/json');
+        const send = (answer: unknown) =>
+          response.end(
+            JSON.stringify(answer, (_key, value) =>
+              typeof value === 'bigint' ? value.toString() : value
+            )
+          );
+        if (request.url?.startsWith('/auth/')) {
+          const upstream = await fetch(`${identityGateway.url}${request.url}`, {
+            method: request.method,
+            headers: {
+              apikey: identityGateway.config.identityKey,
+              'content-type': 'application/json',
+            },
+            body: raw || undefined,
+          });
+          response.statusCode = upstream.status;
+          response.end(await upstream.text());
+          return;
+        }
+        if (request.url === '/v1/wallet/me') {
+          send({ wallet: { address: chain.address, chain_id: 125 }, chain: { id: 125 } });
+          return;
+        }
+        if (request.url === '/v1/wallet/sponsored/quote') {
+          quotes.push(body);
+          const quote = {
+            sponsor: sponsor.address.toLowerCase(),
+            token: SIDIORA_TOKEN,
+            decimals: 6,
+            maxTokenAmount: BigInt(body.maxTokenAmount),
+            tokenAmount: 1n,
+            gasCost: BigInt(body.gasCost),
+            quoteNonce: BigInt(quotes.length),
+            deadline: BigInt(Math.floor(Date.now() / 1000)) + 300n,
+          };
+          const digest = gasQuoteDigest(125n, body.account, quote);
+          if (!digest.ok) throw new Error(JSON.stringify(digest.refusal));
+          send({
+            quote,
+            relayerSignature: sponsor.signingKey.sign(digest.value).serialized,
+            feeDenom: 'uhpx',
+          });
+          return;
+        }
+        if (request.url === '/v1/wallet/sign-digest') {
+          const construction: WireDigestConstruction = body.construction;
+          send({
+            address: chain.address,
+            signature: chain.wallet.signingKey.sign(constructionDigest(construction)).serialized,
+          });
+          return;
+        }
+        if (request.url === '/v1/wallet/sponsored/submit') {
+          const submission: SponsoredAdapterRequest = body;
+          submissions.push(submission);
+          expect(
+            ethers
+              .recoverAddress(
+                constructionDigest(submission.construction),
+                submission.account_signature
+              )
+              .toLowerCase()
+          ).toBe(chain.address);
+          const call = submission.construction.calls[0];
+          const receipt = await chain.request({
+            method: 'paxeer_sendTransactionReceipted',
+            params: [
+              {
+                from: submission.account,
+                to: call.to,
+                data: call.data,
+                value: ethers.toQuantity(BigInt(call.value)),
+              },
+            ],
+          });
+          send({
+            status: 'pending',
+            tx_hash: (receipt as { txHash: string }).txHash,
+            station: null,
+          });
+          return;
+        }
+        if (request.url === '/v1/wallet/sponsored/status') {
+          const submission = submissions.find(
+            (item) => item.construction.quote.quoteNonce === body.quoteNonce
+          );
+          if (!submission) throw new Error('no retained submission');
+          const hash = hashes[submissions.indexOf(submission)];
+          if (!hash) throw new Error('the sponsored send has not settled');
+          send({
+            status: 'confirmed',
+            tx_hash: hash,
+            station: {
+              state: 'completed',
+              deadline: submission.construction.quote.deadline,
+              submission: { sponsorNonce: '0', transactionHash: hash },
+              replacement: null,
+              completion: {
+                outcome: 'included',
+                transactionHash: hash,
+                blockNumber: '1',
+                sidCollected: '1',
+                paxSpent: '1',
+              },
+            },
+          });
+          return;
+        }
+        if (request.url !== '/rpc') throw new Error(`unexpected route ${request.url}`);
+        let result: unknown;
+        if (body.method === 'eth_getCode') result = `0xef0100${paymaster.slice(2)}`;
+        else if (body.method === 'eth_getTransactionCount')
+          result = ethers.toQuantity(chain.sent.length);
+        else if (
+          body.method === 'eth_call' &&
+          body.params[0].data.startsWith(abiSelector('getLayerXDid(address)'))
+        ) {
+          result = ethers.AbiCoder.defaultAbiCoder().encode(
+            ['bytes32', 'string'],
+            [`0x${'61'.repeat(32)}`, `did:layerx:${'61'.repeat(32)}`]
+          );
+        } else if (body.method === 'eth_call' && body.params[0].data === abiSelector('nonce()')) {
+          result = ethers.zeroPadValue(ethers.toBeHex(chain.sent.length), 32);
+        } else result = await chain.request(body);
+        send({ jsonrpc: '2.0', id: body.id, result });
+      })().catch((error: unknown) => {
+        failures.push(error);
+        response.statusCode = 500;
+        response.end(JSON.stringify({ error: String(error) }));
+      });
+    });
+    try {
+      await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+      const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
+      process.env.NEXT_PUBLIC_PAXEER_WALLET_API = url;
+      process.env.NEXT_PUBLIC_PAXEER_GAS_SPONSOR = sponsor.address;
+      process.env.NEXT_PUBLIC_PAXEER_GAS_PAYMASTER = paymaster;
+      window.localStorage.clear();
+      const config = {
+        ...identityGateway.config,
+        gatewayUrl: url,
+        rpcUrl: `${url}/rpc`,
+        identityUrl: url,
+      };
+      const identity = IdentitySession.create(config, {
+        persistSession: false,
+        detectSessionInUrl: false,
+      });
+      mounted = await mount(
+        <WalletProvider config={config} identity={identity} eventTarget={new EventTarget()}>
+          <SponsoredSendHarness hashes={hashes} />
+        </WalletProvider>
+      );
+      const { container } = mounted;
+      await click(container.querySelector('button'), 'embedded sign in');
+      await until(() => container.querySelector('[data-fee-choice]') !== null, 'embedded wallet');
+      await click(choice(container, 'sid_sponsored'), 'SID sponsored');
+      await until(
+        () => text(container, '[data-role="sponsored-phase"]') === 'idle',
+        'retained batch check'
+      );
+      const sendButton = () => container.querySelector<HTMLButtonElement>('[data-action="send"]');
+      for (let attempt = 0; attempt < 2; attempt += 1) {
+        expect(sendButton()?.disabled).toBe(true);
+        await click(container.querySelector('[data-action="quote"]'), 'fresh quote');
+        await until(
+          () => text(container, '[data-role="sponsored-phase"]') === 'quoted',
+          'SID quote'
+        );
+        expect(quotes).toHaveLength(attempt + 1);
+        expect(sendButton()?.disabled).toBe(true);
+        await click(
+          container.querySelector('[data-action="sponsored-consent"]'),
+          'exact quote consent'
+        );
+        expect(sendButton()?.disabled).toBe(false);
+        await click(sendButton(), 'send identical call');
+        await until(() => hashes.length === attempt + 1, 'confirmed send');
+        expect(text(container, '[data-role="status"]')).toBe('confirmed');
+        expect(text(container, '[data-role="sponsored-phase"]')).toBe('confirmed');
+        expect(text(container, '[data-role="sponsored-hash"]')).toBe(hashes[attempt]);
+        expect(submissions).toHaveLength(attempt + 1);
+        await click(
+          container.querySelector('[data-action="sponsored-recover"]'),
+          'settled station status'
+        );
+        await until(
+          () => text(container, '[data-role="sponsored-phase"]') === 'confirmed',
+          'station completion'
+        );
+      }
+      expect(failures).toEqual([]);
+      expect(quotes).toHaveLength(2);
+      expect(submissions).toHaveLength(2);
+      expect(submissions[0].construction.calls).toEqual(submissions[1].construction.calls);
+      expect(submissions[0].construction.quote.quoteNonce).not.toBe(
+        submissions[1].construction.quote.quoteNonce
+      );
+      expect(hashes).toHaveLength(2);
+      expect(hashes[1]).not.toBe(hashes[0]);
+      expect(text(container, '[data-role="hash"]')).toBe(hashes[1]);
+      expect(hashes.slice(1)).not.toContain(hashes[0]);
+    } finally {
+      await mounted?.unmount();
+      mounted = null;
+      for (const [key, value] of Object.entries({
+        NEXT_PUBLIC_PAXEER_WALLET_API: previous.api,
+        NEXT_PUBLIC_PAXEER_GAS_SPONSOR: previous.sponsor,
+        NEXT_PUBLIC_PAXEER_GAS_PAYMASTER: previous.paymaster,
+      })) {
+        if (value === undefined) delete process.env[key];
+        else process.env[key] = value;
+      }
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => (error ? reject(error) : resolve()));
+        server.closeAllConnections();
+      });
+      await identityGateway.close();
+    }
+  }
+
+  test(fee_choice_requotes_an_identical_sponsored_send_after_the_first_settles);
+
   it('fee_choice_labels_every_fee_path_with_its_denomination_and_chain_gas', async () => {
     mounted = await mountSurface(chain, <Harness legs={LEGS} />);
     const { container } = mounted;
