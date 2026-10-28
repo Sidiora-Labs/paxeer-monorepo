@@ -7,6 +7,7 @@ use zeroize::Zeroizing;
 
 const URL_VARIABLE: &str = "LAYERX_GATEWAY_FAUCET_URL";
 const TOKEN_VARIABLE: &str = "LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE";
+const CLAIM_AMOUNT_VARIABLE: &str = "LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT";
 const CLAIM_PATH: &str = "/v1/faucet/service-claims";
 const IDEMPOTENCY_DOMAIN: &[u8] = b"layerx-faucet-claim-v1";
 const CLAIMS_PER_MINUTE: u32 = 30;
@@ -19,6 +20,7 @@ static FAUCET_WINDOW: Mutex<(u64, u32)> = Mutex::new((0, 0));
 pub(super) struct Faucet {
     endpoint: Endpoint,
     token: Zeroizing<String>,
+    claim_amount: u64,
 }
 
 fn idempotency(principal_digest: &str, did: &str, public_key: &str) -> String {
@@ -215,6 +217,22 @@ fn faucet_representable(amount: &str) -> bool {
         .is_ok_and(|value| value <= MAX_FAUCET_AMOUNT && value.to_string() == amount)
 }
 
+fn parse_claim_amount(value: &str) -> Result<u64, String> {
+    value
+        .parse::<u64>()
+        .ok()
+        .filter(|amount| {
+            *amount > 0 && *amount <= MAX_FAUCET_AMOUNT && amount.to_string() == value
+        })
+        .ok_or_else(|| {
+            format!("{CLAIM_AMOUNT_VARIABLE} must be a canonical positive decimal no greater than {MAX_FAUCET_AMOUNT}")
+        })
+}
+
+fn grant_matches_claim(amount: &str, claim_amount: u64) -> bool {
+    parse_claim_amount(amount).is_ok_and(|amount| amount == claim_amount)
+}
+
 fn identity_call(config: &Config, path: &str, body: &Value) -> Result<super::UpstreamResponse, ()> {
     let token = config.registration_token.as_ref().ok_or(())?;
     let (identity, _) = config
@@ -313,6 +331,14 @@ fn request_funds(
             "starter_credit_amount_unrepresentable",
         );
     }
+    if !grant_matches_claim(&grant.amount, faucet.claim_amount) {
+        return refusal(
+            id,
+            -32603,
+            "Starter credit amount mismatch",
+            "starter_credit_amount_mismatch",
+        );
+    }
     let key = idempotency(sub, &grant.grant_id, STARTER_IDEMPOTENCY_SCOPE);
     let body = claim_request(sub, &did, &public_key);
     let mut funded = match super::upstream_json(
@@ -379,11 +405,16 @@ pub(super) fn configured() -> Result<Option<Faucet>, String> {
     if std::env::var_os(URL_VARIABLE).is_none() && std::env::var_os(TOKEN_VARIABLE).is_none() {
         return Ok(None);
     }
+    let claim_amount = std::env::var(CLAIM_AMOUNT_VARIABLE).map_err(|_| {
+        format!("{CLAIM_AMOUNT_VARIABLE} is required when the faucet is configured")
+    })?;
+    let claim_amount = parse_claim_amount(&claim_amount)?;
     let url = std::env::var(URL_VARIABLE)
         .map_err(|_| format!("{URL_VARIABLE} is required when {TOKEN_VARIABLE} is set"))?;
     Ok(Some(Faucet {
         endpoint: Endpoint::parse(&url)?,
         token: super::read_secret(TOKEN_VARIABLE)?,
+        claim_amount,
     }))
 }
 
@@ -740,6 +771,35 @@ mod tests {
             "+1",
         ] {
             assert!(!faucet_representable(amount), "{amount}");
+        }
+    }
+
+    #[test]
+    fn a_grant_unequal_to_the_faucet_claim_amount_is_refused_before_the_claim() {
+        assert!(grant_matches_claim("1000000", 1_000_000));
+        for amount in ["1000001", "999999", "01000000"] {
+            assert!(!grant_matches_claim(amount, 1_000_000), "{amount}");
+        }
+        for (value, amount) in [
+            ("1", 1),
+            ("1000000", 1_000_000),
+            ("9007199254740991", MAX_FAUCET_AMOUNT),
+        ] {
+            assert_eq!(parse_claim_amount(value), Ok(amount), "{value}");
+        }
+        for value in [
+            "",
+            "0",
+            "01",
+            "9007199254740992",
+            "18446744073709551616",
+            "+1",
+            "-1",
+            "1.0",
+            " 1",
+            "1 ",
+        ] {
+            assert!(parse_claim_amount(value).is_err(), "{value}");
         }
     }
 

@@ -293,6 +293,7 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/internal-transactions` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/logs` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/raw-trace` | http | public-read | 8 | 0 | explorer |
+| GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/signature` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/state-changes` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/status` | http | public-read | 8 | 0 | explorer |
 | GET | `/explorer/backend/api/v2/transactions/{transaction_hash_param}/summary` | http | public-read | 8 | 0 | explorer |
@@ -786,7 +787,6 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 
 | Method | Path | Transport | Authentication | Timeout (s) | Retries | Consumers |
 |---|---|---|---|---|---|---|
-| POST | `lx_getHistory` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_getHistory` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_getUnifiedHistory` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 
@@ -859,7 +859,6 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | POST | `lx_getSequence` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `lx_getWalletCaps` | json-rpc | verified-wallet-bearer | 8 | 0 | wallet, developer |
 | POST | `lx_listAssets` | json-rpc | method-specific | 8 | 0 | wallet, developer |
-| POST | `lx_register` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `lx_requestFunds` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `lx_sendActivity` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | GET | `lx_subscribe` | websocket | gateway-api-key-and-topic-scope | 8 | 0 | wallet, developer |
@@ -872,6 +871,7 @@ Source: `tools/paxeer-x/route-catalogue.json` (schema `paxeer-x.routes.v1`), the
 | POST | `px_getNetwork` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_getRouteCatalogue` | json-rpc | gateway-api-key | 8 | 0 | developer |
 | POST | `px_listAssets` | json-rpc | method-specific | 8 | 0 | wallet, developer |
+| POST | `px_register` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 | POST | `px_resolveAccount` | json-rpc | method-specific | 8 | 0 | wallet, developer |
 
 ### markets

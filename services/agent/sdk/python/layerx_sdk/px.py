@@ -26,7 +26,7 @@ _DECIMAL = re.compile(r"^(?:0|[1-9][0-9]*)$")
 _HEX_QUANTITY = re.compile(r"^0x[0-9a-f]{1,32}$")
 
 _MAX_U256 = (1 << 256) - 1
-_ROW_ID = re.compile(r"^[1-9][0-9]*$")
+_ROW_ID = re.compile(r"^(?:explorer:)?[1-9][0-9]*$")
 _CURSOR = re.compile(r"^[0-9a-f]{32}$")
 _KIND = re.compile(r"^[a-z0-9_]{1,64}$")
 
@@ -167,7 +167,7 @@ class HistoryAssetMetadata:
 
 @dataclass(frozen=True)
 class HistoryRow:
-    id: int
+    id: str
     height_or_seq: int
     chain: str
     kind: str
@@ -709,14 +709,19 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
     kind = row["kind"]
     if not isinstance(kind, str) or _KIND.fullmatch(kind) is None:
         raise ValueError("invalid-history-kind")
-    if not isinstance(row["id"], str) or _ROW_ID.fullmatch(row["id"]) is None:
+    row_id = row["id"]
+    if (
+        not isinstance(row_id, str)
+        or _ROW_ID.fullmatch(row_id) is None
+        or int(row_id.removeprefix("explorer:")) > _MAX_U64
+    ):
         raise ValueError("invalid-history-row-id")
     if unified:
         _present(row, ("side",))
     asset = _text(row["asset"], 256)
     counterparty = row["counterparty"]
     return HistoryRow(
-        _history_decimal(row["id"], _MAX_U64),
+        row_id,
         _history_decimal(row["height_or_seq"], _MAX_U64),
         _history_chain(row["chain"]),
         kind,
@@ -791,7 +796,7 @@ def _decode_history_page(
 
 
 def _history_rows(value: object, unified: bool, limit: int) -> tuple[HistoryRow, ...]:
-    if not isinstance(value, list) or len(value) > limit:
+    if not isinstance(value, list):
         raise ValueError("invalid-history-page")
     items = tuple(decode_history_row(row, unified) for row in value)
     for before, after in zip(items, items[1:]):
@@ -801,6 +806,14 @@ def _history_rows(value: object, unified: bool, limit: int) -> tuple[HistoryRow,
             after.log_index,
         ):
             raise ValueError("unordered-history-page")
+    if len(items) > limit:
+        boundary = items[limit - 1]
+        if any(
+            (row.block_height, row.tx_index, row.log_index)
+            != (boundary.block_height, boundary.tx_index, boundary.log_index)
+            for row in items[limit:]
+        ):
+            raise ValueError("invalid-history-page")
     return items
 
 
