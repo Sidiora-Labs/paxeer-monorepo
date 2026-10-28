@@ -8245,3 +8245,67 @@ symbol = "lxp_kernel_batch_snapshot_create"
 observed = "Attempts of 13.25.2, 13.26.1, 13.26.2, 13.26.3 and 13.27.1 at 3eaaef0a6 fail their programs tests with LXP_ERR_MODULE_DISABLED while 13.27.2 and 13.27.3 pass with the same harness; the snapshot path at lxp_kernel.c:796-802 disables every programs call when the runtime lxphost_bind_assets fills is incomplete, and 1.23.6 (e6bb6130c) met the same code in the fee-balance tests and routed non-programs activities around the snapshot."
 assumption = "The disabling site is a host binding or test setup ordering defect to be found by tracing the seven -103 return sites; no task maps -103 onto its expected error."
 severity = "blocker"
+
+[finding.18.1001.1.1]
+task = "18.1001.1"
+file = "services/wallet/gateway/test/e2e/attestors.ts"
+symbol = "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE"
+observed = "Attempt 3 at b07918d21: every gateway.e2e test aborts because node-1 exits with custody authority unavailable or refused; the end-to-end harness (attestors.ts:251-262) never passes ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, which the attestor has required since 281e812be."
+assumption = "Pre-existing at main and independent of the task's change; issue #1065 / task 18.1065.1 fixes the harness and 18.1001.1 requires it."
+severity = "blocker"
+
+[finding.18.883.1.1]
+task = "18.883.1"
+file = "services/wallet/attestor/internal/policy/evm/abi/xweb.json"
+symbol = "TestABICopiesMatchRepository"
+observed = "Attempt 2 at 55c419ec5: TestABICopiesMatchRepository fails because the embedded xweb ABI (15 entries) lacks the XWebProgramRequested entry 383bbbbd8 added to precompiles/xweb/abi.json."
+assumption = "Pre-existing at main; issue #1066 / task 18.1066.1 refreshes the copy and 18.883.1 requires it."
+severity = "blocker"
+
+[finding.18.670.1.1]
+task = "18.670.1"
+file = "services/platform/perps-data/e2e_test.go"
+symbol = "TestEndToEnd"
+observed = "Attempt 2 at 7dfd6301d: e2e_test.go:256 stops with TestEndToEnd requires PERPS_DATA_TEST_RPC, mandatory since 86367cc1d (task 3.54.1); no chain endpoint exists in the task's qualification environment."
+assumption = "External authority: the gate needs a live endpoint supplied by the owner; the task is held until one is named."
+severity = "blocker"
+
+[finding.18.849.1.1]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile"
+symbol = "native"
+observed = "Attempt 2 of 18.849.1 (5cbcea1e2) and of 18.869.1 (08e277543): docker build stops before the first layer because the Dockerfile uses RUN --mount and the qualification environment's docker lacked the buildx component."
+assumption = "Environment gap, not a product defect; the environment now provides buildx and both tasks retry unchanged."
+severity = "major"
+
+[finding.18.911.1.1]
+task = "18.911.1"
+file = "tools/qualification/paxeer-x/program_market_attestation.py"
+symbol = "begin_build"
+observed = "Attempt 2 at 119cd300a: --begin-build exits because PAXEER_X_BUILDER_ID is unset; the tool records the value only as the builder identity beside the hostname and re-checks it at --build."
+assumption = "The gate now exports PAXEER_X_BUILDER_ID=$(hostname) for every call; the tool is unchanged."
+severity = "major"
+
+[finding.18.946.1.1]
+task = "18.946.1"
+file = "services/launchpad/stats-workers/internal/internaltest/containers.go"
+symbol = "NewPostgres"
+observed = "Attempt 2 at 25c8b530d: the stats-workers tests need a reachable server named by STATS_TEST_POSTGRES_DSN on which to create throwaway databases; the qualification environment provisioned only redis for this task."
+assumption = "Environment gap; servers for *_TEST_POSTGRES_DSN names are now provisioned and the task retries unchanged."
+severity = "major"
+
+[finding.18.941.1.1]
+task = "18.941.1"
+file = "chain.mk"
+symbol = "loadtest"
+observed = "Attempt 2 at a2985b47d: build_cmd make -f chain.mk -n loadtest stops at the native-archive guard because the archives were never built (GOTCHA 1997)."
+assumption = "build_cmd now runs make paxd-native-libs first; the loadtest target is unchanged."
+severity = "major"
+
+[finding.18.987.1.1]
+task = "18.987.1"
+file = "services/human/tools/schema-check/tests/compatibility_rows.rs"
+symbol = "missing_compatibility_row_for_a_minor_is_rejected"
+observed = "Attempt 2 at af148eff3: after truncating the matrix at row 9 the test expects one compatibility-row-missing violation per schema version 1.8 through 1.10 (do_2) while the checker reports a single violation for 1.8."
+assumption = "do_2 and the checker disagree on whether every missing row is reported or only the first; the test and checker stay as written until the owner rules which is canonical."
+severity = "blocker"
