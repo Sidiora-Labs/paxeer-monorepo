@@ -143995,7 +143995,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.1]
 title = "Carry rungs and transaction receipts in agent creation evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "10.2.7", "9.1.8", "18.1119.1"]
@@ -157371,7 +157371,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.26.3]
 title = "Serve exitValue and exitValueBounded from a tombstoned program"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.5", "13.22.5", "13.22.8", "1.23.5", "18.1073.1", "18.1124.1", "18.1130.1"]
@@ -184441,7 +184441,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1144.1]
 title = "Issue #1144: Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
