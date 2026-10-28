@@ -9603,3 +9603,43 @@ symbol = "layerx_programs_call_transfer_apply"
 observed = "Attempt 21 (97583bd69) seeds the caller's main account the product way and still reverts NON_CANONICAL: the escrow charge reaches call.c:2276 with ledger admission unbound (the kernel binds admission only for CALL, WIND_DOWN, BUDGET and ASSET, lxp_kernel.c:485-486 and :6880-6886, never for LX_PROGRAMS_SANDBOX), the raw-principal lookup returns -208, ffi_call.rs:2003 maps it to ReceiptMismatch and host_ffi.rs:774 to NON_CANONICAL; transfer.c:188-209 got the owned-main-account fallback in 0981a1dd3, call.c did not."
 assumption = "Issue #1163 / task 18.1163.1 mirrors the fallback in call.c; 13.27.1 requires it and keeps attempt 21's fixture."
 severity = "major"
+
+[finding.10.11.9.1]
+task = "10.11.9"
+file = "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:214"
+symbol = "native_provider_and_sdk_real_cluster"
+observed = "Attempt 1 (836d8a2a0) passed both attestor tests; the native profile test returned NotPresent because it reads PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE, a live-cluster fixture no qualification run carries."
+assumption = "The verify runs the two attestor tests and the build compiles the native profile target; the live test is a release gate where the fixture exists."
+severity = "minor"
+
+[finding.10.5.2.1]
+task = "10.5.2"
+file = "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs:383"
+symbol = "native_onboarding_uses_the_pending_nonce"
+observed = "Attempts 3-4 (20d60c8d6) passed the committed-rung test; the pending-nonce test read PAXEER_X_NATIVE_ONBOARDING_FIXTURE, an environment fixture nothing defines, instead of driving the in-process peer that tests/agent_runtime_nonces.rs uses."
+assumption = "do_5 names the harness and withdraws the environment read; the candidate's source changes stand."
+severity = "minor"
+
+[finding.10.14.1.1]
+task = "10.14.1"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1913"
+symbol = "AgentRuntime::balance"
+observed = "Attempt 1 (19a984d2b) built but both tests failed for want of a component harness, and the candidate reports that AgentRuntime::balance refuses every verification byte but 4 and 5, so do_1's rung byte (0, 1, 2) cannot reach the LXHB1 material; the daemon's BALANCE answer changes only with 9.13.2 do_3 (wave 10)."
+assumption = "Task moved to wave 10 after 9.13.2; do_5 ports the decoder, do_6 names the projection_rungs.rs harness."
+severity = "minor"
+
+[finding.10.13.6.1]
+task = "10.13.6"
+file = "services/agent/crates/layerx-agent-api/src/write.rs:78"
+symbol = "SignatureBytes"
+observed = "Attempts 4-5 (9af35d565) passed the controls test; the archive test's reclaim failed verify_before_submit with Malformed('signature') because the custody signature is 64 bytes and the submit contract requires 65, the divergence recorded for 18.1149.1 and 10.98.9."
+assumption = "10.13.6 requires 18.1149.1 and signs as its fixtures will; the signature-form decision stays with the owner."
+severity = "minor"
+
+[finding.18.1151.1.3]
+task = "18.1151.1"
+file = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:982"
+symbol = "open_or_create_by_assertion"
+observed = "Attempt 8 (850a0f2fc) cleared the inventory refusal and failed at the wallet DID step with 'assertion principal unavailable': the test passes the DID text where the identity provider expects a producer-signed binding token, and the verifier has no producer key or binding tenant."
+assumption = "do_6 configures the producer and mints the binding as the provider's own principal_store.rs tests do."
+severity = "minor"

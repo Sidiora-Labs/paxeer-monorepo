@@ -10276,3 +10276,22 @@ detail = "decision.822 moved every x402 network to eip155:<id>, but model.rs:19/
 title = "A kernel fallback added to one lookup must be mirrored in its sibling lookups"
 detail = "13.25.4 (0981a1dd3) taught transfer.c:188-209 to resolve an unbound principal to its owned main account; the same raw-principal lookup at call.c:2276-2280, reached by the sandbox escrow charge whose activity never binds ledger admission (lxp_kernel.c:485-486, :6880-6886), kept refusing with -208, which two Rust layers collapse to NON_CANONICAL (ffi_call.rs:2003, host_ffi.rs:774). 13.27.1 burned attempts 17-21 on it. When a fallback lands in one path, grep for the sibling account_by_id(…, principal) lookups and the activities that reach them unbound."
 
+[gotcha.2104]
+title = "A gate must not name a test that reads a live fixture from the environment"
+detail = "10.11.9's verify listed native_provider_and_sdk_real_cluster, which returns NotPresent without PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE (a running attestor cluster, its TLS material and an owner assertion); no qualification run has it, so the task could never pass. Tests that read a *_LIVE_FIXTURE or *_TEST_RPC variable (native_send_purpose.rs, attestor_native_profile.rs, the perps tests of the test_services_env holds) are release gates: build their targets in build_cmd, run them where the fixture exists, and keep them out of verify_cmd."
+
+
+[gotcha.2105]
+title = "A planned test must name its in-process harness, or the implementer invents an environment fixture"
+detail = "10.5.2 a4 and 10.14.1 a1 both created their planned test and, finding no harness named, read an environment variable (PAXEER_X_NATIVE_ONBOARDING_FIXTURE, a 'real component fixture') that nothing defines, then failed NotPresent. The human service already has the harnesses: tests/agent_runtime_nonces.rs:41-147 (in-process agent runtime peer answering opcodes) and tests/projection_rungs.rs:60-150 (SystemClock + PrivilegedHumanComponents + HumanComponentServer + UnixComponents + Router). A do item that says 'create tests/x.rs (planned)' must cite the harness file and lines."
+
+
+[gotcha.2106]
+title = "A decoder's accepted byte set moves with the task that changes the writer"
+detail = "10.14.1 asked the human service to write the balance rung byte (0, 1, 2) while AgentRuntime::balance (agent_runtime.rs:1913) still refuses every byte but the retired levels 4 and 5, and the daemon's BALANCE answer changes only in a later wave; the task was unqualifiable at its wave. When a do item reads a field from a peer answer, find the task that changes the writer, require it, and give the decoder port an explicit step."
+
+
+[gotcha.2107]
+title = "The identity provider admits a wallet DID only through a producer-signed binding token"
+detail = "open_or_create_by_assertion(token, binding, now) takes a producer-signed binding (three dot-separated parts), never DID text, and verify_binding refuses Unavailable when the verifier has no with_binding_producer_key or the state has no pinned binding tenant; wallet_identity_e2e.rs:982 passed Some(&did) and burned 18.1151.1 a8 on 'assertion principal unavailable'. Follow tests/principal_store.rs of layerx-human-identity-provider (:140-200, :470-500) for the producer key, the tenant and the binding mint."
+
