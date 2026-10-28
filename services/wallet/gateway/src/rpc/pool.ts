@@ -267,6 +267,14 @@ export class RpcPool {
     return (await this.requestVia<T>(method, params)).result;
   }
 
+  private redact(text: string): string {
+    const replacements = this.endpoints.map((ep, index) => ({ url: ep.url, name: `member ${index}` }));
+    if (this.opts.sequencerUrl) replacements.push({ url: this.opts.sequencerUrl, name: 'sequencer' });
+    replacements.sort((a, b) => b.url.length - a.url.length);
+    for (const { url, name } of replacements) text = text.split(url).join(name);
+    return text;
+  }
+
   /** request(), also naming the pool member that answered. */
   async requestVia<T = unknown>(method: string, params: unknown[] = []): Promise<{ result: T; member: string }> {
     const order = this.candidates();
@@ -286,7 +294,9 @@ export class RpcPool {
         }
         ep.state = 'down';
         ep.lastError = err instanceof Error ? err.message : String(err);
-        failures.push(`${ep.url}: ${ep.lastError}`);
+        const index = this.endpoints.indexOf(ep);
+        const reason = this.redact(ep.lastError);
+        failures.push(`member ${index} of ${this.endpoints.length}: ${reason}`);
       }
     }
     throw new RpcUnavailableError(`every RPC endpoint failed ${method}: ${failures.join('; ')}`);
