@@ -10103,3 +10103,27 @@ area = "gateway e2e"
 symptom = "Every test of test/e2e/gateway.e2e.test.ts fails in beforeAll with 503 sponsor_unconfigured at the provisioning call."
 cause = "5f5f66995 retired the gateway sponsor key (decision.1206) and the fixture still writes SPONSOR_PRIVATE_KEY_FILE, a variable nothing reads; the top-up branch stays until 12.6.3 replaces it with the station-sponsored bind."
 do = "When a task retires an input, grep the test fixtures for the variable in the same task; an e2e that provisions needs the replacement path on main, so gate it on that task instead of relaunching."
+
+[gotcha.2066]
+area = "kernel host"
+symptom = "With a programs fee record seeded, consecutive receipts stop linking (ResultingStateRoot != next PreviousStateRoot) although two identical runs give identical hashes."
+cause = "The host loaded two keys of a module it did not load in full; the kernel computes a module's subtree root from the entries loaded into it, so a partially loaded module has a different root than the fully loaded one the next activity sees."
+do = "A module is either fully loaded or not loaded for an activity; never load stray keys of another module into the kernel branch. When a fixture change makes a continuity assertion fail, suspect the loaded set before suspecting nondeterminism."
+
+[gotcha.2067]
+area = "task gates"
+symptom = "The build fails with ERR_PNPM_OTHER_PM_EXPECTED or a wall of type errors that the task never touched."
+cause = "The gate used a package manager the app does not pin (apps/explorer pins yarn, apps/bridge pins pnpm), or gated on a type-check that already fails at main."
+do = "Copy the gate prefix from a done task of the same app, and before gating a task on an app's type-check confirm that the check passes at main; if it does not, cut the repair task first and make the others require it."
+
+[gotcha.2068]
+area = "spec tasks"
+symptom = "cg spec done fails with 'symbol <name> not defined in the graph' after build and tests passed."
+cause = "The task's symbols list named a shell script, a file or a test title; the done check resolves every symbol against the code graph, which indexes functions and types only."
+do = "Put only graph identifiers (functions, types, methods) in symbols; use [] for shell-only or test-only tasks and name tests in the tests key."
+
+[gotcha.2069]
+area = "task gates"
+symptom = "A type-check that passes for every other task of the same app fails with hundreds of errors in files the task never touched, or with missing workspace modules."
+cause = "Each app resolves dependencies through its own manager (apps/explorer yarn, apps/bridge pnpm, apps/web npm, the wallet gateway pnpm) and apps/explorer generates its Chakra recipe types in a postinstall step that a reinstall without scripts loses."
+do = "Copy the gate prefix from a done task of the same app; never reinstall dependencies inside an attempt; for apps/explorer run yarn chakra:typegen before tsc when node_modules changed."

@@ -67,6 +67,8 @@ typedef struct lxphost_outcome {
     uint64_t fee_lo;
     const lxp_effect *effects;
     size_t effect_count;
+    const lxp_applied_transfer_leg *applied_legs;
+    size_t applied_leg_count;
     uint8_t asset[32];
     lxp_u128 amount;
     uint8_t from[32];
@@ -556,8 +558,14 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
                  LXP_MODULE_PROGRAMS)
             return status;
     }
-    return lxp_kernel_execute_activity(&node->kernel, &node->envelope.activity,
-                                       execution, &node->receipt);
+    node->kernel.applied_transfers_out = &execution->applied_transfers;
+    status = lxp_kernel_execute_activity(&node->kernel, &node->envelope.activity,
+                                         execution, &node->receipt);
+    node->kernel.applied_transfers_out = NULL;
+    if (status != LXP_OK || node->receipt.result_code != LXP_OK)
+        (void)memset(&execution->applied_transfers, 0,
+                     sizeof(execution->applied_transfers));
+    return status;
 }
 
 static int32_t lxphost_span_copy(lxp_byte_span source, size_t limit,
@@ -624,6 +632,8 @@ static int32_t lxphost_outcome_read(lxphost_node *node, lxphost_outcome *outcome
     outcome->fee_lo = receipt.fee_charged.lo;
     outcome->effects = node->receipt.effects.effects;
     outcome->effect_count = receipt.effects.count;
+    outcome->applied_legs = node->execution.applied_transfers.legs;
+    outcome->applied_leg_count = node->execution.applied_transfers.count;
     (void)memcpy(outcome->asset, receipt.asset, 32U);
     outcome->amount = receipt.amount;
     (void)memcpy(outcome->from, receipt.from, 32U);
@@ -1062,13 +1072,22 @@ func (h *Host) HostExecute(ctx sdk.Context, activity Activity, authority KernelA
 			})
 		}
 	}
-	if outcome.amount.hi != 0 || outcome.amount.lo != 0 {
+	if module == C.LXP_MODULE_ASSET && (outcome.amount.hi != 0 || outcome.amount.lo != 0) {
 		receipt.Transfers = []TransferLeg{{
 			Asset:  *(*[32]byte)(unsafe.Pointer(&outcome.asset[0])),
 			From:   *(*[32]byte)(unsafe.Pointer(&outcome.from[0])),
 			To:     *(*[32]byte)(unsafe.Pointer(&outcome.to[0])),
 			Amount: readAmount(outcome.amount),
 		}}
+	} else {
+		for _, leg := range unsafe.Slice(outcome.applied_legs, int(outcome.applied_leg_count)) {
+			receipt.Transfers = append(receipt.Transfers, TransferLeg{
+				Asset:  *(*[32]byte)(unsafe.Pointer(&leg.asset_id[0])),
+				From:   *(*[32]byte)(unsafe.Pointer(&leg.from[0])),
+				To:     *(*[32]byte)(unsafe.Pointer(&leg.to[0])),
+				Amount: readAmount(leg.amount),
+			})
+		}
 	}
 	if program := &outcome.program_outcome; program.present != C.bool(false) {
 		receipt.ProgramOutcome = &ProgramOutcome{
