@@ -104,13 +104,19 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
 
       serve_router(%{
         "pax_sequencerReceipt" => test_case["receiptJson"],
-        "px_getReceiptKeys" => [test_case["pinnedKey"]]
+        "px_getReceiptKeys" => %{"keys" => [test_case["pinnedKey"]]},
+        "eth_getTransactionReceipt" => nil
       })
 
       response = json_response(get(conn, "/api/v2/transactions/#{hash}/status"), 200)
 
       assert response == %{"rung" => "receipted", "block_number" => 100, "committed_height" => 101}
-      assert received_calls() == [{"pax_sequencerReceipt", [to_string(hash)]}, {"px_getReceiptKeys", []}]
+
+      assert received_calls() == [
+               {"pax_sequencerReceipt", [to_string(hash)]},
+               {"px_getReceiptKeys", []},
+               {"eth_getTransactionReceipt", [to_string(hash)]}
+             ]
     end
 
     test "a hash with a verified sequencer receipt and no indexed transaction answers receipted",
@@ -122,13 +128,19 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
 
       serve_router(%{
         "pax_sequencerReceipt" => test_case["receiptJson"],
-        "px_getReceiptKeys" => [test_case["pinnedKey"]]
+        "px_getReceiptKeys" => %{"keys" => [test_case["pinnedKey"]]},
+        "eth_getTransactionReceipt" => nil
       })
 
       response = json_response(get(conn, "/api/v2/transactions/#{hash}/status"), 200)
 
       assert response == %{"rung" => "receipted", "block_number" => nil, "committed_height" => 100}
-      assert received_calls() == [{"pax_sequencerReceipt", [hash]}, {"px_getReceiptKeys", []}]
+
+      assert received_calls() == [
+               {"pax_sequencerReceipt", [hash]},
+               {"px_getReceiptKeys", []},
+               {"eth_getTransactionReceipt", [hash]}
+             ]
     end
 
     test "an indexed transaction without a block and a verified sequencer receipt answers receipted",
@@ -139,7 +151,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
 
       serve_router(%{
         "pax_sequencerReceipt" => test_case["receiptJson"],
-        "px_getReceiptKeys" => [test_case["pinnedKey"]]
+        "px_getReceiptKeys" => %{"keys" => [test_case["pinnedKey"]]},
+        "eth_getTransactionReceipt" => nil
       })
 
       response = json_response(get(conn, "/api/v2/transactions/#{hash}/status"), 200)
@@ -152,7 +165,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
 
       serve_router(%{
         "pax_sequencerReceipt" => test_case["receiptJson"],
-        "px_getReceiptKeys" => [test_case["pinnedKey"]]
+        "px_getReceiptKeys" => %{"keys" => [test_case["pinnedKey"]]},
+        "eth_getTransactionReceipt" => nil
       })
 
       request = get(conn, "/api/v2/transactions/#{tx_hash(test_case)}/status")
@@ -166,12 +180,26 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
 
       serve_router(%{
         "pax_sequencerReceipt" => test_case["receiptJson"],
-        "px_getReceiptKeys" => [other_key]
+        "px_getReceiptKeys" => %{"keys" => [other_key]},
+        "eth_getTransactionReceipt" => nil
       })
 
       request = get(conn, "/api/v2/transactions/#{tx_hash(test_case)}/status")
 
       assert %{"message" => "Not found"} = json_response(request, 404)
+    end
+
+    test "a hash with a bare receipt key list answers 404", %{conn: conn, cases: cases} do
+      test_case = cases["V1-pax-transfer"]
+      hash = tx_hash(test_case)
+
+      serve_router(%{
+        "pax_sequencerReceipt" => test_case["receiptJson"],
+        "px_getReceiptKeys" => [test_case["pinnedKey"]]
+      })
+
+      assert %{"message" => "Not found"} = json_response(get(conn, "/api/v2/transactions/#{hash}/status"), 404)
+      assert received_calls() == [{"pax_sequencerReceipt", [hash]}, {"px_getReceiptKeys", []}]
     end
 
     test "a hash the sequencer reports only as submitted answers 404", %{conn: conn, cases: cases} do
@@ -180,7 +208,8 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusControllerTest do
 
       serve_router(%{
         "pax_sequencerReceipt" => %{"rung" => "submitted", "txHash" => hash, "nonce" => "0x0"},
-        "px_getReceiptKeys" => [test_case["pinnedKey"]]
+        "px_getReceiptKeys" => %{"keys" => [test_case["pinnedKey"]]},
+        "eth_getTransactionReceipt" => nil
       })
 
       request = get(conn, "/api/v2/transactions/#{hash}/status")
