@@ -8972,3 +8972,11 @@ symbol = "configure_with"
 observed = "Attempt 1 (b4de9a94b) re-recorded the exchange (four of five settlement responses now carry logs) but also rewired configure_with to take the server's authority key_id and height window from the new buyer.json fields (batch 9 only), so 22 of 35 payment tests failed with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload; the first recorded settlement still carries purposeHash and no logs."
 assumption = "do_4 fixes the authority window and the recorder flag as written; the next attempt keeps the buyer.json metadata buyer-side only and reports the log-less entry instead of editing it."
 severity = "minor"
+[finding.13.27.1.3]
+task = "13.27.1"
+file = "src/modules/programs/call.c:2276"
+symbol = "layerx_programs_call_transfer_apply"
+observed = "Attempt 16 (d74f4338e) edited src/modules/programs/sandbox.c and tests/codec/lxp_test_sandbox_lifecycle.c outside touches, duplicating the accessor fix of 613aff1b9, and TestProgramsSandboxExecuteEmitsUsage was refused with LXP_ERR_NON_CANONICAL, which the attempt attributed to the sequence-account lookup by principal in layerx_programs_call_transfer_apply without locating the return site."
+assumption = "The candidate is rebased without the kernel edits; the next attempt locates the exact kernel return site and either completes the fixture through the product path or records a kernel defect without editing src/."
+severity = "minor"
+
