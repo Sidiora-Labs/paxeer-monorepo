@@ -181852,7 +181852,7 @@ do_4 = "Keep configure_with (services/interop/crates/x-websearch/tests/payment.r
 
 [task.18.1130.1]
 title = "Issue #1130: Seed the active programs fee record in the layerxprograms harness and the lxphost program fixtures"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1135.1"]
