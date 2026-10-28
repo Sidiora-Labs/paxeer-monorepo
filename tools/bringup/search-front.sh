@@ -240,7 +240,7 @@ import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     template = json.load(handle)
-template.pop("note")
+template.pop("note", None)
 missing = []
 
 def fill(value):
