@@ -119206,7 +119206,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.98.2]
 title = "Name the Comet RPC in the local node env file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["5.98.1"]
@@ -134190,7 +134190,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.8.29.1]
 title = "Drive ramp payment legs and journal evidence by transaction hash and rung"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["8.28.3"]
@@ -157133,7 +157133,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.25.4]
 title = "Authorize transfer legs debited from accounts the principal DID owns"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = []
@@ -157165,7 +157165,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.25.5]
 title = "Set the owner authority kind and hash on the 0x101D principal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["13.22.3"]
