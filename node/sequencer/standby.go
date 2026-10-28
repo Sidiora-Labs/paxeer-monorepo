@@ -514,6 +514,7 @@ type Standby struct {
 	consensusKey       tmtypes.PrivValidator
 	receiptKey         ed25519.PrivateKey
 	cur                standbyCursor
+	refusal            error
 	failed             error
 	leader             bool
 	ctx                context.Context
@@ -636,6 +637,13 @@ func (s *Standby) Err() error {
 	return s.failed
 }
 
+// RefusalReason returns the reason for the last refused group, including nonfatal admission errors.
+func (s *Standby) RefusalReason() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.refusal
+}
+
 // ConsensusKey returns the standby's own privval.
 func (s *Standby) ConsensusKey() tmtypes.PrivValidator { return s.consensusKey }
 
@@ -676,11 +684,14 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.leader {
+		s.refusal = fmt.Errorf("%w: standby holds leadership at epoch %d", ErrFenced, s.cur.leaseEpoch)
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq, Epoch: s.cur.leaseEpoch}
 	}
 	if s.failed != nil {
+		s.refusal = s.failed
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
+	s.refusal = nil
 	next := s.cur
 	fresh := make([]wal.Entry, 0, len(entries))
 	for _, e := range entries {
@@ -690,6 +701,7 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 			return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: gap.from, GapTo: gap.to}
 		}
 		if err != nil {
+			s.refusal = err
 			return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 		}
 		if ok {
@@ -707,11 +719,13 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 	}
 	if err := s.persist(fresh); err != nil {
 		s.failed = err
+		s.refusal = err
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
 	for _, e := range fresh {
 		if err := s.execute(e); err != nil {
 			s.failed = err
+			s.refusal = err
 			return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 		}
 		s.cur.advance(e)
