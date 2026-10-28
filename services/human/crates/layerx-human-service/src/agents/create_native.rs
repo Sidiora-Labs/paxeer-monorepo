@@ -488,15 +488,14 @@ impl CreationJourney {
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
-        if evidence.verification_level != VerificationLevel::CHECKPOINT_FINALISED {
+        if evidence.rung != Rung::Committed {
             return Err(AgentFailure::Unavailable.into());
         }
         let verified = evidence.verify_outcome(kind)?;
         let protocol = verified
-            .receipt()
             .protocol()
             .ok_or(AgentCreationError::EvidenceConflict)?;
-        if protocol.activity_id() != evidence.activity_id
+        if protocol.activity_id() != evidence.tx_hash
             || protocol.protocol_version() != 3
             || (kind.module() == layerx_types::payload::ModuleId::Asset
                 && (protocol.module_id() != 1 || u16::from(protocol.operation()) != kind.ordinal()))
@@ -505,12 +504,12 @@ impl CreationJourney {
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
-        let receipt_digest = Sha256::digest(verified.canonical_bytes()).into();
+        let receipt_digest = Sha256::digest(evidence.receipt_bytes.as_slice()).into();
         put_exact(
             scope,
             evidence_row(self.record.agent_id, stage)?,
             now,
-            verified.canonical_bytes().to_vec(),
+            evidence.receipt_bytes.as_slice().to_vec(),
         )?;
         put_exact(
             scope,
@@ -535,7 +534,7 @@ impl CreationJourney {
             StageState::Refused
         };
         progress.evidence_digest = Some(receipt_digest);
-        progress.object_id = Some(evidence.activity_id);
+        progress.object_id = Some(evidence.tx_hash);
         if stage == CreationStage::DidRegistration && protocol.result_code() == 0 {
             self.stage_mut(CreationStage::Custody).state = StageState::ReceiptVerified;
             self.stage_mut(CreationStage::Custody).evidence_digest = Some(receipt_digest);
@@ -556,4 +555,65 @@ pub(super) fn full_hex(bytes: &[u8; 32]) -> String {
         text.push(char::from(DIGITS[usize::from(byte & 15)]));
     }
     text
+}
+
+impl ProtocolEvidence {
+    /// # Errors
+    /// Refuses a missing native receipt or a transaction that is still submitted.
+    pub fn with_native_receipt(
+        mut self,
+        receipt: &layerx_client::sequencer::SequencerReceipt,
+    ) -> Result<Self, AgentFailure> {
+        use layerx_client::sequencer::SequencerReceipt;
+        let (executed, rung) = match receipt {
+            SequencerReceipt::Submitted { .. } => return Err(AgentFailure::Unavailable),
+            SequencerReceipt::Receipted(executed) => (executed, Rung::Receipted),
+            SequencerReceipt::Committed {
+                receipt,
+                block_number,
+                block_hash,
+            } => {
+                if receipt.height != *block_number || *block_hash == [0; 32] {
+                    return Err(AgentFailure::Refused("native receipt height differs"));
+                }
+                (receipt, Rung::Committed)
+            }
+        };
+        if executed.tx_hash == [0; 32] || executed.height == 0 || executed.receipt.is_empty() {
+            return Err(AgentFailure::Refused("native receipt is incomplete"));
+        }
+        let receipt_hash: [u8; 32] = Sha256::digest(&executed.receipt).into();
+        if (self.tx_hash != [0; 32] && self.tx_hash != executed.tx_hash)
+            || (self.receipt_hash != [0; 32] && self.receipt_hash != receipt_hash)
+            || (self.block_height != 0 && self.block_height != executed.height)
+            || (!self.receipt_bytes.is_empty() && self.receipt_bytes != executed.receipt)
+        {
+            return Err(AgentFailure::Refused("native receipt transaction differs"));
+        }
+        let decoded = layerx_intents::canonical::decode_receipt(&executed.receipt)
+            .map_err(|_| AgentFailure::Refused("invalid native transaction receipt"))?;
+        let canonical = layerx_intents::canonical::receipt_bytes(&decoded)
+            .map_err(|_| AgentFailure::Refused("invalid canonical native receipt"))?;
+        let protocol = decoded.protocol().ok_or(AgentFailure::Refused(
+            "native transaction receipt is missing",
+        ))?;
+        let height = protocol.batch_id();
+        if canonical != executed.receipt
+            || protocol.activity_id() != executed.tx_hash
+            || protocol.global_sequence() != executed.seq
+            || executed.seq == 0
+            || protocol.sequencer_signature().is_none()
+            || height[..24] != [0; 24]
+            || height[24..] != executed.height.to_be_bytes()
+            || (protocol.result_code() == 0) != executed.success
+        {
+            return Err(AgentFailure::Refused("native receipt binding differs"));
+        }
+        self.tx_hash = executed.tx_hash;
+        self.receipt_hash = receipt_hash;
+        self.block_height = executed.height;
+        self.rung = rung;
+        self.receipt_bytes = executed.receipt.clone();
+        Ok(self)
+    }
 }

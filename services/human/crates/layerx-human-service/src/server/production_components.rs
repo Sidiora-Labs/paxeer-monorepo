@@ -2426,11 +2426,10 @@ fn creation_material(
             action_key: key,
             object_id,
             observed_sequence: sequence,
-            verification_level: match rank {
-                2 => layerx_types::verify::VerificationLevel::BATCH_INCLUDED,
-                3 => layerx_types::verify::VerificationLevel::STATE_PROVEN,
-                4 => layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED,
-                5 => layerx_types::verify::VerificationLevel::SETTLEMENT_ANCHORED,
+            rung: match rank {
+                0 => layerx_types::rung::Rung::Submitted,
+                1 => layerx_types::rung::Rung::Receipted,
+                2 => layerx_types::rung::Rung::Committed,
                 _ => return Err(ApiFailure::upstream_degraded()),
             },
             receipt_digest: recorded,
@@ -2439,7 +2438,7 @@ fn creation_material(
             || object_id != object
             || object_id == [0; 32]
             || sequence == 0
-            || rank < 2
+            || !observation.creation_complete()
             || recorded != expected
             || recorded != observation.expected_digest(source_stage)
         {
@@ -2496,15 +2495,17 @@ fn creation_material(
         action_key,
         activity_id,
         receipt_bytes: material.canonical_bytes,
-        authorized_batch: material.authorised_batch,
-        verification_level: material.verification_level,
+        tx_hash: material.tx_hash,
+        receipt_hash: material.receipt_hash,
+        block_height: material.block_height,
+        rung: material.rung,
     };
-    let verified = evidence
+    evidence
         .verify_outcome(activity.activity_type())
         .map_err(agent_failure_from_creation_contract)?;
-    if <[u8; 32]>::from(Sha256::digest(verified.canonical_bytes())) != expected
+    if <[u8; 32]>::from(Sha256::digest(evidence.receipt_bytes.as_slice())) != expected
         || (source_stage != CreationStage::SessionProvision
-            && row.bytes() != verified.canonical_bytes())
+            && row.bytes() != evidence.receipt_bytes.as_slice())
     {
         return Err(ApiFailure::upstream_degraded());
     }
@@ -2515,21 +2516,21 @@ fn creation_material(
             || object_id != object
             || object_id == [0; 32]
             || sequence == 0
-            || rank < 4
-            || rank > evidence.verification_level.wire_rank()
+            || rank != layerx_types::rung::Rung::Committed.wire_rank()
+            || rank != evidence.rung.wire_rank()
             || recorded != expected
         {
             return Err(ApiFailure::upstream_degraded());
         }
     }
     let mut value = super::projection::owned_material(
-        verified.canonical_bytes(),
+        evidence.receipt_bytes.as_slice(),
         "layerx-receipt",
         "application/vnd.layerx.receipt",
     );
-    value["verification"] = json!(super::projection::verification(
-        evidence.verification_level.wire_rank(),
-    )?);
+    value["verification"] = json!(super::HumanComponentServer::verification_level_name(
+        evidence.rung
+    ));
     Ok(Some(value))
 }
 
@@ -3895,12 +3896,28 @@ impl ProductionComponents {
             .native_fee_policy()
             .map_err(agent_failure)?;
         let native_fee_budget = native_fee_consent(&request.body, &fee_policy)?;
+        let activity_types = request
+            .body
+            .get("activity_types")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| ApiFailure::invalid_request(Some("activity_types")))?
+            .iter()
+            .map(|value| {
+                let value = value
+                    .as_u64()
+                    .and_then(|value| u32::try_from(value).ok())
+                    .ok_or_else(|| ApiFailure::invalid_request(Some("activity_types")))?;
+                layerx_types::payload::ActivityType::from_u32(value)
+                    .map_err(|_| ApiFailure::invalid_request(Some("activity_types")))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         let creation = CreateAgentRequest::new(
             text_field(&request.body, "name")?,
             text_field(&request.body, "purpose")?,
             amount,
             text_field(limit, "currency")?,
         )
+        .and_then(|value| value.with_activity_types(activity_types))
         .and_then(|value| value.with_native_fee_budget(native_fee_budget))
         .map_err(|_| ApiFailure::invalid_request(None))?;
         let idempotency_key: [u8; 32] =
@@ -8084,7 +8101,7 @@ impl ProductionComponents {
         if finalization.action_key != operation_key
             || finalization.receipt_digest != evidence.receipt_digest
             || finalization.observed_sequence != evidence.observed_sequence
-            || finalization.verification != evidence.verification_level.wire_rank()
+            || finalization.verification != evidence.rung.wire_rank()
         {
             return Err(ApiFailure::upstream_degraded());
         }
