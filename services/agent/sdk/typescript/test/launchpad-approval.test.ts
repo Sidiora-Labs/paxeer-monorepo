@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import test from "node:test";
 
 import {
   LAUNCHPAD_PRECOMPILE,
@@ -11,6 +12,7 @@ import {
   sendLaunchpadBuy,
   sendLaunchpadCreateMarket,
   sendLaunchpadSell,
+  waitLaunchpadApproval,
   type Eip1193Requester,
 } from "../src/index.js";
 
@@ -30,16 +32,21 @@ class Chain implements Eip1193Requester {
   readonly sent: { to: string; data: string }[] = [];
   readonly allowances = new Map<string, bigint>();
   approveStatus = "0x1";
+  tokenWord = BigInt(token);
+  usdlWord = BigInt(usdl);
+  allowanceReads = 0;
+  receiptReads = 0;
   private readonly receipts = new Map<string, string>();
 
   async request({ method, params = [] }: Readonly<{ method: string; params?: readonly unknown[] }>): Promise<unknown> {
     const call = params[0] as { from?: string; to: string; data: string };
     switch (method) {
       case "eth_call":
-        if (call.to === LAUNCHPAD_PRECOMPILE && call.data === abiSelector("usdlAddress()")) return `0x${word(usdl)}`;
+        if (call.to === LAUNCHPAD_PRECOMPILE && call.data === abiSelector("usdlAddress()")) return `0x${word(this.usdlWord)}`;
         if (call.to === LAUNCHPAD_PRECOMPILE && call.data === abiSelector("creationFee()")) return `0x${word(creationFee)}`;
-        if (call.to === pool && call.data === abiSelector("tokenAddress()")) return `0x${word(token)}`;
+        if (call.to === pool && call.data === abiSelector("tokenAddress()")) return `0x${word(this.tokenWord)}`;
         if (call.data === `${abiSelector("allowance(address,address)")}${word(owner)}${word(LAUNCHPAD_PRECOMPILE)}`) {
+          this.allowanceReads += 1;
           return `0x${word(this.allowances.get(call.to) ?? 0n)}`;
         }
         throw new Error(`no answer for ${call.data.slice(0, 10)} at ${call.to}`);
@@ -55,6 +62,7 @@ class Chain implements Eip1193Requester {
         return hash;
       }
       case "eth_getTransactionReceipt": {
+        this.receiptReads += 1;
         const status = this.receipts.get(String(params[0]));
         return status === undefined ? null : { status };
       }
@@ -114,3 +122,49 @@ const order = { pool, amountIn: 250n, minOut: 1n, deadline: 1_700_000_000n };
   await assert.rejects(sendLaunchpadBuy(chain, owner, order), PrecompileAbiError);
   assert.deepEqual(chain.sent, [{ to: usdl, data: approveData(order.amountIn) }]);
 }
+
+async function approval_revert_and_timeout_have_their_own_codes() {
+  const reverted = new Chain();
+  reverted.approveStatus = "0x0";
+  await assert.rejects(sendLaunchpadBuy(reverted, owner, order), (error: unknown) => {
+    assert.ok(error instanceof PrecompileAbiError);
+    assert.equal(error.code, "approve_reverted");
+    assert.match(error.message, /approve .* reverted/u);
+    return true;
+  });
+  assert.equal(reverted.receiptReads, 1);
+  assert.deepEqual(reverted.sent, [{ to: usdl, data: approveData(order.amountIn) }]);
+
+  const unmined = new Chain();
+  const hash = `0x${word(99n)}`;
+  await assert.rejects(waitLaunchpadApproval(unmined, hash, 2, 0), (error: unknown) => {
+    assert.ok(error instanceof PrecompileAbiError);
+    assert.equal(error.code, "approve_not_mined");
+    assert.equal(error.message, `approve_not_mined: approve ${hash} not mined`);
+    return true;
+  });
+  assert.equal(unmined.receiptReads, 2);
+  assert.deepEqual(unmined.sent, []);
+}
+
+test(approval_revert_and_timeout_have_their_own_codes);
+
+async function approval_refuses_a_token_word_with_high_bytes_set() {
+  for (const highBit of [160n, 255n]) {
+    for (const kind of ["sell", "buy", "create"] as const) {
+      const chain = new Chain();
+      chain.tokenWord |= 1n << highBit;
+      chain.usdlWord |= 1n << highBit;
+      const spend = kind === "create" ? { kind } : { kind, order };
+      await assert.rejects(launchpadApproval(chain, owner, spend), (error: unknown) => {
+        assert.ok(error instanceof PrecompileAbiError);
+        assert.equal(error.code, "non_canonical_word");
+        return true;
+      });
+      assert.equal(chain.allowanceReads, 0);
+      assert.deepEqual(chain.sent, []);
+    }
+  }
+}
+
+test(approval_refuses_a_token_word_with_high_bytes_set);

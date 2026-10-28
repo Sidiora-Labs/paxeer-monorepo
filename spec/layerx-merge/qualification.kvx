@@ -9019,3 +9019,188 @@ symbol = "TestVectorV4CommittedVerifies"
 observed = "Attempt 9 (9834674cb, base 183480b86 without 07d11e56d of 18.1126.1) halts the recorder with a consensus panic 'validator 8B91CA3C2C046956F1AD6AA1CD53460C3028ECFC not in committee' before the vector is recorded, so the vector stays the placeholder."
 assumption = "Attempt 10 runs on a base containing 18.1126.1; if the panic persists it is a new node defect to file, not a fixture change."
 severity = "major"
+
+[finding.18.849.1.3]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 6 (719e97a42) fails in the builder stage: curl to https://node.hyperpaxeer.com/lib/libwasmvm.x86_64.so returns 502 on every retry (issue #1106), while the same three x86_64 libraries sit in the tree with digests equal to wasm-runtime/libwasmvm-linux.sha256."
+assumption = "Task 18.1106.1 copies the libraries from the build context; 18.849.1 and 18.869.1 require it."
+severity = "major"
+
+[finding.18.869.1.3]
+task = "18.869.1"
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 9 (0dd49d24a) fails the same way as 18.849.1 attempt 6: the library host answers 502 before the paxd-node changes are reached."
+assumption = "Blocked on 18.1106.1; the candidate's Dockerfile.paxd-node changes are kept for the next attempt."
+severity = "major"
+
+[finding.18.1065.1.5]
+task = "18.1065.1"
+file = "services/wallet/gateway/src/provision/state.ts:519"
+symbol = "sponsor_unconfigured"
+observed = "Attempt 9 (90c8a5d2e) starts the five attestors with the authority files and the migrations run, but the provisioning in beforeAll (gateway.e2e.test.ts:148) answers 503 sponsor_unconfigured: 5f5f66995 set provisionDepsFromEnv sponsor null (decision.1206) and the e2e still writes the retired SPONSOR_PRIVATE_KEY_FILE, so every test of the file fails before its own assertion."
+assumption = "Pre-existing since 2026-10-11 and outside the task; 12.6.3 replaces the top-up branch, 18.1065.1 now requires it (wave 3) and do_7 adds the local station; 18.1001.1 follows through its existing requires."
+severity = "major"
+
+[finding.18.1106.1.1]
+task = "18.1106.1"
+file = "wasm-runtime/internal/api/libwasmvm.aarch64.so"
+symbol = "libwasmvm.aarch64.so"
+observed = "The aarch64 library in the tree hashes to 7b645f7de8af0fd0bdbf6ef4501625f3fccf851ef267be1298ccfc5ffbe1f46e while wasm-runtime/libwasmvm-linux.sha256 pins 3039d33393603a070a1f31bc2f10b04a49616d037f085350941f3529af4c9065; the x86_64 set and libwasmvm155.aarch64.so match."
+assumption = "An arm64 build of the image fails the digest check once the libraries come from the tree; which of the two is canonical needs an owner decision (issue filed), so the task's test pins the x86_64 set only."
+severity = "minor"
+
+[finding.18.1130.1.1]
+task = "18.1130.1"
+file = "modules/lxphost/host.go:1007"
+symbol = "activityModules"
+observed = "Attempt 3 (a1d4b7ccf) seeds the LXFR1 record in all five fixtures and the three precompile tests pass, but TestResolutionExecuteEntry fails its continuity assertion: both runs produce identical receipts, keys and commit hashes, while the registry receipt's ResultingStateRoot differs from the deploy receipt's PreviousStateRoot because the governance activity loads only the two fee keys of the programs module and the deploy loads the module in full (issue #1135)."
+assumption = "A host defect introduced by 18.1124.1, outside this task's touches; 18.1130.1 requires 18.1135.1 and its next attempt reuses that task's seedProgramsFeeRecord instead of its own copy."
+severity = "major"
+
+[finding.18.1048.1.1]
+task = "18.1048.1"
+file = "apps/bridge/tsconfig.json"
+symbol = "target"
+observed = "Attempt 3 (5ca448f58) fails the build pnpm --dir apps/bridge exec tsc --noEmit with 112 errors at main before the task's change: 69 TS2737 BigInt literals under the es2017 target, LayoutProps unresolved at src/app/layout.tsx:36 without the generated Next route types, and type errors across the bridge libraries and specs (issue #1136)."
+assumption = "Pre-existing; 18.1136.1 makes the type-check pass and 18.1048.1 and 18.1049.1 require it, their build now the app's typecheck script."
+severity = "major"
+
+[finding.18.1049.1.1]
+task = "18.1049.1"
+file = "apps/bridge/tsconfig.json"
+symbol = "target"
+observed = "Attempt 2 (787657c90) fails identically to 18.1048.1 attempt 3 at the type-check build; the mounted-render tests themselves never ran."
+assumption = "Blocked on 18.1136.1; the candidate is kept for the next attempt."
+severity = "major"
+
+[finding.18.899.1.1]
+task = "18.899.1"
+file = "apps/explorer/package.json"
+symbol = "packageManager"
+observed = "Attempt 1 (02b26ae52) wrote the joined-channel regression test but the build pnpm --dir apps/explorer exec tsc --noEmit fails with ERR_PNPM_OTHER_PM_EXPECTED: apps/explorer pins yarn@1.22.22 and every other explorer task gates with cd apps/explorer && yarn."
+assumption = "Gate wording defect, not a code failure; build_cmd and verify_cmd now use yarn as 18.897.1 and 18.900.1 do and the next attempt continues from the candidate."
+severity = "minor"
+
+[finding.18.1039.1.1]
+task = "18.1039.1"
+file = "modules/launchpad/keeper/fees_test.go:172"
+symbol = "ProtocolFeesKey"
+observed = "Attempts 2 and 3 (bc450c1f1) pass the build and fail the verify because the keeper test package does not compile: fees_test.go:172 and simulation/decoder_test.go:55 call types.ProtocolFeesKey, deleted by 94bae91dc (4.8.5), whose gate did not compile the test packages (issue #1137)."
+assumption = "Pre-existing; 18.1137.1 repairs both tests and 18.1039.1 requires it."
+severity = "major"
+
+[finding.18.1131.1.2]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:142"
+symbol = "config_with_authority"
+observed = "Attempt 3 (f73cbbc6f) fails the build: the fixture sets expected_protocol_version and sequencer_authority_source, removed from StartupConfig by 5609ec802 (9.12.3), and readiness_node_rpc.rs includes the file by #[path], so every agentd test-target build fails (issue #1138)."
+assumption = "Pre-existing; 18.1138.1 ports the fixture and 18.1131.1 and 9.95.1 require it."
+severity = "major"
+
+[finding.18.741.1.1]
+task = "18.741.1"
+file = "services/wallet/gateway/test/support/chain.ts:214"
+symbol = "TestChain.handle"
+observed = "Attempts 2 and 3 (aca4f9e29) implement the lock change and fail the verify because TestChain answers pax_sequencerReceipt with -32601, so both broadcasts return 502 and the cap assertion sees the wrong sequence."
+assumption = "The TestChain support is split out of 18.1001.1 (ruling-held behind 12.6.3) into 18.1001.2; 18.741.1 requires it."
+severity = "major"
+
+[finding.18.752.1.1]
+task = "18.752.1"
+file = "apps/web/package.json"
+symbol = "typecheck"
+observed = "Attempt 2 (c3c142f87) fails the build pnpm --dir apps/web exec tsc --noEmit with 98 errors (missing @layerx/ui modules, implicit any) while 18.851.1 and 18.758.1 passed npm --prefix apps/web run typecheck at the same hour: apps/web resolves its workspace packages through npm, not pnpm."
+assumption = "Gate wording defect; build and verify now run through npm and node as the other apps/web tasks do."
+severity = "minor"
+
+[finding.18.870.1.1]
+task = "18.870.1"
+file = "apps/explorer/package.json"
+symbol = "chakra:typegen"
+observed = "Attempt 1 (3335e60e1) fails yarn lint:tsc with 341 errors in toolkit/chakra and ui/showcases that 18.896.1 and 18.897.1 did not see with the same compiler: the attempt reinstalled node_modules and the Chakra recipe types that postinstall generates (chakra typegen) were lost."
+assumption = "Environment, not code; the build now runs yarn chakra:typegen first and the next attempt must not reinstall dependencies."
+severity = "minor"
+
+[finding.18.961.1.1]
+task = "18.961.1"
+file = "spec/workflow.kvx:79"
+symbol = "task"
+observed = "Attempts 1 and 2 (2c331c1e4) change the expected feature and still fail: the validator rejects status superseded on 6.69.2, 6.69.3, 8.28.4, 8.98.7, 8.98.8 and blocked on 13.34.2 because workflow.kvx lists only pending, in_progress and done."
+assumption = "decision.1799 adds both statuses to the workflow vocabulary; do_2 added."
+severity = "major"
+
+[finding.18.760.1.1]
+task = "18.760.1"
+file = "apps/perps/tests/order-plan.test.ts:205"
+symbol = "planOrder"
+observed = "Attempts 2 and 3 (172062668) fail the perps type-check because order-plan.test.ts still calls planOrder with an allowance source and expects an approve write, the behaviour the issue removes; the file was outside touches."
+assumption = "Task-scoped; the test is added to touches with do_4."
+severity = "major"
+
+[finding.18.896.1.1]
+task = "18.896.1"
+file = "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx:20"
+symbol = "index"
+observed = "Attempt 1 (e0fc0abcd) adds the required index field to the feed type and fails the explorer type-check on the existing fixture that lacks it; the spec file was outside touches."
+assumption = "Task-scoped; the fixture is added to touches with a do-line."
+severity = "major"
+
+[finding.18.923.1.1]
+task = "18.923.1"
+file = "apps/web/e2e/gas-station.test.ts:280"
+symbol = "sendWalletSponsoredBatch"
+observed = "Attempt 2 (e3fdd21b9) implements the pending outcome and fails on the existing expectation that the first write is reported sent; since c182d8bfd the product reports unconfirmed when the receipt poll yields no receipt, which the fixture does."
+assumption = "The test encodes the pre-c182d8bfd contract; do_4 updates the two expectations to the shipped outcome."
+severity = "major"
+
+[finding.18.1119.1.3]
+task = "18.1119.1"
+file = "services/human/crates/layerx-human-service/tests/detail_rungs.rs:126"
+symbol = "receipted_entry_detail_is_not_final"
+observed = "Attempt 8 (f021bcb0c) ports the readiness gate and fails two detail_rungs tests: they iterate verification levels StateProven and SettlementAnchored into Verified references that now carry a Rung, and Level::rung folds StateProven into Receipted and gives SettlementAnchored no rung."
+assumption = "The level loops are the pre-rung convention; do_7 moves them to rungs and keeps the finality assertions."
+severity = "major"
+
+[finding.18.1110.1.1]
+task = "18.1110.1"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go:303"
+symbol = "runNativeRustConsumer"
+observed = "Attempts 1 and 2 (80d566f81) pass the build and fail the verify at the fixture's first line: PAXEER_X_NATIVE_CUSTODY_RUST_TEST is unset, so the real Rust custody consumer is absent."
+assumption = "The gate now builds the layerx-human-kms attestor_native_profile executable and exports its path, as tools/qualification/paxeer-x/human_native_custody.py does."
+severity = "major"
+
+[finding.18.754.1.1]
+task = "18.754.1"
+file = "spec/layerx-merge/spec.kvx"
+symbol = "symbols"
+observed = "Attempts 3 and 4 (38472f260) pass build and behaviour tests and fail cg spec done on symbol render-edge-trust.sh not defined in the graph; the same check fails 18.1058.1 (a test title) and would fail 18.900.1, 18.921.1, 18.922.1, 10.5.2 and 10.13.8."
+assumption = "Symbols are graph identifiers; file names and test titles removed from the seven tasks."
+severity = "minor"
+
+[finding.18.1136.1.1]
+task = "18.1136.1"
+file = "apps/bridge/vitest.config.ts:8"
+symbol = "defineConfig"
+observed = "Attempt 1 (d8e7bc915) raised the target, generated the route types and repaired most libraries, then exhausted its repairs on vitest.config.ts: the svgr and tsconfig-paths plugins are typed against a second vite copy whose Plugin type the vitest 4.0.15 vite rejects; bridge-card.tsx:210 and import.ts:87-91 also remain."
+assumption = "Dependency incoherence inside the app; do_4 and the two added touches let the next attempt align the vite versions and continue from the candidate."
+severity = "major"
+
+[finding.18.1135.1.1]
+task = "18.1135.1"
+file = "modules/lxphost/host.go:1127"
+symbol = "activityModules"
+observed = "Attempt 1 (279199654) added the programs module to every governance activity's set; the active-record continuity case passed, but TestResolutionExecuteEntry and a without-record case failed with LXP_ERR_VERSION_UNSUPPORTED because a fresh chain carries no programs state to load."
+assumption = "do_5 makes the full load conditional on the active record; the refusal and receipt fields stay as do_2 requires."
+severity = "major"
+
+[finding.18.849.1.3]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile.dockerignore:70"
+symbol = "x-websearch"
+observed = "Attempt 7 (4039a22e0) built the native stage and failed the full image at the x-websearch stage: cargo could not load workspace member services/interop/crates/layerx-committed-proof, which 70d213655 added to services/interop/Cargo.toml after the ignore file's interop re-includes were written; the attempt read do_5 as forbidding that repair."
+assumption = "do_5 now names the re-include; no other interop member is missing from the context."
+severity = "major"
+

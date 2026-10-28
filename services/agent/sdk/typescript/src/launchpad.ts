@@ -100,7 +100,12 @@ async function viewWord(rpc: Eip1193Requester, to: string, data: string): Promis
   return BigInt(answer.slice(0, 66));
 }
 
-const wordAddress = (word: bigint): string => `0x${word.toString(16).padStart(40, "0")}`;
+function wordAddress(word: bigint): string {
+  if (word >> 160n !== 0n) {
+    throw new PrecompileAbiError("non_canonical_word");
+  }
+  return `0x${word.toString(16).padStart(40, "0")}`;
+}
 
 /**
  * Reads the token and amount the Router will pull for `spend` and the
@@ -129,11 +134,11 @@ export async function waitLaunchpadApproval(rpc: Eip1193Requester, hash: string,
       if ((receipt as { status?: unknown }).status === "0x1") {
         return;
       }
-      throw new PrecompileAbiError("malformed_wallet_answer", `approve ${hash} reverted`);
+      throw new PrecompileAbiError("approve_reverted", `approve ${hash} reverted`);
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new PrecompileAbiError("malformed_wallet_answer", `approve ${hash} not mined`);
+  throw new PrecompileAbiError("approve_not_mined", `approve ${hash} not mined`);
 }
 
 /**
