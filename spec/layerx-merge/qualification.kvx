@@ -9019,3 +9019,35 @@ symbol = "TestVectorV4CommittedVerifies"
 observed = "Attempt 9 (9834674cb, base 183480b86 without 07d11e56d of 18.1126.1) halts the recorder with a consensus panic 'validator 8B91CA3C2C046956F1AD6AA1CD53460C3028ECFC not in committee' before the vector is recorded, so the vector stays the placeholder."
 assumption = "Attempt 10 runs on a base containing 18.1126.1; if the panic persists it is a new node defect to file, not a fixture change."
 severity = "major"
+
+[finding.18.849.1.3]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 6 (719e97a42) fails in the builder stage: curl to https://node.hyperpaxeer.com/lib/libwasmvm.x86_64.so returns 502 on every retry (issue #1106), while the same three x86_64 libraries sit in the tree with digests equal to wasm-runtime/libwasmvm-linux.sha256."
+assumption = "Task 18.1106.1 copies the libraries from the build context; 18.849.1 and 18.869.1 require it."
+severity = "major"
+
+[finding.18.869.1.3]
+task = "18.869.1"
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 9 (0dd49d24a) fails the same way as 18.849.1 attempt 6: the library host answers 502 before the paxd-node changes are reached."
+assumption = "Blocked on 18.1106.1; the candidate's Dockerfile.paxd-node changes are kept for the next attempt."
+severity = "major"
+
+[finding.18.1065.1.5]
+task = "18.1065.1"
+file = "services/wallet/gateway/src/provision/state.ts:519"
+symbol = "sponsor_unconfigured"
+observed = "Attempt 9 (90c8a5d2e) starts the five attestors with the authority files and the migrations run, but the provisioning in beforeAll (gateway.e2e.test.ts:148) answers 503 sponsor_unconfigured: 5f5f66995 set provisionDepsFromEnv sponsor null (decision.1206) and the e2e still writes the retired SPONSOR_PRIVATE_KEY_FILE, so every test of the file fails before its own assertion."
+assumption = "Pre-existing since 2026-10-11 and outside the task; 12.6.3 replaces the top-up branch, 18.1065.1 now requires it (wave 3) and do_7 adds the local station; 18.1001.1 follows through its existing requires."
+severity = "major"
+
+[finding.18.1106.1.1]
+task = "18.1106.1"
+file = "wasm-runtime/internal/api/libwasmvm.aarch64.so"
+symbol = "libwasmvm.aarch64.so"
+observed = "The aarch64 library in the tree hashes to 7b645f7de8af0fd0bdbf6ef4501625f3fccf851ef267be1298ccfc5ffbe1f46e while wasm-runtime/libwasmvm-linux.sha256 pins 3039d33393603a070a1f31bc2f10b04a49616d037f085350941f3529af4c9065; the x86_64 set and libwasmvm155.aarch64.so match."
+assumption = "An arm64 build of the image fails the digest check once the libraries come from the tree; which of the two is canonical needs an owner decision (issue filed), so the task's test pins the x86_64 set only."
+severity = "minor"
