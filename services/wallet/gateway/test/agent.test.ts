@@ -200,6 +200,193 @@ describe('decodeAddressArg', () => {
   });
 });
 
+const withdrawalAllowlistTests = {
+  async 'gates every known asset-moving selector by the withdrawal allowlist'() {
+    const agent = newAgentKey('mover-policy');
+    const db = await import('../src/db/agents.js');
+    await db.upsertPrincipalOnVerify({
+      did: agent.did,
+      label: 'mover-policy',
+      keyFingerprint: agent.publicKeyHex.slice(0, 16),
+      publicKey: agent.publicKeyHex,
+    });
+    const owner = randomUUID();
+    expect(await db.claimPrincipal(agent.did, owner)).toBe(true);
+    await db.setPrincipalFrozen(agent.did, false);
+    const policy = await db.upsertPolicy(
+      agent.did,
+      {
+        mode: 'full',
+        withdrawal_allowlist_only: true,
+        max_approve_wei: 1n,
+      },
+      owner,
+    );
+    const principal = await db.findPrincipal(agent.did);
+    if (!principal) throw new Error('persisted principal missing');
+    expect(principal.is_frozen).toBe(false);
+    expect(principal.owner_user_id).toBe(owner);
+    expect(policy.mode).toBe('full');
+    expect(policy.withdrawal_allowlist_only).toBe(true);
+
+    const token = '0x1111111111111111111111111111111111111111';
+    const counterparty = '0xaaaabbbbccccddddeeeeffff1111222233334444';
+    const fromWord = token.slice(2).padStart(64, '0');
+    const counterpartyWord = counterparty.slice(2).toUpperCase().padStart(64, '0');
+    const amountWord = '1'.padStart(64, '0');
+    const movers = [
+      [policyModule.ERC20_TRANSFER_SELECTOR, 0, false],
+      [policyModule.ERC20_APPROVE_SELECTOR, 0, true],
+      [policyModule.ERC20_TRANSFER_FROM_SELECTOR, 1, false],
+      ['0x39509351', 0, true],
+      ['0x1296ee62', 0, false],
+      ['0x4000aea0', 0, false],
+      ['0x3177029f', 0, true],
+      ['0xcae9ca51', 0, true],
+      ['0xa22cb465', 0, true],
+      ['0x42842e0e', 1, false],
+      ['0xb88d4fde', 1, false],
+      ['0xf242432a', 1, false],
+      ['0x2eb2c2d6', 1, false],
+    ] as const;
+    const withdrawalRule = await db.addRule({
+      did: agent.did,
+      effect: 'allow',
+      subject: 'withdrawal',
+      value: counterparty,
+      createdBy: owner,
+    });
+    const deniedAddressRule = await db.addRule({
+      did: agent.did,
+      effect: 'deny',
+      subject: 'address',
+      value: counterparty,
+      createdBy: owner,
+    });
+    const otherWithdrawalRule = await db.addRule({
+      did: agent.did,
+      effect: 'allow',
+      subject: 'withdrawal',
+      value: token,
+      createdBy: owner,
+    });
+
+    for (const [selector, argIndex, isApprove] of movers) {
+      const data = `${selector}${argIndex === 1 ? fromWord : ''}${counterpartyWord}${amountWord}`;
+      expect(policyModule.decodeMoverCounterparty(selector, data)).toEqual({
+        counterparty,
+        isApprove,
+        known: true,
+      });
+      const intent = { kind: 'transaction', to: token, data } as const;
+      expect(await policyModule.evaluateAgent({ principal, policy, rules: [], intent })).toMatchObject({
+        allow: false,
+        code: 'WITHDRAWAL_NOT_ALLOWLISTED',
+        detail: { recipient: counterparty },
+      });
+      const annotatedIntent = {
+        ...intent,
+        tokenContract: token,
+        tokenRecipient: token,
+        isApprove: false,
+      };
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [otherWithdrawalRule],
+          intent: annotatedIntent,
+        }),
+      ).toMatchObject({
+        allow: false,
+        code: 'WITHDRAWAL_NOT_ALLOWLISTED',
+        detail: { recipient: counterparty },
+      });
+      expect(
+        await policyModule.evaluateAgent({ principal, policy, rules: [withdrawalRule], intent }),
+      ).toMatchObject({ allow: true });
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [withdrawalRule, deniedAddressRule],
+          intent,
+        }),
+      ).toMatchObject({ allow: false, code: 'ADDRESS_DENYLISTED' });
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [withdrawalRule, deniedAddressRule],
+          intent: annotatedIntent,
+        }),
+      ).toMatchObject({ allow: false, code: 'ADDRESS_DENYLISTED' });
+
+      for (const word of ['', counterpartyWord.slice(0, -1), `ff${counterpartyWord.slice(2)}`]) {
+        const malformed = `${selector}${argIndex === 1 ? fromWord : ''}${word}`;
+        expect(policyModule.decodeMoverCounterparty(selector, malformed)).toEqual({
+          counterparty: null,
+          isApprove,
+          known: true,
+        });
+        expect(
+          await policyModule.evaluateAgent({
+            principal,
+            policy,
+            rules: [withdrawalRule],
+            intent: { ...intent, data: malformed },
+          }),
+        ).toMatchObject({ allow: false, code: 'COUNTERPARTY_UNDECODED' });
+        expect(
+          await policyModule.evaluateAgent({
+            principal,
+            policy,
+            rules: [withdrawalRule],
+            intent: { ...annotatedIntent, tokenRecipient: counterparty, data: malformed },
+          }),
+        ).toMatchObject({ allow: false, code: 'COUNTERPARTY_UNDECODED' });
+      }
+    }
+
+    for (const selector of ['0xac9650d8', '0x5ae401dc']) {
+      const data = `${selector}${counterpartyWord}${amountWord}`;
+      expect(policyModule.decodeMoverCounterparty(selector, data)).toEqual({
+        counterparty: null,
+        isApprove: false,
+        known: true,
+      });
+      for (const annotations of [{}, { tokenContract: token, tokenRecipient: counterparty }]) {
+        expect(
+          await policyModule.evaluateAgent({
+            principal,
+            policy,
+            rules: [withdrawalRule],
+            intent: { kind: 'transaction', to: token, data, ...annotations },
+          }),
+        ).toMatchObject({ allow: false, code: 'COUNTERPARTY_UNDECODED' });
+      }
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy: { ...policy, withdrawal_allowlist_only: false },
+          rules: [],
+          intent: { kind: 'transaction', to: token, data },
+        }),
+      ).toMatchObject({ allow: true });
+    }
+    expect(policyModule.decodeMoverCounterparty('0x12345678', '0x12345678')).toEqual({
+      counterparty: null,
+      isApprove: false,
+      known: false,
+    });
+  },
+};
+
+it(
+  withdrawalAllowlistTests['gates every known asset-moving selector by the withdrawal allowlist'],
+  withdrawalAllowlistTests['gates every known asset-moving selector by the withdrawal allowlist'],
+);
+
 describe('agent consent', () => {
   it('does not bind an owner at verify even when the DID label is a user id', async () => {
     const victim = randomUUID();

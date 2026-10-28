@@ -299,9 +299,6 @@ fn request_funds(
             "registration_not_configured",
         );
     }
-    if !consume_claim() {
-        return refusal(id, -32005, "Faucet claim unavailable", "faucet_rate_limit");
-    }
     let sub = principal.as_str();
     let grant = match identity_call(config, "/v1/starter-credits", &json!({ "sub": sub })) {
         Ok(upstream) => match grant_result(
@@ -326,8 +323,8 @@ fn request_funds(
     if !faucet_representable(&grant.amount) {
         return refusal(
             id,
-            -32603,
-            "Starter credit amount mismatch",
+            -32001,
+            "Starter credit unavailable",
             "starter_credit_amount_unrepresentable",
         );
     }
@@ -341,6 +338,9 @@ fn request_funds(
     }
     let key = idempotency(sub, &grant.grant_id, STARTER_IDEMPOTENCY_SCOPE);
     let body = claim_request(sub, &did, &public_key);
+    if !consume_claim() {
+        return refusal(id, -32005, "Faucet claim unavailable", "faucet_rate_limit");
+    }
     let mut funded = match super::upstream_json(
         config,
         &faucet.endpoint,
@@ -421,6 +421,252 @@ pub(super) fn configured() -> Result<Option<Faucet>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::Arc;
+    use std::thread;
+    use std::time::Duration;
+
+    struct StarterCreditUpstream {
+        url: String,
+        requests: Arc<AtomicUsize>,
+        claims: Arc<AtomicUsize>,
+        stop: Arc<AtomicBool>,
+        worker: Option<thread::JoinHandle<()>>,
+    }
+
+    impl StarterCreditUpstream {
+        fn start(
+            tls: native_tls::TlsAcceptor,
+            answer: impl Fn(&str, &Value) -> Value + Send + 'static,
+        ) -> Self {
+            let listener = TcpListener::bind("127.0.0.1:0").expect("bind TLS upstream");
+            let url = format!(
+                "https://localhost:{}",
+                listener.local_addr().unwrap().port()
+            );
+            listener.set_nonblocking(true).unwrap();
+            let requests = Arc::new(AtomicUsize::new(0));
+            let claims = Arc::new(AtomicUsize::new(0));
+            let stop = Arc::new(AtomicBool::new(false));
+            let (count, claim_count, stopped) = (
+                Arc::clone(&requests),
+                Arc::clone(&claims),
+                Arc::clone(&stop),
+            );
+            let worker = thread::spawn(move || {
+                while !stopped.load(Ordering::Acquire) {
+                    let tcp = match listener.accept() {
+                        Ok((tcp, _)) => tcp,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            thread::sleep(Duration::from_millis(1));
+                            continue;
+                        }
+                        Err(error) => panic!("accept TLS upstream: {error}"),
+                    };
+                    tcp.set_read_timeout(Some(Duration::from_secs(3))).unwrap();
+                    tcp.set_write_timeout(Some(Duration::from_secs(3))).unwrap();
+                    let mut stream = tls.accept(tcp).expect("TLS handshake");
+                    let request = layerx_platform_internal::http::parse_client_request(&mut stream)
+                        .expect("read upstream request");
+                    count.fetch_add(1, Ordering::AcqRel);
+                    if request.path == CLAIM_PATH {
+                        claim_count.fetch_add(1, Ordering::AcqRel);
+                    }
+                    assert_eq!(request.method, "POST");
+                    assert_eq!(request.headers["authorization"], "Bearer service-token");
+                    let body = serde_json::from_slice(&request.body).expect("upstream JSON");
+                    let response =
+                        layerx_platform_internal::http::json(200, &answer(&request.path, &body));
+                    layerx_platform_internal::http::write_response(&mut stream, &response)
+                        .expect("write upstream response");
+                }
+            });
+            Self {
+                url,
+                requests,
+                claims,
+                stop,
+                worker: Some(worker),
+            }
+        }
+    }
+
+    impl Drop for StarterCreditUpstream {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::Release);
+            if let Some(worker) = self.worker.take() {
+                let result = worker.join();
+                if !thread::panicking() {
+                    result.expect("TLS upstream must finish without errors");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn starter_credit_amount_is_the_faucet_default_claim() {
+        let signup = include_str!("../../identity/src/signup.rs");
+        let faucet = include_str!("../../faucet/src/main.rs");
+        let starter_amount = signup
+            .split_once("pub const STARTER_CREDIT_AMOUNT: &str = \"")
+            .expect("starter credit amount declaration")
+            .1
+            .split_once('"')
+            .expect("starter credit amount literal")
+            .0;
+        let default_amount = faucet
+            .split_once("parse_u64(\"LAYERX_FAUCET_CLAIM_AMOUNT\",")
+            .expect("faucet claim amount default")
+            .1
+            .split_once(')')
+            .expect("faucet default literal")
+            .0
+            .trim()
+            .replace('_', "")
+            .parse::<u64>()
+            .expect("faucet default is an integer literal");
+        assert_eq!(starter_amount, default_amount.to_string());
+        assert!(faucet_representable(starter_amount));
+    }
+
+    #[test]
+    fn starter_credit_unrepresentable_grant_never_calls_the_faucet() {
+        let directory = std::env::temp_dir().join(format!(
+            "layerx-starter-credit-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        std::fs::create_dir(&directory).expect("create TLS fixture directory");
+        let cert_path = directory.join("cert.pem");
+        let key_path = directory.join("key.pem");
+        let generated = std::process::Command::new("openssl")
+            .args([
+                "req",
+                "-x509",
+                "-newkey",
+                "rsa:2048",
+                "-nodes",
+                "-days",
+                "1",
+                "-subj",
+                "/CN=localhost",
+                "-addext",
+                "subjectAltName=DNS:localhost",
+                "-keyout",
+            ])
+            .arg(&key_path)
+            .arg("-out")
+            .arg(&cert_path)
+            .output()
+            .expect("generate local TLS certificate");
+        assert!(
+            generated.status.success(),
+            "{}",
+            String::from_utf8_lossy(&generated.stderr)
+        );
+        let cert = std::fs::read(&cert_path).unwrap();
+        let key = std::fs::read(&key_path).unwrap();
+        std::fs::remove_dir_all(&directory).expect("remove TLS fixture files");
+        let ca = native_tls::Certificate::from_pem(&cert).expect("local CA");
+        let tls = native_tls::TlsAcceptor::new(
+            native_tls::Identity::from_pkcs8(&cert, &key).expect("local TLS identity"),
+        )
+        .expect("local TLS acceptor");
+        let identity = StarterCreditUpstream::start(tls.clone(), |path, body| match path {
+            "/v1/sessions/introspect" => {
+                assert_eq!(body, &json!({"token": "session-token"}));
+                json!({"active": true, "sub": "beta.starter-credit", "allowed_signer_public_keys": ["ab".repeat(32)]})
+            }
+            "/v1/starter-credits" => {
+                assert_eq!(body, &json!({"sub": "beta.starter-credit"}));
+                json!({"sub": "beta.starter-credit", "grant_id": "ab".repeat(16), "asset": "PAX", "amount": "10000000000000000000", "granted_at": 1, "settled_at": null})
+            }
+            _ => panic!("unexpected identity request: {path}"),
+        });
+        let faucet = StarterCreditUpstream::start(tls, |path, _| {
+            assert_eq!(path, CLAIM_PATH);
+            funded(&"ef".repeat(32))
+        });
+        let config = Config {
+            wallet_caps: None,
+            routes: crate::routes::Registry::configured("layerx-testnet", "1").unwrap(),
+            listen: "127.0.0.1:0".parse().unwrap(),
+            listener: crate::Listener::Plain,
+            client: crate::Client::without_identity(ca.clone()),
+            client_identity: false,
+            kernel: Some(crate::Kernel {
+                component: Endpoint::parse(&identity.url).unwrap(),
+                component_token: Zeroizing::new("service-token".to_owned()),
+                public_core: None,
+                authority: Endpoint::parse(&identity.url).unwrap(),
+                authority_token: Zeroizing::new("service-token".to_owned()),
+                identity: Endpoint::parse(&identity.url).unwrap(),
+                identity_token: Zeroizing::new("service-token".to_owned()),
+                registry: Endpoint::parse(&identity.url).unwrap(),
+                registry_token: Zeroizing::new("service-token".to_owned()),
+                key_provisioning_key: Zeroizing::new([0; 32]),
+                modules: layerx_types::payload::ModuleRegistry::new(&[]).unwrap(),
+            }),
+            receipt_keys: None,
+            paxeer: None,
+            capabilities: crate::capabilities::Cache::new(Duration::from_secs(1)),
+            indexer: None,
+            registration_token: Some(Zeroizing::new("service-token".to_owned())),
+            trusted_proxies: Vec::new(),
+            faucet: Some(Faucet {
+                endpoint: Endpoint::parse(&faucet.url).unwrap(),
+                token: Zeroizing::new("service-token".to_owned()),
+            }),
+            store: Arc::new(crate::RedisStore::new(
+                crate::RedisEndpoint::parse("rediss://localhost:6379").unwrap(),
+                ca,
+                Zeroizing::new("gateway".to_owned()),
+                Zeroizing::new(String::new()),
+            )),
+            event_producer: false,
+            network_id: "layerx-testnet".to_owned(),
+            wire_version: "1".to_owned(),
+            protocol_version: 1,
+            protocol_network_id: 1,
+            idempotency_seconds: 3600,
+        };
+        let request = IncomingRequest {
+            method: "POST".to_owned(),
+            path: "/rpc".to_owned(),
+            headers: [(
+                "authorization".to_owned(),
+                "Bearer session-token".to_owned(),
+            )]
+            .into(),
+            body: Vec::new(),
+        };
+        let budget_before = *FAUCET_WINDOW.lock().unwrap();
+        let answer = dispatch(
+            &config,
+            &request,
+            "px_requestFunds",
+            &json!("starter-credit"),
+            Some(&json!(["did:layerx:alice", "ab".repeat(32)])),
+        )
+        .expect("px_requestFunds is dispatched");
+        assert_eq!(
+            answer,
+            refusal(
+                &json!("starter-credit"),
+                -32001,
+                "Starter credit unavailable",
+                "starter_credit_amount_unrepresentable",
+            )
+        );
+        assert_eq!(identity.requests.load(Ordering::Acquire), 2);
+        assert_eq!(faucet.requests.load(Ordering::Acquire), 0);
+        assert_eq!(faucet.claims.load(Ordering::Acquire), 0);
+        assert_eq!(*FAUCET_WINDOW.lock().unwrap(), budget_before);
+    }
 
     #[test]
     fn px_request_funds_uses_the_claim_path() {
@@ -812,6 +1058,8 @@ mod tests {
             (-32005, "faucet_rate_limit"),
             (-32001, "faucet_unavailable"),
             (-32001, "identity_unavailable"),
+            (-32001, "starter_credit_amount_unrepresentable"),
+            (-32603, "starter_credit_amount_mismatch"),
         ] {
             let refused = refusal(&json!(1), code, "Faucet claim unavailable", reason);
             assert_eq!(refused["error"]["code"], code);

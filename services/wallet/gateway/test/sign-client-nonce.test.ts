@@ -13,13 +13,22 @@ let app: FastifyInstance;
 let rpcServer: Server;
 let latestCount = 7;
 let poolModule: typeof import('../src/db/pool.js');
+const broadcasts: `0x${string}`[] = [];
 
 beforeAll(async () => {
   rpcServer = createServer((req, res) => {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        id: number; method: string; params: [`0x${string}`];
+      };
+      if (body.method === 'eth_sendRawTransaction') {
+        broadcasts.push(body.params[0]);
+        res.writeHead(503, { 'content-type': 'text/plain' });
+        res.end('broadcast outcome unavailable');
+        return;
+      }
       const result = body.method === 'eth_getTransactionCount' ? `0x${latestCount.toString(16)}`
         : body.method === 'eth_blockNumber' ? '0x64'
           : body.method === 'eth_call' ? '0x'
@@ -36,6 +45,7 @@ beforeAll(async () => {
   process.env.AGENT_JWT_SECRET = randomBytes(32).toString('hex');
   process.env.LOG_LEVEL = 'error';
   process.env.RPC_URLS = `http://127.0.0.1:${(rpcServer.address() as AddressInfo).port}`;
+  process.env.SEQUENCER_RPC_URL = process.env.RPC_URLS;
   pg = await startPostgres();
   const index = await import('../src/index.js');
   poolModule = await import('../src/db/pool.js');
@@ -60,7 +70,65 @@ const tx = (nonce?: number) => ({
   maxPriorityFeePerGas: '1000000000', ...(nonce === undefined ? {} : { nonce }),
 });
 
+async function refusesOutstandingClientNonceOnSendAndTracksTheHashOfAFailedSend() {
+  const user = randomUUID();
+  const provisioned = await asUser(user, '/v1/wallet/provision', {});
+  expect(provisioned.statusCode).toBe(200);
+  const { id, address } = provisioned.json().wallet as { id: string; address: string };
+  const key = address.toLowerCase();
+  latestCount = 7;
+  broadcasts.length = 0;
+
+  const signed = await asUser(user, '/v1/wallet/sign', { tx: tx(9) });
+  expect(signed.statusCode).toBe(200);
+  const signedTx = (signed.json() as { signed_tx: `0x${string}` }).signed_tx;
+  const signaturesBefore = await poolModule.query(
+    'select id from wallet_signatures where wallet_id = $1 order by id', [id],
+  );
+  expect(signaturesBefore.rows).toHaveLength(1);
+  const blocked = await asUser(user, '/v1/wallet/send', { tx: tx(9) });
+  expect(blocked.statusCode).toBe(409);
+  expect(blocked.json()).toEqual({ error: 'nonce_outstanding', nonce: 9, request_id: expect.any(String) });
+  expect(broadcasts).toEqual([]);
+  const signaturesAfter = await poolModule.query(
+    'select id from wallet_signatures where wallet_id = $1 order by id', [id],
+  );
+  expect(signaturesAfter.rows).toEqual(signaturesBefore.rows);
+  const reservation = await poolModule.query(
+    'select nonce::text, tx_hash from nonce_outstanding where address = $1', [key],
+  );
+  expect(reservation.rows).toEqual([{ nonce: '9', tx_hash: keccak256(signedTx) }]);
+
+  const below = await asUser(user, '/v1/wallet/send', { tx: tx(6) });
+  expect(below.statusCode).toBe(409);
+  expect(below.json()).toEqual({ error: 'nonce_below_latest', nonce: 6, latest: 7, request_id: expect.any(String) });
+  expect(broadcasts).toEqual([]);
+
+  for (const [clientNonce, expectedNonce] of [[10, 10], [undefined, 7]] as const) {
+    const countBefore = broadcasts.length;
+    const failed = await asUser(user, '/v1/wallet/send', { tx: tx(clientNonce) });
+    expect(failed.statusCode).toBe(500);
+    expect(failed.json()).toEqual({ error: 'send_failed', detail: 'HTTP 503' });
+    expect(broadcasts).toHaveLength(countBefore + 1);
+    const raw = broadcasts[countBefore]!;
+    expect(parseTransaction(raw).nonce).toBe(expectedNonce);
+    expect((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase()).toBe(key);
+    const outstanding = await poolModule.query(
+      'select nonce::text, tx_hash, member from nonce_outstanding where address = $1 and nonce = $2',
+      [key, expectedNonce],
+    );
+    expect(outstanding.rows).toEqual([{ nonce: String(expectedNonce), tx_hash: keccak256(raw), member: null }]);
+    const retry = await asUser(user, '/v1/wallet/send', { tx: tx(expectedNonce) });
+    expect(retry.statusCode).toBe(409);
+    expect(retry.json()).toEqual({ error: 'nonce_outstanding', nonce: expectedNonce, request_id: expect.any(String) });
+    expect(broadcasts).toHaveLength(countBefore + 1);
+  }
+}
+
 describe('/v1/wallet/sign after migration 019', () => {
+  it('refuses an outstanding client nonce on /v1/wallet/send and tracks the hash of a failed send',
+    refusesOutstandingClientNonceOnSendAndTracksTheHashOfAFailedSend);
+
   it('reserves the client nonce with the signed hash, refuses it while outstanding and below latest, and returns the broadcast deadline', async () => {
     const migration = await poolModule.query(
       'select filename from _migrations where filename = $1',
