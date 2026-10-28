@@ -22,7 +22,17 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       "MarginWithdrawalRequested(bytes32,bytes32,address,bytes32,uint256,uint64)",
       "OrderPlaced(bytes32,bytes32,address,uint8,uint256,uint256,uint8,uint64)",
       "OrderCancelRequested(bytes32,bytes32,address,uint64)",
-      "SettlementRequested(bytes32,bytes32,address,uint64)"
+      "SettlementRequested(bytes32,bytes32,address,uint64)",
+      "CollateralDeposited(address,uint256,uint256)",
+      "CollateralWithdrawn(address,uint256,uint256)",
+      "CollateralTransferred(address,address,uint256)",
+      "OrderPlaced(uint256,address,uint256,uint8,bool,uint256,uint256)",
+      "OrderCancelled(uint256,address)",
+      "OrderExecuted(uint256,uint256,uint256)",
+      "PositionOpened(uint256,address,uint256,bool,uint256,uint256,uint256,address,uint256)",
+      "PositionClosed(uint256,address,uint256,uint256,uint256,int256,bool)",
+      "Liquidation(uint256,address,uint256,uint256,uint256,address)",
+      "TradeSettled(uint256,address,uint256,uint8,uint256,uint256,int256,uint256,int256,uint256)"
     ],
     bridge: [
       "BridgeIn(uint64,bytes32,address,uint64,address,uint256,string)",
@@ -163,7 +173,7 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
       end
 
       keys = Enum.map(definitions, &{&1.address, &1.topic})
-      assert length(keys) == 29
+      assert length(keys) == 39
       assert Enum.uniq(keys) == keys
     end
 
@@ -526,4 +536,5 @@ defmodule Explorer.Chain.PaxeerX.MarketEventTest do
   defp abi_type(:string), do: "string"
   defp abi_type({:bytes, size}), do: "bytes#{size}"
   defp abi_type({:uint, bits}), do: "uint#{bits}"
+  defp abi_type({:int, bits}), do: "int#{bits}"
 end

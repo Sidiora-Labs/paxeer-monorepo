@@ -7,7 +7,6 @@ use layerx_agent_api::subscription::{
     SubscriptionFilter, SubscriptionRecord, SubscriptionTarget,
 };
 use layerx_agent_api::track::ReceiptRef;
-use layerx_agent_api::Sequence;
 use sha2::{Digest, Sha256};
 
 use super::ingestion::{durable_event, durable_sequences, IngestError};
@@ -187,6 +186,7 @@ pub struct DeliveryEngine {
     tenant: TenantId,
     live_start: u64,
     next_sequence: u64,
+    next_cursor: ApiCursor,
     capacity: usize,
     buffer: VecDeque<DeliveryItem>,
     seam_queued: bool,
@@ -239,13 +239,15 @@ impl DeliveryEngine {
         let record = subscriptions.get_inner(&target)?;
         let tenant = TenantId::new(record.scope.tenant.as_str())
             .map_err(|_| DeliveryError::InvalidTenant)?;
-        let next_sequence = subscriptions.resume_cursor_inner(&target)?.0;
+        let acknowledged_cursor = subscriptions.resume_cursor_inner(&target)?;
+        let next_sequence = acknowledged_cursor.block_height;
         Ok(Self {
             subscriptions,
             target,
             tenant,
             live_start,
             next_sequence,
+            next_cursor: acknowledged_cursor.into(),
             capacity,
             buffer: VecDeque::with_capacity(capacity),
             seam_queued: false,
@@ -253,7 +255,7 @@ impl DeliveryEngine {
             retry_policy,
             consecutive_failures: 0,
             health: DeliveryHealth {
-                acknowledged_cursor: Cursor(next_sequence),
+                acknowledged_cursor,
                 lagging: false,
                 lag_sequences: 0,
                 last_delivery_at_ms: None,
@@ -607,7 +609,7 @@ impl DeliveryEngine {
             self.seam_queued = true;
             return Ok(Some(DeliveryItem::BackfillComplete(BackfillTransition {
                 live_starts_at: self.live_start,
-                resume_cursor: ApiCursor(Sequence(self.next_sequence)),
+                resume_cursor: self.next_cursor,
             })));
         }
         let Some(sequence) = next else {
@@ -634,10 +636,15 @@ impl DeliveryEngine {
         let delivery = EventDelivery::new(
             identity,
             core_event.canonical_bytes,
-            ApiCursor(Sequence(cursor_sequence)),
+            ApiCursor {
+                block_height: cursor_sequence,
+                tx_index: 0,
+                log_index: 0,
+            },
             receipt_reference,
         )
         .map_err(|_: ContractError| DeliveryError::InvalidEvent)?;
+        self.next_cursor = delivery.cursor;
         self.next_sequence = cursor_sequence;
         Ok(Some(DeliveryItem::Event(DeliveredEvent {
             global_sequence: sequence,
@@ -663,9 +670,9 @@ impl DeliveryEngine {
             .last()
             .copied()
             .map_or(self.next_sequence, |sequence| sequence.saturating_add(1));
-        let acknowledged = self.subscriptions.resume_cursor_inner(&self.target)?.0;
-        self.health.acknowledged_cursor = Cursor(acknowledged);
-        self.health.lag_sequences = head.saturating_sub(acknowledged);
+        let acknowledged = self.subscriptions.resume_cursor_inner(&self.target)?;
+        self.health.acknowledged_cursor = acknowledged;
+        self.health.lag_sequences = head.saturating_sub(acknowledged.block_height);
         self.health.lagging = self.health.lag_sequences > 0
             || self.consecutive_failures > 0
             || self.buffer.len() == self.capacity;

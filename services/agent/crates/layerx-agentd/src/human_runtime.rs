@@ -50,11 +50,11 @@ use crate::outbox::{
     Outbox, RecoveredOutbox, RecoveryError, RecoveryInputs, SubmissionState, SubmissionStatus,
 };
 use crate::policy::approval::{ApprovalRegistry, ApprovalState, ApproverId};
-use crate::prepare::PreparationLifecycle;
-use crate::prepare::{
+use crate::prepare::legacy::{
     prepare_activity_for_protocol, CoreStateError, PreparationDefaults, PrepareRequest, Prepared,
     ProductionCorePreparationBoundary,
 };
+use crate::prepare::PreparationLifecycle;
 use crate::protocol_evidence::{EvidenceAuthority, RawStateEvidence};
 use crate::receipt::{ReceiptEvidenceRecord, ReceiptMetadata};
 use crate::session::{self, OpenRequest, SessionId, SessionRegistry};
@@ -15064,9 +15064,11 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         let correlation = boundary_correlation(peer, actor.as_bytes(), b"account-sequence");
         let mut boundary = ProductionCorePreparationBoundary::new(&mut self.node, correlation)
             .map_err(map_core)?;
-        let state =
-            crate::prepare::CorePreparationBoundary::preparation_state(&mut boundary, &actor)
-                .map_err(map_core)?;
+        let state = crate::prepare::legacy::CorePreparationBoundary::preparation_state(
+            &mut boundary,
+            &actor,
+        )
+        .map_err(map_core)?;
         let mut out = Encoder::new();
         out.u64(state.account_sequence);
         out.finish()
@@ -15749,7 +15751,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for ProductionHumanOperations<A>
         out.text(record.scope.agent.as_str())?;
         out.text(record.scope.capability.as_str())?;
         out.text(record.subscription_id.as_str())?;
-        out.text(&record.last_acknowledged.0 .0.to_string())?;
+        out.text(&crate::events::subscription::Cursor::from(record.last_acknowledged).to_string())?;
         out.u8(0);
         match pending_backfill {
             None => out.u8(0),
@@ -17599,11 +17601,11 @@ fn core_preparation_snapshot(
     node: &mut Client,
     peer: &HumanPeer,
     actor: &Did,
-) -> Result<crate::prepare::CorePreparationState, HumanOperationError> {
+) -> Result<crate::prepare::legacy::CorePreparationState, HumanOperationError> {
     let correlation = boundary_correlation(peer, actor.as_bytes(), b"core-batch-time");
     let mut boundary =
         ProductionCorePreparationBoundary::new(node, correlation).map_err(map_core)?;
-    crate::prepare::CorePreparationBoundary::preparation_state(&mut boundary, actor)
+    crate::prepare::legacy::CorePreparationBoundary::preparation_state(&mut boundary, actor)
         .map_err(map_core)
 }
 
@@ -17889,7 +17891,9 @@ pub(crate) fn subscription_create_digest(
     for class in filter.result_classes.values() {
         digest.update(class.raw().to_be_bytes());
     }
-    digest.update(request.start.0 .0.to_be_bytes());
+    digest.update(request.start.block_height.to_be_bytes());
+    digest.update(request.start.tx_index.to_be_bytes());
+    digest.update(request.start.log_index.to_be_bytes());
     text(&mut digest, request.delivery_target.as_str().as_bytes());
     digest.finalize().into()
 }
@@ -18947,13 +18951,13 @@ impl crate::budget::BudgetMutationPipeline for NodeBudgetPipeline<'_> {
 
 fn budget_aware_prepare(
     context: Option<&layerx_crypto::disclosure::BudgetStateContext>,
-    boundary: &mut dyn crate::prepare::CorePreparationBoundary,
+    boundary: &mut dyn crate::prepare::legacy::CorePreparationBoundary,
     defaults: PreparationDefaults,
     request: PrepareRequest,
     protocol_version: u16,
-) -> Result<crate::prepare::Prepared, crate::prepare::PrepareError> {
+) -> Result<crate::prepare::Prepared, crate::prepare::legacy::PrepareError> {
     match context {
-        Some(context) => crate::prepare::prepare_budget_mutation_for_protocol(
+        Some(context) => crate::prepare::legacy::prepare_budget_mutation_for_protocol(
             boundary,
             defaults,
             request,
@@ -19293,8 +19297,8 @@ fn encode_subscription_record(
     for class in filter.result_classes.values() {
         out.fixed(&class.raw().to_be_bytes());
     }
-    out.text(&record.start.0 .0.to_string())?;
-    out.text(&record.last_acknowledged.0 .0.to_string())?;
+    out.text(&crate::events::subscription::Cursor::from(record.start).to_string())?;
+    out.text(&crate::events::subscription::Cursor::from(record.last_acknowledged).to_string())?;
     out.text(record.delivery_target.as_str())?;
     out.u8(u8::from(record.paused));
     Ok(())

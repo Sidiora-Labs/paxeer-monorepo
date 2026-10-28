@@ -42,6 +42,10 @@ struct ReceiptKeyEntry {
 }
 
 impl ChainReceipts {
+    pub(super) fn pinned_keys(&self) -> &[SequencerAuthorization] {
+        &self.keys
+    }
+
     pub(super) fn load(url: &str, keys_file: &Path) -> Result<Self, String> {
         let source = url
             .strip_prefix("http://")

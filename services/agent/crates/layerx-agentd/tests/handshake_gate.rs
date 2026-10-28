@@ -1,40 +1,126 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
-use std::io::Read;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpListener;
 use std::os::unix::fs::{symlink, PermissionsExt};
-use std::os::unix::net::UnixListener;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread;
-use std::time::Duration;
+use std::thread::{self, JoinHandle};
+use std::time::{Duration, Instant};
 
-use layerx_agentd::boot::{handshake_gate, Gate, GateError, Status, WriteGateError};
+use layerx_agentd::boot::{Gate, GateError, Status, WriteGateError};
+use layerx_agentd::compat::{
+    self, CompatibilityError, CONTRACT_VERSION, DAEMON_VERSION, SDK_VERSION,
+};
 use layerx_agentd::config::StartupConfig;
+use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig, NodeRpcError};
 use layerx_agentd::store::TenantId;
-use layerx_client::lni::framing::{read_frame, write_frame};
-use layerx_client::lni::handshake::{encode_node_info, HandshakeError, NodeInfo, NodeRole};
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
 use layerx_programs::hex;
 use layerx_types::verify::VerificationLevel;
+use serde_json::{json, Value};
 
 static NEXT_SOCKET: AtomicU64 = AtomicU64::new(1);
 
 fn socket_path(label: &str) -> PathBuf {
     let sequence = NEXT_SOCKET.fetch_add(1, Ordering::Relaxed);
     std::env::temp_dir().join(format!(
-        "layerx-handshake-gate-{label}-{}-{sequence}.sock",
+        "layerx-readiness-gate-{label}-{}-{sequence}",
         std::process::id()
     ))
+}
+
+pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+    result.unwrap_or_else(|error| panic!("{error:?}"))
+}
+
+fn serve(exchanges: Vec<(&'static str, Value)>) -> (NodeRpcConfig, JoinHandle<()>) {
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let config = NodeRpcConfig {
+        url: format!("http://{}/", must(listener.local_addr())),
+        chain_id: 125,
+        deadline: Duration::from_secs(2),
+    };
+    must(listener.set_nonblocking(true));
+    let server = thread::spawn(move || {
+        for (method, result) in exchanges {
+            let expires = Instant::now() + Duration::from_secs(5);
+            let stream = loop {
+                match listener.accept() {
+                    Ok((stream, _)) => break stream,
+                    Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                        assert!(Instant::now() < expires, "missing {method} request");
+                        thread::sleep(Duration::from_millis(1));
+                    }
+                    Err(error) => panic!("accept: {error}"),
+                }
+            };
+            must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+            must(stream.set_write_timeout(Some(Duration::from_secs(2))));
+            let mut reader = BufReader::new(stream);
+            let mut length = None;
+            loop {
+                let mut line = String::new();
+                assert_ne!(must(reader.read_line(&mut line)), 0);
+                if line == "\r\n" {
+                    break;
+                }
+                if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                    length = Some(must(value.trim().parse::<usize>()));
+                }
+            }
+            let length = length.unwrap_or_else(|| panic!("content length required"));
+            assert!(length <= 64 * 1024);
+            let mut body = vec![0; length];
+            must(reader.read_exact(&mut body));
+            let request: Value = must(serde_json::from_slice(&body));
+            assert_eq!(request["jsonrpc"], "2.0");
+            assert_eq!(request["method"], method);
+            assert_eq!(request["params"], json!([]));
+            let answer =
+                json!({"jsonrpc": "2.0", "id": request["id"], "result": result}).to_string();
+            let mut stream = reader.into_inner();
+            must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+            must(stream.flush());
+        }
+    });
+    (config, server)
+}
+
+pub fn empty_node_config(
+    chain_checks: usize,
+    receipt_checks: usize,
+) -> (NodeRpcConfig, JoinHandle<()>) {
+    let mut exchanges = vec![("eth_chainId", json!("0x7d")); chain_checks];
+    exchanges.extend(vec![("px_getReceiptKeys", json!([])); receipt_checks]);
+    serve(exchanges)
+}
+
+fn receipt_public_key() -> [u8; 32] {
+    ed25519_dalek::SigningKey::from_bytes(&[8; 32])
+        .verifying_key()
+        .to_bytes()
+}
+
+fn ready_node(receipt_checks: usize) -> (NodeRpc, JoinHandle<()>) {
+    let keys = json!([{
+        "keyId": format!("0x{}", hex::encode(&receipt_public_key())),
+        "publicKey": format!("0x{}", hex::encode(&receipt_public_key())),
+        "firstHeight": "0x1",
+        "lastHeight": "0x64",
+    }]);
+    let mut exchanges = vec![("eth_chainId", json!("0x7d"))];
+    exchanges.extend(vec![("px_getReceiptKeys", keys); receipt_checks]);
+    let (config, server) = serve(exchanges);
+    (must(NodeRpc::connect(&config)), server)
 }
 
 fn tenant() -> TenantId {
     TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
-fn config() -> StartupConfig {
+pub fn config() -> StartupConfig {
     let authority_source = socket_path("authority").with_extension("csv");
-    let key = [8; 32];
+    let key = receipt_public_key();
     fs::write(
         &authority_source,
         format!(
@@ -82,33 +168,6 @@ fn protected_authority(path: &Path) {
     .unwrap_or_else(|error| panic!("authority source: {error}"));
     fs::set_permissions(path, fs::Permissions::from_mode(0o600))
         .unwrap_or_else(|error| panic!("authority source permissions: {error}"));
-}
-
-fn node(minor: u16, capabilities: &[&str]) -> NodeInfo {
-    NodeInfo {
-        interface_version: Version { major: 1, minor },
-        protocol_version: layerx_wire::limits::PROTOCOL_VERSION,
-        network_id: 42,
-        role: NodeRole::Sequencer,
-        chain_head_sequence: 900 + u64::from(minor),
-        latest_sealed_batch: 44,
-        latest_finalised_checkpoint: [7; 32],
-        authorised_sequencer_key: [8; 32],
-        advertised_capabilities: capabilities
-            .iter()
-            .map(|capability| (*capability).to_owned())
-            .collect(),
-    }
-}
-
-fn limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: 1_048_576,
-        maximum_connections: 1,
-        maximum_streams: 1,
-        maximum_queued_bytes: 1_048_576,
-        deadline: Duration::from_secs(2),
-    }
 }
 
 #[test]
@@ -173,258 +232,104 @@ fn authority_source_rejects_permissive_and_non_regular_inputs() {
     let _ = fs::remove_dir(directory);
 }
 
-fn serve_handshake(path: &PathBuf, info: NodeInfo) -> thread::JoinHandle<()> {
-    let listener =
-        UnixListener::bind(path).unwrap_or_else(|error| panic!("bind handshake socket: {error}"));
-    thread::spawn(move || {
-        let (mut stream, _) = listener
-            .accept()
-            .unwrap_or_else(|error| panic!("accept handshake: {error}"));
-        let request = read_frame(&mut stream, 1_048_576)
-            .unwrap_or_else(|error| panic!("read handshake request: {error:?}"));
-        let request = decode_envelope(&request)
-            .unwrap_or_else(|error| panic!("decode handshake request: {error:?}"));
-        assert_eq!(request.version, Version { major: 1, minor: 0 });
-        assert_eq!(request.message_tag, 1);
-        assert_eq!(request.correlation_id, 0);
-        assert!(request.canonical_payload.is_empty());
-        assert!(request.proof_material.is_empty());
-        let payload = encode_node_info(&info)
-            .unwrap_or_else(|error| panic!("encode node information: {error:?}"));
-        let response = encode_envelope(Envelope {
-            version: info.interface_version,
-            message_tag: 2,
-            correlation_id: 0,
-            canonical_payload: &payload,
-            proof_material: &[],
-        })
-        .unwrap_or_else(|error| panic!("encode handshake response: {error:?}"));
-        write_frame(&mut stream, &response, 1_048_576)
-            .unwrap_or_else(|error| panic!("write handshake response: {error:?}"));
-    })
-}
-
-fn serve_strict_legacy_handshake(path: &PathBuf, info: NodeInfo) -> thread::JoinHandle<()> {
-    let listener =
-        UnixListener::bind(path).unwrap_or_else(|error| panic!("bind handshake socket: {error}"));
-    thread::spawn(move || {
-        let (mut stream, _) = listener
-            .accept()
-            .unwrap_or_else(|error| panic!("accept handshake: {error}"));
-        let request = read_frame(&mut stream, 1_048_576)
-            .unwrap_or_else(|error| panic!("read handshake request: {error:?}"));
-        let request = decode_envelope(&request)
-            .unwrap_or_else(|error| panic!("decode handshake request: {error:?}"));
-        assert_eq!(request.version, Version::V1_0);
-        assert_eq!(request.message_tag, 1);
-        let payload = encode_node_info(&info)
-            .unwrap_or_else(|error| panic!("encode node information: {error:?}"));
-        let response = encode_envelope(Envelope {
-            version: info.interface_version,
-            message_tag: 2,
-            correlation_id: 0,
-            canonical_payload: &payload,
-            proof_material: &[],
-        })
-        .unwrap_or_else(|error| panic!("encode handshake response: {error:?}"));
-        write_frame(&mut stream, &response, 1_048_576)
-            .unwrap_or_else(|error| panic!("write handshake response: {error:?}"));
-        stream
-            .set_read_timeout(Some(Duration::from_millis(250)))
-            .unwrap_or_else(|error| panic!("legacy read timeout: {error}"));
-        let mut observed = [0_u8; 1];
-        match stream.read(&mut observed) {
-            Ok(0) => {}
-            Ok(_) => panic!("legacy boundary received a post-handshake write"),
-            Err(error)
-                if matches!(
-                    error.kind(),
-                    std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
-                ) => {}
-            Err(error) => panic!("legacy boundary observation failed: {error}"),
-        }
-    })
-}
-
-fn connect(path: &Path) -> Uds {
-    Uds::connect(path, &ConnectionGate::new(1), limits())
-        .unwrap_or_else(|error| panic!("connect handshake socket: {error:?}"))
-}
-
 #[test]
-fn startup_is_not_ready_until_real_framed_handshake_reports_the_full_intersection() {
-    let mut gate = Gate::new(&config()).unwrap_or_else(|error| panic!("startup gate: {error:?}"));
+fn startup_is_not_ready_until_real_node_reports_receipt_keys() {
+    let mut gate = must(Gate::new(&config()));
     let operation_ran = std::cell::Cell::new(false);
+    assert_eq!(gate.status(), &Status::NotReady);
     assert_eq!(
         gate.guard_write(|| operation_ran.set(true)),
         Err(WriteGateError::NotReady)
     );
     assert!(!operation_ran.get());
 
-    let path = socket_path("startup");
-    let server = serve_handshake(
-        &path,
-        node(
-            3,
-            &[
-                "authenticated_durable_submit",
-                "future_capability",
-                "node_info",
-                "submit",
-            ],
-        ),
-    );
-    let mut transport = connect(&path);
-    let status = handshake_gate(&mut gate, &mut transport)
-        .unwrap_or_else(|error| panic!("handshake gate: {error:?}"));
-    assert_eq!(status.interface_version, Version::V1_3);
-    assert_eq!(
-        status.protocol_version,
-        layerx_wire::limits::PROTOCOL_VERSION
-    );
-    assert_eq!(status.network_id, 42);
-    assert_eq!(status.node_role, NodeRole::Sequencer);
-    assert_eq!(status.chain_head_sequence, 903);
-    assert_eq!(status.latest_sealed_batch, 44);
-    assert_eq!(status.latest_finalised_checkpoint, [7; 32]);
-    assert_eq!(status.authorised_sequencer_key, [8; 32]);
-    assert!(status.available_capabilities.contains(&Capability::Submit));
-    assert!(status
-        .available_capabilities
-        .contains(&Capability::AuthenticatedDurableSubmit));
-    assert!(status
-        .missing_capabilities
-        .contains(&Capability::AvailabilityFetch));
-    assert_eq!(status.unknown_advertised, ["future_capability"]);
-    assert!(status.writes_ready);
+    let (node, server) = ready_node(2);
+    let keys = must(node.receipt_keys());
+    assert!(!keys.is_empty());
+    let status = must(gate.readiness_gate(&node));
+    assert_eq!(status.chain_id, node.chain_id());
+    assert_eq!(status.receipt_keys, keys);
+    assert_eq!(status.generation, 1);
     assert_eq!(gate.guard_write(|| 7), Ok(7));
-    let report = gate
-        .capability_report()
-        .unwrap_or_else(|| panic!("capability report absent"));
-    assert!(report.gaps().contains(&"availability_fetch"));
-    server
-        .join()
-        .unwrap_or_else(|_| panic!("handshake server panicked"));
-    let _ = fs::remove_file(path);
+    must(server.join());
 }
 
 #[test]
-fn legacy_submit_capability_does_not_open_beta_write_gate() {
-    let mut gate = Gate::new(&config()).unwrap_or_else(|error| panic!("startup gate: {error:?}"));
-    let path = socket_path("legacy-submit");
-    let server = serve_strict_legacy_handshake(&path, node(2, &["node_info", "submit"]));
-    let mut transport = connect(&path);
-    let status = handshake_gate(&mut gate, &mut transport)
-        .unwrap_or_else(|error| panic!("handshake gate: {error:?}"));
-    assert!(!status.writes_ready);
-    assert_eq!(status.interface_version, Version::V1_2);
-    assert!(status
-        .missing_capabilities
-        .contains(&Capability::AuthenticatedDurableSubmit));
+fn empty_receipt_keys_do_not_open_the_write_gate() {
+    let mut gate = must(Gate::new(&config()));
+    let (node_config, server) = empty_node_config(1, 2);
+    let node = must(NodeRpc::connect(&node_config));
+    assert!(must(node.receipt_keys()).is_empty());
+    assert_eq!(gate.readiness_gate(&node), Err(GateError::NoReceiptKeys));
+    assert_eq!(gate.status(), &Status::NotReady);
+    assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
+    assert!(matches!(
+        gate.evidence_authority(),
+        Err(WriteGateError::NotReady)
+    ));
+    must(server.join());
+}
+
+#[test]
+fn reconnect_rechecks_receipt_keys_and_invalidates_stale_readiness() {
+    let mut gate = must(Gate::new(&config()));
+    let (first, first_server) = ready_node(3);
+    assert_eq!(must(gate.readiness_gate(&first)).generation, 1);
+    gate.disconnected();
+    assert_eq!(gate.status(), &Status::NotReady);
+    assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
+    assert_eq!(must(gate.readiness_gate(&first)).generation, 2);
+
+    let (second_config, second_server) = empty_node_config(1, 2);
+    let second = must(NodeRpc::connect(&second_config));
+    assert!(must(second.receipt_keys()).is_empty());
+    assert_eq!(gate.readiness_gate(&second), Err(GateError::NoReceiptKeys));
+    assert_eq!(gate.status(), &Status::NotReady);
+    assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
+    assert!(matches!(
+        gate.evidence_authority(),
+        Err(WriteGateError::NotReady)
+    ));
+    assert_eq!(must(gate.readiness_gate(&first)).generation, 3);
+    must(first_server.join());
+    must(second_server.join());
+}
+
+#[test]
+fn chain_contract_and_client_major_mismatches_refuse_operation() {
+    let mut gate = must(Gate::new(&config()));
+    let (mut config, server) = empty_node_config(2, 0);
+    let observed = must(NodeRpc::connect(&config)).chain_id();
+    config.chain_id = observed
+        .checked_add(1)
+        .unwrap_or_else(|| panic!("chain id overflow"));
     assert_eq!(
-        gate.guard_write(|| 1),
-        Err(WriteGateError::MissingCapability(
-            Capability::AuthenticatedDurableSubmit
-        ))
+        NodeRpc::connect(&config).err(),
+        Some(NodeRpcError::ChainIdMismatch {
+            expected: config.chain_id,
+            observed,
+        })
     );
-    server
-        .join()
-        .unwrap_or_else(|_| panic!("handshake server panicked"));
-    let _ = fs::remove_file(path);
-}
-
-#[test]
-fn reconnect_repeats_handshake_for_node_upgrade_and_disappearing_capability() {
-    let mut gate = Gate::new(&config()).unwrap_or_else(|error| panic!("startup gate: {error:?}"));
-    let first_path = socket_path("reconnect-first");
-    let first_server = serve_handshake(
-        &first_path,
-        node(3, &["authenticated_durable_submit", "node_info", "submit"]),
-    );
-    let mut first_transport = connect(&first_path);
-    assert!(handshake_gate(&mut gate, &mut first_transport).is_ok());
-    first_server
-        .join()
-        .unwrap_or_else(|_| panic!("first handshake server panicked"));
-
+    must(server.join());
     gate.disconnected();
     assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
-    let second_path = socket_path("reconnect-second");
-    let second_server = serve_handshake(&second_path, node(4, &["node_info"]));
-    let mut second_transport = connect(&second_path);
-    let status = handshake_gate(&mut gate, &mut second_transport)
-        .unwrap_or_else(|error| panic!("reconnect handshake: {error:?}"));
-    assert_eq!(status.generation, 2);
-    assert_eq!(status.interface_version, Version { major: 1, minor: 4 });
-    assert_eq!(status.chain_head_sequence, 904);
-    assert!(status.missing_capabilities.contains(&Capability::Submit));
-    assert!(!status.writes_ready);
+    let major = compat::matrix()[0].node_interface_major;
     assert_eq!(
-        gate.guard_write(|| 1),
-        Err(WriteGateError::MissingCapability(Capability::Submit))
+        compat::verify(
+            DAEMON_VERSION,
+            &format!("paxd/v{major}.0.0"),
+            1,
+            SDK_VERSION
+        ),
+        Err(CompatibilityError::UnsupportedContract)
     );
-    second_server
-        .join()
-        .unwrap_or_else(|_| panic!("second handshake server panicked"));
-    let _ = fs::remove_file(first_path);
-    let _ = fs::remove_file(second_path);
-}
-
-#[test]
-fn network_protocol_and_major_upgrade_mismatches_refuse_operation() {
-    let cases = [
-        (
-            "network",
-            {
-                let mut value = node(0, &["node_info", "submit"]);
-                value.network_id = 99;
-                value
-            },
-            HandshakeError::Network {
-                expected: 42,
-                peer: 99,
-            },
+    assert_eq!(
+        compat::verify(
+            DAEMON_VERSION,
+            &format!("paxd/v{}.0.0", major + 1),
+            CONTRACT_VERSION,
+            SDK_VERSION
         ),
-        (
-            "protocol",
-            {
-                let mut value = node(0, &["node_info", "submit"]);
-                value.protocol_version = layerx_wire::limits::LEGACY_PROTOCOL_VERSION;
-                value
-            },
-            HandshakeError::ProtocolVersion {
-                expected: layerx_wire::limits::PROTOCOL_VERSION,
-                peer: layerx_wire::limits::LEGACY_PROTOCOL_VERSION,
-            },
-        ),
-        (
-            "major",
-            {
-                let mut value = node(0, &["node_info", "submit"]);
-                value.interface_version.major = 2;
-                value
-            },
-            HandshakeError::InterfaceIncompatible {
-                built: Version::V1_3,
-                peer: Version { major: 2, minor: 0 },
-            },
-        ),
-    ];
-    for (label, info, expected) in cases {
-        let path = socket_path(label);
-        let server = serve_handshake(&path, info);
-        let mut transport = connect(&path);
-        let mut gate =
-            Gate::new(&config()).unwrap_or_else(|error| panic!("startup gate: {error:?}"));
-        assert_eq!(
-            handshake_gate(&mut gate, &mut transport),
-            Err(GateError::Handshake(expected))
-        );
-        assert_eq!(gate.status(), &Status::Refused(expected));
-        assert_eq!(gate.guard_write(|| 1), Err(WriteGateError::NotReady));
-        server
-            .join()
-            .unwrap_or_else(|_| panic!("mismatch handshake server panicked"));
-        let _ = fs::remove_file(path);
-    }
+        Err(CompatibilityError::UnsupportedNodeInterface)
+    );
 }

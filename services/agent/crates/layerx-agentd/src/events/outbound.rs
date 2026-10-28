@@ -12,7 +12,7 @@ use std::sync::{Arc, RwLock, Weak};
 use std::thread;
 use std::time::Duration;
 
-use layerx_agent_api::subscription::{ReceiptReference, SubscriptionTarget};
+use layerx_agent_api::subscription::{Cursor, ReceiptReference, SubscriptionTarget};
 use sha2::{Digest, Sha256};
 
 use super::delivery::{delivery_attempt, DeliveryEngine, DeliveryError, DeliveryItem, RetryPlan};
@@ -20,7 +20,7 @@ use super::subscription::Termination;
 
 const MAGIC: &[u8; 4] = b"LXOW";
 const ACK_MAGIC: &[u8; 4] = b"LXOA";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
 
 /// Operating-system identity required of a local external endpoint.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -155,7 +155,7 @@ impl Authenticator {
                 if phase > 1 {
                     return Err(OutboundError::Protocol);
                 }
-                let cursor = decoder.u64()?;
+                let cursor = decode_cursor(&mut decoder)?;
                 let mut event_identity = [0_u8; 32];
                 event_identity.copy_from_slice(decoder.take(32)?);
                 let mut deduplication_id = [0_u8; 32];
@@ -184,7 +184,7 @@ impl Authenticator {
             }
             2 => VerifiedItem::BackfillComplete {
                 live_starts_at: decoder.u64()?,
-                resume_cursor: decoder.u64()?,
+                resume_cursor: decode_cursor(&mut decoder)?,
             },
             _ => return Err(OutboundError::Protocol),
         };
@@ -237,7 +237,7 @@ impl Authenticator {
                     super::delivery::DeliveryPhase::Backfill => 0,
                     super::delivery::DeliveryPhase::Live => 1,
                 });
-                payload.extend_from_slice(&event.delivery.cursor.0 .0.to_be_bytes());
+                encode_cursor(&mut payload, event.delivery.cursor);
                 payload.extend_from_slice(&event.delivery.event_identity.as_bytes());
                 payload.extend_from_slice(&event.delivery.deduplication_id.as_bytes());
                 match &event.delivery.receipt_reference {
@@ -253,7 +253,7 @@ impl Authenticator {
             DeliveryItem::BackfillComplete(transition) => {
                 payload.push(2);
                 payload.extend_from_slice(&transition.live_starts_at.to_be_bytes());
-                payload.extend_from_slice(&transition.resume_cursor.0 .0.to_be_bytes());
+                encode_cursor(&mut payload, transition.resume_cursor);
             }
         }
         let binding = hmac_sha256(&self.key.0, &payload);
@@ -314,7 +314,7 @@ pub enum VerifiedItem {
     Event {
         global_sequence: u64,
         phase: u8,
-        cursor: u64,
+        cursor: Cursor,
         event_identity: [u8; 32],
         deduplication_id: [u8; 32],
         receipt_reference: Option<(String, u8)>,
@@ -322,7 +322,7 @@ pub enum VerifiedItem {
     },
     BackfillComplete {
         live_starts_at: u64,
-        resume_cursor: u64,
+        resume_cursor: Cursor,
     },
 }
 
@@ -890,4 +890,18 @@ impl<'a> Decoder<'a> {
     const fn is_empty(&self) -> bool {
         self.offset == self.bytes.len()
     }
+}
+
+fn encode_cursor(bytes: &mut Vec<u8>, cursor: Cursor) {
+    bytes.extend_from_slice(&cursor.block_height.to_be_bytes());
+    bytes.extend_from_slice(&cursor.tx_index.to_be_bytes());
+    bytes.extend_from_slice(&cursor.log_index.to_be_bytes());
+}
+
+fn decode_cursor(decoder: &mut Decoder<'_>) -> Result<Cursor, OutboundError> {
+    Ok(Cursor {
+        block_height: decoder.u64()?,
+        tx_index: decoder.u32()?,
+        log_index: decoder.u32()?,
+    })
 }

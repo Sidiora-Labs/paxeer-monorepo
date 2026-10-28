@@ -146,6 +146,34 @@ func TestHostFeeRecordAbsentRefusesVersion(t *testing.T) {
 	require.Equal(t, Code(-7), err)
 }
 
+func TestHostProgramsOccupancyAssetFollowsFeeSchedule(t *testing.T) {
+	t.Run("loaded fee record", func(t *testing.T) {
+		f := newFeeRecordLoadFixture(t, true)
+		require.Equal(t, [32]byte{}, f.host.ProgramsOccupancyAsset())
+		activity := f.actor.registry(t, f.host, 1, feeRecordLoadTime, 0x86, []byte("manifest"))
+
+		receipt, err := f.host.Execute(f.chain.context(1, feeRecordLoadTime, 2), activity, f.actor.authority())
+		require.NoError(t, err)
+		require.Equal(t, Code(0), receipt.ResultCode)
+		require.Equal(t, []ReceiptEvent{{Code: 4, Body: bytes.Repeat([]byte{0x86}, 32)}}, receipt.Events)
+		require.Equal(t, f.asset, f.host.ProgramsOccupancyAsset())
+	})
+
+	t.Run("absent fee record", func(t *testing.T) {
+		f := newFeeRecordLoadFixture(t, false)
+		require.Equal(t, [32]byte{}, f.host.ProgramsOccupancyAsset())
+		activity := f.actor.registry(t, f.host, 1, feeRecordLoadTime, 0x86, []byte("manifest"))
+		before := f.chain.dump()
+
+		receipt, err := f.host.Execute(f.chain.context(1, feeRecordLoadTime, 2), activity, f.actor.authority())
+		require.Equal(t, Code(-101), err)
+		require.EqualError(t, err, "LXP_ERR_VERSION_UNSUPPORTED")
+		require.Equal(t, Receipt{}, receipt)
+		require.Equal(t, [32]byte{}, f.host.ProgramsOccupancyAsset())
+		require.Equal(t, before, f.chain.dump())
+	})
+}
+
 func TestHostUnrelatedModuleNineRowsStillIgnored(t *testing.T) {
 	f := newFeeRecordLoadFixture(t, true)
 	ctx := f.chain.context(1, feeRecordLoadTime, 2)
