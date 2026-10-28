@@ -131,7 +131,7 @@ def test_history_page_keeps_rows_tied_with_the_limit_row():
             decode = px.decode_paxeer_history_page
         page = decode(document, limit=2)
         assert len(page.items) == 3
-        assert [row.id for row in page.items] == [1, 2, 3]
+        assert [row.id for row in page.items] == ["1", "2", "3"]
         assert [
             (row.block_height, row.tx_index, row.log_index) for row in page.items
         ] == [(41, 2, 0), (42, 2, 0), (42, 2, 0)]

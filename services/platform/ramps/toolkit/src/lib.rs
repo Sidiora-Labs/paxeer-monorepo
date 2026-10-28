@@ -6,6 +6,8 @@ pub mod evm;
 pub mod journal;
 pub mod migration;
 
+pub use clients::parse_transaction_hash;
+
 use layerx_client::sequencer::{ReceiptKeyEntry, SequencerLog};
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_sequencer_signature, ReceiptCheck};
