@@ -12,7 +12,7 @@ import {
   type LaunchpadSpend,
   type PrecompileCall,
 } from "../../api/sdk";
-import { sendWalletPrecompileCall, walletFeePreference, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
+import { sendWalletPrecompileCall, walletSendFailure, type PrecompileSendOutcome } from "../../api/wallet";
 import { windowWalletProvider } from "../../api/provider";
 import { KitButton } from "../../kit/control";
 import { ExplorerPanel } from "../../kit/explorer";
@@ -43,8 +43,8 @@ export const SPONSORED_APPROVE_UNSUPPORTED = "the allowance approve cannot be sp
 
 // The 0x1017 Router pulls its input by transferFrom, so a short allowance
 // gets one approve for the exact amount, mined before the write is sent.
-// A sponsored quote covers exactly one call, so the approve is refused up
-// front under the sponsored SID fee instead of being sent.
+// Under the sponsored SID fee, the approve and the write are quoted and
+// consented as two separate sponsored calls.
 export async function sendWithApproval(
   from: string,
   spend: LaunchpadSpend,
@@ -58,9 +58,6 @@ export async function sendWithApproval(
   try {
     const approve = await launchpadApproval(wallet, from, spend);
     if (approve !== undefined) {
-      if (walletFeePreference().currency === "sidiora") {
-        return { outcome: "failed", detail: SPONSORED_APPROVE_UNSUPPORTED };
-      }
       onApproving(true);
       const approved = await sendWalletPrecompileCall(from, () => approve);
       if (approved.outcome !== "sent") {
