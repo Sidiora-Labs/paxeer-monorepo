@@ -1,8 +1,8 @@
 # Public JSON-RPC
 
 The limited beta has not opened yet; the gateway API becomes available
-when it does. Once available, the JSON-RPC gateway provides 17
-`lx_*` methods: self-service onboarding, authenticated canonical submission,
+when it does. Once available, the JSON-RPC gateway provides 33
+`lx_*` and `px_*` methods: self-service onboarding, authenticated canonical submission,
 unauthenticated committed reads, fee estimation, and scoped live
 subscriptions. The source contract is
 the embedded OpenRPC 1.3.2 document plus the gateway dispatch and public-core
@@ -31,6 +31,21 @@ limit enforced by the gateway is 8 MiB. Parameters are positional.
 | Method | Positional parameters | Result |
 | --- | --- | --- |
 | `px_register` | `[signer_public_key, registration_signature]` | Identity principal record for a self-registered signer |
+| `px_getCommit` | `[height]` | Decimal-string `height` and consensus `signedHeader` containing `header` and `commit` |
+| `px_getValidators` | `[height]` | Decimal-string `height` and `total`, plus `validators` with `address`, `pubKey`, and decimal-string `votingPower` |
+| `px_getReceiptKeys` | `[]` | Pinned signing `keys`, each with `keyId`, `publicKey`, and inclusive integer `firstHeight` and `lastHeight` |
+| `px_getSequenceBatch` | `[height]` | Decimal-string `height`, hex `tx`, and verified inclusion `proof` with `total`, `index`, `leafHash`, and `aunts` |
+| `px_requestFunds` | `[did, signer_public_key]` | Funded claim with `funded: true`, `funding_id`, `transaction_id`, decimal-string `amount`, `network`, and `starter_credit` |
+| `px_resolveAccount` | `[account]` | Resolution object with `evm_address`, `pax_address`, `layerx_did`, `layerx_account`, and `bound`; unbound references are null |
+| `px_getAccount` | `[account]` | Resolved `account` and `paxeer` with `address`, hex `balance` and `nonce`, and integer `height`; `paxeer` is null without an EVM binding |
+| `px_getBalances` | `[account]` | Resolved `account`, integer `height`, and `balances` with `denom` and exact decimal-string `amount` |
+| `px_listAssets` | `[]` | Joined LayerX asset and Paxeer custody records, with null custody for unregistered assets and `joined_limit` |
+| `px_getNetwork` | `[]` | `network_id`, `paxeer`, `layerx`, `anchor`, and `kernel` with `available` and `reason` |
+| `px_getHistory` | `[account, cursor, limit, kind]` | `account`, indexed transfer `items` with asset metadata, `next_cursor`, `indexedHeight`, `chainHeight`, and `freshness` |
+| `px_getUnifiedHistory` | `[account, cursor, limit, kind]` | Resolved `account`, merged `accounts`, `items` tagged with `side`, `next_cursor`, `indexedHeight`, `chainHeight`, and `freshness` |
+| `px_listHolderRecords` | `[address, kind, cursor, limit]` | Holder-record `items`, `next_cursor`, `indexedHeight`, and `chainHeight` |
+| `px_getCapabilities` | `[]` | Boolean `exchange`, `bridge`, and `launchpad` availability, integer `probed_at`, and decimal-string `rpc_height` |
+| `px_getRouteCatalogue` | `[]` | Catalogue with `schema: "paxeer-x.routes.v1"`, `chain_id: 125`, `services`, `routes`, and dependency `readiness` |
 | `lx_requestFunds` | `[did, signer_public_key]` | One bounded beta faucet grant the faucet confirmed as funded |
 | `lx_getAccount` | `[account_id]` | Authenticated account snapshot |
 | `lx_getBalance` | `[account_id]` | The same account object; use its `balance` and `asset_id` |
@@ -52,8 +67,8 @@ limit enforced by the gateway is 8 MiB. Parameters are positional.
 | `lx_getAsset` | `[asset_id]` | One Asset metadata record |
 | `lx_estimateFee` | `[canonical_hex]` | Committed-schedule estimate |
 
-Although `lx_getSequence` has two parameter forms, it is one method; the table
-therefore describes all 18 method names.
+`lx_getSequence` and `lx_getProof` each have multiple parameter forms but
+count as one method each; the table therefore describes all 33 method names.
 
 `px_register` and `lx_requestFunds` are the onboarding pair. `px_register`
 takes a lowercase-hex 32-byte Ed25519 public key and its 64-byte signature over

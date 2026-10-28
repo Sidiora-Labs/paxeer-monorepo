@@ -175,8 +175,8 @@ install-rocksdb: go.sum paxd-native-libs
 	go install $(BUILD_FLAGS) -tags "$(build_tags) rocksdbBackend" ./daemon/paxd
 	@echo "paxd installed with RocksDB backend support!"
 
-loadtest: go.sum
-		go build -tags "$(build_tags)" -ldflags '$(ldflags)' -o ./build/loadtest ./tools/benchmark/loadtest/
+loadtest: go.sum paxd-native-libs
+		go build -tags "$(build_tags)" -ldflags '$(paxd_ldflags)' -o ./build/loadtest ./tools/benchmark/loadtest/
 
 go.sum: go.mod
 		@echo "--> Ensure dependencies have not been modified"
@@ -214,8 +214,8 @@ paxd-native-digest-check:
 clean:
 	rm -rf ./build/paxd ./build/loadtest ./build/generated ./build/proto ./build/packages.txt ./build/packages.txt.*
 
-build-loadtest:
-	go build -o build/loadtest ./tools/benchmark/loadtest/
+build-loadtest: paxd-native-libs
+	go build -tags "$(build_tags)" -ldflags '$(paxd_ldflags)' -o build/loadtest ./tools/benchmark/loadtest/
 
 
 ###############################################################################

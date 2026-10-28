@@ -22,11 +22,14 @@ import (
 // Replication wire format. The primary sends a group as u32be count ‖ count WAL frames, each
 // u32be crc32c(entry) ‖ u32be len(entry) ‖ entry exactly as the WAL writes it. The standby answers
 // every group with one Ack: u8 status ‖ u64be lastSeq ‖ u64be gapFrom ‖ u64be gapTo ‖ u64be epoch.
+// After AckRefused, the primary can send a zero count to request the refusal reason,
+// answered as u32be length followed by UTF-8 bytes. Ordinary groups retain their wire format.
 const (
-	maxGroupFrames  = 1 << 20
-	maxGroupBytes   = 256 << 20
-	frameHeaderSize = 8
-	ackSize         = 33
+	maxGroupFrames        = 1 << 20
+	maxGroupBytes         = 256 << 20
+	frameHeaderSize       = 8
+	ackSize               = 33
+	maxRefusalReasonBytes = 64 << 10
 )
 
 var frameCRC = crc32.MakeTable(crc32.Castagnoli)
@@ -75,6 +78,8 @@ type Ack struct {
 	GapTo   uint64
 	// Epoch is the held lease epoch when the standby refuses a group after taking leadership.
 	Epoch uint64
+	// Reason names the admission, persistence or execution failure on AckRefused.
+	Reason string
 }
 
 func (a Ack) encode() [ackSize]byte {
@@ -197,9 +202,11 @@ type Replicator struct {
 // retainedFrame is a record kept until the standby acknowledges a later COMMITTED; the retained
 // window is resent on every fresh link and on a gap answer.
 type retainedFrame struct {
-	frame     wal.Frame
-	seq       uint64
-	committed bool
+	frame      wal.Frame
+	seq        uint64
+	committed  bool
+	leaseEpoch uint64
+	lease      bool
 }
 
 // NewReplicator builds the primary side of replication over cfg.
@@ -255,6 +262,8 @@ func (r *Replicator) Release(ctx context.Context, entries ...wal.Entry) (Ack, er
 			rf.committed = true
 		case *wal.Lease:
 			r.epoch = v.Epoch
+			rf.leaseEpoch = v.Epoch
+			rf.lease = true
 		}
 		r.retained = append(r.retained, rf)
 		pending = append(pending, p)
@@ -320,9 +329,9 @@ func (r *Replicator) replicate(ctx context.Context, frames []wal.Frame, maxSeq u
 		return Ack{}, fmt.Errorf("%w: standby still misses seqs %d..%d after the retained window", ErrNoAck, ack.GapFrom, ack.GapTo)
 	default:
 		if ack.Status == AckRefused && ack.Epoch > r.epoch {
-			return Ack{}, fmt.Errorf("%w: standby holds epoch %d, primary epoch %d", ErrFenced, ack.Epoch, r.epoch)
+			return Ack{}, fmt.Errorf("%w: standby holds epoch %d, primary epoch %d: %s", ErrFenced, ack.Epoch, r.epoch, ack.Reason)
 		}
-		return Ack{}, fmt.Errorf("%w: standby holds seq %d", ErrStandbyRefused, ack.LastSeq)
+		return Ack{}, fmt.Errorf("%w: standby holds seq %d: %s", ErrStandbyRefused, ack.LastSeq, ack.Reason)
 	}
 }
 
@@ -373,7 +382,27 @@ func (r *Replicator) exchange(ctx context.Context, frames []wal.Frame) (Ack, err
 	if _, err := io.ReadFull(r.conn, b[:]); err != nil {
 		return Ack{}, err
 	}
-	return decodeAck(b)
+	ack, err := decodeAck(b)
+	if err != nil || ack.Status != AckRefused {
+		return ack, err
+	}
+	var size [4]byte
+	if _, err := r.conn.Write(size[:]); err != nil {
+		return Ack{}, err
+	}
+	if _, err := io.ReadFull(r.conn, size[:]); err != nil {
+		return Ack{}, err
+	}
+	n := binary.BigEndian.Uint32(size[:])
+	if n > maxRefusalReasonBytes {
+		return Ack{}, fmt.Errorf("sequencer: refusal reason is %d bytes, max %d", n, maxRefusalReasonBytes)
+	}
+	reason := make([]byte, n)
+	if _, err := io.ReadFull(r.conn, reason); err != nil {
+		return Ack{}, err
+	}
+	ack.Reason = string(reason)
+	return ack, nil
 }
 
 // dropConn closes a link whose stream position is unknown; the next Release dials again.
@@ -391,9 +420,20 @@ func (r *Replicator) pruneRetained() {
 	for i := len(r.retained) - 1; i >= 0; i-- {
 		if r.retained[i].committed {
 			r.retained = append([]retainedFrame(nil), r.retained[i+1:]...)
-			return
+			break
 		}
 	}
+	// This runs only after AckOK: the standby has acknowledged the current epoch.
+	// Older checkpoints would be stale on a reconnect. Keep every other record,
+	// including unacknowledged leases until their group has actually succeeded.
+	retained := r.retained[:0]
+	for _, rf := range r.retained {
+		if rf.lease && rf.leaseEpoch < r.epoch {
+			continue
+		}
+		retained = append(retained, rf)
+	}
+	r.retained = retained
 }
 
 // Close closes the link to the standby.
@@ -514,6 +554,7 @@ type Standby struct {
 	consensusKey       tmtypes.PrivValidator
 	receiptKey         ed25519.PrivateKey
 	cur                standbyCursor
+	refusal            error
 	failed             error
 	leader             bool
 	ctx                context.Context
@@ -636,6 +677,13 @@ func (s *Standby) Err() error {
 	return s.failed
 }
 
+// RefusalReason returns the reason for the last refused group, including nonfatal admission errors.
+func (s *Standby) RefusalReason() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.refusal
+}
+
 // ConsensusKey returns the standby's own privval.
 func (s *Standby) ConsensusKey() tmtypes.PrivValidator { return s.consensusKey }
 
@@ -656,12 +704,39 @@ func (s *Standby) Serve(l net.Listener) error {
 func (s *Standby) serveConn(conn net.Conn) {
 	defer func() { _ = conn.Close() }()
 	r := bufio.NewReader(conn)
+	var refused *Ack
 	for {
+		if refused != nil {
+			count, err := r.Peek(4)
+			if err != nil {
+				return
+			}
+			if binary.BigEndian.Uint32(count) == 0 {
+				_, _ = r.Discard(4)
+				reason := refused.Reason
+				if len(reason) > maxRefusalReasonBytes {
+					const suffix = " [truncated]"
+					reason = reason[:maxRefusalReasonBytes-len(suffix)] + suffix
+				}
+				reply := binary.BigEndian.AppendUint32(nil, uint32(len(reason)))
+				reply = append(reply, reason...)
+				if _, err := conn.Write(reply); err != nil {
+					return
+				}
+				refused = nil
+				continue
+			}
+		}
 		entries, err := readGroup(r)
 		if err != nil {
 			return
 		}
-		reply := s.receive(entries).encode()
+		ack := s.receive(entries)
+		refused = nil
+		if ack.Status == AckRefused {
+			refused = &ack
+		}
+		reply := ack.encode()
 		if _, err := conn.Write(reply[:]); err != nil {
 			return
 		}
@@ -672,15 +747,23 @@ func (s *Standby) serveConn(conn net.Conn) {
 // with AckGap and nothing taken; otherwise the new records are appended and synced to the
 // standby WAL, re-executed in order, and acknowledged. A WAL or execution failure stops the
 // standby: it refuses every later group.
-func (s *Standby) receive(entries []wal.Entry) Ack {
+func (s *Standby) receive(entries []wal.Entry) (ack Ack) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	defer func() {
+		if ack.Status == AckRefused && s.refusal != nil {
+			ack.Reason = s.refusal.Error()
+		}
+	}()
 	if s.leader {
+		s.refusal = fmt.Errorf("%w: standby holds leadership at epoch %d", ErrFenced, s.cur.leaseEpoch)
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq, Epoch: s.cur.leaseEpoch}
 	}
 	if s.failed != nil {
+		s.refusal = fmt.Errorf("sequencer: standby stopped: %w", s.failed)
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
+	s.refusal = nil
 	next := s.cur
 	fresh := make([]wal.Entry, 0, len(entries))
 	for _, e := range entries {
@@ -690,6 +773,7 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 			return Ack{Status: AckGap, LastSeq: s.cur.lastSeq, GapFrom: gap.from, GapTo: gap.to}
 		}
 		if err != nil {
+			s.refusal = err
 			return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 		}
 		if ok {
@@ -707,11 +791,13 @@ func (s *Standby) receive(entries []wal.Entry) Ack {
 	}
 	if err := s.persist(fresh); err != nil {
 		s.failed = err
+		s.refusal = err
 		return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 	}
 	for _, e := range fresh {
 		if err := s.execute(e); err != nil {
 			s.failed = err
+			s.refusal = err
 			return Ack{Status: AckRefused, LastSeq: s.cur.lastSeq}
 		}
 		s.cur.advance(e)

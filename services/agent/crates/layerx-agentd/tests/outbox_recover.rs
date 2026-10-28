@@ -163,7 +163,7 @@ fn module_witness_evidence(record: &[u8], pinned_key: [u8; 32]) -> RawStateEvide
 }
 
 #[test]
-fn receipt_evidence_round_trips_through_a_real_store() {
+fn legacy_receipt_evidence_is_refused_after_restart() {
     let root = directory("receipt-evidence");
     let tenant = tenant();
     let raw = support::raw_receipt_at([0x11; 32], 0, 25, 100);
@@ -208,23 +208,19 @@ fn receipt_evidence_round_trips_through_a_real_store() {
     drop(durable);
 
     let reopened = Store::open(&root).unwrap_or_else(|error| panic!("reopen: {error}"));
-    assert_eq!(
-        serve_evidence(&reopened, tenant.clone(), [0x44; 32])
-            .unwrap_or_else(|error| panic!("serve after reopen: {error:?}")),
-        Some(record.clone())
-    );
+    assert!(matches!(
+        serve_evidence(&reopened, tenant.clone(), [0x44; 32]),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     assert_eq!(
         serve_evidence(&reopened, tenant.clone(), [0x45; 32])
             .unwrap_or_else(|error| panic!("serve older after reopen: {error:?}")),
         None
     );
-    let inventory = evidence_inventory(&reopened, &tenant)
-        .unwrap_or_else(|error| panic!("inventory: {error:?}"));
-    assert_eq!(inventory.with_evidence, vec![record]);
-    assert_eq!(inventory.without_evidence.len(), 1);
-    assert_eq!(inventory.without_evidence[0].idempotency_key, [0x45; 32]);
-    assert_eq!(inventory.without_evidence[0].activity_id, [0x12; 32]);
-    assert_eq!(inventory.without_evidence[0].global_sequence, 101);
+    assert!(matches!(
+        evidence_inventory(&reopened, &tenant),
+        Err(ReceiptStoreError::EvidenceVersion)
+    ));
     let _ = std::fs::remove_dir_all(&root);
 }
 

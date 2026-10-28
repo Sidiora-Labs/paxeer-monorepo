@@ -620,6 +620,7 @@ mod tests {
             faucet: Some(Faucet {
                 endpoint: Endpoint::parse(&faucet.url).unwrap(),
                 token: Zeroizing::new("service-token".to_owned()),
+                claim_amount: 1_000_000,
             }),
             store: Arc::new(crate::RedisStore::new(
                 crate::RedisEndpoint::parse("rediss://localhost:6379").unwrap(),

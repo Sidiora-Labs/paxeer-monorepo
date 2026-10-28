@@ -16,7 +16,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, CursorAcknowledgement, DeliveryTarget, SubscriptionCreate,
     SubscriptionFilter, SubscriptionId, SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::events::outbound::{
     deliver as deliver_outbound_unbound, deliver_shared_authorized as deliver_outbound_authorized,
     Authenticator, Endpoint, OutboundError, PeerIdentity, StopSignal,
@@ -156,7 +155,11 @@ fn request(scope: SubscriptionScope, filter: SubscriptionFilter, start: u64) -> 
     SubscriptionCreate {
         scope,
         filter,
-        start: ApiCursor(Sequence(start)),
+        start: ApiCursor {
+            block_height: start,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: target("uds://consumer-a"),
     }
 }
@@ -190,7 +193,7 @@ fn rewrite_as_legacy_unbound(
         || panic!("subscription record missing"),
         |stored| stored.bytes().to_vec(),
     );
-    assert_eq!(&bytes[..4], b"LXS2");
+    assert_eq!(&bytes[..4], b"LXS3");
     let binding_offset = 4 + [
         id.as_str(),
         scope.tenant.as_str(),
@@ -233,16 +236,34 @@ fn restart_resumes_from_acknowledged_cursor_and_remembers_deliveries() {
         Err(error) => panic!("subscription create failed: {error}"),
     };
     assert_eq!(created.filter, filter("tenant-a", "agent-a"));
-    if let Err(error) = subscriptions.mark_delivered(&target, Cursor(11)) {
+    if let Err(error) = subscriptions.mark_delivered(
+        &target,
+        Cursor {
+            block_height: 11,
+            tx_index: 0,
+            log_index: 0,
+        },
+    ) {
         panic!("cursor 11 delivery failed: {error}");
     }
-    if let Err(error) = subscriptions.mark_delivered(&target, Cursor(12)) {
+    if let Err(error) = subscriptions.mark_delivered(
+        &target,
+        Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        },
+    ) {
         panic!("cursor 12 delivery failed: {error}");
     }
     let acknowledged = CursorAcknowledgement {
         scope: subscription_scope.clone(),
         subscription_id: id.clone(),
-        cursor: ApiCursor(Sequence(11)),
+        cursor: ApiCursor {
+            block_height: 11,
+            tx_index: 0,
+            log_index: 0,
+        },
     };
     if let Err(error) = subscriptions.acknowledge(&acknowledged) {
         panic!("cursor acknowledgement failed: {error}");
@@ -257,15 +278,33 @@ fn restart_resumes_from_acknowledged_cursor_and_remembers_deliveries() {
         Ok(value) => value,
         Err(error) => panic!("subscription restart failed: {error}"),
     };
-    assert!(matches!(restarted.resume_cursor(&target), Ok(Cursor(11))));
+    assert!(matches!(
+        restarted.resume_cursor(&target),
+        Ok(Cursor {
+            block_height: 11,
+            tx_index: 0,
+            log_index: 0
+        })
+    ));
     assert_eq!(restarted.list(&subscription_scope).len(), 1);
-    if let Err(error) = restarted.mark_delivered(&target, Cursor(12)) {
+    if let Err(error) = restarted.mark_delivered(
+        &target,
+        Cursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        },
+    ) {
         panic!("unacknowledged cursor was not redeliverable after restart: {error}");
     }
     let delivered_before_restart = CursorAcknowledgement {
         scope: subscription_scope.clone(),
         subscription_id: id.clone(),
-        cursor: ApiCursor(Sequence(12)),
+        cursor: ApiCursor {
+            block_height: 12,
+            tx_index: 0,
+            log_index: 0,
+        },
     };
     if let Err(error) = restarted.acknowledge(&delivered_before_restart) {
         panic!("durable delivered cursor was forgotten: {error}");
@@ -273,22 +312,31 @@ fn restart_resumes_from_acknowledged_cursor_and_remembers_deliveries() {
     let never_delivered = CursorAcknowledgement {
         scope: subscription_scope,
         subscription_id: id,
-        cursor: ApiCursor(Sequence(13)),
+        cursor: ApiCursor {
+            block_height: 13,
+            tx_index: 0,
+            log_index: 0,
+        },
     };
     assert!(matches!(
         restarted.acknowledge(&never_delivered),
-        Err(SubscriptionError::CursorNeverDelivered { cursor: Cursor(13) })
+        Err(SubscriptionError::CursorNeverDelivered {
+            cursor: Cursor {
+                block_height: 13,
+                tx_index: 0,
+                log_index: 0
+            }
+        })
     ));
     let _ = fs::remove_dir_all(root);
 }
 
 #[test]
-fn legacy_subscription_without_a_session_generation_is_durably_quarantined() {
+fn legacy_subscription_without_a_session_generation_requires_cursor_reset() {
     let root = test_directory("legacy-session-binding");
     let tenant_id = durable_tenant("tenant-a");
     let subscription_scope = scope("tenant-a", "agent-a", "capability-a");
     let id = subscription_id("legacy-subscription");
-    let target = subscription_target(&subscription_scope, &id);
     let durable = text(Store::open(&root), "store open");
     let mut subscriptions = text(
         SubscriptionStore::open(durable, tenant_id.clone()),
@@ -305,41 +353,19 @@ fn legacy_subscription_without_a_session_generation_is_durably_quarantined() {
     rewrite_as_legacy_unbound(&mut durable, &tenant_id, &subscription_scope, &id);
     drop(durable);
 
-    let restarted = text(
-        SubscriptionStore::open(text(Store::open(&root), "store restart"), tenant_id.clone()),
-        "legacy migration",
-    );
-    assert_eq!(
-        text(restarted.termination(&target), "legacy termination"),
-        Some(Termination::SessionRevoked)
-    );
-    assert!(matches!(
-        restarted.get(&target),
-        Err(SubscriptionError::NotFound)
-    ));
-    assert!(restarted.list(&subscription_scope).is_empty());
-    let migrated = match restarted.durable() {
-        Ok(durable) => durable.get(&subscription_key(&tenant_id, &id)).map_or_else(
-            || panic!("migrated subscription missing"),
-            |stored| stored.bytes().to_vec(),
-        ),
-        Err(error) => panic!("owned durable backing returned unexpected {error:?}"),
-    };
-    assert!(migrated.starts_with(b"LXS2"));
-    drop(restarted);
-
-    let restarted_again = text(
-        SubscriptionStore::open(text(Store::open(&root), "store second restart"), tenant_id),
-        "migrated restart",
-    );
-    assert_eq!(
-        text(restarted_again.termination(&target), "migrated termination",),
-        Some(Termination::SessionRevoked)
-    );
-    assert!(matches!(
-        restarted_again.get(&target),
-        Err(SubscriptionError::NotFound)
-    ));
+    for _ in 0..2 {
+        let error =
+            SubscriptionStore::open(text(Store::open(&root), "store restart"), tenant_id.clone())
+                .expect_err("legacy cursor must require an explicit reset");
+        assert!(matches!(error, SubscriptionError::CursorResetRequired));
+        assert_eq!(error.to_string(), "subscription.cursor_reset_required");
+        let durable = text(Store::open(&root), "inspect legacy record");
+        assert!(durable
+            .get(&subscription_key(&tenant_id, &id))
+            .expect("legacy record remains present")
+            .bytes()
+            .starts_with(b"LXSB"));
+    }
     let _ = fs::remove_dir_all(root);
 }
 
@@ -411,7 +437,14 @@ fn pause_resume_delete_and_cross_scope_non_disclosure_are_durable() {
     };
     assert!(paused.paused);
     assert!(matches!(
-        subscriptions.mark_delivered(&target, Cursor(5)),
+        subscriptions.mark_delivered(
+            &target,
+            Cursor {
+                block_height: 5,
+                tx_index: 0,
+                log_index: 0
+            }
+        ),
         Err(SubscriptionError::Paused)
     ));
 
@@ -629,14 +662,25 @@ fn assert_unbound_subscription_refused(
         Err(SubscriptionError::AuthorizationRequired)
     ));
     assert!(matches!(
-        subscriptions.mark_delivered(target, Cursor(1)),
+        subscriptions.mark_delivered(
+            target,
+            Cursor {
+                block_height: 1,
+                tx_index: 0,
+                log_index: 0
+            }
+        ),
         Err(SubscriptionError::AuthorizationRequired)
     ));
     assert!(matches!(
         subscriptions.acknowledge(&CursorAcknowledgement {
             scope: subscription_scope.clone(),
             subscription_id: id.clone(),
-            cursor: ApiCursor(Sequence(0)),
+            cursor: ApiCursor {
+                block_height: 0,
+                tx_index: 0,
+                log_index: 0
+            },
         }),
         Err(SubscriptionError::AuthorizationRequired)
     ));
@@ -714,7 +758,11 @@ fn exercise_authorized_subscription(
             &CursorAcknowledgement {
                 scope: subscription_scope.clone(),
                 subscription_id: id.clone(),
-                cursor: ApiCursor(Sequence(0)),
+                cursor: ApiCursor {
+                    block_height: 0,
+                    tx_index: 0,
+                    log_index: 0,
+                },
             },
         ),
         "authorized acknowledgement",
@@ -813,7 +861,11 @@ fn assert_engine_authorization(
         engine.acknowledge(&CursorAcknowledgement {
             scope: subscription_scope.clone(),
             subscription_id: id.clone(),
-            cursor: ApiCursor(Sequence(0)),
+            cursor: ApiCursor {
+                block_height: 0,
+                tx_index: 0,
+                log_index: 0
+            },
         }),
         Err(DeliveryError::AuthorizationRequired)
     ));

@@ -1301,7 +1301,7 @@ fi
 
 # The agent-public cases run the probe of the fixture tree against the kernel
 # app's fixture machine: its volume holds the agentd-client identity files, a
-# copy of sleep named layerx-agentd stands in for the running daemon with its
+# copy of bash named layerx-agentd stands in for the running daemon with its
 # program bearer and probe program in its environment, and the curl stand-in
 # answers the machine name as the agentd boundary does.
 mkdir -p "$fx/services/platform/hosted/agentd" "$work/fly/$kernel/app/data/tls/agentd-client" "$work/agentd"
@@ -1309,7 +1309,8 @@ cp "$root/services/platform/hosted/agentd/probe.sh" "$fx/services/platform/hoste
 for file in ca.pem cert.pem key.pem; do
 	printf 'fixture %s\n' "$file" >"$work/fly/$kernel/app/data/tls/agentd-client/$file"
 done
-cp "$(command -v sleep)" "$work/agentd/layerx-agentd"
+# A trailing wait keeps bash from replacing itself with the sleep process.
+cp "$(command -v bash)" "$work/agentd/layerx-agentd"
 CHECK_LIVE_TEST_AGENT_BEARER="fixture-program-bearer-$(openssl rand -hex 16)"
 CHECK_LIVE_TEST_AGENT_PROGRAM="$(openssl rand -hex 32)"
 export CHECK_LIVE_TEST_AGENT_BEARER CHECK_LIVE_TEST_AGENT_PROGRAM
@@ -1322,7 +1323,7 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_agent_public_no_daemon "
 	"check-live: 2 check(s) failed"
 
 LAYERX_AGENT_PROGRAM_BEARER_TOKEN="$CHECK_LIVE_TEST_AGENT_BEARER" LAYERX_AGENT_PROGRAM_PROBE_ID="$CHECK_LIVE_TEST_AGENT_PROGRAM" \
-	"$work/agentd/layerx-agentd" 600 &
+	"$work/agentd/layerx-agentd" -c 'sleep 600; wait' &
 agentd_pid=$!
 export CHECK_LIVE_TEST_IPS='[{"Type":"shared_v4"},{"Type":"v6"},{"Type":"v4"}]'
 : >"$CHECK_LIVE_TEST_STDIN"
@@ -1467,60 +1468,6 @@ printf '[{"state":"started","config":{"mounts":[]}},{"state":"stopped","config":
 CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_kernel_app_volumeless "$work/hosts-good.env" 1 kernel-app -- \
 	"fail machines app=$kernel machines=2 started=1 volume-at-data=0 candidate=none" \
 	"check-live: 1 check(s) failed"
-kn_report="$work/kernel-node-real"
-if ! PATH="$real_path" python3 "$root/tests/daemon/paxeer_x_kernel_readiness.py" \
-	--legacy-check-live "$kn_report" --app "$kernel" >"$work/kernel-node-real.log" 2>&1; then
-	cat "$work/kernel-node-real.log" >&2
-	exit 1
-fi
-read -r kn_genesis kn_public < <(python3 -I - "$kn_report/report.json" <<'PY'
-import json, re, sys
-from pathlib import Path
-value = json.loads(Path(sys.argv[1]).read_text())
-for field in ('genesis_sha256', 'sequencer_public_key'):
-    if not re.fullmatch('[0-9a-f]{64}', value[field]): raise ValueError('real kernel identity missing')
-print(value['genesis_sha256'], value['sequencer_public_key'])
-PY
-)
-expect_kernel_evidence() {
-	local name=$1 case_name=$2 expected_exit=$3
-	shift 3
-	if python3 -I - "$kn_report/report.json" "$root" "$case_name" "$expected_exit" "$@" <<'PY'
-import json, subprocess, sys
-from pathlib import Path
-path, root, name, expected, *lines = sys.argv[1:]
-value = json.loads(Path(path).read_text())
-revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
-assert value['source_revision'] == revision, 'kernel fixture source revision changed'
-case = value['cases'][name]
-assert case['exit_code'] == int(expected), case
-assert isinstance(case['stdout'], str), 'missing real checker output'
-for line in lines:
-    assert line in case['stdout'], (line, case['stdout'])
-PY
-	then echo "ok   $name"; else echo "FAIL $name: real kernel readiness evidence mismatch"; failures=$((failures + 1)); fi
-}
-expect_kernel_evidence check_live_kernel_node_passing passing 0 \
-	"pass genesis app=$kernel sha256=$kn_genesis replica=match" \
-	"pass sequencer public=$kn_public core=match" \
-	"pass supervisor state=running" \
-	"pass lni socket=present" \
-	'pass replica head={"head":3}' \
-	"pass clock layerxd" \
-	"pass clock guarantor-2" \
-	"check-live: all checks passed"
-expect_kernel_evidence check_live_kernel_node_one_failing one_failing 1 \
-	"pass genesis app=$kernel sha256=$kn_genesis replica=match" \
-	"fail clock guarantor-1 exec=sleep" \
-	"check-live: 1 check(s) failed"
-expect_kernel_evidence check_live_kernel_node_no_kernel_image no_kernel_image 1 \
-	"fail genesis app=$kernel sha256=absent replica=none" \
-	"fail sequencer public=absent core=absent" \
-	"fail supervisor status=absent" \
-	"fail lni socket=absent" \
-	"fail replica head=absent" \
-	"fail clock layerxd exec=absent" \
-	"check-live: 10 check(s) failed"
 kill -TERM -- "-$kernel_init_pgid" 2>/dev/null || true
 
 # The gas cases run the probe of the fixture tree against the gas station
@@ -1688,10 +1635,10 @@ CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_nothing_running
 	"pass readiness group=kms url=https://kms.process.$internal.internal:9443/readyz from=$kernel http=200 ready=true" \
 	"check-live: 2 check(s) failed"
 
-cp "$(command -v sleep)" "$work/internal/layerx-event-source"
+cp "$(command -v bash)" "$work/internal/layerx-event-source"
 for group in payments programs; do
 	LAYERX_EVENTS_KIND="$group" LAYERX_EVENTS_UPSTREAM_URL=https://api-mainnet-beta.paxeer.network LAYERX_EVENTS_UPSTREAM_CA_DER="$chain/root-X1.der" \
-		"$work/internal/layerx-event-source" 600 &
+		"$work/internal/layerx-event-source" -c 'sleep 600; wait' &
 	internal_pids="$internal_pids $!"
 done
 : >"$CHECK_LIVE_TEST_STDIN"
@@ -1719,7 +1666,7 @@ fi
 kill "${internal_pids##* }" 2>/dev/null || true
 wait "${internal_pids##* }" 2>/dev/null || true
 LAYERX_EVENTS_KIND=programs LAYERX_EVENTS_UPSTREAM_URL=https://api-mainnet-beta.paxeer.network LAYERX_EVENTS_UPSTREAM_CA_DER="$chain/root-X2.der" \
-	"$work/internal/layerx-event-source" 600 &
+	"$work/internal/layerx-event-source" -c 'sleep 600; wait' &
 internal_pids="$internal_pids $!"
 export CHECK_LIVE_TEST_IPS='[{"Type":"v6"}]'
 CHECK_LIVE_TEST_DOWN="approvals" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_internal_failing "$work/hosts-good.env" 1 internal -- \
@@ -1742,7 +1689,7 @@ unset CHECK_LIVE_ROUTER_CONNECT
 # The bridge cases read the five relayer apps' fixture machines: the fixture tree
 # carries two chains and a checklist stand-in that passes a record holding
 # "match" and otherwise fails naming an RPC URL, as the checklist's errors
-# can; copies of sleep named layerx-bridge-relayer and layerx-mirror-signer
+# can; copies of bash named layerx-bridge-relayer and layerx-mirror-signer
 # stand in for the two running processes on each of the five relayer apps,
 # and each relayer's volume holds its own journal.
 bridges=()
@@ -1771,8 +1718,8 @@ echo "checklist: error: $1 vault owner read through https://fixture-rpc.invalid/
 exit 1
 SH
 chmod +x "$fx/services/bridge/deploy/checklist.sh"
-cp "$(command -v sleep)" "$work/bridge/bin/layerx-bridge-relayer"
-cp "$(command -v sleep)" "$work/bridge/bin/layerx-mirror-signer"
+cp "$(command -v bash)" "$work/bridge/bin/layerx-bridge-relayer"
+cp "$(command -v bash)" "$work/bridge/bin/layerx-mirror-signer"
 printf '{"chain":"base","match":true}\n' >"$work/bridge/records/base.json"
 bridge_item="in:8453:0x$(printf 'ab%.0s' {1..32}):7"
 
@@ -1786,9 +1733,9 @@ PAXEER_BRIDGE_RECORDS_DIR="$work/bridge/records" CHECK_LIVE_TEST_PROGRAM="$fx_ch
 	"fail bridge-in relayers=5 journal=absent" \
 	"check-live: 7 check(s) failed"
 
-"$work/bridge/bin/layerx-bridge-relayer" 600 &
+"$work/bridge/bin/layerx-bridge-relayer" -c 'sleep 600; wait' &
 bridge_pids="$!"
-"$work/bridge/bin/layerx-mirror-signer" 600 &
+"$work/bridge/bin/layerx-mirror-signer" -c 'sleep 600; wait' &
 bridge_pids="$bridge_pids $!"
 printf '{"chain":"solana","vault":"differs"}\n' >"$work/bridge/records/solana.json"
 printf '%s\n' \
@@ -2380,6 +2327,9 @@ reply() {
 	[ -z "$wout" ] || printf '%b' "${wout//%\{http_code\}/$1}"
 	exit 0
 }
+if [ -n "$data" ]; then
+	python3 -c 'import json, sys; print(json.loads(sys.argv[1])["method"])' "$data" >>"$CHECK_LIVE_TEST_INDEXER_METHODS"
+fi
 case "$url" in
 https://*.internal:8095/healthz)
 	[ "${CHECK_LIVE_TEST_INDEXER_HEALTH:-up}" = up ] || exit 7
@@ -2396,7 +2346,7 @@ https://api-mainnet-beta.paxeer.network/rpc)
 	"px_getUnifiedHistory 0x00000000000000000000000000000000000000aa")
 		reply 200 '{"jsonrpc":"2.0","id":1,"result":{"items":[{"id":"1"},{"id":"2"}],"next_cursor":null,"account":"0x00000000000000000000000000000000000000aa","accounts":[{"side":"layerx","account":"'"$CHECK_LIVE_TEST_LAYERX"'"},{"side":"paxeer","account":"0x00000000000000000000000000000000000000aa"}]}}'
 		;;
-	"lx_getHistory $CHECK_LIVE_TEST_LAYERX" | "px_getHistory 0x00000000000000000000000000000000000000aa")
+	"px_getHistory 0x00000000000000000000000000000000000000aa")
 		reply 200 '{"jsonrpc":"2.0","id":1,"result":{"items":[{"id":"1"}],"next_cursor":null}}'
 		;;
 	esac
@@ -2407,6 +2357,7 @@ exec "$CHECK_LIVE_TEST_OUTER_CURL" "${args[@]}"
 SH
 chmod +x "$ix/bin/curl"
 export CHECK_LIVE_TEST_OUTER_CURL="$work/bin/curl"
+export CHECK_LIVE_TEST_INDEXER_METHODS="$ix/methods.log"
 export CHECK_LIVE_TEST_LAYERX=1111111111111111111111111111111111111111111111111111111111111111
 export CHECK_LIVE_INDEXER_CONNECT="127.0.0.1:$archive_port"
 export CHECK_LIVE_TEST_MACHINES='[{"state":"started","config":{"mounts":[{"path":"/data","volume":"vol_fixture"}]}}]'
@@ -2415,7 +2366,7 @@ CREATE TABLE backfill_cursors(chain TEXT PRIMARY KEY, position INTEGER NOT NULL,
 INSERT INTO backfill_cursors VALUES('paxeer', 26400000, '0xaa', 0);
 INSERT INTO cursors VALUES('paxeer', 26400120, '0xbb', 26400100, 0, 0);"
 echo 26400000 >"$ix/state/cutover-height"
-cp "$(command -v sleep)" "$ix/layerx-indexer"
+cp "$(command -v bash)" "$ix/layerx-indexer"
 
 PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_account_unset "$work/hosts-indexer.env" 2 indexer -- \
 	"check-live: CHECK_LIVE_INDEXER_ACCOUNT must be a 0x EVM address with indexed history"
@@ -2431,24 +2382,42 @@ LAYERX_INDEXER_DB="$ix/state/indexer.sqlite" LAYERX_INDEXER_LISTEN='[::]:8095' L
 	LAYERX_INDEXER_EVM_URL=https://api7.mainnet-beta.paxeer.network LAYERX_INDEXER_EVM_CA_DER="$chain/root-X1.der" \
 	LAYERX_INDEXER_COMET_URL=https://api7.mainnet-beta.paxeer.network/comet LAYERX_INDEXER_COMET_CA_DER="$chain/root-X1.der" \
 	LAYERX_INDEXER_RELAY_URL=https://archive.paxeer.network LAYERX_INDEXER_RELAY_CA_DER="$chain/root-X1.der" \
-	"$ix/layerx-indexer" 600 &
+	"$ix/layerx-indexer" -c 'sleep 600; wait' &
 internal_pids="$internal_pids $!"
 : >"$CHECK_LIVE_TEST_STDIN"
-PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_passing "$work/hosts-indexer.env" 0 indexer -- \
-	"pass public-ips app=$indexer count=0" \
-	"pass machines app=$indexer machines=1 started=1 volume=/data" \
-	"pass archive-name name=api7.mainnet-beta.paxeer.network" \
-	"pass listener url=https://$indexer.internal:8095/healthz listen=[::]:8095 tls=internal-ca http=200" \
-	"pass upstream-ca side=evm url=https://api7.mainnet-beta.paxeer.network root=X1 verifies=yes" \
-	"pass upstream-ca side=comet url=https://api7.mainnet-beta.paxeer.network/comet root=X1 verifies=yes" \
-	"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
-	"pass comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=403 earliest=25000000" \
-	"pass start-block block=25000000 earliest=25000000" \
-	"pass backfill chain=paxeer cutover=26400000 backfill=26400000 live=26400120" \
-	"pass history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000aa items=2" \
-	"pass history method=lx_getHistory account=$CHECK_LIVE_TEST_LAYERX items=1" \
-	"pass history method=px_getHistory account=0x00000000000000000000000000000000000000aa items=1" \
-	"check-live: all checks passed"
+
+expect_indexer_history() {
+	local name="$1"
+	: >"$CHECK_LIVE_TEST_INDEXER_METHODS"
+	expect "$@" >"$ix/expect.log"
+	if ! grep -qFx lx_getHistory "$CHECK_LIVE_TEST_INDEXER_METHODS" &&
+		[ "$(cat "$CHECK_LIVE_TEST_INDEXER_METHODS")" = $'status\npx_getUnifiedHistory\npx_getHistory' ]; then
+		cat "$ix/expect.log"
+	else
+		sed '/^ok   /d' "$ix/expect.log"
+		echo "FAIL $name: want status and the two px_ history methods, with no lx_getHistory request"
+		cat "$CHECK_LIVE_TEST_INDEXER_METHODS"
+		failures=$((failures + 1))
+	fi
+}
+
+check_live_indexer_passing() {
+	PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect_indexer_history check_live_indexer_passing "$work/hosts-indexer.env" 0 indexer -- \
+		"pass public-ips app=$indexer count=0" \
+		"pass machines app=$indexer machines=1 started=1 volume=/data" \
+		"pass archive-name name=api7.mainnet-beta.paxeer.network" \
+		"pass listener url=https://$indexer.internal:8095/healthz listen=[::]:8095 tls=internal-ca http=200" \
+		"pass upstream-ca side=evm url=https://api7.mainnet-beta.paxeer.network root=X1 verifies=yes" \
+		"pass upstream-ca side=comet url=https://api7.mainnet-beta.paxeer.network/comet root=X1 verifies=yes" \
+		"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
+		"pass comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=403 earliest=25000000" \
+		"pass start-block block=25000000 earliest=25000000" \
+		"pass backfill chain=paxeer cutover=26400000 backfill=26400000 live=26400120" \
+		"pass history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000aa items=2" \
+		"pass history method=px_getHistory account=0x00000000000000000000000000000000000000aa items=1" \
+		"check-live: all checks passed"
+}
+check_live_indexer_passing
 if [ "$(grep -c "^$indexer app ssh console sh -c 'tls=/data/tls/indexer app=$indexer limit=5 sh -s'$" "$CHECK_LIVE_TEST_CALLS")" -eq 1 ] &&
 	! grep -q 'PRIVATE KEY' "$CHECK_LIVE_TEST_STDIN"; then
 	echo "ok   check_live_indexer_reads_the_machine_once"
@@ -2460,19 +2429,21 @@ fi
 
 sqlite3 "$ix/state/indexer.sqlite" "UPDATE backfill_cursors SET position = 26399000 WHERE chain = 'paxeer';"
 export CHECK_LIVE_TEST_IPS='[{"Type":"v6"}]'
-CHECK_LIVE_TEST_INDEXER_HEALTH=down CHECK_LIVE_TEST_COMET_GET=200 CHECK_LIVE_INDEXER_ACCOUNT=0x00000000000000000000000000000000000000bb \
-	PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect check_live_indexer_failing "$work/hosts-indexer.env" 1 indexer -- \
-	"fail public-ips app=$indexer count=1" \
-	"fail listener app=$indexer listen=[::]:8095 curl=7 http=" \
-	"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
-	"fail comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=200 earliest=25000000" \
-	"pass start-block block=25000000 earliest=25000000" \
-	"fail backfill chain=paxeer cutover=26400000 backfill=26399000 live=26400120" \
-	"fail history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
-	"fail history method=lx_getHistory account=none via=px_getUnifiedHistory" \
-	"fail history method=px_getHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
-	"check-live: 7 check(s) failed"
-unset CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX
+check_live_indexer_failing() {
+	CHECK_LIVE_TEST_INDEXER_HEALTH=down CHECK_LIVE_TEST_COMET_GET=200 CHECK_LIVE_INDEXER_ACCOUNT=0x00000000000000000000000000000000000000bb \
+		PATH="$ix/bin:$PATH" CHECK_LIVE_TEST_PROGRAM="$fx_checker" expect_indexer_history check_live_indexer_failing "$work/hosts-indexer.env" 1 indexer -- \
+		"fail public-ips app=$indexer count=1" \
+		"fail listener app=$indexer listen=[::]:8095 curl=7 http=" \
+		"pass upstream-ca side=relay url=https://archive.paxeer.network root=X1 verifies=yes" \
+		"fail comet-location url=https://api7.mainnet-beta.paxeer.network/comet post=200 get=200 earliest=25000000" \
+		"pass start-block block=25000000 earliest=25000000" \
+		"fail backfill chain=paxeer cutover=26400000 backfill=26399000 live=26400120" \
+		"fail history method=px_getUnifiedHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
+		"fail history method=px_getHistory account=0x00000000000000000000000000000000000000bb http=200 answer=error indexer_unavailable" \
+		"check-live: 6 check(s) failed"
+}
+check_live_indexer_failing
+unset CHECK_LIVE_TEST_IPS CHECK_LIVE_TEST_MACHINES CHECK_LIVE_INDEXER_ACCOUNT CHECK_LIVE_INDEXER_CONNECT CHECK_LIVE_TEST_OUTER_CURL CHECK_LIVE_TEST_LAYERX CHECK_LIVE_TEST_INDEXER_METHODS
 
 # The developers cases put a curl stand-in for the three developer names in
 # front of the one above: /healthz answers ready unless the name is in
@@ -3129,7 +3100,7 @@ unset CHECK_LIVE_TEST_LEGS CHECK_LIVE_INTEROP_ORIGIN LAYERX_RAMP_URL LAYERX_RAMP
 unset LAYERX_RAMP_ON_QUOTE_ID LAYERX_RAMP_OFF_QUOTE_ID LAYERX_RAMP_OFF_GRANT_JSON LAYERX_RAMP_ON_ACCOUNT_SEQUENCE
 unset LAYERX_RAMP_OFF_RECEIVER_SEQUENCE CHECK_LIVE_INTEROP_ADAPTERS_CUSTOMER_TOKEN_FILE CHECK_LIVE_INTEROP_ADAPTERS_OPERATOR_TOKEN_FILE
 # The human state preservation round trip without Fly: export from a fixture
-# old machine whose serving process is a copy of sleep that the export stops,
+# old machine whose serving process is a copy of bash that the export stops,
 # import into a fixture kernel volume, verify, and each refusal.
 preserve="$fx/tools/bringup/human-state-preserve.sh"
 old="$work/preserve-old/$kernel/app"
@@ -3142,8 +3113,8 @@ printf 'seal\n' >"$old/data/human-state/kms/seal"
 printf 'treasury\n' >"$old/data/layerx/keys/treasury.key"
 printf 'recovery\n' >"$old/run/human-material/recovery-policy.json"
 python3 -c 'import socket, sys; socket.socket(socket.AF_UNIX).bind(sys.argv[1])' "$old/var/lib/layerx/human/components.sock"
-cp "$(command -v sleep)" "$old/usr/local/bin/layerx-human-service"
-LAYERX_HUMAN_STORE_ROOT="$old/var/lib/layerx/human/store" "$old/usr/local/bin/layerx-human-service" 300 &
+cp "$(command -v bash)" "$old/usr/local/bin/layerx-human-service"
+LAYERX_HUMAN_STORE_ROOT="$old/var/lib/layerx/human/store" "$old/usr/local/bin/layerx-human-service" -c 'sleep 600; wait' &
 serving_pid=$!
 out_dir="$work/preserve-out"
 
@@ -3463,9 +3434,9 @@ else:
     sys.exit(7)
 PY
 SH
-cp "$(command -v sleep)" "$vl/bin/layerx-receipt-authority"
+cp "$(command -v bash)" "$vl/bin/layerx-receipt-authority"
 chmod +x "$vl/bin/"*
-env LAYERX_AUTHORITY_TOKEN_FILES="$vl/authority-token" "$vl/bin/layerx-receipt-authority" 300 &
+env LAYERX_AUTHORITY_TOKEN_FILES="$vl/authority-token" "$vl/bin/layerx-receipt-authority" -c 'sleep 600; wait' &
 vl_authority_pid=$!
 python3 -c 'import socket, sys, time; s = socket.socket(socket.AF_UNIX); s.bind(sys.argv[1]); time.sleep(300)' \
 	"$vlroot/run/layerx/node/layerxd.lni.sock" &
@@ -3915,6 +3886,61 @@ else
 	grep -v '^ok ' <<<"$output" || true
 	failures=$((failures + 1))
 fi
+
+kn_report="$work/kernel-node-real"
+if ! PATH="$real_path" python3 "$root/tests/daemon/paxeer_x_kernel_readiness.py" \
+	--legacy-check-live "$kn_report" --app "$kernel" >"$work/kernel-node-real.log" 2>&1; then
+	cat "$work/kernel-node-real.log" >&2
+	exit 1
+fi
+read -r kn_genesis kn_public < <(python3 -I - "$kn_report/report.json" <<'PY'
+import json, re, sys
+from pathlib import Path
+value = json.loads(Path(sys.argv[1]).read_text())
+for field in ('genesis_sha256', 'sequencer_public_key'):
+    if not re.fullmatch('[0-9a-f]{64}', value[field]): raise ValueError('real kernel identity missing')
+print(value['genesis_sha256'], value['sequencer_public_key'])
+PY
+)
+expect_kernel_evidence() {
+	local name=$1 case_name=$2 expected_exit=$3
+	shift 3
+	if python3 -I - "$kn_report/report.json" "$root" "$case_name" "$expected_exit" "$@" <<'PY'
+import json, subprocess, sys
+from pathlib import Path
+path, root, name, expected, *lines = sys.argv[1:]
+value = json.loads(Path(path).read_text())
+revision = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+assert value['source_revision'] == revision, 'kernel fixture source revision changed'
+case = value['cases'][name]
+assert case['exit_code'] == int(expected), case
+assert isinstance(case['stdout'], str), 'missing real checker output'
+for line in lines:
+    assert line in case['stdout'], (line, case['stdout'])
+PY
+	then echo "ok   $name"; else echo "FAIL $name: real kernel readiness evidence mismatch"; failures=$((failures + 1)); fi
+}
+expect_kernel_evidence check_live_kernel_node_passing passing 0 \
+	"pass genesis app=$kernel sha256=$kn_genesis replica=match" \
+	"pass sequencer public=$kn_public core=match" \
+	"pass supervisor state=running" \
+	"pass lni socket=present" \
+	'pass replica head={"head":3}' \
+	"pass clock layerxd" \
+	"pass clock guarantor-2" \
+	"check-live: all checks passed"
+expect_kernel_evidence check_live_kernel_node_one_failing one_failing 1 \
+	"pass genesis app=$kernel sha256=$kn_genesis replica=match" \
+	"fail clock guarantor-1 exec=sleep" \
+	"check-live: 1 check(s) failed"
+expect_kernel_evidence check_live_kernel_node_no_kernel_image no_kernel_image 1 \
+	"fail genesis app=$kernel sha256=absent replica=none" \
+	"fail sequencer public=absent core=absent" \
+	"fail supervisor status=absent" \
+	"fail lni socket=absent" \
+	"fail replica head=absent" \
+	"fail clock layerxd exec=absent" \
+	"check-live: 10 check(s) failed"
 
 if [ "$failures" -ne 0 ]; then
 	echo "check-live.test: $failures case(s) failed"

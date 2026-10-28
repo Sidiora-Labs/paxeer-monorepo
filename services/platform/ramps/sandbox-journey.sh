@@ -1,5 +1,28 @@
 #!/bin/sh
 set -eu
+if [ "${1:-}" = --help ] || [ "${1:-}" = -h ]; then
+  cat <<'HELP'
+Usage: sandbox-journey.sh [--help]
+
+Run on-ramp and off-ramp sandbox orders and verify their transaction receipts.
+Required environment:
+  LAYERX_RAMP_REFERENCE_BIN
+  LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG  Protected configuration with receipt keys
+  LAYERX_RAMP_URL
+  LAYERX_RAMP_CA_PEM
+  LAYERX_RAMP_CUSTOMER_TOKEN
+  LAYERX_RAMP_OPERATOR_URL
+  LAYERX_RAMP_OPERATOR_TOKEN
+  LAYERX_RAMP_ON_QUOTE_ID
+  LAYERX_RAMP_OFF_QUOTE_ID
+  LAYERX_RAMP_OFF_GRANT_JSON
+  LAYERX_RAMP_OFF_RECEIVER_SEQUENCE    Receiver sequence for draws
+
+The on-ramp send reads its nonce from the sequencer.
+PAXEER_X_RAMP_FULL_CONTRACT=1 selects the protected full-contract journey inputs.
+HELP
+  exit 0
+fi
 if [ "${PAXEER_X_RAMP_FULL_CONTRACT:-0}" = 1 ]; then
 root=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd)
 exec python3 - "$root" <<'PY'
@@ -172,8 +195,11 @@ def presentation(snapshot, done=False):
     custody(value)
     if done:
         require(snapshot["stage"] == "done" and value["status"] == "done", "done_status")
-        require(any(octets(value["receipt_digest"])) and any(octets(value["activity_id"])),
-                "done_requires_receipt_activity")
+        evidence = snapshot["evidence"]
+        require(any(octets(evidence["tx_hash"])) and any(octets(evidence["receipt_digest"]))
+                and evidence["rung"] in ("receipted", "committed")
+                and value["receipt_digest"] == evidence["receipt_digest"],
+                "done_requires_transaction_receipt")
     else:
         require(snapshot["stage"] != "done" and value["status"] != "done", "premature_done")
     return value
@@ -216,7 +242,7 @@ class Signatures:
 def verify_done(snapshot, terms, operation):
     view = presentation(snapshot, True)
     require(any(octets(view["provider_evidence_digest"])), "done_requires_provider_evidence")
-    activity = octets(view["activity_id"])
+    activity = octets(snapshot["evidence"]["tx_hash"])
     authority = request("authority", "authority", "GET",
                         "/v1/authorized-batches/by-activity/" + activity.hex())[0]
     require(authority["activity_id"] == activity.hex()
@@ -322,7 +348,8 @@ try:
         require(isinstance(terms["order_id"], str)
                 and re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", terms["order_id"]), "order_id")
         require(isinstance(terms["quote_id"], str) and terms["quote_id"], "quote_id")
-        integer(terms["account_sequence"])
+        if side == "off":
+            integer(terms["account_sequence"])
         integer(int(terms["amount"]), 1, 2**128 - 1)
         for field in ("asset", "from_account", "to_account", "context"):
             hex32(terms[field])
@@ -394,8 +421,7 @@ try:
     request("operator", "customer", "POST", "/internal/v1/work", work_body, (403,), "operator_authentication_refused")
     cases["operator_authorization"] = True
     presentation(read_order(on_digest))
-    work(on_digest, "submit_layerx", {"account_sequence": inputs["on"]["account_sequence"]},
-         (409,), "operation_conflict")
+    work(on_digest, "submit_layerx", status=(409,), error="operation_conflict")
     cases["out_of_order_refused"] = True
     repeated = create(inputs["on"], None)
     require(octets(repeated["order_digest"]) == on_digest, "order_replay_identity")
@@ -404,7 +430,7 @@ try:
     presentation(work(on_digest, "compliance"))
     work(on_digest, "submit_provider")
     wait_stage(on_digest, "provider_settled")
-    work(on_digest, "submit_layerx", {"account_sequence": inputs["on"]["account_sequence"]})
+    work(on_digest, "submit_layerx")
     on_done = wait_stage(on_digest, "done")
     report["on"] = verify_done(on_done, inputs["on"], 5)
     cases["on_ramp_receipt"] = True
@@ -523,7 +549,6 @@ trap 'rm -rf "$journey_directory"' EXIT HUP INT TERM
 : "${LAYERX_RAMP_ON_QUOTE_ID:?}"
 : "${LAYERX_RAMP_OFF_QUOTE_ID:?}"
 : "${LAYERX_RAMP_OFF_GRANT_JSON:?}"
-: "${LAYERX_RAMP_ON_ACCOUNT_SEQUENCE:?}"
 : "${LAYERX_RAMP_OFF_RECEIVER_SEQUENCE:?}"
 
 customer() {
@@ -579,17 +604,32 @@ operator -H 'Content-Type: application/json' -X POST \
 customer "${LAYERX_RAMP_URL}/readyz" \
   | jq -e '.ready == true and .journal.ready == true and .journal.halted == false and .journal.recovery_required == false' >/dev/null
 
+receipt_evidence() {
+  jq -e '.evidence |
+    def hash32: type == "array" and length == 32 and
+      all(.[]; type == "number" and . == floor and . >= 0 and . <= 255) and
+      any(.[]; . != 0);
+    if (.tx_hash | hash32) and (.receipt_digest | hash32) and
+       (.rung == "receipted" or .rung == "committed")
+    then . else error("transaction receipt evidence required") end'
+}
+
 verify_done() {
   response="$1"
   printf '%s' "$response" | jq -e '.order' >"$journey_directory/order.json"
-  activity=$(printf '%s' "$response" | jq -r '.presentation.activity_id[]' | awk '{printf "%02x", $1}')
+  keys=$(printf '%s' "$response" | receipt_evidence)
+  tx_hash="0x$(printf '%s' "$keys" | jq -r '.tx_hash[]' | awk '{printf "%02x", $1}')"
+  receipt_digest="0x$(printf '%s' "$keys" | jq -r '.receipt_digest[]' | awk '{printf "%02x", $1}')"
   "$LAYERX_RAMP_REFERENCE_BIN" --verify-receipt "$LAYERX_RAMP_RECEIPT_VERIFIER_CONFIG" \
-    "$journey_directory/order.json" "$activity" >"$journey_directory/receipt.json"
+    "$journey_directory/order.json" "$tx_hash" >"$journey_directory/receipt.json"
   printf '%s' "$response" | jq -e --slurpfile proof "$journey_directory/receipt.json" \
+    --arg tx_hash "$tx_hash" --arg receipt_digest "$receipt_digest" \
     '.stage == "done" and .presentation.status == "done" and $proof[0].verified == true and
      .order.order_digest == $proof[0].order_digest and
-     .presentation.activity_id == $proof[0].activity_id and
-     .presentation.receipt_digest == $proof[0].receipt_digest and
+     $proof[0].transaction_hash == $tx_hash and
+     $proof[0].receipt_digest == $receipt_digest and
+     ($proof[0].rung == "receipted" or $proof[0].rung == "committed") and
+     .presentation.receipt_digest == .evidence.receipt_digest and
      .presentation.external_custody_label == $proof[0].external_custody_label' >/dev/null
 }
 
@@ -599,7 +639,7 @@ on_hex="$(printf '%s' "${on_digest}" | jq -r '.[]' | awk '{printf "%02x", $1}')"
 work "${on_digest}" compliance null >/dev/null
 work "${on_digest}" submit_provider null >/dev/null
 wait_stage "${on_hex}" provider_settled >/dev/null
-work "${on_digest}" submit_layerx "${LAYERX_RAMP_ON_ACCOUNT_SEQUENCE}" >/dev/null
+work "${on_digest}" submit_layerx null >/dev/null
 on_done="$(wait_stage "${on_hex}" done)"
 
 off_created="$(create_order off-ramp "${LAYERX_RAMP_OFF_QUOTE_ID}" "${LAYERX_RAMP_OFF_GRANT_JSON}")"

@@ -408,6 +408,9 @@ lxp_result lxp_programs_sandbox_execute(
     if (status == LXP_OK)
         status = lxp_programs_call_execute(ctx, &inner, authority, value->call,
                                            effects);
+    if (status != LXP_OK && !lxp_result_is_fatal(status) &&
+        value->guest_savepoint.active)
+        (void)lxp_module_savepoint_discard(ctx, &value->guest_savepoint);
     if (!lxp_result_is_fatal(status) && value->usage_result.published) {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind)
@@ -424,7 +427,8 @@ lxp_result lxp_programs_sandbox_execute(
     if (status == LXP_OK && !value->usage_result.published)
         status = LXP_FATAL_INVARIANT;
     if (status == LXP_OK) status = emit_usage_receipt(value);
-    if (value->guest_savepoint.active) status = LXP_FATAL_INVARIANT;
+    if (status == LXP_OK && value->guest_savepoint.active)
+        status = LXP_FATAL_INVARIANT;
     {
         size_t kind;
         for (kind = 0U; kind < 3U; ++kind) {

@@ -10,17 +10,26 @@ Source: `modules/<name>/types/*.go`: the `Params` struct, `Msg*` message types a
 |---|---|---|---|
 | epoch | 0 | 0 | - |
 | evm | 16 | 10 | AddCWERC1155Pointer, AddCWERC20Pointer, AddCWERC721Pointer, AddERCCW1155Pointer, AddERCCW20Pointer, AddERCCW721Pointer, AddERCNativePointer, AddERCNativePointerV2, PointerBinding |
-| launchpad | 11 | 1 | - |
+| launchpad | 11 | 2 | - |
+| layerxagent | 9 | 1 | - |
 | layerxanchor | 17 | 1 | - |
+| layerxauth | 2 | 1 | - |
 | layerxbridge | 1 | 6 | LayerXBridge |
 | layerxcustody | 7 | 9 | LayerXCustody |
-| layerxexchange | 2 | 2 | - |
+| layerxexchange | 4 | 2 | - |
 | layerxgov | 0 | 0 | LayerX |
+| layerxledger | 1 | 1 | - |
+| layerxpay | 5 | 1 | - |
+| lxphost | 0 | 0 | - |
 | mint | 2 | 0 | UpdateMinter |
 | oracle | 8 | 2 | - |
+| perps | 30 | 3 | - |
+| pricefeed | 12 | 2 | - |
+| sequencer | 0 | 1 | - |
+| spot | 28 | 2 | - |
 | store | 0 | 0 | - |
-| tokenfactory | 1 | 6 | - |
-| xweb | 5 | 6 | - |
+| tokenfactory | 1 | 7 | - |
+| xweb | 7 | 6 | - |
 
 ## epoch
 
@@ -81,7 +90,6 @@ No parameters, messages or proposal types declared in `types/`.
 
 | Field | Go type |
 |---|---|
-| `quote_denom` | `string` |
 | `virtual_quote_default` | `sdk.Int` |
 | `virtual_token_default` | `sdk.Int` |
 | `min_fee_bps` | `uint64` |
@@ -92,6 +100,29 @@ No parameters, messages or proposal types declared in `types/`.
 | `volatility_weight` | `uint64` |
 | `concentration_weight` | `uint64` |
 | `creation_fee` | `sdk.Int` |
+| `quote_token` | `string` |
+
+### Messages
+
+- `MsgTreasuryWithdraw`
+- `MsgUpdateParams`
+
+
+## layerxagent
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `max_jobs_per_creator` | `uint64` |
+| `max_schedule_horizon` | `uint64` |
+| `min_deposit_factor` | `uint64` |
+| `max_jobs_per_block` | `uint64` |
+| `max_job_gas_limit` | `uint64` |
+| `max_reason_bytes` | `uint64` |
+| `max_call_data_bytes` | `uint64` |
+| `max_block_gas` | `uint64` |
+| `paused` | `bool` |
 
 ### Messages
 
@@ -121,6 +152,20 @@ No parameters, messages or proposal types declared in `types/`.
 | `reporter_share` | `sdk.Dec` |
 | `slash_destination` | `string` |
 | `permissionless_registration` | `bool` |
+
+### Messages
+
+- `MsgUpdateParams`
+
+
+## layerxauth
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `paused` | `bool` |
+| `idempotency_retention` | `uint64` |
 
 ### Messages
 
@@ -188,6 +233,8 @@ No parameters, messages or proposal types declared in `types/`.
 |---|---|
 | `authority` | `string` |
 | `markets` | `[]Market` |
+| `paused` | `bool` |
+| `time_in_force` | `bool` |
 
 ### Messages
 
@@ -201,6 +248,40 @@ No parameters, messages or proposal types declared in `types/`.
 
 - `LayerX`
 
+
+## layerxledger
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `paused` | `bool` |
+
+### Messages
+
+- `MsgUpdateParams`
+
+
+## layerxpay
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `paused` | `bool` |
+| `escrow_enabled` | `bool` |
+| `budget_enabled` | `bool` |
+| `stream_enabled` | `bool` |
+| `service_enabled` | `bool` |
+
+### Messages
+
+- `MsgUpdateParams`
+
+
+## lxphost
+
+No parameters, messages or proposal types declared in `types/`.
 
 ## mint
 
@@ -237,6 +318,123 @@ No parameters, messages or proposal types declared in `types/`.
 - `MsgDelegateFeedConsent`
 
 
+## perps
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `collateral_token` | `common.Address` |
+| `fee_tiers` | `[]FeeTier` |
+| `rebate_tiers` | `[]RebateTier` |
+| `insurance_share_ppm` | `uint64` |
+| `funding_interest_ppm_8h` | `uint64` |
+| `funding_premium_clamp_ppm` | `uint64` |
+| `funding_cap_ppm_per_hour` | `uint64` |
+| `premium_interval_seconds` | `uint64` |
+| `mark_ema_seconds` | `uint64` |
+| `class_e_oi_caps` | `[]OiCapRow` |
+| `withdraw_floor_ppm` | `uint64` |
+| `liquidation_slice_threshold_usd` | `sdk.Int` |
+| `liquidation_slice_ppm` | `uint64` |
+| `liquidation_cooldown_seconds` | `uint64` |
+| `backstop_ratio_numerator` | `uint64` |
+| `backstop_ratio_denominator` | `uint64` |
+| `sweep_positions_per_block` | `uint64` |
+| `liquidation_scan_per_block` | `uint64` |
+| `liquidations_per_block` | `uint64` |
+| `slices_per_block` | `uint64` |
+| `adl_positions_per_block` | `uint64` |
+| `triggers_per_block` | `uint64` |
+| `expiries_per_block` | `uint64` |
+| `min_order_value_usd` | `sdk.Int` |
+| `market_order_max_values` | `[]OrderValueRow` |
+| `limit_order_value_multiple` | `uint64` |
+| `default_slippage_ppm` | `uint64` |
+| `max_open_orders_per_account` | `uint64` |
+| `max_fills_per_order` | `uint64` |
+| `paused` | `bool` |
+
+### Messages
+
+- `MsgSetMarket`
+- `MsgSetPaused`
+- `MsgUpdateParams`
+
+
+## pricefeed
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `authority` | `string` |
+| `markets` | `[]Market` |
+| `staleness_window_ms` | `uint64` |
+| `max_clock_skew_ms` | `uint64` |
+| `min_sources` | `uint32` |
+| `max_divergence_bps` | `uint32` |
+| `max_deviation_bps` | `uint32` |
+| `max_observations_per_submission` | `uint32` |
+| `max_submission_bytes` | `uint32` |
+| `mark_ema_tau_ms` | `uint64` |
+| `max_mark_basis_bps` | `uint32` |
+| `max_price_age_ms` | `uint64` |
+
+### Messages
+
+- `MsgSetParams`
+- `MsgSubmitPrices`
+
+
+## sequencer
+
+### Messages
+
+- `MsgSequenceBatch`
+
+
+## spot
+
+### Parameters
+
+| Field | Go type |
+|---|---|
+| `swap_fee_bps` | `uint64` |
+| `tier1_fee_bps` | `uint64` |
+| `tier2_fee_bps` | `uint64` |
+| `price_impact_enabled` | `bool` |
+| `price_impact_scalar_bps` | `uint64` |
+| `order_fee_bps` | `uint64` |
+| `order_tier1_fee_bps` | `uint64` |
+| `order_tier2_fee_bps` | `uint64` |
+| `order_price_impact_enabled` | `bool` |
+| `order_price_impact_scalar_bps` | `uint64` |
+| `fee_collector` | `common.Address` |
+| `swap_paused` | `bool` |
+| `orders_paused` | `bool` |
+| `keeper_open` | `bool` |
+| `keepers` | `[]common.Address` |
+| `fill_quality_twap_period` | `uint64` |
+| `twap_sanity_enabled` | `bool` |
+| `twap_sanity_period` | `uint64` |
+| `max_twap_deviation_bps` | `uint64` |
+| `twap_max_period` | `uint64` |
+| `min_order_notional` | `sdk.Int` |
+| `max_active_orders_per_user` | `uint64` |
+| `max_expiries_per_block` | `uint64` |
+| `activation_scan_per_block` | `uint64` |
+| `fill_scan_per_block` | `uint64` |
+| `max_fills_per_block` | `uint64` |
+| `max_fill_backoff_blocks` | `uint64` |
+| `tokens` | `[]TokenParams` |
+
+### Messages
+
+- `MsgSyncReserves`
+- `MsgUpdateParams`
+
+
 ## store
 
 No parameters, messages or proposal types declared in `types/`.
@@ -256,6 +454,7 @@ No parameters, messages or proposal types declared in `types/`.
 - `MsgCreateDenom`
 - `MsgMint`
 - `MsgSetDenomMetadata`
+- `MsgSetDenomPaused`
 - `MsgUpdateDenom`
 
 
@@ -270,6 +469,8 @@ No parameters, messages or proposal types declared in `types/`.
 | `max_payload_bytes` | `uint32` |
 | `max_callback_gas` | `uint64` |
 | `timeout_blocks` | `uint64` |
+| `kernel_network_id` | `uint32` |
+| `program_fee_denoms` | `[]string` |
 
 ### Messages
 
