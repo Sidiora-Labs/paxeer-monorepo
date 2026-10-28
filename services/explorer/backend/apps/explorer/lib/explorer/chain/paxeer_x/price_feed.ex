@@ -101,6 +101,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
         inner_join: block in Block,
         on: block.hash == update.block_hash and block.consensus == true,
         where: observation.market_id == parent_as(:market).market_id,
+        where: update.status == 1 and observation.accepted == true,
         order_by: [desc: observation.block_number, desc: update.index],
         limit: 1,
         select: observation
@@ -133,6 +134,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
       inner_join: block in Block,
       on: block.hash == update.block_hash and block.consensus == true,
       where: observation.market_id == ^market_id,
+      where: update.status == 1 and observation.accepted == true,
       order_by: [desc: observation.block_number, desc: update.index],
       preload: [update: update]
     )
