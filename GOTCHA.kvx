@@ -10148,3 +10148,14 @@ detail = "10.13.7 renamed ReclaimAgentContext.account_sequence to nonce and adde
 title = "A done task whose test passes can still leave its second step unimplemented"
 detail = "18.1126.1 added a replay mutex and a test but not the sealed-layer source it named; the in-process test could not reproduce the divergence that the committed-fixture recorder hits at the first prior-block kernel read (#1144). When a do-line names a structural change, the acceptance test must fail without it."
 
+[gotcha.2075]
+title = "A spec edit that leaves a key without a value stops every task start while the dependency validator still passes"
+detail = "Four task blocks carried bare max_builds, stop_condition, path_policy and evidence_policy lines; cg spec start refused every task with 'cannot parse spec.kvx' for twenty minutes while plan validation passed. Lint every line of spec.kvx for key = value form, and each task block for exactly one of every bounded-gate key, before committing a spec edit."
+
+[gotcha.2076]
+title = "A test module included by #[path] compiles inside the including crate, so its dependencies must be declared there too"
+detail = "layerx-human-kms tests/support/attestor_cluster.rs gained ureq calls (6a5587897); layerx-human-service's wallet_identity_e2e includes it by #[path] and declares no ureq dev-dependency, so that target no longer builds (#1147). When a shared test support module gains a crate, add it to every crate that includes the module and record the lock edge."
+
+[gotcha.2077]
+title = "symbols must name only what the task defines, uniquely within the indexed workspace"
+detail = "cg spec done resolves every symbols entry after the gate passes: Operation::retired matched two definitions (api-gen lib.rs:33 and the service) and Rung lives in another crate the index does not resolve from the task's crate; 10.0.2 attempt 5 and 10.2.2 attempt 7 lost a passed gate to it. Leave shared method names and foreign types out of symbols."
