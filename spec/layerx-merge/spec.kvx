@@ -138705,7 +138705,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.5.7]
 title = "Serve the native read routes from node JSON-RPC"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["9.5.1", "9.5.2", "9.5.3", "9.5.5", "9.1.8", "18.1131.1"]
@@ -147055,7 +147055,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.2.5]
 title = "Verify a receipt batch is included in a committed block"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["11.2.4", "11.14.3"]
@@ -183886,7 +183886,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1110.1]
 title = "Issue #1110: Advance the native custody test inventory on the authority stream the import started"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1177.1"]
