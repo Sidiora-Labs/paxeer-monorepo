@@ -1,7 +1,6 @@
 use layerx_agent_api::subscription::{Cursor, EventDelivery, EventIdentity, ReceiptReference};
 use layerx_agent_api::track::ReceiptRef;
 use layerx_agent_api::verify::Level;
-use layerx_agent_api::Sequence;
 use layerx_human_service::activity::{
     ActivityKind, ActivityStatus, AgentActivity, Feed, FeedError, FilterDraft, PageRequest,
     PendingStatus, VerifiedStatus,
@@ -25,10 +24,14 @@ fn record_event(scope: &mut PrincipalScope<'_>, sequence: u8, level: Level) -> A
     let delivery = EventDelivery::new(
         EventIdentity::new([sequence; 32]),
         vec![sequence],
-        Cursor(Sequence(u64::from(sequence))),
+        Cursor {
+            block_height: u64::from(sequence),
+            tx_index: 0,
+            log_index: 0,
+        },
         ReceiptReference::Verified {
             receipt_ref: ReceiptRef::new(format!("receipt-{sequence}")).expect("receipt ref"),
-            verification_level: level,
+            rung: level.rung().expect("source rung"),
         },
     )
     .expect("delivery");

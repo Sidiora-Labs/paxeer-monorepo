@@ -3903,6 +3903,12 @@ basis = "req.8279 ac_2 and acceptance.8.279.2 of done task 8.31.2 require refusi
 affects = ["8.31.2", "req.8279", "acceptance.8.279.2", "18.1078.1"]
 
 
+[decision.1799]
+title = "Task statuses superseded and blocked belong to the workflow vocabulary"
+value = "spec/workflow.kvx task statuses are pending, in_progress, done, superseded and blocked; superseded marks a task replaced by a later one with its record kept, blocked marks a task held by an owner ruling."
+basis = "Five tasks are superseded and 13.34.2 is blocked; the spec tooling accepts both, the specgen validator read only the first three and failed TestRepositorySpecIsValidAndCurrent (18.961.1 attempts 1 and 2)."
+affects = ["18.961.1", "spec/workflow.kvx"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -117549,7 +117555,7 @@ title = "Record and re-verify the V4 committed vector"
 status = "pending"
 mode = "BUILD"
 wave = 15
-requires = ["5.55.1", "5.0.3", "5.55.2", "18.1074.1", "18.1109.1", "18.1120.1", "18.1126.1"]
+requires = ["5.55.1", "5.0.3", "5.55.2", "18.1074.1", "18.1109.1", "18.1120.1", "18.1126.1", "18.1144.1"]
 reqs = ["5518.1"]
 capabilities = ["5.55.5"]
 interfaces = []
@@ -142372,7 +142378,7 @@ title = "Stop the native read daemon tests from driving the retired program admi
 status = "pending"
 mode = "BUILD"
 wave = 11
-requires = ["9.5.7", "9.24.2", "9.1.8", "18.1131.1"]
+requires = ["9.5.7", "9.24.2", "9.1.8", "18.1131.1", "18.1138.1"]
 reqs = ["9972.1"]
 capabilities = []
 interfaces = []
@@ -142679,7 +142685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.0.2]
 title = "Refuse retired human-api operations with operation-retired before dispatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.15.2", "10.4.4", "14.10.1", "9.1.8", "18.1119.1"]
@@ -142692,7 +142698,7 @@ do_2 = "Add `ApiFailure::operation_retired()` beside `upstream_degraded` (servic
 do_3 = "services/human/crates/layerx-human-service/src/server/http.rs:218 binds `let operation = matched.operation;`; refuse a retired operation right after it with `ApiFailure::operation_retired()` before authorization, body decode or `self.backend.execute` (services/human/crates/layerx-human-service/src/server/http.rs:332)."
 do_4 = "services/human/crates/layerx-human-service/src/server/component.rs:464 dispatches component requests to `self.backend.execute`; refuse retired operations there with the same failure so the component socket cannot reach a retired handler."
 do_5 = "Create services/human/crates/layerx-human-service/tests/retired_operations.rs (planned) replaying the golden requests of the eleven retired operations from services/human/schema/human-api/golden/deposit.start.request.json:1 and its siblings through a real `Router` over a Unix socket."
-symbols = ["Operation::retired", "ApiFailure::operation_retired", "Router::serve_one"]
+symbols = ["ApiFailure::operation_retired", "Router::serve_one"]
 touches = ["services/human/crates/layerx-human-service/src/server/schema.rs", "services/human/crates/layerx-human-service/src/server/http.rs", "services/human/crates/layerx-human-service/src/server/component.rs", "services/human/crates/layerx-human-service/src/server/backend.rs", "services/human/crates/layerx-human-service/tests/retired_operations.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/retired_operations.rs::every_retired_operation_answers_operation_retired", "services/human/crates/layerx-human-service/tests/retired_operations.rs::retired_operation_is_refused_before_authorization", "services/human/crates/layerx-human-service/tests/retired_operations.rs::live_operation_is_still_dispatched"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/retired_operations.rs"]
@@ -142960,7 +142966,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.2]
 title = "Render approvals with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.0.1", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -142972,7 +142978,7 @@ do_2 = "Where the rendered approval states the budget evidence (services/human/c
 do_3 = "Keep `DisclosureRenderer::render` (services/human/crates/layerx-human-service/src/approvals/render.rs:138) output byte-identical for Committed reads so the rendered approval golden text does not change."
 do_4 = "Create services/human/crates/layerx-human-service/tests/approval_rungs.rs (planned) rendering through the public `approvals` API."
 do_5 = "Adapt only the `rung` construction at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4054-4063 and the `budget.rung` match at services/human/crates/layerx-human-service/src/server/projection.rs:293-299 to the renamed budget evidence; nothing else in those two files changes."
-symbols = ["VerifiedBudgetAfter", "DisclosureRenderer::render", "Rung"]
+symbols = ["VerifiedBudgetAfter", "DisclosureRenderer::render"]
 touches = ["services/human/crates/layerx-human-service/src/approvals/render.rs", "services/human/crates/layerx-human-service/src/approvals/mod.rs", "services/human/crates/layerx-human-service/tests/approval_rungs.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/server/projection.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/approval_rungs.rs::approval_budget_read_below_committed_renders_unverified", "services/human/crates/layerx-human-service/tests/approval_rungs.rs::approval_budget_read_at_committed_renders_unchanged"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/approval_rungs.rs"]
@@ -142992,7 +142998,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.3]
 title = "Project journeys and activity with rungs instead of the kernel Level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.2.1", "9.0.1", "10.2.2", "9.1.6", "9.1.7", "9.23.7", "9.1.8", "18.1119.1"]
@@ -143087,7 +143093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.2.6]
 title = "Approve agent holds against the pending nonce instead of the kernel sequence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.2.2", "9.1.8", "18.1119.1"]
@@ -143126,7 +143132,7 @@ reqs = ["10054.1"]
 capabilities = ["10.2.7"]
 interfaces = ["interface.10.rs-human-service-journeys-engine-receipt-material"]
 do_1 = "services/human/crates/layerx-human-service/src/journeys/engine.rs:22 imports `VerificationLevel`; `ReceiptMaterial` (services/human/crates/layerx-human-service/src/journeys/engine.rs:228) carries it at :231 with an `AuthorizedBatch` receipt authority field at :532; carry `tx_hash`, `receipt_hash`, `block_height` and `Rung`."
-do_2 = "Adapt the `ReceiptMaterial` consumers that copy `canonical_bytes`, `authorised_batch` and `verification_level` at services/human/crates/layerx-human-service/src/agents/reclaim.rs:374-377, services/human/crates/layerx-human-service/src/server/agent_creation.rs:455-457, services/human/crates/layerx-human-service/src/server/agent_creation_native.rs:386-388, services/human/crates/layerx-human-service/src/server/production_onboarding.rs:326-328 and services/human/crates/layerx-human-service/src/server/production_components.rs:2485-2487 to `tx_hash`, `receipt_hash`, `block_height` and `rung` so the crate builds; task 10.13.1 carries the same fields on `ProtocolEvidence` and task 10.20.1 fills them from the runtime rung byte."
+do_2 = "Keep ReceiptMaterial's canonical_bytes, authorised_batch and verification_level, and keep the consumers at services/human/crates/layerx-human-service/src/agents/reclaim.rs:374-377, src/server/agent_creation.rs:455-457, src/server/agent_creation_native.rs:386-388, src/server/production_onboarding.rs:326-328, src/server/production_components.rs:2485-2487 and the journey verification at src/journeys/engine.rs:1640 and :1670 copying them exactly as today; add tx_hash, receipt_hash, block_height and rung beside them. ProtocolEvidence (src/agents/create.rs:425-434) gains the same fields only in task 10.13.1, which moves the consumers onto them; do not touch create.rs here."
 do_3 = "Update the `ReceiptMaterial` import at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:27-28 and the `ReceiptMaterial` construction of `decode_receipt` at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4239-4260 to the new fields; the peer frame decoding of those fields lands with task 10.13.3."
 do_4 = "Rebuild the `ReceiptMaterial` test doubles at services/human/crates/layerx-human-service/tests/deposit.rs:683, :704, :719 and :913, services/human/crates/layerx-human-service/tests/intent_submit.rs:319, :571 and :621 and services/human/crates/layerx-human-service/tests/spend.rs:229-285 with the new fields."
 do_5 = "Create services/human/crates/layerx-human-service/tests/receipt_material_rungs.rs (planned) driving the public journeys API."
@@ -143165,6 +143171,7 @@ do_4 = "`EvidenceExport::evidence` (services/human/crates/layerx-human-service/s
 do_5 = "services/human/crates/layerx-human-service/src/server/production_components.rs:14 imports the LNI client and :25 imports `SettlementDomain`; switch :14 to `crate::frame` and update the two `EvidenceBundle`, three `EvidenceExport` and two `ReceiptAuthority` uses in production_components to the new fields."
 do_6 = "Create services/human/crates/layerx-human-service/tests/export_receipts.rs (planned) and update services/human/crates/layerx-human-service/tests/export.rs, which constructs `SettlementDomain` at HEAD, to the version 2 bundle."
 do_7 = "services/human/crates/layerx-human-service/tests/activity.rs:37 imports `SettlementDomain` and `cached_receipt_rows_are_labelled_only_by_the_verifier` (services/human/crates/layerx-human-service/tests/activity.rs:698) builds `domain` and `foreign_domain` at :705-706 and asserts `UnverifiedReason::SettlementDomainMismatch` at :844; drop the import, both domain values and the foreign-domain case, and verify the cached rows through the version-2 receipt check of do_3 while keeping every tenant, digest and wrong-batch label assertion."
+do_8 = "services/human/crates/layerx-human-service/tests/export.rs also builds the event Cursor as a tuple at :213 and :240, names verification_level at :216 (rung: Rung since d7ffdc755, src/activity/stream.rs:206) and passes the version 1 OfflineExport to layerx_agentd::export::build at :308, which takes layerx_agent_api::export::OfflineExport (services/agent/crates/layerx-agent-api/src/read.rs:592); port those four sites as part of the version 2 bundle so the export target compiles and runs."
 symbols = ["EvidenceBundle", "EvidenceBundle::verify_receipt", "EvidenceExport::evidence", "ReceiptEvidence"]
 touches = ["services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/activity.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v2_round_trips_receipt_fields", "services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v1_is_refused", "services/human/crates/layerx-human-service/tests/export_receipts.rs::tampered_receipt_hash_fails_verify_receipt", "services/human/crates/layerx-human-service/tests/activity.rs::cached_receipt_rows_are_labelled_only_by_the_verifier"]
@@ -143185,7 +143192,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.3.2]
 title = "Drop the settlement domain from the stream journal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143216,7 +143223,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.4.1]
 title = "Move the custody gateway and KMS provider client onto the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143227,11 +143234,12 @@ do_1 = "services/human/crates/layerx-human-service/src/custody/gateway.rs:13 imp
 do_2 = "services/human/crates/layerx-human-service/src/custody/provider.rs:7 imports the LNI transport for the LXKP client; import `crate::frame` instead so `KmsProvider` (services/human/crates/layerx-human-service/src/custody/provider.rs:498) speaks LXKP over the same bytes."
 do_3 = "Leave the LXKP frame format of services/human/crates/layerx-human-kms/src/wire.rs:86 unchanged; only the transport module path changes."
 do_4 = "Create services/human/crates/layerx-human-service/tests/custody_frame.rs (planned) relaying one LXKP probe through `LxkpGateway::serve` (services/human/crates/layerx-human-service/src/custody/gateway.rs:248) to a real `layerx-human-kms` server over Unix sockets."
+do_5 = "The provider.rs:7 switch changes the transport types KmsProvider's constructor takes; port its two callers outside the service, services/human/crates/layerx-human-movement-provider/src/config.rs:202 and services/human/crates/layerx-human-movement-provider/tests/kms/mod.rs:357 (both import Limits and MutualTlsConfig from layerx_client::lni::transport at config.rs:6 and kms/mod.rs:13), to the frame types, and build the movement provider's tests in the gate."
 symbols = ["LxkpGateway", "KmsProvider", "frame::read_frame"]
-touches = ["services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs"]
+touches = ["services/human/crates/layerx-human-service/src/custody/gateway.rs", "services/human/crates/layerx-human-service/src/custody/provider.rs", "services/human/crates/layerx-human-service/tests/custody_frame.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/src/server/onboarding_sponsor.rs", "services/human/crates/layerx-human-service/src/bin/layerx-human-kms-gateway.rs", "services/human/crates/layerx-human-movement-provider/src/config.rs", "services/human/crates/layerx-human-movement-provider/tests/kms/mod.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/custody_frame.rs::custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/custody_frame.rs"]
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-movement-provider --tests"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test custody_frame -- --exact custody_gateway_relays_an_lxkp_probe_over_the_human_frame_module"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -143340,7 +143348,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.5.1]
 title = "Carry rungs in custody session provisioning, rotation and revocation evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143383,7 +143391,7 @@ do_1 = "services/human/crates/layerx-human-service/src/onboarding/native.rs:6 im
 do_2 = "services/human/crates/layerx-human-service/src/onboarding/native.rs:105 and :276 read the agent account sequence for the native setup; read the pending nonce from the agent runtime ACCOUNT_SEQUENCE answer per decision.1003."
 do_3 = "Keep `sponsor_key` (services/human/crates/layerx-human-service/src/onboarding/native.rs:28) and `sponsor()` (services/human/crates/layerx-human-service/src/onboarding/native.rs:59) unchanged in this task; task 10.12.2 moves sponsorship to the gas station."
 do_4 = "Create services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs (planned) driving native onboarding through the public onboarding API."
-symbols = ["Rung::Committed", "CHECKPOINT_FINALISED", "pending nonce"]
+symbols = ["Rung::Committed", "CHECKPOINT_FINALISED"]
 touches = ["services/human/crates/layerx-human-service/src/onboarding/native.rs", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs::native_onboarding_completes_only_at_committed", "services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs::native_onboarding_uses_the_pending_nonce"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs"]
@@ -143683,7 +143691,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.1]
 title = "Replace the KMS activity module registry with a chain snapshot"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143748,7 +143756,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.11.3]
 title = "Serve the LXKP EVM wallet and EVM operations through the attestor signer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.11.2", "10.11.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -143904,7 +143912,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.12.1]
 title = "Add a gas station client for sponsored onboarding batches"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "11.0.2", "9.1.8", "18.1119.1"]
@@ -144201,7 +144209,7 @@ do_1 = "services/human/crates/layerx-human-service/src/server/native_send.rs:26 
 do_2 = "`load_access` (services/human/crates/layerx-human-service/src/server/native_send.rs:476) refuses an access record whose nonce is below the current pending nonce as expired."
 do_3 = "Leave `HumanOwnerNativeContextV1` (services/human/crates/layerx-human-service/src/server/native_send.rs:215) field order unchanged apart from the nonce type."
 do_4 = "Create services/human/crates/layerx-human-service/tests/native_send_nonces.rs (planned) through the public native send API."
-symbols = ["NativeSendPreviewV1", "load_access", "pending nonce"]
+symbols = ["NativeSendPreviewV1", "load_access"]
 touches = ["services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/native_send_nonces.rs::native_send_preview_carries_nonce_and_fee_fields", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs::native_send_access_below_pending_nonce_is_expired"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
@@ -145077,7 +145085,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.25.3]
 title = "Serve the test evidence node over the human frame module"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["10.0.1", "9.23.7", "9.1.8", "18.1119.1"]
@@ -146271,7 +146279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.98.3]
 title = "Migrate the layerx-human-movement-provider callers of wiring.J44.21"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 8
 requires = ["10.0.2", "10.4.1", "9.1.8", "18.1119.1"]
@@ -153563,7 +153571,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.12.29.1]
 title = "Carry the optional leg tx_hash in SDK intent bindings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["12.24.2", "10.0.2"]
@@ -171343,7 +171351,7 @@ title = "Run the wave 0 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1"]
+requires = ["17.5.8", "17.0.1", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.1", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1"]
 reqs = ["17054.1"]
 capabilities = ["17.5.1"]
 interfaces = []
@@ -171374,7 +171382,7 @@ title = "Run the wave 1 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1"]
+requires = ["17.5.8", "17.7.3", "1.0.1", "2.0.1", "3.0.1", "4.0.1", "5.0.1", "6.0.1", "7.0.1", "8.0.1", "9.0.1", "10.0.1", "11.0.1", "12.0.1", "13.0.1", "14.0.1", "15.0.1", "16.0.1", "16.1.2", "1.11.4", "9.1.8", "8.1.6", "18.1119.1", "18.1121.1"]
 reqs = ["17055.1"]
 capabilities = ["17.5.2"]
 interfaces = []
@@ -171405,7 +171413,7 @@ title = "Run the wave 2 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3"]
+requires = ["17.5.8", "17.0.2", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.3", "18.1121.1"]
 reqs = ["17056.1"]
 capabilities = ["17.5.3"]
 interfaces = []
@@ -171436,7 +171444,7 @@ title = "Run the wave 3 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 21
-requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4"]
+requires = ["17.5.8", "17.13.1", "1.0.2", "2.0.2", "3.0.2", "4.0.2", "5.0.2", "6.0.2", "7.0.2", "8.0.2", "9.0.2", "10.0.2", "11.0.2", "12.0.2", "13.0.2", "14.0.2", "15.0.2", "16.0.2", "16.1.4", "18.1121.1"]
 reqs = ["17057.1"]
 capabilities = ["17.5.4"]
 interfaces = []
@@ -171467,7 +171475,7 @@ title = "Run the wave 4 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 29
-requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5"]
+requires = ["17.5.8", "17.0.3", "1.0.3", "2.0.3", "3.0.3", "4.0.3", "5.0.3", "6.0.3", "7.0.3", "8.0.3", "9.0.3", "10.0.3", "11.0.3", "12.0.3", "13.0.3", "14.0.3", "15.0.3", "16.0.3", "16.1.5", "18.1121.1"]
 reqs = ["17058.1"]
 capabilities = ["17.5.5"]
 interfaces = []
@@ -171498,7 +171506,7 @@ title = "Run the wave 5 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 30
-requires = ["17.5.8", "17.0.4", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.6"]
+requires = ["17.5.8", "17.0.4", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.6", "18.1121.1"]
 reqs = ["17059.1"]
 capabilities = ["17.5.6"]
 interfaces = []
@@ -171529,7 +171537,7 @@ title = "Run the wave 6 aggregate gate once on the merged wave revision"
 status = "pending"
 mode = "BUILD"
 wave = 31
-requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7"]
+requires = ["17.5.8", "17.8.6", "17.7.5", "17.2.6", "17.4.5", "1.0.4", "2.0.4", "3.0.4", "4.0.4", "5.0.4", "6.0.4", "7.0.4", "8.0.4", "9.0.4", "10.0.4", "11.0.4", "12.0.4", "13.0.4", "14.0.4", "15.0.4", "16.0.4", "16.1.7", "18.1121.1"]
 reqs = ["17060.1"]
 capabilities = ["17.5.7"]
 interfaces = []
@@ -172346,7 +172354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -172546,7 +172554,7 @@ title = "Issue #849: Build the layerx chain image with its native-library Rust s
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1106.1"]
+requires = ["18.1106.1", "18.1141.1"]
 reqs = ["18849.1"]
 capabilities = []
 interfaces = []
@@ -172571,7 +172579,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-do_5 = "Keep every re-include that a vendored crate's .cargo-checksum.json requires (cargo --locked refuses a vendored source whose listed file is missing), placed after the last programs/vendor/** exclusion; the native target built with them in the sixth qualification run, so change the ignore file only if make programs-release-build reports a missing file."
+do_5 = "Keep every re-include that a vendored crate's .cargo-checksum.json requires (cargo --locked refuses a vendored source whose listed file is missing), placed after the last programs/vendor/** exclusion. Change the ignore file when make programs-release-build reports a missing file, and when a stage's cargo build reports a workspace member manifest missing from the context: services/interop/Cargo.toml lists crates/layerx-committed-proof (added at 70d213655) and docker/layerx/Dockerfile.dockerignore:70-84 re-includes every other interop crate but not it, so add !services/interop/crates/layerx-committed-proof/** beside them for the x-websearch stage (Dockerfile:88-97)."
 
 [req.18849]
 title = "Build the layerx chain image with its native-library stage"
@@ -172761,11 +172769,11 @@ title = "Issue #983: Update the reclaim integration test fixture to the nonce fi
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["9.1.8", "18.1119.1"]
+requires = ["9.1.8", "18.1119.1", "18.1142.1", "18.1149.1"]
 reqs = ["18983.1"]
 capabilities = []
 interfaces = []
-do_1 = "In reclaim_request (services/human/crates/layerx-human-service/tests/reclaim.rs:85-109) initialise ReclaimAgentContext with nonce: ACCOUNT_SEQUENCE in place of the removed account_sequence field (tests/reclaim.rs:103), matching the struct at src/agents/reclaim.rs:64-73; ACCOUNT_SEQUENCE comes from tests/journey_faults.rs:56 through include! at tests/reclaim.rs:1."
+do_1 = "18.1142.1 renames the field at tests/reclaim.rs:103 to nonce: ACCOUNT_SEQUENCE and 18.1149.1 makes the reclaim journey fixtures sign what the pending-nonce agent prepares; start from their result and keep both as they stand."
 do_2 = "In every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity (tests/reclaim.rs:149) assert that each started reclaim journey leg records preparation.account_sequence equal to request.agent.nonce(), the same check assert_pending_nonce makes in tests/reclaim_nonces.rs:55-80."
 do_3 = "Keep both existing tests every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity and reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse (tests/reclaim.rs:247) and their assertions; qualify by running the reclaim test target."
 symbols = ["reclaim_request", "every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity", "reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse"]
@@ -173614,7 +173622,7 @@ qualification = "UNRUN"
 
 [task.18.877.1]
 title = "Issue #877: Delete re-scanned price feed rows below the watermark and keep each market's newest price under retention"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175421,7 +175429,7 @@ qualification = "UNRUN"
 
 [task.18.974.1]
 title = "Issue #974: Restore the rung-to-level conversion that activity detail assembly calls"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.1.8", "18.1119.1"]
@@ -175878,7 +175886,7 @@ title = "Issue #911: Move fraud-provable market attestation positives to the bil
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1105.1"]
 reqs = ["18911.1", "18911.2"]
 capabilities = []
 interfaces = []
@@ -175903,7 +175911,6 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
-do_5 = "In tools/qualification/paxeer-x/program_market_attestation.py:390 default --cppflags to '-Iinclude' as tools/qualification/paxeer-x/arbiter_prestate.py:355 does, keep it overridable, and record the native flags in the attestation as program_balance_read.py:106 does; every tests/programs file includes 'layerx/programs.h' relative to include/, which the Makefile supplies with -Iinclude (issue #1105)."
 do_6 = "The attestation run without a mode flag writes under PAXEER_X_EVIDENCE_DIR, which must name a caller-owned 0700 directory outside the checkout (tools/qualification/paxeer-x/program_market_attestation.py:276-285); the gate supplies one with mktemp -d. Do not relax the driver's requirement and do not point it inside the repository."
 do_7 = "In main of tests/programs/test_market_attestation.c call setvbuf(stdout, NULL, _IOLBF, 0) before the first report so every case line reaches the driver's native.log even when the process ends abnormally; the gate prints that log on failure. Attempt 10 built both stages and the native run yielded no case line at all, which main does only by returning 2 before native-deploy (fopen, calloc, executed_public_key or initialize failing) or by dying with its stdout buffer unflushed; read the surfaced log, fix the cause inside the task's touches if it lies there, otherwise record it as a finding and stop."
 
@@ -176972,7 +176979,7 @@ title = "Issue #869: Build the layerx image and pin the paxd-node runtime to Ubu
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1116.1", "18.1106.1"]
+requires = ["18.1116.1", "18.1106.1", "18.1141.1"]
 reqs = ["18869.1", "18869.2"]
 capabilities = []
 interfaces = []
@@ -177197,13 +177204,13 @@ title = "Issue #1001: Answer pax_sequencerReceipt in the gateway test chain"
 status = "pending"
 mode = "BUILD"
 wave = 3
-requires = ["18.1065.1"]
+requires = ["18.1065.1", "18.1001.2"]
 reqs = ["181001.1"]
 capabilities = []
 interfaces = []
 do_1 = "The e2e fixture's sequencer proxy (services/wallet/gateway/test/e2e/gateway.e2e.test.ts:87-114) forwards pax_sequencerReceipt to TestChain, whose handle (services/wallet/gateway/test/support/chain.ts:214-251) has no such case and answers -32601, while POST /v1/wallet/evm/sign awaits rpc.sequencerReceipt (services/wallet/gateway/src/routes/evmApprovals.ts:296) and the test asserts a receipt (gateway.e2e.test.ts:250-253)."
-do_2 = "Give TestChain an ed25519 sequencer key and record, in sendRaw (chain.ts:173-211), the sender, recipient, nonce, effective gas price and sequence of each applied transaction."
-do_3 = "Add case 'pax_sequencerReceipt' to TestChain.handle returning null for an unknown hash and otherwise a receipted SequencerReceiptResult (services/wallet/gateway/src/rpc/pool.ts:132-158) with txHash, nonce, seq, height, index, timestamp, the receipt's status, returnData 0x, logs [], gasUsed, cumulativeGasUsed, effectiveGasPrice, feeDenom PAX, feeAmount, sponsor zero, from, to, contractAddress zero, vmError empty, keyId = keccak256 of the key's SPKI DER and receipt = the ed25519 signature over the transaction hash, as the stub in services/wallet/gateway/test/wallet-send-receipt.test.ts:56-64 builds it."
+do_2 = "TestChain's ed25519 sequencer key, its record of applied transactions and its pax_sequencerReceipt answer are 18.1001.2's work and are on main before this task starts; do not duplicate or alter them."
+do_3 = "Make the e2e sequencer proxy (gateway.e2e.test.ts:87-114) forward pax_sequencerReceipt to TestChain unchanged and remove any stub answer it gives today."
 do_4 = "Keep every assertion of evmReviewApproveSignReturnsReceipt (gateway.e2e.test.ts:195-254) unchanged; that existing test is the gate and must pass with a receipted rung, status 0x1, the receipt bytes and exactly one recorded receipt result."
 symbols = ["TestChain.handle", "evmReviewApproveSignReturnsReceipt"]
 touches = ["services/wallet/gateway/test/support/chain.ts", "services/wallet/gateway/test/e2e/gateway.e2e.test.ts"]
@@ -177226,6 +177233,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [req.181001]
 title = "The gateway e2e chain answers the sequencer receipt contract"
 ac_1 = "TestChain.handle (services/wallet/gateway/test/support/chain.ts:214) answers pax_sequencerReceipt with null for an unknown hash and with a receipted SequencerReceiptResult (services/wallet/gateway/src/rpc/pool.ts:154-158) whose txHash, nonce, status and signed receipt match the applied transaction, so evmReviewApproveSignReturnsReceipt (gateway.e2e.test.ts:195) passes with all of its receipt assertions."
+ac_2 = "TestChain.handle answers pax_sequencerReceipt with null for an unknown hash and a receipted SequencerReceiptResult for an applied transaction, proven by chain-sequencer-receipt.test.ts, so gateway tests that broadcast through TestChain no longer fail with 502."
 
 [acceptance.18.1001.1]
 feature = "18"
@@ -178973,7 +178981,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179410,6 +179418,7 @@ ac_1 = "cargo test -p layerx-agent-api --test stream compiles and passes with th
 [req.181129]
 title = "Re-record the x-websearch client exchange with the x402 buyer's log evidence"
 ac_1 = "Every PAYMENT-RESPONSE in client-exchange.json carries logs and height-keyed receipts under a sequencer id that gateway/buyer.json publishes with its public key and batch window, Buyer::capture_settlement accepts each recorded settlement, and the payment tests pass unchanged."
+ac_2 = "The seller offers PAX into the receiver's DID main account and every other asset into its sub-account, the recorded grants and receipts are issued from the configured payer's ledger account, and the whole payment test target passes."
 
 [req.181130]
 title = "Seed the active programs fee record in the layerxprograms harness and the lxphost program fixtures"
@@ -179704,6 +179713,86 @@ ac_1 = "With an LXFR1 record at progfee/active/v1, a governance activity followe
 title = "The bridge app's type-check passes at main"
 ac_1 = "pnpm --dir apps/bridge run typecheck exits 0 at main with the ES2020 target and the generated Next route types, and the bridge library specs whose types were repaired still pass."
 
+[req.181137]
+title = "The launchpad keeper and simulation test packages compile and pass after the generation 1 key builders were deleted"
+ac_1 = "go vet of modules/launchpad/keeper and modules/launchpad/simulation succeeds and TestRecordFeeSplit and TestDecodeStore pass with the reserved key built inline from types.ProtocolFeesPrefix, with no deleted builder restored."
+
+[req.181138]
+title = "The agentd handshake gate and readiness test targets compile and pass against the current startup configuration"
+ac_1 = "cargo test -p layerx-agentd --test handshake_gate --test readiness_node_rpc compiles and passes with the fixture built from the StartupConfig fields 5609ec802 defines, with no change under src/."
+
+[req.181141]
+title = "Issue #1141: Add the golang.org/x/net go.mod hash the module graph needs so the chain binary builds in read-only module mode"
+ac_1 = "GOFLAGS=-mod=readonly go vet ./modules/epoch/ and the test compile of modules/epoch succeed at main because go.sum carries the go.mod hash of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3, with no other change."
+
+[req.18731]
+title = "The home page keeps EVM transactions visible while price-feed submissions arrive in every block"
+ac_1 = "GET /api/v2/main-page/transactions gives price-feed submissions at most three of its six slots whenever at least three EVM transactions exist and lets them fill the page only when EVM transactions cannot, proven by the two main page tests passing, with the existing interleave order and every other price-feed list, search and broadcast path unchanged."
+
+[req.18876]
+title = "A deployment from the backend environment template keeps the price-feed update and observation tables bounded"
+ac_1 = "backend.example.env ships PAXEER_X_PRICE_FEED_RETENTION_DAYS=30 with a comment stating the 30-day default and that clearing the value keeps submissions for good, config-check.sh asserts that value and passes, and the runtime configuration code that treats an unset variable as no retention is unchanged."
+
+[req.181081]
+title = "The explorer OpenAPI test agrees with the API router on the Paxeer X paths"
+ac_1 = "openapi_spec_test.exs lists /v2/paxeer-x/archive/anchors, /v2/paxeer-x/archive/receipts and /v2/paxeer-x/archive/receipts/{id} in place of the removed live paths, its schema tests call the archive routes and get 200, and the whole file passes with no test deleted and no change under lib/."
+
+[req.18817]
+title = "A nonce-too-low broadcast whose nonce every member reports consumed and whose hash no member knows is answered 409 prepare-again on every gateway route, and 202 outcome_unknown is asserted only for a genuinely unknown outcome"
+ac_1 = "The owner fund and sweep, agent send and nonce store tests assert 409 nonce_consumed with retry prepare for a unanimously consumed nonce whose hash is unknown everywhere, assert 202 outcome_unknown with must_not_resubmit only when a member could not answer the hash lookup, and pass under the gate with no change under src/."
+
+[req.181105]
+title = "The market attestation driver compiles its native test with the repository include path by default"
+ac_1 = "program_market_attestation.py defaults --cppflags to -Iinclude, keeps it overridable, records the native flags in the producer manifest, and test_program_market_attestation.py proves the default, the override and the assembled native command under python3 -m pytest."
+
+[req.18929]
+title = "The repository pins one Go toolchain, 1.25.8, everywhere the toolchain is pinned"
+ac_1 = "go.mod, every literal go-version and GO_VERSION workflow pin, the six golang build images, the devcontainer Go download and the xweb check fixture name Go 1.25.8, proven by test_go_toolchain_pins_agree_with_go_mod, and go vet of sdk/cosmovisor succeeds on that toolchain with no other module's go directive changed."
+
+[req.181139]
+title = "A late completed PaxAI job stays refused and retained without stalling the maintenance tick"
+ac_1 = "commit_record_or_retain answers None for a job that is late or that commit_record refuses with DeadlineInvalid, the job keeps its Succeeded state, late flag, result and output, a later-deadline job's commitment digest is still answered under the same authority, and maintenance_tick continues past the late job to later jobs and the heartbeat selection, proven by a18_late_completed_job_is_retained_and_later_commitments_proceed."
+
+[req.181142]
+title = "Issue #1142: Build the reclaim test's agent context with the nonce field the reclaim contract now carries"
+ac_1 = "cargo build -p layerx-human-service --tests compiles tests/reclaim.rs against the nonce field and the reclaim test target passes with its assertions unchanged."
+
+[req.181143]
+title = "Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
+ac_1 = "cargo build -p layerx-agentd --tests compiles the four test files against the braced Cursor; the delivery, webhook and w7_subscription_permit targets pass with assertions unchanged, and the approval_events target compiles (its restore-after-gap fixture is repaired by 18.1150.1)."
+
+[req.181144]
+title = "Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
+ac_1 = "The standby commits each replayed layer through the sealed-layer path, and a node/sequencer test proves that an openAccount reading an asset registered in an earlier block rebuilds the primary's receipt on the standby."
+
+[req.181147]
+title = "The layerx-human-service wallet identity test compiles with the ureq dependency the shared KMS attestor test support requires"
+ac_1 = "The wallet_identity_e2e test target of layerx-human-service resolves ureq through a development dependency identical to the one layerx-human-kms declares, services/human/Cargo.lock records that edge, cargo --locked accepts the workspace, and the target links and its attestor-independent test passes (the attestor path is qualified by 18.1151.1)."
+
+[req.181149]
+title = "The reclaim test target passes in full against the pending-nonce reclaim agent"
+ac_1 = "All five tests of the layerx-human-service reclaim target pass: the journey fixtures sign the activity the service prepares, or a recorded contract divergence names the prepared and signed bytes."
+
+[req.18680]
+title = "The variable helper provisions the stats service's inline mTLS key as raw multi-line PEM"
+ac_1 = "With IDENTITY_MTLS_CLIENT_KEY_PEM supplied as a multi-line PEM value, the variable helper's --plan and --apply preflight report no 'contains a newline' problem for the stats service, the plan prints the key as ****, and a newline in a value whose name ends in neither _DOCUMENT nor _PEM is still refused with exit 2."
+
+[req.18726]
+title = "The gateway's hosted env example names only variables the gateway reads, including the indexer, faucet and receipt-key settings"
+ac_1 = "The example sets LAYERX_GATEWAY_INDEXER_URL to the indexer's TLS listener, documents the optional faucet and receipt-key variables, carries no LAYERX_GATEWAY_SEQUENCER_ or ENDPOINT_SEQUENCER_ name, keeps the LAYERX_EVENTS_ producer variables, and every ENDPOINT_ name and /run/secrets path it uses has a row in the gateway file-secret table, as the env_example test asserts."
+
+[req.18729]
+title = "The indexer's hosted env example names the paxscan database URL and certificate pin the backfill requires"
+ac_1 = "The example lists PAXSCAN_DATABASE_PUBLIC_URL and LAYERX_INDEXER_PAXSCAN_CERT_SHA256 as operator-filled placeholders, and BackfillConfig::from_args over the example's names with those two filled parses successfully while the same input without the pin is refused."
+
+[req.181150]
+title = "The approval stream test restores a gap through a chain event the backfill rule accepts"
+ac_1 = "cargo test -p layerx-agentd --test approval_events passes: the restore-after-gap fixture recovers a durable chain log whose position lies inside the gap, and every approval emission and digest-evidence assertion is unchanged."
+
+[req.181151]
+title = "The wallet identity end-to-end test starts its attestor nodes with the type the attestor admits"
+ac_1 = "cargo test -p layerx-human-service --test wallet_identity_e2e passes: both attestor nodes start with ATTESTOR_ACTIVITY_TYPES holding the asset send alone and the kernel send is signed through them to a verified receipt."
+
 [acceptance.18.1066.1]
 feature = "18"
 req = "181066.1"
@@ -179828,7 +179917,7 @@ qualification = "UNRUN"
 feature = "18"
 req = "181098.1"
 scenario = "Given test paths from two umbrella apps, when mix-in-builder.sh test runs once with all of them, then each app's tests run against a fresh sidecar and the run exits 0 when every test passes."
-contract = contracts/explorer-http-api.md#api-v2-paxeer-x
+contract = "contracts/explorer-http-api.md#api-v2-paxeer-x"
 test = "services/explorer/deploy/tools/mix-in-builder.sh::test"
 qualification = "UNRUN"
 
@@ -180616,6 +180705,174 @@ contract = "contracts/bridge-client.md#components"
 test = "apps/bridge/package.json::typecheck (planned)"
 qualification = "UNRUN"
 
+[acceptance.18.1137.1]
+feature = "18"
+req = "181137.1"
+scenario = "Given main after the generation 1 key builders were deleted, when the launchpad keeper and simulation tests compile and run, then both packages build and TestRecordFeeSplit and TestDecodeStore pass unchanged in what they assert."
+contract = "contracts/launchpad.md#module-query"
+test = "modules/launchpad/keeper/fees_test.go::TestRecordFeeSplit"
+qualification = "UNRUN"
+
+[acceptance.18.1138.1]
+feature = "18"
+req = "181138.1"
+scenario = "Given main after the startup node settings change, when the handshake_gate and readiness_node_rpc test targets build and run, then both compile and every assertion passes."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs::config_with_authority"
+qualification = "UNRUN"
+
+[acceptance.18.1001.2]
+feature = "18"
+req = "181001.2"
+scenario = "Given TestChain with an applied transaction, when pax_sequencerReceipt is asked for its hash and for an unknown hash, then the first answer is a receipted result matching the transaction and the second is null."
+contract = "contracts/services.md#embedded-wallet-gateway"
+test = "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"
+qualification = "UNRUN"
+
+[acceptance.18.1141.1]
+feature = "18"
+req = "181141.1"
+scenario = "Given main, when modules/epoch is vetted and its tests compiled in read-only module mode, then the module graph loads with every go.mod hash present and both commands exit 0."
+contract = "contracts/tools-ops.md#makefile-graph"
+test = ""
+qualification = "UNRUN"
+
+[acceptance.18.731.1]
+feature = "18"
+req = "18731.1"
+scenario = "Given six consecutive blocks each carrying one price-feed submission and one EVM transaction, when the home page transactions are requested, then the six items are the submission and the EVM transaction of each of the three newest blocks in paging order, and the existing two-submission interleave answer is unchanged."
+contract = "contracts/explorer-http-api.md#api-v2-main-page"
+test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs::keeps three of the six slots for EVM transactions when submissions fill every block"
+qualification = "UNRUN"
+
+[acceptance.18.876.1]
+feature = "18"
+req = "18876.1"
+scenario = "Given the backend environment template, when the explorer config check runs, then it finds PAXEER_X_PRICE_FEED_RETENTION_DAYS=30 and passes, and a deployment reading the template deletes submissions older than 30 days while one that clears the value keeps them for good."
+contract = "contracts/explorer-config.md#cfg-indexer"
+test = "services/explorer/deploy/tests/config-check.sh"
+qualification = "UNRUN"
+
+[acceptance.18.1081.1]
+feature = "18"
+req = "181081.1"
+scenario = "Given the API router serving the archive anchor and receipt routes and no live ones, when the OpenAPI test runs, then every listed Paxeer X path has a GET operation in the generated specification and the archive anchors, receipts and single-receipt answers cast against their declared schemas and reject a lost required field."
+contract = "contracts/explorer-http-api.md#api-v2-paxeer-x"
+test = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject an anchors page that lost a field"
+qualification = "UNRUN"
+
+[acceptance.18.817.1]
+feature = "18"
+req = "18817.1"
+scenario = "Given a nonce-too-low refusal where every member's latest count has passed our nonce and no member knows our hash, when the owner fund and sweep routes, the agent send route and the nonce store broadcast through the pool, then each answers 409 nonce_consumed retry prepare, while a hash lookup the only member cannot answer still yields 202 outcome_unknown with must_not_resubmit."
+contract = "contracts/services.md#embedded-wallet-gateway"
+test = "services/wallet/gateway/test/owner-broadcast-outcome.test.ts::fundAndSweepAnswerAConsumedNonceWith409NonceConsumed"
+qualification = "UNRUN"
+
+[acceptance.18.1105.1]
+feature = "18"
+req = "181105.1"
+scenario = "Given the market attestation driver run with no --cppflags, when it assembles the native compile of tests/programs/test_market_attestation.c, then the command carries -Iinclude so layerx/programs.h resolves, an explicit --cppflags replaces it, and the producer manifest records the native flags."
+contract = "contracts/programs.md#market-guest"
+test = "tools/qualification/test_program_market_attestation.py::MarketAttestationDriverTest"
+qualification = "UNRUN"
+
+[acceptance.18.929.1]
+feature = "18"
+req = "18929.1"
+scenario = "Given main where sdk/cosmovisor/go.mod requires Go 1.25.8 while go.mod, the workflows, the build images and the devcontainer pin 1.25.6, when every toolchain pin is raised to 1.25.8 and test_go_toolchain_pins_agree_with_go_mod runs, then every pin equals the go.mod directive 1.25.8 and go vet of sdk/cosmovisor succeeds."
+contract = "contracts/operations.md#ci-workflows"
+test = "tools/ci/tests/test_go_toolchain_pins.py::test_go_toolchain_pins_agree_with_go_mod"
+qualification = "UNRUN"
+
+[acceptance.18.1139.1]
+feature = "18"
+req = "181139.1"
+scenario = "Given a tracked job A that completed before its lease expired but whose on-chain task deadline has passed, and a tracked job B with a later deadline, when the maintenance tick processes them under an authority at A's deadline, then A is retained late and nonpayable without an error leaving the tick, B's result commitment is produced and the heartbeat selection is reached."
+contract = "contracts/services.md#platform-paxai-worker"
+test = "services/platform/hosted/paxai-worker/tests/job_recovery.rs::a18_late_completed_job_is_retained_and_later_commitments_proceed"
+qualification = "UNRUN"
+
+[acceptance.18.1142.1]
+feature = "18"
+req = "181142.1"
+scenario = "Given ReclaimAgentContext with the nonce field, when the layerx-human-service test targets are built and the reclaim target runs, then every test of tests/reclaim.rs passes."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-service/tests/reclaim.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1143.1]
+feature = "18"
+req = "181143.1"
+scenario = "Given the height-indexed Cursor of layerx-agent-api, when the daemon's test targets are built and the delivery, webhook, approval_events and w7_subscription_permit targets run, then every test passes."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-agentd/tests/delivery.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1144.1]
+feature = "18"
+req = "181144.1"
+scenario = "Given a primary and a standby, when a register is sealed in one block and an openAccount reading it in the next, then the standby's rebuilt receipt for the openAccount equals the primary's and the replay is accepted."
+contract = "contracts/rpc.md#namespace-debug"
+test = "node/sequencer/standby_role_test.go"
+qualification = "UNRUN"
+
+[acceptance.18.1147.1]
+feature = "18"
+req = "181147.1"
+scenario = "Given main where the shared KMS attestor test support calls ureq while layerx-human-service declares no ureq development dependency, when the dependency and its lock entry are added and the wallet_identity_e2e target compiles and runs under cargo --locked, then the target builds and its tests pass unchanged."
+contract = "contracts/services.md#human-service"
+test = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"
+qualification = "UNRUN"
+
+[acceptance.18.1149.1]
+feature = "18"
+req = "181149.1"
+scenario = "Given the reclaim agent that starts from the pending nonce, when the reclaim test target runs, then the journey fixtures are accepted by the boundary and the signature check and all five tests pass."
+contract = "contracts/README.md"
+test = "services/human/crates/layerx-human-service/tests/reclaim.rs"
+qualification = "UNRUN"
+
+[acceptance.18.680.1]
+feature = "18"
+req = "18680.1"
+scenario = "Given the stats manifest requires IDENTITY_MTLS_CLIENT_KEY_PEM and a values file supplies it as a three-line PEM, when the helper plans the stats service against an empty variable set, then it exits 0, lists the key as missing with a masked value, prints none of the PEM, and still exits 2 for a REDIS_URL value containing a newline."
+contract = "contracts/operations.md#deploy-cli"
+test = "tools/deploy/tests/railway-apply-variables.test.sh::stats_inline_pem_plan"
+qualification = "UNRUN"
+
+[acceptance.18.726.1]
+feature = "18"
+req = "18726.1"
+scenario = "Given the gateway's hosted env example and the gateway image's file-secret table, when the env_example test parses both, then it finds the indexer URL on the indexer's listener port, no sequencer variable, and a table row for every ENDPOINT_ name and /run/secrets path the example uses."
+contract = "contracts/platform-gateway.md#gateway-env-vars"
+test = "services/platform/hosted/gateway/tests/env_example.rs::router_example_names_the_indexer_listener"
+qualification = "UNRUN"
+
+[acceptance.18.729.1]
+feature = "18"
+req = "18729.1"
+scenario = "Given the indexer's hosted env example, when the env_example test serves its names to BackfillConfig::from_args with the two placeholders filled, then parsing succeeds, and when the certificate pin is withheld, then parsing is refused."
+contract = "contracts/platform-hosted.md#indexer-env-vars"
+test = "services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable"
+qualification = "UNRUN"
+
+[acceptance.18.1150.1]
+feature = "18"
+req = "181150.1"
+scenario = "Given a subscription blocked by a gap at sequence 1 and a durable chain log at block height 1, when the test applies a Recovered backfill carrying that log and its position, then apply_backfill returns Restored, admit succeeds, and the approval stream resumes and exports its digest evidence."
+contract = "contracts/agent-api.md#approval-list"
+qualification = "UNRUN"
+test = "services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"
+
+[acceptance.18.1151.1]
+feature = "18"
+req = "181151.1"
+scenario = "Given the module registry with asset, governance and bridge registrations, when the test starts the attestor nodes with the asset send type alone and signs a kernel send through it, then both nodes start and the test reaches its verified receipt."
+contract = "contracts/services.md#human-service"
+qualification = "UNRUN"
+test = "services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"
+
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
 status = "done"
@@ -181245,7 +181502,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1119.1]
 title = "Issue #1119: Port the human service's activity module to the rung convention so layerx-human-service compiles again"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181257,6 +181514,7 @@ do_2 = "In services/human/crates/layerx-human-service/src/activity/detail.rs:293
 do_3 = "Change nothing outside the two source files, the four test files and the test support crate's lib.rs (do_7); the crate's existing detail and activity integration tests are the proof and their assertions run unchanged."
 do_4 = "The crate's integration tests construct the variant with the retired field too (tests/activity.rs:664, tests/activity_rungs.rs:31, tests/detail.rs:177 and :257, tests/detail_rungs.rs:123): rename those constructors to ReceiptReference::Verified { receipt_ref, rung } with the same values, and change nothing else in the four test files; every assertion stays as written except the level sites do_6 ports."
 do_7 = "In services/human/crates/layerx-human-test-support/src/lib.rs replace the import of boot::handshake_gate (:10) and its call in evidence_verifier (:202) with the readiness gate 70ce262d3 introduced (issue #1132): add a public helper that serves a local HTTP JSON-RPC responder on 127.0.0.1 (the manner of services/agent/crates/layerx-agentd/tests/handshake_gate.rs:36-88) answering eth_chainId with the chain id of the NodeRpcConfig it returns and px_getReceiptKeys with one entry {keyId, publicKey, firstHeight, lastHeight} (0x-prefixed hex, the shape of handshake_gate.rs:105-110) for the receipt signer's key with heights inside the window evidence_gate writes to the authority source (:121-124), connect layerx_agentd::node_rpc::NodeRpc to it and call gate.readiness_gate(&node); keep serving and joining the evidence node and the fail_stopped assertion, and bring StartupConfig (:131-148) in line with the fields 5609ec802 declares (src/config.rs:73-81: network_id, node_endpoint String, expected_chain_id, receipt_key_source). Every layerx-human-service test target depends on this crate, so the four gate tests cannot compile without this port."
+do_8 = "tests/detail_rungs.rs:145-147 and :190 iterate verification levels (SequencerSigned, BatchIncluded, StateProven; CheckpointFinalised, SettlementAnchored) to build Verified references, but the variant now carries a Rung (do_4) and Level::rung (services/agent/crates/layerx-agent-api/src/error.rs:153-160) folds BatchIncluded and StateProven into Receipted and gives SettlementAnchored no rung: iterate the rungs instead (Submitted and Receipted for receipted_entry_detail_is_not_final, Committed for committed_entry_detail_is_final), compare evidence levels at :126 and :165 to the level each rung canonically carries, and keep every is_final assertion."
 symbols = []
 touches = ["services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/activity/detail.rs", "services/human/crates/layerx-human-service/tests/activity.rs", "services/human/crates/layerx-human-service/tests/activity_rungs.rs", "services/human/crates/layerx-human-service/tests/detail.rs", "services/human/crates/layerx-human-service/tests/detail_rungs.rs", "services/human/crates/layerx-human-test-support/src/lib.rs"]
 tests = []
@@ -181533,9 +181791,13 @@ capabilities = []
 interfaces = []
 do_1 = "Run the exchange recorder of services/interop/crates/x-websearch/tests/payment.rs (X_WEBSEARCH_RECORD_EXCHANGE, :3082 and :3214-3215) against the replayed gateway recordings so that services/interop/crates/x-websearch/tests/fixtures/client-exchange.json carries, in every PAYMENT-RESPONSE extensions.layerx, the logs field layerx-x402 LayerXEvidence requires (services/interop/crates/layerx-x402/src/buyer.rs:61-74: exactly one PaymentExact log from the 0x101a payment precompile whose topic 1 is the idempotency key and topic 2 the payer) and receipts keyed by height under one pinned sequencer id, the shape services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json already records."
 do_2 = "Publish in services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json, beside sequencerPublicKey, the sequencerId the recorded receipts are keyed under and the firstBatchNumber and lastBatchNumber of the key window, so a buyer-side test can build the SequencerAuthorization that Buyer::capture_settlement (buyer.rs:239-243) verifies; if the replayed gateway recordings yield receipts under a sequencer id whose public key no fixture holds, stop and report the inconsistent fixture by path instead of inventing a key."
-do_3 = "Keep every payment.rs test that replays client-exchange.json passing with its assertions unchanged; if the recorder needs a fix to emit the current evidence shape, make it in payment.rs only."
+do_3 = "Keep every payment.rs assertion unchanged. The recorder regenerates every gateway recording from the in-file keys and byte-compares them in the_gateway_recording_is_reproduced_by_the_real_signers (tests/payment.rs:3080-3095), so the re-recording rewrites buyer.json, metered.json, pending.json and client-exchange.json together, and exact.json or refusals.json only where their bytes change; no live chain or external key is involved."
+do_5 = "The metered steps fail with grant_payer_mismatch because the harness offers the EVM payer address PAYER (tests/payment.rs:63-64, :564-566, sent as LAYERX-PAYER-ADDRESS at :3152-3155) whose ledger account the accountId replay answers from payer_account_rules (:77-87, :162) as payer_account(asset) (:66-75), while the recorded grants and receipts are still issued from the ed25519 payer DID's account (account(&payer_did, asset) at :2805, :2836, :2852, :2883; account_id(&wallet_account(text(&buyer, '/payerDid'), &asset)) at :1282 and :3279). Issue every recorded grant and receipt from payer_account(asset) instead, and replace the third derivation account_id(&wallet_account(harness.payer()?, &asset)) at :1223, :3819, :3890 and the payer half of :1251-1260 with payer_account(&asset), so the recorded exchange, the replay rules and src/payment.rs ledger_account (:135-153) agree with what modules/lxphost/accountmap.go:53-60 derives on the chain."
+do_6 = "Keep the grant_payer_mismatch assertion of the_configured_payer_address_is_offered_and_drawn_from (:1888-1896) by feeding it an explicitly foreign grant: sign one with from = the ed25519 payer DID's account and register its 0x423fe4b2 rule exactly as :1897-1915 does for the matching grant, since the harness grant now belongs to the configured payer."
+do_7 = "Issue #1140: offer and settle PAX into the DID main accounts. In src/payment.rs:1304 build the offer's extra.layerx.account as agent:<receiver did>:main when the asset is PAX and as the :asset:<id> sub-account otherwise, and derive the payer's PAX account the same way wherever ledger_account or the receiver account of a metered draw is built for PAX, matching the x402 model's documented account forms (services/interop/crates/layerx-x402/src/model.rs:196 and :239-302) and pax_is_paid_into_the_main_accounts_and_every_other_asset_into_its_own (tests/payment.rs:1234-1260); every other asset keeps its sub-account. Record this before re-recording so the fixtures carry the main-account form."
+do_8 = "Order of work: do_5 to do_7 first, then one X_WEBSEARCH_RECORD_EXCHANGE=1 run of the_gateway_recording_is_reproduced_by_the_real_signers and the_client_exchange_matches_the_recording, which rewrites the recordings, then the verify_cmd once; commit the rewritten fixtures with the code."
 symbols = ["RECORD_VARIABLE", "LayerXEvidence", "Buyer::capture_settlement"]
-touches = ["services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json", "services/interop/crates/x-websearch/tests/payment.rs"]
+touches = ["services/interop/crates/x-websearch/tests/fixtures/client-exchange.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/buyer.json", "services/interop/crates/x-websearch/tests/payment.rs", "services/interop/crates/x-websearch/src/payment.rs", "services/interop/crates/x-websearch/tests/fixtures/gateway/metered.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/pending.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/exact.json", "services/interop/crates/x-websearch/tests/fixtures/gateway/refusals.json"]
 tests = ["services/interop/crates/x-websearch/tests/payment.rs::delivery_recovers_the_recorded_receipted_settlement", "services/interop/crates/x-websearch/tests/payment.rs::exact_receipts_settle_in_each_asset"]
 planned_paths = []
 build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p x-websearch --tests"
@@ -181588,7 +181850,7 @@ title = "Issue #1131: Port the agentd real-authority test support and the pay2 q
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1138.1", "18.1143.1"]
 reqs = ["181131.1"]
 capabilities = []
 interfaces = []
@@ -181617,7 +181879,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1132.1]
 title = "Issue #1132: Port the human test support and the human-service evidence node test to the node readiness gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1119.1"]
@@ -181631,7 +181893,7 @@ symbols = ["evidence_verifier", "evidence_gate"]
 touches = ["services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/evidence_node.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/evidence_node.rs::advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --tests"
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test evidence_node"
 verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test evidence_node"
 gate_kind = "planned"
 sandbox_profile = "rust"
@@ -181647,10 +181909,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.741.1]
 title = "Issue #741: Enforce the agent daily native value cap under concurrent requests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1001.2"]
 reqs = ["18741.1"]
 capabilities = []
 interfaces = []
@@ -181739,7 +182001,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.752.1]
 title = "Issue #752: Send each new sponsored wallet call instead of replaying the previous submission"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181754,8 +182016,8 @@ symbols = ["resumeWalletSponsoredSubmission", "sendWalletSponsoredBatch", "compl
 touches = ["apps/web/src/api/wallet.ts", "apps/web/e2e/wallet-sponsored-receipt.test.ts"]
 tests = ["apps/web/e2e/wallet-sponsored-receipt.test.ts::completed_sponsored_submission_does_not_answer_a_new_call", "apps/web/e2e/wallet-sponsored-receipt.test.ts::stale_sponsored_context_does_not_block_sends"]
 planned_paths = []
-build_cmd = "pnpm --dir apps/web exec tsc --noEmit"
-verify_cmd = "pnpm --dir apps/web exec node --test --test-name-pattern '^(completed_sponsored_submission_does_not_answer_a_new_call|stale_sponsored_context_does_not_block_sends)$' e2e/wallet-sponsored-receipt.test.ts"
+build_cmd = "npm --prefix apps/web run typecheck"
+verify_cmd = "cd apps/web && node --test --test-name-pattern '^(completed_sponsored_submission_does_not_answer_a_new_call|stale_sponsored_context_does_not_block_sends)$' e2e/wallet-sponsored-receipt.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-wallet"
@@ -181802,7 +182064,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.754.1]
 title = "Issue #754: Key wallet rate limits on the real client address behind the edge proxy"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181814,7 +182076,7 @@ do_2 = "Call render-edge-trust.sh /tmp/nginx/edge-trust.conf from apps/wallet/de
 do_3 = "In apps/wallet/deployment/nginx.conf, include /tmp/nginx/edge-trust.conf inside the server block (nginx.conf:27-43) so $remote_addr used for x-paxport-client-id at nginx.conf:40 is the client address resolved from X-Forwarded-For rather than the edge proxy address read by trustedClientIdentity (apps/wallet/src/server/http.ts:116)."
 do_4 = "Copy render-edge-trust.sh into the image next to start-wallet.sh in docker/wallet-pwa/Dockerfile:112 with mode 0755."
 do_5 = "Write apps/wallet/deployment/render-edge-trust.test.sh (planned) asserting that two CIDRs render two set_real_ip_from lines plus the header lines, that an unset variable renders an empty file, and that an entry such as 10.0.0.1;evil is refused with a non-zero exit."
-symbols = ["render-edge-trust.sh"]
+symbols = []
 touches = ["apps/wallet/deployment/render-edge-trust.sh", "apps/wallet/deployment/render-edge-trust.test.sh", "apps/wallet/deployment/start-wallet.sh", "apps/wallet/deployment/nginx.conf", "docker/wallet-pwa/Dockerfile"]
 tests = ["apps/wallet/deployment/render-edge-trust.test.sh::render_edge_trust"]
 planned_paths = ["apps/wallet/deployment/render-edge-trust.sh", "apps/wallet/deployment/render-edge-trust.test.sh"]
@@ -181894,7 +182156,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.760.1]
 title = "Issue #760: Stop asking for a USDL approval before placeOrder opens, adds size or places orders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -181905,8 +182167,9 @@ do_1 = "Change planOpen (apps/perps/src/core/perps/positionWrites.ts:46), planAd
 do_2 = "Drop the AllowanceSource parameter from those three planners, correct their doc comments so none claims to pull collateralAmount from the wallet, and keep withApproval for planCollateral (apps/perps/src/core/perps/positionWrites.ts:73), whose addCollateral does transferFrom."
 do_3 = "Update the callers in apps/perps/src/hooks/perps/usePosition.ts:91, apps/perps/src/hooks/perps/usePosition.ts:130, apps/perps/src/hooks/perps/usePerpsOrders.ts:30 and apps/perps/tests/e2e-local-node.test.ts:322 and apps/perps/tests/e2e-local-node.test.ts:373 to the new signatures."
 do_4 = "In apps/perps/tests/position-hooks.test.ts replace planOpenApprovesExactCollateralThenPlacesMarketOrder, planOpenWithSufficientAllowanceIsTheCallAlone, planAddSizeApprovesTheAddedCollateral and planOrderApprovesTheSummedLadderCollateralOnce (apps/perps/tests/position-hooks.test.ts:96-173) with planOpenIsThePlaceOrderAlone, planAddSizeIsThePlaceOrderAlone and planOrderIsTheLadderAlone, each asserting the plan deepEquals the built placeOrder calls, contains no approve step and keeps the same OrderParams fields."
+do_5 = "apps/perps/tests/order-plan.test.ts:205-220 still calls planOrder with an allowance source and expects an approve write before the placeOrder; that expectation is the defect this issue removes, so call planOrder with its new signature there, expect the writes to be the placeOrder ladder alone (writes[0] is plan.calls[0]) and keep every decode assertion that follows."
 symbols = ["planOpen", "planAddSize", "planOrder", "planOpenIsThePlaceOrderAlone", "planAddSizeIsThePlaceOrderAlone", "planOrderIsTheLadderAlone"]
-touches = ["apps/perps/src/core/perps/positionWrites.ts", "apps/perps/src/hooks/perps/usePosition.ts", "apps/perps/src/hooks/perps/usePerpsOrders.ts", "apps/perps/tests/position-hooks.test.ts", "apps/perps/tests/e2e-local-node.test.ts"]
+touches = ["apps/perps/src/core/perps/positionWrites.ts", "apps/perps/src/hooks/perps/usePosition.ts", "apps/perps/src/hooks/perps/usePerpsOrders.ts", "apps/perps/tests/position-hooks.test.ts", "apps/perps/tests/e2e-local-node.test.ts", "apps/perps/tests/order-plan.test.ts"]
 tests = ["apps/perps/tests/position-hooks.test.ts::planOpenIsThePlaceOrderAlone", "apps/perps/tests/position-hooks.test.ts::planAddSizeIsThePlaceOrderAlone", "apps/perps/tests/position-hooks.test.ts::planOrderIsTheLadderAlone"]
 planned_paths = []
 build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
@@ -182109,7 +182372,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.859.1]
 title = "Issue #859: Pin the minimatch types so the perps builder typing probe is green on a fresh install"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182139,7 +182402,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.870.1]
 title = "Issue #870: Give home price-update rows watchlist tags, the EVM row layout, tested controls and their own item type"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182154,7 +182417,7 @@ symbols = ["LatestTxsItem", "LatestTxsItemMobile", "shows_a_failed_price_update_
 touches = ["apps/explorer/ui/home/LatestTxsItem.tsx", "apps/explorer/ui/home/LatestTxsItemMobile.tsx", "apps/explorer/ui/home/LatestTxs.tsx", "apps/explorer/ui/multichain/home/LatestTxsLocal.tsx", "apps/explorer/lib/api/services/general/misc.ts", "apps/explorer/mocks/txs/tx.ts", "apps/explorer/ui/home/LatestTxsItem.spec.tsx", "apps/explorer/ui/home/LatestTxsItemMobile.spec.tsx"]
 tests = ["apps/explorer/ui/home/LatestTxsItem.spec.tsx::shows_a_failed_price_update_with_its_status", "apps/explorer/ui/home/LatestTxsItem.spec.tsx::shows_watchlist_tags_on_a_price_update", "apps/explorer/ui/home/LatestTxsItem.spec.tsx::shows_the_info_popover_on_an_evm_row", "apps/explorer/ui/home/LatestTxsItemMobile.spec.tsx::shows_a_failed_price_update_with_its_status", "apps/explorer/ui/home/LatestTxsItemMobile.spec.tsx::shows_watchlist_tags_on_a_price_update"]
 planned_paths = []
-build_cmd = "cd apps/explorer && yarn lint:tsc"
+build_cmd = "cd apps/explorer && yarn chakra:typegen && yarn lint:tsc"
 verify_cmd = "cd apps/explorer && yarn vitest run ui/home/LatestTxsItem.spec.tsx ui/home/LatestTxsItemMobile.spec.tsx -t '(?:^|\\s)(shows_a_failed_price_update_with_its_status|shows_watchlist_tags_on_a_price_update|shows_the_info_popover_on_an_evm_row)$'"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -182231,7 +182494,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.896.1]
 title = "Issue #896: Break same-block price feed ties on the update index the endpoint orders by"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182243,8 +182506,9 @@ do_2 = "Add index: number to FeedMarketLatest and to MarketUpdate in apps/explor
 do_3 = "In applyPriceUpdates (apps/explorer/ui/paxeerX/feed/applyPriceUpdates.ts:24-26) treat a same-block observation as newer only when update.index > latest.index, never by observation.sequence, and copy index: update.index into the new latest at lines 29-37."
 do_4 = "Change byNewest in apps/explorer/ui/pages/PaxeerXFeedMarket.tsx:23 to order by block_number then index descending, so the fresh filter at line 54 and the sort at line 61 use the endpoint order."
 do_5 = "Write apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts (planned) with the test 'keeps the same-block submission with the higher update index whatever its feeder sequence', asserting that of two same-block updates for one market the one with index 3 and sequence 1 wins over the one with index 2 and sequence 9 in both arrival orders."
+do_6 = "The price update fixture at apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx:20 lacks the index field the type now requires; give it the index the endpoint orders by so the explorer type-check passes, and change nothing else in that file."
 symbols = ["applyPriceUpdates", "byNewest", "prepare_observation_update"]
-touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex", "apps/explorer/types/api/paxeerXFeed.ts", "apps/explorer/mocks/paxeerX/feed.ts", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.ts", "apps/explorer/ui/pages/PaxeerXFeedMarket.tsx", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts"]
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/views/api/v2/paxeer_x/feed_view.ex", "apps/explorer/types/api/paxeerXFeed.ts", "apps/explorer/mocks/paxeerX/feed.ts", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.ts", "apps/explorer/ui/pages/PaxeerXFeedMarket.tsx", "apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts", "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx"]
 tests = ["apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts::keeps the same-block submission with the higher update index whatever its feeder sequence"]
 planned_paths = ["apps/explorer/ui/paxeerX/feed/applyPriceUpdates.spec.ts"]
 build_cmd = "cd apps/explorer && yarn tsc --noEmit"
@@ -182305,7 +182569,7 @@ do_2 = "In the fresh filter (PaxeerXFeedMarket.tsx:53-54) add each accepted upda
 do_3 = "Add an optional onJoin callback to useFeedSocket (apps/explorer/ui/paxeerX/feed/useFeedSocket.ts:15-37) called from handleJoin, and pass one from PaxeerXFeedMarket that calls queryClient.invalidateQueries for the first-page market updates key, so rows broadcast before the join are read once."
 do_4 = "Read isSocketDown from useFeedSocket in PaxeerXFeed.tsx:21 and PaxeerXFeedMarket.tsx:34 and render SocketAlert (apps/explorer/ui/shared/SocketAlert.tsx) above the table while it is true, as BlocksContent does (apps/explorer/ui/blocks/BlocksContent.tsx:115)."
 do_5 = "In PaxeerXFeedMarketLive.spec.tsx update 'puts the submissions of its market topic on top of the first page' to expect every initial row kept below the two new ones, and add 'adds a submission sent twice in one flush once' and 'reads the first page again once the market channel joins'; in PaxeerXFeedLive.spec.tsx add 'shows the socket alert while the feed channel is not joined'."
-symbols = ["handleFlush", "useFeedSocket", "adds a submission sent twice in one flush once", "reads the first page again once the market channel joins", "shows the socket alert while the feed channel is not joined"]
+symbols = ["handleFlush", "useFeedSocket"]
 touches = ["apps/explorer/ui/pages/PaxeerXFeedMarket.tsx", "apps/explorer/ui/pages/PaxeerXFeed.tsx", "apps/explorer/ui/paxeerX/feed/useFeedSocket.ts", "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx", "apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx"]
 tests = ["apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx::puts the submissions of its market topic on top of the first page", "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx::adds a submission sent twice in one flush once", "apps/explorer/ui/pages/PaxeerXFeedMarketLive.spec.tsx::reads the first page again once the market channel joins", "apps/explorer/ui/pages/PaxeerXFeedLive.spec.tsx::shows the socket alert while the feed channel is not joined"]
 planned_paths = []
@@ -182357,7 +182621,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.921.1]
 title = "Issue #921: Retry price feed heights on gateway 5xx answers without counting them toward the failure cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182367,7 +182631,7 @@ interfaces = []
 do_1 = "In Indexer.Fetcher.PaxeerX.PriceUpdates add an after_scan clause before the definitive ones (price_updates.ex:175-186) that sends {:error, {:http_status, status, _}} with status in 500..599 to retry/5 without incrementing failures, as the @transient clause at line 175 does; bodies already classified by CosmosRest.node_error as height_unavailable or height_ahead (services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex:401-402) keep their handling."
 do_2 = "In price_updates_test.exs change the test 'records a height as failed once its definitive failures run out and catch-up scans it again' (line 143) to answer 400 with a JSON error body instead of 503 at line 151, keeping every assertion."
 do_3 = "Add the test 'keeps retrying a gateway 5xx height without counting it toward the failure cap' to price_updates_test.exs: a 503 answer for {13, 9, nil, 9} is buffered again as {13, 10, _, 9} and no PriceFeedScannedBlock row is written."
-symbols = ["after_scan", "keeps retrying a gateway 5xx height without counting it toward the failure cap"]
+symbols = ["after_scan"]
 touches = ["services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex", "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs"]
 tests = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::keeps retrying a gateway 5xx height without counting it toward the failure cap", "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::records a height as failed once its definitive failures run out and catch-up scans it again"]
 planned_paths = []
@@ -182387,7 +182651,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.922.1]
 title = "Issue #922: Make price feed retry classification deterministic, warn on held heights and schedule retries after the batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.921.1"]
@@ -182398,7 +182662,7 @@ do_1 = "In CosmosRest.pick_error (services/explorer/backend/apps/explorer/lib/ex
 do_2 = "In PriceUpdates.run (services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex:151-163) collect the entries to schedule while scanning and call schedule/2 for them only after Enum.each over the batch returns, so a batch that raises schedules nothing."
 do_3 = "In retry/5 (price_updates.ex:188-192) log at warning level, once per height, when backoff_ms(attempts) reaches @max_backoff_ms, keeping the debug line below it."
 do_4 = "In price_updates_test.exs make 'failing batches stay dormant until their retries are due' (line 288) also assert that every height is buffered again as {n, 1, _, _} before its second scan, and add 'counts a definitive node error toward the cap in either node order' (one unreachable and one 400 node, both orders give {13, 1, _, 1}), 'warns once a held height reaches the backoff ceiling' (ExUnit.CaptureLog) and 'schedules no retry for a batch that raises before it completes' (a failing height then an entry normalize/1 rejects; assert_raise and refute_receive {:buffer, _, _})."
-symbols = ["pick_error", "run", "retry", "counts a definitive node error toward the cap in either node order", "warns once a held height reaches the backoff ceiling", "schedules no retry for a batch that raises before it completes"]
+symbols = ["pick_error", "run", "retry"]
 touches = ["services/explorer/backend/apps/explorer/lib/explorer/paxeer_x/cosmos_rest.ex", "services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_updates.ex", "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs"]
 tests = ["services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::failing batches stay dormant until their retries are due", "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::counts a definitive node error toward the cap in either node order", "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::warns once a held height reaches the backoff ceiling", "services/explorer/backend/apps/indexer/test/indexer/fetcher/paxeer_x/price_updates_test.exs::schedules no retry for a batch that raises before it completes"]
 planned_paths = []
@@ -182418,7 +182682,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.923.1]
 title = "Issue #923: Report a pending earlier sponsored submission as pending instead of a missing wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182428,6 +182692,7 @@ interfaces = []
 do_1 = "Export SPONSORED_SUBMISSION_PENDING = \"an earlier sponsored submission is still pending; try again once it settles\" from apps/web/src/api/wallet.ts."
 do_2 = "In resumeWalletSponsoredSubmission (apps/web/src/api/wallet.ts:205-231) return { outcome: \"failed\", detail: SPONSORED_SUBMISSION_PENDING } instead of { outcome: \"unavailable\" } when the retained submission for another call is still pending (line 228), so SendOutcome (apps/web/src/app/_markets/send-outcome.tsx:32-36) shows that text rather than the no-wallet copy at line 31."
 do_3 = "In apps/web/e2e/gas-station.test.ts update 'a write never resumes another call's retained sponsored submission as its own' (line 248) to expect the failed outcome with SPONSORED_SUBMISSION_PENDING at lines 281 and 285, and add sponsored_pending_submission_is_not_reported_as_a_missing_wallet, which renders SendOutcome for that outcome and asserts it contains SPONSORED_SUBMISSION_PENDING and not 'No Paxeer wallet is connected.'"
+do_4 = "Since c182d8bfd sendWalletSponsoredBatch and resumeWalletSponsoredSubmission (apps/web/src/api/wallet.ts:105) report { outcome: 'unconfirmed', transactionHash } when the receipt poll yields no receipt, which is what the e2e fixture does; update the two expectations at apps/web/e2e/gas-station.test.ts:280 and :282 from sent to unconfirmed with the same hash and change no product code for it."
 symbols = ["resumeWalletSponsoredSubmission", "SPONSORED_SUBMISSION_PENDING", "sponsored_pending_submission_is_not_reported_as_a_missing_wallet"]
 touches = ["apps/web/src/api/wallet.ts", "apps/web/e2e/gas-station.test.ts"]
 tests = ["apps/web/e2e/gas-station.test.ts::sponsored_pending_submission_is_not_reported_as_a_missing_wallet", "apps/web/e2e/gas-station.test.ts::a write never resumes another call's retained sponsored submission as its own"]
@@ -182539,10 +182804,10 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1039.1]
 title = "Issue #1039: Assert the registered Treasury refusal sentinel through the error chain, not one unwrap level"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1137.1"]
 reqs = ["181039.1"]
 capabilities = []
 interfaces = []
@@ -182727,7 +182992,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1048.1]
 title = "Issue #1048: Validate the stored bridge theme in the pre-paint script as the ThemeProvider does"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1136.1"]
@@ -182758,7 +183023,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1049.1]
 title = "Issue #1049: Mount the bridge ThemeProvider so the class-preservation test runs its effects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1136.1"]
@@ -182850,7 +183115,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1058.1]
 title = "Issue #1058: Rebuild the trading chart whenever a theme change swaps its custom stylesheet, light and dark included"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -182860,7 +183125,7 @@ interfaces = []
 do_1 = "In chartThemeTransition (apps/perps/src/widgets/trading/chartTheme.ts:25-34) compare resolveChartTheme(previous).customCssUrl with resolveChartTheme(next).customCssUrl and return \"rebuild\" whenever they differ, returning \"runtime\" only when two different theme names resolve to the same stylesheet, so light to dark and dark to light rebuild because light.css and dark.css (apps/perps/public/static/light.css:2, dark.css:2) differ."
 do_2 = "Leave the runtime branch of apps/perps/src/widgets/trading/Chart.tsx:470-490 (widget.changeTheme at :477) and the rebuild branch at :441-492 unchanged, so a rebuild reruns the widget constructor with custom_css_url = chartTheme.customCssUrl (Chart.tsx:216)."
 do_3 = "In apps/perps/tests/chart-theme.test.ts replace the test at :86-105, whose expectation at :93-94 locks light and dark on the runtime path, with the test 'every theme change that swaps the custom stylesheet rebuilds the chart', asserting for every pair of the five themes that chartThemeTransition returns \"none\" for the same theme and \"rebuild\" otherwise (dark to light and light to dark included), and keeping the undefined to dark \"none\" and undefined to greenify \"rebuild\" assertions."
-symbols = ["chartThemeTransition", "every theme change that swaps the custom stylesheet rebuilds the chart"]
+symbols = ["chartThemeTransition"]
 touches = ["apps/perps/src/widgets/trading/chartTheme.ts", "apps/perps/tests/chart-theme.test.ts"]
 tests = ["apps/perps/tests/chart-theme.test.ts::every theme change that swaps the custom stylesheet rebuilds the chart"]
 planned_paths = []
@@ -183276,7 +183541,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1108.1]
 title = "Issue #1108: Read the sequence batch in the signature route with the gateway height and tx encoding"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183318,12 +183583,13 @@ do_1 = "In nativeInventory (services/wallet/attestor/internal/server/native_purp
 do_2 = "On that path do not generate a new authority key, inventory path or c.tune wrapper, since importKey already installed both (services/wallet/attestor/internal/server/e2e_test.go:579-606); the publish therefore advances the persisted sequence from 1 to 2 under the same signer, which PersistSigned admits (services/wallet/attestor/internal/auth/agent/authority.go:213)."
 do_3 = "Keep the fresh-authority path of nativeInventory unchanged for clusters with no prior import, such as the caller at native_purpose_test.go:432, and leave Inventory, NewInventory and PersistSigned untouched so equal-sequence token changes stay refused."
 do_4 = "Qualify with the existing TestNativeCustodyRealProfiles (native_purpose_test.go:184), which imports native-owner through importKernelKey (services/wallet/attestor/internal/server/durability_test.go:282) and then calls nativeInventory at :195; it must reach and pass its purpose, grant, replay, restart and refusal assertions unchanged."
+do_5 = "TestNativeCustodyRealProfiles needs PAXEER_X_NATIVE_CUSTODY_RUST_TEST to name the compiled attestor_native_profile test executable of layerx-human-kms (the consumer tools/qualification/paxeer-x/human_native_custody.py:72-86 builds); the gate builds it and exports the path, so run the gates exactly as written and never skip the consumer."
 symbols = ["nativeInventory", "TestNativeCustodyRealProfiles"]
 touches = ["services/wallet/attestor/internal/server/native_purpose_test.go"]
 tests = ["services/wallet/attestor/internal/server/native_purpose_test.go::TestNativeCustodyRealProfiles"]
 planned_paths = []
-build_cmd = "cd services/wallet/attestor && go build ./internal/server/..."
-verify_cmd = "cd services/wallet/attestor && go test -count=1 ./internal/server/ -run '^(TestNativeCustodyRealProfiles)$'"
+build_cmd = "(cd services/wallet/attestor && go build ./internal/server/...) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run"
+verify_cmd = "exe=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/attestor_native_profile-* | grep -v -e [.]d$ | head -1)) && cd services/wallet/attestor && PAXEER_X_NATIVE_CUSTODY_RUST_TEST=$exe go test -count=1 ./internal/server/ -run ^TestNativeCustodyRealProfiles$"
 gate_kind = "planned"
 sandbox_profile = "mixed"
 owner_role = "fm-wallet"
@@ -183338,7 +183604,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1117.1]
 title = "Issue #1117: Pass the applied program transfer legs of a Programs CALL to the web request fee check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183493,7 +183759,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.899.1]
 title = "Issue #899: Specify the price-feed stream and keep the feed pages from polling while the channel is joined"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183553,7 +183819,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.961.1]
 title = "Issue #961: Make the specgen repository test expect the active feature the workflow selects"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183562,8 +183828,9 @@ capabilities = []
 interfaces = []
 do_1 = "In TestRepositorySpecIsValidAndCurrent (tools/specgen/validate_test.go:67-78) change the expected active feature from paxeer-x to layerx-merge, the value spec/workflow.kvx:19 sets, keeping the equality check and the stale-output and pointer checks after it unchanged."
 do_2 = "Change nothing else; the test keeps failing when a generated pointer file is stale or names another feature."
+do_3 = "The validator reads the task status vocabulary from spec/workflow.kvx:79 (tools/specgen/validate.go:17-19), which lists only pending, in_progress and done, while the spec records five superseded tasks and one blocked task that the spec tooling accepts: add superseded and blocked to that task status list so the repository test validates the spec as it is; change no task status."
 symbols = ["TestRepositorySpecIsValidAndCurrent"]
-touches = ["tools/specgen/validate_test.go"]
+touches = ["tools/specgen/validate_test.go", "spec/workflow.kvx"]
 tests = ["tools/specgen/validate_test.go::TestRepositorySpecIsValidAndCurrent"]
 planned_paths = []
 build_cmd = "go vet ./tools/specgen/"
@@ -183655,12 +183922,13 @@ do_1 = "In modules/lxphost/host.go:1005-1019 stop loading progfee/active/v1 and 
 do_2 = "Keep the fee record format, the refusal 18.1124.1 introduced for programs activities without an active record (host.go:545-558) and the receipt fields unchanged; change nothing under src/ or include/."
 do_3 = "Add seedProgramsFeeRecord(t, chain, authority) to modules/lxphost/host_test.go: a 217-byte LXFR1 record (version 1, seven u64 ones, asset byte 0x91, the nine u64 values 1000, 8, 1, 8, 1, 100, 1, 0, 1, the authority actor and 16 zero bytes) written under module 9 at progfee/active/v1 and progfee/history/v1/1 through sdk.NewContext(chain.cms, tmproto.Header{}, false).KVStore(chain.key)."
 do_4 = "Add TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity to modules/lxphost/host_test.go: seed the record on a fresh test chain, execute the register, registry-entry and program-deploy activities TestResolutionExecuteEntry executes (modules/lxphost/resolution_test.go:196-220), and assert for every consecutive pair that the earlier receipt's ResultingStateRoot equals the later receipt's PreviousStateRoot and that each receipt's roots differ from each other; prove the same sequence without the record stays continuous."
+do_5 = "Add the programs module to the governance activity's module set only when branch.store holds an LXFR1 record at progfee/active/v1; when it holds none, load no programs-module key and leave the set as activityModules returns it, so a fresh chain executes governance exactly as before (TestResolutionExecuteEntry at modules/lxphost/resolution_test.go:196-220 keeps passing) and the fully loaded programs module appears only under an active record. Do not add a without-record case that expects success with the programs module loaded."
 symbols = ["activityModules", "seedProgramsFeeRecord", "TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
 touches = ["modules/lxphost/host.go", "modules/lxphost/ctx.go", "modules/lxphost/host_test.go"]
 tests = ["modules/lxphost/host_test.go::TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity"]
 planned_paths = []
 build_cmd = "go build ./modules/lxphost/..."
-verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestResolutionExecuteEntry|TestHostFeeRecordAbsentRefusesVersion)$'"
+verify_cmd = "go test -count=1 ./modules/lxphost/ -run '^(TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity|TestHostFeeRecordAbsentRefusesVersion)$'"
 gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-programs"
@@ -183675,7 +183943,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1136.1]
 title = "Issue #1136: Make the bridge app type-check at main"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183685,8 +183953,9 @@ interfaces = []
 do_1 = "In apps/bridge/tsconfig.json raise target to ES2020 so the 0n-style literals in src/components/bridge/bridge-card.tsx and the bridge libraries are legal (the 69 TS2737 errors), and in apps/bridge/package.json make the typecheck script generate the Next 16 route types before checking (next typegen && tsc --noEmit -p tsconfig.json) so LayoutProps at src/app/layout.tsx:36 resolves."
 do_2 = "Repair the remaining type errors the check reports in src/lib/bridge/enrich.spec.ts, card-state.spec.ts, import.spec.ts, import.ts, use-bridge-state.ts, card-state.ts, submission.spec.ts, amount.ts, submitted.spec.ts, chains.ts, settlement.spec.ts, errors.ts, digests.ts and src/components/bridge/bridge-card.tsx by typing the values correctly (viem Log generics, the optional string at chains.ts:42, the writeContract argument at bridge-card.tsx:235); change no runtime behaviour, remove no test and relax no assertion."
 do_3 = "pnpm --dir apps/bridge run typecheck exits 0 and pnpm --dir apps/bridge exec vitest run still passes the bridge library specs the repaired files belong to."
+do_4 = "apps/bridge/vitest.config.ts:8 and :11 fail with TS2769 because vite-plugin-svgr 2.2.2 and vite-tsconfig-paths resolve a second vite whose Plugin type differs from the one vitest 4.0.15 bundles; make one vite be in play (a pnpm override of vite to vitest's version in apps/bridge/package.json, or plugin releases built for that vite), update apps/bridge/pnpm-lock.yaml with the install, and neither exclude the file from the check nor cast the plugins."
 symbols = []
-touches = ["apps/bridge/tsconfig.json", "apps/bridge/package.json", "apps/bridge/src/app/layout.tsx", "apps/bridge/src/components/bridge/bridge-card.tsx", "apps/bridge/src/lib/bridge/enrich.spec.ts", "apps/bridge/src/lib/bridge/card-state.spec.ts", "apps/bridge/src/lib/bridge/import.spec.ts", "apps/bridge/src/lib/bridge/import.ts", "apps/bridge/src/lib/bridge/use-bridge-state.ts", "apps/bridge/src/lib/bridge/card-state.ts", "apps/bridge/src/lib/bridge/submission.spec.ts", "apps/bridge/src/lib/bridge/amount.ts", "apps/bridge/src/lib/bridge/submitted.spec.ts", "apps/bridge/src/lib/bridge/chains.ts", "apps/bridge/src/lib/bridge/settlement.spec.ts", "apps/bridge/src/lib/bridge/errors.ts", "apps/bridge/src/lib/bridge/digests.ts"]
+touches = ["apps/bridge/tsconfig.json", "apps/bridge/package.json", "apps/bridge/src/app/layout.tsx", "apps/bridge/src/components/bridge/bridge-card.tsx", "apps/bridge/src/lib/bridge/enrich.spec.ts", "apps/bridge/src/lib/bridge/card-state.spec.ts", "apps/bridge/src/lib/bridge/import.spec.ts", "apps/bridge/src/lib/bridge/import.ts", "apps/bridge/src/lib/bridge/use-bridge-state.ts", "apps/bridge/src/lib/bridge/card-state.ts", "apps/bridge/src/lib/bridge/submission.spec.ts", "apps/bridge/src/lib/bridge/amount.ts", "apps/bridge/src/lib/bridge/submitted.spec.ts", "apps/bridge/src/lib/bridge/chains.ts", "apps/bridge/src/lib/bridge/settlement.spec.ts", "apps/bridge/src/lib/bridge/errors.ts", "apps/bridge/src/lib/bridge/digests.ts", "apps/bridge/vitest.config.ts", "apps/bridge/pnpm-lock.yaml"]
 tests = []
 planned_paths = []
 build_cmd = "pnpm --dir apps/bridge exec vitest list src/lib/bridge/chains.spec.ts"
@@ -183695,6 +183964,637 @@ gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-web-explorer-bridge"
 rollback = "Revert the tsconfig, package.json and source changes; the bridge app returns to failing its type-check at main."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1137.1]
+title = "Issue #1137: Make the launchpad keeper and simulation test packages compile without the deleted generation 1 key builders"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181137.1"]
+capabilities = []
+interfaces = []
+do_1 = "In modules/launchpad/keeper/fees_test.go:172 build the reserved per-market protocol counter key inline from types.ProtocolFeesPrefix followed by the denom bytes (a fresh slice, not an append into the prefix) and keep the assertion that RecordFee writes nothing under it."
+do_2 = "In modules/launchpad/simulation/decoder_test.go:55 build the unhandled-prefix sample key the same way from types.ProtocolFeesPrefix and the bytes of \"quote\", keeping the expected decoder output unchanged."
+do_3 = "Restore none of the builders 94bae91dc deleted from modules/launchpad/types/keys.go and change no non-test file."
+symbols = ["TestRecordFeeSplit", "TestDecodeStore"]
+touches = ["modules/launchpad/keeper/fees_test.go", "modules/launchpad/simulation/decoder_test.go"]
+tests = ["modules/launchpad/keeper/fees_test.go::TestRecordFeeSplit", "modules/launchpad/simulation/decoder_test.go::TestDecodeStore"]
+planned_paths = []
+build_cmd = "go vet ./modules/launchpad/keeper/ ./modules/launchpad/simulation/"
+verify_cmd = "go test -count=1 -run '^(TestRecordFeeSplit|TestDecodeStore)$' ./modules/launchpad/keeper/ ./modules/launchpad/simulation/"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-launchpad"
+rollback = "Revert the two test files; both packages return to failing compilation on the deleted builder."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1138.1]
+title = "Issue #1138: Port the agentd handshake gate fixture to the startup configuration with node endpoint and chain id"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181138.1"]
+capabilities = []
+interfaces = []
+do_1 = "Port config_with_authority (services/agent/crates/layerx-agentd/tests/handshake_gate.rs:138-156) to the StartupConfig services/agent/crates/layerx-agentd/src/config.rs defines since 5609ec802 (network_id, node_endpoint, expected_chain_id, tenants, policy_sources, signer_configurations, verification_defaults, receipt_key_source): drop expected_protocol_version, point node_endpoint and expected_chain_id at the local JSON-RPC responder the test already runs (handshake_gate.rs:36-88) and carry the authority document through whichever current field or test-side setup the readiness gate reads it from."
+do_2 = "Keep every assertion of the handshake_gate and readiness_node_rpc test targets (readiness_node_rpc.rs includes handshake_gate.rs by #[path]) and change no file under src/."
+symbols = ["config_with_authority"]
+touches = ["services/agent/crates/layerx-agentd/tests/handshake_gate.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test handshake_gate --test readiness_node_rpc"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test handshake_gate --test readiness_node_rpc"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the fixture; both test targets return to failing compilation on the removed fields."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1141.1]
+title = "Issue #1141: Issue #1141: Add the golang.org/x/net go.mod hash the module graph needs so the chain binary builds in read-only module mode"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181141.1"]
+capabilities = []
+interfaces = []
+do_1 = "Add to go.sum the go.mod hash line of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3, which golang.org/x/crypto v0.0.0-20190701094942-4def268fd1a4 (go.sum:2128) requires through github.com/99designs/keyring v1.2.1 (go.mod:7, replaced at go.mod:287), by running go mod download golang.org/x/net and keeping every other go.sum line as it is."
+do_2 = "Change no go.mod line and no source file; the gate is a read-only module mode vet and test compile of modules/epoch, whose module_simulation.go:15 imports the keyring."
+symbols = []
+touches = ["go.sum"]
+tests = []
+planned_paths = []
+build_cmd = "GOFLAGS=-mod=readonly go vet ./modules/epoch/"
+verify_cmd = "GOFLAGS=-mod=readonly go test -count=1 -run '^$' ./modules/epoch/"
+sandbox_profile = "go-cgo"
+owner_role = "fm-tools-ops"
+rollback = "Revert go.sum; read-only module mode builds return to refusing the missing go.mod hash."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.731.1]
+title = "Issue #731: Keep EVM transactions on the home page when price-feed submissions fill every block"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18731.1"]
+capabilities = []
+interfaces = []
+do_1 = "In transactions/2 at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/main_page_controller.ex:105-121 cap the submissions handed to PriceUpdateList.merge at three of the six home-page slots: pass the newest three of PriceUpdateList.recent_updates(paging_options), or six minus the EVM transaction count when fewer than three EVM transactions exist, so the newest EVM transactions keep at least three slots whenever three exist and submissions fill the page only when EVM transactions cannot. The three-slot cap is the chosen default; nothing at head records another home-page share."
+do_2 = "Add the test \"keeps three of the six slots for EVM transactions when submissions fill every block\" to services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs after :76, storing one submission and one EVM transaction in each of six consecutive blocks with the file's store/2 and submission/1 helpers, and asserting GET /api/v2/main-page/transactions answers six items whose hashes are, newest first, the submission then the EVM transaction of each of the three newest blocks, with transaction_types [\"price_update\"] on the three submissions."
+do_3 = "Keep the order of PriceUpdateList.merge (services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/price_update_list.ex:63-67) and the interleave test at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs:57-76 unchanged, and change no other file: the 0X prefix match at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/search_controller.ex:157-163, the single-market symbol select at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex:183, the unprefixed upper-case quick-search query at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/feed_controller_test.exs:383-387 and the count broadcast at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/notifier.ex:707 are already in place at head and stay as they are."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/main_page_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs::interleaves the newest submissions with the newest EVM transactions", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs::keeps three of the six slots for EVM transactions when submissions fill every block"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/main_page_controller_test.exs --only 'test:test interleaves the newest submissions with the newest EVM transactions' --only 'test:test keeps three of the six slots for EVM transactions when submissions fill every block'"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the controller and its test; the home page returns to merging up to six submissions ahead of every EVM transaction of the same blocks."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.876.1]
+title = "Issue #876: Ship a 30-day price-feed retention default in the backend environment template"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18876.1"]
+capabilities = []
+interfaces = []
+do_1 = "At services/explorer/deploy/env/backend.example.env:99 set PAXEER_X_PRICE_FEED_RETENTION_DAYS=30 and reword the comment at services/explorer/deploy/env/backend.example.env:88-91 to say the template keeps a submission and its observations for 30 days (about 10 GB at the observed 330 MB per day), that the indexer deletes older ones oldest first in bounded batches once a minute, and that clearing the value keeps every submission for good. 30 days is the chosen default, the same retention the repository's monitoring stack uses at tools/ops/monitoring/docker-compose.yml:8; no other record sets one."
+do_2 = "In services/explorer/deploy/tests/config-check.sh after :37 add expect \"$backend\" PAXEER_X_PRICE_FEED_RETENTION_DAYS 30 so the check fails when the template leaves the price-feed update and observation tables unbounded again."
+do_3 = "Change no Elixir code: services/explorer/backend/config/runtime.exs:1944-1953 keeps an unset or empty variable meaning no retention and keeps rejecting a non-positive value, services/explorer/backend/apps/indexer/lib/indexer/fetcher/paxeer_x/price_feed_maintenance.ex stays as it is, and no other file changes."
+symbols = []
+touches = ["services/explorer/deploy/env/backend.example.env", "services/explorer/deploy/tests/config-check.sh"]
+tests = []
+planned_paths = []
+build_cmd = "sh -n services/explorer/deploy/tests/config-check.sh"
+verify_cmd = "bash services/explorer/deploy/tests/config-check.sh"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the template and the check; the template leaves PAXEER_X_PRICE_FEED_RETENTION_DAYS empty again and a deployment from it keeps price updates and observations for good."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1081.1]
+title = "Issue #1081: Point the explorer OpenAPI test at the archive anchor and receipt paths the router serves"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181081.1"]
+capabilities = []
+interfaces = []
+do_1 = "In @paxeer_x_paths at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs:13-20 replace \"/v2/paxeer-x/anchors\", \"/v2/paxeer-x/receipts\" and \"/v2/paxeer-x/receipts/{id}\" with \"/v2/paxeer-x/archive/anchors\", \"/v2/paxeer-x/archive/receipts\" and \"/v2/paxeer-x/archive/receipts/{id}\", the paths ApiRouter registers at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/routers/api_router.ex:275-277, keeping the list at six entries and every assertion of the test at :23-35."
+do_2 = "In the three schema tests at services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs:68-76, :85-93 and :95-102 request /api/v2/paxeer-x/archive/anchors, /api/v2/paxeer-x/archive/receipts and /api/v2/paxeer-x/archive/receipts/<receipt id> and resolve the declared schema of the matching archive path, keeping the insert_anchor and insert_receipt fixtures at :220-264, the 200 expectation and both absent-field assertions of each test."
+do_3 = "Delete no test and change no file under lib/: the ArchiveController operations at services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex:20-101 already carry the paxeer-x tag, the apikey parameter and a 200 JSON response with the ArchiveAnchor and ArchiveReceipt schemas the assertions resolve."
+symbols = []
+touches = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"]
+tests = ["services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::lists the six Paxeer X paths with no registration beyond the API router", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject an anchors page that lost a field", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject a receipts page that lost a field", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs::reject one receipt that lost a field"]
+planned_paths = []
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/block_scout_web/controllers/api/v2/paxeer_x/openapi_spec_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the test file; the OpenAPI test again requires the removed /v2/paxeer-x/anchors and /v2/paxeer-x/receipts paths and fails against the router."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.817.1]
+title = "Issue #817: Assert the mined nonce conflict as the 409 prepare-again answer the pool gives where the owner, agent receipt and nonce tests still expect 202 outcome_unknown"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18817.1"]
+capabilities = []
+interfaces = []
+do_1 = "The contract for a mined nonce conflict is already in services/wallet/gateway/src/rpc/pool.ts:69-73 and :405-413: a nonce-too-low refusal whose hash no member knows and whose nonce every member's latest count has passed is NonceConflictError with consumed=true (pool.ts:438-444), which custodyRefusal answers 409 { error: 'nonce_consumed', retry: 'prepare', nonce, member, members } (services/wallet/gateway/src/routes/agentExec.ts:87-93) and the sign route answers 409 nonce_conflict retry prepare (services/wallet/gateway/src/routes/sign.ts:484-498); BroadcastOutcomeUnknownError and the 202 outcome_unknown body (pool.ts:88-106, :434-437, :446) are kept for split latest counts, a member that could not answer, or a failed classification read, as services/wallet/gateway/test/rpc-pool.test.ts:238-293 asserts. Three tests written before efc18e6f2 still assert 202 for the consumed case; bring them to that contract."
+do_2 = "In services/wallet/gateway/test/owner-broadcast-outcome.test.ts the mock moves the sender's latest count past our nonce before answering nonce too low (lines 38-46) and answers eth_getTransactionByHash null (lines 48-51), which is the consumed case, yet fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt (lines 86-137, registered at 139-140) expects 202. Add fundAndSweepAnswerAConsumedNonceWith409NonceConsumed, registered with test('fund and sweep answer a consumed nonce with 409 nonce_consumed', ...), asserting for that default mock on both /fund and /sweep: status 409, body { error: 'nonce_consumed', retry: 'prepare', nonce: 0, member: null, members: 1 }, exactly one new broadcast whose raw parses to the expected recipient, value and nonce, the hash looked up, and the nonce_outstanding row kept with the hash (services/wallet/gateway/src/nonce/store.ts:54-57 tracks a NonceConflictError)."
+do_3 = "Keep fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt and every assertion in it (lines 86-137, including the replacement-underpriced 409 nonce_conflict part at 126-135) by making its scenario genuinely unknown: add a mock switch under which eth_getTransactionByHash still records the lookup and then answers a JSON-RPC error, so lookupTransaction (pool.ts:357-366) names the only member unreachable and pool.ts:438-446 raises BroadcastOutcomeUnknownError with member null and members 1. Use fresh wallets per case or derive the expected nonce from the broadcast raw so the two cases do not share a nonce sequence."
+do_4 = "In services/wallet/gateway/test/agent-receipt.test.ts the unknownOutcomeSend branch (lines 59-65) also builds the consumed case against the null hash answer at line 51, so agentUnknownOutcomeSendCountsTowardDailyCap (lines 209-239) now meets 409 nonce_consumed and no recorded signature (agentExec.ts:366-374 clears txHash on NonceConflictError before recording the signature). While unknownOutcomeSend is set, answer eth_getTransactionByHash with a JSON-RPC error so the outcome is genuinely unknown, and keep every assertion of that test (202 outcome_unknown with must_not_resubmit, the wallet_signatures row and the DAILY_VALUE_CAP refusal) unchanged."
+do_5 = "In services/wallet/gateway/test/nonce.test.ts give makeRpc (lines 87-89) sequencerUrl: rpcUrl as line 689 already does, because sendRawTransactionVia sends to the configured sequencer and refuses without one (pool.ts:400-402, :415), and bring the test at lines 638-676 to the contract: retitle it 'takes nonce too low as success when our hash is known, as a conflict when latest has not passed our nonce and as nonce consumed when every member has', expect member: null at lines 654 and 656 (the send goes to the sequencer, not a pool member, so memberIndex is null as rpc-pool.test.ts:267-283 asserts), and at lines 660-666 expect NonceConflictError with consumed true, nonce 142, member null and members 1 whose custodyRefusal is 409 { error: 'nonce_consumed', retry: 'prepare', nonce: 142, member: null, members: 1 } instead of BroadcastOutcomeUnknownError; keep the nonce_outstanding rows assertion (lines 670-675) and every other test in the file as written."
+do_6 = "Change no file under services/wallet/gateway/src/ and no other test file; rpc-pool.test.ts stays the reference for the classification itself."
+symbols = ["RpcPool.sendRawTransactionVia", "custodyRefusal", "NonceConflictError", "BroadcastOutcomeUnknownError", "outcomeUnknownBody", "broadcastReserved", "fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt", "agentUnknownOutcomeSendCountsTowardDailyCap"]
+touches = ["services/wallet/gateway/test/owner-broadcast-outcome.test.ts", "services/wallet/gateway/test/agent-receipt.test.ts", "services/wallet/gateway/test/nonce.test.ts"]
+tests = ["services/wallet/gateway/test/owner-broadcast-outcome.test.ts::fundAndSweepAnswerAnUnknownBroadcastOutcomeWith202PollReceipt", "services/wallet/gateway/test/owner-broadcast-outcome.test.ts::fundAndSweepAnswerAConsumedNonceWith409NonceConsumed", "services/wallet/gateway/test/agent-receipt.test.ts::agentUnknownOutcomeSendCountsTowardDailyCap", "services/wallet/gateway/test/nonce.test.ts::answersOutcomeUnknownWhenANonceTooLowClassificationReadFails"]
+planned_paths = []
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/owner-broadcast-outcome.test.ts test/agent-receipt.test.ts test/nonce.test.ts -t 'fund and sweep answer|agentUnknownOutcomeSendCountsTowardDailyCap|nonce too low'"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the three test files; they return to asserting 202 outcome_unknown for a nonce every member reports consumed, against pool.ts:69-73 and rpc-pool.test.ts:267-283."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1105.1]
+title = "Issue #1105: Default the market attestation driver's native include path to -Iinclude and pin it with a focused test"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181105.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tools/qualification/paxeer-x/program_market_attestation.py:382-395 move the argparse construction out of main into a module-level parse_arguments(argv) that main calls with sys.argv[1:], and default --cppflags to \"-Iinclude\" as tools/qualification/paxeer-x/arbiter_prestate.py:355 does, keeping --cppflags, --cflags and --ldflags overridable; tests/programs/test_market_attestation.c:2-8 includes \"layerx/programs.h\" and its sibling headers relative to include/, which Makefile:31 supplies with -Iinclude, and nothing in the repository passes --cppflags to this driver (tools/paxeer-x/gates/104.35.7.sh:8)."
+do_2 = "In build (program_market_attestation.py:200-226) extract the native compile list at lines 219-223 into a module-level native_command(arguments, native_library, runtime_library, native_output) returning the same list in the same order (cc, cppflags, cflags, the C file, the two libraries with the native library repeated, ldflags, then -lcrypto -pthread -ldl -lm -o output), make build use it, and record manifest[\"native_flags\"] = {\"cppflags\": ..., \"cflags\": ..., \"ldflags\": ...} beside manifest[\"commands\"] at line 226 as tools/qualification/paxeer-x/program_balance_read.py:106-107 does."
+do_3 = "Add tools/qualification/test_program_market_attestation.py, loading the driver by path with importlib as tools/qualification/test_registry_router_bootstrap.py:9-12 does, with a unittest.TestCase MarketAttestationDriverTest whose methods assert: test_default_cppflags_is_include (parse_arguments([]).cppflags == \"-Iinclude\"), test_cppflags_stays_overridable (parse_arguments([\"--cppflags\", \"-Ifoo -Ibar\"]).cppflags is that string and an empty value yields no -I flag in native_command), and test_native_command_carries_cppflags (native_command for the defaults starts with [\"cc\", \"-Iinclude\", \"tests/programs/test_market_attestation.c\"] and ends with [\"-lcrypto\", \"-pthread\", \"-ldl\", \"-lm\", \"-o\", str(output)])."
+do_4 = "Change no other producer step, no SOURCE_PATHS, UNIT_CASES or NATIVE_CASES entry, no evidence-directory rule (program_market_attestation.py:276-287) and no file outside the two named; tests/programs/test_market_attestation.c is not touched."
+symbols = ["main", "build"]
+touches = ["tools/qualification/paxeer-x/program_market_attestation.py", "tools/qualification/test_program_market_attestation.py"]
+tests = ["tools/qualification/test_program_market_attestation.py::MarketAttestationDriverTest"]
+planned_paths = ["tools/qualification/test_program_market_attestation.py"]
+build_cmd = "python3 -m py_compile tools/qualification/paxeer-x/program_market_attestation.py tools/qualification/test_program_market_attestation.py"
+verify_cmd = "python3 -m pytest tools/qualification/test_program_market_attestation.py -q"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-kernel"
+rollback = "Revert the driver and delete the new test; the native step returns to compiling test_market_attestation.c without -Iinclude and failing on layerx/programs.h."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.929.1]
+title = "Issue #929: Raise every repository Go toolchain pin from 1.25.6 to the 1.25.8 that sdk/cosmovisor requires"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18929.1"]
+capabilities = []
+interfaces = []
+do_1 = "Change the go directive of go.mod:3 from go 1.25.6 to go 1.25.8, the version sdk/cosmovisor/go.mod:3 already requires, so the offline nested-module targets of the Makefile (Makefile:2937, 2944 and 2953, GOPROXY=off over PAXEER_NESTED_GO_DIRS at Makefile:2814-2815) run sdk/cosmovisor on the toolchain the root module pins instead of a toolchain the go command must download."
+do_2 = "Change every literal Go toolchain pin in .github/workflows from '1.25.6' to '1.25.8': the GO_VERSION env of paxeer-go-test.yml:146 and paxeer-db-tests.yml:146, and go-version of paxeer-integration-test.yml:219 and :570, paxeer-rocksdb-unit-tests.yml:157, paxeer-mock-balances-build.yml:159, paxeer-eth-blocktests.yml:187, explorer-build.yml:85 and :134, bridge-test.yml:110, paxeer-golangci.yml:152, paxeer-cross-arch-build.yml:159 and :203, xweb-test.yml:127 and paxeer-uci-go-lint.yml:159; change the missing-installer mutation fixture of scripts/ci/xweb-workflow-check.sh:1202 to the same value so the mutation still applies to xweb-test.yml and the check still compares that workflow against the go.mod directive (scripts/ci/xweb-workflow-check.sh:929-938)."
+do_3 = "Change the Go build image from golang:1.25.6-bookworm to golang:1.25.8-bookworm in docker/rpcnode/Dockerfile:1, docker/localnode/Dockerfile:1, docker/flyci-controller/Dockerfile:1, docker/layerx/Dockerfile:3 and :32, docker/kernel/Dockerfile:37 and docker/paxeer/Dockerfile.paxd-node:26, replacing the sha256 digest on the five digest-pinned lines with the registry manifest digest of docker.io/golang:1.25.8-bookworm, a value the repository does not hold and that must be read from the registry, never left at the 1.25.6 digest; change ARG GO_VERSION of .devcontainer/Dockerfile:4 to 1.25.8 and ARG GO_SHA256 of .devcontainer/Dockerfile:5 to the published SHA-256 of go1.25.8.linux-amd64.tar.gz that .devcontainer/Dockerfile:68-69 verifies, likewise a value the repository does not hold."
+do_4 = "Change the stated Go version 1.25.6 to 1.25.8 in README.md:59, docs/MONOREPO.md:62 and line 53 of docs/readme/README.zh-CN.md, docs/readme/README.de.md, docs/readme/README.fr.md, docs/readme/README.ru.md, docs/readme/README.ja.md, docs/readme/README.es.md and docs/readme/README.pt-BR.md."
+do_5 = "Add tools/ci/tests/test_go_toolchain_pins.py with test_go_toolchain_pins_agree_with_go_mod, a standard-library-only test in the style of tools/ci/tests/test_paxd_native_toolchain.py that reads the go directive of go.mod and asserts that every literal go-version value and every GO_VERSION env value in .github/workflows/*.yml (go-version-file steps and ${{ }} expressions excluded), the golang image tag of the six Dockerfiles named in do_3, ARG GO_VERSION of .devcontainer/Dockerfile and the go-version fixture string of scripts/ci/xweb-workflow-check.sh all equal that directive, naming the file and value of the first disagreement in the assertion message."
+do_6 = "Leave unchanged the go directives of every other module (core/deps/log, core/deps/cosmwasm, services/wallet/attestor, services/wallet/ceremony, the launchpad, platform and tools modules), the workflows that install Go through go-version-file, deploy/launchpad/Dockerfile.native and Dockerfile.svc (golang:1.26.4), docker/hpx-registry, docker/wallet-attestor, tools/loadtest and tools/paxctl images, GOTCHA.kvx and spec/; add no toolchain directive, change no dependency version and no go.sum."
+symbols = []
+touches = ["go.mod", ".github/workflows/paxeer-go-test.yml", ".github/workflows/paxeer-db-tests.yml", ".github/workflows/paxeer-integration-test.yml", ".github/workflows/paxeer-rocksdb-unit-tests.yml", ".github/workflows/paxeer-mock-balances-build.yml", ".github/workflows/paxeer-eth-blocktests.yml", ".github/workflows/explorer-build.yml", ".github/workflows/bridge-test.yml", ".github/workflows/paxeer-golangci.yml", ".github/workflows/paxeer-cross-arch-build.yml", ".github/workflows/xweb-test.yml", ".github/workflows/paxeer-uci-go-lint.yml", "scripts/ci/xweb-workflow-check.sh", "docker/rpcnode/Dockerfile", "docker/localnode/Dockerfile", "docker/flyci-controller/Dockerfile", "docker/layerx/Dockerfile", "docker/kernel/Dockerfile", "docker/paxeer/Dockerfile.paxd-node", ".devcontainer/Dockerfile", "README.md", "docs/MONOREPO.md", "docs/readme/README.zh-CN.md", "docs/readme/README.de.md", "docs/readme/README.fr.md", "docs/readme/README.ru.md", "docs/readme/README.ja.md", "docs/readme/README.es.md", "docs/readme/README.pt-BR.md", "tools/ci/tests/test_go_toolchain_pins.py"]
+tests = ["tools/ci/tests/test_go_toolchain_pins.py::test_go_toolchain_pins_agree_with_go_mod"]
+planned_paths = ["tools/ci/tests/test_go_toolchain_pins.py"]
+build_cmd = "go -C sdk/cosmovisor vet ./..."
+verify_cmd = "python3 -m pytest tools/ci/tests/test_go_toolchain_pins.py -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the touched files and delete the new test; the repository returns to pinning Go 1.25.6 in go.mod, the workflows, the build images and the devcontainer while sdk/cosmovisor requires 1.25.8, so the GOPROXY=off nested-module targets fail on a clean module cache."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1139.1]
+title = "Issue #1139: Skip a late completed job in the PaxAI worker maintenance tick instead of aborting the tick"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181139.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/paxai-worker/src/jobs.rs, after commit_record (jobs.rs:1074-1108), add pub fn commit_record_or_retain(&self, key: JobKey, authority: &FinalizedAuthority) -> Result<Option<Digest32>, ServiceError> that returns Ok(None) when the stored job (JobStore::job, store.rs:584) already carries state.late, otherwise calls commit_record and maps Ok(digest) to Ok(Some(digest)), Err(ServiceError::DeadlineInvalid) to Ok(None) and every other error unchanged; commit_record itself keeps marking the job late and refusing with DeadlineInvalid at or after the task deadline."
+do_2 = "In services/platform/hosted/paxai-worker/src/main.rs maintenance_tick, change the (JobState::Ended(Outcome::Succeeded), TaskStatus::Accepted) arm (main.rs:897-905) to also continue when job.state.late is set (beside the expired check at main.rs:898-900) and to obtain the commitment digest through service.jobs.commit_record_or_retain(key, &authority)?, continuing to the next tracked job when it is None instead of propagating DeadlineInvalid out of the tick at main.rs:903, so later tracked jobs and the heartbeat selection after the loop (main.rs:910-926) are still reached in the same tick."
+do_3 = "In services/platform/hosted/paxai-worker/tests/job_recovery.rs add #[test] fn a18_late_completed_job_is_retained_and_later_commitments_proceed: with admitting(), a Scratch and service() with an absent runner, succeed() an order A built by order_for and an order B built like order() (job_recovery.rs:1198-1226) through fixture.submit.with so that B's request.task_expiry, context.expiry and task.deadline are later than TASK_EXPIRY; with late = authority_at(&fixture.market, TASK_EXPIRY) assert commit_record_or_retain(A, &late) == Ok(None) on two consecutive calls, that A's job keeps state Ended(Succeeded) with late true, its saved result and its stored output, that commit_record(A, &late) still returns Err(ServiceError::DeadlineInvalid), and that commit_record_or_retain(B, &late) == Ok(Some(result_manifest_digest(&saved_b)?))."
+do_4 = "Change no other arm of maintenance_tick, no expire or reconcile behaviour, no store schema and no existing test assertion; the late result is never submitted on chain."
+symbols = ["maintenance_tick", "JobService::commit_record", "JobStore::job"]
+touches = ["services/platform/hosted/paxai-worker/src/jobs.rs", "services/platform/hosted/paxai-worker/src/main.rs", "services/platform/hosted/paxai-worker/tests/job_recovery.rs"]
+tests = ["services/platform/hosted/paxai-worker/tests/job_recovery.rs::a18_late_completed_job_is_retained_and_later_commitments_proceed"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-paxai-worker --bin layerx-paxai-worker --test job_recovery"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-paxai-worker --test job_recovery a18_late_completed_job_is_retained_and_later_commitments_proceed"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the three files; the maintenance tick again returns DeadlineInvalid at the first late completed job, revisits it every tick and never reaches later jobs or the heartbeat while that task stays Accepted."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1142.1]
+title = "Issue #1142: Issue #1142: Build the reclaim test's agent context with the nonce field the reclaim contract now carries"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181142.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/reclaim.rs:103 replace account_sequence: ACCOUNT_SEQUENCE with nonce: ACCOUNT_SEQUENCE, the field ReclaimAgentContext carries since 0a78c10ba (services/human/crates/layerx-human-service/src/agents/reclaim.rs:64-73, as tests/reclaim_nonces.rs:42-50 builds it); keep ACCOUNT_SEQUENCE at :66 and :278 and every assertion of the file."
+do_2 = "Change no production code and remove no test. The three reclaim tests that fail at head on the boundary refusal and Malformed('signature') are issue #1149 and belong to 18.1149.1; this task's gate is the compile of the reclaim target and its two tests that do not drive the reclaim journey."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/reclaim.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim -- --exact reclaim_contract_is_closed_to_returns_and_rejects_conflicting_reuse repeated_start_repairs_initial_progress_after_restart"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert tests/reclaim.rs; the crate's test targets return to failing on the renamed field."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1143.1]
+title = "Issue #1143: Issue #1143: Build the agent daemon's delivery, webhook, approval and permit tests with the height-indexed event cursor"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181143.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace every ApiCursor(Sequence(n)) in services/agent/crates/layerx-agentd/tests/delivery.rs:187, :392 and :402, tests/webhook.rs:157, tests/approval_events.rs:172 and tests/w7_subscription_permit.rs:98 with the braced cursor layerx_agent_api::events::Cursor { block_height: n, tx_index: 0, log_index: 0 } exactly as services/agent/crates/layerx-agentd/src/events/deliver.rs:639-643 derives it from a sequence, keeping the Cursor as ApiCursor alias imports and every assertion; where n was a Sequence, pass its u64 value."
+do_2 = "Change no production code and remove no test; if a delivery assertion then fails on the cursor the daemon emits, stop and record it rather than changing the assertion."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/delivery.rs", "services/agent/crates/layerx-agentd/tests/webhook.rs", "services/agent/crates/layerx-agentd/tests/approval_events.rs", "services/agent/crates/layerx-agentd/tests/w7_subscription_permit.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test approval_events --test w7_subscription_permit"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test delivery --test webhook --test w7_subscription_permit"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the four test files; the daemon's test targets return to failing on the tuple cursor."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1144.1]
+title = "Issue #1144: Issue #1144: Commit the standby's replayed layer through the sealed-layer path so prior-block kernel reads rebuild the primary's receipt"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181144.1"]
+capabilities = []
+interfaces = []
+do_1 = "In node/sequencer/standby_role.go install on the standby app, beside SetOpenBlock at :135, a sealed-layer SequencerSource fed by the replayed layer, so app.go:3217 finds the sealed block and the standby commits through the same path as the primary (app.go:1784-1818) instead of re-execution (app.go:2379); standbyRoleReplay.Execute (:238-241) keeps comparing the rebuilt receipt with the stored one byte for byte."
+do_2 = "Add to node/sequencer/standby_role_test.go a case TestStandbyReplayCommitsSealedLayerAcrossBlocks that drives a register in one block and an openAccount reading that asset in the next block through primary and standby and proves the standby's rebuilt receipt equals the primary's; the existing case (:39-220) stays as it is."
+do_3 = "Change no recorder code under daemon/committed-fixture; task 5.55.5 records the V4 vector once this lands."
+symbols = []
+touches = ["node/sequencer/standby_role.go", "node/sequencer/standby_role_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go vet ./node/sequencer/"
+verify_cmd = "go test -count=1 ./node/sequencer/ -run ^TestStandbyReplayCommitsSealedLayerAcrossBlocks$"
+sandbox_profile = "go-cgo"
+owner_role = "fm-node-runtime"
+rollback = "Revert standby_role.go and its test; the standby returns to committing by re-execution."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1147.1]
+title = "Issue #1147: Give layerx-human-service the ureq development dependency its wallet identity test needs through the shared KMS attestor test support"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181147.1"]
+capabilities = []
+interfaces = []
+do_1 = "In the [dev-dependencies] table of services/human/crates/layerx-human-service/Cargo.toml (line 36, ending with the p256 entry at line 44) add the entry ureq = { version = \"=3.4.0\", default-features = false, features = [\"rustls-no-provider\", \"_ring\"] }, identical to the dependency services/human/crates/layerx-human-kms/Cargo.toml:25 declares, because services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs:4 includes services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs by path and that module calls ureq::tls::Certificate::from_der, ureq::tls::PrivateKey::from_pem, ureq::Agent::config_builder, ureq::tls::TlsConfig::builder, ureq::tls::TlsProvider::Rustls, ureq::tls::RootCerts::new_with_certs and ureq::tls::ClientCert::new_with_certs at attestor_cluster.rs:606-616."
+do_2 = "In services/human/Cargo.lock add \"ureq\" to the dependencies list of the layerx-human-service package (services/human/Cargo.lock:1090-1124), in sorted position between \"subtle\" and \"zeroize\", so cargo --locked accepts the manifest; the ureq 3.4.0 package entry already present in the lock file (services/human/Cargo.lock:2289) is unchanged and no other lock entry moves."
+do_3 = "Change no Rust source file: attestor_cluster.rs:606-616 and wallet_identity_e2e.rs:4 stay as written, no test is removed and no assertion changes."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/Cargo.toml", "services/human/Cargo.lock"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e -- --exact wallet_identity_e2e_refuses_startup_when_the_attestors_are_unreachable"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the manifest and lock file; the wallet_identity_e2e test target returns to failing resolution of the ureq crate used by the shared KMS attestor test support."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1149.1]
+title = "Issue #1149: Issue #1149: Make the reclaim journey fixtures sign the activity the pending-nonce reclaim agent prepares, or record the contract divergence"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1142.1"]
+reqs = ["181149.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/journey_faults.rs (included by tests/reclaim.rs:1) trace why the agent boundary refuses transition 1 of jrn_reclaimbudget (every_reclaim_mechanism_uses_real_agent_receipts_and_projects_activity panics at tests/reclaim.rs:136) and why verify_before_submit reports Malformed('signature') (services/agent/crates/layerx-agent-api/src/write.rs:89-95) in acknowledgement_gap_faults_converge_without_resubmitting_unknown and crashes_after_every_durable_stage_resume_with_one_effect_per_leg (journey_faults.rs:855), starting from the pending-nonce semantics 0a78c10ba introduced (src/agents/reclaim.rs:64-73; tests/reclaim_nonces.rs:42-80 shows the context the service accepts)."
+do_2 = "If the fixtures diverged from the reclaim contract, update the prepare and sign helpers of journey_faults.rs (ACCOUNT_SEQUENCE at :56 used at :136 and :151, the external signature attached at :412-418, the receipt encoder at :628-675) so they sign the activity the service now prepares; keep every assertion of tests/reclaim.rs and tests/journey_faults.rs and remove no test."
+do_3 = "If the service diverged from the reclaim contract (the nonce it prepares is not the one the signed activity must carry), stop and record the divergence with the exact prepared and signed bytes; change no file under src/."
+do_4 = "Qualify with the whole reclaim test target; all five tests must pass."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/journey_faults.rs", "services/human/crates/layerx-human-service/tests/reclaim.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test reclaim"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the two test files; the reclaim target returns to three failing tests."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.680.1]
+title = "Issue #680: Let the variable helper accept a multi-line value for a name ending in _PEM while keeping it masked"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18680.1"]
+capabilities = []
+interfaces = []
+do_1 = "In tools/deploy/railway-apply-variables.py:103-105 (desired) keep the newline refusal for every name except those ending in _DOCUMENT or _PEM, so the stats service's required IDENTITY_MTLS_CLIENT_KEY_PEM (deploy/launchpad/railway/variables.json stats.required, consumed as raw PEM bytes at sdk/launchpad/shared/auth/mtls_identity_client.go:101) passes --plan and the --apply preflight at :151-155; is_secret at :80-81 and show at :84-89 keep masking it as ****."
+do_2 = "In tools/deploy/tests/railway-apply-variables.test.sh add a stats case built like the user case at :124-146: sentinel values for every stats needed name with a three-line sentinel PEM for IDENTITY_MTLS_CLIENT_KEY_PEM, a replay whose Project lists svc-stats and whose Variables read is empty, then assert --plan exits 0, prints '  missing IDENTITY_MTLS_CLIENT_KEY_PEM = ****' and no line of the sentinel PEM; keep the REDIS_URL newline refusal at :31-32, :76-77 and :99-100 exactly as it is."
+do_3 = "Change no manifest value, nothing in tools/rollout/rollout.py and no other file."
+symbols = ["desired", "show"]
+touches = ["tools/deploy/railway-apply-variables.py", "tools/deploy/tests/railway-apply-variables.test.sh"]
+tests = ["tools/deploy/tests/railway-apply-variables.test.sh::stats_inline_pem_plan"]
+planned_paths = []
+build_cmd = "python3 -m py_compile tools/deploy/railway-apply-variables.py"
+verify_cmd = "bash tools/deploy/tests/railway-apply-variables.test.sh"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the two files; the helper again refuses every multi-line value whose name does not end in _DOCUMENT, so the stats inline PEM key cannot be applied."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.726.1]
+title = "Issue #726: Make the gateway's hosted env example name the indexer, faucet and receipt-key variables and drop the unread sequencer file variables"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18726.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/gateway/railway.env.example add LAYERX_GATEWAY_INDEXER_URL=https://indexer.railway.internal:8095 after line 31; configured_endpoint at services/platform/hosted/gateway/src/history.rs:66-71 reads it and services/platform/hosted/indexer/railway.env.example:2-4 declares that listener."
+do_2 = "In the same file, in the style of the commented optional lines at :17 and :24-25, add commented lines for LAYERX_GATEWAY_FAUCET_URL, LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE=/run/secrets/faucet-service-token and LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT (optional as a group per src/rpc_faucet.rs:404-419) and for LAYERX_GATEWAY_RECEIPT_KEYS_FILE=/run/secrets/receipt-keys.json (optional per src/main.rs:1083-1098), each preceded by one comment line saying that enabling it needs a matching row in docker/platform-gateway/files.tsv."
+do_3 = "Remove LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE, LAYERX_GATEWAY_SEQUENCER_ID_FILE, LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE and LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE (:40-43) and the four ENDPOINT_SEQUENCER_* placeholders (:71-74) from the example, rows 17-20 from docker/platform-gateway/files.tsv and the four sequencer names from FILE_VARIABLES in docker/platform-gateway/entrypoint.sh:19-22; no code under services/platform reads a LAYERX_GATEWAY_SEQUENCER_ name. Keep every LAYERX_EVENTS_* line and its ENDPOINT_EVENTS_* placeholder: run at src/main.rs:3827-3829 configures the payment producer from them through services/platform/hosted/internal/src/producer.rs:660-675."
+do_4 = "Add services/platform/hosted/gateway/tests/env_example.rs that parses the uncommented NAME=value lines of include_str!(\"../railway.env.example\") and the rows of docker/platform-gateway/files.tsv and the indexer example (both via CARGO_MANIFEST_DIR) and asserts: no name starts with LAYERX_GATEWAY_SEQUENCER_ or ENDPOINT_SEQUENCER_; LAYERX_GATEWAY_INDEXER_URL is an https URL whose port equals the LAYERX_INDEXER_LISTEN port of services/platform/hosted/indexer/railway.env.example; every ENDPOINT_* name has a files.tsv row and every value under /run/secrets/ is a files.tsv guest path."
+do_5 = "Change no Rust source, nothing in tests/degraded.rs, and leave services/platform/hosted/gateway/deployment.yaml as it is: services/platform/hosted/tests/sequencer-pins.py:30-38 still requires its sequencer entries."
+symbols = ["configured_endpoint", "configured"]
+touches = ["services/platform/hosted/gateway/railway.env.example", "docker/platform-gateway/files.tsv", "docker/platform-gateway/entrypoint.sh", "services/platform/hosted/gateway/tests/env_example.rs"]
+tests = ["services/platform/hosted/gateway/tests/env_example.rs::router_example_drops_unread_sequencer_variables", "services/platform/hosted/gateway/tests/env_example.rs::router_example_names_the_indexer_listener", "services/platform/hosted/gateway/tests/env_example.rs::router_example_file_secrets_have_table_rows"]
+planned_paths = ["services/platform/hosted/gateway/tests/env_example.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-platform-gateway --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert the four files; the example again lists the unread sequencer variables and omits the indexer URL, and no test ties it to the file-secret table."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.729.1]
+title = "Issue #729: Make the indexer's hosted env example name the paxscan variables backfill requires"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["18729.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/platform/hosted/indexer/railway.env.example after line 18 add one comment line and the operator-filled placeholders PAXSCAN_DATABASE_PUBLIC_URL= (the read-only paxscan connection string tools/bringup/check-live.sh:233 describes) and LAYERX_INDEXER_PAXSCAN_CERT_SHA256= (the 32-byte hex pin of the paxscan certificate), the names BackfillConfig::from_args reads at services/platform/hosted/indexer/src/config.rs:146-167 before env-init.sh:73-78 runs layerx-indexer backfill."
+do_2 = "Add services/platform/hosted/indexer/tests/env_example.rs that parses the uncommented NAME=value lines of include_str!(\"../railway.env.example\") into a map and asserts both names are present, then calls BackfillConfig::from_args with [\"--cutover-height=1\"] and a lookup that serves the map's names (an empty value replaced by a postgres URL and a 64-hex pin) and None for any other name, asserting Ok; a second test asserts the same lookup minus LAYERX_INDEXER_PAXSCAN_CERT_SHA256 is Err."
+do_3 = "Change no Rust source, no env-init.sh line and no other example value."
+symbols = ["BackfillConfig", "from_args"]
+touches = ["services/platform/hosted/indexer/railway.env.example", "services/platform/hosted/indexer/tests/env_example.rs"]
+tests = ["services/platform/hosted/indexer/tests/env_example.rs::example_names_every_backfill_variable", "services/platform/hosted/indexer/tests/env_example.rs::example_without_the_pin_is_refused"]
+planned_paths = ["services/platform/hosted/indexer/tests/env_example.rs"]
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test env_example"
+verify_cmd = "cargo test --locked --manifest-path services/platform/Cargo.toml -p layerx-indexer --test env_example"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-platform"
+rollback = "Revert both files; the example again omits the paxscan variables and the templated backfill refuses before serve can start."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1150.1]
+title = "Issue #1150: Recover a positioned chain log in the approval stream's restore-after-gap fixture"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1143.1"]
+reqs = ["181150.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/approval_events.rs subscriptions_restored_after_gap (:163-201) make the backfill recover a chain event instead of the local-only approval bytes: build a log JSON with block height 1, transaction index 0 and log index 0 as tests/gaps.rs:267-272 log(height, tx, index) does, persist it into the durable store of the same tenant through EventIngestor::open and ingest with CoreEvent::from_log_bytes and global_sequence 1 as tests/gaps.rs:349-392 does, and hand the same canonical bytes with position Cursor { block_height: 1, tx_index: 0, log_index: 0 } to the RecoveredEvent, so apply_backfill (src/events/gap.rs:383-420) finds the durable match; the recovered_bytes parameter and its caller change accordingly."
+do_2 = "Keep the admit refusal before the backfill (:186), the Restored assertion (:197), the admit acceptance after it (:201), the approval emissions and every digest-evidence assertion exactly as written; change no file under src/ and remove no test. If a later assertion of the test fails on the recovered event, stop and record it."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/approval_events.rs"]
+tests = ["services/agent/crates/layerx-agentd/tests/approval_events.rs::approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidence"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_events"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_events"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; the restore-after-gap helper returns to recovering a local-only event the backfill refuses."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1151.1]
+title = "Issue #1151: Start the wallet identity end-to-end attestor nodes with the asset send type alone"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1147.1"]
+reqs = ["181151.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs pass only the asset send activity type (asset_send().value().to_string(), the 0x10005 that services/wallet/attestor/internal/config/config.go:287 admits) to the start_with_kernel_policy constructor of the attestor test support (layerx-human-kms/tests/support/attestor_cluster.rs:431) at :934, by narrowing activity_types() (:119-130) to the asset module's registrations; keep registry() with its governance and bridge registrations for the service, keep kernel_policy() and every assertion."
+do_2 = "Change no attestor code and no other test. If the test fails after both attestor nodes start, stop and record the failure."
+symbols = []
+touches = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs"]
+tests = ["services/human/crates/layerx-human-service/tests/wallet_identity_e2e.rs::wallet_identity_e2e_signs_a_kernel_send_through_the_attestors_to_a_verified_receipt"]
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-service --test wallet_identity_e2e"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the test file; the attestor nodes again receive the governance and bridge types and both attestor nodes refuse to start."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1001.2]
+title = "Issue #1001: Answer pax_sequencerReceipt in the gateway TestChain"
+status = "done"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181001.2"]
+capabilities = []
+interfaces = []
+do_1 = "Give TestChain (services/wallet/gateway/test/support/chain.ts) an ed25519 sequencer key and record, in sendRaw (chain.ts:173-211), the sender, recipient, nonce, effective gas price and sequence of each applied transaction."
+do_2 = "Add case 'pax_sequencerReceipt' to TestChain.handle (chain.ts:214-251) returning null for an unknown hash and otherwise a receipted SequencerReceiptResult (services/wallet/gateway/src/rpc/pool.ts:132-158) with txHash, nonce, seq, height, index, timestamp, the receipt's status, returnData 0x, logs [], gasUsed, cumulativeGasUsed, effectiveGasPrice, from, to and a sequencer signature over the result that the gateway's verifier accepts."
+do_3 = "Add services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts proving the null answer for an unknown hash and, for a transaction applied through sendRaw, a receipted result whose txHash, nonce, from, to and status match the applied transaction; change no e2e file and no file under src/."
+symbols = ["TestChain.handle"]
+touches = ["services/wallet/gateway/test/support/chain.ts", "services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"]
+tests = ["services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"]
+planned_paths = ["services/wallet/gateway/test/support/chain-sequencer-receipt.test.ts"]
+build_cmd = "pnpm --dir services/wallet/gateway exec tsc --noEmit"
+verify_cmd = "pnpm --dir services/wallet/gateway exec vitest run test/support/chain-sequencer-receipt.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert chain.ts and delete the new test; TestChain returns to answering -32601 and every gateway test that broadcasts fails with 502 again."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2

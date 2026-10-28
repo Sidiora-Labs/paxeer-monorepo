@@ -493,6 +493,7 @@ export interface IntentLeg {
   destination: IntentEndpoint;
   money: HumanMoney;
   fee: HumanMoney;
+  tx_hash?: string;
 }
 
 export interface IntentSigningRequirement {
@@ -516,7 +517,9 @@ export interface IntentLegBinding {
   actor: string;
   authority: string;
   relationship: string;
+  /** Pending-tag EVM nonce of the leg sender (human decision.1003). */
   account_sequence: number;
+  tx_hash?: string;
   not_before: number;
   not_after: number;
   fee_limit: HumanMoney;

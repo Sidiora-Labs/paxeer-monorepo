@@ -241,7 +241,7 @@ function walletWindow(answer: (method: string, params: readonly unknown[]) => un
       return answer(method, params);
     },
   };
-  Object.assign(globalThis, { window: { paxeer, localStorage: new MemoryStorage(), sessionStorage: new MemoryStorage(), confirm: () => true } });
+  Object.assign(globalThis, { window: { ethereum: paxeer, localStorage: new MemoryStorage(), sessionStorage: new MemoryStorage(), confirm: () => true } });
   return methods;
 }
 
@@ -277,12 +277,12 @@ test("a write never resumes another call's retained sponsored submission as its 
   try {
     const review = wallet.sidioraQuotePresentation(quoted);
     assert.ok(review);
-    assert.deepEqual(await wallet.sendWalletSponsoredBatch(quoted, review.identity), { outcome: "sent", transactionHash: approveHash });
-    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, writeCall), { outcome: "unavailable" });
-    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, approveCall), { outcome: "sent", transactionHash: approveHash });
+    assert.deepEqual(await wallet.sendWalletSponsoredBatch(quoted, review.identity), { outcome: "unconfirmed", transactionHash: approveHash });
+    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, writeCall), { outcome: "failed", detail: wallet.SPONSORED_SUBMISSION_PENDING });
+    assert.deepEqual(await wallet.resumeWalletSponsoredSubmission(account, approveCall), { outcome: "unconfirmed", transactionHash: approveHash });
     assert.equal(wallet.chooseWalletFee("sidiora", "2.1"), true);
     methods.length = 0;
-    assert.deepEqual(await wallet.sendWalletPrecompileCall(account, () => writeCall), { outcome: "unavailable" });
+    assert.deepEqual(await wallet.sendWalletPrecompileCall(account, () => writeCall), { outcome: "failed", detail: wallet.SPONSORED_SUBMISSION_PENDING });
     assert.ok(!methods.includes("eth_estimateGas"));
     assert.ok(!methods.includes("paxeer_submitSponsored"));
   } finally {
@@ -290,6 +290,18 @@ test("a write never resumes another call's retained sponsored submission as its 
     delete (globalThis as { window?: unknown }).window;
   }
 });
+
+async function sponsored_pending_submission_is_not_reported_as_a_missing_wallet() {
+  const { SendOutcome } = await import("../src/app/_markets/send-outcome.tsx");
+  assert.equal(wallet.SPONSORED_SUBMISSION_PENDING, "an earlier sponsored submission is still pending; try again once it settles");
+  const html = renderToStaticMarkup(createElement(SendOutcome, {
+    outcome: { outcome: "failed", detail: wallet.SPONSORED_SUBMISSION_PENDING },
+  }));
+  assert.ok(html.includes(wallet.SPONSORED_SUBMISSION_PENDING));
+  assert.ok(!html.includes("No Paxeer wallet is connected."));
+}
+
+test(sponsored_pending_submission_is_not_reported_as_a_missing_wallet);
 
 test("the launchpad refuses an approve under the sponsored SID fee before sending anything", async () => {
   const launchpad = await import("../src/app/launchpad/launchpad-client.tsx");

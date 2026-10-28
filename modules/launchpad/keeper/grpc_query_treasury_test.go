@@ -108,9 +108,9 @@ func TestQueryTreasuryRefusals(t *testing.T) {
 			response, err := client.Treasury(context.Background(), &types.QueryTreasuryRequest{Token: tc.token})
 			require.Nil(t, response)
 			require.ErrorIs(t, err, tc.want)
-			require.Same(t, tc.want, errors.Unwrap(err))
 			var registeredErr *sdkerrors.Error
 			require.ErrorAs(t, err, &registeredErr)
+			require.Same(t, tc.want, registeredErr, "first registered error in the chain must be the expected sentinel")
 			codespace, code, _ := sdkerrors.ABCIInfo(registeredErr, false)
 			require.Equal(t, tc.want.Codespace(), codespace)
 			require.Equal(t, tc.want.ABCICode(), code)

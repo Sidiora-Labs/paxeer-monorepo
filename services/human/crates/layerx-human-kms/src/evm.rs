@@ -1,43 +1,34 @@
+use crate::attestor::AttestorSigner;
 use crate::evm_types::{EvmAction, EvmPlanAuthorization, EvmTransaction};
 use crate::wire::{Error, Result};
-use k256::ecdsa::SigningKey;
 use serde::{Deserialize, Serialize};
 use sha3::{Digest, Keccak256};
 use std::collections::BTreeMap;
-use zeroize::Zeroize;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub(crate) struct Wallet {
-    pub seed: [u8; 32],
+    pub evm_key_id: String,
     pub address: [u8; 20],
     pub next_nonce: BTreeMap<u64, u64>,
     pub actions: BTreeMap<String, EvmAction>,
 }
-impl Drop for Wallet {
-    fn drop(&mut self) {
-        self.seed.zeroize();
-    }
-}
 impl Wallet {
-    pub fn create() -> Result<Self> {
-        let mut seed = zeroize::Zeroizing::new([0; 32]);
-        getrandom::fill(&mut *seed).map_err(|_| Error::Unavailable)?;
-        let key = SigningKey::from_bytes((&*seed).into()).map_err(|_| Error::Unavailable)?;
-        let encoded = key.verifying_key().to_encoded_point(false);
-        let digest = Keccak256::digest(&encoded.as_bytes()[1..]);
-        let address = digest[12..].try_into().map_err(|_| Error::Integrity)?;
-        Ok(Self {
-            seed: *seed,
+    pub fn create(evm_key_id: &str, address: [u8; 20]) -> Result<Self> {
+        let wallet = Self {
+            evm_key_id: evm_key_id.to_owned(),
             address,
             next_nonce: BTreeMap::new(),
             actions: BTreeMap::new(),
-        })
+        };
+        wallet.validate([0; 32])?;
+        Ok(wallet)
     }
     pub fn validate(&self, binding: [u8; 32]) -> Result<()> {
-        let key = SigningKey::from_bytes((&self.seed).into()).map_err(|_| Error::Integrity)?;
-        let encoded = key.verifying_key().to_encoded_point(false);
-        if Keccak256::digest(&encoded.as_bytes()[1..])[12..] != self.address
+        if self.evm_key_id.trim().is_empty()
+            || self.evm_key_id.len() > 128
+            || self.evm_key_id.contains('/')
+            || self.address == [0; 20]
             || self.actions.len() > 4096
         {
             return Err(Error::Integrity);
@@ -175,39 +166,37 @@ impl Wallet {
         action.raw_transaction = raw;
         Ok(action.clone())
     }
-    pub fn sign(&mut self, action_key: &[u8; 32], now: u64) -> Result<EvmAction> {
+    pub fn sign(
+        &mut self,
+        action_key: &[u8; 32],
+        now: u64,
+        chain_id: u64,
+        signer: &AttestorSigner,
+    ) -> Result<EvmAction> {
         let action = self
             .actions
-            .get_mut(&crate::store::hex(action_key))
+            .get(&crate::store::hex(action_key))
             .ok_or(Error::NotFound)?;
+        if action.authorization.transaction.chain_id != chain_id {
+            return Err(Error::Refused);
+        }
         if !action.raw_transaction.is_empty() {
             return Ok(action.clone());
         }
         if now < action.authorization.not_before || now > action.authorization.not_after {
             return Err(Error::Refused);
         }
-        let transaction = &action.authorization.transaction;
-        let fields = fields(transaction);
-        let mut preimage = vec![2];
-        preimage.extend(list(&fields));
-        let digest = Keccak256::digest(preimage);
-        let key = SigningKey::from_bytes((&self.seed).into()).map_err(|_| Error::Integrity)?;
-        let (signature, recovery) = key
-            .sign_prehash_recoverable(&digest)
-            .map_err(|_| Error::Integrity)?;
-        if recovery.is_x_reduced() {
-            return Err(Error::Integrity);
-        }
-        let bytes = signature.to_bytes();
-        let mut signed = fields;
-        signed.extend(integer(&[recovery.to_byte()]));
-        signed.extend(integer(&bytes[..32]));
-        signed.extend(integer(&bytes[32..]));
-        let mut raw = vec![2];
-        raw.extend(list(&signed));
-        action.transaction_hash = Some(Keccak256::digest(&raw).into());
-        action.raw_transaction = raw;
-        Ok(action.clone())
+        let mut unsigned = vec![2];
+        unsigned.extend(list(&fields(&action.authorization.transaction)));
+        let signature = signer
+            .sign_evm_transaction(&unsigned, chain_id)
+            .map_err(|error| match error {
+                crate::attestor::AttestorError::Refused { .. } => Error::Refused,
+                crate::attestor::AttestorError::SignatureInvalid { .. }
+                | crate::attestor::AttestorError::MalformedResponse { .. } => Error::Integrity,
+                _ => Error::Unavailable,
+            })?;
+        self.accept_external(action_key, &signature, now)
     }
 }
 fn fields(tx: &EvmTransaction) -> Vec<u8> {
@@ -264,9 +253,16 @@ fn encode(value: &[u8], short: u8, long: u8) -> Vec<u8> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use k256::ecdsa::SigningKey;
     #[test]
     fn signed_transaction_recovers_bound_wallet() -> std::result::Result<(), String> {
-        let mut wallet = Wallet::create().map_err(|error| format!("{error:?}"))?;
+        let key = SigningKey::from_bytes((&[7; 32]).into()).map_err(|error| error.to_string())?;
+        let point = key.verifying_key().to_encoded_point(false);
+        let address = Keccak256::digest(&point.as_bytes()[1..])[12..]
+            .try_into()
+            .map_err(|_| "invalid address")?;
+        let mut wallet =
+            Wallet::create("external-wallet", address).map_err(|error| format!("{error:?}"))?;
         let authorization = EvmPlanAuthorization {
             plan_id: [1; 32],
             action_key: [2; 32],
@@ -293,8 +289,6 @@ mod tests {
         let unsigned = fields(&authorization.transaction);
         let mut exact = vec![2];
         exact.extend(list(&unsigned));
-        let key =
-            SigningKey::from_bytes((&wallet.seed).into()).map_err(|error| error.to_string())?;
         let (external_signature, parity) = key
             .sign_prehash_recoverable(&Keccak256::digest(exact))
             .map_err(|error| error.to_string())?;
@@ -312,7 +306,7 @@ mod tests {
             .accept_external(&authorization.action_key, &external, 10)
             .map_err(|error| format!("{error:?}"))?;
         let signed = wallet
-            .sign(&authorization.action_key, 10)
+            .accept_external(&authorization.action_key, &external, 10)
             .map_err(|error| format!("{error:?}"))?;
         assert_eq!(imported, signed);
         let body = signed.raw_transaction.get(3..).ok_or("missing RLP body")?;
