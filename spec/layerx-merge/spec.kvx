@@ -184999,7 +184999,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1163.1]
 title = "Issue #1163: Resolve the sandbox escrow sequence account through the principal's main account"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
