@@ -8309,3 +8309,67 @@ symbol = "missing_compatibility_row_for_a_minor_is_rejected"
 observed = "Attempt 2 at af148eff3: after truncating the matrix at row 9 the test expects one compatibility-row-missing violation per schema version 1.8 through 1.10 (do_2) while the checker reports a single violation for 1.8."
 assumption = "do_2 and the checker disagree on whether every missing row is reported or only the first; the test and checker stay as written until the owner rules which is canonical."
 severity = "blocker"
+
+[finding.13.26.1.2]
+task = "13.26.1"
+file = "src/protocol/lxp_kernel.c:6757-6762"
+symbol = "lxp_kernel_batch_snapshot_create"
+observed = "Attempts of 13.25.2, 13.26.1, 13.26.2, 13.26.3 and 13.27.1 fail with LXP_ERR_MODULE_DISABLED because both Programs state-activity gates (:6757-6762, :4985-4988) refuse 0x00090006 and 0x00090007 when kernel->observe_commit is NULL; the only installer lxp_programs_bind_state_feed lost its caller in 38c544316 (1.15.1) and modules/lxphost/programs_registration_test.go:27-31 (1.23.5) pins -103."
+assumption = "The gate is a leftover of the mandatory feed; 18.1073.1 (issue #1073) removes it and corrects the pinned assertion per req.1073 ac_1, and the seven programs tasks require it."
+severity = "blocker"
+
+[finding.18.788.1.1]
+task = "18.788.1"
+file = "services/agent/sdk/typescript/test/px.test.ts:941"
+symbol = "getUnifiedHistory"
+observed = "Attempts of 18.788.1 and 18.825.1 fail every test in px.test.js at module load with Incomplete history document because apps/web/e2e/fixtures/px-get-unified-history.json carries no tx_hash, required by history.ts:198 since 2463fcb04 (9.33.3)."
+assumption = "Pre-existing at main; 18.1069.1 (issue #1069) adds the field and both tasks require it."
+severity = "major"
+
+[finding.18.880.1.1]
+task = "18.880.1"
+file = "tools/bringup/search-front.sh:240"
+symbol = "deploy_prints_upstreams_and_edge_registration"
+observed = "Attempt 3 fails with KeyError on the note key because services/interop/crates/x-websearch/config.example.json lost it in 288a967c2 (11.36.5)."
+assumption = "Pre-existing at main; 18.1070.1 (issue #1070) defaults the pop and 18.880.1 requires it."
+severity = "major"
+
+[finding.18.826.1.1]
+task = "18.826.1"
+file = "docs/system/chain-modules.md"
+symbol = "gen-system-docs.sh --check"
+observed = "Attempt 2 passes its SDK tests but gen-system-docs.sh --check exits 1 on chain-modules.md and kernel-modules.md, which are outside the task's touches."
+assumption = "Pre-existing at main; 18.1071.1 (issue #1071) regenerates the two pages and 18.826.1 requires it."
+severity = "major"
+
+[finding.18.990.1.1]
+task = "18.990.1"
+file = "spec/layerx-merge/programme/data/precompile-activation.kvx"
+symbol = "test_merge_gate_lists_twelve_addresses"
+observed = "Attempt 3 fails at test_precompile_activation.py:85 because [address.0x1014] lists layerxanchor while node/upgrades.go:539 serves the address from the upgrade module since ae2beed63 (5.7.1)."
+assumption = "Pre-existing at main; 18.1072.1 (issue #1072) updates the row and 18.990.1 requires it."
+severity = "major"
+
+[finding.18.964.1.1]
+task = "18.964.1"
+file = "services/launchpad/indexer/internal/receipt/rpc.go:533-536"
+symbol = "TestPaxeerReportedIdentityQualifiesRealMarket"
+observed = "Attempt 4 implements do_1 and do_2 exactly (manifest byte-identical to 145164d70, deployment.Parse in realInputs) and still fails because rpc.go:533-536 refuses any manifest whose version or activation height differs from deployment.Current()."
+assumption = "do_2 and the qualification policy contradict each other (issue #1075); 18.964.1 is held until the owner rules which manifest set receipt qualification accepts."
+severity = "blocker"
+
+[finding.5.55.5.2]
+task = "5.55.5"
+file = "node/app.go:1784-1815"
+symbol = "FinalizeBlocker"
+observed = "Attempts 3 and 4 fail because the primary's sealed-block adoption (0ab6b9962, 5.19.3) commits a post-block-2 AppHash that differs from the hash both followers compute by re-execution, so block 3 fails with wrong Block.Header.AppHash, the standby stops and the recorder's Accept is refused with replication halted."
+assumption = "Pre-existing at main and outside the task's three files; 18.1074.1 (issue #1074) fixes the adoption path and 5.55.5 requires it."
+severity = "blocker"
+
+[finding.18.804.1.1]
+task = "18.804.1"
+file = "services/wallet/gateway/src/precompiles.ts:38-47"
+symbol = "UNSERVED_PRECOMPILES"
+observed = "Attempt 3 cannot satisfy do_2 because UNSERVED_PRECOMPILES still lists orob, clearing, eip712, pofq and teeattestor while node/precompiles.go:20-24 and node/upgrades.go:33-37 link them, and src/precompiles.ts was not in the task's touches."
+assumption = "The task now touches src/precompiles.ts and do_5 updates the list; the test assertion at precompiles.test.ts:234 stays as written."
+severity = "major"
