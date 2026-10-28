@@ -173927,7 +173927,7 @@ qualification = "UNRUN"
 
 [task.18.801.1]
 title = "Issue #801: Refuse raw agent sends to unserved precompile addresses and flag them in the address book"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
