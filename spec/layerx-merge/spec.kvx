@@ -173617,7 +173617,7 @@ qualification = "UNRUN"
 
 [task.18.926.1]
 title = "Issue #926: Accept listed precompiles as approve or permit spenders only when they are trusted spenders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178654,7 +178654,7 @@ qualification = "UNRUN"
 
 [task.18.919.1]
 title = "Issue #919: Cover trusted-spender permits in the attestor policy and document the policy file"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
