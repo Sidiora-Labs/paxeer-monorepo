@@ -10398,3 +10398,7 @@ detail = "validate_native_local_grant (services/human/crates/layerx-human-kms/sr
 title = "A guest terminal -3 is STATUS_BOUNDS, not NON_CANONICAL"
 detail = "When a programs guest ends in terminal failure the receipt result_code is the guest status band (programs/sdk/rust/src/error.rs:19-29): -3 is STATUS_BOUNDS, produced by the host for AbiError::Storage (layerx-programs-runtime host/mod.rs) or a context read over capacity (host/context.rs:42-43); market decode and register() refusals are -2 STATUS_INVALID, so a -3 on register-offer means the fixture's first storage or context host call failed before the guest logic ran (18.911.1 attempts 14-15)."
 
+[gotcha.2131]
+title = "Portable committed bundles carry two transaction encodings"
+detail = "In a committed portable receipt rawTransaction is the signed EVM transaction (keccak256 == activity id, sdk/platform/go/verify.go:1091) and receiptInclusion.transaction is the Cosmos block transaction wrapping it (sha256 leaf under data_hash, committed.go:131); a check that compares the two for byte equality (portable_receipt.go:137 before task 18.1178.1) can never pass, and a synthetic fixture must wrap its EVM bytes before using them as the block transaction."
+

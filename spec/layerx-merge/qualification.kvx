@@ -9843,3 +9843,11 @@ symbol = "main"
 observed = "Attempt 15 (54078c924) built and failed at the first market call of every model with -3 = STATUS_BOUNDS, before register(); independently, do_4 kept the model 1 and model 2 acceptances that register (lib.rs:309) and open (:343) refuse by design since 18.811.1 (finding 18.911.1.7)."
 assumption = "Ruling: the landed 18.811.1 behaviour is canonical; do_4 now retargets models 1 and 2 to the -2 registration refusal and moves admission_cases to a model 3 lease, and a new step names the -3 as a fixture-side host call before register()."
 severity = "major"
+
+[finding.8.47.7.4]
+task = "8.47.7"
+file = "sdk/platform/go/portable_receipt.go:137"
+symbol = "VerifyPortableReceipt"
+observed = "Attempt 5 (eb1b99ca7) passed V1-V4 and failed only TestVectorV5PortableRoundTrips/committed at the raw-transaction check: :137 requires rawTransaction to byte-equal the block transaction, which verify.go:1091 (keccak of the EVM bytes) and committed.go:126-131 (wrapper unwrapped and proven as a leaf) make impossible for any wrapped transaction since 046c9c4c1."
+assumption = "The fixture bytes are right; task 18.1178.1 (issue #1178) rebinds the portable check through committedEVMTransaction and rewraps the synthetic committed fixture, and 8.47.7 requires it with only a README reword left."
+severity = "major"
