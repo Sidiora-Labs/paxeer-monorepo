@@ -290,13 +290,10 @@ pub(super) fn approval(
     let approval_id = format!("apr_{}", hex(&hold.approval_id));
     let money = json!({"amount":amount.amount.0.to_string(),"currency":managed.currency});
     let expires_at = unix_time(facts.activity_expires_at_unix_seconds)?;
-    let rank = match budget.level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
+    let rank = match budget.rung {
+        layerx_types::rung::Rung::Submitted => 0,
+        layerx_types::rung::Rung::Receipted => 1,
+        layerx_types::rung::Rung::Committed => 4,
     };
     let remaining = json!({"money":{"amount":budget.remaining.to_string(),"currency":managed.currency},"verification":verification(rank)?});
     let summary = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"counterparty":counterparty.as_str(),"amount":money,"reason_copy_key":reason,"expires_at":expires_at,"state":state,"budget_remaining_after":remaining});
