@@ -8855,3 +8855,11 @@ symbol = "Trust::snapshot"
 observed = "Attempt 1 changed nothing because the pinned-key snapshot must return layerx_client::handover::SequencerHistory, which only from_genesis_artifact can build, and read ChainReceipts.keys (chain_receipt.rs:28), which has no accessor; both live outside the declared touches."
 assumption = "touches widened to handover.rs and chain_receipt.rs with a do step bounding the additions to a validated constructor and a read accessor."
 severity = "minor"
+
+[finding.13.27.1.2]
+task = "13.27.1"
+file = "src/modules/programs/sandbox.c:509-530"
+symbol = "layerx_programs_sandbox_lifecycle_length"
+observed = "Attempt 15 unmasked the LXP_FATAL_INVARIANT of finding 13.27.1.1: host admission (host_ffi.rs:538 lifecycle_field(token, 8)) passes the inner CALL token, and the two lifecycle accessors refuse any token other than the outer sandbox pointer with LXP_ERR_NON_CANONICAL, so no SANDBOX_EXECUTE is ever admitted (issue #1125)."
+assumption = "Task 18.1125.1 resolves both accessors through sandbox_for_call; 13.27.1 requires it and 18.1122.1 and keeps its fixture (fee limit 1,000,000) unchanged."
+severity = "major"

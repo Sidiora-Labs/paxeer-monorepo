@@ -157338,7 +157338,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -172303,7 +172303,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -178930,7 +178930,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179350,6 +179350,10 @@ ac_1 = "getProgramAccountById, getAccountProfile and getValueAccount dispatch th
 title = "Set the host node's occupancy asset from the fee schedule before the kernel binds a wind-down ledger admission"
 ac_1 = "Before any activity executes on the host node, programs_runtime.occupancy_asset_id equals the loaded fee schedule's occupancy asset, ProgramsOccupancyAsset exposes it, and a wind-down exit through the precompile binds its ledger admission against the caller's funded account."
 
+[req.181125]
+title = "Resolve sandbox lifecycle accessor tokens through sandbox_for_call so EXECUTE admission can read the activity id by call token"
+ac_1 = "While a sandbox EXECUTE is active, layerx_programs_sandbox_lifecycle_length and layerx_programs_sandbox_lifecycle_byte return the active sandbox's fields for both the inner call token and the outer sandbox token, return LXP_ERR_NON_CANONICAL for any other token or when no sandbox is active, and the existing FUND/ACTIVATE lifecycle cases still pass."
+
 [acceptance.18.1066.1]
 feature = "18"
 req = "181066.1"
@@ -179564,6 +179568,14 @@ req = "181124.1"
 scenario = "Given a host node whose fee record names an occupancy asset, when a programs activity executes, then the node's occupancy asset equals the fee record's and the ledger admission binds; given no fee record, then the programs activity refuses with the resolver's status."
 contract = "contracts/programs.md#market-guest"
 test = "modules/lxphost/fee_record_load_test.go::TestHostProgramsOccupancyAssetFollowsFeeSchedule"
+qualification = "UNRUN"
+
+[acceptance.18.1125.1]
+feature = "18"
+req = "181125.1"
+scenario = "Given an active SANDBOX_EXECUTE activity whose inner CALL token is the token held by the runtime, when host admission reads lifecycle section 8 with that call token, then it receives the 32-byte activity id instead of LXP_ERR_NON_CANONICAL, and an unrelated token is still refused."
+contract = "contracts/programs.md#market-guest"
+test = "lxp_test_sandbox_lifecycle::sandbox_execute_lifecycle_accepts_call_token"
 qualification = "UNRUN"
 
 [task.18.1066.1]
@@ -180372,6 +180384,36 @@ gate_kind = "planned"
 sandbox_profile = "go-cgo"
 owner_role = "fm-kernel"
 rollback = "Revert host.go and fee_record_load_test.go; wind-down exits through the precompile return to refusing with LXP_CONTEXT_MISMATCH."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1125.1]
+title = "Issue #1125: Resolve sandbox lifecycle accessor tokens through sandbox_for_call so EXECUTE admission can read the activity id by call token"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["18.1122.1"]
+reqs = ["181125.1"]
+capabilities = []
+interfaces = []
+do_1 = "src/modules/programs/sandbox.c:506-510: in layerx_programs_sandbox_lifecycle_length replace the direct cast and `value != active_sandbox` check with `programs_sandbox_activity *value = sandbox_for_call(token);` and refuse when `value == NULL || section > 13U` (sandbox_for_call is forward-declared at :89)."
+do_2 = "src/modules/programs/sandbox.c:523-530: apply the same change to layerx_programs_sandbox_lifecycle_byte. Leave every section mapping (:531-550) and every other accessor unchanged."
+do_3 = "tests/codec/lxp_test_sandbox_lifecycle.c: add case sandbox_execute_lifecycle_accepts_call_token. With the fixture initialised, set active_sandbox to a programs_sandbox_activity whose operation is SANDBOX_EXECUTE, ctx is &f->ctx and call is a distinct non-NULL decoded pointer. Assert that lifecycle_length(call token, 8) == 32 and lifecycle_byte(call token, 8, i) == f->ctx.activity_id[i] for all 32 bytes. Assert that the outer token still resolves, that an unrelated token returns LXP_ERR_NON_CANONICAL, and that both accessors return LXP_ERR_NON_CANONICAL once active_sandbox is NULL. Register the case in main (:358-361)."
+symbols = ["layerx_programs_sandbox_lifecycle_length", "layerx_programs_sandbox_lifecycle_byte", "sandbox_for_call", "layerx_programs_call_sandbox_admit", "admit_host"]
+touches = ["src/modules/programs/sandbox.c", "tests/codec/lxp_test_sandbox_lifecycle.c"]
+tests = ["lxp_test_sandbox_lifecycle::sandbox_execute_lifecycle_accepts_call_token", "lxp_test_sandbox_lifecycle::sandbox_fund_activate_native", "lxp_test_sandbox_lifecycle::sandbox_stage_begin_accepts_lifecycle"]
+planned_paths = []
+build_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle"
+verify_cmd = "make -C . build/tests/kernel/codec/lxp_test_sandbox_lifecycle && ./build/tests/kernel/codec/lxp_test_sandbox_lifecycle sandbox_execute_lifecycle_accepts_call_token sandbox_fund_activate_native sandbox_stage_begin_accepts_lifecycle"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the two accessor hunks in src/modules/programs/sandbox.c and the added test case, which restores outer-token-only lifecycle access."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
