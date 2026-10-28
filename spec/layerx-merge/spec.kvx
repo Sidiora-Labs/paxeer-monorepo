@@ -183369,7 +183369,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.721.1]
 title = "Issue #721: Admit signed paxai jobs through the finalized membership view and submit their ai-market operations"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
