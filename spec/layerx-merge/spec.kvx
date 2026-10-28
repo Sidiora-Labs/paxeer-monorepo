@@ -179478,7 +179478,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1069.1]
 title = "Issue #1069: Add the tx_hash every unified-history row needs to the px-get-unified-history fixture"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179508,7 +179508,7 @@ do_3 = "Change no decoder; the fixture and the test file are the only touched fi
 
 [task.18.1070.1]
 title = "Issue #1070: Let search-front.sh deploy a config example without a note key"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
