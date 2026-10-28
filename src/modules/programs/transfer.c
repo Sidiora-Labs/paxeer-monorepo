@@ -49,7 +49,10 @@ static bool principal_authorizes_from(lxp_module_ctx *ctx,
     runtime = (lx_programs_transfer_runtime *)lxp_ctx_module_runtime(ctx);
     if (runtime == NULL) return false;
     account = account_by_id(runtime->accounts, from);
-    return account != NULL && lx_account_owner_did(account, owner) == LXP_OK &&
+    return account != NULL &&
+        (account->kind == LX_ACCOUNT_AGENT_MAIN ||
+         account->kind == LX_ACCOUNT_AGENT_ASSET) &&
+        lx_account_owner_did(account, owner) == LXP_OK &&
         lxp_ct_memcmp(owner, principal, 32U) == 0;
 }
 

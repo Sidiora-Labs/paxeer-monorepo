@@ -14,6 +14,7 @@ enum transfer_source {
     SOURCE_ASSET,
     SOURCE_FOREIGN,
     SOURCE_UNOWNED,
+    SOURCE_OWNED_ESCROW,
     SOURCE_PRINCIPAL
 };
 
@@ -41,7 +42,8 @@ static int transfer_case(enum transfer_source source, bool zero_program,
         "agent:did:lxp:transfer-owner:asset:"
         "0100000000000000000000000000000000000000000000000000000000000000",
         "agent:did:lxp:transfer-other:main",
-        "system:fees"
+        "system:fees",
+        "agent:did:lxp:transfer-owner:escrow:primary"
     };
     static uint8_t arena_bytes[LXP_MAX_ACTIVITY_BYTES + 4096U];
     const uint8_t primary_key[32] = {1U};
@@ -49,10 +51,10 @@ static int transfer_case(enum transfer_source source, bool zero_program,
     const uint8_t program_id[32] = {0x77U};
     const uint8_t seed[] = "primary";
     uint8_t value_id[32];
-    uint8_t ids[4][32];
+    uint8_t ids[5][32];
     uint8_t payload[146] = {0};
     lx_account_registry accounts;
-    lx_account *opened[4];
+    lx_account *opened[5];
     lx_account *value;
     lx_account_registration registration;
     lxp_transfer_asset_state asset = {{1U}, true, false};
@@ -77,7 +79,7 @@ static int transfer_case(enum transfer_source source, bool zero_program,
     int failed;
     lxp_result status;
     if (lx_account_registry_init(&accounts) != LXP_OK) return 1;
-    for (size_t i = 0U; i < 4U; ++i) {
+    for (size_t i = 0U; i < 5U; ++i) {
         if (lx_account_id_from_string((const uint8_t *)names[i], strlen(names[i]),
                                       ids[i]) != LXP_OK ||
             lx_account_open(&accounts, (const uint8_t *)names[i], strlen(names[i]),
@@ -87,6 +89,8 @@ static int transfer_case(enum transfer_source source, bool zero_program,
                                          (lxp_u128){0U, 10U}, 0U) != LXP_OK)
             return fprintf(stderr, "Account setup failed at %zu\n", i), 1;
     }
+    if (opened[SOURCE_OWNED_ESCROW]->kind != LX_ACCOUNT_AGENT_ESCROW)
+        return fprintf(stderr, "Owned escrow account kind mismatch\n"), 1;
     if (lxp_programs_account_derive(program_id, seed, sizeof(seed) - 1U,
                                     value_id) != LXP_OK ||
         lx_account_module_value_prepare(&accounts, (const uint8_t *)"programs",
@@ -157,9 +161,9 @@ static int transfer_case(enum transfer_source source, bool zero_program,
         value->balance.lo != (expected == LXP_OK ? 4U : 0U) ||
         opened[0]->next_sequence != (expected == LXP_OK ? 1U : 0U) ||
         opened[1]->next_sequence != 0U || opened[2]->next_sequence != 0U ||
-        opened[3]->next_sequence != 0U ||
+        opened[3]->next_sequence != 0U || opened[4]->next_sequence != 0U ||
         receipt.effects.count != (expected == LXP_OK ? 1U : 0U);
-    for (size_t i = 0U; i < 4U; ++i)
+    for (size_t i = 0U; i < 5U; ++i)
         if (opened[i]->balance.hi != 0U ||
             opened[i]->balance.lo !=
                 (expected == LXP_OK && i == source_index ? 6U : 10U))
@@ -189,12 +193,20 @@ static int transfer_from_foreign_account_refused(void)
         transfer_case(SOURCE_MAIN, false, true, LXP_ERR_NON_CANONICAL);
 }
 
+static int transfer_from_owned_non_spend_account_refused(void)
+{
+    return transfer_case(SOURCE_OWNED_ESCROW, false, false, LXP_ERR_AUTH_SCOPE);
+}
+
 int main(void)
 {
     int owned = transfer_from_owned_main_account();
     int foreign = transfer_from_foreign_account_refused();
+    int non_spend = transfer_from_owned_non_spend_account_refused();
     (void)printf("transfer_from_owned_main_account: %s\n", owned ? "FAIL" : "PASS");
     (void)printf("transfer_from_foreign_account_refused: %s\n",
                  foreign ? "FAIL" : "PASS");
-    return owned || foreign;
+    (void)printf("transfer_from_owned_non_spend_account_refused: %s\n",
+                 non_spend ? "FAIL" : "PASS");
+    return owned || foreign || non_spend;
 }
