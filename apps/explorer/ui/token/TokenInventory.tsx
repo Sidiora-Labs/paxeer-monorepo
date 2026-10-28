@@ -13,8 +13,9 @@ import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
 import ResetIconButton from 'ui/shared/ResetIconButton';
-import { formatScanTableCount, ScanShowRows, ScanTableCard, SCAN_ROWS_PER_PAGE } from 'ui/shared/scan';
+import { ScanShowRows, ScanTableCard, SCAN_ROWS_PER_PAGE } from 'ui/shared/scan';
 
+import getTokenInventoryTitle from './getTokenInventoryTitle';
 import TokenInventoryItem from './TokenInventoryItem';
 
 const DEFAULT_ROWS_TO_SHOW = 50;
@@ -76,17 +77,7 @@ const TokenInventory = ({ inventoryQuery, tokenQuery, ownerFilter, shouldRender 
   ) : null;
 
   const itemsNum = items?.length ?? 0;
-  const title = formatScanTableCount((() => {
-    if (inventoryCount !== undefined) {
-      return itemsNum < inventoryCount ?
-        { kind: 'latest' as const, value: inventoryCount, itemsName: 'tokens', shownValue: itemsNum } :
-        { kind: 'total' as const, value: inventoryCount, itemsName: 'tokens' };
-    }
-
-    return inventoryQuery.pagination.hasNextPage ?
-      { kind: 'more_than' as const, value: itemsNum, itemsName: 'tokens' } :
-      { kind: 'total' as const, value: itemsNum, itemsName: 'tokens' };
-  })());
+  const title = getTokenInventoryTitle({ itemsNum, hasNextPage: inventoryQuery.pagination.hasNextPage, inventoryCount });
 
   return (
     <ScanTableCard

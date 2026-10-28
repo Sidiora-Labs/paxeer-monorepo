@@ -332,7 +332,7 @@ fn pays_idempotency_key(
         return false;
     }
     match log.topics() {
-        [topic, _, _, reference] if topic == payment_exact => {
+        [topic, reference, _, _] if topic == payment_exact => {
             log.data().len() == PAYMENT_EXACT_DATA_BYTES && reference == idempotency_key
         }
         [topic, _, _, _] if topic == payment_drawn => {

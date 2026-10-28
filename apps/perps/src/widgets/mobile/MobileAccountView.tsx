@@ -1,5 +1,6 @@
 import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
-import { usePortfolioStats } from "@/hooks/perps/usePortfolioStats";
+import { usePortfolioStats, type PortfolioStats } from "@/hooks/perps/usePortfolioStats";
+import { weiToNumber } from "@/ui/utils/format";
 
 function fmtUsd(val: number): string {
   if (Math.abs(val) >= 1_000_000) return `$${(val / 1_000_000).toFixed(2)}M`;
@@ -8,7 +9,7 @@ function fmtUsd(val: number): string {
 
 export function MobileAccountView() {
   const { isConnected, connect } = usePerpsWallet();
-  const { totalVaultUsd, freeCollateral, unrealizedPnl, totalLeverage } = usePortfolioStats();
+  const stats = usePortfolioStats();
 
   if (!isConnected) {
     return (
@@ -37,9 +38,21 @@ export function MobileAccountView() {
     );
   }
 
+  return <MobileAccountSummary {...stats} />;
+}
+
+export function MobileAccountSummary({
+  totalVaultUsd,
+  freeCollateral,
+  unrealizedPnl,
+  totalLeverage,
+  maintenanceMarginUsd,
+}: Pick<
+  PortfolioStats,
+  "totalVaultUsd" | "freeCollateral" | "unrealizedPnl" | "totalLeverage" | "maintenanceMarginUsd"
+>) {
   const lockedMargin = totalVaultUsd - freeCollateral;
   const marginRatio = totalVaultUsd > 0 ? ((lockedMargin / totalVaultUsd) * 100).toFixed(2) : "0.00";
-  const maintenanceMargin = totalVaultUsd > 0 ? (lockedMargin * 0.05) : 0;
 
   return (
     <div
@@ -91,7 +104,12 @@ export function MobileAccountView() {
           valueColor={unrealizedPnl >= 0 ? "var(--success)" : "var(--danger)"}
         />
         <MetricRow label="Cross Margin Ratio" value={`${marginRatio}%`} />
-        <MetricRow label="Maintenance Margin" value={fmtUsd(maintenanceMargin)} />
+        <MetricRow
+          label="Maintenance Margin"
+          value={maintenanceMarginUsd === null
+            ? "Unavailable"
+            : fmtUsd(weiToNumber(maintenanceMarginUsd))}
+        />
         <MetricRow
           label="Cross Account Leverage"
           value={totalLeverage > 0 ? `${totalLeverage.toFixed(2)}x` : "—"}

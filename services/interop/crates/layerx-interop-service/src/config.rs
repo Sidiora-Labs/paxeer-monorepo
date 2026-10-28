@@ -236,7 +236,7 @@ struct ModuleDeclaration {
 }
 
 pub fn load() -> Result<Config, String> {
-    let sequencer_url = sequencer_url()?;
+    let (sequencer_url, private_network) = sequencer_url()?;
     let manifest_path = env::var("LAYERX_INTEROP_CONFIG")
         .map_err(|_| "LAYERX_INTEROP_CONFIG is required".to_owned())?;
     let manifest_bytes = fs::read(manifest_path).map_err(|error| error.to_string())?;
@@ -261,8 +261,15 @@ pub fn load() -> Result<Config, String> {
         &env::var("LAYERX_INTEROP_REDIS_URL")
             .map_err(|_| "LAYERX_INTEROP_REDIS_URL is required".to_owned())?,
     )?;
-    let sequencer = SequencerEndpoint::new(&sequencer_url, &[outbound_ca_der.as_slice()])
-        .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
+    let sequencer = if private_network {
+        SequencerEndpoint::new_with_railway_private_network(
+            &sequencer_url,
+            &[outbound_ca_der.as_slice()],
+        )
+    } else {
+        SequencerEndpoint::new(&sequencer_url, &[outbound_ca_der.as_slice()])
+    }
+    .map_err(|error| format!("LAYERX_INTEROP_SEQUENCER_URL is invalid: {error:?}"))?;
     let receipt_keys =
         parse_receipt_keys(&read_file("LAYERX_INTEROP_RECEIPT_KEYS_FILE", 64 * 1024)?)?;
     let published_receipt_keys = sequencer
@@ -414,7 +421,7 @@ fn check_receipt_keys(
     Ok(())
 }
 
-fn sequencer_url() -> Result<String, String> {
+fn sequencer_url() -> Result<(String, bool), String> {
     let value = required_label("LAYERX_INTEROP_SEQUENCER_URL", 4096)?;
     let private_network = match env::var("LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK") {
         Err(env::VarError::NotPresent) => false,
@@ -424,40 +431,17 @@ fn sequencer_url() -> Result<String, String> {
     };
     match value.strip_prefix("http://") {
         Some(_) if SequencerEndpoint::new(&value, &[]).is_ok() => {}
-        Some(authority) if private_network => {
-            railway_private_endpoint(authority)?;
+        Some(_) if private_network => {
+            SequencerEndpoint::new_with_railway_private_network(&value, &[]).map_err(|_| {
+                "LAYERX_INTEROP_SEQUENCER_URL may use http:// only as http://<name>.railway.internal:<port>"
+                    .to_owned()
+            })?;
         }
         _ => {
             Endpoint::parse(&value)?;
         }
     };
-    Ok(value)
-}
-
-fn railway_private_endpoint(authority: &str) -> Result<Endpoint, String> {
-    let refused = || {
-        "LAYERX_INTEROP_SEQUENCER_URL may use http:// only as http://<name>.railway.internal:<port>"
-            .to_owned()
-    };
-    let (host, port) = authority.rsplit_once(':').ok_or_else(refused)?;
-    let name = host.strip_suffix(".railway.internal").ok_or_else(refused)?;
-    if name.is_empty()
-        || name.len() > 63
-        || !name
-            .bytes()
-            .all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || byte == b'-')
-        || name.starts_with('-')
-        || name.ends_with('-')
-        || port.is_empty()
-        || port.len() > 5
-        || !port.bytes().all(|byte| byte.is_ascii_digit())
-    {
-        return Err(refused());
-    }
-    match port.parse::<u16>() {
-        Ok(port) if port != 0 => Ok(Endpoint::plain(host.to_owned(), port)),
-        _ => Err(refused()),
-    }
+    Ok((value, private_network))
 }
 
 fn migration_v2_config() -> Result<Option<MigrationV2Config>, String> {
