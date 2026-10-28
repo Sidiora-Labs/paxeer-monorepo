@@ -134,6 +134,9 @@ fn trace_spans_the_full_write_path_with_one_correlation_identifier() {
         protocol_authority: Some(ProtocolAuthority::SessionKey([7; 32])),
         submitted_bytes: None,
         receipt_id: None,
+        tx_hash: None,
+        nonce: None,
+        rung: None,
     };
     assert!(trace.correlates(&audit_entry));
 
