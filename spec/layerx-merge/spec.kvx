@@ -175197,7 +175197,7 @@ qualification = "UNRUN"
 
 [task.18.880.1]
 title = "Issue #880: Give the search-front deploy step a runnable upstream and edge registration path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1070.1"]
@@ -176014,7 +176014,7 @@ qualification = "UNRUN"
 
 [task.18.997.1]
 title = "Issue #997: Authorize the receipt-vector signer in the serving chain state"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178465,7 +178465,7 @@ qualification = "UNRUN"
 
 [task.18.825.1]
 title = "Issue #825: Restore the SDK history decode tests for the u256 bound, LayerX rows, null fields and next_cursor"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["18.747.1", "18.1069.1"]
