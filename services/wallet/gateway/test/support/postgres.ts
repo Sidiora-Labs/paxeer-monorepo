@@ -62,7 +62,7 @@ export async function startPostgres(): Promise<EphemeralPostgres> {
       logFile,
       '-w',
       '-o',
-      `-p ${port} -c listen_addresses=127.0.0.1 -c unix_socket_directories=${dir} -c fsync=off -c max_connections=200`,
+      `-p ${port} -c listen_addresses=127.0.0.1 -c unix_socket_directories='' -c fsync=off -c max_connections=200`,
       'start',
     ]);
   } catch (err) {

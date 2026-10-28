@@ -79,7 +79,7 @@ fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
         .unwrap_or_else(|| panic!("{source}: recorded PaymentExact receipt"));
     let receipt = &case["receiptJson"];
     assert_eq!(field(receipt, "rung", source), "receipted");
-    let logs = receipt["logs"]
+    let mut logs: Vec<SequencerLog> = receipt["logs"]
         .as_array()
         .unwrap_or_else(|| panic!("{source}: receipt logs"))
         .iter()
@@ -110,12 +110,38 @@ fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
             )
         })
         .collect();
+    let mut signed_receipt = recorded_bytes(case, "signedReceipt");
+    let log = &logs[0];
+    let old_topics = log.topics()[1..].concat();
+    let topics = vec![
+        log.topics()[0],
+        log.topics()[3],
+        log.topics()[1],
+        log.topics()[2],
+    ];
+    let positions: Vec<_> = signed_receipt
+        .windows(old_topics.len())
+        .enumerate()
+        .filter_map(|(index, bytes)| (bytes == old_topics).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1, "one signed PaymentExact indexed tuple");
+    signed_receipt[positions[0]..positions[0] + old_topics.len()]
+        .copy_from_slice(&topics[1..].concat());
+    logs[0] = SequencerLog::new(log.address(), topics, log.data().to_vec(), 0);
     let pin = &case["pinnedKey"];
+    let signer = SigningKey::from_bytes(&[0x5e; 32]);
+    assert_eq!(
+        signer.verifying_key().to_bytes(),
+        recorded_array(pin, "publicKey")
+    );
+    let digest = canonical_receipt_digest(&signed_receipt).unwrap();
+    let signature_start = signed_receipt.len() - 64;
+    signed_receipt[signature_start..].copy_from_slice(&signer.sign(&digest).to_bytes());
     (
         ReceiptMaterial {
             evidence: SequencerEvidence {
                 transaction_hash: recorded_array(receipt, "txHash"),
-                signed_receipt: recorded_bytes(case, "signedReceipt"),
+                signed_receipt,
                 logs,
                 rung: SettlementRung::Receipted,
             },
@@ -126,7 +152,7 @@ fn recorded_receipt() -> (ReceiptMaterial, [u8; 32]) {
                 number(pin, "lastHeight", source),
             )],
         },
-        recorded_array(case, "receiptDigest"),
+        digest,
     )
 }
 
@@ -196,9 +222,9 @@ fn signed_receipt(
                 "c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b1",
                 JOURNEYS_SOURCE,
             ),
+            fields.idempotency_key,
             fields.from,
             fields.to,
-            fields.idempotency_key,
         ],
         data,
         0,
@@ -652,7 +678,7 @@ fn fiat_adapter_suite_settles_on_the_recorded_receipt() {
         digest,
     );
     assert_eq!(executed.evidence.logs.len(), 1);
-    let key = executed.evidence.logs[0].topics()[3];
+    let key = executed.evidence.logs[0].topics()[1];
     let facts = VerifiedProviderFacts {
         provider: external("recorded-card-provider", SEQUENCER_RECEIPTS_SOURCE),
         settlement: external("recorded-card-capture", SEQUENCER_RECEIPTS_SOURCE),
