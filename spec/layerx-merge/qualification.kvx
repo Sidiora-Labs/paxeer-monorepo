@@ -9443,3 +9443,35 @@ symbol = "approval_lifecycle_stream_resumes_after_gap_and_exports_digest_evidenc
 observed = "Attempt 1 (3a21c8716) restored the gap with a durable chain event at Cursor 1/0/0; the delivery assertion then saw that event delivered fifth after the four approval emissions and stopped as do_2 instructed."
 assumption = "Delivering the recovered event once is the restored subscription's contract; do_2 now asserts the five-event delivery and the digest assertion is unaffected (audit log only)."
 severity = "minor"
+
+[finding.10.13.3.1]
+task = "10.13.3"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4249"
+symbol = "decode_receipt"
+observed = "Attempt 6 (de9558b07) rebuilt ReceiptMaterial with observed_height and signature as the old do_3 described; the type 10.2.7 landed (85c5b32c5) carries block_height and no signature plus the three retained fields, so the library did not build."
+assumption = "do_3 now names the landed shape; the next attempt keeps the seven fields and routes the rung byte through decode_rung."
+severity = "major"
+
+[finding.10.13.1.1]
+task = "10.13.1"
+file = "services/human/crates/layerx-human-service/src/agents/create.rs:530"
+symbol = "SessionProvision"
+observed = "Attempt 5 (7ead99073) replaced the provisions' activity_types with call_selectors and left nine consumers in agent_creation.rs, agent_creation_native.rs, production_components.rs and production_rotation.rs without the kernel activity types the grants require."
+assumption = "do_3 only renames the preset catalog key; the provisions keep activity_types and the next attempt restores them."
+severity = "major"
+
+[finding.10.11.5.1]
+task = "10.11.5"
+file = "services/human/crates/layerx-human-service/src/server/production_components.rs:8758"
+symbol = "sign_send_now"
+observed = "Attempt 1 (6eb8fcf06) built and the dependents check failed: the human service library still calls the deleted sign_send from sign_send_now, which only 10.0.3 (wave 11, requiring this task) was to port."
+assumption = "The caller port is do_5 of this task now and 10.0.3 lost that step; the deletion and its one caller land together."
+severity = "major"
+
+[finding.10.21.1.2]
+task = "10.21.1"
+file = "services/human/crates/layerx-explorer-index/src/mirror.rs"
+symbol = "MirrorVerifier"
+observed = "Attempt 4 (d3d145844) built and the dependents check failed on the explorer-index mirror module at its base; 18.1153.1 (ef7eb440a) deleted that module minutes later."
+assumption = "No spec change; the next attempt re-applies attempt 4 on a base that carries ef7eb440a."
+severity = "minor"
