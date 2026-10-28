@@ -10,6 +10,7 @@ package lxphost
 #include "layerx/lx_asset.h"
 #include "layerx/lx_budget.h"
 #include "layerx/lx_escrow.h"
+#include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
 #include "layerx/lxp_module_ctx.h"
 #include "layerx/lxp_protocol.h"
@@ -511,7 +512,7 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
                                uint64_t batch_number, uint64_t timestamp_ms,
                                uint64_t timestamp_window, uint64_t sequence,
                                uint32_t parameter_version, uint64_t gas_limit,
-                               bool binding_authority)
+                               bool binding_authority, lxp_u128 fee_balance)
 {
     const lxp_module_registration *registration;
     lxp_kernel_execution *execution = &node->execution;
@@ -538,6 +539,7 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
     execution->identities = &node->identities;
     execution->authority = &node->authority;
     execution->fee_parameters = &node->fees;
+    execution->fee_balance = fee_balance;
     execution->gas_limit = gas_limit;
     execution->arena = &node->arena;
     return lxp_kernel_execute_activity(&node->kernel, &node->envelope.activity,
@@ -724,14 +726,42 @@ func signature_valid(node *C.lxphost_node) bool {
 	return node != nil && bool(node.execution.signature_valid)
 }
 
+func fee_balance(node *C.lxphost_node) (C.struct_lxp_u128, error) {
+	var zero C.struct_lxp_u128
+	activity := &node.envelope.activity
+	name := append([]byte("agent:"), C.GoBytes(unsafe.Pointer(activity.actor_did.bytes), C.int(activity.actor_did.length))...)
+	name = append(name, ":main"...)
+	id, err := kernelAccountID(name)
+	if err != nil {
+		return zero, err
+	}
+	var account *C.lx_account
+	status := C.lx_account_lookup(&node.accounts, bytesPtr(name), C.size_t(len(name)), bytes32(&id), &account)
+	if status == C.LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE {
+		return zero, nil
+	}
+	if err := result(status); err != nil {
+		return zero, err
+	}
+	if account.kind != C.LX_ACCOUNT_AGENT_MAIN || !bool(account.has_authority_key) ||
+		C.lxp_ct_memcmp(unsafe.Pointer(&account.authority_key[0]), unsafe.Pointer(&node.authority.verified_key[0]), 32) != 0 {
+		return zero, Code(C.LXP_ERR_BAD_SIGNATURE)
+	}
+	return account.balance, nil
+}
+
 func lxphost_bind_assets(node *C.lxphost_node, networkID uint32, bindingAuthority bool) error {
 	return result(C.lxphost_bind_assets(node, C.uint32_t(networkID), C.bool(bindingAuthority)))
 }
 
 func lxphost_execute(node *C.lxphost_node, cfg Config, branch *branchCtx, bindingAuthority bool) error {
+	balance, err := fee_balance(node)
+	if err != nil {
+		return err
+	}
 	return result(C.lxphost_execute(node, C.uint32_t(cfg.NetworkID), C.uint64_t(branch.batchNumber),
 		C.uint64_t(branch.timestampMs), C.uint64_t(cfg.TimestampWindowMs), C.uint64_t(branch.sequence),
-		C.uint32_t(cfg.ParameterVersion), C.uint64_t(cfg.GasLimit), C.bool(bindingAuthority)))
+		C.uint32_t(cfg.ParameterVersion), C.uint64_t(cfg.GasLimit), C.bool(bindingAuthority), balance))
 }
 
 const (

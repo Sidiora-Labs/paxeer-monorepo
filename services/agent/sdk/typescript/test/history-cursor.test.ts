@@ -318,13 +318,53 @@ function history_pages_resume_from_the_gateway_last_row_without_gaps(): void {
     assert.equal(cursor, null);
     assert.deepEqual(
       seen.map((row) => row.id),
-      [1n, 2n, 3n, 4n, 5n],
+      ["1", "2", "3", "4", "5"],
     );
     assert.deepEqual(
       seen.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
       positions,
     );
     assert(seen.every((row) => row.side === (unified ? "paxeer" : null)));
+  }
+}
+
+function history_rows_accept_explorer_row_ids(): void {
+  const first = { ...historyRow(), id: "9" };
+  const second = { ...historyRow(), id: "explorer:7", logIndex: 4 };
+  for (const unified of [false, true]) {
+    const page = decodeGatewayPage([first, second], null, unified);
+    assert.deepEqual(
+      page.items.map((row) => row.id),
+      ["9", "explorer:7"],
+    );
+    for (const id of ["18446744073709551615", "explorer:18446744073709551615"]) {
+      assert.equal(
+        decodeGatewayPage([{ ...first, id }], null, unified).items[0]!.id,
+        id,
+      );
+    }
+    for (const id of [
+      "explorer:0",
+      "explorer:",
+      "0",
+      "layerx:7",
+      "explorer:18446744073709551616",
+      "18446744073709551616",
+      "",
+      "01",
+      "explorer:07",
+      "-7",
+      "explorer:-7",
+      "explorer:7.0",
+      "explorer:7\n",
+      " 9",
+      "explorer:٧",
+    ]) {
+      assert.throws(
+        () => decodeGatewayPage([first, { ...second, id }], null, unified),
+        /Invalid history row id/,
+      );
+    }
   }
 }
 
@@ -340,7 +380,47 @@ function history_empty_pages_have_no_continuation(): void {
   }
 }
 
+function history_page_keeps_rows_tied_with_the_limit_row(): void {
+  const items = [41, 42, 42].map((blockHeight, index) => ({
+    ...historyRow(),
+    id: String(index + 1),
+    height_or_seq: String(blockHeight),
+    ordinal: "1",
+    blockHeight,
+    txIndex: 2,
+    logIndex: 0,
+  }));
+  for (const unified of [false, true]) {
+    const page = decodeGatewayPage(items, historyCursor(42n, 2, 0), unified);
+    assert.equal(page.items.length, 3);
+    assert.deepEqual(
+      page.items.map((row) => row.id),
+      [1n, 2n, 3n],
+    );
+    assert.deepEqual(
+      page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
+      [
+        [41, 2, 0],
+        [42, 2, 0],
+        [42, 2, 0],
+      ],
+    );
+    assert.equal(page.nextCursor, historyCursor(42n, 2, 0));
+    assert.throws(
+      () =>
+        decodeGatewayPage(
+          [items[0]!, items[1]!, { ...items[2]!, ordinal: "2", logIndex: 1 }],
+          historyCursor(42n, 2, 1),
+          unified,
+        ),
+      /^Error: Invalid history page$/,
+    );
+  }
+}
+
 test(history_cursor_encodes_block_height_tx_index_and_log_index);
 test(history_rows_carry_the_transaction_hash);
+test(history_rows_accept_explorer_row_ids);
 test(history_pages_resume_from_the_gateway_last_row_without_gaps);
 test(history_empty_pages_have_no_continuation);
+test(history_page_keeps_rows_tied_with_the_limit_row);
