@@ -215,7 +215,11 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
 
   defp mark_scanned(number, status, error) do
     Repo.insert_all(PriceFeedScannedBlock, [%{block_number: number, status: status, error: error}],
-      on_conflict: {:replace, [:status, :error]},
+      on_conflict:
+        from(scanned in PriceFeedScannedBlock,
+          update: [set: [status: fragment("EXCLUDED.status"), error: fragment("EXCLUDED.error")]],
+          where: scanned.status != "scanned"
+        ),
       conflict_target: :block_number
     )
   end

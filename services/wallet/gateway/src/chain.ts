@@ -1,8 +1,12 @@
-import { defineChain } from 'viem';
+import { defineChain, keccak256, type Hex } from 'viem';
 import { env } from './env.js';
 
 /** Spans several hundred blocks at the chain's sub-second block time; exists to outlast propagation lag. */
 export const BROADCAST_GRACE_MS = 60_000;
+
+export function transactionHash(raw: Hex): Hex {
+  return keccak256(raw);
+}
 
 /**
  * HyperPaxeer EVM chain definition for viem.
