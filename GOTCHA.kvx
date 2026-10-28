@@ -9839,3 +9839,27 @@ symptom = "make programs-release-build inside docker/paxeer/Dockerfile.paxd-node
 cause = "Both ignore files re-exclude programs/vendor/**/*.der after re-including programs/vendor/**, which drops the vendored crate's public test vectors that its .cargo-checksum.json lists; cargo --locked refuses the vendored source."
 do = "Re-include exactly those fixture files (programs/vendor/ed25519-dalek-*/tests/examples/*.der) after the key-material rule; never edit a vendored .cargo-checksum.json and never widen the re-include beyond the fixtures (18.849.1, 18.869.1)."
 
+[gotcha.2022]
+area = "wallet gateway e2e environment"
+symptom = "gateway.e2e.test.ts dies in startPostgres with '[env] Invalid environment configuration' naming WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE, WALLET_IDENTITY_BINDING_TENANT, WALLET_CUSTODY_INVENTORY_FILE and WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE."
+cause = "src/env.ts:258-261 requires the four wallet identity and custody inventory inputs whenever ATTESTOR_ENDPOINTS is set (since 281e812be); the e2e harness sets the attestor endpoints but not them."
+do = "Set the four variables from the attestor harness before any import of src/env.ts, with the tenant equal to the attestors' ATTESTOR_AUTHORITY_TENANT and the inventory JWT tenant (18.1065.1)."
+
+[gotcha.2023]
+area = "paxeer-x qualification drivers"
+symptom = "program_market_attestation.py --build reports BUILD_RESULT native 1 with 'layerx/programs.h: No such file or directory'."
+cause = "The driver defaults --cppflags to the empty string, so the native test compiles with a bare cc; every tests/programs file includes 'layerx/...' relative to include/."
+do = "Pass or default --cppflags -Iinclude (arbiter_prestate.py:355 does); do not rewrite the includes in the test (18.911.1, issue #1105)."
+
+[gotcha.2024]
+area = "shell test harness stand-in processes"
+symptom = "A harness that copies sleep under a daemon name reports process=none; stderr shows 'coreutils: unknown program <name>'."
+cause = "Where coreutils is a multicall binary (uutils, busybox) the copy dispatches on its own file name and refuses to run."
+do = "Copy a standalone interpreter (command -v bash) under the daemon name and start it with -c 'sleep N' and no exec; /proc/<pid>/exe and environ then still belong to the named copy (check-live.test.sh, 18.776.1)."
+
+[gotcha.2025]
+area = "explorer read-only archive schemas"
+symptom = "Explorer tests fail with 'function Explorer.Chain.PaxeerX.Anchor.changeset/2 is undefined or private' (same for Receipt)."
+cause = "b14589838 made Anchor and Receipt read-only archive records without changesets; archive_readonly_test.exs guards that."
+do = "Seed rows in tests with Ecto.Changeset.cast(%Anchor{}, attrs, Map.keys(attrs)) |> Repo.insert!() or through the import runner; never add the changeset back (18.1010.1, 18.1006.1, 18.1104.1)."
+
