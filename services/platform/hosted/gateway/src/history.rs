@@ -1868,6 +1868,211 @@ mod tests {
         )
     }
 
+    fn history_config(indexer: Option<Indexer>, paxeer: Option<Vec<Endpoint>>) -> Config {
+        let ca = native_tls::Certificate::from_pem(include_bytes!(
+            "../../../../../consensus/rpc/jsonrpc/server/test.crt"
+        ))
+        .unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
+        Config {
+            wallet_caps: None,
+            routes: crate::routes::Registry::configured("layerx-testnet", "1")
+                .unwrap_or_else(|error| panic!("test routes must configure: {error}")),
+            listen: "127.0.0.1:0"
+                .parse()
+                .unwrap_or_else(|error| panic!("test address must parse: {error}")),
+            listener: crate::Listener::Plain,
+            client: Client::without_identity(ca.clone()),
+            client_identity: false,
+            kernel: None,
+            receipt_keys: None,
+            paxeer,
+            capabilities: crate::capabilities::Cache::new(std::time::Duration::from_secs(1)),
+            indexer,
+            registration_token: None,
+            trusted_proxies: Vec::new(),
+            faucet: None,
+            store: Arc::new(crate::RedisStore::new(
+                crate::RedisEndpoint::parse("rediss://localhost:6379")
+                    .unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}")),
+                ca,
+                zeroize::Zeroizing::new("gateway".to_owned()),
+                zeroize::Zeroizing::new(String::new()),
+            )),
+            event_producer: false,
+            network_id: "layerx-testnet".to_owned(),
+            wire_version: "1".to_owned(),
+            protocol_version: 1,
+            protocol_network_id: 1,
+            idempotency_seconds: 3600,
+        }
+    }
+
+    #[test]
+    fn unified_history_answer_reads_the_paxeer_node_over_http() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let node = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            for expected in [
+                "eth_chainId",
+                "eth_call",
+                "eth_chainId",
+                "eth_call",
+                "eth_chainId",
+                "eth_blockNumber",
+            ] {
+                let (mut stream, _) = listener.accept().unwrap_or_else(|error| panic!("{error}"));
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap_or_else(|error| panic!("{error}"));
+                stream
+                    .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap_or_else(|error| panic!("{error}"));
+                let request =
+                    http::read_request(&mut stream, 4096).unwrap_or_else(|error| panic!("{error}"));
+                assert_eq!(request.method, "POST");
+                assert_eq!(request.path, "/rpc");
+                let request: Value =
+                    serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
+                assert_eq!(request["jsonrpc"], "2.0");
+                assert_eq!(request["method"], expected);
+                let response = if expected == "eth_chainId" {
+                    assert_eq!(request["id"], "route-network");
+                    assert_eq!(request["params"], json!([]));
+                    json!({"jsonrpc": "2.0", "id": request["id"], "result": "0x7d"})
+                } else {
+                    chain(&request).unwrap_or_else(|code| panic!("{code}"))
+                };
+                http::write_response(
+                    &mut stream,
+                    &http::OutgoingResponse {
+                        status: 200,
+                        content_type: "application/json".to_owned(),
+                        headers: Vec::new(),
+                        body: serde_json::to_vec(&response)
+                            .unwrap_or_else(|error| panic!("{error}")),
+                        retry_after: None,
+                    },
+                )
+                .unwrap_or_else(|error| panic!("{error}"));
+                requests.push(request);
+            }
+            requests
+        });
+        let mut endpoint = Endpoint::plain(address.ip().to_string(), address.port());
+        endpoint.base_path = "/rpc".to_owned();
+        let config = history_config(Some(indexer()), Some(vec![endpoint]));
+        let id = json!("http-history");
+        let response = answer(
+            &config,
+            "px_getUnifiedHistory",
+            &id,
+            Some(&json!([EVE, null, 100, null])),
+        );
+        assert!(response.get("error").is_none(), "{response}");
+        assert_eq!(response["jsonrpc"], "2.0");
+        assert_eq!(response["id"], id);
+        assert_eq!(ids(&response["result"]), vec![3, 6, 9, 11]);
+        let (did, main) = binding();
+        assert_eq!(
+            response["result"]["account"],
+            json!({
+                "evm_address": EVE,
+                "pax_address": PAX_EVE,
+                "layerx_did": format!("did:layerx:{}", crate::hex(&did)),
+                "layerx_account": crate::hex(&main),
+                "bound": true
+            })
+        );
+        assert_eq!(
+            response["result"]["accounts"],
+            json!([{"side": "paxeer", "account": EVE}])
+        );
+        assert_eq!(response["result"]["chainHeight"], 12);
+        let requests = node.join().unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(requests.len(), 6);
+        assert_eq!(
+            requests[1]["params"][0]["data"],
+            format!(
+                "0x{}",
+                crate::hex(&evm::calldata_address(
+                    evm::SELECTOR_GET_UNIFIED_ACCOUNT,
+                    &[0xee; 20],
+                ))
+            )
+        );
+        assert_eq!(
+            requests[3]["params"][0]["data"],
+            format!(
+                "0x{}",
+                crate::hex(&evm::calldata_word(
+                    evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX,
+                    &did,
+                ))
+            )
+        );
+    }
+
+    #[test]
+    fn unified_history_with_a_did_selector_resolves_through_addr() {
+        let indexer = indexer();
+        let (did, main) = binding();
+        let response = answered(
+            &indexer,
+            "px_getUnifiedHistory",
+            &json!([format!("did:layerx:{}", crate::hex(&did)), null, 100, null]),
+        );
+        let evm = answered(
+            &indexer,
+            "px_getUnifiedHistory",
+            &json!([EVE, null, 100, null]),
+        );
+        assert!(response.get("error").is_none(), "{response}");
+        assert_eq!(ids(&response["result"]), vec![3, 6, 9, 11]);
+        assert_eq!(
+            response["result"]["accounts"],
+            json!([{"side": "paxeer", "account": EVE}])
+        );
+        assert_eq!(
+            response["result"]["account"],
+            json!({
+                "evm_address": EVE,
+                "pax_address": PAX_EVE,
+                "layerx_did": format!("did:layerx:{}", crate::hex(&did)),
+                "layerx_account": crate::hex(&main),
+                "bound": true
+            })
+        );
+        assert_eq!(response, evm);
+    }
+
+    #[test]
+    fn unified_history_without_paxeer_config_answers_unconfigured() {
+        let config = history_config(Some(indexer()), None);
+        let id = json!("unconfigured-history");
+        let response = answer(
+            &config,
+            "px_getUnifiedHistory",
+            &id,
+            Some(&json!([EVE, null, 100, null])),
+        );
+        assert_eq!(response, crate::paxeer::unconfigured(&id));
+        assert_eq!(
+            response,
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": {
+                    "code": -32001,
+                    "message": "Paxeer endpoint not configured",
+                    "data": {"code": "paxeer_rpc_not_configured"}
+                }
+            })
+        );
+    }
+
     #[test]
     fn history_registry_reads_the_indexer_assets() {
         let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
