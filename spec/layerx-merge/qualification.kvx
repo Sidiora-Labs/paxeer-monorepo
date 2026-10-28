@@ -9555,3 +9555,51 @@ symbol = "native"
 observed = "Attempt 11 (37357d0a1) built both images within the limit and its verify passed; the done record was refused by the graph check 'symbol native — not defined in the graph' because the task listed the Dockerfile stage name as a symbol."
 assumption = "symbols emptied; the candidate stands and the next run re-qualifies it unchanged."
 severity = "minor"
+
+[finding.10.4.3.1]
+task = "10.4.3"
+file = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1977"
+symbol = "AgentRuntime::connect"
+observed = "Attempt 3 (5485dcf26) built the crate but both migrated tests failed E0308: connect still takes layerx_client::lni::transport::Limits and converts it to the frame Limits at :1981-1987; 10.13.3, which do_2/do_3 named as changing that parameter, changed the peer codec only."
+assumption = "do_2/do_3 keep the LNI Limits for connect; 10.3.1 do_9 moves the parameter with the production callers."
+severity = "minor"
+
+[finding.10.13.8.1]
+task = "10.13.8"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs:8657"
+symbol = "native_send_preview_v1"
+observed = "Attempt 1 changed nothing: NativeSendPreviewV1 is filled from the peer answer at agent_runtime.rs:4608 and load_access is called from production_components.rs:9798/:9858/:9871, both outside touches, and the daemon's preview answer carries observed_head_sequence, protocol time, owner key and revocation_sequence only, no nonce and no fee."
+assumption = "Task moved to wave 11 after 10.13.5, which makes the preview carry the type-2 transaction the nonce and fees are read from; touches widened to both callers."
+severity = "minor"
+
+[finding.18.1131.1.4]
+task = "18.1131.1"
+file = "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs:192"
+symbol = "ExportTrustSource::new"
+observed = "Attempt 7 (a98522f27) failed its all-targets build on E0061/E0599 in export_offline_bounds.rs, which still builds ExportTrustSource::new(history, domain, 1) and calls settlement(); fbb5df6bb (9.6.1) changed the constructor to (receipt_keys, validator_set) and verified only --test export_v2."
+assumption = "Issue #1161 / task 18.1161.1 ports the test; 18.1131.1 requires it and keeps attempt 7's port."
+severity = "minor"
+
+[finding.18.1156.1.2]
+task = "18.1156.1"
+file = "services/human/crates/layerx-human-kms/tests/provider.rs:42"
+symbol = "RuntimeClock::from_environment"
+observed = "Attempts 3 (34a8fc041) and 4 built with do_4 and every one of the 14 provider tests returned Unavailable: the target needs LAYERX_RUNTIME_CLOCK_SOCKET, which only the layerx-runtime-clock service provides, and no gate had run this target before."
+assumption = "The verify runs the target under layerx-runtime-clock as the service images do; the tests are unchanged."
+severity = "minor"
+
+[finding.18.1157.1.2]
+task = "18.1157.1"
+file = "services/interop/crates/layerx-x402/src/model.rs:189"
+symbol = "is_layerx_network"
+observed = "Attempts 2-4 passed all 26 buyer tests and failed the same four seller tests: :494 and :598 expect ProfileMismatch and get Ok because is_layerx_network keys on the layerx namespace while the fixtures carry eip155:125 since 8330f54bf, so validate skips layerx_terms; :1091 and :1124 expect the settlement JSON without the logs array d20d224d8 added."
+assumption = "Issue #1162 / task 18.1162.1 restores the eip155 binding check and the two expected strings; 18.1157.1 requires it."
+severity = "minor"
+
+[finding.13.27.1.4]
+task = "13.27.1"
+file = "src/modules/programs/call.c:2276"
+symbol = "layerx_programs_call_transfer_apply"
+observed = "Attempt 21 (97583bd69) seeds the caller's main account the product way and still reverts NON_CANONICAL: the escrow charge reaches call.c:2276 with ledger admission unbound (the kernel binds admission only for CALL, WIND_DOWN, BUDGET and ASSET, lxp_kernel.c:485-486 and :6880-6886, never for LX_PROGRAMS_SANDBOX), the raw-principal lookup returns -208, ffi_call.rs:2003 maps it to ReceiptMismatch and host_ffi.rs:774 to NON_CANONICAL; transfer.c:188-209 got the owned-main-account fallback in 0981a1dd3, call.c did not."
+assumption = "Issue #1163 / task 18.1163.1 mirrors the fallback in call.c; 13.27.1 requires it and keeps attempt 21's fixture."
+severity = "major"

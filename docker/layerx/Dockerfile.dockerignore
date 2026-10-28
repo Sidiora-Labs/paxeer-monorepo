@@ -45,6 +45,7 @@ src
 test
 tests
 
+!tests/testutil/sample/sample.go
 !services/agent/Cargo.toml
 !services/human/Cargo.toml
 !services/interop/Cargo.toml
@@ -96,6 +97,7 @@ tests
 !programs/benches/interpreter.rs
 !services/agent/tests/limits/exactly_once.rs
 **/*.md
+!programs/vendor/**
 !include/layerx/lxp_result.h
 !include/layerx/programs.h
 !services/agent/deny.toml

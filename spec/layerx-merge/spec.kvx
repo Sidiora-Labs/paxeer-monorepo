@@ -117570,7 +117570,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.5.55.5]
 title = "Record and re-verify the V4 committed vector"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["5.55.1", "5.0.3", "5.55.2", "18.1074.1", "18.1109.1", "18.1120.1", "18.1126.1", "18.1144.1"]
@@ -143190,7 +143190,7 @@ do_6 = "Create services/human/crates/layerx-human-service/tests/export_receipts.
 do_7 = "services/human/crates/layerx-human-service/tests/activity.rs:37 imports `SettlementDomain` and `cached_receipt_rows_are_labelled_only_by_the_verifier` (services/human/crates/layerx-human-service/tests/activity.rs:698) builds `domain` and `foreign_domain` at :705-706 and asserts `UnverifiedReason::SettlementDomainMismatch` at :844; drop the import, both domain values and the foreign-domain case, and verify the cached rows through the version-2 receipt check of do_3 while keeping every tenant, digest and wrong-batch label assertion."
 do_8 = "services/human/crates/layerx-human-service/tests/export.rs also builds the event Cursor as a tuple at :213 and :240, names verification_level at :216 (rung: Rung since d7ffdc755, src/activity/stream.rs:206) and passes the version 1 OfflineExport to layerx_agentd::export::build at :308, which takes layerx_agent_api::export::OfflineExport (services/agent/crates/layerx-agent-api/src/read.rs:592); port those four sites as part of the version 2 bundle so the export target compiles and runs."
 symbols = ["EvidenceBundle", "EvidenceBundle::verify_receipt", "EvidenceExport::evidence", "ReceiptEvidence"]
-touches = ["services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/activity.rs"]
+touches = ["services/human/crates/layerx-human-service/src/activity/export.rs", "services/human/crates/layerx-human-service/src/activity/mod.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs", "services/human/crates/layerx-human-service/tests/export.rs", "services/human/crates/layerx-human-service/tests/export_receipts.rs", "services/human/crates/layerx-human-service/tests/activity.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v2_round_trips_receipt_fields", "services/human/crates/layerx-human-service/tests/export_receipts.rs::evidence_bundle_v1_is_refused", "services/human/crates/layerx-human-service/tests/export_receipts.rs::tampered_receipt_hash_fails_verify_receipt", "services/human/crates/layerx-human-service/tests/activity.rs::cached_receipt_rows_are_labelled_only_by_the_verifier"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/export_receipts.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -143206,6 +143206,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_9 = "AgentRuntime::connect (services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1975-1988) takes `crate::frame::Limits` and passes it to connect_peer unchanged, deleting the LNI field copy at :1981-1987; the callers production_components.rs:1068 (self.agent_limits) and :9386 pass the frame value once do_5 switches :14 to `crate::frame`. The tests of 10.4.3 keep working because they then import the frame Limits for connect; this task's gate builds them."
 
 [task.10.3.2]
 title = "Drop the settlement domain from the stream journal"
@@ -143311,8 +143312,8 @@ reqs = ["10011.1", "10011.2", "10011.3"]
 capabilities = ["10.4.5"]
 interfaces = []
 do_1 = "services/human/crates/layerx-human-service/tests/evidence_node.rs:5 imports `layerx_client::lni::schema::{Capability, Version}` for the node Client and ClientConfig, which stay on `layerx_client::lni`; the file needs no change and its test runs unchanged through the verify_cmd."
-do_2 = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:4-6 imports the LNI HandshakeConfig, schema::Version and transport Limits; keep HandshakeConfig and Version on `layerx_client::lni` and pass `layerx_human_service::frame` Limits only to AgentRuntime::connect (services/human/crates/layerx-human-service/tests/native_send_producer.rs:137), the human-socket transport value whose type task 10.13.3 changes."
-do_3 = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:20-22 imports the LNI HandshakeConfig, schema::Version and transport Limits and MutualTlsConfig; keep HandshakeConfig and Version on `layerx_client::lni` and pass `layerx_human_service::frame` Limits and MutualTlsConfig only to AgentRuntime::connect (services/human/crates/layerx-human-service/tests/native_journey_approval.rs:138) and RemoteKmsProvider::new (services/human/crates/layerx-human-service/tests/native_journey_approval.rs:167), whose signatures tasks 10.13.3 and 10.4.1 change."
+do_2 = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:4-6 imports the LNI HandshakeConfig, schema::Version and transport Limits; keep all three on `layerx_client::lni`. AgentRuntime::connect (src/server/agent_runtime.rs:1975-1988) still takes `layerx_client::lni::transport::Limits` and converts it to the frame Limits itself (10.13.3 did not change that parameter; 10.3.1 do_9 does), so the call at :137 keeps the LNI value. Import `layerx_human_service::frame` types only where RemoteKmsProvider::new is called."
+do_3 = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:20-22 imports the LNI HandshakeConfig, schema::Version, transport Limits and MutualTlsConfig; keep HandshakeConfig, Version and the Limits passed to AgentRuntime::connect (:138) on `layerx_client::lni`, and pass `layerx_human_service::frame` Limits and MutualTlsConfig to RemoteKmsProvider::new (:167), whose signature 10.4.1 changed. Both types stay imported under distinct names."
 do_4 = "Run the three existing tests named below with their assertions unchanged, starting with services/human/crates/layerx-human-service/tests/evidence_node.rs:100, so the move is proven on real code paths without weakening any check."
 symbols = ["frame::read_frame", "frame::write_frame"]
 touches = ["services/human/crates/layerx-human-service/tests/native_send_producer.rs", "services/human/crates/layerx-human-service/tests/native_journey_approval.rs"]
@@ -143490,7 +143491,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.7.1]
 title = "Bind intent legs to pending-tag nonces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.13.3", "9.1.8", "18.1119.1"]
@@ -144092,7 +144093,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.13.4]
 title = "Answer agent account state and native send owner context with pending nonces"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.13.3", "9.1.8", "18.1119.1"]
@@ -144218,8 +144219,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Preview native sends at the pending nonce"
 status = "pending"
 mode = "BUILD"
-wave = 7
-requires = ["10.13.3", "9.1.8", "18.1119.1"]
+wave = 11
+requires = ["10.13.3", "9.1.8", "18.1119.1", "10.13.4", "10.13.5"]
 reqs = ["10037.1", "10037.2"]
 capabilities = ["10.13.8"]
 interfaces = []
@@ -144228,7 +144229,7 @@ do_2 = "`load_access` (services/human/crates/layerx-human-service/src/server/nat
 do_3 = "Leave `HumanOwnerNativeContextV1` (services/human/crates/layerx-human-service/src/server/native_send.rs:215) field order unchanged apart from the nonce type."
 do_4 = "Create services/human/crates/layerx-human-service/tests/native_send_nonces.rs (planned) through the public native send API."
 symbols = ["NativeSendPreviewV1", "load_access"]
-touches = ["services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
+touches = ["services/human/crates/layerx-human-service/src/server/native_send.rs", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs", "services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-service/src/server/production_components.rs"]
 tests = ["services/human/crates/layerx-human-service/tests/native_send_nonces.rs::native_send_preview_carries_nonce_and_fee_fields", "services/human/crates/layerx-human-service/tests/native_send_nonces.rs::native_send_access_below_pending_nonce_is_expired"]
 planned_paths = ["services/human/crates/layerx-human-service/tests/native_send_nonces.rs"]
 build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-service"
@@ -144244,6 +144245,7 @@ time_limit_minutes = 30
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "NativeSendPreviewV1 is decoded from the peer answer at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4608-4616 (head_sequence, protocol_time_ms, owner_public_key, revocation_sequence); the answer the daemon writes (services/agent/crates/layerx-agentd/src/human_runtime.rs:8642-8662) carries no nonce and no fee, so this task runs after 10.13.5 and reads the pending nonce, max_fee_per_gas and max_priority_fee_per_gas from the unsigned type-2 transaction 10.13.5 makes the preview carry. Pass the pending nonce of AgentRuntime::pending_nonce (agent_runtime.rs:1792, 10.13.4) to load_access at production_components.rs:9798, :9858 and :9871 for do_2. If the preview after 10.13.5 still carries no transaction, stop and record it."
 
 [task.10.14.1]
 title = "Answer home summary and account balance with the balance rung"
@@ -144787,7 +144789,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.21.2]
 title = "Prove the layerx-intents precompile event router is retired"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 9
 requires = ["10.21.1", "11.0.3", "11.30.1", "9.1.7", "9.1.8", "18.1119.1"]
@@ -157406,7 +157408,7 @@ title = "Serve sandboxExecute with its fee limit and usage receipt"
 status = "pending"
 mode = "BUILD"
 wave = 16
-requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1"]
+requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5", "18.1073.1", "18.1122.1", "18.1125.1", "18.1130.1", "18.1163.1"]
 reqs = ["13268.1", "13268.2"]
 capabilities = ["13.27.1"]
 interfaces = ["interface.13.pc-0x101d-sandboxexecute"]
@@ -158393,7 +158395,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.9]
 title = "Prove 0x101D value account views equal bank balances of the same accounts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.28.2", "13.25.1", "18.1073.1", "18.1123.1", "18.1130.1"]
@@ -172371,7 +172373,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 [feature.18]
 name = "open-issues"
 scope = "Open issues: the defects filed against the repository, each carried as one task keyed by its issue number across every area the issue names, plus the closure check 18.0.1."
-requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158"]
+requirements = ["18001", "18670", "18671", "18672", "18677", "18684", "18687", "18689", "18691", "18694", "18698", "18700", "18701", "18704", "18715", "18723", "18724", "18732", "18747", "18764", "18765", "18767", "18768", "18770", "18771", "18772", "18776", "18778", "18779", "18783", "18784", "18785", "18786", "18787", "18788", "18789", "18790", "18791", "18799", "18800", "18801", "18802", "18803", "18804", "18805", "18806", "18807", "18808", "18809", "18810", "18811", "18814", "18816", "18818", "18819", "18820", "18824", "18825", "18826", "18827", "18828", "18830", "18832", "18833", "18834", "18836", "18837", "18838", "18846", "18849", "18856", "18861", "18865", "18867", "18868", "18869", "18872", "18873", "18874", "18875", "18877", "18878", "18880", "18881", "18883", "18887", "18889", "18890", "18904", "18906", "18907", "18910", "18911", "18915", "18916", "18917", "18919", "18924", "18925", "18926", "18928", "18931", "18932", "18933", "18937", "18939", "18940", "18941", "18942", "18943", "18944", "18946", "18947", "18948", "18955", "18957", "18964", "18969", "18970", "18973", "18974", "18975", "18977", "18978", "18982", "18983", "18987", "18989", "18990", "18997", "18998", "181001", "181003", "181005", "181006", "181010", "181012", "181017", "181022", "181023", "181024", "181025", "181026", "181027", "181035", "181036", "181037", "181052", "181053", "181054", "181055", "181056", "181065", "181066", "181067", "181068", "181069", "181070", "181071", "181072", "181073", "181074", "181076", "181077", "181078", "181083", "181088", "181089", "181098", "181104", "181109", "181111", "181115", "181116", "181119", "181120", "181121", "181122", "181123", "181124", "181125", "181126", "181127", "181129", "181130", "181131", "181132", "18741", "18742", "18745", "18752", "18753", "18754", "18755", "18758", "18760", "18761", "18812", "18844", "18845", "18851", "18853", "18859", "18870", "18885", "18894", "18896", "18897", "18900", "18902", "18921", "18922", "18923", "18936", "18951", "181038", "181039", "181040", "181041", "181044", "181045", "181047", "181048", "181049", "181050", "181051", "181058", "181060", "181061", "181062", "181063", "181064", "181086", "181091", "181094", "181095", "181096", "181097", "181101", "181103", "181108", "181110", "181117", "18721", "18850", "18884", "18888", "18899", "18950", "18961", "181133", "181106", "181135", "181136", "181137", "181138", "181141", "18731", "18876", "181081", "18817", "181105", "18929", "181139", "181142", "181143", "181144", "181147", "181149", "18680", "18726", "18729", "181150", "181151", "181152", "181153", "181154", "181155", "181156", "181157", "181158", "181161", "181162", "181163"]
 completion_task = "18.0.1"
 
 [task.18.670.1]
@@ -178998,7 +179000,7 @@ title = "Refuse the open-issue closure while any issue task is not done"
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1"]
+requires = ["18.670.1", "18.671.1", "18.672.1", "18.677.1", "18.684.1", "18.687.1", "18.689.1", "18.691.1", "18.694.1", "18.698.1", "18.700.1", "18.701.1", "18.704.1", "18.715.1", "18.723.1", "18.724.1", "18.732.1", "18.747.1", "18.764.1", "18.765.1", "18.767.1", "18.768.1", "18.770.1", "18.771.1", "18.772.1", "18.776.1", "18.778.1", "18.779.1", "18.783.1", "18.784.1", "18.785.1", "18.786.1", "18.787.1", "18.788.1", "18.789.1", "18.790.1", "18.791.1", "18.799.1", "18.800.1", "18.801.1", "18.802.1", "18.803.1", "18.804.1", "18.805.1", "18.806.1", "18.807.1", "18.808.1", "18.809.1", "18.810.1", "18.811.1", "18.814.1", "18.816.1", "18.818.1", "18.819.1", "18.820.1", "18.824.1", "18.825.1", "18.826.1", "18.827.1", "18.828.1", "18.830.1", "18.832.1", "18.833.1", "18.834.1", "18.836.1", "18.837.1", "18.838.1", "18.846.1", "18.849.1", "18.856.1", "18.861.1", "18.865.1", "18.867.1", "18.868.1", "18.869.1", "18.872.1", "18.873.1", "18.874.1", "18.875.1", "18.877.1", "18.878.1", "18.880.1", "18.881.1", "18.883.1", "18.887.1", "18.889.1", "18.890.1", "18.904.1", "18.906.1", "18.907.1", "18.910.1", "18.911.1", "18.915.1", "18.916.1", "18.917.1", "18.919.1", "18.924.1", "18.925.1", "18.926.1", "18.928.1", "18.931.1", "18.932.1", "18.933.1", "18.937.1", "18.939.1", "18.940.1", "18.941.1", "18.942.1", "18.943.1", "18.944.1", "18.946.1", "18.947.1", "18.948.1", "18.955.1", "18.957.1", "18.964.1", "18.969.1", "18.970.1", "18.973.1", "18.974.1", "18.975.1", "18.977.1", "18.978.1", "18.982.1", "18.983.1", "18.987.1", "18.989.1", "18.990.1", "18.997.1", "18.998.1", "18.1001.1", "18.1003.1", "18.1005.1", "18.1006.1", "18.1010.1", "18.1012.1", "18.1017.1", "18.1022.1", "18.1023.1", "18.1024.1", "18.1025.1", "18.1026.1", "18.1027.1", "18.1035.1", "18.1036.1", "18.1037.1", "18.1052.1", "18.1053.1", "18.1054.1", "18.1055.1", "18.1056.1", "18.1065.1", "18.1066.1", "18.1067.1", "18.1068.1", "18.1069.1", "18.1070.1", "18.1071.1", "18.1072.1", "18.1073.1", "18.1074.1", "18.1076.1", "18.1077.1", "18.1078.1", "18.1083.1", "18.1088.1", "18.1089.1", "18.1098.1", "18.1104.1", "18.1109.1", "18.1111.1", "18.1115.1", "18.1116.1", "18.1119.1", "18.1120.1", "18.1121.1", "18.1122.1", "18.1123.1", "18.1124.1", "18.1125.1", "18.1126.1", "18.1127.1", "18.1129.1", "18.1130.1", "18.1131.1", "18.1132.1", "18.741.1", "18.742.1", "18.745.1", "18.752.1", "18.753.1", "18.754.1", "18.755.1", "18.758.1", "18.760.1", "18.761.1", "18.812.1", "18.844.1", "18.845.1", "18.851.1", "18.853.1", "18.859.1", "18.870.1", "18.885.1", "18.894.1", "18.896.1", "18.897.1", "18.900.1", "18.902.1", "18.921.1", "18.922.1", "18.923.1", "18.936.1", "18.951.1", "18.1038.1", "18.1039.1", "18.1040.1", "18.1041.1", "18.1044.1", "18.1045.1", "18.1047.1", "18.1048.1", "18.1049.1", "18.1050.1", "18.1051.1", "18.1058.1", "18.1060.1", "18.1061.1", "18.1062.1", "18.1063.1", "18.1064.1", "18.1086.1", "18.1091.1", "18.1094.1", "18.1095.1", "18.1096.1", "18.1097.1", "18.1101.1", "18.1103.1", "18.1108.1", "18.1110.1", "18.1117.1", "18.721.1", "18.850.1", "18.884.1", "18.888.1", "18.899.1", "18.950.1", "18.961.1", "18.1133.1", "18.1106.1", "18.1135.1", "18.1136.1", "18.1137.1", "18.1138.1", "18.1001.2", "18.1141.1", "18.731.1", "18.876.1", "18.1081.1", "18.817.1", "18.1105.1", "18.929.1", "18.1139.1", "18.1142.1", "18.1143.1", "18.1144.1", "18.1147.1", "18.1149.1", "18.680.1", "18.726.1", "18.729.1", "18.1150.1", "18.1151.1", "18.1152.1", "18.1153.1", "18.1154.1", "18.1155.1", "18.1156.1", "18.1157.1", "18.1158.1", "18.1161.1", "18.1162.1", "18.1163.1"]
 reqs = ["18001.1", "18001.2"]
 capabilities = []
 interfaces = []
@@ -179840,6 +179842,18 @@ ac_2 = "Every test of tests/buyer.rs passes with its fixtures in the eip155 netw
 [req.181158]
 title = "layerx-agentd audit_coverage test still reconstructs the version-2 audit session and fails to compile"
 ac_1 = "The audit_coverage test target compiles against the version-3 Reconstruction and reconstruct_session signature and every test in it passes, with the reconstruction assertions kept at equal strength."
+
+[req.181161]
+title = "Port the offline export bounds test to the v2 trust source"
+ac_1 = "tests/export_offline_bounds.rs builds against the v2 ExportTrustSource and its four tests pass, with the three bound tests unchanged."
+
+[req.181162]
+title = "Enforce the x402 payee binding on eip155 networks and expect the settlement logs in the seller tests"
+ac_1 = "is_layerx_network recognises eip155 networks so validate enforces the payee binding, and every test of the seller target passes with the settlement logs expected."
+
+[req.181163]
+title = "Resolve the sandbox escrow sequence account through the principal's main account"
+ac_1 = "layerx_programs_call_transfer_apply resolves an unbound principal to its owned main account the way transfer.c does, settles the sandbox escrow charge, and still refuses a principal without one."
 
 [acceptance.18.1066.1]
 feature = "18"
@@ -180977,6 +180991,30 @@ contract = "contracts/agent-ts-sdk.md#history"
 test = "services/agent/crates/layerx-agentd/tests/audit_coverage.rs::recorded_session_reconstructs_decision_bytes_authority_and_core_receipt"
 qualification = "UNRUN"
 
+[acceptance.18.1161.1]
+feature = "18"
+req = "181161.1"
+scenario = "Given the v2 ExportTrustSource, when the offline bounds test target builds and runs, then it compiles and every test passes without a settlement-domain assertion."
+contract = "contracts/agent-ts-sdk.md#history"
+test = "services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1162.1]
+feature = "18"
+req = "181162.1"
+scenario = "Given an eip155:125 offer whose payTo is not derived from its layerx account, when it is validated, then ProfileMismatch is returned, and the seller target passes in full."
+contract = "contracts/interop-deploy.md#deploy-workspace"
+test = "services/interop/crates/layerx-x402/tests/seller.rs"
+qualification = "UNRUN"
+
+[acceptance.18.1163.1]
+feature = "18"
+req = "181163.1"
+scenario = "Given a principal that owns a main account and an unbound transfer apply, when the escrow charge settles, then it debits that account; given a principal with no account, then LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE is returned."
+contract = "contracts/programs.md#market-guest"
+test = "tests/programs/test_call_escrow_principal.c"
+qualification = "UNRUN"
+
 [task.18.1066.1]
 title = "Issue #1066: Refresh every embedded precompile ABI copy in the attestor policy that differs from its repository ABI"
 status = "done"
@@ -181957,7 +181995,7 @@ title = "Issue #1131: Port the agentd real-authority test support and the pay2 q
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["18.1138.1", "18.1143.1", "18.1154.1", "18.1158.1"]
+requires = ["18.1138.1", "18.1143.1", "18.1154.1", "18.1158.1", "18.1161.1"]
 reqs = ["181131.1"]
 capabilities = []
 interfaces = []
@@ -184817,8 +184855,8 @@ symbols = []
 touches = ["services/human/crates/layerx-human-kms/tests/provider.rs", "services/human/crates/layerx-human-kms/tests/provider/native_setup.rs"]
 tests = ["services/human/crates/layerx-human-kms/tests/provider.rs::actual_client_lifecycle_and_mutual_tls"]
 planned_paths = []
-build_cmd = "cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
-verify_cmd = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
+build_cmd = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock && cargo build --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
+verify_cmd = "cargo run --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock -- --runtime-dir /tmp -- cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test provider"
 gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-human"
@@ -184831,13 +184869,14 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "In services/human/crates/layerx-human-kms/tests/provider/native_setup.rs make the two matches on DisclosedNativeOperation (:73 and :82) exhaustive against the enum at services/agent/crates/layerx-crypto/src/disclosure/native.rs:44 by adding explicit arms for ProgramDeploy, ProgramUpgrade, ProgramCall, ProgramWindDown, LegacyProgramCall, BudgetFund, BudgetDefund and BudgetRevoke: a mutation count of 0 at :73 beside OwnerRotation | None, and the unreachable panic at :82 beside OwnerRotation. Add no wildcard arm, so the compiler keeps catching the next variant (issue #1159); the provider target does not compile without this."
+do_5 = "Every test of the provider target starts with RuntimeClock::from_environment (tests/provider.rs:42, :206, :376, :422), which needs LAYERX_RUNTIME_CLOCK_SOCKET from the layerx-runtime-clock service (services/platform/hosted/runtime-clock/src/main.rs:35-63 serves the socket and runs the command it is given with the variable set); the verify runs the target under that service, as docker/human-service and docker/platform-authority run their binaries. Change no test for the clock."
 
 [task.18.1157.1]
 title = "Issue #1157: x402 buyer cannot capture a metered settlement: capture_settlement accepts only PaymentExact logs while sellers settle draws with PaymentDrawn"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["18.1162.1"]
 reqs = ["181157.1"]
 capabilities = []
 interfaces = []
@@ -184885,6 +184924,97 @@ gate_kind = "planned"
 sandbox_profile = "rust"
 owner_role = "fm-agent"
 rollback = "Revert tests/audit_coverage.rs; the target returns to failing to compile against the version-3 Reconstruction."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1161.1]
+title = "Issue #1161: Port the offline export bounds test to the v2 trust source"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181161.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs:186-204 build ExportTrustSource with (receipt_keys, validator_set) as tests/export_v2.rs:25-35 does; export.rs:46-72 (fbb5df6bb, 9.6.1) takes exactly those two vectors and has no settlement accessor. Prove with the v2 API what the test still owns: the trust source is independent of the artifact (constructed from receipt keys and validators alone) and refuses empty, zero or duplicate entries as export.rs:52-72 does. Drop the declared-domain, network-id and settlement assertions that v2 has no equivalent for; offline_export_names_no_settlement_domain (tests/export_v2.rs) already covers the absence of a settlement domain."
+do_2 = "Keep export_frame_is_bounded_at_exactly_one_mebibyte (:110), export_request_uses_the_shared_strict_grammar_and_keeps_the_requested_rung (:126) and export_response_must_answer_every_requested_fact_at_the_requested_rung (:159) exactly as written. Change no source file."
+symbols = []
+touches = ["services/agent/crates/layerx-agentd/tests/export_offline_bounds.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test export_offline_bounds"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test export_offline_bounds"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the test file; it returns to failing the build on the settlement-domain constructor."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1162.1]
+title = "Issue #1162: Enforce the x402 payee binding on eip155 networks and expect the settlement logs in the seller tests"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181162.1"]
+capabilities = []
+interfaces = []
+do_1 = "In services/interop/crates/layerx-x402/src/model.rs make is_layerx_network (:189-193) true for every network validate_network (src/seller.rs:411-423) accepts, eip155:<decimal chain id>, per decision.822; LAYERX_NETWORK_NAMESPACE (:19) names the eip155 namespace. validate (:179-183) then reaches layerx_terms for a LayerX offer again, so a payTo not derived from extra.layerx.account is refused with ProfileMismatch, and layerx_facts (:224-229) accepts eip155 offers. Keep the non-eip155 branch as written."
+do_2 = "In services/interop/crates/layerx-x402/tests/seller.rs extend the two expected settlement strings (:1076-1087 and :1111-1120) with the logs array exactly as settled (src/seller.rs:359-365, d20d224d8) emits it, in its position and form; the receipt the tests settle yields the logs the expected string lists."
+do_3 = "Change no other assertion. If a seller test still fails after do_1, stop and record the test and the observed value instead of changing the assertion."
+do_4 = "Issue #1162."
+symbols = ["is_layerx_network"]
+touches = ["services/interop/crates/layerx-x402/src/model.rs", "services/interop/crates/layerx-x402/tests/seller.rs"]
+tests = []
+planned_paths = []
+build_cmd = "cargo build --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --tests"
+verify_cmd = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-x402 --test seller"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-interop"
+rollback = "Revert model.rs and the two expected strings; the seller target returns to four failures."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.18.1163.1]
+title = "Issue #1163: Resolve the sandbox escrow sequence account through the principal's main account"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181163.1"]
+capabilities = []
+interfaces = []
+do_1 = "In src/modules/programs/call.c:2276-2280 (layerx_programs_call_transfer_apply), when ledger admission is unbound and account_by_id(runtime->accounts, principal) is NULL, resolve the sequence account through lx_account_list_did to the principal's LX_ACCOUNT_AGENT_MAIN account exactly as transfer.c:188-209 does since 0981a1dd3 (13.25.4), including the LX_ACCOUNT_REGISTRY_CAPACITY guard and the allocation failure path; keep LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE when the principal owns no main account. The kernel binds ledger admission only for CALL, WIND_DOWN, BUDGET and ASSET activities (src/protocol/lxp_kernel.c:485-486, :6880-6886), never for LX_PROGRAMS_SANDBOX, so the sandbox escrow charge (programs/crates/layerx-programs-sandbox/src/host_ffi.rs:772-774 -> layerx-programs-runtime/src/ffi_call.rs:1990-2003 -> call.c:2255) reaches this lookup unbound."
+do_2 = "Create tests/programs/test_call_escrow_principal.c (planned) with two cases built as tests/programs/test_transfer_principal.c builds its registry: an unbound transfer apply from a principal that owns a main account settles against that account, and one from a principal that owns no account returns LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE. Register the binary in the Makefile beside programs_transfer_principal (:3200, :3376, :3386)."
+do_3 = "Change no file under src/protocol, src/modules/programs/sandbox.c or the Rust crates; the -208 to ReceiptMismatch to NON_CANONICAL collapse stays as recorded."
+do_4 = "Issue #1163."
+symbols = ["layerx_programs_call_transfer_apply"]
+touches = ["src/modules/programs/call.c", "tests/programs/test_call_escrow_principal.c", "Makefile"]
+tests = ["tests/programs/test_call_escrow_principal.c::escrow_from_owned_main_account", "tests/programs/test_call_escrow_principal.c::escrow_from_unknown_principal_refused"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/programs_call_escrow_principal && ./build/tests/programs_call_escrow_principal"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert call.c, delete the test and its Makefile lines; the escrow charge returns to refusing unbound principals."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2

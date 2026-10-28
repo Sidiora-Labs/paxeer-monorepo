@@ -10252,3 +10252,27 @@ detail = "6a5587897 (10.11.2) made the attestor test cluster publish a wallet in
 title = "symbols must be code symbols the graph indexes"
 detail = "18.849.1 listed the Dockerfile stage 'native' in symbols; after a full passing image build the done record was refused with 'symbol native — not defined in the graph' (a11). Docker stages, make targets and file names are not graph symbols; leave symbols empty for container, script and fixture tasks."
 
+[gotcha.2099]
+title = "A step must not assume a signature change another task did not deliver"
+detail = "10.4.3 told its tests to pass the frame Limits to AgentRuntime::connect because 10.13.3 'changes' that parameter; 10.13.3 changed the peer codec and left connect on the LNI Limits (agent_runtime.rs:1975-1988), so the migrated tests failed E0308 after a passing build (a3). When a step names a signature another task changes, read the signature at head when the prerequisite lands, and give the change an explicit owner (now 10.3.1 do_9)."
+
+
+[gotcha.2100]
+title = "A reshaped pub constructor must build every test target that calls it"
+detail = "9.6.1 (fbb5df6bb) changed ExportTrustSource::new to (receipt_keys, validator_set) and removed settlement(), verifying only --test export_v2; tests/export_offline_bounds.rs:192 still builds the old form, so every all-targets layerx-agentd test build fails (18.1131.1 a7). Repeat of the pattern of gotchas 2044/2046/2095: grep tests/ for the constructor before publishing and put each caller target in build_cmd."
+
+
+[gotcha.2101]
+title = "Test targets that read the runtime clock need the clock service in their gate"
+detail = "layerx-human-kms tests/provider.rs starts every test with RuntimeClock::from_environment, which needs LAYERX_RUNTIME_CLOCK_SOCKET; without the layerx-runtime-clock service all 14 tests return Unavailable (18.1156.1 a3/a4). The service images run their binaries under `layerx-runtime-clock --runtime-dir /tmp -- <command>` (services/platform/hosted/runtime-clock/src/main.rs:35-63); a verify of such a target must do the same."
+
+
+[gotcha.2102]
+title = "Renaming a network namespace can silently disable a validation branch"
+detail = "decision.822 moved every x402 network to eip155:<id>, but model.rs:19/:189-193 kept is_layerx_network on the 'layerx' namespace, so validate() skipped layerx_terms for every LayerX offer and the payee redirect refusal vanished; tests/seller.rs:494/:598 caught it only because 18.1157.1's gate ran the whole seller target (11.3.3 ran one test with --exact). When a decision renames identifiers, grep every constant and predicate that keyed on the old name, and run whole targets, not single tests, in the gate of the task that moves the fixtures."
+
+
+[gotcha.2103]
+title = "A kernel fallback added to one lookup must be mirrored in its sibling lookups"
+detail = "13.25.4 (0981a1dd3) taught transfer.c:188-209 to resolve an unbound principal to its owned main account; the same raw-principal lookup at call.c:2276-2280, reached by the sandbox escrow charge whose activity never binds ledger admission (lxp_kernel.c:485-486, :6880-6886), kept refusing with -208, which two Rust layers collapse to NON_CANONICAL (ffi_call.rs:2003, host_ffi.rs:774). 13.27.1 burned attempts 17-21 on it. When a fallback lands in one path, grep for the sibling account_by_id(…, principal) lookups and the activities that reach them unbound."
+
