@@ -179410,7 +179410,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1068.1]
 title = "Issue #1068: Align the SDK tied-position history tests with the string row ids the decoders return"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179527,7 +179527,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1072.1]
 title = "Issue #1072: Record the upgrade module as the server of precompile 0x1014 in the activation table"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
