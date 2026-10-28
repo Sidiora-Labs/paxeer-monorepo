@@ -21,6 +21,15 @@ export function decodeAddressArg(data: string, argIndex: number): string | null 
   return `0x${slot.slice(24).toLowerCase()}`;
 }
 
+export function decodeUintArg(data: string, argIndex: number): bigint | null {
+  const start = 2 + 8 + 64 * argIndex;
+  const end = start + 64;
+  if (data.length < end) return null;
+  const slot = data.slice(start, end);
+  if (!/^[0-9a-fA-F]{64}$/.test(slot)) return null;
+  return BigInt(`0x${slot}`);
+}
+
 export function decodeMoverCounterparty(
   selector: string,
   data: string,
@@ -287,6 +296,7 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
       if (selector === ERC20_TRANSFER_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 0);
+        tokenAmount = intent.tokenAmount ?? decodeUintArg(data, 1);
       } else if (selector === ERC20_APPROVE_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 0);
@@ -294,6 +304,7 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
       } else if (selector === ERC20_TRANSFER_FROM_SELECTOR) {
         tokenContract = to;
         tokenRecipient = decodeAddressArg(data, 1);
+        tokenAmount = intent.tokenAmount ?? decodeUintArg(data, 2);
       } else if (mover.known) {
         tokenContract = to;
         tokenRecipient = mover.counterparty;
@@ -365,9 +376,20 @@ export async function evaluateAgent(input: EvaluateAgentInput): Promise<AgentDec
   }
 
   // 8. Per-rule token cap (allow-token rule's max_value_wei = per-tx ceiling).
-  if (tokenContract && tokenAmount !== null && idx.allowTokenCaps.has(tokenContract)) {
+  if (tokenContract && idx.allowTokenCaps.has(tokenContract)) {
     const cap = idx.allowTokenCaps.get(tokenContract);
-    if (cap !== null && cap !== undefined && tokenAmount > cap) {
+    if (
+      cap !== null &&
+      cap !== undefined &&
+      tokenAmount === null &&
+      (selector === ERC20_TRANSFER_SELECTOR || selector === ERC20_TRANSFER_FROM_SELECTOR)
+    ) {
+      return deny('INVALID_TX_SHAPE', 'token transfer has no decodable amount', {
+        token: tokenContract,
+        selector,
+      });
+    }
+    if (cap !== null && cap !== undefined && tokenAmount !== null && tokenAmount > cap) {
       return deny('TOKEN_VALUE_CAP', 'token amount exceeds the per-tx cap for this token', {
         token: tokenContract,
         amount: tokenAmount.toString(),

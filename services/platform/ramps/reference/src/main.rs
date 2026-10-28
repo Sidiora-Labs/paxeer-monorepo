@@ -15,7 +15,7 @@ use layerx_ramp_toolkit::clients::{
     ProviderClient, SecretFile,
 };
 use layerx_ramp_toolkit::engine::{InventoryRebalancer, RampEngine};
-use layerx_ramp_toolkit::journal::{Journal, WorkflowStage};
+use layerx_ramp_toolkit::journal::{Journal, OrderSnapshot, WorkflowStage};
 use layerx_ramp_toolkit::migration::{
     SourceSettlementConfig, SourceSettlementRequest, SourceSettlementResult,
     SourceSettlementService, SourceSettlementState, SOURCE_SETTLEMENT_VERSION,
@@ -817,12 +817,7 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         if snapshot.order.customer != principal {
             return Err(error(404, "order_not_found"));
         }
-        return Ok(ok(json!({
-            "order_id": snapshot.order.order_id,
-            "order": snapshot.order,
-            "stage": snapshot.stage,
-            "presentation": snapshot.presentation()
-        })));
+        return Ok(ok(order_response(snapshot)));
     }
     if request.method == "POST" && request.path == "/internal/v1/rebalances" {
         return rebalance(state, request);
@@ -844,6 +839,20 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         return Ok(ok(rebalance_presentation(state, snapshot)));
     }
     Err(error(404, "not_found"))
+}
+
+fn order_response(snapshot: &OrderSnapshot) -> serde_json::Value {
+    json!({
+        "order_id": snapshot.order.order_id,
+        "order": snapshot.order,
+        "stage": snapshot.stage,
+        "presentation": snapshot.presentation(),
+        "evidence": {
+            "tx_hash": snapshot.evidence.tx_hash,
+            "receipt_digest": snapshot.evidence.receipt_digest,
+            "rung": snapshot.evidence.rung.map(Rung::name)
+        }
+    })
 }
 
 fn create_order(state: &State, request: &Request) -> Result<Response, Response> {
@@ -1403,7 +1412,104 @@ mod boundary_tests {
     use std::sync::atomic::Ordering;
     use std::sync::Arc;
 
-    use super::ConnectionGate;
+    use layerx_ramp_toolkit::journal::TransitionEvidence;
+    use layerx_ramp_toolkit::AuthenticatedPrincipal;
+
+    use super::{
+        order_response, ConnectionGate, CreateOrder, OperatorIdentity, OrderSnapshot, QuoteTerms,
+        RampDirection, RampOrder, Rung, WorkflowStage,
+    };
+
+    #[test]
+    fn order_response_carries_receipt_evidence() {
+        let order = RampOrder::bind(
+            CreateOrder {
+                order_id: "order-1".into(),
+                quote_id: "quote-1".into(),
+                payer_grant: None,
+                payer_grant_purpose: None,
+            },
+            QuoteTerms {
+                quote_id: "quote-1".into(),
+                direction: RampDirection::OnRamp,
+                layerx_asset: [1; 32],
+                layerx_amount: 1_000,
+                external_currency: "EUR".into(),
+                external_amount_minor: 100,
+                rate_numerator: 10,
+                rate_denominator: 1,
+                fee_minor: 2,
+                maximum_slippage_bps: 25,
+                context: [8; 32],
+                provider_token: "product-eur".into(),
+                payout_token: "beneficiary-123".into(),
+                expires_at: 2_000,
+            },
+            AuthenticatedPrincipal {
+                principal_id: "customer-1".into(),
+                account: "agent:did:layerx:customer-1:main".into(),
+            },
+            OperatorIdentity {
+                principal_id: "operator-1".into(),
+                account: "agent:did:layerx:operator-1:main".into(),
+                signer_key_handle: "kms.operator-1.primary".into(),
+            },
+            1_000,
+        )
+        .expect("bound ramp order");
+        let tx_hash = [0x11; 32];
+        let receipt_digest = [0x22; 32];
+        let mut snapshot = OrderSnapshot {
+            order,
+            stage: WorkflowStage::Done,
+            evidence: TransitionEvidence {
+                tx_hash: Some(tx_hash),
+                receipt_digest: Some(receipt_digest),
+                rung: Some(Rung::Committed),
+                ..TransitionEvidence::empty()
+            },
+            lease: None,
+        };
+
+        let response = order_response(&snapshot);
+        assert_eq!(response["order_id"], snapshot.order.order_id);
+        assert_eq!(response["order"], serde_json::json!(snapshot.order));
+        assert_eq!(response["stage"], "done");
+        assert_eq!(
+            response["presentation"],
+            serde_json::json!(snapshot.presentation())
+        );
+        assert_eq!(response["evidence"]["tx_hash"], serde_json::json!(tx_hash));
+        assert_eq!(
+            response["evidence"]["receipt_digest"],
+            serde_json::json!(receipt_digest)
+        );
+        assert_eq!(response["evidence"]["rung"], "committed");
+        assert_eq!(
+            response["presentation"]["receipt_digest"],
+            response["evidence"]["receipt_digest"]
+        );
+        assert_eq!(
+            response["evidence"]
+                .as_object()
+                .expect("evidence object")
+                .len(),
+            3
+        );
+
+        snapshot.evidence.rung = Some(Rung::Receipted);
+        assert_eq!(order_response(&snapshot)["evidence"]["rung"], "receipted");
+
+        snapshot.evidence = TransitionEvidence::empty();
+        assert_eq!(
+            order_response(&snapshot)["evidence"],
+            serde_json::json!({
+                "tx_hash": null,
+                "receipt_digest": null,
+                "rung": null
+            })
+        );
+    }
 
     #[test]
     fn connection_gate_refuses_work_above_the_bound_and_releases_capacity() {

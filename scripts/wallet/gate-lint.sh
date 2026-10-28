@@ -20,10 +20,10 @@ the sdk with its own build script, which first builds the linked sdk
 services/agent/sdk/typescript; eslint and
 tsc --noEmit for the app apps/wallet; cargo fmt --check and
 cargo clippy -- -D warnings for layerx-human-kms,
-layerx-human-identity-provider and layerx-human-service in the human
-workspace and for layerx-platform-gateway in the platform workspace. A
+layerx-human-identity-provider and layerx-human-service in the services/human
+workspace and for layerx-platform-gateway in the services/platform workspace. A
 target whose directory or manifest does not exist is reported as absent and
-is never counted as passed.
+fails the gate.
 
   --check   validate this script's syntax, the required tooling
             (go, pnpm, cargo, timeout) and print the target list with
@@ -42,7 +42,7 @@ Environment:
                               with an optional fourth field naming a file inside
                               the directory that must exist
 
-Exit status is non-zero when any target that ran failed or the budget ran out.
+Exit status is non-zero when any target is absent, failed or the budget ran out.
 EOF
 }
 
@@ -62,10 +62,10 @@ builtin_targets() {
     pnpm-wallet-tsc services/wallet "$PNPM_TSC_CMD" pnpm-workspace.yaml \
     pnpm-app-eslint apps/wallet 'pnpm exec eslint .' package.json \
     pnpm-app-tsc apps/wallet 'pnpm exec tsc --noEmit' package.json \
-    rust-human-fmt human "cargo fmt --check $HUMAN_PKGS" Cargo.toml \
-    rust-human-clippy human "cargo clippy $HUMAN_PKGS -- -D warnings" Cargo.toml \
-    rust-platform-fmt platform 'cargo fmt --check -p layerx-platform-gateway' hosted/gateway/Cargo.toml \
-    rust-platform-clippy platform 'cargo clippy -p layerx-platform-gateway -- -D warnings' hosted/gateway/Cargo.toml
+    rust-human-fmt services/human "cargo fmt --check $HUMAN_PKGS" Cargo.toml \
+    rust-human-clippy services/human "cargo clippy $HUMAN_PKGS -- -D warnings" Cargo.toml \
+    rust-platform-fmt services/platform 'cargo fmt --check -p layerx-platform-gateway' hosted/gateway/Cargo.toml \
+    rust-platform-clippy services/platform 'cargo clippy -p layerx-platform-gateway -- -D warnings' hosted/gateway/Cargo.toml
 }
 
 LABELS=()
@@ -245,7 +245,7 @@ run_gate() {
   done
   print_table
   print_summary "$ran" "$passed" "$failed" "$absent"
-  if [[ "$failed" -gt 0 ]]; then
+  if [[ "$failed" -gt 0 || "$absent" -gt 0 ]]; then
     exit 1
   fi
   exit 0

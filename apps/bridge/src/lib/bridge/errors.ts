@@ -32,7 +32,7 @@ const PRECOMPILE_CODES: Readonly<Record<string, string>> = {
   INVALID_REQUEST: 'The bridge request is not valid.',
 };
 
-const VAULT_ERRORS: Record<string, (args: readonly unknown[]) => string> = {
+const VAULT_ERRORS: Readonly<Record<string, (args: readonly unknown[]) => string>> = {
   WhenPaused: () => 'The bridge is paused on this chain. Try again after it reopens.',
   ZeroAmount: () => 'Enter an amount greater than zero.',
   InvalidRecipient: () => 'That destination address is not valid for this bridge.',

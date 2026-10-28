@@ -319,18 +319,15 @@ describe("e2eLocalNode", () => {
     });
     const takeProfitPrice = roundToTick((quote.entryPrice * 110n) / 100n, config.tickSize);
     const stopLossPrice = roundToTick((quote.entryPrice * 95n) / 100n, config.tickSize);
-    const plan = await h.writes.planOpen(
-      {
-        marketId: MARKET_ID,
-        isLong: true,
-        collateralAmount: OPEN_COLLATERAL,
-        leverage: LEVERAGE,
-        quote: { entryPrice: quote.entryPrice, sizeUsd: quote.sizeUsd },
-        takeProfitPrice,
-        stopLossPrice,
-      },
-      h.perpsAllowanceSource(),
-    );
+    const plan = await h.writes.planOpen({
+      marketId: MARKET_ID,
+      isLong: true,
+      collateralAmount: OPEN_COLLATERAL,
+      leverage: LEVERAGE,
+      quote: { entryPrice: quote.entryPrice, sizeUsd: quote.sizeUsd },
+      takeProfitPrice,
+      stopLossPrice,
+    });
     const receipts = await sendAll(h, plan);
     const opened = parseEventLogs({
       abi: h.PerpsPrecompileABI,
@@ -370,7 +367,7 @@ describe("e2eLocalNode", () => {
       reduceOnly: false,
       cloid: h.calls.ladderCloid(await latestBlockTime(h), 0),
     });
-    const placed = await sendAll(h, await h.writes.planOrder([limit], h.perpsAllowanceSource()));
+    const placed = await sendAll(h, await h.writes.planOrder([limit]));
     const orderLogs = parseEventLogs({
       abi: h.PerpsPrecompileABI,
       logs: placed[placed.length - 1].logs,

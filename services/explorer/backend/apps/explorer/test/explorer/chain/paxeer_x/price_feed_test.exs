@@ -262,7 +262,9 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
       refute plan =~ "Seq Scan on paxeer_x_price_observations"
     end
 
-    test "list_updates walks the block and index order and ranges deep pages on it" do
+    test "list_updates walks the block and index order and ranges deep pages on it", %{update: update} do
+      seed_list_updates(update)
+
       %{rows: [[index_definition]]} =
         Repo.query!(
           "SELECT indexdef FROM pg_indexes WHERE tablename = 'paxeer_x_price_updates' AND indexname = $1",
@@ -272,14 +274,29 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
       assert index_definition =~ "(block_number DESC, index DESC)"
 
       for paging <- [%PagingOptions{page_size: 50}, %PagingOptions{page_size: 50, key: {11, 2}}] do
-        plan = explain(PriceFeed.list_updates_query(paging))
+        plan = Ecto.Adapters.SQL.explain(Repo, :all, PriceFeed.list_updates_query(paging))
 
         assert plan =~ ~r/Index Scan using "?paxeer_x_price_updates_block_number_DESC_index_DESC_index"?/
         refute plan =~ "Seq Scan on paxeer_x_price_updates"
+        refute plan =~ "Sort Key"
       end
 
-      plan = explain(PriceFeed.list_updates_query(%PagingOptions{page_size: 50, key: {11, 2}}))
+      plan =
+        Ecto.Adapters.SQL.explain(Repo, :all, PriceFeed.list_updates_query(%PagingOptions{page_size: 50, key: {11, 2}}))
+
       assert plan =~ ~r/Index Cond: \(block_number <= '?11'?(::bigint)?\)/
+    end
+
+    test "list_updates of one market walks the block and index order without sorting", %{update: update} do
+      seed_list_updates(update)
+
+      for paging <- [%PagingOptions{page_size: 50}, %PagingOptions{page_size: 50, key: {11, 2}}] do
+        plan = Ecto.Adapters.SQL.explain(Repo, :all, PriceFeed.list_updates_query(paging, market_id: 0))
+
+        assert plan =~ ~r/Index Scan using "?paxeer_x_price_updates_block_number_DESC_index_DESC_index"?/
+        refute plan =~ "Seq Scan on paxeer_x_price_updates"
+        refute plan =~ "Sort Key"
+      end
     end
 
     test "list_updates of one feeder reads the feeder index in page order" do
@@ -362,6 +379,41 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   end
 
   describe "scanned watermark" do
+    test "compaction deletes scanned rows re-inserted at or below the watermark" do
+      blocks = Map.new(10..16, &{&1, insert(:block, number: &1)})
+
+      for number <- 10..14 do
+        assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[number], [])
+      end
+
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 14
+      assert PriceFeed.scanned_through(10) == 14
+
+      assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[10], [])
+      assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[14], [])
+      assert :ok = PriceFeed.mark_unscannable(11, "failed", "scan failed")
+      assert :ok = PriceFeed.mark_unscannable(12, "unavailable", "height unavailable")
+      assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[16], [])
+      assert Repo.get!(PriceFeedScannedBlock, 10).status == "scanned"
+      assert Repo.get!(PriceFeedScannedBlock, 14).status == "scanned"
+
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 14
+      refute Repo.exists?(from(s in PriceFeedScannedBlock, where: s.status == "scanned" and s.block_number <= 14))
+      assert Repo.get!(PriceFeedScannedBlock, 11).status == "failed"
+      assert Repo.get!(PriceFeedScannedBlock, 12).status == "unavailable"
+      assert Repo.get!(PriceFeedScannedBlock, 16).status == "scanned"
+
+      assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[10], [])
+      assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[14], [])
+      assert {:ok, 0} = PriceFeed.replace_block_updates(blocks[15], [])
+
+      assert PriceFeed.compact_scanned_blocks(10, 100) == 16
+      assert PriceFeed.scanned_through(10) == 16
+      refute Repo.exists?(from(s in PriceFeedScannedBlock, where: s.status == "scanned" and s.block_number <= 16))
+      assert Repo.get!(PriceFeedScannedBlock, 11).status == "failed"
+      assert Repo.get!(PriceFeedScannedBlock, 12).status == "unavailable"
+    end
+
     test "compact_scanned_blocks advances over contiguous rows, keeps unscannable rows and bounds catch-up" do
       Enum.each(10..20, &insert(:block, number: &1))
       Repo.insert_all(PriceFeedScannedBlock, Enum.map([10, 11, 12, 13, 14, 16, 18], &%{block_number: &1}))
@@ -405,8 +457,10 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
       assert PriceFeed.compact_scanned_blocks(10, 100) == 16
       assert PriceFeed.scanned_through(10) == 16
 
+      refute Repo.get(PriceFeedScannedBlock, 11)
+
       assert Repo.all(from(s in PriceFeedScannedBlock, order_by: s.block_number, select: {s.block_number, s.status})) ==
-               [{11, "scanned"}, {13, "failed"}, {14, "unavailable"}, {18, "scanned"}]
+               [{13, "failed"}, {14, "unavailable"}, {18, "scanned"}]
     end
 
     test "a status outside the known set is refused" do
@@ -417,6 +471,70 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   end
 
   describe "delete_expired_updates/2" do
+    test "retention keeps the newest submission of every market", %{update: update} do
+      now = DateTime.utc_now()
+      btc = Enum.find(update.observations, &(&1.market_id == 0))
+      bnb = Enum.find(update.observations, &(&1.market_id == 17))
+      unlisted = Enum.find(update.observations, &(&1.market_id == 1))
+
+      for {number, age_days, consensus, status, observations} <- [
+            {1, 45, true, 1, [btc, bnb]},
+            {2, 40, true, 1, [btc, bnb, unlisted]},
+            {3, 35, true, 1, [btc]},
+            {4, 32, false, 1, [btc, bnb]},
+            {5, 1, false, 1, [btc, bnb]},
+            {6, 31, true, 0, [btc, bnb]},
+            {7, 31, true, 1, [%{btc | accepted: false}, %{bnb | accepted: false}]}
+          ] do
+        block =
+          insert(:block,
+            number: number,
+            consensus: consensus,
+            timestamp: DateTime.add(now, -age_days * 86_400, :second)
+          )
+
+        updates =
+          for index <- 0..if(number == 3, do: 1, else: 0) do
+            %{
+              update
+              | hash: "0x" <> String.pad_leading(Integer.to_string(number * 2 + index, 16), 64, "0"),
+                index: index,
+                status: status,
+                observations: observations
+            }
+          end
+
+        assert {:ok, _} = PriceFeed.replace_block_updates(block, updates)
+      end
+
+      assert 2 ==
+               PriceFeed.upsert_markets([
+                 %{market_id: 0, symbol: "BTC", chainflow_symbol: "BTC"},
+                 %{market_id: 17, symbol: "BNB", chainflow_symbol: "BNB"}
+               ])
+
+      assert [
+               {%PriceMarket{market_id: 0}, %PriceObservation{block_number: 3, update: %{index: 1}}},
+               {%PriceMarket{market_id: 17}, %PriceObservation{block_number: 2, update: %{timestamp: timestamp}}}
+             ] = before_retention = PriceFeed.latest_per_market()
+
+      assert DateTime.compare(timestamp, DateTime.add(now, -40 * 86_400, :second)) == :eq
+
+      assert PriceFeed.delete_expired_updates(30, 1) == 1
+      assert PriceFeed.delete_expired_updates(30, 1) == 1
+      assert PriceFeed.delete_expired_updates(30, 1) == 1
+      assert PriceFeed.delete_expired_updates(30, 1) == 1
+      assert PriceFeed.delete_expired_updates(30, 1) == 1
+      assert PriceFeed.delete_expired_updates(30, 1) == 0
+      assert PriceFeed.latest_per_market() == before_retention
+
+      assert Repo.all(from(u in PriceUpdate, order_by: [u.block_number, u.index], select: {u.block_number, u.index})) ==
+               [{2, 0}, {3, 1}, {5, 0}]
+
+      assert Repo.get_by!(PriceObservation, market_id: 1).block_number == 2
+      refute Repo.exists?(from(o in PriceObservation, where: o.block_number in [1, 4, 6, 7]))
+    end
+
     test "deletes the submissions older than the retention period oldest first in bounded batches", %{
       update: update
     } do
@@ -467,6 +585,28 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
 
       assert {:ok, numbers} = PriceFeed.stream_unscanned_block_numbers([], &[&1 | &2], 5)
       assert Enum.reverse(numbers) == [5]
+    end
+  end
+
+  defp seed_list_updates(update) do
+    for number <- 1..40 do
+      block = insert(:block, number: number)
+
+      updates =
+        for index <- 0..99 do
+          %{
+            update
+            | hash: "0x" <> String.pad_leading(Integer.to_string(number * 100 + index, 16), 64, "0"),
+              index: index,
+              observations: [hd(update.observations)]
+          }
+        end
+
+      assert {:ok, 100} = PriceFeed.replace_block_updates(block, updates)
+    end
+
+    for table <- ["blocks", "paxeer_x_price_updates", "paxeer_x_price_observations"] do
+      Repo.query!("ANALYZE " <> table)
     end
   end
 

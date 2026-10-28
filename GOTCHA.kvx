@@ -5759,8 +5759,8 @@ fix = "ProcessProposal REJECTs any EVM tx unless the test stores block params be
 
 [gotcha.1237]
 area = "node/app.go"
-symptom = "NewTestWrapper/TestAppOpts cannot inject node config keys."
-fix = "tests read config through ReadActivationHeight(viper) and apply it with SetActivationHeight."
+symptom = "NewTestWrapper/TestAppOpts cannot inject a sequencing activation height through node config, and no such node config key exists."
+fix = "The sequencing height is chain state: the merge plan writes it with SequencerKeeper.SetActivationHeight(ctx, H+1) (node/upgrades.go:509) and App.Sequenced reads it (node/app.go:3359); tests apply the merge plan or call app.SequencerKeeper.SetActivationHeight on the test app context."
 
 [gotcha.1238]
 area = "node/app.go"
@@ -9836,8 +9836,8 @@ do = "Use cg built from hyperfide 4f3a3094b or later (branch cg/spec-symbol-reso
 [gotcha.2021]
 area = "docker build context"
 symptom = "make programs-release-build inside docker/paxeer/Dockerfile.paxd-node or docker/layerx/Dockerfile fails 'failed to calculate checksum of: /src/programs/vendor/ed25519-dalek-2.2.0/tests/examples/pubkey.der'."
-cause = "Both ignore files re-exclude programs/vendor/**/*.der after re-including programs/vendor/**, which drops the vendored crate's public test vectors that its .cargo-checksum.json lists; cargo --locked refuses the vendored source."
-do = "Re-include exactly those fixture files (programs/vendor/ed25519-dalek-*/tests/examples/*.der) after the key-material rule; never edit a vendored .cargo-checksum.json and never widen the re-include beyond the fixtures (18.849.1, 18.869.1)."
+cause = "The programs/vendor/**/*.der rule (docker/layerx/Dockerfile.dockerignore:161, docker/paxeer/Dockerfile.paxd-node.dockerignore:72) drops the public .der files of every vendored crate, both the checksummed test fixtures and the files ring, rustls-pki-types and rustls-webpki compile in with include_bytes!."
+do = "Re-include every public .der file of vendored crates in the programs build graph, file by file, after the programs/vendor/**/*.der rule, as docker/layerx/Dockerfile.dockerignore:173-284 and docker/paxeer/Dockerfile.paxd-node.dockerignore:84-195 do (der, ed25519, ed25519-dalek, elliptic-curve, openssl, pkcs8, ring, rustls-pki-types, rustls-webpki, sec1, spki); never edit a vendored .cargo-checksum.json and never re-include .der files outside programs/vendor (18.849.1, 18.869.1)."
 
 [gotcha.2022]
 area = "wallet gateway e2e environment"
@@ -10067,3 +10067,127 @@ area = "interop x402 fixtures"
 symptom = "After re-recording client-exchange.json most x-websearch payment tests fail with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload."
 cause = "The recorder's sequencer metadata (sequencerId, firstBatchNumber, lastBatchNumber in gateway/buyer.json) was fed into configure_with as the server's accepted receipt-key window, narrowing it to one batch."
 do = "The server fixture keeps key_id hex(&receipt_key_id()), first_height 0, last_height u64::MAX; buyer.json metadata builds only the buyer-side SequencerAuthorization in tests."
+
+[gotcha.2060]
+area = "task graph"
+symptom = "Two tasks on one crate required each other and neither could build: the crate's lib fix needed the test-support crate to compile its tests, and the test-support port's gate built every test target of the crate (18.1119.1 and 18.1132.1)."
+cause = "cargo build -p <crate> --tests compiles every integration test target, so a gate on the whole crate cannot pass while any one test target is broken by another task."
+do = "Put a test-support port in the touches of the task that fixes the crate, and gate a follow-up test task on its single --test target; never let two pending tasks require each other."
+
+[gotcha.2061]
+area = "agent test support"
+symptom = "Every layerx-agentd test target fails to build with E0560 on StartupConfig fields expected_protocol_version and sequencer_authority_source."
+cause = "5609ec802 (9.12.3) replaced those fields with expected_chain_id and receipt_key_source and ported only src and its own tests; tests/support/mod.rs:431-446 still builds the old literal."
+do = "A task that changes a pub struct compiles cargo build -p <crate> --tests in its gate; until then, port tests/support/mod.rs in the task that first needs the test targets (18.1131.1)."
+
+[gotcha.2062]
+area = "agent native routes"
+symptom = "native_routes_rpc.rs panics with MissingVariable(LAYERX_AGENT_NODE_RPC_URL) in an isolated qualification run."
+cause = "The planned test reads a live node URL and a real receipt hash from the environment instead of serving a local responder."
+do = "Planned agent tests serve their own 127.0.0.1 JSON-RPC responder (tests/handshake_gate.rs:36-88) and sign their own fixtures; no gate reads a live node from the environment."
+
+[gotcha.2063]
+area = "x402 evidence"
+symptom = "The x-websearch payment suite fails 22 of 35 tests at main with EvidenceMismatch and SettlementMismatch whatever the recorded fixtures contain."
+cause = "layerx-x402 buyer.rs:403 unhex requires a 0x prefix while model.rs:322-335 validates bare 64-hex assets, and seller.rs:353-357 emits evidence without the logs LayerXEvidence requires (issue #1133)."
+do = "Fix the crate (18.1133.1) before re-recording any exchange; a fixture re-recording cannot pass while the buyer refuses the seller's own format."
+
+[gotcha.2064]
+area = "container images"
+symptom = "docker build of docker/layerx/Dockerfile fails in the builder stage with curl 502 on every retry, whatever the Dockerfile change under test."
+cause = "The stage downloads three libwasmvm libraries from an external host that is down (issue #1106) although the same libraries, with matching pinned digests, are in the tree and docker/paxeer/Dockerfile.paxd-node already copies them from the context."
+do = "Never fetch at image build time what the checkout carries; copy from the context and verify against the pinned digest file. A gate that reaches an external host is blocked by that host, so file the host as an issue and gate the image tasks on the context fix."
+
+[gotcha.2065]
+area = "gateway e2e"
+symptom = "Every test of test/e2e/gateway.e2e.test.ts fails in beforeAll with 503 sponsor_unconfigured at the provisioning call."
+cause = "5f5f66995 retired the gateway sponsor key (decision.1206) and the fixture still writes SPONSOR_PRIVATE_KEY_FILE, a variable nothing reads; the top-up branch stays until 12.6.3 replaces it with the station-sponsored bind."
+do = "When a task retires an input, grep the test fixtures for the variable in the same task; an e2e that provisions needs the replacement path on main, so gate it on that task instead of relaunching."
+
+[gotcha.2066]
+area = "kernel host"
+symptom = "With a programs fee record seeded, consecutive receipts stop linking (ResultingStateRoot != next PreviousStateRoot) although two identical runs give identical hashes."
+cause = "The host loaded two keys of a module it did not load in full; the kernel computes a module's subtree root from the entries loaded into it, so a partially loaded module has a different root than the fully loaded one the next activity sees."
+do = "A module is either fully loaded or not loaded for an activity; never load stray keys of another module into the kernel branch. When a fixture change makes a continuity assertion fail, suspect the loaded set before suspecting nondeterminism."
+
+[gotcha.2067]
+area = "task gates"
+symptom = "The build fails with ERR_PNPM_OTHER_PM_EXPECTED or a wall of type errors that the task never touched."
+cause = "The gate used a package manager the app does not pin (apps/explorer pins yarn, apps/bridge pins pnpm), or gated on a type-check that already fails at main."
+do = "Copy the gate prefix from a done task of the same app, and before gating a task on an app's type-check confirm that the check passes at main; if it does not, cut the repair task first and make the others require it."
+
+[gotcha.2068]
+area = "spec tasks"
+symptom = "cg spec done fails with 'symbol <name> not defined in the graph' after build and tests passed."
+cause = "The task's symbols list named a shell script, a file or a test title; the done check resolves every symbol against the code graph, which indexes functions and types only."
+do = "Put only graph identifiers (functions, types, methods) in symbols; use [] for shell-only or test-only tasks and name tests in the tests key."
+
+[gotcha.2069]
+area = "task gates"
+symptom = "A type-check that passes for every other task of the same app fails with hundreds of errors in files the task never touched, or with missing workspace modules."
+cause = "Each app resolves dependencies through its own manager (apps/explorer yarn, apps/bridge pnpm, apps/web npm, the wallet gateway pnpm) and apps/explorer generates its Chakra recipe types in a postinstall step that a reinstall without scripts loses."
+do = "Copy the gate prefix from a done task of the same app; never reinstall dependencies inside an attempt; for apps/explorer run yarn chakra:typegen before tsc when node_modules changed."
+
+[gotcha.2070]
+title = "x-websearch payment harness: the payer address and the grant issuer must derive the same ledger account"
+detail = "tests/payment.rs offers an EVM payer address and answers accountId for it from payer_account_rules, but the recorder issued grants and receipts from the ed25519 payer DID's account, so every metered step returned grant_payer_mismatch and re-recording was impossible. When the harness payer changes form, every issuer of recorded grants and receipts changes with it, and the recorder regenerates all gateway recordings together."
+
+[gotcha.2071]
+title = "go.sum can lack a go.mod hash that only read-only module mode notices"
+detail = "GOFLAGS=-mod=mod builds (the sandboxed gates) add missing go.sum lines silently; the chain image's builder stage runs read-only and fails on the missing golang.org/x/net go.mod hash the replaced keyring still pulls in. Gate a go.sum repair with GOFLAGS=-mod=readonly."
+
+[gotcha.2072]
+title = "A task that adds fields to one struct must not pre-empt the dependent task that adds them to the next"
+detail = "10.2.7 adds receipt fields to ReceiptMaterial; its consumers copy into ProtocolEvidence, which gains the fields only in 10.13.1 (requires 10.2.7). The first task keeps the existing fields and consumers and adds beside them; the dependent task moves the consumers. Do-lines that say 'switch the consumers to the new fields' in the earlier task cannot compile."
+
+[gotcha.2073]
+title = "Field renames and type reshapes leave sibling test files behind; build the crate's --tests before marking done"
+detail = "10.13.7 renamed ReclaimAgentContext.account_sequence to nonce and added tests/reclaim_nonces.rs while tests/reclaim.rs kept the old field (#1142); 9.11.1 reshaped the event Cursor and left four layerx-agentd test files on the tuple form (#1143). Each gate ran only its own new test target. A rename or reshape task's build must be cargo build -p <crate> --tests."
+
+[gotcha.2074]
+title = "A done task whose test passes can still leave its second step unimplemented"
+detail = "18.1126.1 added a replay mutex and a test but not the sealed-layer source it named; the in-process test could not reproduce the divergence that the committed-fixture recorder hits at the first prior-block kernel read (#1144). When a do-line names a structural change, the acceptance test must fail without it."
+
+[gotcha.2075]
+title = "A spec edit that leaves a key without a value stops every task start while the dependency validator still passes"
+detail = "Four task blocks carried bare max_builds, stop_condition, path_policy and evidence_policy lines; cg spec start refused every task with 'cannot parse spec.kvx' for twenty minutes while plan validation passed. Lint every line of spec.kvx for key = value form, and each task block for exactly one of every bounded-gate key, before committing a spec edit."
+
+[gotcha.2076]
+title = "A test module included by #[path] compiles inside the including crate, so its dependencies must be declared there too"
+detail = "layerx-human-kms tests/support/attestor_cluster.rs gained ureq calls (6a5587897); layerx-human-service's wallet_identity_e2e includes it by #[path] and declares no ureq dev-dependency, so that target no longer builds (#1147). When a shared test support module gains a crate, add it to every crate that includes the module and record the lock edge."
+
+[gotcha.2077]
+title = "symbols must name only what the task defines, uniquely within the indexed workspace"
+detail = "cg spec done resolves every symbols entry after the gate passes: Operation::retired matched two definitions (api-gen lib.rs:33 and the service) and Rung lives in another crate the index does not resolve from the task's crate; 10.0.2 attempt 5 and 10.2.2 attempt 7 lost a passed gate to it. Leave shared method names and foreign types out of symbols."
+
+[gotcha.2078]
+title = "Two repairs inside one crate's test targets must not both build --tests"
+detail = "18.1143.1 (four agentd test files' cursor fixtures) built -p layerx-agentd --tests, which also compiles the seventeen targets whose shared support module 18.1131.1 is porting, while 18.1131.1 requires 18.1143.1; neither could pass. A repair task builds only the test targets it touches; the task that owns the shared module is the one that builds --tests."
+
+[gotcha.2079]
+title = "A task gate must not name a test whose fixture a dependent task repairs"
+detail = "18.1135.1's verify_cmd ran TestResolutionExecuteEntry, which fails at main until 18.1130.1 seeds the fee record, and 18.1130.1 requires 18.1135.1: neither could pass and 641 pending tasks sat behind the pair. A task's gate names the tests it adds or whose fixtures it owns; a test another task repairs belongs to that task's gate."
+
+[gotcha.2080]
+title = "A core backfill restores only chain-positioned durable events"
+detail = "Since 646c4f96c apply_backfill matches each RecoveredEvent position against durable events decoded as Ethereum logs; local-only stream events (approval emissions) have no log, so position() is None and the backfill returns GapError::DurableEvent. Restore-after-gap fixtures must ingest a positioned chain log as tests/gaps.rs:349-392 does. 18.1143.1's gate kept running the stale approval_events fixture; narrowed, repaired by 18.1150.1."
+
+
+[gotcha.2081]
+title = "Attestor cluster fixtures pass only the asset send type"
+detail = "Since eec0db612 the attestor daemon admits ATTESTOR_ACTIVITY_TYPES equal to 0x10005 alone and 027b07111 refuses a wider list at startup. wallet_identity_e2e flattened its whole module registry (governance 0x70004, bridge 0x80001) into the cluster env and both nodes exited before signing. Pass the asset send alone; the registry stays the service's own. 18.1147.1's gate narrowed to the attestor-independent test; repaired by 18.1151.1."
+
+[gotcha.2082]
+title = "Mutually dependent deletions are one task"
+detail = "layerx-intents vocabulary.rs variants wrap crate::precompile types and precompile.rs constructs those variants; deleting either side alone (10.21.1 attempts 1-2) fails the crate build. When two files reference each other, their deletions belong to one task with both paths in touches."
+
+
+[gotcha.2083]
+title = "Raising the go directive outruns an installed older Go under GOTOOLCHAIN=local"
+detail = "09f9d9239 raised go.mod to go 1.25.8; every go command on an installed go1.25.6 with GOTOOLCHAIN=local refuses with 'go.mod requires go >= 1.25.8'. A gate that runs go must allow GOTOOLCHAIN=go<pin> (or install the pinned release) before any go command; the error is the toolchain, not the task."
+
+
+[gotcha.2084]
+title = "go mod download needs a go.mod hash for every version in the module graph"
+detail = "go mod download (and go list -m all) read the go.mod of every module version in the graph and refuse any whose /go.mod hash is missing from go.sum, even versions that provide no package to the build (golang.org/x/net for #1141, golang.org/x/term v0.15.0 for #1152). go build alone never notices; add the lines with go mod download <module>@<version>."
+

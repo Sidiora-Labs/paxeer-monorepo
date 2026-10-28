@@ -52,7 +52,7 @@ func TestDecodeStore(t *testing.T) {
 		{"market", types.MarketKey(marketA.Denom), marketBytesA, marketBytesB, fmt.Sprintf("Market: %+v\nMarket: %+v", marketA, marketB)},
 		{"surface", types.SurfaceKey([20]byte{0xab}), marshal(surfaceA), marshal(surfaceB), "Surface: {Role:SidioraPool Generation:1 Market:factory/creator/token}\nSurface: {Role:SidioraPool Generation:2 Market:factory/creator/token}"},
 		{"unknown", []byte{0xff, 0x10}, []byte{0xab}, []byte{0xcd}, "launchpad prefix 0xff: AB\nlaunchpad prefix 0xff: CD"},
-		{"unhandled prefix", types.ProtocolFeesKey("quote"), []byte("12"), []byte("34"), "launchpad prefix 0x03: 3132\nlaunchpad prefix 0x03: 3334"},
+		{"unhandled prefix", append(append([]byte(nil), types.ProtocolFeesPrefix...), []byte("quote")...), []byte("12"), []byte("34"), "launchpad prefix 0x03: 3132\nlaunchpad prefix 0x03: 3334"},
 		{"zero prefix", []byte{0x00}, []byte{0x01}, []byte{0x02}, "launchpad prefix 0x00: 01\nlaunchpad prefix 0x00: 02"},
 	}
 	registry := make(sdk.StoreDecoderRegistry)

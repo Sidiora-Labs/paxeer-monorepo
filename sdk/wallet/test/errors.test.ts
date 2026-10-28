@@ -13,7 +13,7 @@ function unauthorized_reasons_exclude_custody_not_supported(): void {
   if (!source) throw new Error('errors.ts was not loaded');
   const declaration = source.statements.find(
     (statement): statement is ts.TypeAliasDeclaration =>
-      ts.isTypeAliasDeclaration(statement) && statement.name.text === 'UnauthorizedReason',
+      ts.isTypeAliasDeclaration(statement) && statement.name.text === 'UnauthorizedReason'
   );
   if (!declaration) throw new Error('UnauthorizedReason was not declared');
   const reasonType = program.getTypeChecker().getTypeFromTypeNode(declaration.type);
@@ -36,4 +36,7 @@ function unauthorized_reasons_exclude_custody_not_supported(): void {
   ]);
 }
 
-test(unauthorized_reasons_exclude_custody_not_supported);
+test(
+  'unauthorized_reasons_exclude_custody_not_supported',
+  unauthorized_reasons_exclude_custody_not_supported
+);

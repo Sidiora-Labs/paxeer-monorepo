@@ -5,7 +5,7 @@ import { expect, test } from 'vitest';
 function accountSourceFiles(directory: string): string[] {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);
-    if (entry.isDirectory()) return accountSourceFiles(file);
+    if (entry.isDirectory()) return entry.name === 'test' ? [] : accountSourceFiles(file);
     return /\.tsx?$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name) ? [file] : [];
   });
 }
@@ -31,4 +31,4 @@ function account_module_has_no_custody_deposit() {
   }
 }
 
-test(account_module_has_no_custody_deposit);
+test('account_module_has_no_custody_deposit', account_module_has_no_custody_deposit);

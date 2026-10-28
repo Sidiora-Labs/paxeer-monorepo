@@ -11,7 +11,7 @@ use std::time::Duration;
 
 use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
+use layerx_client::lni::transport::Limits;
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::{issue_session_key, SessionKeyRequest};
 use layerx_crypto::signer::Signer as _;
@@ -59,6 +59,7 @@ use crate::custody::{
     ProviderDeployment, ProviderKeyDescription, ProviderKeyReference, ProviderSignRequest,
     RemoteKmsProvider, RotationState, SigningLimits,
 };
+use crate::frame::{Limits as KmsLimits, MutualTlsConfig};
 use crate::notify::{
     ActivityEntryId, Channel, DeepLinks, Dispatcher, NotificationId, NotificationSummary,
     Preferences,
@@ -374,7 +375,7 @@ struct RemoteKmsConfig {
     root_certificate: PathBuf,
     client_certificate: PathBuf,
     client_private_key: PathBuf,
-    limits: Limits,
+    limits: KmsLimits,
 }
 
 impl RemoteKmsConfig {
@@ -388,7 +389,13 @@ impl RemoteKmsConfig {
             root_certificate: absolute("LAYERX_HUMAN_KMS_ROOT_CERTIFICATE_DER")?,
             client_certificate: absolute("LAYERX_HUMAN_KMS_CLIENT_CERTIFICATE_DER")?,
             client_private_key: absolute("LAYERX_HUMAN_KMS_CLIENT_PRIVATE_KEY_DER")?,
-            limits: bounded_limits("LAYERX_HUMAN_KMS")?,
+            limits: KmsLimits {
+                maximum_frame_bytes: number("LAYERX_HUMAN_KMS_MAX_FRAME_BYTES")?,
+                maximum_connections: number("LAYERX_HUMAN_KMS_MAX_CONNECTIONS")?,
+                maximum_streams: number("LAYERX_HUMAN_KMS_MAX_STREAMS")?,
+                maximum_queued_bytes: number("LAYERX_HUMAN_KMS_MAX_QUEUED_BYTES")?,
+                deadline: Duration::from_secs(number("LAYERX_HUMAN_KMS_DEADLINE_SECONDS")?),
+            },
         })
     }
 }
@@ -2474,6 +2481,12 @@ fn creation_material(
         crate::journeys::ReceiptLookup::Found(value) => value,
         crate::journeys::ReceiptLookup::Absent => return Err(ApiFailure::upstream_degraded()),
     };
+    if material.tx_hash != activity_id
+        || material.receipt_hash != <[u8; 32]>::from(Sha256::digest(&material.canonical_bytes))
+        || material.rung < layerx_types::rung::Rung::Receipted
+    {
+        return Err(ApiFailure::upstream_degraded());
+    }
     let evidence = crate::agents::ProtocolEvidence {
         signed_activity: signed.bytes().to_vec(),
         actor: activity.actor_did().to_vec(),

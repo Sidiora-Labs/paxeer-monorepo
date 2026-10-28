@@ -1235,6 +1235,24 @@ func TestShippedPolicySponsoredFeeAndPaymasterDelegation(t *testing.T) {
 	expect(t, h.policy.Evaluate(testAccount, setCode(common.HexToAddress(friend)), h.ledger), CodeDelegateNotAllowed)
 }
 
+func TestSetCodeRefusesALaterUnlistedAuthorization(t *testing.T) {
+	h := newHarness(t)
+	to := common.HexToAddress(friend)
+	allowed := common.HexToAddress("0x4444444444444444444444444444444444444444")
+	tx := &evm.Transaction{
+		Type: 4, ChainID: chainID, To: &to, Value: big.NewInt(0),
+		Authorizations: []types.SetCodeAuthorization{
+			{ChainID: *uint256.NewInt(125), Address: allowed, Nonce: 1},
+			{ChainID: *uint256.NewInt(125), Address: common.HexToAddress(friend), Nonce: 2},
+		},
+	}
+	req := Request{Kind: KindEVMTransaction, View: tx}
+	expect(t, h.policy.Evaluate(testAccount, req, h.ledger), CodeDelegateNotAllowed)
+
+	tx.Authorizations[1].Address = allowed
+	expect(t, h.policy.Evaluate(testAccount, req, h.ledger), CodeAllowed)
+}
+
 func TestTrustedSpenderNearMaxApprovalRefused(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
