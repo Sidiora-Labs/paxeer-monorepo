@@ -183401,7 +183401,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.850.1]
 title = "Issue #850: Build Python spot writes as PECOR precompile calls from generated write tables"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -183432,7 +183432,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.884.1]
 title = "Issue #884: Point the wallet gate Rust targets at services/human and services/platform and fail on an absent built-in target"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
