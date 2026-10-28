@@ -8775,3 +8775,11 @@ symbol = "block_update_hashes"
 observed = "Attempt 2 (163f3579b) passes the per-app verify_cmd introduced in 46580130d and is refused only by the symbol check 'Explorer.Chain.PaxeerX.PriceFeed.block_update_hashes not defined in the graph'."
 assumption = "The graph indexes Elixir functions by bare name (46580130d, 18.877.1 and 18.875.1 precedents); the symbol now reads block_update_hashes and attempt 3 carries 163f3579b unchanged."
 severity = "minor"
+
+[finding.13.34.4.1]
+task = "13.34.4"
+file = "precompiles/layerxprograms/replay_test.go:71"
+symbol = "TestProgramsReplayedActivityReturnsStoredReceipt"
+observed = "Attempt 5 (5c731af56): the first program call succeeds (ResultCode 0, fee charged) and persists zero new 0x04 idempotency rows, so ReadIdempotentReceipt (modules/lxphost/read.go:166) answers LXP_ERR_UNKNOWN_FIELD; task 1.2.1 is done and src/protocol/lxp_kernel.c no longer calls lxp_idempotency_record, as decision.101 requires."
+assumption = "req.13294 ac_1 (a second submit returns the receipt stored under IdempotencyKey) contradicts decision.101 and the landed 1.2.1 and is the open conflict of decision.1718; the task is held for a ruling (retarget to the actor-sequence replay guard, or retire with req.13294) and nothing in it is changed."
+severity = "blocker"
