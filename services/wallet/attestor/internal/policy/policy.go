@@ -722,6 +722,22 @@ func inspectCall(to common.Address, value *big.Int, data []byte) (Inspection, er
 		err = token("token", "amount")
 	case call.Destination == "perps" && call.Method == "openPosition":
 		err = token("collateralToken", "collateralAmount")
+	case call.Destination == "launchpad" && call.Method == "swapTokenForTokenWithPermit":
+		asset, ok := call.Args["tokenIn"].(common.Address)
+		if !ok {
+			return Inspection{}, refuse(CodeDecodeError, "launchpad.%s tokenIn is malformed", call.Method)
+		}
+		type permitParams struct {
+			Value    *big.Int
+			Deadline *big.Int
+			V        uint8
+			R        [32]byte
+			S        [32]byte
+		}
+		permit := abi.ConvertType(call.Args["permit"], new(permitParams)).(*permitParams)
+		out.Spends = append(out.Spends, Spend{Asset: TokenAsset(asset), Amount: permit.Value})
+	case call.Destination == "launchpad" && (call.Method == "buyWithPermit" || call.Method == "sellWithPermit" || call.Method == "createMarketWithPermit"):
+		return Inspection{}, refuse(CodeSelectorNotAllowed, "launchpad.%s does not name the permitted token for cap accounting", call.Method)
 	case call.Destination == "layerxbridge" && call.Method == "bridgeOut":
 		if err = token("asset", "amount"); err == nil {
 			err = recipient("recipient")
