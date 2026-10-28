@@ -282,8 +282,13 @@ impl Seller {
         Ok(SellerOutcome::Refused { header, response })
     }
 
+    /// Translates an executed payment into a settlement after verifying its
+    /// signed receipt, logs and binding to an already opened gateway translation.
+    ///
+    /// # Errors
+    /// Returns a refusal for invalid evidence, mismatched terms or gateway state.
     #[allow(clippy::too_many_arguments)]
-    fn settled(
+    pub fn settled(
         gateway: &mut GatewayCore,
         principal: &PrincipalId,
         idempotency_key: [u8; 32],
@@ -354,7 +359,13 @@ impl Seller {
         let mut layerx = json!({
             "receipt": STANDARD.encode(&evidence.signed_receipt),
             "receiptDigest": digest_text,
-            "verificationLevel": evidence.rung.label()
+            "verificationLevel": evidence.rung.label(),
+            "logs": verified.logs().iter().map(|log| json!({
+                "address": prefixed_hex(&log.address()),
+                "topics": log.topics().iter().map(|topic| prefixed_hex(topic)).collect::<Vec<_>>(),
+                "data": prefixed_hex(log.data()),
+                "logIndex": format!("0x{:x}", log.log_index()),
+            })).collect::<Vec<_>>()
         });
         if let (Some(purpose), Some(terms)) = (purpose, layerx.as_object_mut()) {
             terms.insert("purposeHash".to_owned(), Value::String(purpose));
@@ -552,6 +563,17 @@ fn digest(domain: &[u8], parts: &[&[u8]]) -> [u8; 32] {
 fn hex(bytes: &[u8; 32]) -> String {
     const DIGITS: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(64);
+    for byte in bytes {
+        output.push(char::from(DIGITS[usize::from(byte >> 4)]));
+        output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
+    }
+    output
+}
+
+fn prefixed_hex(bytes: &[u8]) -> String {
+    let mut output = String::with_capacity(2 + bytes.len() * 2);
+    output.push_str("0x");
+    const DIGITS: &[u8; 16] = b"0123456789abcdef";
     for byte in bytes {
         output.push(char::from(DIGITS[usize::from(byte >> 4)]));
         output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));

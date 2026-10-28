@@ -462,7 +462,7 @@ function decodeHistoryItem(value: unknown): HistoryItem {
     if (typeof item[key] !== 'string') fail(`history item ${key}`);
     return item[key] as string;
   };
-  if (!/^[1-9][0-9]*$/.test(text('id'))) fail('history item id');
+  if (!/^(?:explorer:)?[1-9][0-9]*$/.test(text('id'))) fail('history item id');
   if (item.direction !== 'in' && item.direction !== 'out') fail('history item direction');
   if (typeof item.final !== 'boolean') fail('history item final');
   if (!('decoded' in item)) fail('history item decoded');

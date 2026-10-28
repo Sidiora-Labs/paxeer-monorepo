@@ -5759,8 +5759,8 @@ fix = "ProcessProposal REJECTs any EVM tx unless the test stores block params be
 
 [gotcha.1237]
 area = "node/app.go"
-symptom = "NewTestWrapper/TestAppOpts cannot inject node config keys."
-fix = "tests read config through ReadActivationHeight(viper) and apply it with SetActivationHeight."
+symptom = "NewTestWrapper/TestAppOpts cannot inject a sequencing activation height through node config, and no such node config key exists."
+fix = "The sequencing height is chain state: the merge plan writes it with SequencerKeeper.SetActivationHeight(ctx, H+1) (node/upgrades.go:509) and App.Sequenced reads it (node/app.go:3359); tests apply the merge plan or call app.SequencerKeeper.SetActivationHeight on the test app context."
 
 [gotcha.1238]
 area = "node/app.go"
@@ -9836,8 +9836,8 @@ do = "Use cg built from hyperfide 4f3a3094b or later (branch cg/spec-symbol-reso
 [gotcha.2021]
 area = "docker build context"
 symptom = "make programs-release-build inside docker/paxeer/Dockerfile.paxd-node or docker/layerx/Dockerfile fails 'failed to calculate checksum of: /src/programs/vendor/ed25519-dalek-2.2.0/tests/examples/pubkey.der'."
-cause = "Both ignore files re-exclude programs/vendor/**/*.der after re-including programs/vendor/**, which drops the vendored crate's public test vectors that its .cargo-checksum.json lists; cargo --locked refuses the vendored source."
-do = "Re-include exactly those fixture files (programs/vendor/ed25519-dalek-*/tests/examples/*.der) after the key-material rule; never edit a vendored .cargo-checksum.json and never widen the re-include beyond the fixtures (18.849.1, 18.869.1)."
+cause = "The programs/vendor/**/*.der rule (docker/layerx/Dockerfile.dockerignore:161, docker/paxeer/Dockerfile.paxd-node.dockerignore:72) drops the public .der files of every vendored crate, both the checksummed test fixtures and the files ring, rustls-pki-types and rustls-webpki compile in with include_bytes!."
+do = "Re-include every public .der file of vendored crates in the programs build graph, file by file, after the programs/vendor/**/*.der rule, as docker/layerx/Dockerfile.dockerignore:173-284 and docker/paxeer/Dockerfile.paxd-node.dockerignore:84-195 do (der, ed25519, ed25519-dalek, elliptic-curve, openssl, pkcs8, ring, rustls-pki-types, rustls-webpki, sec1, spki); never edit a vendored .cargo-checksum.json and never re-include .der files outside programs/vendor (18.849.1, 18.869.1)."
 
 [gotcha.2022]
 area = "wallet gateway e2e environment"
@@ -10067,3 +10067,39 @@ area = "interop x402 fixtures"
 symptom = "After re-recording client-exchange.json most x-websearch payment tests fail with grant_payer_mismatch, receipt_mismatch or invalid_payment_payload."
 cause = "The recorder's sequencer metadata (sequencerId, firstBatchNumber, lastBatchNumber in gateway/buyer.json) was fed into configure_with as the server's accepted receipt-key window, narrowing it to one batch."
 do = "The server fixture keeps key_id hex(&receipt_key_id()), first_height 0, last_height u64::MAX; buyer.json metadata builds only the buyer-side SequencerAuthorization in tests."
+
+[gotcha.2060]
+area = "task graph"
+symptom = "Two tasks on one crate required each other and neither could build: the crate's lib fix needed the test-support crate to compile its tests, and the test-support port's gate built every test target of the crate (18.1119.1 and 18.1132.1)."
+cause = "cargo build -p <crate> --tests compiles every integration test target, so a gate on the whole crate cannot pass while any one test target is broken by another task."
+do = "Put a test-support port in the touches of the task that fixes the crate, and gate a follow-up test task on its single --test target; never let two pending tasks require each other."
+
+[gotcha.2061]
+area = "agent test support"
+symptom = "Every layerx-agentd test target fails to build with E0560 on StartupConfig fields expected_protocol_version and sequencer_authority_source."
+cause = "5609ec802 (9.12.3) replaced those fields with expected_chain_id and receipt_key_source and ported only src and its own tests; tests/support/mod.rs:431-446 still builds the old literal."
+do = "A task that changes a pub struct compiles cargo build -p <crate> --tests in its gate; until then, port tests/support/mod.rs in the task that first needs the test targets (18.1131.1)."
+
+[gotcha.2062]
+area = "agent native routes"
+symptom = "native_routes_rpc.rs panics with MissingVariable(LAYERX_AGENT_NODE_RPC_URL) in an isolated qualification run."
+cause = "The planned test reads a live node URL and a real receipt hash from the environment instead of serving a local responder."
+do = "Planned agent tests serve their own 127.0.0.1 JSON-RPC responder (tests/handshake_gate.rs:36-88) and sign their own fixtures; no gate reads a live node from the environment."
+
+[gotcha.2063]
+area = "x402 evidence"
+symptom = "The x-websearch payment suite fails 22 of 35 tests at main with EvidenceMismatch and SettlementMismatch whatever the recorded fixtures contain."
+cause = "layerx-x402 buyer.rs:403 unhex requires a 0x prefix while model.rs:322-335 validates bare 64-hex assets, and seller.rs:353-357 emits evidence without the logs LayerXEvidence requires (issue #1133)."
+do = "Fix the crate (18.1133.1) before re-recording any exchange; a fixture re-recording cannot pass while the buyer refuses the seller's own format."
+
+[gotcha.2064]
+area = "container images"
+symptom = "docker build of docker/layerx/Dockerfile fails in the builder stage with curl 502 on every retry, whatever the Dockerfile change under test."
+cause = "The stage downloads three libwasmvm libraries from an external host that is down (issue #1106) although the same libraries, with matching pinned digests, are in the tree and docker/paxeer/Dockerfile.paxd-node already copies them from the context."
+do = "Never fetch at image build time what the checkout carries; copy from the context and verify against the pinned digest file. A gate that reaches an external host is blocked by that host, so file the host as an issue and gate the image tasks on the context fix."
+
+[gotcha.2065]
+area = "gateway e2e"
+symptom = "Every test of test/e2e/gateway.e2e.test.ts fails in beforeAll with 503 sponsor_unconfigured at the provisioning call."
+cause = "5f5f66995 retired the gateway sponsor key (decision.1206) and the fixture still writes SPONSOR_PRIVATE_KEY_FILE, a variable nothing reads; the top-up branch stays until 12.6.3 replaces it with the station-sponsored bind."
+do = "When a task retires an input, grep the test fixtures for the variable in the same task; an e2e that provisions needs the replacement path on main, so gate it on that task instead of relaunching."
