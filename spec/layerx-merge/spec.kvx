@@ -148344,7 +148344,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.11.14.3]
 title = "Publish committed-rung vectors recorded from a local chain"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["11.2.4", "5.55.5", "18.1167.1", "18.1176.1"]
@@ -182159,7 +182159,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1131.1]
 title = "Issue #1131: Port the agentd real-authority test support and the pay2 qualification harness to the node readiness gate"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1138.1", "18.1143.1", "18.1154.1", "18.1158.1", "18.1161.1"]
