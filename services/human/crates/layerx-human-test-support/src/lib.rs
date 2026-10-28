@@ -255,6 +255,16 @@ pub fn serve_readiness_node(receipt_signer: &SigningKey) -> (NodeRpcConfig, Join
 }
 
 /// # Panics
+/// Panics if starting or connecting to the local readiness node fails.
+#[must_use]
+pub fn connect_readiness_node(receipt_signer: &SigningKey) -> (NodeRpc, JoinHandle<()>) {
+    let (config, server) = serve_readiness_node(receipt_signer);
+    let node = NodeRpc::connect(&config)
+        .unwrap_or_else(|error| panic!("connect readiness node: {error:?}"));
+    (node, server)
+}
+
+/// # Panics
 /// Panics if the queue capacity is zero or the admission journal cannot open.
 #[must_use]
 pub fn evidence_node(
@@ -304,9 +314,7 @@ pub fn connect_evidence_node(socket_path: &Path) -> transport::Uds {
 #[must_use]
 pub fn evidence_verifier(receipt_signer: &SigningKey) -> EvidenceAuthority {
     let mut gate = evidence_gate(receipt_signer);
-    let (config, readiness_server) = serve_readiness_node(receipt_signer);
-    let node = NodeRpc::connect(&config)
-        .unwrap_or_else(|error| panic!("connect readiness node: {error:?}"));
+    let (node, readiness_server) = connect_readiness_node(receipt_signer);
     gate.readiness_gate(&node)
         .unwrap_or_else(|error| panic!("readiness gate: {error:?}"));
     readiness_server
