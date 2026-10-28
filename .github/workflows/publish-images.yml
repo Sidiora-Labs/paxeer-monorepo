@@ -93,8 +93,9 @@ jobs:
           entries=$(for name in "${IMAGE_NAMES[@]}"; do
             read -r canonical dockerfile <<<"$(image_source "$name")"
             jq -n -c --arg name "$name" --arg dockerfile "$dockerfile" --arg target "$(image_target "$name")" \
+              --arg context "$(image_context "$name")" \
               --arg args "$(image_build_args "$name" | sed -E 's/--build-arg //g; s/ +/\n/g')" \
-              '{name: $name, dockerfile: $dockerfile, target: $target, build_args: $args}'
+              '{name: $name, dockerfile: $dockerfile, target: $target, context: $context, build_args: $args}'
           done)
           {
             # paxd builds FROM the pushed paxd-node image, so it runs after the matrix
@@ -127,10 +128,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare the registry builder context
+        if: matrix.image.context == '@registry-builder'
+        id: registry-builder
+        run: |
+          set -euo pipefail
+          bash services/platform/hosted/registry/builder-environment/build-env.sh --prepare-context "$RUNNER_TEMP/registry-builder"
+          test "$(cat "$RUNNER_TEMP/registry-builder/source-revision")" = "$(git rev-parse HEAD)"
+          printf 'context=%s/context\n' "$RUNNER_TEMP/registry-builder" >> "$GITHUB_OUTPUT"
       - name: Build and push ${{ matrix.image.name }}
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
-          context: .
+          context: ${{ steps.registry-builder.outputs.context || matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
           target: ${{ matrix.image.target }}
           build-args: ${{ matrix.image.build_args }}
@@ -164,10 +173,18 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Prepare the registry builder context
+        if: matrix.image.context == '@registry-builder'
+        id: registry-builder
+        run: |
+          set -euo pipefail
+          bash services/platform/hosted/registry/builder-environment/build-env.sh --prepare-context "$RUNNER_TEMP/registry-builder"
+          test "$(cat "$RUNNER_TEMP/registry-builder/source-revision")" = "$(git rev-parse HEAD)"
+          printf 'context=%s/context\n' "$RUNNER_TEMP/registry-builder" >> "$GITHUB_OUTPUT"
       - name: Build and push ${{ matrix.image.name }}
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
-          context: .
+          context: ${{ steps.registry-builder.outputs.context || matrix.image.context }}
           file: ${{ matrix.image.dockerfile }}
           target: ${{ matrix.image.target }}
           build-args: ${{ matrix.image.build_args }}
