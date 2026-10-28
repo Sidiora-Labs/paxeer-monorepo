@@ -9483,3 +9483,27 @@ symbol = "Seal"
 observed = "Attempt 3 (53c5b3509) installed a standby source with Seal, Sealed and SealForFinalize; nothing calls SealForFinalize because FinalizeBlock reads Sealed() before any decided transaction reaches the source, and the WAL Seal record has no tx 0, so Sealed() stayed nil and the new test failed at its sealed-layer assertion."
 assumption = "do_4 adds the one FinalizeBlock hook that hands the decided transactions to a source implementing SealForFinalize; node/app.go joins the touches and go vet covers ./node/."
 severity = "major"
+
+[finding.18.1154.1.1]
+task = "18.1154.1"
+file = "services/agent/crates/layerx-agentd/src/read/checkpoint.rs:224"
+symbol = "CheckpointReadError::UnavailableCapability"
+observed = "No path in src/read constructs UnavailableCapability; the checkpoint test asserted the reason unavailable_capability.read.proof_bundle, which only the RPC adapter's read_proof_bundle (src/agent_rpc_adapters.rs:1722-1737) renders when it refuses every request, so the assertion cannot be met through proof_bundle (attempt 1, 57e8cb95b)."
+assumption = "do_1 asserts the BelowRequestedRung and NotCommitted refusals verify_bundle produces; the adapter's blanket refusal of read.proof_bundle belongs to the read capability's owner."
+severity = "minor"
+
+[finding.18.1129.1.4]
+task = "18.1129.1"
+file = "services/interop/crates/x-websearch/tests/payment.rs"
+symbol = "recorded_settlements_are_captured_by_the_buyer"
+observed = "Attempt 11 (d8b55d7cc) fails 12 of 35 payment tests: the buyer refuses every metered settlement because capture_settlement accepts only PaymentExact (issue #1157); the conformance pin in src/lib.rs:43-49 lies outside touches; the PAX payee loop at :3520-3533 and fourteen assertions naming retired lx_* RPCs contradict do_7 and the native gateway the landed tasks record; the refusals.json recorder has no native rules for refused draws; RECEIVER_SEQUENCE renders as the word equal to the in-file RECEIVER_SECRET."
+assumption = "Resolved by requires 18.1157.1, do_9 to do_11 and decisions 1800 to 1802; attempt 12 starts from attempt 11."
+severity = "major"
+
+[finding.18.849.1.4]
+task = "18.849.1"
+file = "docker/layerx/Dockerfile"
+symbol = "layerx-chain:qualify"
+observed = "Attempt 10 (291d759bb) built the native stage; the full image build failed in the paxd Go compile with no space left on device (logs-verify-2.log:767) when the build host's disk filled."
+assumption = "The full build needs more free disk than the native stage leaves; attempt 11 frees the build host's caches before the full build or runs on a larger disk."
+severity = "minor"

@@ -10217,3 +10217,16 @@ detail = "cg spec done leaves out a dependent whose all-targets check already fa
 title = "A standby cannot seal before consensus hands it the primary's batch"
 detail = "The WAL Seal record carries height and sequence bounds only; the primary's signed sequence batch (tx 0) reaches the standby first as FinalizeBlock's Txs[0]. A standby sealed-layer source therefore needs a FinalizeBlock hook that receives the decided transactions before sealedBlockForFinalize reads Sealed(); installing a source alone leaves Sealed() nil and the standby on the re-execution path."
 
+[gotcha.2091]
+title = "A test may assert a refusal its module never produces"
+detail = "layerx-agentd tests/checkpoint.rs asserted CheckpointReadError::UnavailableCapability with the reason the RPC adapter renders; src/read has no producer for that variant, so porting the request shape could never make the assertion pass. Before porting a test to a new request shape, grep the module for the asserted variant and reason; if nothing produces it, the spec must name the refusals the module does produce (18.1154.1)."
+
+
+[gotcha.2092]
+title = "Buyer and seller verified different payment logs for the same scheme"
+detail = "layerx-x402's seller accepts PaymentExact or PaymentDrawn while the buyer accepted PaymentExact only, so every genuine metered settlement failed buyer capture and only a fabricated log could pass. When one side of a protocol gains a scheme, grep the counterpart for the same topic constant before writing a cross-side fixture test (#1157, 18.1129.1)."
+
+
+[gotcha.2093]
+title = "The layerx full image build needs more disk than its native stage"
+detail = "docker build of layerx-chain fails in the paxd Go compile with ENOSPC after the native target built; free the build host's warm caches and dangling images before the full build, or build on a larger disk (18.849.1)."
