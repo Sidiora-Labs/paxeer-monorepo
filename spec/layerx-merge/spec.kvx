@@ -138126,7 +138126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.9.1.8]
 title = "Port layerx-agentd to the rung and height mirror types"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["9.1.7", "9.27.2", "11.2.7", "18.1083.1", "18.1111.1"]
@@ -157042,7 +157042,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.24.2]
 title = "Serve simulateCall as a static kernel simulation that writes nothing"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.3", "1.93.2", "13.22.8", "1.23.6", "13.28.1", "13.24.1", "18.1073.1"]
@@ -158264,7 +158264,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.34.7]
 title = "Prove simulateCall output equals the following call across the fixture entrypoints"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 17
 requires = ["13.24.1", "13.24.2", "18.1073.1"]
@@ -172543,7 +172543,7 @@ qualification = "UNRUN"
 
 [task.18.875.1]
 title = "Issue #875: Make the price feed tuning migration safe to rerun after a partial failure"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179909,7 +179909,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.18.1089.1]
 title = "Issue #1089: Refresh the explorer's embedded copy of the sequencer receipt vectors after their regeneration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.997.1", "18.1104.1"]

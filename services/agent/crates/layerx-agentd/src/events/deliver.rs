@@ -624,7 +624,10 @@ impl DeliveryEngine {
             Some(reference) => ReceiptReference::Verified {
                 receipt_ref: ReceiptRef::new(hex_reference(reference))
                     .map_err(|_: ContractError| DeliveryError::InvalidEvent)?,
-                verification_level: core_event.receipt_verification_level.into(),
+                rung: core_event
+                    .receipt_verification_level
+                    .rung()
+                    .ok_or(DeliveryError::InvalidEvent)?,
             },
             None => ReceiptReference::None,
         };
