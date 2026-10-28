@@ -5,6 +5,7 @@ use std::net::SocketAddr;
 use std::path::Path;
 
 const ROUTER_EXAMPLE: &str = include_str!("../railway.env.example");
+const FILE_VARIABLES: &str = "FILE_VARIABLES = (";
 
 fn configured(example: &str) -> BTreeMap<&str, &str> {
     let mut variables = BTreeMap::new();
@@ -112,5 +113,71 @@ fn router_example_file_secrets_have_table_rows() {
         }
         let name = format!("ENDPOINT_EVENTS_{kind}_TOKEN");
         assert!(variables.contains_key(name.as_str()), "missing {name}");
+    }
+}
+
+#[test]
+fn router_entrypoint_stages_every_table_backed_file_variable() {
+    let entrypoint = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../../../docker/platform-gateway/entrypoint.sh"),
+    )
+    .unwrap_or_else(|error| panic!("gateway entrypoint must be readable: {error}"));
+    let file_variables = entrypoint
+        .split_once(FILE_VARIABLES)
+        .expect("gateway entrypoint must declare FILE_VARIABLES")
+        .1
+        .split_once(')')
+        .expect("FILE_VARIABLES tuple must be closed")
+        .0
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty())
+        .map(|line| {
+            line.trim_end_matches(',')
+                .strip_prefix('"')
+                .and_then(|name| name.strip_suffix('"'))
+                .unwrap_or_else(|| panic!("expected double-quoted file variable: {line}"))
+        })
+        .collect::<BTreeSet<_>>();
+    let bindings_variable = entrypoint
+        .lines()
+        .find_map(|line| line.strip_prefix("BINDINGS_VARIABLE = "))
+        .and_then(|value| value.strip_prefix('"'))
+        .and_then(|value| value.strip_suffix('"'))
+        .expect("gateway entrypoint must declare a double-quoted BINDINGS_VARIABLE");
+    assert!(
+        file_variables.contains("LAYERX_GATEWAY_UI_BINDINGS_FILE"),
+        "LAYERX_GATEWAY_UI_BINDINGS_FILE must be staged by FILE_VARIABLES"
+    );
+
+    let table = fs::read_to_string(
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../../docker/platform-gateway/files.tsv"),
+    )
+    .unwrap_or_else(|error| panic!("gateway file-secret table must be readable: {error}"));
+    let mut guest_paths = BTreeSet::new();
+    for line in table.lines().filter(|line| !line.trim().is_empty()) {
+        let fields: Vec<_> = line.split('\t').collect();
+        assert_eq!(fields.len(), 4, "expected four file-secret columns: {line}");
+        assert!(fields[1].starts_with("/run/secrets/"));
+        guest_paths.insert(fields[1]);
+    }
+    assert!(
+        !guest_paths.is_empty(),
+        "file-secret table must not be empty"
+    );
+
+    let variables = configured(ROUTER_EXAMPLE);
+    let optional_variables = ROUTER_EXAMPLE.lines().map(str::trim).filter_map(|line| {
+        line.strip_prefix("# ")
+            .and_then(|line| line.split_once('='))
+    });
+    for (name, value) in variables.into_iter().chain(optional_variables) {
+        if guest_paths.contains(value) {
+            assert!(
+                file_variables.contains(name) || name == bindings_variable,
+                "table-backed file variable must be staged by the gateway entrypoint: {name}"
+            );
+        }
     }
 }
