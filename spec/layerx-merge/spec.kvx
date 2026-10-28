@@ -143346,7 +143346,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.10.5.1]
 title = "Carry rungs in custody session provisioning, rotation and revocation evidence"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["10.0.1", "9.1.6", "9.1.7", "9.1.8", "18.1119.1"]
