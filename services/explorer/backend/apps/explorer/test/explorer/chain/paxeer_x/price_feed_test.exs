@@ -2,6 +2,7 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
   use Explorer.DataCase
 
   alias Explorer.Chain.Block
+  alias Explorer.Chain.Cache.Counters.LastFetchedCounter
   alias Explorer.Chain.PaxeerX.{PriceFeed, PriceFeedScannedBlock, PriceMarket, PriceObservation, PriceUpdate}
   alias Explorer.PagingOptions
   alias Explorer.PaxeerX.CosmosRest
@@ -18,6 +19,36 @@ defmodule Explorer.Chain.PaxeerX.PriceFeedTest do
     {:ok, [update]} = CosmosRest.decode_price_updates(submissions, results["txs_results"], length(raw))
 
     %{update: update}
+  end
+
+  test "scanned_any? stays true after compaction empties the scanned table", %{update: update} do
+    refute PriceFeed.scanned_any?()
+
+    for number <- 10..12 do
+      block = insert(:block, number: number)
+      assert {:ok, 0} = PriceFeed.replace_block_updates(block, [])
+    end
+
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 3
+    assert PriceFeed.scanned_any?()
+    assert PriceFeed.compact_scanned_blocks(10, 2) == 11
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 1
+    assert PriceFeed.compact_scanned_blocks(10, 2) == 12
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 0
+    assert Repo.aggregate(PriceUpdate, :count) == 0
+    assert PriceFeed.scanned_through(10) == 12
+    assert PriceFeed.scanned_any?()
+
+    assert LastFetchedCounter.delete("paxeer_x_price_feed_scanned_through_10")
+    refute PriceFeed.scanned_any?()
+
+    block = insert(:block, number: 13)
+    assert {:ok, 1} = PriceFeed.replace_block_updates(block, [update])
+    assert PriceFeed.compact_scanned_blocks(13, 2) == 13
+    assert LastFetchedCounter.delete("paxeer_x_price_feed_scanned_through_13")
+    assert Repo.aggregate(PriceFeedScannedBlock, :count) == 0
+    assert Repo.aggregate(PriceUpdate, :count) == 1
+    assert PriceFeed.scanned_any?()
   end
 
   describe "replace_block_updates/2" do

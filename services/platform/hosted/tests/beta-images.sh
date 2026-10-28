@@ -74,6 +74,14 @@ image_build_args() {
     esac
 }
 
+image_context() {
+    case "$1" in
+        explorer-backend) printf 'services/explorer/backend' ;;
+        platform-registry-builder) printf '@registry-builder' ;;
+        *) printf '.' ;;
+    esac
+}
+
 image_target() {
     # image_target NAME: the name of the last (runtime) stage of a multi-stage Dockerfile, empty otherwise
     local canonical dockerfile
