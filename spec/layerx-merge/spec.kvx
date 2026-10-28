@@ -93881,7 +93881,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.1.23.6]
 title = "Fill the payer fee balance and the simulate binding authority in the hosted kernel"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 15
 requires = ["1.23.5", "1.93.2", "1.23.3"]
@@ -157357,7 +157357,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.13.27.2]
 title = "Serve sandboxFund for lease escrow funding legs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 16
 requires = ["13.22.1", "13.22.2", "13.22.3", "13.22.4", "13.21.6", "13.22.7", "13.22.8", "1.23.5"]
@@ -176525,7 +176525,7 @@ qualification = "UNRUN"
 
 [task.18.998.1]
 title = "Issue #998: Give the committed-fixture primary a real standby so paxd starts the prepared home"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -178825,7 +178825,7 @@ qualification = "UNRUN"
 
 [task.18.1036.1]
 title = "Issue #1036: Return the empty storage head from getStateHead for a deployed program with no cells"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
