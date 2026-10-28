@@ -395,10 +395,18 @@ defmodule Explorer.Chain.PaxeerX.PriceFeed do
 
   @doc """
   Whether any block height has been scanned for submissions, by this node or by any
-  indexer writing to the same database.
+  indexer writing to the same database. A compacted watermark or a stored submission
+  also counts as scanned.
   """
   @spec scanned_any?() :: boolean()
-  def scanned_any?, do: Repo.exists?(PriceFeedScannedBlock)
+  def scanned_any? do
+    Repo.exists?(PriceFeedScannedBlock) or
+      Repo.exists?(
+        from(counter in LastFetchedCounter,
+          where: fragment("starts_with(?, ?)", counter.counter_type, "paxeer_x_price_feed_scanned_through_")
+        )
+      ) or Repo.exists?(PriceUpdate)
+  end
 
   @doc """
   The symbol of each known market among `market_ids`, by market id.

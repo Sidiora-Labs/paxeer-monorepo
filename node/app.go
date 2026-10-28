@@ -1799,6 +1799,10 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			if err := app.StoreVotes(sealedCtx, req.Header.Height, req.DecidedLastCommit.Votes); err != nil {
 				return nil, err
 			}
+			if historical, found := app.StakingKeeper.GetHistoricalInfo(sealedCtx, req.Header.Height); found {
+				historical.Header = *req.Header
+				app.StakingKeeper.SetHistoricalInfo(sealedCtx, req.Header.Height, &historical)
+			}
 			if err := app.SetSealedStateToCommit(sealedCtx, ms); err != nil {
 				return nil, err
 			}
