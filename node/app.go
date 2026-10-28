@@ -3290,6 +3290,30 @@ type rpcPendingSnapshot struct {
 	source evmrpc.PendingSnapshot
 }
 
+func (app *App) RPCPendingSnapshot() (evmrpc.PendingSnapshot, error) {
+	if app.openBlock == nil {
+		return nil, ErrPendingServedBySequencer
+	}
+	source, ok := app.openBlock.(evmrpc.PendingSnapshot)
+	if !ok {
+		return nil, errors.New("sequencer open block does not provide pending transactions")
+	}
+	return rpcPendingSnapshot{app: app, source: source}, nil
+}
+
+var _ evmrpc.PendingBaseFee = rpcPendingSnapshot{}
+
+func (s rpcPendingSnapshot) BaseFeePerGas() (sdk.Dec, error) {
+	if source, ok := s.source.(evmrpc.PendingBaseFee); ok {
+		return source.BaseFeePerGas()
+	}
+	ctx, err := s.app.PendingSnapshot()
+	if err != nil {
+		return sdk.Dec{}, err
+	}
+	return s.app.EvmKeeper.GetNextBaseFeePerGas(ctx), nil
+}
+
 func (s rpcPendingSnapshot) Snapshot() (sdk.Context, error) {
 	return s.app.PendingSnapshot()
 }
@@ -3455,11 +3479,11 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 		options = append(options, app.sequencerRPC)
 	}
 	if app.openBlock != nil {
-		source, ok := app.openBlock.(evmrpc.PendingSnapshot)
-		if !ok {
-			panic("sequencer open block does not provide pending transactions")
+		source, err := app.RPCPendingSnapshot()
+		if err != nil {
+			panic(err)
 		}
-		pending, err := evmrpc.NewPendingOption(rpcPendingSnapshot{app: app, source: source})
+		pending, err := evmrpc.NewPendingOption(source)
 		if err != nil {
 			panic(err)
 		}

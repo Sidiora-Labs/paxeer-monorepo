@@ -249,7 +249,7 @@ export interface UnifiedAccountDocument {
 }
 
 export interface ChainAccount {
-  account: string;
+  account: UnifiedAccountDocument;
   paxeer: { address: string; balance: string; nonce: string; height: string };
 }
 
@@ -259,7 +259,7 @@ export interface BankBalance {
 }
 
 export interface Balances {
-  account: string;
+  account: UnifiedAccountDocument;
   height: string;
   balances: BankBalance[];
 }

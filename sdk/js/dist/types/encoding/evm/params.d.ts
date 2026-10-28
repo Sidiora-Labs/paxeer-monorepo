@@ -1,7 +1,7 @@
 import type { GeneratedType } from "@cosmjs/proto-signing";
 import type { ParamsPreV580 as ParamsPreV580_type, Params as Params_type } from "../../types/evm";
 import type { MessageFns } from "../common";
-export interface Params extends Params_type {
+export interface Params extends Omit<Params_type, "registerPointerDisabled" | "paxSstoreSetGasEip2200" | "allowedFeeDenoms" | "maxFeeTokenSpread" | "feeTokenEnabled" | "feeTokenDistribution" | "maxFeeTokenRateAge"> {
     register_pointer_disabled: boolean;
     pax_sstore_set_gas_eip2200: number;
     allowed_fee_denoms: AllowedFeeDenom[];
@@ -12,6 +12,8 @@ export interface Params extends Params_type {
 }
 export interface AllowedFeeDenom {
     denom: string;
+    rate: string;
+    rate_update_height: number;
 }
 export interface ParamsPreV580 extends ParamsPreV580_type {
 }
@@ -24,9 +26,13 @@ export declare const aminoConverters: {
         aminoType: string;
         toAmino: (message: AllowedFeeDenom) => {
             denom: string;
+            rate: string;
+            rate_update_height: number;
         };
         fromAmino: (object: AllowedFeeDenom) => {
             denom: string;
+            rate: string;
+            rate_update_height: number;
         };
     };
     "/paxprotocol.paxchain.evm.Params": {

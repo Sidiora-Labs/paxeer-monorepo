@@ -9536,3 +9536,135 @@ area = "x402 payment plane"
 symptom = "a settled metered draw answers receipt_consumed on its first receipted retry although the record was released once"
 cause = "the plane saved leaf_hash of the signed receipt (LXP/v1/merkle-leaf domain) as the record digest while the seller compares the canonical_receipt_digest the gateway recorded at settlement, so PaymentStore::release saw two different digests for one receipt"
 do = "when a digest is stored by one component and compared by another, grep the comparer first and use its exact function (canonical_receipt_digest for sequencer receipts); never derive the stored digest with a different hash domain"
+
+[gotcha.1969]
+area = "spec"
+symptom = "A done task's late do item said a planned dispatch table was unnecessary because an existing Execute already dispatched; it dispatched one method, and 21 dependant tasks that add handlers in their own files found no seam and failed with LXP_PRECOMPILE_UNKNOWN_METHOD."
+cause = "The reading that excused the table checked the task's own tests, not the touches of its dependants."
+do = "Before excusing a planned registration or dispatch seam, list the dependants' touches; if they add handlers in separate files the seam is required, so add it as a small task in the dependants' wave and make them require it."
+
+[gotcha.1970]
+area = "spec"
+symptom = "A delete-the-module task listed the module, its tests and the files its do items named; the build failed because three other files imported the module's re-exports and one enum."
+cause = "The do items were written from the module's own callers, not from a grep of crate::<module> across the crate."
+do = "Before writing a module-deletion task, grep crate::<module>:: and <module>:: across the crate and every test, and give each surviving symbol a destination file in a do item and in touches."
+
+[gotcha.1971]
+area = "spec"
+symptom = "An acceptance criterion generalised a refusal reason to every negative case of a shared vector file, and three cases returned a different reason that another criterion in the same feature requires."
+cause = "The criterion was written from the three cases its parenthesis names and did not read the vector file's verifier column, which separates signature failures from content mismatches."
+do = "When a criterion ranges over the cases of a shared vector file, derive the expected outcome per case from the file's own classification fields and cite the sibling criterion that governs each class."
+
+[gotcha.1972]
+area = "precompiles/layerxprograms"
+symptom = "View tests that seeded kernel state by submitting a module activity were refused LXP_ERR_UNKNOWN_ACTIVITY, and versioned schedule views had no host reader for the history rows."
+cause = "The hosted programs registration does not route every module activity, and the host read wiring named only the active-row readers."
+do = "Seed module state in view tests with kv.Set under the kernel key layout, and when a view takes a version argument check modules/lxphost/read.go for a reader over the history prefix before writing the handler."
+
+[gotcha.1973]
+area = "node/abci"
+symptom = "A merged chain refused every proposal at height 2 with proposer ... is outside the pinned leader list although the validator key was pinned as a leader."
+cause = "Header.ProposerAddress is the 20-byte crypto.AddressHash of the validator key while the leader list stores 32-byte keys, and the check compared the two directly."
+do = "Compare the proposer with crypto.AddressHash(leader) for each pinned key, and drive ProcessProposal tests with the derived address, never the raw key."
+
+[gotcha.1974]
+area = "apps/perps"
+symptom = "Removing a field from the static PerpsMarket seed type broke tsc in widgets and tests that never read the seed list."
+cause = "MarketRow and the mobile market props extend PerpsMarket, so the gateway-fed consumers inherit every seed field."
+do = "Keep live-only fields on a type that extends the seed type (TradeableMarket) and point the gateway-fed consumers at it before deleting the seed field."
+
+[gotcha.1975]
+area = "services/interop/x-websearch"
+symptom = "Deleting a crate module that only re-exported symbols still broke the integration tests, which imported the symbols through the deleted path."
+cause = "tests/ reach crate items through x_websearch::<module>:: paths, so re-export removal is a public API change that git grep over src/ alone does not show."
+do = "Before deleting a module, grep the whole crate directory (tests, benches, examples) for its path and repoint or delete every importer in the same change."
+
+[gotcha.1976]
+area = "modules/layerxauth"
+symptom = "go test of the auth keeper package fails at setup with import cycle not allowed in test, before any test runs."
+cause = "In-package test files import tests/testutil/keeper, which imports node, which imports the keeper under test."
+do = "Tests that need the node test harness live in package <pkg>_test with an export_test.go bridge, as the ledger keeper tests do."
+
+[gotcha.1977]
+area = "services/interop/x-websearch"
+symptom = "Every V3 conformance case was refused invalid_payment_payload instead of a receipt refusal."
+cause = "The V3 vectors carry no txHash and the exact payload parser now requires one before fetching the receipt."
+do = "Derive the payload txHash as keccak of the case rawTransaction and script the gateway receipt answer for it; the receipt refusals come only after the payload parses."
+
+[gotcha.1978]
+area = "services/platform/perps-data"
+symptom = "A test that expects a chain-backed refresh to land and the refreshed height to advance within a few hundred milliseconds fails with the column still NULL."
+cause = "One refresh against the started node takes longer than the bound and two consecutive refreshes can read the same height."
+do = "Prove a second refresh by clearing the rows after the first one lands and waiting for them to be refilled, with bounds in seconds."
+
+[gotcha.1979]
+area = "kernel-host"
+symptom = "Programs account, wind-down, sandbox or storage-retirement activities submitted through the hosted kernel revert LXP_ERR_UNKNOWN_ACTIVITY while deploy, call and transfer work."
+cause = "modules/lxphost/host.go:159 and read.go:216 register programs_module_registration(), whose activity list (src/modules/programs/registration.c:18-24) is the five original types."
+do = "Check the list lxp_kernel_module_for_activity consults before suspecting the payload codec; register the variant that lists the activity (task 1.23.5)."
+
+[gotcha.1980]
+area = "kernel-host"
+symptom = "Every non-zero fee limit through Host.Execute or Host.Simulate is LXP_ERR_FEE_UNPAYABLE, and Host.Simulate of an unsigned host-bound activity is LXP_ERR_BAD_SIGNATURE."
+cause = "lxphost_execute and lxphost_simulate never fill execution->fee_balance, and lxphost_simulate never sets execution->binding_authority."
+do = "Fill fee_balance from the payer's agent main account as cmd/layerxd/lxp_daemon_lni.c:2300-2346 does and mirror host.go:536-537 in simulate (task 1.23.6); tests need a funded main account."
+
+[gotcha.1981]
+area = "precompiles"
+symptom = "Asserting a revert reason equal to a bare LXP_ code fails with actual 'LXP_CODE: detail'."
+cause = "pcommon.RevertReason joins code and detail with ': ' (precompiles/layerxprograms/errors_test.go:68)."
+do = "Compare with pcommon.LXPRevert(code, detail) as gate_test.go:102 does, or ErrorContains \"LXP_CODE:\"."
+
+[gotcha.1982]
+area = "spec"
+symptom = "Spec lines citing include/layerx/programs.h:171-179 for Programs activity types point two lines early."
+cause = "LX_PROGRAMS_FEE_GOVERNANCE was inserted into the enum, shifting ACCOUNT to :176, WIND_DOWN to :177, SANDBOX to :179 and STORAGE_RETIREMENT to :181."
+do = "Cite the enum by value (0x0009000N) and re-read the header before trusting a line number."
+
+[gotcha.1983]
+area = "ramps"
+symptom = "Removing the reference ramp's PaxeerConfig RPC fields or State tracker fields fails to build with E0609, E0061 and E0063."
+cause = "rebalance, rebalance_presentation, verify_recovery_settlement's sixth argument and RampEngine.registry still read them until later tasks remove those readers."
+do = "Remove the fields in the task that removes the last reader (8.31.2), not in the configuration task."
+
+[gotcha.1984]
+area = "programs"
+symptom = "A hosted Programs transfer from a ledger account is refused LXP_ERR_AUTH_SCOPE, or LXP_ERR_NON_CANONICAL when the authority hash is zero."
+cause = "src/modules/programs/transfer.c:107-108 and :51-52 accept only a leg whose from id equals authority->principal, which under decision.1329 is the DID id and never an account id; :133-136 refuse a zero authority_hash."
+do = "Debit the DID's main or asset account under task 13.25.4 and fill Kind and AuthorityHash through principalOf (13.25.5)."
+
+[gotcha.1985]
+area = "lxphost"
+symptom = "Host.Execute of ACCOUNT 0x00090006 or WIND_DOWN 0x00090007 returns the Go error LXP_ERR_MODULE_DISABLED although the Programs module is registered."
+cause = "src/protocol/lxp_kernel.c:6752-6762 gates Programs state activities on kernel->observe_commit, which only lxp_programs_bind_state_feed (src/modules/programs/feed.c:114) sets."
+do = "Bind a Programs state feed before expecting a receipt; the error is not a registration failure."
+
+[gotcha.1986]
+area = "layerxauth"
+symptom = "A test expecting ErrIdempotentReplay for a reused idempotency key never sees it and finds nothing under host prefix 0x04."
+cause = "req.1010 (task 1.2.1) removed kernel idempotency recording; only the account sequence refuses replay, with ErrSequenceReused."
+do = "Assert ErrSequenceReused on a consumed sequence and an empty 0x04 prefix."
+
+[gotcha.1987]
+area = "sequencer"
+symptom = "A paxd standby refuses every replicated group after the first commit ('standby holds seq 1') and the primary halts in its commit listener."
+cause = "AppReplayer.Apply treats wal.Committed as a no-op and sequential.Open requires LastBlockHeight+1, so an unpeered standby stays at height 1 and Open(3) fails with a sticky refusal (node/sequencer/standby.go:323, :695-700)."
+do = "Peer the standby to the primary and, under task 5.55.6, wait for the app commit before applying Open(H+1)."
+
+[gotcha.1988]
+area = "rpc"
+symptom = "eth_gasPrice on a sequencer fails with 'pending block does not fix a base fee'."
+cause = "rpcPendingSnapshot (node/app.go:3288) forwards only Snapshot and PendingTx, so evmrpc.PendingBaseFee (rpc/info.go:376) is unsatisfied at rpc/info.go:387."
+do = "Read baseFeePerGas of eth_getBlockByNumber latest, or forward BaseFeePerGas (task 5.55.6)."
+
+[gotcha.1989]
+area = "spec"
+symptom = "cg spec done refuses 'symbol Type::method -- not defined in the graph' for a method declared in a lifetime or generic impl."
+cause = "The symbol graph does not link methods of impl Type<'_> back to Type::method (finding.11.23.3.1, finding.8.29.1.1)."
+do = "List the test functions or free symbols in symbols instead of the impl methods."
+
+[gotcha.1990]
+area = "x-websearch tests"
+symptom = "cargo test -p x-websearch fails in tests/api.rs at under_the_single_level_only_the_named_attestor_signs_and_fulfil_carries_one_signature with Error: Evm(Malformed) while the lib and payment suites pass."
+cause = "decode_request_view (src/submit.rs:291-327) accepts only the eleven-word request view, but tests/fixtures/api/evm.json still records the nine-word getRequest answer from before the view grew."
+do = "Re-record the fixture's getRequest answer as the eleven-field view (task 18.1037.1, issue #1037); never widen the decoder to accept the short answer."

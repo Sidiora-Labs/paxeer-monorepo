@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import * as Popover from "@radix-ui/react-popover";
 import { cn } from "@/ui/utils/cn";
-import { PERPS_MARKETS, coinLogoUrl } from "@/core/perps/config";
+import { coinLogoUrl } from "@/core/perps/config";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { useEnrichedMarketStats } from "@/hooks/perps/useEnrichedStats";
 import { useSidPaxOrderbook, useSidPaxTrades, useSidPaxStats } from "@/hooks/perps/useSidPaxMarketStream";
@@ -66,16 +67,25 @@ function StatChip({ label, value, valueClass }: { label: string; value: string; 
 
 export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: PairHeaderProps) {
   const { prices, tickers } = useRealtimePrices();
+  const { catalog, isLoading, error } = usePerpsMarkets();
   const [marketSelectorOpen, setMarketSelectorOpen] = useState(false);
 
   const symbol = selectedPair.split("/")[0];
-  const market = PERPS_MARKETS.find((m) => m.symbol === symbol) ?? PERPS_MARKETS[0]!;
-  const { data: enriched } = useEnrichedMarketStats(market.marketId);
+  const market = catalog.find((m) => m.symbol === symbol);
+  const { data: enriched } = useEnrichedMarketStats(market?.marketId);
 
   // WS feeds — orderbook mid + last trade for live price; stats for volume / OI / funding.
-  const orderbook = useSidPaxOrderbook(market.symbol);
-  const trades = useSidPaxTrades(market.symbol);
-  const wsStats = useSidPaxStats(market.symbol);
+  const orderbook = useSidPaxOrderbook(market?.symbol);
+  const trades = useSidPaxTrades(market?.symbol);
+  const wsStats = useSidPaxStats(market?.symbol);
+
+  if (!market) {
+    return (
+      <div role="status" className="px-4 py-2 bg-card border-b border-border text-muted-foreground">
+        {error ? "Unable to load markets" : isLoading ? "Loading markets…" : `Market ${symbol} unavailable`}
+      </div>
+    );
+  }
 
   // Mid-price from top-of-book; fall back to last trade price from the tape.
   const bestBid = orderbook?.bids[0]?.price ?? 0;
@@ -280,7 +290,7 @@ export function PairHeader({ selectedPair, onPairChange, onOpenMarketPanel }: Pa
 
         <StatChip
           label="Max Leverage"
-          value={`${market.maxLeverage}x`}
+          value={market.maxLeverage === null ? "—" : `${market.maxLeverage}x`}
         />
       </div>
     </div>

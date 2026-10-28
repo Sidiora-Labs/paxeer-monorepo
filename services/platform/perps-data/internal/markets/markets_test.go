@@ -1,6 +1,7 @@
 package markets
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -12,13 +13,17 @@ import (
 	"net/http/httptest"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/migrations"
 )
 
@@ -269,6 +274,36 @@ func TestRefreshMarginTiers(t *testing.T) {
 	}
 }
 
+func TestSeedMatchesChainConfig(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	client := testClient(t)
+	reseed(t, db)
+	requireSeeded(t, db)
+
+	c, block, err := latest(ctx, client)
+	if err != nil {
+		t.Fatalf("latest: %v", err)
+	}
+	for _, seed := range Seed {
+		t.Run(seed.Symbol, func(t *testing.T) {
+			config, err := c.getMarketConfig(ctx, seed.ID)
+			if err != nil {
+				t.Fatalf("getMarketConfig(%d) at %d: %v", seed.ID, block, err)
+			}
+			if seed.SzDecimals != config.SzDecimals {
+				t.Errorf("market %d seed sz_decimals = %d, chain = %d at %d", seed.ID, seed.SzDecimals, config.SzDecimals, block)
+			}
+			if seed.PxDecimals != config.PxDecimals {
+				t.Errorf("market %d seed px_decimals = %d, chain = %d at %d", seed.ID, seed.PxDecimals, config.PxDecimals, block)
+			}
+			if seed.OracleSymbol != config.OracleSymbol {
+				t.Errorf("market %d seed oracle_symbol = %q, chain = %q at %d", seed.ID, seed.OracleSymbol, config.OracleSymbol, block)
+			}
+		})
+	}
+}
+
 func TestRefreshMarketConfig(t *testing.T) {
 	ctx := context.Background()
 	db := testDB(t)
@@ -358,6 +393,81 @@ func TestRefreshMarketConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestMarketsCheck(t *testing.T) {
+	ctx := context.Background()
+	db := testDB(t)
+	client := testClient(t)
+	reseed(t, db)
+	requireSeeded(t, db)
+	check := Check(db, 2*time.Minute)
+	if err := check(ctx); err == nil {
+		t.Fatal("Check accepted seed rows before Refresh")
+	}
+
+	mux := http.NewServeMux()
+	httpx.RegisterHealth(mux, httpx.HealthDeps{Postgres: db.PingContext, Custom: map[string]httpx.Check{"markets": check}})
+	ready := func(want int, status string) {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/healthz/ready", nil))
+		if rec.Code != want {
+			t.Fatalf("readiness status %d, want %d: %s", rec.Code, want, rec.Body)
+		}
+		var body struct {
+			Checks map[string]string `json:"checks"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("readiness response: %v", err)
+		}
+		if body.Checks["markets"] != status {
+			t.Fatalf("markets readiness %q, want %q", body.Checks["markets"], status)
+		}
+	}
+	ready(http.StatusServiceUnavailable, "failed")
+
+	if err := Refresh(ctx, db, client); err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	var newest int64
+	if err := db.QueryRowContext(ctx, `SELECT MAX(refreshed_block) FROM perps.markets WHERE source = 'chain'`).Scan(&newest); err != nil {
+		t.Fatalf("read refreshed height: %v", err)
+	}
+	block, err := client.BlockByNumber(ctx, big.NewInt(newest))
+	if err != nil {
+		t.Fatalf("read refresh block: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `INSERT INTO perps.blocks (number, hash, parent_hash, time, proposer, tx_count)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (number) DO UPDATE SET hash = EXCLUDED.hash, parent_hash = EXCLUDED.parent_hash, time = EXCLUDED.time, proposer = EXCLUDED.proposer, tx_count = EXCLUDED.tx_count`,
+		newest, block.Hash().Bytes(), block.ParentHash().Bytes(), time.Unix(int64(block.Time()), 0), strings.ToUpper(block.Coinbase().Hex()[2:]), len(block.Transactions())); err != nil {
+		t.Fatalf("index real refresh block: %v", err)
+	}
+	if err := check(ctx); err != nil {
+		t.Fatalf("Check after Refresh: %v", err)
+	}
+	ready(http.StatusOK, "ok")
+	if err := Check(db, time.Nanosecond)(ctx); err == nil {
+		t.Fatal("Check accepted a refresh older than maxAge")
+	}
+	if err := Check(db, 0)(ctx); err == nil {
+		t.Fatal("Check accepted a nonpositive maxAge")
+	}
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if err := check(cancelled); !errors.Is(err, context.Canceled) {
+		t.Fatalf("Check with cancelled context = %v, want context.Canceled", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `UPDATE perps.markets SET source = 'seed'`); err != nil {
+		t.Fatalf("restore seed sources: %v", err)
+	}
+	if err := check(ctx); err == nil {
+		t.Fatal("Check accepted seed rows carrying a recent refreshed_block")
+	}
+	ready(http.StatusServiceUnavailable, "failed")
+	reseed(t, db)
 }
 
 func TestMarkets(t *testing.T) {
@@ -510,25 +620,35 @@ func TestMarkets(t *testing.T) {
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
-		type failure struct {
-			err     error
-			retryIn time.Duration
+		metrics, err := telemetry.New(config.Indexer)
+		if err != nil {
+			t.Fatal(err)
 		}
-		failures := make(chan failure, 1)
 		done := make(chan error, 1)
-		go func() {
-			done <- Retry(ctx, db, client, func(err error, retryIn time.Duration) {
-				failures <- failure{err, retryIn}
-			})
-		}()
-		var f failure
-		select {
-		case f = <-failures:
-		case <-time.After(30 * time.Second):
-			t.Fatal("Retry reported no failure")
+		go func() { done <- Run(ctx, db, client, 60*time.Second, metrics) }()
+		deadline := time.NewTimer(30 * time.Second)
+		defer deadline.Stop()
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+	awaitRetry:
+		for {
+			select {
+			case err := <-done:
+				t.Fatalf("Run returned before retrying: %v", err)
+			case <-deadline.C:
+				t.Fatal("Run reported no failure")
+			case <-ticker.C:
+				var body bytes.Buffer
+				if err := metrics.WritePrometheus(&body); err != nil {
+					t.Fatalf("metrics: %v", err)
+				}
+				if strings.Contains(body.String(), perps_markets_refresh_failures_total+" 1\n") {
+					break awaitRetry
+				}
+			}
 		}
-		if f.err == nil || f.retryIn != 60*time.Second || RetryInterval != 60*time.Second {
-			t.Fatalf("failure %v, retry in %s, want an error and 60s", f.err, f.retryIn)
+		if RetryInterval != 60*time.Second {
+			t.Fatalf("retry interval %s, want 60s", RetryInterval)
 		}
 		requireSeeded(t, db)
 
@@ -556,17 +676,180 @@ func TestMarkets(t *testing.T) {
 
 		select {
 		case err := <-done:
-			t.Fatalf("Retry returned %v before the 60s wait elapsed", err)
+			t.Fatalf("Run returned %v before the 60s wait elapsed", err)
 		default:
 		}
 		cancel()
 		select {
 		case err := <-done:
 			if !errors.Is(err, context.Canceled) {
-				t.Fatalf("Retry after cancel %v, want context.Canceled", err)
+				t.Fatalf("Run after cancel %v, want context.Canceled", err)
 			}
 		case <-time.After(10 * time.Second):
-			t.Fatal("Retry did not stop on cancel")
+			t.Fatal("Run did not stop on cancel")
+		}
+		requireSeeded(t, db)
+	})
+}
+
+func TestRunRefreshesAgain(t *testing.T) {
+	db := testDB(t)
+	client := testClient(t)
+	metric := func(t *testing.T, metrics *telemetry.Metrics, name string) float64 {
+		t.Helper()
+		var body bytes.Buffer
+		if err := metrics.WritePrometheus(&body); err != nil {
+			t.Fatalf("metrics: %v", err)
+		}
+		for _, line := range strings.Split(body.String(), "\n") {
+			fields := strings.Fields(line)
+			if len(fields) == 2 && fields[0] == name {
+				value, err := strconv.ParseFloat(fields[1], 64)
+				if err != nil {
+					t.Fatalf("metric %s: %v", name, err)
+				}
+				return value
+			}
+		}
+		t.Fatalf("metric %s missing from %s", name, body.String())
+		return 0
+	}
+
+	t.Run("refreshes_again", func(t *testing.T) {
+		reseed(t, db)
+		metrics, err := telemetry.New(config.Indexer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		t.Cleanup(func() {
+			cancel()
+			select {
+			case err := <-done:
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Run returned %v, want context.Canceled", err)
+				}
+			case <-time.After(time.Second):
+				t.Error("Run did not stop on cancellation")
+			}
+		})
+		go func() { done <- Run(ctx, db, client, 50*time.Millisecond, metrics) }()
+		waitRefresh := func() sql.NullInt64 {
+			t.Helper()
+			pollCtx, stopPoll := context.WithTimeout(context.Background(), 30*time.Second)
+			defer stopPoll()
+			ticker := time.NewTicker(time.Millisecond)
+			defer ticker.Stop()
+			for {
+				var block sql.NullInt64
+				if err := db.QueryRowContext(pollCtx, `SELECT refreshed_block FROM perps.markets WHERE market_id = 0`).Scan(&block); err != nil {
+					t.Fatalf("read refreshed_block within 30s: %v", err)
+				}
+				if block.Valid {
+					return block
+				}
+				select {
+				case err := <-done:
+					done <- err
+					t.Fatalf("Run stopped before refreshing: %v", err)
+				case <-pollCtx.Done():
+					t.Fatal("refreshed_block remained NULL for 30s")
+				case <-ticker.C:
+				}
+			}
+		}
+		waitRefresh()
+		reseed(t, db)
+		last := waitRefresh()
+		cancel()
+		select {
+		case err := <-done:
+			done <- err
+			if !errors.Is(err, context.Canceled) {
+				t.Fatalf("Run returned %v, want context.Canceled", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("Run did not stop on cancellation")
+		}
+		rows := readRows(t, db)
+		if len(rows) == 0 {
+			t.Fatal("Run stored no markets")
+		}
+		for _, row := range rows {
+			if !row.refreshedBlock.Valid || row.refreshedBlock.Int64 < last.Int64 || row.refreshedBlock != rows[0].refreshedBlock || row.source != "chain" {
+				t.Fatalf("inconsistent market after Run: %+v, last observed %v", row, last)
+			}
+		}
+		if got := metric(t, metrics, perps_markets_refresh_height); got != float64(rows[0].refreshedBlock.Int64) {
+			t.Fatalf("refresh height %v, want last refreshed_block %d", got, rows[0].refreshedBlock.Int64)
+		}
+		if got := metric(t, metrics, perps_markets_refresh_failures_total); got != 0 {
+			t.Fatalf("failed refreshes %v, want 0 after successful refreshes", got)
+		}
+	})
+
+	t.Run("failed_refresh", func(t *testing.T) {
+		reseed(t, db)
+		listener, err := net.Listen("tcp", "127.0.0.1:0")
+		if err != nil {
+			t.Fatalf("listen: %v", err)
+		}
+		addr := listener.Addr().String()
+		if err := listener.Close(); err != nil {
+			t.Fatalf("close listener: %v", err)
+		}
+		unavailableClient, err := ethclient.Dial("http://" + addr)
+		if err != nil {
+			t.Fatalf("dial: %v", err)
+		}
+		t.Cleanup(unavailableClient.Close)
+		metrics, err := telemetry.New(config.Indexer)
+		if err != nil {
+			t.Fatal(err)
+		}
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan error, 1)
+		go func() { done <- Run(ctx, db, unavailableClient, 50*time.Millisecond, metrics) }()
+		t.Cleanup(func() {
+			cancel()
+			select {
+			case err := <-done:
+				if !errors.Is(err, context.Canceled) {
+					t.Errorf("Run returned %v, want context.Canceled", err)
+				}
+			case <-time.After(time.Second):
+				t.Error("Run did not cancel its failure retry wait")
+			}
+		})
+		deadline := time.NewTimer(time.Second)
+		defer deadline.Stop()
+		ticker := time.NewTicker(time.Millisecond)
+		defer ticker.Stop()
+	awaitFailure:
+		for {
+			select {
+			case err := <-done:
+				done <- err
+				t.Fatalf("Run stopped after failure: %v", err)
+			case <-deadline.C:
+				t.Fatal("Run reported no refresh failure")
+			case <-ticker.C:
+				var body bytes.Buffer
+				if err := metrics.WritePrometheus(&body); err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(body.String(), perps_markets_refresh_failures_total+" 1\n") {
+					break awaitFailure
+				}
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+		if got := metric(t, metrics, perps_markets_refresh_failures_total); got != 1 {
+			t.Fatalf("failed refreshes %v, want 1 during RetryInterval", got)
+		}
+		if got := metric(t, metrics, perps_markets_refresh_height); got != 0 {
+			t.Fatalf("height after failed refresh %v, want 0", got)
 		}
 		requireSeeded(t, db)
 	})

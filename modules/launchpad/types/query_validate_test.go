@@ -63,7 +63,7 @@ func TestQueryHexAddress(t *testing.T) {
 	for _, tc := range []struct {
 		name  string
 		value string
-		err   error
+		err   *sdkerrors.Error
 	}{
 		{"empty", "", sdkerrors.ErrInvalidAddress},
 		{"prefix_only", "0x", sdkerrors.ErrInvalidAddress},
@@ -85,6 +85,10 @@ func TestQueryHexAddress(t *testing.T) {
 				address, err := types.ParseHexAddress(field, tc.value)
 				require.ErrorIs(t, err, tc.err)
 				require.Contains(t, err.Error(), field)
+				codespace, code, log := sdkerrors.ABCIInfo(err, false)
+				require.Equal(t, tc.err.Codespace(), codespace)
+				require.Equal(t, tc.err.ABCICode(), code)
+				require.Contains(t, log, field)
 				require.Equal(t, common.Address{}, address)
 			}
 		})

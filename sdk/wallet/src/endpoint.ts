@@ -3,6 +3,7 @@ import type {
   AccountBalances,
   AnchorHead,
   AssetMap,
+  AssetPage,
   Balances,
   Capabilities,
   ChainAccount,
@@ -64,6 +65,10 @@ export class EndpointClient {
 
   async listAssets(): Promise<AssetMap> {
     return decodeAssetMap(await this.rpc.call('px_listAssets', []));
+  }
+
+  async listBankAssets(): Promise<AssetPage> {
+    return decodeBankAssetPage(await this.rpc.call('px_listAssets', []));
   }
 
   async getRouteCatalogue(): Promise<RouteCatalogue> {
@@ -206,6 +211,13 @@ function decimalString(value: unknown, what: string): string {
   return value;
 }
 
+function chainHeight(value: unknown): string | null {
+  if (typeof value === 'number') {
+    return Number.isSafeInteger(value) && value >= 0 ? value.toString() : null;
+  }
+  return typeof value === 'string' && DECIMAL.exec(value)?.[0] === value ? value : null;
+}
+
 function hexQuantity(value: unknown, what: string): `0x${string}` {
   if (typeof value !== 'string' || !HEX_QUANTITY.test(value)) fail(what);
   return value as `0x${string}`;
@@ -253,22 +265,24 @@ export function decodeJoinedAccount(value: unknown): JoinedAccount {
 
 function decodeChainAccount(value: unknown, address: string): ChainAccount {
   const doc = record(value, 'chain account');
-  if (typeof doc.account !== 'string' || doc.account.length === 0) fail('chain account account');
+  const account = decodeAccountDocument(doc.account);
   const half = record(doc.paxeer, 'chain account paxeer');
   const returnedAddress = evmAddress(half.address, 'chain account paxeer address');
   if (returnedAddress.toLowerCase() !== address.toLowerCase()) fail('chain account paxeer address mismatch');
+  const height = chainHeight(half.height);
+  if (height === null) fail('chain account paxeer height');
   const text = (key: string): string => {
     const field = half[key];
     if (typeof field !== 'string' || field.length === 0) fail(`chain account paxeer ${key}`);
     return field;
   };
   return {
-    account: doc.account,
+    account,
     paxeer: {
       address: returnedAddress,
       balance: text('balance'),
       nonce: text('nonce'),
-      height: text('height'),
+      height,
     },
   };
 }
@@ -308,14 +322,45 @@ export function decodeAssetMap(value: unknown): AssetMap {
   return { assets, joined_limit: joinedLimit(doc.joined_limit) };
 }
 
+function decodeBankAssetPage(value: unknown): AssetPage {
+  const doc = record(value, 'bank asset page');
+  if (typeof doc.height !== 'string' || DECIMAL.exec(doc.height)?.[0] !== doc.height) fail('bank asset page height');
+  if (!Array.isArray(doc.assets)) fail('bank asset page assets');
+  const assets = doc.assets.map((entry): AssetPage['assets'][number] => {
+    const asset = record(entry, 'bank asset');
+    const text = (key: string): string => {
+      const field = asset[key];
+      if (typeof field !== 'string') fail(`bank asset ${key}`);
+      return field;
+    };
+    if (typeof asset.decimals !== 'number' || !Number.isInteger(asset.decimals) || asset.decimals < 0 || asset.decimals > 36) {
+      fail('bank asset decimals');
+    }
+    if (typeof asset.supply !== 'string' || DECIMAL.exec(asset.supply)?.[0] !== asset.supply) fail('bank asset supply');
+    return {
+      asset_id: text('asset_id'),
+      denom: text('denom'),
+      kind: text('kind'),
+      name: text('name'),
+      symbol: text('symbol'),
+      decimals: asset.decimals,
+      supply: asset.supply,
+    };
+  });
+  return { height: doc.height, assets, joined_limit: joinedLimit(doc.joined_limit) };
+}
+
 function decodeBankBalances(value: unknown): Balances {
   if (!isRecord(value)) throw new TypeError('malformed bank balances');
-  if (typeof value.account !== 'string' || value.account.length === 0) {
-    throw new TypeError('malformed bank balances account');
+  let account: UnifiedAccountDocument;
+  try {
+    account = decodeAccountDocument(value.account);
+  } catch (error) {
+    if (!(error instanceof JsonRpcTransportError)) throw error;
+    throw new TypeError('malformed bank balances account', { cause: error });
   }
-  if (typeof value.height !== 'string' || DECIMAL.exec(value.height)?.[0] !== value.height) {
-    throw new TypeError('malformed bank balances height');
-  }
+  const height = chainHeight(value.height);
+  if (height === null) throw new TypeError('malformed bank balances height');
   if (!Array.isArray(value.balances)) throw new TypeError('malformed bank balances rows');
   const balances = value.balances.map((row) => {
     if (!isRecord(row) || typeof row.denom !== 'string' || row.denom.length === 0) {
@@ -326,7 +371,7 @@ function decodeBankBalances(value: unknown): Balances {
     }
     return { denom: row.denom, amount: row.amount };
   });
-  return { account: value.account, height: value.height, balances };
+  return { account, height, balances };
 }
 
 export function decodeJoinedBalances(value: unknown): JoinedBalances {

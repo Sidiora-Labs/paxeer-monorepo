@@ -9,6 +9,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log/slog"
 	"math"
 	"math/big"
 	"strings"
@@ -19,8 +20,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/prometheus/client_golang/prometheus"
 
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/httpx"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/telemetry"
 )
 
 // Precompile is the address of the perpetuals precompile.
@@ -31,6 +35,9 @@ const (
 	RetryInterval = 60 * time.Second
 	// MaxMarkets bounds the totalMarkets() count a refresh accepts.
 	MaxMarkets = 1024
+
+	perps_markets_refresh_height         = "perps_markets_refresh_height"
+	perps_markets_refresh_failures_total = "perps_markets_refresh_failures_total"
 )
 
 // ErrChainValue reports a precompile answer the refresh cannot store.
@@ -138,58 +145,106 @@ type caller struct {
 // then writes the chain values, including market configuration and tiers, in
 // one transaction. On any failure the stored rows are left unchanged.
 func Refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) error {
+	_, err := refresh(ctx, db, client)
+	return err
+}
+
+func refresh(ctx context.Context, db *sql.DB, client *ethclient.Client) (int64, error) {
 	c, height, err := latest(ctx, client)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	out, err := c.call(ctx, "totalMarkets")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	count, err := field[*big.Int](out, 0, "totalMarkets")
 	if err != nil {
-		return err
+		return 0, err
 	}
 	if !count.IsUint64() || count.Uint64() > MaxMarkets {
-		return fmt.Errorf("%w: totalMarkets %s above %d", ErrChainValue, count, MaxMarkets)
+		return 0, fmt.Errorf("%w: totalMarkets %s above %d", ErrChainValue, count, MaxMarkets)
 	}
 	list := make([]chainMarket, 0, count.Uint64())
 	for id := range count.Uint64() {
 		m, err := c.market(ctx, id)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		m.config, err = c.getMarketConfig(ctx, id)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		if m.config.Symbol != m.symbol {
-			return fmt.Errorf("%w: getMarketConfig(%d) symbol %q differs from getMarket symbol %q", ErrChainValue, id, m.config.Symbol, m.symbol)
+			return 0, fmt.Errorf("%w: getMarketConfig(%d) symbol %q differs from getMarket symbol %q", ErrChainValue, id, m.config.Symbol, m.symbol)
 		}
 		m.tiers, err = c.getMarginTiers(ctx, id)
 		if err != nil {
-			return err
+			return 0, err
 		}
 		list = append(list, m)
 	}
 	f, err := c.fees(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
+
 	tx, err := db.BeginTx(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("markets: begin: %w", err)
+		return 0, fmt.Errorf("markets: begin: %w", err)
 	}
 	if err := writeMarkets(ctx, tx, list, height); err != nil {
-		return errors.Join(err, tx.Rollback())
+		return 0, errors.Join(err, tx.Rollback())
 	}
 	if err := writeFees(ctx, tx, f, height); err != nil {
-		return errors.Join(err, tx.Rollback())
+		return 0, errors.Join(err, tx.Rollback())
 	}
 	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("markets: commit: %w", err)
+		return 0, fmt.Errorf("markets: commit: %w", err)
 	}
-	return nil
+	return height, nil
+}
+
+func Run(ctx context.Context, db *sql.DB, client *ethclient.Client, interval time.Duration, metrics *telemetry.Metrics) error {
+	if interval <= 0 {
+		return errors.New("markets: refresh interval must be positive")
+	}
+	height := prometheus.NewGauge(prometheus.GaugeOpts{
+		Name: perps_markets_refresh_height,
+		Help: "Block height of the last successful markets refresh.",
+	})
+	failures := prometheus.NewCounter(prometheus.CounterOpts{
+		Name: perps_markets_refresh_failures_total,
+		Help: "Failed markets refresh attempts.",
+	})
+	for _, collector := range []prometheus.Collector{height, failures} {
+		if err := metrics.Register(collector); err != nil {
+			return fmt.Errorf("markets: register metric: %w", err)
+		}
+	}
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		wait := interval
+		block, err := refresh(ctx, db, client)
+		if err != nil {
+			failures.Inc()
+			wait = RetryInterval
+			if ctx.Err() == nil {
+				slog.WarnContext(ctx, "markets: refresh failed", slog.Any("err", err), slog.Duration("retry_in", wait))
+			}
+		} else {
+			height.Set(float64(block))
+		}
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
 
 // FeeConfig reads getFees() from the precompile at the latest height and
@@ -207,29 +262,28 @@ func FeeConfig(ctx context.Context, db *sql.DB, client *ethclient.Client) error 
 	return writeFees(ctx, db, f, height)
 }
 
-// Retry runs Refresh until it succeeds, waiting RetryInterval after each
-// failure. failed, when set, receives each refresh error and the wait before
-// the next attempt. Retry returns nil on success and the context error when
-// ctx ends first.
-func Retry(ctx context.Context, db *sql.DB, client *ethclient.Client, failed func(err error, retryIn time.Duration)) error {
-	for {
-		err := Refresh(ctx, db, client)
-		if err == nil {
-			return nil
+func Check(db *sql.DB, maxAge time.Duration) httpx.Check {
+	return func(ctx context.Context) error {
+		if maxAge <= 0 {
+			return errors.New("markets: maximum refresh age must be positive")
 		}
-		if ctx.Err() != nil {
-			return ctx.Err()
+		var block sql.NullInt64
+		var refreshedAt sql.NullTime
+		if err := db.QueryRowContext(ctx, `SELECT m.refreshed_block, b.time
+FROM (SELECT MAX(refreshed_block) AS refreshed_block FROM perps.markets WHERE source = 'chain') m
+LEFT JOIN perps.blocks b ON b.number = m.refreshed_block`).Scan(&block, &refreshedAt); err != nil {
+			return fmt.Errorf("markets: read refresh age: %w", err)
 		}
-		if failed != nil {
-			failed(err, RetryInterval)
+		if !block.Valid {
+			return errors.New("markets: no chain refresh")
 		}
-		timer := time.NewTimer(RetryInterval)
-		select {
-		case <-ctx.Done():
-			timer.Stop()
-			return ctx.Err()
-		case <-timer.C:
+		if !refreshedAt.Valid {
+			return fmt.Errorf("markets: refresh block %d has not been indexed", block.Int64)
 		}
+		if age := time.Since(refreshedAt.Time); age > maxAge {
+			return fmt.Errorf("markets: refresh block %d is %s old, maximum %s", block.Int64, age, maxAge)
+		}
+		return nil
 	}
 }
 
