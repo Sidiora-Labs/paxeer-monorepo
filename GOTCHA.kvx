@@ -9959,3 +9959,21 @@ area = "agent evidence"
 symptom = "A custody evidence authenticator answers Activity for a well-formed record while the same activity decodes with an explicit registry in a test."
 cause = "The daemon derived the activity ordinal from receipt.operation(), the ledger operation byte of lxp_receipt (0 for module receipts), so ActivityType::new rejected it as ZeroOrdinal."
 do = "Take the activity kind from the activity encoding (field 3, module << 16 | ordinal) and check its module against receipt.module_id(); never treat receipt.operation as an ordinal."
+
+[gotcha.2042]
+area = "programs kernel"
+symptom = "A test of the programs transfer (0x00090005) expects a Kind-2 monetary transfer effect in the receipt and finds none."
+cause = "src/modules/programs/transfer.c:239-243 calls lxp_ctx_emit_transfer_set, which appends no effect (only lxp_ctx_emit_monetary_transfer_set does), then lxp_ctx_emit_event(LX_PROGRAMS_EVENT_TRANSFERRED, transfer_set_root, 32)."
+do = "Read the transfer set root from the Kind-3 event with code 5 (Receipt.Events) and assert that no Kind-2 effect is present."
+
+[gotcha.2043]
+area = "evm keeper"
+symptom = "A test expects a merge precompile to be withheld after the merge plan is done because one of its gate modules is missing from the version map, but the keeper serves it."
+cause = "customPrecompileActivationLookup (modules/evm/keeper/keeper.go) answers true for any address whose plan is active at the height before consulting the module list; the list gates only a store where the plan was never done."
+do = "Assert every gated address served at and above the done height and withheld below it; prove the module rule with no done height."
+
+[gotcha.2044]
+area = "qualification"
+symptom = "A crate that could not compile for one recorded reason starts compiling after the fix and immediately fails on different errors that several done tasks introduced."
+cause = "Tasks whose gates could not compile the crate were landed while it was broken (layerx-human-service after 71550012a: 10.2.1 removed rung_level, 10.2.5 added a caller, the agent API renamed the ReceiptReference::Verified field); their gates never met the merged code."
+do = "When an unblocking fix lands, build the family crates once at the merged revision before its tasks start again, and keep them waiting until that build is green."
