@@ -22,6 +22,7 @@ const TOPIC = 'paxeer_x_feed:market:0';
 const historyItem = (blockNumber: number, hashByte: string, sequence: number): MarketUpdate => ({
   update_hash: `0x${ hashByte.repeat(32) }`,
   block_number: blockNumber,
+  index: 0,
   timestamp: '2026-01-02T03:04:10.000000Z',
   index_price: '67500000000000000000000',
   mark_price: '67505000000000000000000',
